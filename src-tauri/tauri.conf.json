@@ -1,0 +1,59 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Aurona Code",
+  "mainBinaryName": "Aurona Code",
+  "version": "0.0.3",
+  "identifier": "com.aurona.code",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "beforeBundleCommand": "powershell -Command \"Copy-Item 'src-tauri/target/release/aurona-code.exe' 'src-tauri/target/release/Aurona Code.exe' -Force\"",
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../Dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Aurona Code",
+        "width": 1440,
+        "height": 920,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "center": true,
+        "visible": true,
+        "maximized": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "license": "../build/license.txt",
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "displayLanguageSelector": false,
+        "languages": [
+          "SimpChinese"
+        ],
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico"
+      }
+    }
+  }
+}
