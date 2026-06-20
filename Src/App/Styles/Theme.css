@@ -82,6 +82,7 @@
   --ColorListActive: #e2e8f0;
   --ColorTabActive: #ffffff;
   --ColorTabInactive: #f8fafc;
+  --AppBackground: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
 
   --FontSizeBase: 13px;
   --TitleBarHeight: 44px;
@@ -154,6 +155,7 @@
   --ColorListActive: rgba(255, 255, 255, 0.12);
   --ColorTabActive: #121214;
   --ColorTabInactive: #18181b;
+  --AppBackground: var(--ColorApp);
   
   color-scheme: dark;
 }

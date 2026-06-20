@@ -34,25 +34,25 @@ export const FileSystemService = {
 
   validateName(name: string) {
     const trimmed = name.trim();
-    if (!trimmed) return "名称不能为空。";
-    if (/[\\/]/.test(trimmed)) return "名称不能包含路径分隔符。";
-    if (/^[. ]+$/.test(trimmed)) return "名称不能只包含点或空格。";
-    if (/[<>:"|?*]/.test(trimmed)) return "名称包含 Windows 不支持的字符。";
+    if (!trimmed) return "名称不能为空";
+    if (/[\\/]/.test(trimmed)) return "名称不能包含路径分隔符";
+    if (/^[. ]+$/.test(trimmed)) return "名称不能只包含点或空格";
+    if (/[<>:"|?*]/.test(trimmed)) return "名称包含 Windows 不支持的字符";
     return null;
   },
 
   toMessage(error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     if (/permission|denied|forbidden|not allowed/i.test(message)) {
-      return "没有权限完成此文件操作。";
+      return "没有权限完成此文件操作";
     }
     if (/exists|already/i.test(message)) {
-      return "目标已存在。";
+      return "目标已存在";
     }
     if (/not found|cannot find/i.test(message)) {
-      return "文件或文件夹不存在。";
+      return "文件或文件夹不存在";
     }
-    return message || "未知文件系统错误。";
+    return message || "未知文件系统错误";
   },
 
   async readDirectory(dirPath: string): Promise<FileNode[]> {
@@ -76,7 +76,7 @@ export const FileSystemService = {
     if (validation) throw new Error(validation);
 
     const targetPath = this.joinPath(parentPath, name.trim());
-    if (await exists(targetPath)) throw new Error("目标已存在。");
+    if (await exists(targetPath)) throw new Error("目标已存在");
 
     await writeTextFile(targetPath, "");
     return targetPath;
@@ -87,7 +87,7 @@ export const FileSystemService = {
     if (validation) throw new Error(validation);
 
     const targetPath = this.joinPath(parentPath, name.trim());
-    if (await exists(targetPath)) throw new Error("目标已存在。");
+    if (await exists(targetPath)) throw new Error("目标已存在");
 
     await mkdir(targetPath);
     return targetPath;
@@ -100,7 +100,7 @@ export const FileSystemService = {
     const parentPath = this.dirname(oldPath);
     const newPath = this.joinPath(parentPath, newName.trim());
     if (oldPath === newPath) return newPath;
-    if (await exists(newPath)) throw new Error("目标已存在。");
+    if (await exists(newPath)) throw new Error("目标已存在");
 
     await rename(oldPath, newPath);
     return newPath;

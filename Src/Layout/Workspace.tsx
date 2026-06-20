@@ -225,20 +225,18 @@ export function WorkspaceView() {
   };
 
   return (
-    <div className="flex h-full w-full overflow-hidden text-[13px] bg-[var(--ColorApp)] pr-[var(--WorkspaceGap)] pb-1 pl-0 gap-[var(--WorkspaceGap)]">
-      {activeSidebar && (
-        <Card className="flex w-[var(--SidebarWidth)] flex-col shrink-0 z-10">
-          {activeSidebar === SIDEBAR_EXPLORER ? (
-            <FileExplorer onFileSelect={handleOpenFileSelect} />
-          ) : activeSidebar === SIDEBAR_SOURCE_CONTROL ? (
-            <SourceControl />
-          ) : activeSidebar === SIDEBAR_NOTIFICATIONS ? (
-            <NotificationsPanel />
-          ) : (
-            <div className="flex flex-1 items-center justify-center text-[var(--ColorMuted)] text-sm">[{activeSidebar}] 开发中...</div>
-          )}
-        </Card>
-      )}
+    <div className="flex h-full w-full overflow-hidden text-[13px] bg-transparent pr-[var(--WorkspaceGap)] pb-1 pl-0 gap-[var(--WorkspaceGap)]">
+      <Card className="flex w-[var(--SidebarWidth)] flex-col shrink-0 z-10" style={{ display: activeSidebar ? "flex" : "none" }}>
+        <div style={{ display: activeSidebar === SIDEBAR_EXPLORER ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0 }}>
+          <FileExplorer onFileSelect={handleOpenFileSelect} />
+        </div>
+        <div style={{ display: activeSidebar === SIDEBAR_SOURCE_CONTROL ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0 }}>
+          <SourceControl />
+        </div>
+        <div style={{ display: activeSidebar === SIDEBAR_NOTIFICATIONS ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0 }}>
+          <NotificationsPanel />
+        </div>
+      </Card>
 
       <div className="flex flex-1 flex-col min-w-0 gap-[var(--WorkspaceGap)] relative">
         <Card className="flex flex-1 flex-col min-w-0 relative overflow-hidden">
@@ -513,7 +511,7 @@ export function WorkspaceView() {
                   ) : (
                     <div className="flex flex-col items-center justify-center w-full h-full gap-2 opacity-50">
                       <Icons.Checks size={32} stroke={1} />
-                      <span className="text-[13px]">没有在工作区中检测到任何问题。</span>
+                      <span className="text-[13px]">没有在工作区中检测到任何问题</span>
                     </div>
                   )}
                 </div>
@@ -561,7 +559,7 @@ export function WorkspaceView() {
           </>
         }
       >
-        <strong>{pendingCloseTab?.title}</strong> 还有未保存的更改。关闭后，这些更改会丢失。
+        <strong>{pendingCloseTab?.title}</strong> 还有未保存的更改关闭后，这些更改会丢失
       </Modal>
     </div>
   );

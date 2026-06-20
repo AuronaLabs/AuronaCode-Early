@@ -33,10 +33,7 @@ export function AboutTab() {
         <div className="flex flex-col gap-1.5">
           <span className="text-[15px] font-semibold text-[var(--ColorTextHighlight)]">Aurona Code - V{appVersion}</span>
           <span className="text-[13px] text-[var(--ColorMuted)]">
-            构建版本: 260619 (Commit: a8f4b1e)
-          </span>
-          <span className="text-[13px] text-[var(--ColorMuted)]">
-            基于 Tauri 构建的新一代轻量级桌面代码编辑器。
+            基于 Tauri 构建的新一代轻量级桌面代码编辑器
           </span>
         </div>
 
@@ -70,7 +67,7 @@ export function AboutTab() {
             致谢与开源许可
           </h3>
           <p className="text-[13px] text-[var(--ColorMuted)] leading-relaxed">
-            Aurona Code 的诞生离不开开源社区的伟大力量。特别感谢 <span className="text-[var(--ColorTextHighlight)] font-medium">Monaco Editor</span> 提供了世界级的代码编辑体验，感谢 <span className="text-[var(--ColorTextHighlight)] font-medium">xterm.js</span> 带来了顶级的终端集成能力。
+            Aurona Code 的诞生离不开开源社区的伟大力量特别感谢 <span className="text-[var(--ColorTextHighlight)] font-medium">Monaco Editor</span> 提供了世界级的代码编辑体验，感谢 <span className="text-[var(--ColorTextHighlight)] font-medium">xterm.js</span> 带来了顶级的终端集成能力
           </p>
         </div>
       </div>

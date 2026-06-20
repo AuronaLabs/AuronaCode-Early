@@ -73,6 +73,8 @@ export function SourceControl() {
       setBranch(currentBranch);
       setCommits(logCommits);
       writeCache({ repoPath: path, isRepo: true, files: statusFiles, commits: logCommits, branch: currentBranch, checkedAt: Date.now() });
+      
+      EventBus.emit("git:changes-count", statusFiles.length);
     } catch (error) {
       console.error("Git status failed", error);
       if (!background) showToast(`Git 状态读取失败：${error}`, "error");
@@ -204,7 +206,7 @@ export function SourceControl() {
       await invoke("git_commit", { path: repoPath, message: commitMsg });
       setCommitMsg("");
       await fetchStatus(repoPath, true);
-      showToast("提交成功。", "success");
+      showToast("提交成功", "success");
     } catch (error) {
       showToast(`提交失败：${error}`, "error");
     }
@@ -270,7 +272,7 @@ export function SourceControl() {
         <p className="text-[13px] text-[var(--ColorText)] leading-relaxed">
           尚未打开任何工作区
           <br />
-          请先在资源管理器中打开一个文件夹。
+          请先在资源管理器中打开一个文件夹
         </p>
       </div>
     );
@@ -288,7 +290,7 @@ export function SourceControl() {
         <div className="flex flex-col flex-1 items-center justify-center p-6 text-center gap-6">
           <div className="flex flex-col items-center gap-2">
             <Icons.GitBranch size={48} stroke={1} className="text-[var(--ColorMuted)] opacity-50" />
-            <p className="text-[13px] text-[var(--ColorText)] leading-relaxed mt-2">当前文件夹尚未初始化 Git 仓库。</p>
+            <p className="text-[13px] text-[var(--ColorText)] leading-relaxed mt-2">当前文件夹尚未初始化 Git 仓库</p>
           </div>
           <button onClick={handleInit} className="px-6 py-2.5 bg-[var(--ColorAccent)] hover:opacity-90 text-white text-[13px] font-bold rounded-xl transition-all shadow-sm flex items-center gap-2">
             <Icons.Plus size={16} stroke={2.5} />

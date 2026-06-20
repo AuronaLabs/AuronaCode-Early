@@ -83,8 +83,16 @@ export function MonacoEngine({
     };
   }, [language, path]);
 
+  const debounceTimerRef = useRef<number | null>(null);
+
   const refreshStatus = useCallback(() => {
-    emitStatus(collectStatus());
+    if (debounceTimerRef.current !== null) {
+      window.clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = window.setTimeout(() => {
+      emitStatus(collectStatus());
+      debounceTimerRef.current = null;
+    }, 150);
   }, [collectStatus, emitStatus]);
 
   useEffect(() => {

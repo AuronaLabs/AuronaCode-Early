@@ -32,13 +32,13 @@ fn create_command(program: &str) -> Command {
 }
 
 #[tauri::command]
-async fn git_check_is_repo(path: String) -> Result<bool, String> {
+fn git_check_is_repo(path: String) -> Result<bool, String> {
     let git_dir = Path::new(&path).join(".git");
     Ok(git_dir.exists() && git_dir.is_dir())
 }
 
 #[tauri::command]
-async fn git_init(path: String) -> Result<(), String> {
+fn git_init(path: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
         .arg("init")
@@ -52,7 +52,7 @@ async fn git_init(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn git_status(path: String) -> Result<Vec<GitFile>, String> {
+fn git_status(path: String) -> Result<Vec<GitFile>, String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(&["status", "--porcelain", "-uall"])
@@ -110,7 +110,7 @@ async fn git_status(path: String) -> Result<Vec<GitFile>, String> {
 }
 
 #[tauri::command]
-async fn git_add(path: String, file: String) -> Result<(), String> {
+fn git_add(path: String, file: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(&["add", &file])
@@ -124,7 +124,7 @@ async fn git_add(path: String, file: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn git_unstage(path: String, file: String) -> Result<(), String> {
+fn git_unstage(path: String, file: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(&["reset", "HEAD", "--", &file])
@@ -138,7 +138,7 @@ async fn git_unstage(path: String, file: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn git_commit(path: String, message: String) -> Result<(), String> {
+fn git_commit(path: String, message: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(&["commit", "-m", &message])
@@ -152,7 +152,7 @@ async fn git_commit(path: String, message: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn git_current_branch(path: String) -> Result<String, String> {
+fn git_current_branch(path: String) -> Result<String, String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(&["rev-parse", "--abbrev-ref", "HEAD"])
@@ -166,7 +166,7 @@ async fn git_current_branch(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn git_push(path: String) -> Result<(), String> {
+fn git_push(path: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
         .arg("push")
@@ -180,7 +180,7 @@ async fn git_push(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn git_pull(path: String) -> Result<(), String> {
+fn git_pull(path: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
         .arg("pull")
@@ -194,7 +194,7 @@ async fn git_pull(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn git_discard_all(path: String) -> Result<(), String> {
+fn git_discard_all(path: String) -> Result<(), String> {
     // 1. Reset staged changes
     let _ = create_command("git")
         .current_dir(&path)
@@ -211,7 +211,7 @@ async fn git_discard_all(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn git_unstage_all(path: String) -> Result<(), String> {
+fn git_unstage_all(path: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
         .arg("reset")
@@ -225,7 +225,7 @@ async fn git_unstage_all(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn git_get_remote(path: String) -> Result<String, String> {
+fn git_get_remote(path: String) -> Result<String, String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(&["remote", "get-url", "origin"])
@@ -240,7 +240,7 @@ async fn git_get_remote(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn git_set_remote(path: String, url: String) -> Result<(), String> {
+fn git_set_remote(path: String, url: String) -> Result<(), String> {
     // Check if remote exists first
     let has_remote = create_command("git")
         .current_dir(&path)
@@ -270,7 +270,7 @@ async fn git_set_remote(path: String, url: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn git_log(path: String) -> Result<Vec<GitCommit>, String> {
+fn git_log(path: String) -> Result<Vec<GitCommit>, String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(&["log", "--pretty=format:%h|%an|%s|%ad", "--date=short", "-n", "50"])

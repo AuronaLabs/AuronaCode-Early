@@ -40,7 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
       await navigator.clipboard.writeText(logPath);
       alert(`日志地址已复制：${logPath}`);
     } catch {
-      alert("复制路径失败，日志位于 AppData/Local 目录下。");
+      alert("复制路径失败，日志位于 AppData/Local 目录下");
     }
   };
 
@@ -55,7 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
             <h1 className="text-3xl font-bold tracking-tight">Aurona Code 出现异常</h1>
             <p className="text-sm text-[var(--ColorMuted)] leading-relaxed">
-              工作区遇到了未处理错误。你可以重启前端引擎，或复制日志地址继续排查。
+              工作区遇到了未处理错误你可以重启前端引擎，或复制日志地址继续排查
             </p>
             <p className="text-sm text-[var(--ColorMuted)] font-mono">CrashID: {Logger.getLogId()}</p>
 

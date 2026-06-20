@@ -34,7 +34,6 @@ export function AppBootstrapper({ children }: Props) {
   const [status, setStatus] = useState<"initializing" | "ready">("initializing");
   const [fade, setFade] = useState(false);
   const [initError, setInitError] = useState<Error | null>(null);
-  const [messageIndex, setMessageIndex] = useState(0);
 
   if (initError) throw initError;
 
@@ -45,16 +44,10 @@ export function AppBootstrapper({ children }: Props) {
   }, []);
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      setMessageIndex((current) => (current + 1) % BOOT_MESSAGES.length);
-    }, 1200);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
     let mounted = true;
 
     async function initializeCoreServices() {
+      const startTime = performance.now();
       try {
         const savedTheme = localStorage.getItem("aurona-theme") || "system";
         const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -66,19 +59,28 @@ export function AppBootstrapper({ children }: Props) {
 
         const initPromise = Promise.all([StorageManager.init()]);
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("启动引擎超时。请检查 Tauri IPC 或系统资源占用。")), 5000),
+          setTimeout(() => reject(new Error("启动引擎超时 请检查 Tauri IPC 或系统资源占用")), 5000),
         );
 
         await Promise.race([initPromise, timeoutPromise]);
         if (!mounted) return;
 
+        const elapsed = performance.now() - startTime;
+        const waitTime = Math.max(0, 1000 - elapsed);
+
         setTimeout(() => {
           if (!mounted) return;
-          setFade(true);
-          setTimeout(() => {
-            if (mounted) setStatus("ready");
-          }, 180);
-        }, 120);
+          
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              if (!mounted) return;
+              setFade(true);
+              setTimeout(() => {
+                if (mounted) setStatus("ready");
+              }, 700); // 700ms wait for the new scale/blur transition
+            });
+          });
+        }, waitTime);
       } catch (error) {
         if (mounted) {
           setInitError(error instanceof Error ? error : new Error(String(error)));
@@ -93,26 +95,28 @@ export function AppBootstrapper({ children }: Props) {
     };
   }, []);
 
-  if (status === "initializing") {
-    return (
-      <div
-        className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[var(--ColorApp)] transition-opacity duration-300 select-none ${fade ? "opacity-0" : "opacity-100"}`}
-      >
-        <svg className="w-11 h-11 mb-6 animate-spin text-[var(--ColorAccent)]" viewBox="0 0 50 50">
-          <circle className="stroke-current" cx="25" cy="25" r="20" fill="none" strokeWidth="8" strokeLinecap="round" strokeDasharray="90, 150" />
-        </svg>
-        <div className="h-6 overflow-hidden text-slate-500 text-sm font-medium">
-          <div className="transition-transform duration-500 ease-out" style={{ transform: `translateY(-${messageIndex * 1.5}rem)` }}>
-            {BOOT_MESSAGES.map((message) => (
-              <div key={message} className="h-6 flex items-center justify-center whitespace-nowrap">
-                {message}
-              </div>
-            ))}
+  return (
+    <>
+      {status === "initializing" && (
+        <div
+          className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[var(--ColorApp)] select-none"
+          style={{
+            opacity: fade ? 0 : 1,
+            transition: "opacity 0.4s ease-out",
+            pointerEvents: fade ? "none" : "auto"
+          }}
+        >
+          <svg className="w-11 h-11 mb-6 animate-spin text-[var(--ColorAccent)]" viewBox="0 0 50 50">
+            <circle className="stroke-current" cx="25" cy="25" r="20" fill="none" strokeWidth="8" strokeLinecap="round" strokeDasharray="90, 150" />
+          </svg>
+          <div className="h-6 overflow-hidden text-slate-500 text-sm font-medium">
+            <div className="h-6 flex items-center justify-center whitespace-nowrap">
+              正在前往 Aurona Code 的路上
+            </div>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
+      )}
+      {children}
+    </>
+  );
 }

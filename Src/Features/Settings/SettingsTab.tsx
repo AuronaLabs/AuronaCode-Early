@@ -108,7 +108,7 @@ export function SettingsTab() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
         <h3 className="text-[14px] font-semibold text-[var(--ColorTextHighlight)]">色彩主题</h3>
-        <p className="text-[13px] text-[var(--ColorMuted)] mb-1">选择浅色或深色界面，或者让应用跟随您的操作系统同步改变外观。</p>
+        <p className="text-[13px] text-[var(--ColorMuted)] mb-1">选择浅色或深色界面，或者让应用跟随您的操作系统同步改变外观</p>
         <div className="flex bg-black/[0.03] dark:bg-white/[0.03] p-1 rounded-lg border border-[var(--ColorPanelBorder)] w-fit">
           {(['system', 'light', 'dark'] as const).map(t => (
             <button
@@ -134,11 +134,11 @@ export function SettingsTab() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
         <h3 className="text-[14px] font-semibold text-[var(--ColorTextHighlight)]">远程仓库配置 (Remote Origin)</h3>
-        <p className="text-[13px] text-[var(--ColorMuted)]">配置当前工作区 Git 仓库的远程拉取和推送地址及凭据。</p>
+        <p className="text-[13px] text-[var(--ColorMuted)]">配置当前工作区 Git 仓库的远程拉取和推送地址及凭据</p>
         
         {!repoPath ? (
           <div className="p-4 bg-yellow-500/10 text-yellow-600 rounded-lg text-[13px] border border-yellow-500/20">
-            当前未在工作区打开任何目录，请先打开一个包含 Git 仓库的文件夹。
+            当前未在工作区打开任何目录，请先打开一个包含 Git 仓库的文件夹
           </div>
         ) : (
           <div className="space-y-6 mt-2 max-w-xl">
@@ -173,7 +173,7 @@ export function SettingsTab() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
         <h3 className="text-[14px] font-semibold text-[var(--ColorTextHighlight)]">缓存与重置</h3>
-        <p className="text-[13px] text-[var(--ColorMuted)] mb-2">清除应用全部本地缓存数据，包括最近打开的文件夹记录、界面布局状态等，这会让编辑器回到初始状态。</p>
+        <p className="text-[13px] text-[var(--ColorMuted)] mb-2">清除应用全部本地缓存数据，包括最近打开的文件夹记录、界面布局状态等，这会让编辑器回到初始状态</p>
         <Button variant="danger" className="w-fit" onClick={() => { localStorage.clear(); showToast("缓存已清理，请重启应用"); }}>
           清除本地缓存
         </Button>

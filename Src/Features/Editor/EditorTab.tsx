@@ -80,7 +80,7 @@ export function EditorTab({ path, isActive }: EditorTabProps) {
         setFileContent("");
         setSavedContent("");
       } else {
-        setFileContent(`无法读取文件内容，或该文件不是文本文件。\n错误：${message}`);
+        setFileContent(`无法读取文件内容，或该文件不是文本文件\n错误：${message}`);
         setSavedContent("");
         setIsEditorReady(true);
       }
@@ -161,7 +161,7 @@ export function EditorTab({ path, isActive }: EditorTabProps) {
           </div>
           <h3 className="text-[16px] font-semibold text-[var(--ColorTextHighlight)] mb-2">无法显示此文件</h3>
           <p className="text-[13px] text-[var(--ColorMuted)] mb-8 max-w-[420px] leading-relaxed">
-            该文件可能是二进制文件，或使用了暂不支持的文本编码。强行在编辑器中打开可能会导致乱码或性能问题。
+            该文件可能是二进制文件，或使用了暂不支持的文本编码强行在编辑器中打开可能会导致乱码或性能问题
           </p>
           <button
             onClick={() => {

@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Aurona Code",
   "mainBinaryName": "Aurona Code",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "identifier": "com.aurona.code",
   "build": {
     "beforeDevCommand": "npm run dev",

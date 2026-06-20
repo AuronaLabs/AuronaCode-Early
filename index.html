@@ -5,6 +5,19 @@
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Aurona Code</title>
+    <script>
+      (function() {
+        try {
+          var theme = localStorage.getItem('aurona-theme') || 'system';
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (theme === 'dark' || (theme === 'system' && prefersDark)) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <script>
@@ -43,7 +56,11 @@
         <svg class="loader-spinner" viewBox="0 0 50 50">
           <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="8"></circle>
         </svg>
-        <div style="color: #64748b; font-size: 14px; font-weight: 500; letter-spacing: 0.5px;">正在启动 Aurona Code</div>
+        <div style="height: 24px; overflow: hidden; color: #64748b; font-size: 14px; font-weight: 500;">
+          <div style="height: 24px; display: flex; align-items: center; justify-content: center; white-space: nowrap;">
+            正在前往 Aurona Code 的路上
+          </div>
+        </div>
       </div>
       <div id="fatal-error">
         <svg style="width:64px;height:64px;margin-bottom:16px;" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">

@@ -9,6 +9,7 @@ import { ErrorBoundary } from "../Layout/ErrorBoundary";
 import { AppBootstrapper } from "../Core/AppBootstrapper";
 import { EventBus } from "../Core/EventBus";
 import { Logger } from "../Core/Logger";
+import "../Core/MonacoSetup";
 
 Logger.init();
 

@@ -1,7 +1,6 @@
 <div align="center">
   <h1>Aurona Code</h1>
-  <p><strong>新一代轻量级、高性能桌面代码编辑器</strong></p>
-  <p>基于 Tauri、React 19 与 Tailwind CSS 构建，专为现代开发工作流设计。</p>
+  <p><strong>基于 Tauri 与 React 构建的轻量级桌面代码编辑器</strong></p>
   
   [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
   [![Tauri](https://img.shields.io/badge/Tauri-V2-orange.svg)](https://tauri.app/)
@@ -12,20 +11,19 @@
 
 ## 早期版本声明 (Early Access Notice)
 
-**Aurona Code 目前处于早期快速迭代开发阶段（Alpha / Early Access）。** 
+**Aurona Code 目前处于早期快速迭代开发阶段（Alpha / Early Access）** 
 
-为了在早期发展阶段最大程度地保护开源成果及用户安全，本项目目前采用严格的 **AGPL 3.0** 开源许可证进行分发。
-
-另外请注意：**当前早期版本仅提供中文 (Simplified Chinese) 支持。** 国际化 (i18n) 与多语言适配将在后续功能趋于稳定后正式推出。
+为了在早期发展阶段最大程度地保护开源成果及用户安全，本项目目前采用 **AGPL 3.0** 开源许可证进行分发
+当前早期版本仅提供**简体中文 (Simplified Chinese)** 支持 国际化 (i18n) 适配将在核心功能稳定后推出
 
 ## 核心特性
 
-* **极速启动与低内存占用**：依托 Rust 语言与 Tauri 架构，彻底摒弃了传统 Electron 框架的沉重包袱。
-* **现代设计哲学**：采用无边框与圆角设计语言，全面应用 Tailwind CSS 打造精细、统一的原生级 IDE 视觉体验。
-* **专业级编辑核心**：内置深度定制的 Monaco Editor，提供媲美 VS Code 的智能补全、语法高亮与丝滑的编码体验。
-* **高性能终端集成**：集成底层 PTY（伪终端）技术与 xterm.js，支持无缝、高速地执行各类命令行操作。
-* **原生版本控制系统**：内置 Git 源代码管理面板，直观可视化地追踪文件变更、提交历史与分支结构。
-* **集中化配置管理**：提供统一、清晰的全局设置中心与缓存管理机制。
+* **基于 Tauri 的底层架构**：采用 Rust 与 Tauri 替代 Electron，以优化启动速度与内存开销
+* **原生级 UI 体验**：使用 Tailwind CSS 构建无边框、高透明度的现代操作系统级界面
+* **Monaco Editor 集成**：深度集成 Monaco Editor，提供基础的多语言语法高亮与代码提示
+* **内置 PTY 终端**：基于 xterm.js 与 portable-pty，支持完整的本地命令行交互
+* **可视化 Git 管理**：后台预加载机制的 Git 面板，支持直观的文件暂存、提交与历史追踪
+* **集中化状态管理**：提供基于 JSON 的统一配置中心与持久化缓存机制
 
 ## 技术架构
 
@@ -35,66 +33,48 @@
 * **编辑器内核**: [Monaco Editor](https://microsoft.github.io/monaco-editor/)
 * **终端实现**: [xterm.js](https://xtermjs.org/) + `portable-pty`
 
-## 环境配置与运行指南
+## 管理脚本 (Manager.py) 指南
 
-### 环境依赖
+本项目内置了一个强大的交互式 CLI 管理脚本 `manager.py`，用于接管所有构建、清理、环境检查与配置更新流程
 
-在开始之前，请确保您的操作系统已安装以下必需的运行环境：
+在根目录终端运行以下命令进入交互菜单：
 
-- [Node.js](https://nodejs.org/) (建议版本 v18.0.0 或更高)
-- [Rust](https://www.rust-lang.org/) (最新稳定版本)
-- [Python 3.x](https://www.python.org/) (用于执行 manager.py 管理脚本)
-- [Visual Studio C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (仅限 Windows 平台开发者需要)
+```bash
+python manager.py
+```
 
-### 代码初始化
+进入后，您只需输入对应功能的**数字序号**即可执行操作：
+- `[ 1 ]` 启动 Tauri 开发服务器 (等同于 npm run tauri:dev)
+- `[ 4 ]` 全局同步包版本号 (同时更新 package.json / Cargo.toml / tauri.conf)
+- `[ 6 ]` 执行 Tauri Release 打包 (生成 NSIS 安装包)
+- `[ 7 ]` 交互式修改 Tauri 配置与应用 GUID
+- `[ 8 ]` **检查并自动配置系统开发环境** (检测并安装 Node/Rust/Tauri CLI)
 
-1. 克隆项目源代码：
+## 环境配置与运行指引
+
+在首次拉取代码后，推荐使用 `manager.py` 提供的选项 `[ 8 ]` 自动检查并补全开发环境
+
+如果希望手动进行：
+1 请确保系统中安装有 [Node.js](https://nodejs.org/) (>=v18) 与 [Rust](https://www.rust-lang.org/)
+2 克隆项目源代码：
 ```bash
 git clone https://github.com/AuronaLabs/AuronaCode-Early.git
 cd AuronaCode-Early
 ```
-
-2. 安装前端依赖库：
+3 安装前端依赖库：
 ```bash
 npm install
 ```
-
-### 启动开发环境
-
-我们提供了两种启动开发模式的方式，您可以根据习惯自行选择：
-
-**方式一：使用 NPM 脚本 (标准方式)**
-```bash
-npm run tauri:dev
-```
-
-**方式二：使用 Python 管理脚本 (推荐)**
-为了简化开发工作流，项目内置了 `manager.py` 脚本：
-```bash
-python manager.py dev
-```
-
-### 构建与打包可执行文件
-
-当需要编译并打包正式的桌面可执行程序时，**强烈建议使用内置的管理脚本进行构建**，它会自动处理复杂的环境与清理工作：
-
-```bash
-python manager.py build
-```
-
-编译完成后，最终的安装程序包 (Setup.exe) 将会生成在 `src-tauri/target/release/bundle/nsis/` 目录下。
-
-> [!NOTE]
-> **关于跨平台支持**
-> 目前 Aurona Code 官方团队仅提供 **Windows (x64)** 平台的预编译安装包。macOS 与 Linux 用户可通过上述步骤自行拉取代码并在本地进行编译打包。
+4 运行 `python manager.py` 并选择 `[ 1 ]` 启动开发服务器
 
 ## 参与贡献
 
-我们欢迎并感谢社区开发者的参与和贡献。在提交 Pull Request 之前，请务必阅读我们的 [贡献指南](https://github.com/AuronaLabs/AuronaCode-Early/blob/main/.github/CONTRIBUTING.md) 和 [行为准则](https://github.com/AuronaLabs/AuronaCode-Early/blob/main/.github/CODE_OF_CONDUCT.md)。
+我们欢迎社区开发者的参与 在提交 Pull Request 之前，请务必阅读我们的 [贡献指南](.github/CONTRIBUTING.md) 和 [行为准则](.github/CODE_OF_CONDUCT.md)
 
-如果您发现了任何潜在的安全漏洞，请勿在公共 Issue 中讨论，请优先通过我们的 [安全策略](https://github.com/AuronaLabs/AuronaCode-Early/blob/main/.github/SECURITY.md) 流程进行私密报告。
+> [!CAUTION]
+> 如果您发现了任何潜在的安全漏洞，请**不要**在公共 Issue 中讨论 请严格按照 [安全策略 (SECURITY.md)](.github/SECURITY.md) 流程进行私密报告
 
 ## 许可证声明
 
-本项目受 [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE) 许可证保护。
-相关授权与限制条款，请详细参阅项目根目录下的 `LICENSE` 文件。
+本项目受 [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE) 许可证保护
+相关授权与限制条款，请详细参阅项目根目录下的 `LICENSE` 文件

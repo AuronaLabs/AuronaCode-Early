@@ -415,7 +415,7 @@ export function FileExplorer({ onFileSelect }: { onFileSelect: (path: string) =>
         setActivePath(newPath);
         onFileSelect(newPath);
       }
-      showToast(type === "file" ? "文件已创建。" : "文件夹已创建。", "success");
+      showToast(type === "file" ? "文件已创建" : "文件夹已创建", "success");
     } catch (error) {
       showToast(`创建失败：${FileSystemService.toMessage(error)}`, "error");
     } finally {
@@ -435,7 +435,7 @@ export function FileExplorer({ onFileSelect }: { onFileSelect: (path: string) =>
       await refreshDirectory(parentPath);
       EventBus.emit("file:renamed", { oldPath, newPath });
       if (activePath === oldPath) setActivePath(newPath);
-      showToast("重命名完成。", "success");
+      showToast("重命名完成", "success");
     } catch (error) {
       showToast(`重命名失败：${FileSystemService.toMessage(error)}`, "error");
     } finally {
@@ -456,7 +456,7 @@ export function FileExplorer({ onFileSelect }: { onFileSelect: (path: string) =>
       if (activePath === node.path || (node.isDirectory && activePath && isDescendant(activePath, node.path))) {
         setActivePath(null);
       }
-      showToast("删除完成。", "success");
+      showToast("删除完成", "success");
     } catch (error) {
       showToast(`删除失败：${FileSystemService.toMessage(error)}`, "error");
     }
@@ -580,7 +580,7 @@ export function FileExplorer({ onFileSelect }: { onFileSelect: (path: string) =>
           >
             你确定要永久删除 <strong>{deletePrompt?.name}</strong> 吗？
             <br />
-            这个操作无法撤销。
+            这个操作无法撤销
           </Modal>
         </div>
       )}

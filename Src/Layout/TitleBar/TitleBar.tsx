@@ -41,7 +41,7 @@ export function TitleBar() {
   return (
     <div
       data-tauri-drag-region
-      className="flex h-[var(--TitleBarHeight)] shrink-0 select-none items-center justify-between bg-[var(--ColorApp)] text-[var(--ColorTitleBarText)] text-[13px] relative z-30"
+      className="flex h-[var(--TitleBarHeight)] shrink-0 select-none items-center justify-between bg-transparent text-[var(--ColorTitleBarText)] text-[13px] relative z-30"
     >
       <div className="flex h-full items-center pl-4 gap-3 min-w-0">
         <div

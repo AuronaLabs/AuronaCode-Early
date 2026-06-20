@@ -1,9 +1,29 @@
-# 代码结构树与功能解析 (Code Structure & Tree-Sitter)
+# 代码结构树 (Code Structure)
 
-本文档映射了整个 `Src` 目录的架构。
-每一个文件夹都是严格按照 **特性切片 (Feature-Sliced Design)** 进行划分的，**绝对没有重复、冗余或无用的文件夹**。通过这种极度解耦的方式，任何模块出问题都不会波及到其他模块。
+本文档映射了项目的核心目录架构 当前代码库基于 Feature-Sliced Design 进行组织，以实现业务特性的隔离与底层能力的复用
 
-## 🌲 Src 目录概览
+## 根目录概览
+
+```text
+AuronaCode/
+ ├── .github/             # GitHub 社区标准与开源规范文件
+ │    ├── CODE_OF_CONDUCT.md
+ │    ├── CONTRIBUTING.md
+ │    ├── FUNDING.yml
+ │    ├── ISSUE_TEMPLATE/
+ │    ├── PULL_REQUEST_TEMPLATE.md
+ │    ├── SECURITY.md
+ │    └── SUPPORT.md
+ │
+ ├── Docs/                # 项目架构与设计文档
+ ├── Src/                 # 前端 React 源代码 (核心)
+ ├── src-tauri/           # Tauri 后端 Rust 源代码
+ ├── index.html           # 前端挂载模板与初始加载屏
+ ├── manager.py           # CLI 管理脚本 (环境检查、构建打包、配置同步)
+ └── package.json         # 前端依赖配置
+```
+
+## Src 目录深度解析
 
 ```text
 Src/
@@ -21,12 +41,12 @@ Src/
  │         ├── TitleBar.tsx      # 拖拽区与窗口操作按钮
  │         └── TopCommandBar.tsx # 顶部居中的快捷指令条
  │
- ├── Features/            [独立业务特性域 - 最核心的代码]
+ ├── Features/            [独立业务特性域]
  │    ├── Editor/         # -> 代码编辑模块
  │    │    ├── EditorTab.tsx     # 负责读取文件并挂载引擎
  │    │    ├── IEditorEngine.ts  # 编辑器引擎的标准接口规范
  │    │    ├── EditorAdapter.ts  # 桥接业务与 Monaco 的适配器
- │    │    └── MonacoEngine.tsx  # 微软 Monaco Editor 的底层配置与初始化
+ │    │    └── MonacoEngine.tsx  # Monaco Editor 的底层配置与渲染
  │    │
  │    ├── Explorer/       # -> 资源管理模块
  │    │    └── FileExplorer.tsx  # 渲染左侧文件树，处理增删改查交互
@@ -48,7 +68,7 @@ Src/
  │         └── TerminalView.tsx  # 渲染集成终端 (xterm.js) 与 PTY 通信
  │
  ├── UI/                  [纯净的基础 UI 组件系统]
- │    ├── Components/     # -> 原子级组件 (曾经的 Mira 库)
+ │    ├── Components/     # -> 原子级组件
  │    │    ├── ActivitySquare.tsx # 左侧导航栏的正方形小图标
  │    │    ├── Button.tsx         # 通用按钮
  │    │    ├── Card.tsx           # 通用圆角卡片面板
@@ -64,28 +84,26 @@ Src/
  │    │    └── IconManager.tsx    # 全局 SVG 图标统一注册与分发中心
  │    │
  │    └── Layouts/        # -> 页面级别的布局模板
- │         └── InternalPageLayout.tsx # 所有内置独立页面(如关于、设置)的通用滚动框架
+ │         └── InternalPageLayout.tsx # 内置独立页面的通用滚动框架
  │
  ├── Core/                [底层基础设施]
  │    ├── AppBootstrapper.tsx # 负责应用启动前的初始化与依赖自检
- │    ├── EventBus.ts         # 🔥 全局事件总线，负责各大独立模块间的通信
+ │    ├── EventBus.ts         # 全局事件总线，负责独立模块间的解耦通信
  │    ├── FileSystemService.ts# 文件系统操作封装 (Tauri fs 调用收口)
  │    ├── Logger.ts           # 本地化日志记录器
- │    ├── StorageManager.ts   # 浏览器/本地持久化缓存封装
+ │    ├── MonacoSetup.ts      # Monaco Editor 的全局 worker 预配置与挂载
+ │    ├── StorageManager.ts   # 本地持久化缓存封装
  │    └── TerminalService.ts  # 终端后台服务 (PTY 会话生命周期与列表管理)
  │
  └── Shared/              [泛用共享资源]
       ├── Types/          
-      │    └── Tab.ts         # 定义应用内标签页 (Tab) 的数据结构与枚举类型
+      │    └── Tab.ts         # 定义应用内标签页的数据结构与枚举
       └── Utils/          
            └── LanguageUtils.ts # 根据文件扩展名推断编程语言的高频工具函数
 ```
 
-## 🔍 架构思考 (The "Tree-Sitter" View)
+## 架构隔离原则
 
-为什么要分这么多文件夹？
-如果你把上述所有代码都混在一个 `Components` 里，那么修改按钮样式时可能会不小心打断 Git 提交逻辑；添加一个设置页面可能会导致文件树崩溃。
-
-目前的结构是**单向数据流**的：
-`Features` (处理业务) -> 依赖 -> `UI` (渲染视图) 和 `Core` (触发事件)。
-绝不存在 `UI` 反向去导入 `Features` 中的逻辑。这种解耦方式保证了项目可以无限制地平行扩展下去，这就是目前能做到的最完美的工程结构。
+目前的目录结构设计遵循单向数据流原则：
+`Features` (处理业务逻辑与状态) -> 依赖 -> `UI` (渲染无状态视图) 和 `Core` (触发事件与系统 API)
+`UI` 层与 `Core` 层严禁反向引入 `Features` 中的特化业务逻辑，以此保证基础能力的纯粹性与项目架构的可平行扩展能力

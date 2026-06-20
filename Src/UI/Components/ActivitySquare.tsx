@@ -4,10 +4,11 @@ import { Tooltip } from "../Feedback/Tooltip";
 interface ActivitySquareProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   icon: React.ReactNode;
   active?: boolean;
+  badge?: boolean;
 }
 
 export const ActivitySquare = React.forwardRef<HTMLButtonElement, ActivitySquareProps>(
-  ({ icon, active = false, className = "", title, ...props }, ref) => {
+  ({ icon, active = false, badge = false, className = "", title, ...props }, ref) => {
     const buttonElement = (
       <button
         ref={ref}
@@ -18,8 +19,9 @@ export const ActivitySquare = React.forwardRef<HTMLButtonElement, ActivitySquare
         } ${className}`}
         {...props}
       >
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center relative">
           {icon}
+          {badge && <span className="absolute -top-0.5 -right-0.5 w-[7px] h-[7px] rounded-full bg-[var(--ColorAccent)] shadow-sm"></span>}
         </div>
       </button>
     );

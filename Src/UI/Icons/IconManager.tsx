@@ -1,59 +1,57 @@
 // Centralized Icon Engine
-import { 
-  IconFolder, 
-  IconFolderOpen, 
-  IconChevronRight, 
-  IconFile, 
-  IconMenu2, 
-  IconSearch, 
-  IconGitBranch, 
-  IconPuzzle, 
-  IconBell, 
-  IconSettings,
-  IconX,
-  IconMinus,
-  IconSquare,
-  IconFileCode,
-  IconLayoutSidebarLeftCollapse,
-  IconCrop11,
-  IconSquares,
-  IconBrandGithub,
-  IconSparkles,
-  IconFiles,
-  IconFilePlus,
-  IconFolderPlus,
-  IconRefresh,
-  IconAlertTriangle,
-  IconPalette,
-  IconMoon,
-  IconSun,
-  IconDeviceDesktop,
-  IconPlus,
-  IconChevronDown,
-  IconCloudUpload,
-  IconCloudDownload,
-  IconChecks,
-  IconTrash,
-  IconBrandTypescript,
-  IconBrandJavascript,
-  IconBrandPython,
-  IconBrandCss3,
-  IconBrandHtml5,
-  IconJson,
-  IconMarkdown,
-  IconPhoto,
-  IconInfoCircle,
-  IconFileText,
-  IconDeviceFloppy,
-  IconTerminal2,
-  IconHistory,
-  IconGitCommit,
-  IconLayoutBottombar,
-  IconLayoutBottombarFilled,
-  IconList,
-  IconPlayerPlayFilled,
-  IconEraser
-} from "@tabler/icons-react";
+import IconFolder from "@tabler/icons-react/dist/esm/icons/IconFolder.mjs";
+import IconFolderOpen from "@tabler/icons-react/dist/esm/icons/IconFolderOpen.mjs";
+import IconChevronRight from "@tabler/icons-react/dist/esm/icons/IconChevronRight.mjs";
+import IconFile from "@tabler/icons-react/dist/esm/icons/IconFile.mjs";
+import IconMenu2 from "@tabler/icons-react/dist/esm/icons/IconMenu2.mjs";
+import IconSearch from "@tabler/icons-react/dist/esm/icons/IconSearch.mjs";
+import IconGitBranch from "@tabler/icons-react/dist/esm/icons/IconGitBranch.mjs";
+import IconPuzzle from "@tabler/icons-react/dist/esm/icons/IconPuzzle.mjs";
+import IconBell from "@tabler/icons-react/dist/esm/icons/IconBell.mjs";
+import IconSettings from "@tabler/icons-react/dist/esm/icons/IconSettings.mjs";
+import IconX from "@tabler/icons-react/dist/esm/icons/IconX.mjs";
+import IconMinus from "@tabler/icons-react/dist/esm/icons/IconMinus.mjs";
+import IconSquare from "@tabler/icons-react/dist/esm/icons/IconSquare.mjs";
+import IconFileCode from "@tabler/icons-react/dist/esm/icons/IconFileCode.mjs";
+import IconLayoutSidebarLeftCollapse from "@tabler/icons-react/dist/esm/icons/IconLayoutSidebarLeftCollapse.mjs";
+import IconCrop11 from "@tabler/icons-react/dist/esm/icons/IconCrop11.mjs";
+import IconSquares from "@tabler/icons-react/dist/esm/icons/IconSquares.mjs";
+import IconBrandGithub from "@tabler/icons-react/dist/esm/icons/IconBrandGithub.mjs";
+import IconSparkles from "@tabler/icons-react/dist/esm/icons/IconSparkles.mjs";
+import IconFiles from "@tabler/icons-react/dist/esm/icons/IconFiles.mjs";
+import IconFilePlus from "@tabler/icons-react/dist/esm/icons/IconFilePlus.mjs";
+import IconFolderPlus from "@tabler/icons-react/dist/esm/icons/IconFolderPlus.mjs";
+import IconRefresh from "@tabler/icons-react/dist/esm/icons/IconRefresh.mjs";
+import IconAlertTriangle from "@tabler/icons-react/dist/esm/icons/IconAlertTriangle.mjs";
+import IconPalette from "@tabler/icons-react/dist/esm/icons/IconPalette.mjs";
+import IconMoon from "@tabler/icons-react/dist/esm/icons/IconMoon.mjs";
+import IconSun from "@tabler/icons-react/dist/esm/icons/IconSun.mjs";
+import IconDeviceDesktop from "@tabler/icons-react/dist/esm/icons/IconDeviceDesktop.mjs";
+import IconPlus from "@tabler/icons-react/dist/esm/icons/IconPlus.mjs";
+import IconChevronDown from "@tabler/icons-react/dist/esm/icons/IconChevronDown.mjs";
+import IconCloudUpload from "@tabler/icons-react/dist/esm/icons/IconCloudUpload.mjs";
+import IconCloudDownload from "@tabler/icons-react/dist/esm/icons/IconCloudDownload.mjs";
+import IconChecks from "@tabler/icons-react/dist/esm/icons/IconChecks.mjs";
+import IconTrash from "@tabler/icons-react/dist/esm/icons/IconTrash.mjs";
+import IconBrandTypescript from "@tabler/icons-react/dist/esm/icons/IconBrandTypescript.mjs";
+import IconBrandJavascript from "@tabler/icons-react/dist/esm/icons/IconBrandJavascript.mjs";
+import IconBrandPython from "@tabler/icons-react/dist/esm/icons/IconBrandPython.mjs";
+import IconBrandCss3 from "@tabler/icons-react/dist/esm/icons/IconBrandCss3.mjs";
+import IconBrandHtml5 from "@tabler/icons-react/dist/esm/icons/IconBrandHtml5.mjs";
+import IconJson from "@tabler/icons-react/dist/esm/icons/IconJson.mjs";
+import IconMarkdown from "@tabler/icons-react/dist/esm/icons/IconMarkdown.mjs";
+import IconPhoto from "@tabler/icons-react/dist/esm/icons/IconPhoto.mjs";
+import IconInfoCircle from "@tabler/icons-react/dist/esm/icons/IconInfoCircle.mjs";
+import IconFileText from "@tabler/icons-react/dist/esm/icons/IconFileText.mjs";
+import IconDeviceFloppy from "@tabler/icons-react/dist/esm/icons/IconDeviceFloppy.mjs";
+import IconTerminal2 from "@tabler/icons-react/dist/esm/icons/IconTerminal2.mjs";
+import IconHistory from "@tabler/icons-react/dist/esm/icons/IconHistory.mjs";
+import IconGitCommit from "@tabler/icons-react/dist/esm/icons/IconGitCommit.mjs";
+import IconLayoutBottombar from "@tabler/icons-react/dist/esm/icons/IconLayoutBottombar.mjs";
+import IconLayoutBottombarFilled from "@tabler/icons-react/dist/esm/icons/IconLayoutBottombarFilled.mjs";
+import IconList from "@tabler/icons-react/dist/esm/icons/IconList.mjs";
+import IconPlayerPlayFilled from "@tabler/icons-react/dist/esm/icons/IconPlayerPlayFilled.mjs";
+import IconEraser from "@tabler/icons-react/dist/esm/icons/IconEraser.mjs";
 
 export const Icons = {
   // Navigation & Shell
