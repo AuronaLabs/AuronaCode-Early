@@ -53,8 +53,26 @@ pub fn spawn_pty(
         })
         .map_err(|e| e.to_string())?;
 
+    #[cfg(target_os = "windows")]
     let default_shell = "powershell.exe".to_string();
+    #[cfg(not(target_os = "windows"))]
+    let default_shell = "/bin/bash".to_string();
+
     let shell = shell_path.unwrap_or(default_shell);
+    
+    // Security check: ensure the requested shell is within our allowed list
+    let allowed_shells = get_available_shells();
+    let mut is_allowed = false;
+    for allowed in allowed_shells {
+        if allowed.path == shell {
+            is_allowed = true;
+            break;
+        }
+    }
+    if !is_allowed {
+        return Err(format!("Security Violation: Executable {} is not an allowed shell path.", shell));
+    }
+
     let mut cmd = CommandBuilder::new(&shell);
     
     // Add -NoLogo if it's PowerShell
@@ -117,54 +135,88 @@ pub fn resize_pty(
 }
 
 #[tauri::command]
+pub fn close_pty(id: String, state: State<'_, PtyState>) -> Result<(), String> {
+    state.writers.lock().unwrap().remove(&id);
+    state.master_ptys.lock().unwrap().remove(&id);
+    Ok(())
+}
+
+#[tauri::command]
 pub fn get_available_shells() -> Vec<ShellProfile> {
     let mut shells = Vec::new();
 
-    // 1. Windows PowerShell
-    shells.push(ShellProfile {
-        id: "powershell".to_string(),
-        name: "PowerShell".to_string(),
-        path: "powershell.exe".to_string(),
-        icon: "powershell".to_string(),
-    });
-
-    // 2. PowerShell Core (pwsh)
-    if std::process::Command::new("pwsh.exe").arg("-Version").output().is_ok() {
+    #[cfg(target_os = "windows")]
+    {
+        // 1. Windows PowerShell
         shells.push(ShellProfile {
-            id: "pwsh".to_string(),
-            name: "PowerShell Core".to_string(),
-            path: "pwsh.exe".to_string(),
+            id: "powershell".to_string(),
+            name: "PowerShell".to_string(),
+            path: "powershell.exe".to_string(),
             icon: "powershell".to_string(),
         });
-    }
 
-    // 3. Command Prompt
-    shells.push(ShellProfile {
-        id: "cmd".to_string(),
-        name: "Command Prompt".to_string(),
-        path: "cmd.exe".to_string(),
-        icon: "terminal".to_string(),
-    });
+        // 2. PowerShell Core (pwsh)
+        if std::process::Command::new("pwsh.exe").arg("-Version").output().is_ok() {
+            shells.push(ShellProfile {
+                id: "pwsh".to_string(),
+                name: "PowerShell Core".to_string(),
+                path: "pwsh.exe".to_string(),
+                icon: "powershell".to_string(),
+            });
+        }
 
-    // 4. Git Bash
-    let git_bash_path = "C:\\Program Files\\Git\\bin\\bash.exe";
-    if std::path::Path::new(git_bash_path).exists() {
+        // 3. Command Prompt
         shells.push(ShellProfile {
-            id: "git-bash".to_string(),
-            name: "Git Bash".to_string(),
-            path: git_bash_path.to_string(),
-            icon: "git".to_string(),
+            id: "cmd".to_string(),
+            name: "Command Prompt".to_string(),
+            path: "cmd.exe".to_string(),
+            icon: "terminal".to_string(),
         });
+
+        // 4. Git Bash
+        let git_bash_path = "C:\\Program Files\\Git\\bin\\bash.exe";
+        if std::path::Path::new(git_bash_path).exists() {
+            shells.push(ShellProfile {
+                id: "git-bash".to_string(),
+                name: "Git Bash".to_string(),
+                path: git_bash_path.to_string(),
+                icon: "git".to_string(),
+            });
+        }
+
+        // 5. WSL
+        if std::process::Command::new("wsl.exe").arg("--version").output().is_ok() || 
+           std::path::Path::new("C:\\Windows\\System32\\wsl.exe").exists() {
+            shells.push(ShellProfile {
+                id: "wsl".to_string(),
+                name: "WSL".to_string(),
+                path: "wsl.exe".to_string(),
+                icon: "linux".to_string(),
+            });
+        }
     }
 
-    // 5. WSL
-    if std::process::Command::new("wsl.exe").arg("--version").output().is_ok() || 
-       std::path::Path::new("C:\\Windows\\System32\\wsl.exe").exists() {
+    #[cfg(not(target_os = "windows"))]
+    {
         shells.push(ShellProfile {
-            id: "wsl".to_string(),
-            name: "WSL".to_string(),
-            path: "wsl.exe".to_string(),
-            icon: "linux".to_string(),
+            id: "bash".to_string(),
+            name: "Bash".to_string(),
+            path: "/bin/bash".to_string(),
+            icon: "terminal".to_string(),
+        });
+
+        shells.push(ShellProfile {
+            id: "zsh".to_string(),
+            name: "Zsh".to_string(),
+            path: "/bin/zsh".to_string(),
+            icon: "terminal".to_string(),
+        });
+        
+        shells.push(ShellProfile {
+            id: "sh".to_string(),
+            name: "Shell".to_string(),
+            path: "/bin/sh".to_string(),
+            icon: "terminal".to_string(),
         });
     }
 

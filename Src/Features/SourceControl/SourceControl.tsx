@@ -65,16 +65,20 @@ export function SourceControl() {
   const fetchStatus = useCallback(async (path: string, background = false) => {
     try {
       if (background) setIsRefreshing(true);
-      const statusFiles = await invoke<GitFile[]>("git_status", { path });
-      const currentBranch = await invoke<string>("git_current_branch", { path });
-      const logCommits = await invoke<GitCommit[]>("git_log", { path }).catch(() => []);
+      const fullStatus = await invoke<{
+        repo_path: string;
+        is_repo: boolean;
+        files: GitFile[];
+        commits: GitCommit[];
+        branch: string;
+      }>("git_get_full_status", { path });
       
-      setFiles(statusFiles);
-      setBranch(currentBranch);
-      setCommits(logCommits);
-      writeCache({ repoPath: path, isRepo: true, files: statusFiles, commits: logCommits, branch: currentBranch, checkedAt: Date.now() });
+      setFiles(fullStatus.files);
+      setBranch(fullStatus.branch);
+      setCommits(fullStatus.commits);
+      writeCache({ repoPath: path, isRepo: true, files: fullStatus.files, commits: fullStatus.commits, branch: fullStatus.branch, checkedAt: Date.now() });
       
-      EventBus.emit("git:changes-count", statusFiles.length);
+      EventBus.emit("git:changes-count", fullStatus.files.length);
     } catch (error) {
       console.error("Git status failed", error);
       if (!background) showToast(`Git 状态读取失败：${error}`, "error");

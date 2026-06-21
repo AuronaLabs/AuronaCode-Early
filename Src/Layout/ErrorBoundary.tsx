@@ -36,7 +36,7 @@ export class ErrorBoundary extends Component<Props, State> {
     try {
       const { appLocalDataDir, join } = await import("@tauri-apps/api/path");
       const appLocalData = await appLocalDataDir();
-      const logPath = await join(appLocalData, "com.aurona.code", "logs", `${Logger.getLogId()}.log`);
+      const logPath = await join(appLocalData, "logs", `${Logger.getLogId()}.log`);
       await navigator.clipboard.writeText(logPath);
       alert(`日志地址已复制：${logPath}`);
     } catch {

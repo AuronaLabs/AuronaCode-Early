@@ -38,6 +38,7 @@ export const FileSystemService = {
     if (/[\\/]/.test(trimmed)) return "名称不能包含路径分隔符";
     if (/^[. ]+$/.test(trimmed)) return "名称不能只包含点或空格";
     if (/[<>:"|?*]/.test(trimmed)) return "名称包含 Windows 不支持的字符";
+    if (/^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i.test(trimmed)) return "名称为 Windows 保留字";
     return null;
   },
 
@@ -112,4 +113,32 @@ export const FileSystemService = {
 
   readTextFile,
   writeTextFile,
+
+  async writeTextFileAtomic(path: string, content: string) {
+    const tmpPath = `${path}.aurona.tmp`;
+    const bakPath = `${path}.aurona.bak`;
+    try {
+      await writeTextFile(tmpPath, content);
+      
+      const fileExists = await exists(path);
+      if (fileExists) {
+        if (await exists(bakPath)) {
+          await remove(bakPath).catch(() => {});
+        }
+        await rename(path, bakPath);
+      }
+      
+      await rename(tmpPath, path);
+      
+      if (fileExists) {
+        await remove(bakPath).catch(() => {});
+      }
+    } catch (error) {
+      await remove(tmpPath).catch(() => {});
+      if (await exists(bakPath)) {
+        await rename(bakPath, path).catch(() => {});
+      }
+      throw error;
+    }
+  },
 };

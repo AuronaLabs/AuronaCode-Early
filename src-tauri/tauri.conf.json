@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Aurona Code",
   "mainBinaryName": "Aurona Code",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "identifier": "com.aurona.code",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -28,7 +28,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
     }
   },
   "bundle": {

@@ -30,20 +30,10 @@ class LoggerImpl {
 
     // Hijack console
     const originalError = console.error;
-    const originalWarn = console.warn;
-    const originalLog = console.log;
 
     console.error = (...args) => {
       this.capture('ERROR', args);
       originalError(...args);
-    };
-    console.warn = (...args) => {
-      this.capture('WARN', args);
-      originalWarn(...args);
-    };
-    console.log = (...args) => {
-      this.capture('INFO', args);
-      originalLog(...args);
     };
   }
 
@@ -62,16 +52,13 @@ class LoggerImpl {
     }).join(' ');
 
     const logLine = `[${timestamp}] [${level}]\n${message}\n-------------------------------------------------\n`;
-    this.logBuffer.push(logLine);
-    this.flush();
+    this.flush(logLine);
   }
 
-  private async flush() {
-    if (this.logBuffer.length === 0) return;
+  private async flush(line: string) {
     try {
       await mkdir('logs', { baseDir: BaseDirectory.AppLocalData, recursive: true });
-      const content = this.logBuffer.join('');
-      await writeTextFile(`logs/${this.logId}.log`, content, { baseDir: BaseDirectory.AppLocalData });
+      await writeTextFile(`logs/${this.logId}.log`, line, { baseDir: BaseDirectory.AppLocalData, append: true });
     } catch (e) {
       // Silently fail to avoid infinite loop
     }

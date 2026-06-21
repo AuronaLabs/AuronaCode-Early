@@ -1,9 +1,12 @@
 import { BaseDirectory, exists, mkdir, readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import { TabItem } from "../Shared/Types/Tab";
 
 const CONFIG_FILE = "workspace.json";
 
 export interface WorkspaceConfig {
   lastOpenedPath?: string;
+  openTabs?: TabItem[];
+  activeTabId?: string | null;
 }
 
 export const StorageManager = {

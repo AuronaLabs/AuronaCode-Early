@@ -20,6 +20,15 @@ pub struct GitCommit {
     pub date: String,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct GitFullStatus {
+    pub repo_path: String,
+    pub is_repo: bool,
+    pub files: Vec<GitFile>,
+    pub commits: Vec<GitCommit>,
+    pub branch: String,
+}
+
 fn create_command(program: &str) -> Command {
     let mut cmd = Command::new(program);
     #[cfg(target_os = "windows")]
@@ -196,16 +205,26 @@ fn git_pull(path: String) -> Result<(), String> {
 #[tauri::command]
 fn git_discard_all(path: String) -> Result<(), String> {
     // 1. Reset staged changes
-    let _ = create_command("git")
+    let output = create_command("git")
         .current_dir(&path)
-        .args(&["reset", "HEAD", "--hard"])
-        .output();
+        .args(&["reset", "--hard", "HEAD"])
+        .output()
+        .map_err(|e| e.to_string())?;
+        
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
     
     // 2. Clean untracked files
-    let _ = create_command("git")
+    let output = create_command("git")
         .current_dir(&path)
         .args(&["clean", "-fd"])
-        .output();
+        .output()
+        .map_err(|e| e.to_string())?;
+        
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
         
     Ok(())
 }
@@ -273,7 +292,7 @@ fn git_set_remote(path: String, url: String) -> Result<(), String> {
 fn git_log(path: String) -> Result<Vec<GitCommit>, String> {
     let output = create_command("git")
         .current_dir(&path)
-        .args(&["log", "--pretty=format:%h|%an|%s|%ad", "--date=short", "-n", "50"])
+        .args(&["log", "--pretty=format:%h\x1f%an\x1f%s\x1f%ad", "--date=short", "-n", "50"])
         .output()
         .map_err(|e| e.to_string())?;
 
@@ -285,7 +304,7 @@ fn git_log(path: String) -> Result<Vec<GitCommit>, String> {
     let mut commits = Vec::new();
 
     for line in out_str.lines() {
-        let parts: Vec<&str> = line.splitn(4, '|').collect();
+        let parts: Vec<&str> = line.splitn(4, '\x1f').collect();
         if parts.len() == 4 {
             commits.push(GitCommit {
                 hash: parts[0].to_string(),
@@ -297,6 +316,32 @@ fn git_log(path: String) -> Result<Vec<GitCommit>, String> {
     }
 
     Ok(commits)
+}
+
+#[tauri::command]
+fn git_get_full_status(path: String) -> Result<GitFullStatus, String> {
+    let is_repo = git_check_is_repo(path.clone())?;
+    if !is_repo {
+        return Ok(GitFullStatus {
+            repo_path: path.clone(),
+            is_repo: false,
+            files: vec![],
+            commits: vec![],
+            branch: "".to_string(),
+        });
+    }
+
+    let files = git_status(path.clone()).unwrap_or_default();
+    let branch = git_current_branch(path.clone()).unwrap_or_default();
+    let commits = git_log(path.clone()).unwrap_or_default();
+
+    Ok(GitFullStatus {
+        repo_path: path,
+        is_repo: true,
+        files,
+        commits,
+        branch,
+    })
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -320,7 +365,9 @@ pub fn run() {
             git_get_remote,
             git_set_remote,
             git_log,
+            git_get_full_status,
             pty::spawn_pty,
+            pty::close_pty,
             pty::write_pty,
             pty::resize_pty,
             pty::get_available_shells,

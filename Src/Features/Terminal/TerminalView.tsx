@@ -175,7 +175,8 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
   }, [isActive]);
 
   useEffect(() => {
-    const handleWindowResize = () => {
+    if (!terminalRef.current) return;
+    const observer = new ResizeObserver(() => {
       if (isActive && fitAddonRef.current) {
          try {
             fitAddonRef.current.fit();
@@ -183,9 +184,9 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
              // Ignore
          }
       }
-    };
-    window.addEventListener("resize", handleWindowResize);
-    return () => window.removeEventListener("resize", handleWindowResize);
+    });
+    observer.observe(terminalRef.current);
+    return () => observer.disconnect();
   }, [isActive]);
 
   useEffect(() => {

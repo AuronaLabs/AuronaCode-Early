@@ -18,6 +18,7 @@ class TerminalService {
   private terminals: TerminalInstance[] = [];
   private activeTerminalId: string | null = null;
   private shells: ShellProfile[] | null = null;
+  private nextId = 1;
 
   public async getAvailableShells(): Promise<ShellProfile[]> {
     if (!this.shells) {
@@ -36,7 +37,7 @@ class TerminalService {
     const shell = shellId ? shells.find(s => s.id === shellId) : shells[0];
     const actualShell = shell || shells[0];
 
-    const newId = Date.now().toString();
+    const newId = (this.nextId++).toString();
     const name = `${actualShell.name} ${this.terminals.length + 1}`;
     
     const instance: TerminalInstance = {
@@ -57,6 +58,7 @@ class TerminalService {
 
   public removeTerminal(id: string) {
     this.terminals = this.terminals.filter(t => t.id !== id);
+    invoke("close_pty", { id }).catch(console.error);
     if (this.activeTerminalId === id) {
       this.activeTerminalId = this.terminals.length > 0 ? this.terminals[this.terminals.length - 1].id : null;
       EventBus.emit("terminal:active-changed", this.activeTerminalId);
@@ -116,7 +118,7 @@ class TerminalService {
 
   public async clearTerminal(id: string) {
     try {
-      await invoke("write_pty", { id, data: "clear\r\n" });
+      await invoke("write_pty", { id, data: "\x1b[2J\x1b[H" });
     } catch (e) {
       console.error("Failed to clear terminal", e);
     }

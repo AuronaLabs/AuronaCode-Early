@@ -96,7 +96,7 @@ export function EditorTab({ path, isActive }: EditorTabProps) {
 
     try {
       setIsSaving(true);
-      await FileSystemService.writeTextFile(path, contentRef.current);
+      await FileSystemService.writeTextFileAtomic(path, contentRef.current);
       savedContentRef.current = contentRef.current;
       setSavedContent(contentRef.current);
       EventBus.emit("editor:dirty-changed", { path, isDirty: false });

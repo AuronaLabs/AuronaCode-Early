@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { watch } from "@tauri-apps/plugin-fs";
 import { Button } from "../../UI/Components/Button";
 import { Icons } from "../../UI/Icons/IconManager";
 import { EventBus } from "../../Core/EventBus";
@@ -299,6 +300,8 @@ export function FileExplorer({ onFileSelect }: { onFileSelect: (path: string) =>
     initStorage();
   }, [loadFolderDirectly]);
 
+
+
   const refreshDirectory = useCallback(async (dirPath: string) => {
     const refreshedChildren = await FileSystemService.readDirectory(dirPath);
     setRootNode((previous) => {
@@ -317,6 +320,34 @@ export function FileExplorer({ onFileSelect }: { onFileSelect: (path: string) =>
       };
     });
   }, []);
+
+  useEffect(() => {
+    let unwatch: (() => void) | null = null;
+    let timer: number | null = null;
+
+    if (rootNode?.path) {
+      watch(
+        rootNode.path,
+        (event) => {
+          if (timer) window.clearTimeout(timer);
+          timer = window.setTimeout(() => {
+            // Debounce the refresh
+            refreshDirectory(rootNode.path).catch(() => {});
+          }, 300);
+        },
+        { recursive: true }
+      ).then((fn) => {
+        unwatch = fn;
+      }).catch((err) => {
+        console.error("Failed to watch directory:", err);
+      });
+    }
+
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      if (unwatch) unwatch();
+    };
+  }, [rootNode?.path, refreshDirectory]);
 
   const handleOpenFolder = useCallback(async () => {
     try {
@@ -473,6 +504,10 @@ export function FileExplorer({ onFileSelect }: { onFileSelect: (path: string) =>
     };
   }, [handleOpenFolder, startInlineCreate]);
 
+  const handleContextMenu = useCallback((event: React.MouseEvent, node: FileNode) => {
+    setContextMenu({ x: event.pageX, y: event.pageY, node });
+  }, []);
+
   const isRootTargetForInline = inlineCreation?.parentPath === rootNode?.path;
   const title = useMemo(() => rootNode?.name || "资源管理器", [rootNode]);
 
@@ -530,7 +565,7 @@ export function FileExplorer({ onFileSelect }: { onFileSelect: (path: string) =>
               onInlineCreate={handleInlineCreate}
               onInlineCancel={handleInlineCancel}
               onInlineRename={handleInlineRename}
-              onContextMenu={(event, node) => setContextMenu({ x: event.pageX, y: event.pageY, node })}
+              onContextMenu={handleContextMenu}
             />
           ))}
 

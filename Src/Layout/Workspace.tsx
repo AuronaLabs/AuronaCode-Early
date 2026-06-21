@@ -21,6 +21,7 @@ import { Tooltip } from "../UI/Feedback/Tooltip";
 import { Modal } from "../UI/Components/Modal";
 import { Button } from "../UI/Components/Button";
 import { TerminalManager, ShellProfile } from "../Core/TerminalService";
+import { StorageManager } from "../Core/StorageManager";
 
 const SIDEBAR_EXPLORER = "资源管理器";
 const SIDEBAR_SOURCE_CONTROL = "源代码管理";
@@ -50,6 +51,24 @@ export function WorkspaceView() {
   useEffect(() => {
     TerminalManager.getAvailableShells().then(setAvailableShells);
   }, []);
+
+  useEffect(() => {
+    const initTabs = async () => {
+      await StorageManager.init();
+      const config = await StorageManager.getConfig();
+      if (config.openTabs && config.openTabs.length > 0) {
+        setTabs(config.openTabs);
+        if (config.activeTabId) {
+          setActiveTabId(config.activeTabId);
+        }
+      }
+    };
+    initTabs();
+  }, []);
+
+  useEffect(() => {
+    StorageManager.saveConfig({ openTabs: tabs, activeTabId });
+  }, [tabs, activeTabId]);
 
   useEffect(() => {
     const unsubList = EventBus.on("terminal:list-changed", (list: any) => {

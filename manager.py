@@ -48,9 +48,9 @@ def WriteCargoVersion(NewVersion):
     with open(CargoToml, 'r', encoding='utf-8') as File:
         Content = File.read()
     Updated = re.sub(
-        r'(\[package\].*?^version\s*=\s*")([^"]+)(")',
+        r'^(\s*version\s*=\s*")([^"]+)(")',
         lambda M: M.group(1) + NewVersion + M.group(3),
-        Content, count=1, flags=re.MULTILINE | re.DOTALL
+        Content, count=1, flags=re.MULTILINE
     )
     with open(CargoToml, 'w', encoding='utf-8') as File:
         File.write(Updated)
@@ -77,10 +77,10 @@ def WriteSecurityVersion(NewVersion):
     with open(SecPath, 'w', encoding='utf-8') as File:
         File.write(Updated)
 
-def RunCommand(Command, Description):
+def RunCommand(CommandList, Description):
     ConsoleInstance.print(f"\n[bold blue]:: {Description} ::[/bold blue]")
     try:
-        subprocess.run(Command, shell=True, check=True)
+        subprocess.run(CommandList, check=True)
         ConsoleInstance.print(f"[bold green]✓ 任务完成 ({Description})[/bold green]\n")
     except subprocess.CalledProcessError:
         ConsoleInstance.print(f"[bold red]✗ 任务失败 ({Description})，请检查日志。[/bold red]\n")
@@ -121,7 +121,7 @@ def CheckAndInstallEnvironment():
                 ConsoleInstance.print(f"[bold red]✗ Tauri CLI 安装失败: {Err}[/bold red]")
 
     if HasNode and Confirm.ask("\n是否需要自动执行 npm install 以同步前端依赖?", default=True):
-        RunCommand("npm install", "安装项目前端依赖")
+        RunCommand(["npm", "install"], "安装项目前端依赖")
         
     ConsoleInstance.print("\n[dim]环境检查完成，按回车返回菜单...[/dim]")
     input()
@@ -280,7 +280,7 @@ def HandleDistribution():
         return
         
     ConsoleInstance.print("\n[bold blue]开始执行 Tauri 生产构建流水线... (可能会花费几分钟，请勿关闭终端)[/bold blue]")
-    RunCommand("npm run tauri:build", "执行 Tauri 构建 (Cargo Release)")
+    RunCommand(["npm", "run", "tauri:build"], "执行 Tauri 构建 (Cargo Release)")
     ConsoleInstance.print("[bold green]✓ 构建成功！安装包已输出至 src-tauri/target/release/bundle 目录。[/bold green]")
     input("\n按回车键返回主菜单...")
 
@@ -292,22 +292,23 @@ def Main():
         if Choice == "1":
             ConsoleInstance.print("\n[bold blue]:: 启动 Tauri 开发服务器... (Ctrl+C 中止) ::[/bold blue]")
             try:
-                subprocess.run("npm run tauri:dev", shell=True)
+                subprocess.run(["npm", "run", "tauri:dev"])
             except KeyboardInterrupt:
                 ConsoleInstance.print("\n[dim]已终止进程。[/dim]")
             time.sleep(1)
             
         elif Choice == "2":
-            RunCommand("npm install", "安装项目前端依赖")
+            RunCommand(["npm", "install"], "安装项目前端依赖")
             time.sleep(1)
             
         elif Choice == "3":
             ConsoleInstance.print("\n[bold blue]:: 清理工作区 ::[/bold blue]")
+            import shutil
             if os.path.exists("Dist"):
-                subprocess.run("rmdir /s /q Dist", shell=True)
+                shutil.rmtree("Dist", ignore_errors=True)
                 ConsoleInstance.print("[dim]清理前端 Dist 目录...[/dim]")
-            if os.path.exists("src-tauri/target"):
-                subprocess.run("rmdir /s /q src-tauri\\target", shell=True)
+            if os.path.exists(os.path.join("src-tauri", "target")):
+                shutil.rmtree(os.path.join("src-tauri", "target"), ignore_errors=True)
                 ConsoleInstance.print("[dim]清理 Rust target 目录...[/dim]")
             ConsoleInstance.print("[bold green]✓ 清理完成[/bold green]")
             time.sleep(1)
@@ -316,7 +317,7 @@ def Main():
             UpdateVersions()
             
         elif Choice == "5":
-            RunCommand("npm run build", "编译前端静态资源")
+            RunCommand(["npm", "run", "build"], "编译前端静态资源")
             time.sleep(1)
             
         elif Choice == "6":
