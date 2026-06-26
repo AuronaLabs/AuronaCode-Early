@@ -14,9 +14,9 @@ export function Modal({ isOpen, onClose, title, children, footer, icon }: ModalP
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30 backdrop-blur-lg p-4 animate-in fade-in duration-300">
       <div 
-        className="bg-[var(--ColorApp)] border border-[var(--ColorPanelBorder)] shadow-2xl rounded-xl w-full max-w-sm flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" 
+        className="bg-[var(--ColorEditor)] backdrop-blur-2xl border border-[var(--ColorPanelBorder)] rounded-2xl w-full max-w-sm flex flex-col overflow-hidden animate-in fade-in zoom-in-90 slide-in-from-bottom-2 duration-300 ease-out" 
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col p-5 gap-3">

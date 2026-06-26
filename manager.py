@@ -78,12 +78,18 @@ def WriteSecurityVersion(NewVersion):
         File.write(Updated)
 
 def RunCommand(CommandList, Description):
-    ConsoleInstance.print(f"\n[bold blue]:: {Description} ::[/bold blue]")
+    ConsoleInstance.print(f"\n[dim]:: {Description} ::[/dim]")
     try:
+        # 修复 WinError 2: Windows 下 npm 实际上是 npm.cmd
+        if os.name == 'nt' and CommandList[0] == 'npm':
+            CommandList[0] = 'npm.cmd'
+        elif os.name == 'nt' and CommandList[0] == 'cargo':
+            pass # cargo is an exe
+        
         subprocess.run(CommandList, check=True)
-        ConsoleInstance.print(f"[bold green]✓ 任务完成 ({Description})[/bold green]\n")
+        ConsoleInstance.print(f"[bold]✓ 任务完成[/bold] [dim]({Description})[/dim]\n")
     except subprocess.CalledProcessError:
-        ConsoleInstance.print(f"[bold red]✗ 任务失败 ({Description})，请检查日志。[/bold red]\n")
+        ConsoleInstance.print(f"[bold red]✗ 任务失败[/bold red] [dim]({Description})，请检查日志。[/dim]\n")
         sys.exit(1)
 
 def CheckAndInstallEnvironment():
@@ -134,21 +140,22 @@ def ShowMenu():
     except Exception:
         Version = 'Error Reading Config'
     
-    Title = "[bold white]AURONA CODE - BUILD SYSTEM (TAURI)[/bold white]"
-    Content = f"""[dim]Version:[/dim] [white]{Version}[/white]
+    Title = " AURONA MANAGER "
+    Content = f"""[dim]Version:[/dim] {Version}
 [dim]Workspace:[/dim] {os.getcwd()}
 
-[bold white][ 1 ][/bold white] 启动开发环境 (Tauri Dev)
-[bold white][ 2 ][/bold white] 安装前端依赖项 (Install NPM Dependencies)
-[bold white][ 3 ][/bold white] 清理构建缓存 (Clean Targets)
-[bold white][ 4 ][/bold white] 修改应用版本号 (Sync Version across packages)
-[bold white][ 5 ][/bold white] 编译前端静态资源 (Vite Build)
-[bold white][ 6 ][/bold white] 生成标准安装包 (Tauri Build / NSIS)
-[bold white][ 7 ][/bold white] ⚙️ 配置打包参数 (Edit Tauri Config & GUID)
-[bold green][ 8 ][/bold green] 🔧 检查并配置开发环境 (Auto Setup Env)
-[bold white][ 0 ][/bold white] 退出 (Exit)
+  [bold]1.[/bold] 启动开发环境 (Tauri Dev)
+  [bold]2.[/bold] 安装前端依赖项 (Install Dependencies)
+  [bold]3.[/bold] 清理构建缓存 (Clean Targets)
+  [bold]4.[/bold] 修改应用版本号 (Sync Version)
+  [bold]5.[/bold] 编译前端资源 (Vite Build)
+  [bold]6.[/bold] 生成标准安装包 (Tauri Build)
+  [bold]7.[/bold] 配置打包参数 (Edit Tauri Config)
+  [bold]8.[/bold] 检查环境配置 (Auto Setup Env)
+  
+  [bold]0.[/bold] 退出 (Exit)
 """
-    ConsoleInstance.print(Panel(Content, title=Title, border_style="cyan", padding=(1, 2)))
+    ConsoleInstance.print(Panel(Content, title=Title, title_align="left", border_style="dim", padding=(1, 4)))
 
 def UpdateVersions():
     TauriData = ReadJson(TauriConf)
@@ -248,40 +255,40 @@ def EditBuildConfig():
 def HandleDistribution():
     Data = ReadJson(TauriConf)
     
-    ConsoleInstance.print("\n[bold white]--- Tauri 生产包构建配置审核 ---[/bold white]")
+    ConsoleInstance.print("\n[bold]--- Tauri 构建配置审核 ---[/bold]")
     TableInstance = Table(show_header=False, box=None)
-    TableInstance.add_column("配置项 (Key)", style="dim")
-    TableInstance.add_column("当前值 (Value)", style="bold white")
-    TableInstance.add_column("配置说明 (Description)", style="cyan")
+    TableInstance.add_column("配置项", style="dim")
+    TableInstance.add_column("当前值", style="bold")
+    TableInstance.add_column("说明", style="dim")
     
-    TableInstance.add_row("应用名称 (productName):", Data.get('productName', '未设置'), "安装包显示的软件名称")
-    TableInstance.add_row("应用标识 (identifier):", Data.get('identifier', '未设置'), "软件唯一包名")
-    TableInstance.add_row("当前版本 (version):", Data.get('version', '未设置'), "打包输出的版本号")
+    TableInstance.add_row("应用名称:", Data.get('productName', '未设置'), "安装包显示的软件名称")
+    TableInstance.add_row("应用标识:", Data.get('identifier', '未设置'), "软件唯一包名")
+    TableInstance.add_row("当前版本:", Data.get('version', '未设置'), "打包输出的版本号")
     
     WindowsCfg = Data.get('bundle', {}).get('windows', {})
     NsisCfg = WindowsCfg.get('nsis', {})
     ConsoleInstance.print(TableInstance)
     
-    ConsoleInstance.print("\n[bold white]--- Windows 安装包高级配置 ---[/bold white]")
+    ConsoleInstance.print("\n[bold]--- Windows 安装包配置 ---[/bold]")
     NsisTable = Table(show_header=False, box=None)
-    NsisTable.add_column("配置项 (Key)", style="dim")
-    NsisTable.add_column("当前值 (Value)", style="bold yellow")
-    NsisTable.add_column("配置说明 (Description)", style="cyan")
+    NsisTable.add_column("配置项", style="dim")
+    NsisTable.add_column("当前值", style="bold")
+    NsisTable.add_column("说明", style="dim")
 
-    NsisTable.add_row("安装模式 (installMode):", str(NsisCfg.get('installMode', '未设置')), "perMachine=所有用户, currentUser=当前用户")
-    NsisTable.add_row("显示语言选择器 (displayLanguageSelector):", str(NsisCfg.get('displayLanguageSelector', '未设置')), "安装时是否弹出语言选择框")
-    NsisTable.add_row("升级标识码 (upgradeCode):", str(WindowsCfg.get('upgradeCode', '未设置')), "GUID，标识该软件用于替换旧版本")
+    NsisTable.add_row("安装模式:", str(NsisCfg.get('installMode', '未设置')), "perMachine=所有用户, currentUser=当前用户")
+    NsisTable.add_row("语言选择器:", str(NsisCfg.get('displayLanguageSelector', '未设置')), "安装时是否弹出语言选择框")
+    NsisTable.add_row("升级标识码:", str(WindowsCfg.get('upgradeCode', '未设置')), "GUID，标识该软件用于替换旧版本")
     
     ConsoleInstance.print(NsisTable)
     
-    ConsoleInstance.print("\n[bold red]注意：打包流程将调用 Rust 编译器进行全量构建，耗时较长。[/bold red]")
+    ConsoleInstance.print("\n[dim]注意：打包流程将调用 Rust 编译器进行全量构建，耗时较长。[/dim]")
     if not Confirm.ask("确认使用上述配置进行打包吗？"):
         ConsoleInstance.print("[dim]已取消打包流程。[/dim]")
         return
         
-    ConsoleInstance.print("\n[bold blue]开始执行 Tauri 生产构建流水线... (可能会花费几分钟，请勿关闭终端)[/bold blue]")
+    ConsoleInstance.print("\n[dim]开始执行 Tauri 生产构建流水线...[/dim]")
     RunCommand(["npm", "run", "tauri:build"], "执行 Tauri 构建 (Cargo Release)")
-    ConsoleInstance.print("[bold green]✓ 构建成功！安装包已输出至 src-tauri/target/release/bundle 目录。[/bold green]")
+    ConsoleInstance.print("[bold]✓ 构建成功！[/bold] [dim]安装包已输出至 src-tauri/target/release/bundle[/dim]")
     input("\n按回车键返回主菜单...")
 
 def Main():
@@ -290,9 +297,10 @@ def Main():
         Choice = Prompt.ask("请选择操作编号", choices=["0", "1", "2", "3", "4", "5", "6", "7", "8"], default="1")
         
         if Choice == "1":
-            ConsoleInstance.print("\n[bold blue]:: 启动 Tauri 开发服务器... (Ctrl+C 中止) ::[/bold blue]")
+            ConsoleInstance.print("\n[dim]:: 启动 Tauri 开发服务器... (Ctrl+C 中止) ::[/dim]")
             try:
-                subprocess.run(["npm", "run", "tauri:dev"])
+                cmd = ["npm.cmd", "run", "tauri:dev"] if os.name == 'nt' else ["npm", "run", "tauri:dev"]
+                subprocess.run(cmd)
             except KeyboardInterrupt:
                 ConsoleInstance.print("\n[dim]已终止进程。[/dim]")
             time.sleep(1)

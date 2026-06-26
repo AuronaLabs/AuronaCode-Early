@@ -9,7 +9,6 @@ import { ErrorBoundary } from "../Layout/ErrorBoundary";
 import { AppBootstrapper } from "../Core/AppBootstrapper";
 import { EventBus } from "../Core/EventBus";
 import { Logger } from "../Core/Logger";
-import "../Core/MonacoSetup";
 
 Logger.init();
 
@@ -30,8 +29,46 @@ function RootApp() {
 
     EventBus.on("app:reboot", onReboot);
 
+    // Global Keydown Interceptor to prevent default browser behaviors
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Allow DevTools in dev mode (Ctrl+Shift+I or F12)
+      if (e.key === "F12" || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i")) {
+        return;
+      }
+      
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const cmdKey = isMac ? e.metaKey : e.ctrlKey;
+      
+      const preventKeys = [
+        { ctrl: true, shift: false, key: 'p' }, // Print
+        { ctrl: true, shift: false, key: 'r' }, // Reload
+        { ctrl: false, shift: false, key: 'f5' }, // Reload
+        { ctrl: true, shift: true, key: 'r' }, // Hard Reload
+        { ctrl: true, shift: false, key: 's' }, // Save page
+      ];
+      
+      const shouldPrevent = preventKeys.some(k => 
+        (k.ctrl === cmdKey) && 
+        (k.shift === e.shiftKey) &&
+        (e.key.toLowerCase() === k.key.toLowerCase())
+      );
+      
+      if (shouldPrevent) {
+        e.preventDefault();
+        
+        if (cmdKey && !e.shiftKey && e.key.toLowerCase() === 'p') {
+          // Prepare for Command Palette
+          // EventBus.emit("app:command-palette");
+          console.log("Ctrl+P intercepted for Command Palette");
+        }
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
     return () => {
       EventBus.off("app:reboot", onReboot);
+      window.removeEventListener("keydown", onKeyDown);
     };
   }, []);
 

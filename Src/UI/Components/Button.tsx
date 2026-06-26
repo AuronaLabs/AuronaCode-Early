@@ -14,16 +14,16 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     let variantStyles = "";
     switch (variant) {
       case "primary":
-        variantStyles = "bg-[var(--ColorAccent)] text-white hover:bg-[var(--ColorAccentHover)] shadow-sm";
+        variantStyles = "bg-[var(--ColorAccent)] text-white hover:bg-[var(--ColorAccentHover)] border border-white/20 dark:border-white/10 focus-visible:ring-2 focus-visible:ring-[var(--ColorAccent)]/50";
         break;
       case "secondary":
-        variantStyles = "bg-[var(--ColorRailHover)] text-[var(--ColorTextHighlight)] hover:bg-[var(--ColorPanelBorder)] border border-[var(--ColorPanelBorder)]";
+        variantStyles = "bg-[var(--ColorRailHover)] text-[var(--ColorTextHighlight)] hover:bg-[var(--ColorPanelBorder)] border border-[var(--ColorPanelBorder)] focus-visible:ring-2 focus-visible:ring-[var(--ColorPanelBorder)]";
         break;
       case "danger":
-        variantStyles = "bg-red-600 text-white hover:bg-red-700 shadow-sm";
+        variantStyles = "bg-red-500/90 text-white hover:bg-red-500 border border-red-400/20 focus-visible:ring-2 focus-visible:ring-red-500/50";
         break;
       case "ghost":
-        variantStyles = "bg-transparent text-[var(--ColorText)] hover:bg-white/5 hover:text-[var(--ColorTextHighlight)]";
+        variantStyles = "bg-transparent text-[var(--ColorText)] hover:bg-[var(--ColorRailHover)] hover:text-[var(--ColorTextHighlight)] focus-visible:ring-2 focus-visible:ring-[var(--ColorPanelBorder)]";
         break;
     }
 
@@ -32,7 +32,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
-        className={`inline-flex items-center justify-center gap-2 rounded-md px-4 py-1.5 text-[12px] font-medium transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${variantStyles} ${widthStyles} ${className}`}
+        className={`inline-flex items-center justify-center gap-2 rounded-md px-4 py-1.5 text-[12px] font-medium transition-all duration-200 ease-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97] ${variantStyles} ${widthStyles} ${className}`}
         {...props}
       >
         {children}

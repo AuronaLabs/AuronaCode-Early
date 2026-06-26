@@ -10,10 +10,15 @@
         try {
           var theme = localStorage.getItem('aurona-theme') || 'system';
           var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          if (theme === 'dark' || (theme === 'system' && prefersDark)) {
+          var isDark = theme === 'dark' || (theme === 'system' && prefersDark);
+          if (isDark) {
             document.documentElement.classList.add('dark');
+            document.documentElement.style.setProperty('--ColorApp', '#09090b');
+            document.documentElement.style.setProperty('--ColorAccent', '#3b82f6');
           } else {
             document.documentElement.classList.remove('dark');
+            document.documentElement.style.setProperty('--ColorApp', '#f8fafc');
+            document.documentElement.style.setProperty('--ColorAccent', '#2563eb');
           }
         } catch (e) {}
       })();

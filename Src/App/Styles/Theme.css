@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -21,6 +22,7 @@
   --color-list-active: var(--ColorListActive);
   --color-tab-active: var(--ColorTabActive);
   --color-tab-inactive: var(--ColorTabInactive);
+  --color-tab-indicator: var(--ColorTabIndicator);
 }
 
 @font-face {
@@ -32,57 +34,73 @@
 }
 
 /* Custom styles for reverse border-radius tabs */
-.aurona-tab-active {
-  background-color: var(--ColorEditor);
-  border-radius: 8px 8px 0 0;
+/* 磁悬浮卡片标签样式 (Floating Cards) */
+.aurona-tab {
   position: relative;
+  height: var(--TabActiveHeight);
+  background: transparent;
+  color: var(--ColorText);
+  border-radius: 12px; /* 改回类似主卡片的圆角，消除突兀感 */
+  transition: background var(--duration-fast) var(--ease-smooth), 
+              color var(--duration-fast) ease,
+              border-color var(--duration-fast) var(--ease-smooth);
+  will-change: background;
+  margin-bottom: 0;
+  border: 1px solid transparent;
 }
 
-.aurona-tab-active::before,
-.aurona-tab-active::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  width: 10px;
-  height: 10px;
-  pointer-events: none;
+/* 激活态药丸：独立的毛玻璃悬浮效果 */
+.aurona-tab-active {
+  background-color: var(--ColorTabActive); /* 玻璃色 */
+  color: var(--ColorTextHighlight);
+  border-color: var(--ColorPanelBorder); /* 细微边框质感 */
+  backdrop-filter: blur(12px);
+  z-index: 10;
 }
 
-.aurona-tab-active::before {
-  left: -10px;
-  border-bottom-right-radius: 10px;
-  box-shadow: 5px 5px 0 5px var(--ColorEditor);
-}
-
-.aurona-tab-active::after {
-  right: -10px;
-  border-bottom-left-radius: 10px;
-  box-shadow: -5px 5px 0 5px var(--ColorEditor);
+/* 非激活悬停效果：保持全圆角 */
+.aurona-tab:not(.aurona-tab-active):hover {
+  background-color: var(--ColorListHover);
 }
 
 :root {
-  /* Light Theme (Default) */
-  --ColorApp: #f1f5f9;
-  --ColorTitleBar: #f8fafc;
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+
+  /* Light Theme (Pearl Glass) */
+  --ColorApp: #f8fafc;
+  --ColorTitleBar: rgba(255, 255, 255, 0.4);
   --ColorTitleBarText: #475569;
-  --ColorTitleBarHover: #e2e8f0;
-  --ColorRail: #ffffff;
-  --ColorRailHover: #f1f5f9;
+  --ColorTitleBarHover: rgba(15, 23, 42, 0.04);
+  --ColorRail: rgba(255, 255, 255, 0.5);
+  --ColorRailHover: rgba(15, 23, 42, 0.04);
   --ColorRailActive: #0f172a;
-  --ColorSidebar: #f8fafc;
-  --ColorEditor: #ffffff;
-  --ColorPanelBorder: #e2e8f0;
+  --ColorSidebar: rgba(255, 255, 255, 0.3);
+  --ColorEditor: rgba(255, 255, 255, 0.55);
+  --ColorSolid: #f8fafc;
+  --ColorPanelBorder: rgba(15, 23, 42, 0.06);
   --ColorText: #475569;
   --ColorTextHighlight: #0f172a;
   --ColorMuted: #94a3b8;
   --ColorAccent: #2563eb;
-  --ColorAccentHover: #1d4ed8;
+  --ColorAccentHover: #3b82f6;
   --ColorAccentText: #ffffff;
-  --ColorListHover: #f1f5f9;
-  --ColorListActive: #e2e8f0;
-  --ColorTabActive: #ffffff;
-  --ColorTabInactive: #f8fafc;
-  --AppBackground: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  --ColorListHover: rgba(15, 23, 42, 0.04);
+  --ColorListActive: rgba(15, 23, 42, 0.08);
+  --ColorTabActive: rgba(255, 255, 255, 0.7);
+  --ColorTabInactive: transparent;
+  --ColorPillSelected: #ffffff;
+  --ColorPillText: #0f172a;
+  --ColorTabIndicator: #000000;
+  
+  /* A vibrant mesh gradient background so the glassmorphism pops */
+  --AppBackground: 
+    radial-gradient(circle at 15% 50%, rgba(219, 234, 254, 0.8), transparent 30%),
+    radial-gradient(circle at 85% 30%, rgba(243, 232, 255, 0.8), transparent 30%),
+    linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
 
   --FontSizeBase: 13px;
   --TitleBarHeight: 44px;
@@ -97,6 +115,8 @@
   --TabBarHeight: calc(var(--TabActiveHeight) + 8px);
   --EditorFontSize: 14px;
   --EditorLineHeight: 24px;
+  --EditorFontFamily: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  
   
   color-scheme: light;
 }
@@ -134,28 +154,37 @@
 }
 
 .dark {
-  /* Dark Theme */
-  --ColorApp: #09090b;          /* Very dark zinc for outer canvas */
-  --ColorTitleBar: #18181b;     /* Slightly lighter for title bar */
-  --ColorTitleBarText: #a1a1aa; /* zinc-400 */
-  --ColorTitleBarHover: #27272a;
-  --ColorRail: #18181b;
-  --ColorRailHover: #27272a;
-  --ColorRailActive: #fafafa;   /* Bright white for active icon */
-  --ColorSidebar: #18181b;
-  --ColorEditor: #121214;       /* Deep but distinct card background */
-  --ColorPanelBorder: #27272a;  /* Subtle borders */
-  --ColorText: #a1a1aa;         /* zinc-400 text */
-  --ColorTextHighlight: #fafafa;/* zinc-50 pure white highlight */
-  --ColorMuted: #52525b;        /* zinc-600 */
-  --ColorAccent: #3b82f6;       /* Brighter blue for dark mode */
+  /* Dark Theme (Obsidian Glass) */
+  --ColorApp: #09090b;
+  --ColorTitleBar: rgba(0, 0, 0, 0.3);
+  --ColorTitleBarText: rgba(255, 255, 255, 0.7);
+  --ColorTitleBarHover: rgba(255, 255, 255, 0.08);
+  --ColorRail: rgba(0, 0, 0, 0.3);
+  --ColorRailHover: rgba(255, 255, 255, 0.06);
+  --ColorRailActive: #ffffff;
+  --ColorSidebar: rgba(0, 0, 0, 0.2);
+  --ColorEditor: rgba(0, 0, 0, 0.35);
+  --ColorSolid: #09090b;
+  --ColorPanelBorder: rgba(255, 255, 255, 0.06);
+  --ColorText: rgba(255, 255, 255, 0.7);
+  --ColorTextHighlight: #ffffff;
+  --ColorMuted: rgba(255, 255, 255, 0.4);
+  --ColorAccent: #3b82f6;
   --ColorAccentHover: #60a5fa;
   --ColorAccentText: #ffffff;
-  --ColorListHover: rgba(255, 255, 255, 0.08);
-  --ColorListActive: rgba(255, 255, 255, 0.12);
-  --ColorTabActive: #121214;
-  --ColorTabInactive: #18181b;
-  --AppBackground: var(--ColorApp);
+  --ColorListHover: rgba(255, 255, 255, 0.06);
+  --ColorListActive: rgba(255, 255, 255, 0.1);
+  --ColorTabActive: rgba(255, 255, 255, 0.08);
+  --ColorTabInactive: transparent;
+  --ColorPillSelected: rgba(255, 255, 255, 0.15);
+  --ColorPillText: #ffffff;
+  --ColorTabIndicator: #ffffff;
+  
+  /* A deep background with vibrant colored light refractions */
+  --AppBackground: 
+    radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.12), transparent 40%),
+    radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.12), transparent 40%),
+    linear-gradient(135deg, #09090b 0%, #000000 100%);
   
   color-scheme: dark;
 }
@@ -292,4 +321,14 @@ button {
 
 .monaco-editor .monaco-scrollable-element > .scrollbar > .slider.active {
   background: color-mix(in srgb, var(--ColorText) 50%, transparent) !important;
+}
+
+ /* Smooth theme transitions */
+body {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+div[class*="bg-"], button[class*="bg-"], input[class*="bg-"], select[class*="bg-"] {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 300ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }

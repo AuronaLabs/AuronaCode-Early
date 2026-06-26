@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { StorageManager } from "./StorageManager";
+import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 
 interface Props {
   children: React.ReactNode;
 }
 
-const applyResponsiveDensity = () => {
+const applyResponsiveDensity = (density?: "compact" | "default" | "comfortable") => {
   const root = document.documentElement;
+  if (density && density !== "default") {
+    root.dataset.density = density;
+    return;
+  }
+  
   const width = window.innerWidth;
   const height = window.innerHeight;
   const dpr = window.devicePixelRatio || 1;
@@ -20,16 +26,6 @@ const applyResponsiveDensity = () => {
   }
 };
 
-const BOOT_MESSAGES = [
-  "正在前往 Aurona Code 的路上",
-  "整理工作台，马上就好",
-  "路上有点堵，正在绕开",
-  "唤醒编辑器引擎",
-  "把文件树扶正一点",
-  "检查今天的灵感缓存",
-  "Aurona Code 即将抵达",
-];
-
 export function AppBootstrapper({ children }: Props) {
   const [status, setStatus] = useState<"initializing" | "ready">("initializing");
   const [fade, setFade] = useState(false);
@@ -38,24 +34,29 @@ export function AppBootstrapper({ children }: Props) {
   if (initError) throw initError;
 
   useEffect(() => {
-    applyResponsiveDensity();
-    window.addEventListener("resize", applyResponsiveDensity);
-    return () => window.removeEventListener("resize", applyResponsiveDensity);
-  }, []);
-
-  useEffect(() => {
     let mounted = true;
 
     async function initializeCoreServices() {
       const startTime = performance.now();
       try {
-        const savedTheme = localStorage.getItem("aurona-theme") || "system";
+        await UserConfigStore.init();
+        const userConfig = await UserConfigStore.get();
+        
+        const savedTheme = userConfig.theme || "system";
         const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
         if (savedTheme === "dark" || (savedTheme === "system" && prefersDark)) {
           document.documentElement.classList.add("dark");
         } else {
           document.documentElement.classList.remove("dark");
         }
+        
+        applyResponsiveDensity(userConfig.density);
+
+        // Apply Editor and Terminal font sizes
+        const savedEditorFont = localStorage.getItem("aurona-editor-fontsize") || "14";
+        const savedTerminalFont = localStorage.getItem("aurona-terminal-fontsize") || "13";
+        document.documentElement.style.setProperty("--EditorFontSize", `${savedEditorFont}px`);
+        document.documentElement.style.setProperty("--TerminalFontSize", `${savedTerminalFont}px`);
 
         const initPromise = Promise.all([StorageManager.init()]);
         const timeoutPromise = new Promise((_, reject) =>
@@ -90,8 +91,16 @@ export function AppBootstrapper({ children }: Props) {
 
     initializeCoreServices();
 
+    const handleResize = () => {
+      UserConfigStore.get().then(config => {
+        applyResponsiveDensity(config.density);
+      });
+    };
+    
+    window.addEventListener("resize", handleResize);
     return () => {
       mounted = false;
+      window.removeEventListener("resize", handleResize);
     };
   }, []);
 

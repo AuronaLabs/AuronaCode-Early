@@ -3,6 +3,8 @@ use std::process::Command;
 use std::path::Path;
 
 mod pty;
+mod search;
+mod lsp;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GitFile {
@@ -318,30 +320,169 @@ fn git_log(path: String) -> Result<Vec<GitCommit>, String> {
     Ok(commits)
 }
 
+// 任务 H：改为 async 并加 tokio::time::timeout（5秒）防止 git 命令挂起
 #[tauri::command]
-fn git_get_full_status(path: String) -> Result<GitFullStatus, String> {
-    let is_repo = git_check_is_repo(path.clone())?;
-    if !is_repo {
-        return Ok(GitFullStatus {
-            repo_path: path.clone(),
-            is_repo: false,
-            files: vec![],
-            commits: vec![],
-            branch: "".to_string(),
-        });
+async fn git_get_full_status(path: String) -> Result<GitFullStatus, String> {
+    // 整体超时 5 秒
+    tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        async {
+            let is_repo = git_check_is_repo(path.clone())?;
+            if !is_repo {
+                return Ok(GitFullStatus {
+                    repo_path: path.clone(),
+                    is_repo: false,
+                    files: vec![],
+                    commits: vec![],
+                    branch: "".to_string(),
+                });
+            }
+
+            // 任务 I：失败时打印错误日志，而非静默吞掉
+            let files = git_status(path.clone()).unwrap_or_else(|e| {
+                eprintln!("git sub-command failed: {:?}", e);
+                vec![]
+            });
+            let branch = git_current_branch(path.clone()).unwrap_or_else(|e| {
+                eprintln!("git sub-command failed: {:?}", e);
+                String::new()
+            });
+            let commits = git_log(path.clone()).unwrap_or_else(|e| {
+                eprintln!("git sub-command failed: {:?}", e);
+                vec![]
+            });
+
+            Ok(GitFullStatus {
+                repo_path: path,
+                is_repo: true,
+                files,
+                commits,
+                branch,
+            })
+        },
+    )
+    .await
+    .map_err(|_| "git_get_full_status timed out after 5 seconds".to_string())?
+}
+
+struct LspState {
+    clients: tokio::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<lsp::LspClient>>>,
+}
+
+// 任务 J：lsp_start 接收 AppHandle，版本号从 package_info() 动态读取
+#[tauri::command]
+async fn lsp_start(
+    language: String,
+    command: String,
+    args: Vec<String>,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, LspState>,
+) -> Result<(), String> {
+    let mut clients = state.clients.lock().await;
+    if clients.contains_key(&language) {
+        return Ok(()); // 已在运行中
     }
 
-    let files = git_status(path.clone()).unwrap_or_default();
-    let branch = git_current_branch(path.clone()).unwrap_or_default();
-    let commits = git_log(path.clone()).unwrap_or_default();
+    // 任务 J：从 AppHandle 的 package_info() 读取版本号，避免硬编码
+    let version = app_handle.package_info().version.to_string();
 
-    Ok(GitFullStatus {
-        repo_path: path,
-        is_repo: true,
-        files,
-        commits,
-        branch,
-    })
+    let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    let client = lsp::LspClient::start(&command, &args_ref, app_handle.clone()).await?;
+
+    // 发送 initialize 请求
+    let init_params = serde_json::json!({
+        "processId": std::process::id(),
+        "clientInfo": { "name": "Aurona Code", "version": version },
+        "rootUri": null,
+        "capabilities": {
+            "textDocument": {
+                "hover": {
+                    "dynamicRegistration": true,
+                    "contentFormat": ["markdown", "plaintext"]
+                },
+                "synchronization": {
+                    "dynamicRegistration": true,
+                    "willSave": false,
+                    "willSaveWaitUntil": false,
+                    "didSave": true
+                }
+            }
+        }
+    });
+
+    let _ = client.call("initialize", init_params).await?;
+    let _ = client.notify("initialized", serde_json::json!({})).await?;
+
+    clients.insert(language, std::sync::Arc::new(client));
+    Ok(())
+}
+
+#[tauri::command]
+async fn lsp_did_open(
+    language: String,
+    path: String,
+    text: String,
+    version: i32,
+    state: tauri::State<'_, LspState>,
+) -> Result<(), String> {
+    let clients = state.clients.lock().await;
+    if let Some(client) = clients.get(&language) {
+        let uri = format!("file:///{}", path.replace('\\', "/"));
+        let params = serde_json::json!({
+            "textDocument": {
+                "uri": uri,
+                "languageId": language,
+                "version": version,
+                "text": text
+            }
+        });
+        client.notify("textDocument/didOpen", params).await?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn lsp_did_change(
+    language: String,
+    path: String,
+    text: String,
+    version: i32,
+    state: tauri::State<'_, LspState>,
+) -> Result<(), String> {
+    let clients = state.clients.lock().await;
+    if let Some(client) = clients.get(&language) {
+        let uri = format!("file:///{}", path.replace('\\', "/"));
+        let params = serde_json::json!({
+            "textDocument": {
+                "uri": uri,
+                "version": version
+            },
+            "contentChanges": [{
+                "text": text
+            }]
+        });
+        client.notify("textDocument/didChange", params).await?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn lsp_did_close(
+    language: String,
+    path: String,
+    state: tauri::State<'_, LspState>,
+) -> Result<(), String> {
+    let clients = state.clients.lock().await;
+    if let Some(client) = clients.get(&language) {
+        let uri = format!("file:///{}", path.replace('\\', "/"));
+        let params = serde_json::json!({
+            "textDocument": {
+                "uri": uri,
+            }
+        });
+        client.notify("textDocument/didClose", params).await?;
+    }
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -350,6 +491,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .manage(pty::PtyState::new())
+        .manage(LspState {
+            clients: tokio::sync::Mutex::new(std::collections::HashMap::new()),
+        })
         .invoke_handler(tauri::generate_handler![
             git_check_is_repo,
             git_init,
@@ -371,6 +515,11 @@ pub fn run() {
             pty::write_pty,
             pty::resize_pty,
             pty::get_available_shells,
+            search::search_workspace,
+            lsp_start,
+            lsp_did_open,
+            lsp_did_change,
+            lsp_did_close,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Aurona Code");

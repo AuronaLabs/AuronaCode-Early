@@ -1,103 +1,87 @@
 <div align="center">
+  <br />
+  <img src="public/logo.png" alt="Aurona Code Logo" width="120" />
   <h1>Aurona Code</h1>
-  <p><strong>基于 Tauri 与 React 构建的桌面代码编辑器</strong></p>
+  <p><strong>基于 Tauri 与 React 构筑的跨平台智能桌面代码编辑器</strong></p>
   
-  [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-  [![Tauri](https://img.shields.io/badge/Tauri-V2-orange.svg)](https://tauri.app/)
-  [![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
+  <p>
+    <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=for-the-badge" alt="License" /></a>
+    <a href="https://tauri.app/"><img src="https://img.shields.io/badge/Tauri-V2-FFC131?style=for-the-badge&logo=tauri&logoColor=white" alt="Tauri" /></a>
+    <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=black" alt="React" /></a>
+    <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-Safe-000000?style=for-the-badge&logo=rust&logoColor=white" alt="Rust" /></a>
+  </p>
 </div>
 
-<hr />
+---
 
-## 早期版本声明
-
-**Aurona Code 目前处于早期快速迭代开发阶段** 
-
-为了在早期发展阶段最大程度保护开源成果及用户安全，本项目目前采用 **AGPL 3.0** 开源许可证进行分发
-
-当前早期版本仅提供**简体中文**支持
-
-国际化适配将在核心功能稳定后推出
-
-## 核心特性
-
-**0.0.X 系列的基础沉淀与核心框架已经构建完成（以最新的 0.0.5 稳定版为该系列最终章）**
-
-* **基于 Tauri 的底层架构**：采用 Rust 与 Tauri 替代 Electron，优化启动速度与内存开销
-* **原生级 UI 体验**：使用 Tailwind CSS 构建无边框、高透明度的现代操作系统级界面
-* **Monaco Editor 集成**：集成 Monaco Editor，提供多语言语法高亮与代码提示
-* **内置 PTY 终端**：基于 xterm.js 与 portable-pty，支持本地命令行交互
-* **可视化 Git 管理**：后台预加载机制的 Git 面板，支持文件暂存、提交与历史追踪
-* **集中化状态管理**：提供基于 JSON 的持久化工作区记忆与极高安全性的原子级文件保存能力
+<br />
 
 > [!NOTE]
-> **预告：0.1.X 重大更新即将到来**
+> **早期版本声明**
 > 
-> 在经过 0.0.X 系列对底层文件系统、终端架构与安全渲染的严苛打磨后，即将发布的 **0.1.X** 将迎来一次里程碑式的重大架构升级，敬请期待
+> Aurona Code 目前处于早期快速迭代开发阶段。为了在早期发展阶段最大程度保护开源成果及用户安全，本项目目前采用 **AGPL 3.0** 开源许可证进行分发。当前早期版本已开启 **Windows、macOS 与 Linux 全平台构建**，且界面仅提供**简体中文**支持。
 
-## 技术架构
+<br />
 
-* **底层框架**: [Tauri v2](https://v2.tauri.app/)
-* **前端框架**: [React 19](https://react.dev/) + [Vite](https://vitejs.dev/) + [TypeScript](https://www.typescriptlang.org/)
-* **样式方案**: [Tailwind CSS v4](https://tailwindcss.com/)
-* **编辑器内核**: [Monaco Editor](https://microsoft.github.io/monaco-editor/)
-* **终端实现**: [xterm.js](https://xtermjs.org/) + `portable-pty`
+## 🚀 0.1.0 架构纪元：Corona
 
-## 构建脚本指南
+Aurona Code V0.1.0 是一次里程碑式的底层技术跃迁。我们在该版本中引入了全新的 **Corona 架构** 规范，彻底解决了早期版本中的各种耦合与资源泄漏问题。
 
-本项目内置了交互式 CLI 管理脚本 `manager.py`，用于接管所有构建、清理、环境检查与配置更新流程
+| 特性 | 详情描述 |
+| :--- | :--- |
+| **🛡️ IPC 绝对隔离** | UI 表现层与后端 Tauri API（invoke/listen）彻底物理隔离，全面收拢至底层 `Foundation/IPC` 模块，极大增强系统的安全边界与可维护性。 |
+| **🎨 极致沉浸视界** | 采用 Tailwind CSS v4 打造无边框、极致玻璃态（Glassmorphism）与光影折射的现代系统级界面，并配以极度平滑的自适应深浅模式切换。 |
+| **🔐 Rust 进程守护** | 通过原子锁与 `Drop` 生命周期钩子守护 PTY 终端进程与 LSP 语言服务。杜绝僵尸进程，保证编辑器在意外退出时本地资源的绝对安全。 |
+| **⚡ 预加载与流式渲染** | 全新的事件总线与异步数据流让 Git 版本控制状态、海量文件树扫描做到毫秒级响应，彻底告别主线程阻塞卡顿。 |
 
-在根目录终端运行以下命令进入交互菜单：
+<br />
 
-```bash
-python manager.py
-```
+## 🛠️ 技术栈基石
 
-进入后，输入对应功能的**数字序号**即可执行操作：
+我们精挑细选了现代 Web 与系统编程领域最前沿、最高效的技术，为您打造丝滑的本地编码体验。
 
-- `[ 1 ]` 启动开发服务器
-- `[ 2 ]` 安装前端依赖项
-- `[ 3 ]` 清理构建缓存
-- `[ 4 ]` 全局同步包版本号
-- `[ 5 ]` 编译前端静态资源
-- `[ 6 ]` 生成标准安装包
-- `[ 7 ]` 交互式配置打包参数
-- `[ 8 ]` **检查并自动配置系统开发环境**
+- **系统核心**: [Tauri v2](https://v2.tauri.app/) + [Rust](https://www.rust-lang.org/)
+- **渲染引擎**: [React 19](https://react.dev/) + [Vite](https://vitejs.dev/) + [TypeScript](https://www.typescriptlang.org/)
+- **设计系统**: [Tailwind CSS v4](https://tailwindcss.com/)
+- **编辑内核**: [Monaco Editor](https://microsoft.github.io/monaco-editor/) + 深度定制语言服务
+- **终端生态**: [xterm.js](https://xtermjs.org/) + `portable-pty`
 
-## 环境配置与运行指引
+<br />
 
-首次拉取代码后，推荐使用 `manager.py` 提供的选项 `[ 8 ]` 自动检查并补全开发环境
+## 📦 环境配置与运行指引
 
-如果希望手动进行：
+首次拉取代码后，我们推荐您使用项目内置的 `manager.py` 自动化管理脚本。
 
-1 请确保系统中安装有 [Node.js](https://nodejs.org/) 与 [Rust](https://www.rust-lang.org/)
+1. **环境准备**：请确保您的计算机已安装 [Node.js](https://nodejs.org/) 与 [Rust](https://www.rust-lang.org/) 环境。
+2. **克隆代码**：
+   ```bash
+   git clone https://github.com/AuronaLabs/AuronaCode-Early.git
+   cd AuronaCode-Early
+   ```
+3. **安装依赖**：
+   ```bash
+   npm install
+   ```
+4. **启动调试**：
+   在根目录运行以下命令打开交互式面板，输入 `1` 即可启动开发服务器。
+   ```bash
+   python manager.py
+   ```
 
-2 克隆项目源代码：
-```bash
-git clone https://github.com/AuronaLabs/AuronaCode-Early.git
-cd AuronaCode-Early
-```
+<br />
 
-3 安装前端依赖库：
-```bash
-npm install
-```
+## 🤝 参与社区贡献
 
-4 运行 `python manager.py` 并选择 `[ 1 ]` 启动开发服务器
-
-## 参与贡献
-
-我们欢迎社区开发者的参与
-
-提交代码合并请求之前，请务必阅读我们的 [贡献指南](.github/CONTRIBUTING.md) 和 [行为准则](.github/CODE_OF_CONDUCT.md)
+我们热切欢迎并且期待您的 PR 与 Issue！在提交任何合并请求前，请务必阅读我们的 [文档目录](Docs) 中关于 Corona 架构和设计规范的要求。
 
 > [!CAUTION]
-> 发现安全漏洞时请**不要**在公共页面中讨论
-> 
-> 请严格按照 [安全策略](.github/SECURITY.md) 流程进行私密报告
+> 发现安全漏洞时，请**绝对不要**在公共页面（如 Issue 区）中讨论。请严格按照 [安全策略](.github/SECURITY.md) 的流程进行私密报告，我们将第一时间予以响应。
 
-## 许可证声明
+<br />
 
-本项目受 [GNU Affero General Public License v3.0](LICENSE) 许可证保护
+---
 
-相关授权与限制条款，请参阅项目根目录下的 `LICENSE` 文件
+<div align="center">
+  <p>本项目受 <a href="LICENSE">GNU Affero General Public License v3.0</a> 许可证保护。</p>
+  <p>Made with ❤️ by AuronaLabs</p>
+</div>

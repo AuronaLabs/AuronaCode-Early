@@ -18,7 +18,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           react: ["react", "react-dom"],
-          monaco: ["@monaco-editor/react", "monaco-editor"],
           xterm: ["@xterm/xterm", "@xterm/addon-fit", "@xterm/addon-web-links"]
         }
       }
@@ -26,8 +25,5 @@ export default defineConfig({
   },
   esbuild: {
     drop: ["console", "debugger"],
-  },
-  optimizeDeps: {
-    include: ["@monaco-editor/react", "monaco-editor"],
   },
 });

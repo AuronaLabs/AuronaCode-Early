@@ -38,36 +38,36 @@ export function AboutTab() {
         </div>
 
         {/* System Environment */}
-        <div className="flex flex-col gap-4 border-t border-[var(--ColorPanelBorder)] pt-6">
+        <div className="flex flex-col gap-6 pt-6">
           <h3 className="text-[14px] font-semibold text-[var(--ColorTextHighlight)]">
             系统与环境信息
           </h3>
-          <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-[13px] bg-black/[0.02] dark:bg-white/[0.02] p-4 rounded-lg border border-[var(--ColorPanelBorder)]">
-            <div className="flex flex-col gap-1">
+          <div className="grid grid-cols-2 gap-y-8 gap-x-12 text-[13px]">
+            <div className="flex flex-col gap-2">
               <span className="text-[var(--ColorMuted)]">操作系统</span>
-              <span className="font-medium text-[var(--ColorTextHighlight)]">{osInfo}</span>
+              <span className="font-medium text-[var(--ColorTextHighlight)] text-[15px]">{osInfo}</span>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
               <span className="text-[var(--ColorMuted)]">硬件架构</span>
-              <span className="font-medium text-[var(--ColorTextHighlight)]">x64 (CPU Cores: {cpuCores})</span>
+              <span className="font-medium text-[var(--ColorTextHighlight)] text-[15px]">x64 (CPU Cores: {cpuCores})</span>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
               <span className="text-[var(--ColorMuted)]">渲染引擎</span>
-              <span className="font-medium text-[var(--ColorTextHighlight)]">Tauri / WebView2</span>
+              <span className="font-medium text-[var(--ColorTextHighlight)] text-[15px]">Tauri / WebView2</span>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
               <span className="text-[var(--ColorMuted)]">UI 框架</span>
-              <span className="font-medium text-[var(--ColorTextHighlight)]">React 19 + Tailwind v4</span>
+              <span className="font-medium text-[var(--ColorTextHighlight)] text-[15px]">React 19 + Tailwind v4</span>
             </div>
           </div>
         </div>
         
-        <div className="flex flex-col gap-4 border-t border-[var(--ColorPanelBorder)] pt-6">
+        <div className="flex flex-col gap-6 pt-6">
           <h3 className="text-[14px] font-semibold text-[var(--ColorTextHighlight)]">
             致谢与开源许可
           </h3>
-          <p className="text-[13px] text-[var(--ColorMuted)] leading-relaxed">
-            Aurona Code 的诞生离不开开源社区的伟大力量特别感谢 <span className="text-[var(--ColorTextHighlight)] font-medium">Monaco Editor</span> 提供了世界级的代码编辑体验，感谢 <span className="text-[var(--ColorTextHighlight)] font-medium">xterm.js</span> 带来了顶级的终端集成能力
+          <p className="text-[13px] text-[var(--ColorMuted)] leading-relaxed max-w-xl">
+            Aurona Code 的诞生离不开开源社区的伟大力量。特别感谢 <span className="text-[var(--ColorTextHighlight)] font-medium">Tauri</span> 提供的高效跨平台能力，以及所有参与本项目的开源作者们。
           </p>
         </div>
       </div>

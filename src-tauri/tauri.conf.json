@@ -2,12 +2,11 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Aurona Code",
   "mainBinaryName": "Aurona Code",
-  "version": "0.0.5",
+  "version": "0.1.0",
   "identifier": "com.aurona.code",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
-    "beforeBundleCommand": "powershell -Command \"Copy-Item 'src-tauri/target/release/aurona-code.exe' 'src-tauri/target/release/Aurona Code.exe' -Force\"",
     "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../Dist"
   },
@@ -33,9 +32,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "nsis"
-    ],
+    "targets": "all",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -45,6 +42,9 @@
     ],
     "license": "../build/license.txt",
     "windows": {
+      "wix": {
+        "language": "zh-CN"
+      },
       "nsis": {
         "installMode": "perMachine",
         "displayLanguageSelector": false,
@@ -54,6 +54,12 @@
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico"
       }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.13"
+    },
+    "linux": {
+      "deb": {}
     }
   }
 }

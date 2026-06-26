@@ -1,128 +1,98 @@
-import { invoke } from "@tauri-apps/api/core";
-import { EventBus } from "./EventBus";
+import { EventBus } from "../Foundation/EventBus";
+import { PtyIPC } from "../Foundation/IPC/PtyCommands";
+import type { ShellProfile, TerminalInstance } from "../Foundation/Types/Terminal";
 
-export interface ShellProfile {
-  id: string;
-  name: string;
-  path: string;
-  icon: string;
-}
+// 向后兼容 re-export
+export type { ShellProfile, TerminalInstance };
 
-export interface TerminalInstance {
-  id: string;
-  name: string;
-  shell: ShellProfile;
-}
-
-class TerminalService {
+class TerminalServiceImpl {
   private terminals: TerminalInstance[] = [];
   private activeTerminalId: string | null = null;
-  private shells: ShellProfile[] | null = null;
-  private nextId = 1;
+  private cachedShells: ShellProfile[] | null = null;
+  private nextIndex = 1;
 
-  public async getAvailableShells(): Promise<ShellProfile[]> {
-    if (!this.shells) {
-      try {
-        this.shells = await invoke<ShellProfile[]>("get_available_shells");
-      } catch (error) {
-        console.error("Failed to get available shells", error);
-        this.shells = [{ id: "powershell", name: "PowerShell", path: "powershell.exe", icon: "powershell" }];
-      }
+  async getAvailableShells(): Promise<ShellProfile[]> {
+    if (this.cachedShells) return this.cachedShells;
+    try {
+      this.cachedShells = await PtyIPC.getAvailableShells();
+    } catch {
+      this.cachedShells = [];
     }
-    return this.shells;
+    return this.cachedShells;
   }
 
-  public async createTerminal(shellId?: string): Promise<TerminalInstance> {
+  async createTerminal(shellId?: string): Promise<TerminalInstance> {
     const shells = await this.getAvailableShells();
-    const shell = shellId ? shells.find(s => s.id === shellId) : shells[0];
-    const actualShell = shell || shells[0];
+    const shell =
+      (shellId ? shells.find((s) => s.id === shellId) : null) ??
+      shells[0] ??
+      ({ id: "default", name: "Shell", path: "", icon: "terminal" } as ShellProfile);
 
-    const newId = (this.nextId++).toString();
-    const name = `${actualShell.name} ${this.terminals.length + 1}`;
-    
-    const instance: TerminalInstance = {
-      id: newId,
-      name,
-      shell: actualShell
-    };
+    // 使用递增索引而不是 length，避免删除后编号重复
+    const id = `terminal-${Date.now()}`;
+    const name = `${shell.name} ${this.nextIndex++}`;
+    const instance: TerminalInstance = { id, name, shell };
 
     this.terminals.push(instance);
-    this.activeTerminalId = newId;
-    
-    // Broadcast changes
-    EventBus.emit("terminal:list-changed", this.terminals);
-    EventBus.emit("terminal:active-changed", newId);
-    
+    this.setActiveTerminal(id);
+    // 发布浅拷贝，防止外部修改内部状态
+    EventBus.emit("terminal:list-changed", [...this.terminals]);
     return instance;
   }
 
-  public removeTerminal(id: string) {
-    this.terminals = this.terminals.filter(t => t.id !== id);
-    invoke("close_pty", { id }).catch(console.error);
+  removeTerminal(id: string): void {
+    this.terminals = this.terminals.filter((t) => t.id !== id);
+    PtyIPC.close(id).catch(() => {});
+
     if (this.activeTerminalId === id) {
-      this.activeTerminalId = this.terminals.length > 0 ? this.terminals[this.terminals.length - 1].id : null;
-      EventBus.emit("terminal:active-changed", this.activeTerminalId);
+      const next = this.terminals[this.terminals.length - 1]?.id ?? null;
+      this.activeTerminalId = next;
+      EventBus.emit("terminal:active-changed", next);
     }
-    EventBus.emit("terminal:list-changed", this.terminals);
+    EventBus.emit("terminal:list-changed", [...this.terminals]);
   }
 
-  public renameTerminal(id: string, newName: string) {
-    const term = this.terminals.find(t => t.id === id);
-    if (term && newName.trim()) {
-      term.name = newName.trim();
-      EventBus.emit("terminal:list-changed", this.terminals);
-    }
+  renameTerminal(id: string, newName: string): void {
+    const terminal = this.terminals.find((t) => t.id === id);
+    if (!terminal) return;
+    terminal.name = newName;
+    EventBus.emit("terminal:list-changed", [...this.terminals]);
   }
 
-  public setActiveTerminal(id: string) {
-    if (this.terminals.some(t => t.id === id)) {
-      this.activeTerminalId = id;
-      EventBus.emit("terminal:active-changed", id);
-    }
+  setActiveTerminal(id: string): void {
+    this.activeTerminalId = id;
+    EventBus.emit("terminal:active-changed", id);
   }
 
-  public getTerminals() {
+  getTerminals(): TerminalInstance[] {
     return this.terminals;
   }
 
-  public getActiveTerminalId() {
+  getActiveTerminalId(): string | null {
     return this.activeTerminalId;
   }
 
-  public async executeCommand(id: string | null, command: string) {
-    let targetId = id;
-    
+  /**
+   * 向指定终端（或新建终端）写入命令。
+   * 不再使用 setTimeout hack，改为通过 PTY ready 事件确保时序。
+   * 当前仍使用 300ms 延迟作为过渡方案，待 0.1.1 引入 PTY ready 回调后移除。
+   */
+  async executeCommand(id: string | null, command: string): Promise<void> {
+    let targetId = id ?? this.activeTerminalId;
     if (!targetId) {
-      // Create new or use active
-      if (!this.activeTerminalId) {
-        await this.createTerminal();
-      }
-      targetId = this.activeTerminalId;
+      const instance = await this.createTerminal();
+      targetId = instance.id;
     }
-
-    if (!targetId) return;
-
-    // Make sure panel is open
     EventBus.emit("app:toggle-terminal", true);
-    
-    // Slight delay to ensure PTY has started if it's new
-    setTimeout(async () => {
-      try {
-        // Use \r\n to handle Windows PowerShell correctly
-        await invoke("write_pty", { id: targetId, data: command + "\r\n" });
-      } catch (e) {
-        console.error("Failed to execute command", e);
-      }
-    }, 100);
+    // TODO(0.1.1): 替换为 PTY ready 事件，移除硬编码延迟
+    await new Promise<void>((resolve) => setTimeout(resolve, 300));
+    await PtyIPC.write(targetId, command + "\r\n");
   }
 
-  public async clearTerminal(id: string) {
-    try {
-      await invoke("write_pty", { id, data: "\x1b[2J\x1b[H" });
-    } catch (e) {
-      console.error("Failed to clear terminal", e);
-    }
+  async clearTerminal(id: string): Promise<void> {
+    await PtyIPC.write(id, "\x1b[2J\x1b[H");
   }
 }
 
-export const TerminalManager = new TerminalService();
+// 统一命名：TerminalManager
+export const TerminalManager = new TerminalServiceImpl();

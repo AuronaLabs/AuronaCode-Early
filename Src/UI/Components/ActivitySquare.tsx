@@ -28,7 +28,7 @@ export const ActivitySquare = React.forwardRef<HTMLButtonElement, ActivitySquare
 
     if (title) {
       return (
-        <Tooltip content={title} delay={200}>
+        <Tooltip content={title} delay={200} placement="right">
           {buttonElement}
         </Tooltip>
       );

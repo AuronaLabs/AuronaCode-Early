@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { PtyIPC } from "../../Foundation/IPC/PtyCommands";
 import "@xterm/xterm/css/xterm.css";
 import { StorageManager } from "../../Core/StorageManager";
+import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { ShellProfile } from "../../Core/TerminalService";
+import { EventBus } from "../../Core/EventBus";
+import { ContextMenu, ContextMenuItem, ContextMenuDivider } from "../../UI/Components/ContextMenu";
 
 interface TerminalViewProps {
   id: string;
@@ -21,6 +24,27 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
   const [isSpawned, setIsSpawned] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
   const isInitializingRef = useRef(true);
+
+  const [terminalSettings, setTerminalSettings] = useState({
+    fontSize: 13,
+    cursorBlink: true
+  });
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const config = await UserConfigStore.get();
+      setTerminalSettings({
+        fontSize: config.terminalFontSize || parseInt(localStorage.getItem("aurona-terminal-fontsize") || "13"),
+        cursorBlink: config.terminalCursorBlink !== false && localStorage.getItem("aurona-terminal-cursorblink") !== "false"
+      });
+    };
+    loadSettings();
+
+    const handleSettingsChange = () => {
+      loadSettings();
+    };
+    return EventBus.on("settings:terminal-changed", handleSettingsChange);
+  }, []);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -63,10 +87,14 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
     };
 
     const term = new Terminal({
-      cursorBlink: true,
-      fontSize: 13,
+      cursorBlink: terminalSettings.cursorBlink,
+      fontSize: terminalSettings.fontSize,
+      allowTransparency: true,
       fontFamily: "Consolas, 'Courier New', monospace",
-      theme: getTerminalTheme(),
+      theme: {
+        ...getTerminalTheme(),
+        background: "transparent",
+      },
     });
 
     const fitAddon = new FitAddon();
@@ -85,7 +113,7 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
         }
         if (e.code === 'KeyV') {
           navigator.clipboard.readText().then(text => {
-             invoke("write_pty", { id, data: text }).catch(console.error);
+             PtyIPC.write(id, text).catch(console.error);
           });
           return false;
         }
@@ -113,11 +141,11 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
           return; // Fully suppressed
         }
       }
-      invoke("write_pty", { id, data }).catch(console.error);
+      PtyIPC.write(id, data).catch(console.error);
     });
 
     const onResizeDisposable = term.onResize(({ cols, rows }) => {
-      invoke("resize_pty", { id, cols, rows }).catch(console.error);
+      PtyIPC.resize(id, rows, cols).catch(console.error);
     });
 
     return () => {
@@ -126,7 +154,7 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
       onResizeDisposable.dispose();
       term.dispose();
     };
-  }, [id]);
+  }, [id, terminalSettings.fontSize, terminalSettings.cursorBlink]); // Re-create terminal when settings change significantly since xterm.js doesn't nicely update some things dynamically, or we can just apply dynamically.
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
@@ -145,7 +173,7 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
           }
         });
 
-        await invoke("spawn_pty", { id, cwd, shell_path: shellProfile?.path });
+        await PtyIPC.spawn(id, cwd, shellProfile?.path);
         setIsSpawned(true);
       } catch (error) {
         console.error("Failed to spawn PTY", error);
@@ -221,7 +249,7 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
         
         xtermRef.current.options.theme = {
           ...xtermRef.current.options.theme,
-          background: backgroundColor,
+          background: "transparent",
           foreground: foregroundColor,
           cursor: cursorColor,
           cursorAccent: backgroundColor,
@@ -233,12 +261,6 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
 
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme"] });
     return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const handleClick = () => setContextMenu(null);
-    window.addEventListener("click", handleClick);
-    return () => window.removeEventListener("click", handleClick);
   }, []);
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -260,22 +282,20 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
       <div ref={terminalRef} className="h-full w-full" />
       
       {contextMenu && (
-        <div 
-          className="fixed z-50 bg-[var(--ColorEditor)] border border-[var(--ColorPanelBorder)] rounded-md shadow-lg py-1 min-w-[120px] text-[13px] text-[var(--ColorTextHighlight)]"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-          onClick={(e) => e.stopPropagation()}
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
         >
-          <div 
-            className="px-6 py-1.5 hover:bg-[var(--ColorAccent)] hover:text-white cursor-pointer transition-colors"
+          <ContextMenuItem
+            label="全选"
             onClick={() => {
               xtermRef.current?.selectAll();
               setContextMenu(null);
             }}
-          >
-            全选
-          </div>
-          <div 
-            className="px-6 py-1.5 hover:bg-[var(--ColorAccent)] hover:text-white cursor-pointer transition-colors"
+          />
+          <ContextMenuItem
+            label="复制"
             onClick={() => {
               if (xtermRef.current?.hasSelection()) {
                 navigator.clipboard.writeText(xtermRef.current.getSelection());
@@ -283,21 +303,25 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
               }
               setContextMenu(null);
             }}
-          >
-            复制
-          </div>
-          <div 
-            className="px-6 py-1.5 hover:bg-[var(--ColorAccent)] hover:text-white cursor-pointer transition-colors"
+          />
+          <ContextMenuItem
+            label="粘贴"
             onClick={() => {
               navigator.clipboard.readText().then(text => {
-                invoke("write_pty", { id, data: text }).catch(console.error);
+                PtyIPC.write(id, text).catch(console.error);
               });
               setContextMenu(null);
             }}
-          >
-            粘贴
-          </div>
-        </div>
+          />
+          <ContextMenuDivider />
+          <ContextMenuItem
+            label="清除输出"
+            onClick={() => {
+              xtermRef.current?.clear();
+              setContextMenu(null);
+            }}
+          />
+        </ContextMenu>
       )}
     </div>
   );

@@ -1,44 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { Icons } from "../../UI/Icons/IconManager";
 import { StorageManager } from "../../Core/StorageManager";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { EventBus } from "../../Core/EventBus";
 import { showToast } from "../../UI/Feedback/Toast";
-
-interface GitFile {
-  path: string;
-  name: string;
-  status: string;
-  is_staged: boolean;
-}
-
-interface GitCommit {
-  hash: string;
-  author: string;
-  message: string;
-  date: string;
-}
-
-type SourceControlCache = {
-  repoPath: string | null;
-  isRepo: boolean;
-  files: GitFile[];
-  commits: GitCommit[];
-  branch: string;
-  checkedAt: number;
-};
-
-let sourceControlCache: SourceControlCache | null = null;
-
-const getCachedState = (path: string | null) => {
-  if (!path || !sourceControlCache || sourceControlCache.repoPath !== path) return null;
-  return sourceControlCache;
-};
-
-const writeCache = (cache: SourceControlCache) => {
-  sourceControlCache = cache;
-};
+import { GitIPC, GitFile, GitCommit } from "../../Foundation/IPC/GitCommands";
+import { GitService, SourceControlCache } from "../../Core/GitService";
 
 export function SourceControl() {
   const [repoPath, setRepoPath] = useState<string | null>(null);
@@ -65,18 +32,12 @@ export function SourceControl() {
   const fetchStatus = useCallback(async (path: string, background = false) => {
     try {
       if (background) setIsRefreshing(true);
-      const fullStatus = await invoke<{
-        repo_path: string;
-        is_repo: boolean;
-        files: GitFile[];
-        commits: GitCommit[];
-        branch: string;
-      }>("git_get_full_status", { path });
+      const fullStatus = await GitIPC.getFullStatus(path);
       
       setFiles(fullStatus.files);
       setBranch(fullStatus.branch);
       setCommits(fullStatus.commits);
-      writeCache({ repoPath: path, isRepo: true, files: fullStatus.files, commits: fullStatus.commits, branch: fullStatus.branch, checkedAt: Date.now() });
+      GitService.setCache({ repoPath: path, isRepo: true, files: fullStatus.files, commits: fullStatus.commits, branch: fullStatus.branch, checkedAt: Date.now() });
       
       EventBus.emit("git:changes-count", fullStatus.files.length);
     } catch (error) {
@@ -92,7 +53,7 @@ export function SourceControl() {
       if (background) setIsRefreshing(true);
       else setIsLoading(true);
 
-      const repoExists = await invoke<boolean>("git_check_is_repo", { path });
+      const repoExists = await GitIPC.checkIsRepo(path);
       setRepoPath(path);
       setIsRepo(repoExists);
 
@@ -102,7 +63,7 @@ export function SourceControl() {
         setFiles([]);
         setCommits([]);
         setBranch("");
-        writeCache({ repoPath: path, isRepo: false, files: [], commits: [], branch: "", checkedAt: Date.now() });
+        GitService.setCache({ repoPath: path, isRepo: false, files: [], commits: [], branch: "", checkedAt: Date.now() });
       }
     } catch (error) {
       console.error("Git repo check failed", error);
@@ -127,7 +88,7 @@ export function SourceControl() {
           return;
         }
 
-        const cached = getCachedState(path);
+        const cached = GitService.getCache(path);
         if (cached) {
           applyCache(cached);
           checkRepo(path, true);
@@ -144,7 +105,7 @@ export function SourceControl() {
     init();
 
     const unsubRootChanged = EventBus.on("workspace:root-changed", (path: string) => {
-      const cached = getCachedState(path);
+      const cached = GitService.getCache(path);
       if (cached) {
         applyCache(cached);
         checkRepo(path, true);
@@ -163,7 +124,7 @@ export function SourceControl() {
   const handleInit = async () => {
     if (!repoPath) return;
     try {
-      await invoke("git_init", { path: repoPath });
+      await GitIPC.init(repoPath);
       await checkRepo(repoPath);
     } catch (error) {
       showToast(`初始化 Git 仓库失败：${error}`, "error");
@@ -173,8 +134,8 @@ export function SourceControl() {
   const toggleStage = async (file: GitFile) => {
     if (!repoPath) return;
     try {
-      if (file.is_staged) await invoke("git_unstage", { path: repoPath, file: file.path });
-      else await invoke("git_add", { path: repoPath, file: file.path });
+      if (file.is_staged) await GitIPC.unstage(repoPath, file.path);
+      else await GitIPC.add(repoPath, file.path);
       await fetchStatus(repoPath, true);
     } catch (error) {
       showToast(`暂存状态更新失败：${error}`, "error");
@@ -184,7 +145,7 @@ export function SourceControl() {
   const stageAll = async () => {
     if (!repoPath) return;
     try {
-      await invoke("git_add", { path: repoPath, file: "." });
+      await GitIPC.add(repoPath, ".");
       await fetchStatus(repoPath, true);
     } catch (error) {
       showToast(`全部暂存失败：${error}`, "error");
@@ -194,7 +155,7 @@ export function SourceControl() {
   const unstageAll = async () => {
     if (!repoPath) return;
     try {
-      await invoke("git_unstage_all", { path: repoPath });
+      await GitIPC.unstageAll(repoPath);
       await fetchStatus(repoPath, true);
     } catch (error) {
       showToast(`取消暂存失败：${error}`, "error");
@@ -205,9 +166,9 @@ export function SourceControl() {
     if (!repoPath || !commitMsg.trim()) return;
     try {
       const stagedFilesCount = files.filter((file) => file.is_staged).length;
-      if (stagedFilesCount === 0) await invoke("git_add", { path: repoPath, file: "." });
+      if (stagedFilesCount === 0) await GitIPC.add(repoPath, ".");
 
-      await invoke("git_commit", { path: repoPath, message: commitMsg });
+      await GitIPC.commit(repoPath, commitMsg);
       setCommitMsg("");
       await fetchStatus(repoPath, true);
       showToast("提交成功", "success");
@@ -234,7 +195,7 @@ export function SourceControl() {
   const renderFileCard = (file: GitFile, index: number) => {
     const parentPath = file.path.split("/").slice(0, -1).join("/") || "/";
     return (
-      <div key={`${file.path}-${index}`} className="group relative flex items-center justify-between py-1.5 px-2 mb-1.5 rounded-lg bg-[var(--ColorEditor)] border border-[var(--ColorPanelBorder)] hover:border-[var(--ColorAccent)] hover:shadow-sm transition-all cursor-pointer">
+      <div key={`${file.path}-${index}`} className="group relative flex items-center justify-between py-1.5 px-2 mb-1 rounded-xl bg-white/5 dark:bg-white/5 backdrop-blur-md border border-transparent hover:border-black/10 dark:hover:border-white/10 hover:shadow-sm transition-all cursor-pointer">
         <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2">
           <Icons.FileCode size={14} stroke={1.5} className="text-[var(--ColorMuted)] shrink-0" />
           <span className="text-[12.5px] font-medium text-[var(--ColorTextHighlight)] truncate shrink-0">{file.name}</span>
@@ -245,16 +206,16 @@ export function SourceControl() {
           <span className={`text-[10px] px-1.5 py-[1px] rounded flex items-center justify-center font-bold tracking-wide ${getStatusColor(file.status)}`}>
             {file.status}
           </span>
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center absolute right-1 bg-[var(--ColorEditor)] pl-2">
+          <div className="opacity-0 w-0 group-hover:w-auto group-hover:opacity-100 transition-all flex items-center shrink-0">
             {file.is_staged ? (
               <Tooltip content="取消暂存" delay={300}>
-                <button onClick={(event) => { event.stopPropagation(); toggleStage(file); }} className="p-1 rounded bg-black/5 dark:bg-white/10 hover:bg-red-500/10 hover:text-red-500 text-[var(--ColorText)] transition-colors">
+                <button onClick={(event) => { event.stopPropagation(); toggleStage(file); }} className="p-1 rounded-md bg-black/5 dark:bg-white/10 hover:bg-red-500/10 hover:text-red-500 text-[var(--ColorText)] transition-colors ml-1.5">
                   <Icons.Minus size={13} stroke={2} />
                 </button>
               </Tooltip>
             ) : (
               <Tooltip content="暂存更改" delay={300}>
-                <button onClick={(event) => { event.stopPropagation(); toggleStage(file); }} className="p-1 rounded bg-black/5 dark:bg-white/10 hover:bg-[var(--ColorAccent)] hover:text-white text-[var(--ColorText)] transition-colors">
+                <button onClick={(event) => { event.stopPropagation(); toggleStage(file); }} className="p-1 rounded-md bg-black/5 dark:bg-white/10 hover:bg-[var(--ColorAccent)] hover:text-white text-[var(--ColorText)] transition-colors ml-1.5">
                   <Icons.Plus size={13} stroke={2} />
                 </button>
               </Tooltip>
@@ -327,15 +288,15 @@ export function SourceControl() {
         </Tooltip>
       </div>
 
-      <div className="flex items-center gap-4 mx-[var(--PanelPaddingX)] mb-3 border-b border-[var(--ColorPanelBorder)] shrink-0">
+      <div className="flex items-center gap-1 mx-[var(--PanelPaddingX)] mb-3 shrink-0">
         <button
-          className={`pb-1.5 text-[12px] font-bold tracking-wide transition-colors flex items-center justify-center gap-1.5 border-b-2 ${activeTab === "changes" ? "text-[var(--ColorTextHighlight)] border-[var(--ColorAccent)]" : "text-[var(--ColorMuted)] border-transparent hover:text-[var(--ColorTextHighlight)]"}`}
+          className={`relative h-[26px] px-3 text-[12px] font-medium transition-colors duration-150 flex items-center justify-center gap-1.5 rounded-md ${activeTab === "changes" ? "bg-black/5 dark:bg-white/10 text-[var(--ColorTextHighlight)]" : "text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"}`}
           onClick={() => setActiveTab("changes")}
         >
           <Icons.GitBranch size={13} /> 更改
         </button>
         <button
-          className={`pb-1.5 text-[12px] font-bold tracking-wide transition-colors flex items-center justify-center gap-1.5 border-b-2 ${activeTab === "history" ? "text-[var(--ColorTextHighlight)] border-[var(--ColorAccent)]" : "text-[var(--ColorMuted)] border-transparent hover:text-[var(--ColorTextHighlight)]"}`}
+          className={`relative h-[26px] px-3 text-[12px] font-medium transition-colors duration-150 flex items-center justify-center gap-1.5 rounded-md ${activeTab === "history" ? "bg-black/5 dark:bg-white/10 text-[var(--ColorTextHighlight)]" : "text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"}`}
           onClick={() => setActiveTab("history")}
         >
           <Icons.History size={13} /> 历史
@@ -345,7 +306,7 @@ export function SourceControl() {
       {activeTab === "changes" ? (
         <>
           <div className="px-3 pb-4 shrink-0 mt-2">
-            <div className="flex flex-col p-3 rounded-2xl bg-[var(--ColorEditor)] border border-[var(--ColorPanelBorder)] shadow-sm gap-3 relative">
+            <div className="flex flex-col p-3 rounded-2xl bg-white/5 dark:bg-white/10 backdrop-blur-md border border-black/5 dark:border-white/5 shadow-inner gap-3 relative transition-all">
               <textarea
                 className="w-full bg-transparent text-[13px] text-[var(--ColorTextHighlight)] outline-none resize-none placeholder-[var(--ColorMuted)] leading-relaxed"
                 placeholder="描述你的代码变更..."
@@ -366,9 +327,9 @@ export function SourceControl() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto no-scrollbar px-3 pb-4 flex flex-col gap-4">
+          <div className="flex-1 flex flex-col gap-4 overflow-y-auto aurona-scroll pr-2 pb-4">
             {stagedFiles.length > 0 && (
-              <div className="flex flex-col">
+              <div className="flex flex-col shrink-0">
                 <div className="flex items-center justify-between px-1 mb-2 cursor-pointer select-none group" onClick={() => setStagedExpanded(!stagedExpanded)}>
                   <div className="flex items-center gap-1.5">
                     <Icons.ChevronDown size={14} className={`text-[var(--ColorMuted)] transition-transform ${!stagedExpanded ? "-rotate-90" : ""}`} />
@@ -382,12 +343,16 @@ export function SourceControl() {
                     </button>
                   </Tooltip>
                 </div>
-                {stagedExpanded && <div className="flex flex-col pl-2 border-l-2 border-[var(--ColorPanelBorder)] ml-2.5">{stagedFiles.map(renderFileCard)}</div>}
+                {stagedExpanded && (
+                  <div className="flex flex-col pl-2 border-l-2 border-black/5 dark:border-white/5 ml-2.5 mr-1">
+                    {stagedFiles.map(renderFileCard)}
+                  </div>
+                )}
               </div>
             )}
 
             {(unstagedFiles.length > 0 || (stagedFiles.length === 0 && unstagedFiles.length === 0)) && (
-              <div className="flex flex-col">
+              <div className="flex flex-col shrink-0">
                 <div className="flex items-center justify-between px-1 mb-2 cursor-pointer select-none group" onClick={() => setUnstagedExpanded(!unstagedExpanded)}>
                   <div className="flex items-center gap-1.5">
                     <Icons.ChevronDown size={14} className={`text-[var(--ColorMuted)] transition-transform ${!unstagedExpanded ? "-rotate-90" : ""}`} />
@@ -405,26 +370,27 @@ export function SourceControl() {
                 </div>
                 {unstagedExpanded &&
                   (unstagedFiles.length === 0 ? (
-                    <div className="p-4 text-center text-[12px] text-[var(--ColorMuted)] border border-dashed border-[var(--ColorPanelBorder)] rounded-xl ml-2.5">
+                    <div className="p-4 text-center text-[12px] text-[var(--ColorMuted)] border border-dashed border-black/10 dark:border-white/10 rounded-2xl ml-2.5 mr-3">
                       目前没有任何更改
                     </div>
                   ) : (
-                    <div className="flex flex-col pl-2 border-l-2 border-[var(--ColorPanelBorder)] ml-2.5">{unstagedFiles.map(renderFileCard)}</div>
+                    <div className="flex flex-col pl-2 border-l-2 border-black/5 dark:border-white/5 ml-2.5 mr-1 pb-2">
+                      {unstagedFiles.map(renderFileCard)}
+                    </div>
                   ))}
               </div>
             )}
           </div>
         </>
       ) : (
-        <div className="flex-1 overflow-y-auto no-scrollbar px-3 pb-4 flex flex-col gap-2 relative">
-          <div className="absolute top-0 bottom-0 left-5 w-px bg-[var(--ColorPanelBorder)] z-0" />
+        <div className="flex-1 overflow-y-auto aurona-scroll px-3 pb-4 flex flex-col gap-2 relative">
           {commits.length === 0 ? (
-            <div className="p-4 text-center text-[12px] text-[var(--ColorMuted)] bg-[var(--ColorEditor)] rounded-xl z-10 border border-[var(--ColorPanelBorder)] mt-2">
+            <div className="p-4 text-center text-[12px] text-[var(--ColorMuted)] bg-white/5 dark:bg-white/10 backdrop-blur-md rounded-2xl z-10 mt-2 border border-black/5 dark:border-white/5 shadow-sm">
               尚未找到提交记录
             </div>
           ) : (
             commits.map((commit, index) => (
-              <div key={`${commit.hash}-${index}`} className="flex flex-col bg-[var(--ColorEditor)] border border-[var(--ColorPanelBorder)] rounded-xl p-3 z-10 hover:border-[var(--ColorAccent)] transition-colors group mt-2 shadow-sm">
+              <div key={`${commit.hash}-${index}`} className="flex flex-col bg-white/5 dark:bg-white/10 backdrop-blur-md border border-black/5 dark:border-white/5 shadow-sm rounded-2xl p-4 z-10 hover:border-black/20 dark:hover:border-white/20 transition-all group mt-2">
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <div className="font-medium text-[13px] text-[var(--ColorTextHighlight)] leading-snug">
                     {commit.message}

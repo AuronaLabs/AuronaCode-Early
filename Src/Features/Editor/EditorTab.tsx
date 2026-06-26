@@ -1,44 +1,21 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Icons } from "../../UI/Icons/IconManager";
 import { EventBus } from "../../Core/EventBus";
 import { FileSystemService } from "../../Core/FileSystemService";
 import { showToast } from "../../UI/Feedback/Toast";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
+import { isBinaryExtension } from "../../Shared/Constants/FileTypes";
 
-const MonacoEngine = lazy(() => import("./MonacoEngine").then((module) => ({ default: module.MonacoEngine })));
+import { AuronaEngine } from "./AuronaEngine";
 
 type EditorTabProps = {
   path: string;
   isActive: boolean;
 };
 
-const BINARY_EXTENSIONS = [
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".ico",
-  ".svg",
-  ".exe",
-  ".dll",
-  ".bin",
-  ".zip",
-  ".tar",
-  ".gz",
-  ".7z",
-  ".pdf",
-  ".ttf",
-  ".woff",
-  ".woff2",
-  ".mp4",
-  ".mp3",
-  ".db",
-  ".sqlite",
-];
-
 const getExtension = (filePath: string) => {
   const index = filePath.lastIndexOf(".");
-  return index >= 0 ? filePath.slice(index).toLowerCase() : "";
+  return index >= 0 ? filePath.slice(index + 1).toLowerCase() : "";
 };
 
 export function EditorTab({ path, isActive }: EditorTabProps) {
@@ -56,11 +33,11 @@ export function EditorTab({ path, isActive }: EditorTabProps) {
   const loadContent = useCallback(async (filePath: string, force = false) => {
     try {
       const ext = getExtension(filePath);
-      if (!force && BINARY_EXTENSIONS.includes(ext)) {
+      if (!force && isBinaryExtension(ext)) {
         setIsBinaryWarning(true);
         setFileContent("");
         setSavedContent("");
-        EventBus.emit("editor:dirty-changed", { path: filePath, isDirty: false });
+        EventBus.emit("editor:dirty-cleared", { path: filePath });
         return;
       }
 
@@ -72,7 +49,7 @@ export function EditorTab({ path, isActive }: EditorTabProps) {
       contentRef.current = content;
       savedContentRef.current = content;
       setIsEditorReady(true);
-      EventBus.emit("editor:dirty-changed", { path: filePath, isDirty: false });
+      EventBus.emit("editor:dirty-cleared", { path: filePath });
     } catch (error) {
       const message = FileSystemService.toMessage(error);
       if (!force && /utf-8|invalid data|stream did not contain/i.test(message)) {
@@ -84,7 +61,7 @@ export function EditorTab({ path, isActive }: EditorTabProps) {
         setSavedContent("");
         setIsEditorReady(true);
       }
-      EventBus.emit("editor:dirty-changed", { path: filePath, isDirty: false });
+      EventBus.emit("editor:dirty-cleared", { path: filePath });
     }
   }, []);
 
@@ -99,7 +76,7 @@ export function EditorTab({ path, isActive }: EditorTabProps) {
       await FileSystemService.writeTextFileAtomic(path, contentRef.current);
       savedContentRef.current = contentRef.current;
       setSavedContent(contentRef.current);
-      EventBus.emit("editor:dirty-changed", { path, isDirty: false });
+      EventBus.emit("editor:dirty-cleared", { path });
       EventBus.emit("editor:file-saved", { path });
     } catch (error) {
       showToast(`保存失败：${FileSystemService.toMessage(error)}`, "error");
@@ -120,7 +97,8 @@ export function EditorTab({ path, isActive }: EditorTabProps) {
   useEffect(() => {
     contentRef.current = fileContent;
     savedContentRef.current = savedContent;
-    EventBus.emit("editor:dirty-changed", { path, isDirty });
+    const ev = isDirty ? "editor:dirty-set" : "editor:dirty-cleared";
+    EventBus.emit(ev, { path });
   }, [fileContent, isDirty, path, savedContent]);
 
   useEffect(() => {
@@ -142,9 +120,9 @@ export function EditorTab({ path, isActive }: EditorTabProps) {
   }, [saveContent]);
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[var(--ColorEditor)] relative h-full w-full">
+    <div className="flex flex-1 flex-col overflow-hidden bg-transparent relative h-full w-full">
       {!isEditorReady && !isBinaryWarning && (
-        <div className="absolute inset-0 z-20 flex flex-col bg-[var(--ColorEditor)]">
+        <div className="absolute inset-0 z-20 flex flex-col bg-transparent">
           <div className="flex-1 p-6 space-y-4">
             <div className="h-3 w-1/3 bg-slate-100 dark:bg-white/10 rounded-full animate-pulse" />
             <div className="h-3 w-1/2 bg-slate-100 dark:bg-white/10 rounded-full animate-pulse" />
@@ -155,7 +133,7 @@ export function EditorTab({ path, isActive }: EditorTabProps) {
       )}
 
       {isBinaryWarning ? (
-        <div className="flex flex-1 flex-col items-center justify-center bg-[var(--ColorEditor)] text-[var(--ColorText)] select-none px-6 text-center">
+        <div className="flex flex-1 flex-col items-center justify-center bg-transparent text-[var(--ColorText)] select-none px-6 text-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5 text-[var(--ColorMuted)] mb-6">
             <Icons.FileCode size={40} stroke={1} />
           </div>
@@ -174,20 +152,16 @@ export function EditorTab({ path, isActive }: EditorTabProps) {
           </button>
         </div>
       ) : (
-        <div className={`flex-1 overflow-hidden relative bg-[var(--ColorEditor)] transition-opacity duration-300 ${isEditorReady ? "opacity-100" : "opacity-0"}`}>
-          <Suspense fallback={<div className="flex h-full w-full items-center justify-center text-slate-400">Loading Editor Engine...</div>}>
-            <MonacoEngine
+        <div className={`flex-1 overflow-hidden relative bg-transparent transition-opacity duration-300 ${isEditorReady ? "opacity-100" : "opacity-0"}`}>
+            <AuronaEngine
               value={fileContent}
               language={GetLanguageFromPath(path)}
               isActive={isActive}
               onChange={setFileContent}
               path={path}
-              fontSize={Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue("--EditorFontSize")) || 14}
-              lineHeight={Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue("--EditorLineHeight")) || 24}
             />
-          </Suspense>
           {isSaving && (
-            <div className="absolute right-3 bottom-3 rounded-md border border-[var(--ColorPanelBorder)] bg-[var(--ColorEditor)] px-3 py-1.5 text-[12px] text-[var(--ColorMuted)] shadow-lg">
+            <div className="absolute right-3 bottom-3 rounded-md border border-[var(--ColorPanelBorder)] bg-[var(--ColorEditor)] backdrop-blur-xl px-3 py-1.5 text-[12px] text-[var(--ColorMuted)] shadow-lg">
               正在保存...
             </div>
           )}

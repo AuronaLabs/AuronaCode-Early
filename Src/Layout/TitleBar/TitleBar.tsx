@@ -3,7 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { EventBus } from "../../Core/EventBus";
 import { Icons } from "../../UI/Icons/IconManager";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
-import { TerminalManager } from "../../Core/TerminalService";
+import { isRunnable, handleSmartRun } from "../../Shared/Constants/RunConfig";
 
 type MenuName = "文件" | "编辑" | "帮助";
 
@@ -36,7 +36,7 @@ export function TitleBar() {
     else await appWindow.maximize();
   };
 
-  const menuItemClass = "flex w-full cursor-pointer items-center justify-between gap-8 rounded px-3 py-1.5 text-left hover:bg-black/5 dark:hover:bg-white/10 text-[var(--ColorText)] hover:text-[var(--ColorTextHighlight)]";
+  const menuItemClass = "flex w-full cursor-pointer items-center justify-between rounded px-3 py-1 text-left hover:bg-black/10 dark:hover:bg-white/20 text-[var(--ColorText)] hover:text-[var(--ColorTextHighlight)] transition-colors";
 
   return (
     <div
@@ -45,8 +45,8 @@ export function TitleBar() {
     >
       <div className="flex h-full items-center pl-4 gap-3 min-w-0">
         <div
-          className="pointer-events-none text-[16px] text-[var(--ColorTextHighlight)] flex items-center shrink-0"
-          style={{ fontFamily: "'Righteous', sans-serif", fontWeight: 400, letterSpacing: "0.5px" }}
+          className="pointer-events-none text-[15px] text-[var(--ColorTextHighlight)] flex items-center shrink-0"
+          style={{ fontFamily: "'Righteous', sans-serif", fontWeight: 400, letterSpacing: "0.8px" }}
         >
           Aurona Code
         </div>
@@ -69,7 +69,7 @@ export function TitleBar() {
               {activeMenu === menu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)} />
-                  <div className="absolute top-[32px] left-0 w-52 rounded-lg border border-[var(--ColorPanelBorder)] bg-[var(--ColorTitleBar)] p-1 shadow-lg z-50 text-[12px]">
+                  <div className="absolute top-[32px] left-0 w-52 rounded-lg border border-[var(--ColorPanelBorder)] bg-[var(--ColorEditor)] backdrop-blur-xl p-1 shadow-lg z-50 text-[12px]">
                     {menu === "文件" && (
                       <>
                         <button
@@ -164,7 +164,7 @@ export function TitleBar() {
 
       <div className="flex h-full items-center pr-3 gap-2 shrink-0">
         {activeFilePath && isRunnable(activeFilePath) && (
-          <Tooltip content="运行当前文件" delay={300}>
+          <Tooltip content="运行当前文件" delay={300} placement="bottom">
             <button
               className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 text-[var(--ColorTextHighlight)] transition-colors mr-2"
               onClick={() => handleSmartRun(activeFilePath)}
@@ -173,7 +173,7 @@ export function TitleBar() {
             </button>
           </Tooltip>
         )}
-        <Tooltip content="切换底侧面板" delay={500}>
+        <Tooltip content="切换底侧面板" delay={500} placement="bottom">
           <button
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--ColorTextHighlight)] transition-colors"
             onClick={() => EventBus.emit("app:toggle-terminal")}
@@ -182,7 +182,7 @@ export function TitleBar() {
           </button>
         </Tooltip>
         <div className="w-px h-[14px] bg-[var(--ColorPanelBorder)] mx-0.5" />
-        <Tooltip content="最小化" delay={500}>
+        <Tooltip content="最小化" delay={500} placement="bottom">
           <button
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--ColorTextHighlight)] transition-colors"
             onClick={() => appWindow.minimize()}
@@ -190,7 +190,7 @@ export function TitleBar() {
             <Icons.Minimize size={15} stroke={2} />
           </button>
         </Tooltip>
-        <Tooltip content={isMaximized ? "向下还原" : "最大化"} delay={500}>
+        <Tooltip content={isMaximized ? "向下还原" : "最大化"} delay={500} placement="bottom">
           <button
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--ColorTextHighlight)] transition-colors"
             onClick={toggleMaximize}
@@ -198,7 +198,7 @@ export function TitleBar() {
             {isMaximized ? <Icons.Restore size={14} stroke={2} /> : <Icons.Maximize size={14} stroke={2} />}
           </button>
         </Tooltip>
-        <Tooltip content="关闭" delay={500}>
+        <Tooltip content="关闭" delay={500} placement="bottom">
           <button
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-red-500 hover:text-white transition-colors"
             onClick={() => appWindow.close()}
@@ -209,28 +209,4 @@ export function TitleBar() {
       </div>
     </div>
   );
-}
-
-function isRunnable(path: string): boolean {
-  const ext = path.split('.').pop()?.toLowerCase();
-  return ['js', 'ts', 'py', 'rs', 'go'].includes(ext || '');
-}
-
-function handleSmartRun(path: string) {
-  const ext = path.split('.').pop()?.toLowerCase();
-  let cmd = '';
-  // Since we might be on Windows, wrap path in quotes
-  const safePath = `"${path}"`;
-  
-  switch(ext) {
-    case 'js': cmd = `node ${safePath}`; break;
-    case 'ts': cmd = `ts-node ${safePath}`; break;
-    case 'py': cmd = `python ${safePath}`; break;
-    case 'go': cmd = `go run ${safePath}`; break;
-    case 'rs': cmd = `rustc ${safePath} -o "temp.exe" ; if ($?) { .\\temp.exe }`; break;
-  }
-  
-  if (cmd) {
-    TerminalManager.executeCommand(null, cmd);
-  }
 }

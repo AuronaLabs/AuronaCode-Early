@@ -20,7 +20,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         )}
         <input
           ref={ref}
-          className={`flex h-7 w-full rounded border border-[var(--ColorPanelBorder)] bg-[var(--ColorApp)] text-[12px] text-[var(--ColorTextHighlight)] transition-colors placeholder:text-[var(--ColorMuted)] focus:border-[var(--ColorAccent)] focus:outline-none focus:ring-1 focus:ring-[var(--ColorAccent)] ${
+          className={`flex h-7 w-full rounded-md border border-[var(--ColorPanelBorder)] bg-[var(--ColorEditor)] backdrop-blur-xl text-[12px] text-[var(--ColorTextHighlight)] transition-all duration-200 placeholder:text-[var(--ColorMuted)] focus:outline-none ${
             icon ? "pl-8 pr-3" : "px-3"
           } ${className}`}
           {...props}

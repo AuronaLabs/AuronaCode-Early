@@ -7,14 +7,18 @@ import { EventBus } from "../Core/EventBus";
 import { ToastContainer } from "../UI/Feedback/Toast";
 import { EditorAdapter } from "../Features/Editor/EditorAdapter";
 import { EMPTY_EDITOR_STATUS, EditorStatus } from "../Features/Editor/IEditorEngine";
+import { SearchPanel } from "../Features/Search/SearchPanel";
+import { NotificationService } from "../Core/NotificationService";
+import {
+  SIDEBAR_EXPLORER,
+  SIDEBAR_NOTIFICATIONS,
+  SIDEBAR_SEARCH,
+  SIDEBAR_SOURCE_CONTROL,
+} from "../Shared/Constants/Sidebar";
 
 type AppShellProps = {
   Children: ReactNode;
 };
-
-const ACTIVITY_EXPLORER = "资源管理器";
-const ACTIVITY_SOURCE_CONTROL = "源代码管理";
-const ACTIVITY_NOTIFICATIONS = "通知";
 
 const formatLanguage = (language: string) => {
   const labels: Record<string, string> = {
@@ -42,16 +46,21 @@ const formatLanguage = (language: string) => {
 };
 
 export function AppShell({ Children }: AppShellProps) {
-  const [activeTab, setActiveTab] = useState<string | null>(ACTIVITY_EXPLORER);
+  const [activeTab, setActiveTab] = useState<string | null>(SIDEBAR_EXPLORER);
   const [editorStatus, setEditorStatus] = useState<EditorStatus>(EMPTY_EDITOR_STATUS);
   const [hasGitBadge, setHasGitBadge] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(NotificationService.getUnreadCount());
 
   useEffect(() => {
     const unsubGit = EventBus.on("git:changes-count", (count: number) => {
       setHasGitBadge(count > 0);
     });
+    const unsubNotif = EventBus.on("notifications:updated", () => {
+      setUnreadNotifications(NotificationService.getUnreadCount());
+    });
     return () => {
       unsubGit();
+      unsubNotif();
     };
   }, []);
 
@@ -60,8 +69,9 @@ export function AppShell({ Children }: AppShellProps) {
   }, []);
 
   const activityItems = [
-    { label: ACTIVITY_EXPLORER, Icon: Icons.Files, badge: false },
-    { label: ACTIVITY_SOURCE_CONTROL, Icon: Icons.Git, badge: hasGitBadge },
+    { label: SIDEBAR_EXPLORER, Icon: Icons.Files, badge: false },
+    { label: SIDEBAR_SEARCH, Icon: Icons.Search, badge: false },
+    { label: SIDEBAR_SOURCE_CONTROL, Icon: Icons.Git, badge: hasGitBadge },
   ];
 
   const toggleActivity = (label: string) => {
@@ -91,10 +101,11 @@ export function AppShell({ Children }: AppShellProps) {
 
           <div className="flex flex-col gap-1.5 mt-auto w-full items-center">
             <ActivitySquare
-              active={activeTab === ACTIVITY_NOTIFICATIONS}
-              onClick={() => toggleActivity(ACTIVITY_NOTIFICATIONS)}
-              title={ACTIVITY_NOTIFICATIONS}
+              active={activeTab === SIDEBAR_NOTIFICATIONS}
+              onClick={() => toggleActivity(SIDEBAR_NOTIFICATIONS)}
+              title={SIDEBAR_NOTIFICATIONS}
               icon={<Icons.Bell size={22} stroke={1.5} />}
+              badge={unreadNotifications > 0}
             />
             <ActivitySquare
               onClick={() => {

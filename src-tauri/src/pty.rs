@@ -2,13 +2,21 @@ use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use tauri::{AppHandle, Emitter, State};
+
+// 任务 C：Shell 列表全局缓存，只初始化一次
+static SHELL_CACHE: OnceLock<Vec<ShellProfile>> = OnceLock::new();
 
 pub struct PtyState {
     pub writers: Mutex<HashMap<String, Box<dyn Write + Send>>>,
     pub master_ptys: Mutex<HashMap<String, Box<dyn portable_pty::MasterPty + Send>>>,
+    // 任务 A：存储子进程句柄，用于 close_pty 时正确回收
+    pub children: Mutex<HashMap<String, Box<dyn portable_pty::Child + Send + Sync>>>,
+    // 任务 B：读线程停止标志
+    pub stop_flags: Mutex<HashMap<String, Arc<AtomicBool>>>,
 }
 
 impl PtyState {
@@ -16,6 +24,20 @@ impl PtyState {
         Self {
             writers: Mutex::new(HashMap::new()),
             master_ptys: Mutex::new(HashMap::new()),
+            children: Mutex::new(HashMap::new()),
+            stop_flags: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
+// Ensure orphaned PTY child processes are cleaned up when the app is shut down
+impl Drop for PtyState {
+    fn drop(&mut self) {
+        if let Ok(mut children) = self.children.lock() {
+            for (_, mut child) in children.drain() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
         }
     }
 }
@@ -59,9 +81,9 @@ pub fn spawn_pty(
     let default_shell = "/bin/bash".to_string();
 
     let shell = shell_path.unwrap_or(default_shell);
-    
-    // Security check: ensure the requested shell is within our allowed list
-    let allowed_shells = get_available_shells();
+
+    // 任务 C：通过缓存获取 shell 列表，避免重复初始化
+    let allowed_shells = SHELL_CACHE.get_or_init(get_available_shells);
     let mut is_allowed = false;
     for allowed in allowed_shells {
         if allowed.path == shell {
@@ -70,38 +92,54 @@ pub fn spawn_pty(
         }
     }
     if !is_allowed {
-        return Err(format!("Security Violation: Executable {} is not an allowed shell path.", shell));
+        return Err(format!(
+            "Security Violation: Executable {} is not an allowed shell path.",
+            shell
+        ));
     }
 
     let mut cmd = CommandBuilder::new(&shell);
-    
-    // Add -NoLogo if it's PowerShell
+
+    // PowerShell 添加 -NoLogo
     if shell.to_lowercase().contains("powershell") || shell.to_lowercase().contains("pwsh") {
         cmd.args(["-NoLogo"]);
     }
-    
+
     cmd.cwd(cwd);
 
-    let _child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+    // 任务 A：将 child 存入 PtyState
+    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
 
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
 
     state.writers.lock().unwrap().insert(id.clone(), writer);
     state.master_ptys.lock().unwrap().insert(id.clone(), pair.master);
+    state.children.lock().unwrap().insert(id.clone(), child);
+
+    // 任务 B：创建停止标志并传入读线程
+    let stop_flag = Arc::new(AtomicBool::new(false));
+    state.stop_flags.lock().unwrap().insert(id.clone(), Arc::clone(&stop_flag));
 
     let id_clone = id.clone();
     thread::spawn(move || {
         let mut buf = [0u8; 1024];
-        while let Ok(n) = reader.read(&mut buf) {
-            if n == 0 {
+        loop {
+            // 检查停止标志
+            if stop_flag.load(Ordering::Relaxed) {
                 break;
             }
-            let payload = PtyOutputPayload {
-                id: id_clone.clone(),
-                data: buf[..n].to_vec(),
-            };
-            let _ = app.emit("pty-output", payload);
+            match reader.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => {
+                    let payload = PtyOutputPayload {
+                        id: id_clone.clone(),
+                        data: buf[..n].to_vec(),
+                    };
+                    let _ = app.emit("pty-output", payload);
+                }
+                Err(_) => break,
+            }
         }
     });
 
@@ -110,8 +148,11 @@ pub fn spawn_pty(
 
 #[tauri::command]
 pub fn write_pty(id: String, data: String, state: State<'_, PtyState>) -> Result<(), String> {
+    // 任务 D：正确传播写入错误
     if let Some(writer) = state.writers.lock().unwrap().get_mut(&id) {
-        let _ = writer.write_all(data.as_bytes());
+        writer
+            .write_all(data.as_bytes())
+            .map_err(|e| format!("PTY write error: {}", e))?;
     }
     Ok(())
 }
@@ -136,8 +177,22 @@ pub fn resize_pty(
 
 #[tauri::command]
 pub fn close_pty(id: String, state: State<'_, PtyState>) -> Result<(), String> {
+    // 任务 B：设置停止标志，通知读线程退出
+    if let Some(flag) = state.stop_flags.lock().unwrap().remove(&id) {
+        flag.store(true, Ordering::Relaxed);
+    }
+
+    // 先释放 writer，关闭写端
     state.writers.lock().unwrap().remove(&id);
+    // 释放 master PTY
     state.master_ptys.lock().unwrap().remove(&id);
+
+    // 任务 A：取出子进程，kill 并 wait，避免孤儿进程
+    if let Some(mut child) = state.children.lock().unwrap().remove(&id) {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
     Ok(())
 }
 
@@ -185,8 +240,9 @@ pub fn get_available_shells() -> Vec<ShellProfile> {
         }
 
         // 5. WSL
-        if std::process::Command::new("wsl.exe").arg("--version").output().is_ok() || 
-           std::path::Path::new("C:\\Windows\\System32\\wsl.exe").exists() {
+        if std::process::Command::new("wsl.exe").arg("--version").output().is_ok()
+            || std::path::Path::new("C:\\Windows\\System32\\wsl.exe").exists()
+        {
             shells.push(ShellProfile {
                 id: "wsl".to_string(),
                 name: "WSL".to_string(),
@@ -211,7 +267,7 @@ pub fn get_available_shells() -> Vec<ShellProfile> {
             path: "/bin/zsh".to_string(),
             icon: "terminal".to_string(),
         });
-        
+
         shells.push(ShellProfile {
             id: "sh".to_string(),
             name: "Shell".to_string(),

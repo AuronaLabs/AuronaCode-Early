@@ -3,6 +3,7 @@ import IconFolder from "@tabler/icons-react/dist/esm/icons/IconFolder.mjs";
 import IconFolderOpen from "@tabler/icons-react/dist/esm/icons/IconFolderOpen.mjs";
 import IconChevronRight from "@tabler/icons-react/dist/esm/icons/IconChevronRight.mjs";
 import IconFile from "@tabler/icons-react/dist/esm/icons/IconFile.mjs";
+import IconArrowRight from "@tabler/icons-react/dist/esm/icons/IconArrowRight.mjs";
 import IconMenu2 from "@tabler/icons-react/dist/esm/icons/IconMenu2.mjs";
 import IconSearch from "@tabler/icons-react/dist/esm/icons/IconSearch.mjs";
 import IconGitBranch from "@tabler/icons-react/dist/esm/icons/IconGitBranch.mjs";
@@ -52,6 +53,8 @@ import IconLayoutBottombarFilled from "@tabler/icons-react/dist/esm/icons/IconLa
 import IconList from "@tabler/icons-react/dist/esm/icons/IconList.mjs";
 import IconPlayerPlayFilled from "@tabler/icons-react/dist/esm/icons/IconPlayerPlayFilled.mjs";
 import IconEraser from "@tabler/icons-react/dist/esm/icons/IconEraser.mjs";
+import IconTypography from "@tabler/icons-react/dist/esm/icons/IconTypography.mjs";
+import IconAsterisk from "@tabler/icons-react/dist/esm/icons/IconAsterisk.mjs";
 
 export const Icons = {
   // Navigation & Shell
@@ -95,6 +98,7 @@ export const Icons = {
   FilePlus: IconFilePlus,
   FolderPlus: IconFolderPlus,
   Refresh: IconRefresh,
+  ArrowRight: IconArrowRight,
   
   // Editor
   FileCode: IconFileCode,
@@ -121,5 +125,7 @@ export const Icons = {
   BottomPanelFilled: IconLayoutBottombarFilled,
   List: IconList,
   Play: IconPlayerPlayFilled,
-  Eraser: IconEraser
+  Eraser: IconEraser,
+  Typography: IconTypography,
+  Asterisk: IconAsterisk
 };

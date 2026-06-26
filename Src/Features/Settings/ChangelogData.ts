@@ -4,15 +4,34 @@ export interface ChangelogEntry {
   isLatest?: boolean;
   sections: {
     title: string;
-    items: string[];
+    description?: string;
+    items?: string[];
   }[];
 }
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.1.0",
+    date: "2026-06-26",
+    isLatest: true,
+    sections: [
+      {
+        title: "迎接 Corona 架构：彻底重塑底层基础设施",
+        description: "本次版本更新是一次架构级的全面进化，我们隆重推出了全新的 Corona 架构，实现了 UI 渲染层与 Rust 后端 API（IPC）的绝对物理隔离。\n\n在日常的高频开发场景下，我们彻底重写了 PTY 终端与 LSP 语言服务的进程管理机制，引入了基于 Drop 生命周期的原子级锁，杜绝了此前版本中偶发的后台僵尸进程和页面卡顿。此外，全新的全局事件总线接管了模块间的通信，让代码编辑、文件树和版本控制面板等业务逻辑被高度解耦。这一通信防火墙不仅大幅提升了响应速度，也为未来集成更高级的自动化脚手架与 Agent 并发数据流铺平了道路。"
+      },
+      {
+        title: "自研 Aurona Editor 底层",
+        description: "我们将编辑器的核心彻底抽离，推出了全新的自研 Aurona Editor 引擎。这意味着我们正式剥离了直接对外部 Monaco Editor 实例的强耦合依赖，采用了更高级的抽象层进行适配调度。\n\n更为重要的是，我们在 Rust 端深度集成了基于 Json-RPC 2.0 的高级 LSP（语言服务协议）通信网关，实现了极速的代码补全响应与悬浮文档提示，让大型项目的开发体验如丝般顺滑。"
+      },
+      {
+        title: "全局极简交互与玻璃态视界",
+        description: "除了看不见的底层代码跃迁，应用外观也迎来了视觉上的全面重构。全系统组件彻底采用了极致的克制美学与去边框化设计，去除了多余的线条与焦点光环，辅以 Tailwind CSS v4 带来的深层模糊算法，带来沉浸式的工作区体验。\n\n不仅如此，我们完全重写了主题切换机制，深浅色切换如流水般平滑；所有右键菜单与面板弹出层也都统一了现代化的悬浮交互规范，为您提供安静且极其专注的编码环境。"
+      }
+    ]
+  },
+  {
     version: "V0.0.5",
     date: "2026-06-21",
-    isLatest: true,
     sections: [
       {
         title: "安全漏洞修复与系统加固",
