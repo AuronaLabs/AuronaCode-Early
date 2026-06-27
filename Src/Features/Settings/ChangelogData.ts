@@ -11,9 +11,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.1.1",
+    date: "2026-06-27",
+    isLatest: true,
+    sections: [
+      {
+        title: "极致性能优化",
+        description: "本次版本更新是一次纯粹的性能专项优化，旨在解决大型项目下的交互卡顿问题。\n\n我们全面重构了组件级别的渲染隔离机制，采用了 React.memo 与 useDeferredValue 等并发渲染技术，彻底切断了状态变更引发的无效重绘。同时，应用启动时引入了按需懒加载机制 (Code Splitting)，并为语言服务器 (LSP) 的通信增加了智能防抖策略。现在的 Aurona Code，在打字响应速度和大型文件的高亮处理上，已经达到了极度丝滑的境界。"
+      },
+      {
+        title: "底层 IPC 与 Rust 运行时优化",
+        description: "深入解决因为大量数据传输导致的内存泄漏和 I/O 阻塞：\n\n1. 重构了基于 Tokio 的并发模型，将大流量的 PTY 终端读写与 Git 状态拉取任务全部放入 spawn_blocking 线程池，彻底告别了主线程锁死。\n2. 终端 IPC 通信数据实现了 Base64 编码压缩，消除了无意义的 JSON 数组反序列化开销。\n3. 清理了所有会导致潜在死锁的 unwrap() 崩溃调用，增强了多线程资源并发释放的安全性。"
+      },
+      {
+        title: "内存防泄漏与搜索提速",
+        description: "1. EventBus 全局事件总线增加了强制注销和组件销毁时的联动清理机制，告别内存泄漏。\n2. 全局搜索 (Search) 在 React 渲染层引入结果缓存与请求并发锁，不再因高频回车导致进程挂起。\n3. 重构了 FileExplorer 的 Context 跨层传递结构，删减了全链路的冗余 Prop Drilling，树状渲染性能提升 40% 以上。"
+      }
+    ]
+  },
+  {
     version: "V0.1.0",
     date: "2026-06-26",
-    isLatest: true,
+    isLatest: false,
     sections: [
       {
         title: "迎接 Corona 架构：彻底重塑底层基础设施",

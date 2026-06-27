@@ -1,5 +1,6 @@
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { Icons } from "../../UI/Icons/IconManager";
 import { StorageManager } from "../../Core/StorageManager";
 import { EventBus } from "../../Core/EventBus";
@@ -13,7 +14,7 @@ export interface SearchResult {
   index: number;
 }
 
-export function SearchPanel() {
+export const SearchPanel = React.memo(function SearchPanel() {
   const [query, setQuery] = useState("");
   const [isCaseSensitive, setIsCaseSensitive] = useState(false);
   const [isRegex, setIsRegex] = useState(false);
@@ -40,23 +41,28 @@ export function SearchPanel() {
   }, []);
 
   const handleSearch = async () => {
-    if (!query.trim() || !repoPath) return;
+    if (isSearching || !query.trim() || !repoPath) return;
     
     setIsSearching(true);
     setHasSearched(true);
+    setResults([]);
+
+    const unlisten = await listen<SearchResult>("search-result", (event) => {
+      setResults(prev => [...prev, event.payload]);
+    });
+
     try {
-      const res = await invoke<SearchResult[]>("search_workspace", {
+      await invoke("search_workspace", {
         path: repoPath,
         query,
         isCaseSensitive,
         isRegex
       });
-      setResults(res);
     } catch (e) {
       console.error("Search failed:", e);
-      setResults([]);
     } finally {
       setIsSearching(false);
+      unlisten();
     }
   };
 
@@ -66,14 +72,21 @@ export function SearchPanel() {
     }
   };
 
-  const groupResultsByFile = () => {
-    const groups: Record<string, SearchResult[]> = {};
+  const grouped = useMemo(() => {
+    const groups: Record<string, { name: string, dir: string, matches: SearchResult[] }> = {};
     for (const r of results) {
-      if (!groups[r.file_path]) groups[r.file_path] = [];
-      groups[r.file_path].push(r);
+      if (!groups[r.file_path]) {
+        const parts = r.file_path.split("/");
+        groups[r.file_path] = {
+          name: parts.pop() || r.file_path,
+          dir: parts.join("/"),
+          matches: [],
+        };
+      }
+      groups[r.file_path].matches.push(r);
     }
     return groups;
-  };
+  }, [results]);
 
   const openFile = (file_path: string, line: number) => {
     if (!repoPath) return;
@@ -88,7 +101,6 @@ export function SearchPanel() {
     }, 100);
   };
 
-  const grouped = groupResultsByFile();
   const fileKeys = Object.keys(grouped);
 
   return (
@@ -143,7 +155,7 @@ export function SearchPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto aurona-scroll flex flex-col relative">
-        {isSearching ? (
+        {isSearching && results.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center text-[var(--ColorMuted)] text-[12px] gap-2">
             <Icons.Refresh size={14} className="animate-spin" />
             搜索中...
@@ -158,20 +170,25 @@ export function SearchPanel() {
           </div>
         ) : hasSearched ? (
           <div className="flex flex-col gap-0.5 py-2">
-            <div className="px-[var(--PanelPaddingX)] mb-2 text-[11px] font-bold text-[var(--ColorMuted)] uppercase tracking-widest">
-              找到 {results.length} 个结果 (在 {fileKeys.length} 个文件中)
+            <div className="px-[var(--PanelPaddingX)] mb-2 flex items-center justify-between">
+              <span className="text-[11px] font-bold text-[var(--ColorMuted)] uppercase tracking-widest">
+                找到 {results.length} 个结果 (在 {fileKeys.length} 个文件中)
+              </span>
+              {isSearching && (
+                <Icons.Refresh size={12} className="animate-spin text-[var(--ColorMuted)]" />
+              )}
             </div>
             {fileKeys.map(file => (
               <div key={file} className="flex flex-col mb-3">
                 <div className="flex items-center gap-2 px-2 py-1.5 mx-[calc(var(--PanelPaddingX)-8px)] mb-1 rounded-xl bg-white/5 dark:bg-white/5 backdrop-blur-md border border-transparent cursor-pointer text-[12px] font-medium text-[var(--ColorTextHighlight)] truncate group">
                   <Icons.FileCode size={14} className="text-[var(--ColorMuted)] shrink-0 ml-1" />
-                  <span className="truncate">{file.split('/').pop()}</span>
+                  <span className="truncate">{grouped[file].name}</span>
                   <span className="truncate text-[10px] text-[var(--ColorMuted)] opacity-70 group-hover:opacity-100 transition-opacity">
-                    {file.split('/').slice(0, -1).join('/')}
+                    {grouped[file].dir}
                   </span>
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  {grouped[file].map(match => (
+                  {grouped[file].matches.map(match => (
                     <div 
                       key={match.index}
                       onClick={() => openFile(file, match.line_number)}
@@ -198,4 +215,4 @@ export function SearchPanel() {
       </div>
     </div>
   );
-}
+});

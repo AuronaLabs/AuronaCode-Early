@@ -46,8 +46,8 @@ impl LspClient {
             .spawn()
             .map_err(|e| format!("Failed to spawn LSP: {}", e))?;
 
-        let mut stdin = child.stdin.take().unwrap();
-        let stdout = child.stdout.take().unwrap();
+        let mut stdin = child.stdin.take().ok_or_else(|| "Failed to capture stdin")?;
+        let stdout = child.stdout.take().ok_or_else(|| "Failed to capture stdout")?;
 
         let (writer_tx, mut writer_rx) = mpsc::channel::<String>(32);
         let response_waiters: Arc<Mutex<HashMap<u64, oneshot::Sender<Value>>>> =
@@ -57,8 +57,11 @@ impl LspClient {
         // 写入任务
         tokio::spawn(async move {
             while let Some(msg) = writer_rx.recv().await {
-                let formatted = format!("Content-Length: {}\r\n\r\n{}", msg.len(), msg);
-                if stdin.write_all(formatted.as_bytes()).await.is_err() {
+                let header = format!("Content-Length: {}\r\n\r\n", msg.len());
+                if stdin.write_all(header.as_bytes()).await.is_err() {
+                    break;
+                }
+                if stdin.write_all(msg.as_bytes()).await.is_err() {
                     break;
                 }
                 let _ = stdin.flush().await;
@@ -86,15 +89,14 @@ impl LspClient {
                         }
                     }
 
-                    let line = String::from_utf8_lossy(&line_buf);
-                    if line == "\r\n" {
+                    if line_buf == b"\r\n" || line_buf == b"\n" {
                         break; // 请求头结束
                     }
 
-                    if line.to_lowercase().starts_with("content-length:") {
-                        let parts: Vec<&str> = line.split(':').collect();
-                        if parts.len() == 2 {
-                            if let Ok(len) = parts[1].trim().parse::<usize>() {
+                    if line_buf.len() > 15 && line_buf[..15].eq_ignore_ascii_case(b"content-length:") {
+                        let line = String::from_utf8_lossy(&line_buf);
+                        if let Some(val) = line.split_once(':') {
+                            if let Ok(len) = val.1.trim().parse::<usize>() {
                                 content_length = len;
                             }
                         }
@@ -112,8 +114,7 @@ impl LspClient {
                     return;
                 }
 
-                if let Ok(body_str) = String::from_utf8(body_buf) {
-                    if let Ok(json) = serde_json::from_str::<Value>(&body_str) {
+                if let Ok(json) = serde_json::from_slice::<Value>(&body_buf) {
                         if let Some(id) = json.get("id").and_then(|id| id.as_u64()) {
                             // 响应消息
                             let mut waiters = waiters_clone.lock().await;
@@ -128,8 +129,7 @@ impl LspClient {
                         }
                     }
                 }
-            }
-        });
+            });
 
         // 任务 E：将 child 移入结构体
         Ok(Self {
@@ -142,6 +142,10 @@ impl LspClient {
 
     pub async fn call(&self, method: &str, params: Value) -> Result<Value, String> {
         let id = self.id_counter.fetch_add(1, Ordering::SeqCst);
+        self.call_with_id(id, method, params).await
+    }
+
+    pub async fn call_with_id(&self, id: u64, method: &str, params: Value) -> Result<Value, String> {
         let msg = json!({
             "jsonrpc": "2.0",
             "id": id,
@@ -162,6 +166,23 @@ impl LspClient {
             .await
             .map_err(|_| "LSP call timed out after 30 seconds".to_string())?
             .map_err(|_| "Response channel closed".to_string())
+    }
+
+    pub async fn cancel(&self, id: u64) -> Result<(), String> {
+        let msg = json!({
+            "jsonrpc": "2.0",
+            "method": "$/cancelRequest",
+            "params": {
+                "id": id
+            }
+        });
+
+        self.writer_tx
+            .send(msg.to_string())
+            .await
+            .map_err(|_| "Writer channel closed")?;
+
+        Ok(())
     }
 
     pub async fn notify(&self, method: &str, params: Value) -> Result<(), String> {

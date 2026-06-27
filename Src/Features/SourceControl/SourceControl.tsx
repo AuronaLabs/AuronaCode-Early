@@ -7,7 +7,9 @@ import { showToast } from "../../UI/Feedback/Toast";
 import { GitIPC, GitFile, GitCommit } from "../../Foundation/IPC/GitCommands";
 import { GitService, SourceControlCache } from "../../Core/GitService";
 
-export function SourceControl() {
+import React from "react";
+
+export const SourceControl = React.memo(function SourceControl() {
   const [repoPath, setRepoPath] = useState<string | null>(null);
   const [isRepo, setIsRepo] = useState(false);
   const [files, setFiles] = useState<GitFile[]>([]);
@@ -415,4 +417,4 @@ export function SourceControl() {
       )}
     </div>
   );
-}
+});

@@ -9,6 +9,9 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 1420,
     strictPort: true,
+    watch: {
+      ignored: ["**/src-tauri/**"],
+    },
   },
   build: {
     outDir: "Dist",
@@ -18,7 +21,8 @@ export default defineConfig({
       output: {
         manualChunks: {
           react: ["react", "react-dom"],
-          xterm: ["@xterm/xterm", "@xterm/addon-fit", "@xterm/addon-web-links"]
+          xterm: ["@xterm/xterm", "@xterm/addon-fit", "@xterm/addon-web-links", "@xterm/addon-webgl"],
+          icons: ["@tabler/icons-react"]
         }
       }
     }

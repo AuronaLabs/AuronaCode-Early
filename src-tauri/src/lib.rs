@@ -326,7 +326,7 @@ async fn git_get_full_status(path: String) -> Result<GitFullStatus, String> {
     // 整体超时 5 秒
     tokio::time::timeout(
         std::time::Duration::from_secs(5),
-        async {
+        tokio::task::spawn_blocking(move || {
             let is_repo = git_check_is_repo(path.clone())?;
             if !is_repo {
                 return Ok(GitFullStatus {
@@ -352,17 +352,18 @@ async fn git_get_full_status(path: String) -> Result<GitFullStatus, String> {
                 vec![]
             });
 
-            Ok(GitFullStatus {
+            Ok::<GitFullStatus, String>(GitFullStatus {
                 repo_path: path,
                 is_repo: true,
                 files,
                 commits,
                 branch,
             })
-        },
+        }),
     )
     .await
     .map_err(|_| "git_get_full_status timed out after 5 seconds".to_string())?
+    .map_err(|e| e.to_string())?
 }
 
 struct LspState {
@@ -485,6 +486,53 @@ async fn lsp_did_close(
     Ok(())
 }
 
+#[tauri::command]
+async fn lsp_call(
+    language: String,
+    method: String,
+    params: serde_json::Value,
+    state: tauri::State<'_, LspState>,
+) -> Result<serde_json::Value, String> {
+    let clients = state.clients.lock().await;
+    if let Some(client) = clients.get(&language) {
+        let res = client.call(&method, params).await?;
+        Ok(res)
+    } else {
+        Err(format!("LSP server for {} not running", language))
+    }
+}
+
+#[tauri::command]
+async fn lsp_call_with_id(
+    language: String,
+    id: u64,
+    method: String,
+    params: serde_json::Value,
+    state: tauri::State<'_, LspState>,
+) -> Result<serde_json::Value, String> {
+    let clients = state.clients.lock().await;
+    if let Some(client) = clients.get(&language) {
+        let res = client.call_with_id(id, &method, params).await?;
+        Ok(res)
+    } else {
+        Err(format!("LSP server for {} not running", language))
+    }
+}
+
+#[tauri::command]
+async fn lsp_cancel(
+    language: String,
+    id: u64,
+    state: tauri::State<'_, LspState>,
+) -> Result<(), String> {
+    let clients = state.clients.lock().await;
+    if let Some(client) = clients.get(&language) {
+        client.cancel(id).await
+    } else {
+        Err(format!("LSP server for {} not running", language))
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -520,6 +568,9 @@ pub fn run() {
             lsp_did_open,
             lsp_did_change,
             lsp_did_close,
+            lsp_call,
+            lsp_call_with_id,
+            lsp_cancel,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Aurona Code");

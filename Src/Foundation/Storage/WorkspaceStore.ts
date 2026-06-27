@@ -10,12 +10,12 @@ import type { WorkspaceState } from "../Types/Config";
 const FILE = "workspace.json";
 const BASE = BaseDirectory.AppLocalData;
 
-// 写入队列：避免并发调用导致的 Race Condition
-let writeQueue: Promise<void> = Promise.resolve();
-let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-let pendingState: Partial<WorkspaceState> = {};
+
 
 export const WorkspaceStore = {
+  _writeQueue: Promise.resolve() as Promise<void>,
+  _debounceTimer: null as ReturnType<typeof setTimeout> | null,
+  _pendingState: {} as Partial<WorkspaceState>,
   async init(): Promise<void> {
     try {
       await mkdir("", { baseDir: BASE, recursive: true });
@@ -35,20 +35,19 @@ export const WorkspaceStore = {
     }
   },
 
-  // 非阻塞写入，通过队列保证顺序与防抖
   set(state: Partial<WorkspaceState>): void {
     // 合并挂起的状态
-    pendingState = { ...pendingState, ...state };
+    this._pendingState = { ...this._pendingState, ...state };
     
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
+    if (this._debounceTimer) {
+      clearTimeout(this._debounceTimer);
     }
     
-    debounceTimer = setTimeout(() => {
-      const stateToWrite = { ...pendingState };
-      pendingState = {};
+    this._debounceTimer = setTimeout(() => {
+      const stateToWrite = { ...this._pendingState };
+      this._pendingState = {};
       
-      writeQueue = writeQueue
+      this._writeQueue = this._writeQueue
         .then(async () => {
           try {
             const current = await this.get();

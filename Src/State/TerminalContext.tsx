@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { EventBus } from "../Core/EventBus";
 import { TerminalManager } from "../Core/TerminalService";
 import type { TerminalInstance } from "../Foundation/Types/Terminal";
@@ -77,7 +77,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     return unsub;
   }, []);
 
-  const value: TerminalContextValue = {
+  const value: TerminalContextValue = useMemo(() => ({
     terminals,
     activeTerminalId,
     isTerminalOpen,
@@ -87,14 +87,24 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     isShellDropdownOpen,
     editingTerminalId,
     editingName,
-    addTerminal: TerminalManager.createTerminal,
+    addTerminal: (shellPath?: string) => TerminalManager.createTerminal(shellPath),
     setIsTerminalOpen,
     setActiveBottomTab,
     setIsTerminalListVisible,
     setIsShellDropdownOpen,
     setEditingTerminalId,
     setEditingName,
-  };
+  }), [
+    terminals,
+    activeTerminalId,
+    isTerminalOpen,
+    activeBottomTab,
+    isTerminalListVisible,
+    availableShells,
+    isShellDropdownOpen,
+    editingTerminalId,
+    editingName
+  ]);
 
   return <TerminalContext.Provider value={value}>{children}</TerminalContext.Provider>;
 }

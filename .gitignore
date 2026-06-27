@@ -39,3 +39,4 @@ venv/
 
 # AI Agent Configs
 .agents/
+publish.py

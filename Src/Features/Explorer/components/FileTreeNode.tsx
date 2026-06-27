@@ -3,6 +3,7 @@ import { Icons } from "../../../UI/Icons/IconManager";
 import { InlineInput } from "./InlineInput";
 import type { FileNode } from "../../../Core/FileSystemService";
 import type { InlineCreation } from "../FileExplorer";
+import { useExplorerContext } from "../ExplorerContext";
 
 // 根据文件扩展名返回对应图标
 function getFileIcon(filename: string, isActive: boolean) {
@@ -42,28 +43,23 @@ function getFileIcon(filename: string, isActive: boolean) {
 interface FileTreeNodeProps {
   node: FileNode;
   depth: number;
-  activePath: string | null;
-  inlineCreation: InlineCreation | null;
-  inlineEditing: string | null;
-  onToggle: (node: FileNode) => void;
-  onInlineCreate: (name: string) => void;
-  onInlineCancel: () => void;
-  onInlineRename: (oldPath: string, newName: string) => void;
-  onContextMenu: (event: React.MouseEvent, node: FileNode) => void;
 }
 
 export const FileTreeNode = React.memo(function FileTreeNode({
   node,
   depth,
-  activePath,
-  inlineCreation,
-  inlineEditing,
-  onToggle,
-  onInlineCreate,
-  onInlineCancel,
-  onInlineRename,
-  onContextMenu,
 }: FileTreeNodeProps) {
+  const {
+    activePath,
+    inlineCreation,
+    inlineEditing,
+    onToggle,
+    onInlineCreate,
+    onInlineCancel,
+    onInlineRename,
+    onContextMenu,
+  } = useExplorerContext();
+  
   const isActive = activePath === node.path;
   const isTargetForInline =
     inlineCreation?.parentPath === node.path &&
@@ -151,14 +147,6 @@ export const FileTreeNode = React.memo(function FileTreeNode({
               key={child.path}
               node={child}
               depth={depth + 1}
-              activePath={activePath}
-              inlineCreation={inlineCreation}
-              inlineEditing={inlineEditing}
-              onToggle={onToggle}
-              onInlineCreate={onInlineCreate}
-              onInlineCancel={onInlineCancel}
-              onInlineRename={onInlineRename}
-              onContextMenu={onContextMenu}
             />
           ))}
         </div>

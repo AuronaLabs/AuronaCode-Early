@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Icons } from "../../UI/Icons/IconManager";
 import { NotificationService, NotificationItem } from "../../Core/NotificationService";
 import { EventBus } from "../../Core/EventBus";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 
-export function NotificationsPanel() {
+export const NotificationsPanel = React.memo(function NotificationsPanel() {
   const [notifications, setNotifications] = useState<NotificationItem[]>(NotificationService.getHistory());
 
   useEffect(() => {
@@ -90,4 +90,4 @@ export function NotificationsPanel() {
       </div>
     </div>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useRef, useState, createContext } from "react";
+import { useCallback, useContext, useEffect, useRef, useState, createContext, useMemo } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { EventBus } from "../Core/EventBus";
 import { StorageManager } from "../Core/StorageManager";
@@ -210,7 +210,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     };
   }, [closeTabById, openFile, openTab]);
 
-  const value: WorkspaceContextValue = {
+  const value: WorkspaceContextValue = useMemo(() => ({
     tabs,
     activeTabId,
     activeSidebar,
@@ -222,7 +222,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     openTab,
     closeTab,
     closeTabById,
-  };
+  }), [
+    tabs,
+    activeTabId,
+    activeSidebar,
+    pendingCloseTab,
+    openFile,
+    openTab,
+    closeTab,
+    closeTabById
+  ]);
 
   return (
     <WorkspaceContext.Provider value={value}>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Icons } from "../../UI/Icons/IconManager";
 import { EventBus } from "../../Core/EventBus";
 import { FileSystemService } from "../../Core/FileSystemService";
@@ -18,7 +18,7 @@ const getExtension = (filePath: string) => {
   return index >= 0 ? filePath.slice(index + 1).toLowerCase() : "";
 };
 
-export function EditorTab({ path, isActive }: EditorTabProps) {
+export const EditorTab = React.memo(function EditorTab({ path, isActive }: EditorTabProps) {
   const [fileContent, setFileContent] = useState("");
   const [savedContent, setSavedContent] = useState("");
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -169,4 +169,4 @@ export function EditorTab({ path, isActive }: EditorTabProps) {
       )}
     </div>
   );
-}
+});

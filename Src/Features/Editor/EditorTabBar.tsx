@@ -6,7 +6,9 @@ import { useWorkspace } from "../../State/WorkspaceContext";
 import { EventBus } from "../../Core/EventBus";
 import { ContextMenu, ContextMenuItem, ContextMenuDivider } from "../../UI/Components/ContextMenu";
 
-export function EditorTabBar() {
+import React from "react";
+
+export const EditorTabBar = React.memo(function EditorTabBar() {
   const { tabs, activeTabId, setActiveTabId, closeTab, closeTabById } = useWorkspace();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tabId: string } | null>(null);
 
@@ -128,4 +130,4 @@ export function EditorTabBar() {
       )}
     </div>
   );
-}
+});

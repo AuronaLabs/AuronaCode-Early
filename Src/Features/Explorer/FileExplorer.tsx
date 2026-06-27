@@ -16,7 +16,10 @@ export type InlineCreation = {
   parentPath: string;
 };
 
-export function FileExplorer({ onFileSelect }: { onFileSelect: (path: string) => void }) {
+import { ExplorerContext } from "./ExplorerContext";
+
+import React from "react";
+export const FileExplorer = React.memo(function FileExplorer({ onFileSelect }: { onFileSelect: (path: string) => void }) {
   const {
     rootNode,
     activePath,
@@ -41,7 +44,28 @@ export function FileExplorer({ onFileSelect }: { onFileSelect: (path: string) =>
   const isRootTargetForInline = inlineCreation?.parentPath === rootNode?.path;
   const title = useMemo(() => rootNode?.name || "资源管理器", [rootNode]);
 
+  const contextValue = useMemo(() => ({
+    activePath,
+    inlineCreation,
+    inlineEditing,
+    onToggle: toggleDir,
+    onInlineCreate: handleInlineCreate,
+    onInlineCancel: handleInlineCancel,
+    onInlineRename: handleInlineRename,
+    onContextMenu: handleContextMenu,
+  }), [
+    activePath,
+    inlineCreation,
+    inlineEditing,
+    toggleDir,
+    handleInlineCreate,
+    handleInlineCancel,
+    handleInlineRename,
+    handleContextMenu
+  ]);
+
   return (
+    <ExplorerContext.Provider value={contextValue}>
     <div
       className="flex h-full w-full flex-col bg-transparent overflow-hidden outline-none"
       tabIndex={-1}
@@ -121,14 +145,6 @@ export function FileExplorer({ onFileSelect }: { onFileSelect: (path: string) =>
               key={child.path}
               node={child}
               depth={0}
-              activePath={activePath}
-              inlineCreation={inlineCreation}
-              inlineEditing={inlineEditing}
-              onToggle={toggleDir}
-              onInlineCreate={handleInlineCreate}
-              onInlineCancel={handleInlineCancel}
-              onInlineRename={handleInlineRename}
-              onContextMenu={handleContextMenu}
             />
           ))}
 
@@ -182,5 +198,6 @@ export function FileExplorer({ onFileSelect }: { onFileSelect: (path: string) =>
         </div>
       )}
     </div>
+    </ExplorerContext.Provider>
   );
-}
+});

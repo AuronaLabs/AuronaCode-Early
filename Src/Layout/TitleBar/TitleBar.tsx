@@ -7,8 +7,9 @@ import { isRunnable, handleSmartRun } from "../../Shared/Constants/RunConfig";
 
 type MenuName = "文件" | "编辑" | "帮助";
 
+const appWindow = getCurrentWindow();
+
 export function TitleBar() {
-  const appWindow = getCurrentWindow();
   const [activeMenu, setActiveMenu] = useState<MenuName | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
@@ -29,7 +30,7 @@ export function TitleBar() {
       unsubTerminal();
       unsubFile();
     };
-  }, [appWindow]);
+  }, []);
 
   const toggleMaximize = async () => {
     if (isMaximized) await appWindow.unmaximize();

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { EditorAdapter } from "../Features/Editor/EditorAdapter";
 import type { EditorStatus } from "../Foundation/Types/Editor";
 import { EMPTY_EDITOR_STATUS } from "../Foundation/Types/Editor";
@@ -11,16 +11,18 @@ export interface EditorContextValue {
 const EditorContext = createContext<EditorContextValue | null>(null);
 
 export function EditorProvider({ children }: { children: ReactNode }) {
-  const [editorStatus, setEditorStatus] = useState<EditorStatus>(EditorAdapter.getStatus());
+  const [editorStatus, setEditorStatus] = useState<EditorStatus>(
+    EditorAdapter.getStatus() ?? EMPTY_EDITOR_STATUS
+  );
 
   useEffect(() => {
     return EditorAdapter.onStatusChange(setEditorStatus);
   }, []);
 
-  void EMPTY_EDITOR_STATUS; // 确保 import 不被 tree-shake
+  const value = useMemo(() => ({ editorStatus }), [editorStatus]);
 
   return (
-    <EditorContext.Provider value={{ editorStatus }}>
+    <EditorContext.Provider value={value}>
       {children}
     </EditorContext.Provider>
   );

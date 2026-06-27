@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import Prism from "prismjs";
+import Prism from "prismjs/components/prism-core";
+import "prismjs/components/prism-clike";
 import "prismjs/components/prism-javascript";
 import "prismjs/components/prism-typescript";
 import "prismjs/components/prism-css";
@@ -7,13 +8,15 @@ import "prismjs/components/prism-json";
 import "prismjs/components/prism-rust";
 import "prismjs/components/prism-python";
 import "prismjs/components/prism-bash";
+import "prismjs/components/prism-markup";
 import "prismjs/components/prism-markdown";
 import { EditorAdapter } from "./EditorAdapter";
-import { EditorStatus, EditorStatusListener, IEditorEngine } from "./IEditorEngine";
+import { EditorStatus, EditorStatusListener, IEditorEngine } from "../../Foundation/Types/Editor";
 import { LspClient } from "./LspClient";
 import { EventBus } from "../../Core/EventBus";
+import { AutocompleteMenu, CompletionItem } from "./components/AutocompleteMenu";
+import { SearchWidget } from "./components/SearchWidget";
 
-// Prismjs custom simple theme
 const prismTheme = `
 code[class*="language-"], pre[class*="language-"] {
   color: var(--ColorTextHighlight);
@@ -29,7 +32,6 @@ code[class*="language-"], pre[class*="language-"] {
   tab-size: 2;
   hyphens: none;
 }
-/* 隐形滚动条定制 */
 .aurona-scroll::-webkit-scrollbar {
   width: 12px;
   height: 12px;
@@ -65,7 +67,7 @@ export type AuronaEngineProps = {
   path?: string;
 };
 
-export function AuronaEngine({
+export const AuronaEngine = React.memo(function AuronaEngine({
   value,
   language,
   isActive = true,
@@ -76,12 +78,41 @@ export function AuronaEngine({
   const [diagnostics, setDiagnostics] = useState<any[]>([]);
   const [hoverTooltip, setHoverTooltip] = useState<{x: number, y: number, text: string} | null>(null);
   
+  // Undo/Redo stack
+  const [history, setHistory] = useState<{content: string, selectionStart: number}[]>([{content: value, selectionStart: 0}]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+
+  // Search
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatches, setSearchMatches] = useState<number[]>([]);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+
+  // Autocomplete
+  const [completions, setCompletions] = useState<CompletionItem[]>([]);
+  const [completionIndex, setCompletionIndex] = useState(0);
+  const [completionPos, setCompletionPos] = useState({ x: 0, y: 0, line: 0, character: 0, prefix: "" });
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const charWidthRef = useRef<number>(8.4);
   const lineHeightRef = useRef<number>(21);
   const contentRef = useRef(value);
   const onChangeRef = useRef(onChange);
+  const completionTimerRef = useRef<number | null>(null);
+  const didChangeTimerRef = useRef<number | null>(null);
+  const pendingLspReqIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (completionTimerRef.current) window.clearTimeout(completionTimerRef.current);
+      if (didChangeTimerRef.current) window.clearTimeout(didChangeTimerRef.current);
+      if (pendingLspReqIdRef.current && language) {
+        LspClient.getInstance().cancelRequest(language, pendingLspReqIdRef.current);
+      }
+    };
+  }, [language]);
+
   useEffect(() => {
     const span = document.createElement("span");
     span.style.fontFamily = "var(--EditorFontFamily)";
@@ -117,6 +148,31 @@ export function AuronaEngine({
     onChangeRef.current = onChange;
   }, [onChange]);
 
+  const lineStarts = React.useMemo(() => {
+    const starts = [0];
+    for (let i = 0; i < content.length; i++) {
+      if (content[i] === '\n') starts.push(i + 1);
+    }
+    return starts;
+  }, [content]);
+
+  const getLineAndChar = useCallback((index: number) => {
+    let low = 0;
+    let high = lineStarts.length - 1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (lineStarts[mid] <= index) {
+        if (mid === lineStarts.length - 1 || lineStarts[mid + 1] > index) {
+          return { line: mid, char: index - lineStarts[mid] };
+        }
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return { line: 0, char: 0 };
+  }, [lineStarts]);
+
   const engineImplRef = useRef<IEditorEngine | null>(null);
   const statusListenersRef = useRef(new Set<EditorStatusListener>());
   const statusRef = useRef<EditorStatus>({
@@ -135,8 +191,22 @@ export function AuronaEngine({
     markers: [],
   });
 
+  const pushHistory = useCallback((newContent: string, cursor: number) => {
+    setHistory(prev => {
+      const newHist = prev.slice(0, historyIndex + 1);
+      newHist.push({ content: newContent, selectionStart: cursor });
+      return newHist;
+    });
+    setHistoryIndex(prev => prev + 1);
+  }, [historyIndex]);
+
   useEffect(() => {
-    setContent(value);
+    // Only update if external value changes (not driven by our own history)
+    if (value !== contentRef.current) {
+      setContent(value);
+      setHistory([{ content: value, selectionStart: 0 }]);
+      setHistoryIndex(0);
+    }
   }, [value]);
 
   const emitStatus = useCallback((status: EditorStatus) => {
@@ -147,40 +217,182 @@ export function AuronaEngine({
   const updateStatus = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
-    const textBeforeCursor = el.value.substring(0, el.selectionStart);
-    const lines = textBeforeCursor.split("\n");
-    const line = lines.length;
-    const column = lines[lines.length - 1].length + 1;
+    const { line, char } = getLineAndChar(el.selectionStart);
+    const lineNum = line + 1;
+    const column = char + 1;
     
     emitStatus({
       ...statusRef.current,
-      line,
+      line: lineNum,
       column,
       selectionLength: Math.abs(el.selectionEnd - el.selectionStart),
     });
-  }, [emitStatus]);
+  }, [emitStatus, getLineAndChar]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
+    const selectionStart = e.target.selectionStart;
     setContent(newContent);
     onChange?.(newContent);
+    pushHistory(newContent, selectionStart);
     updateStatus();
 
     if (path && language) {
-      LspClient.getInstance().didChange(language, path, newContent);
+      if (didChangeTimerRef.current) window.clearTimeout(didChangeTimerRef.current);
+      didChangeTimerRef.current = window.setTimeout(() => {
+        LspClient.getInstance().didChange(language, path, newContent);
+      }, 300);
+      
+      const { line, char: character } = getLineAndChar(selectionStart);
+      
+      const textBeforeCursor = newContent.substring(0, selectionStart);
+      const lastLineMatch = textBeforeCursor.match(/[^\n]*$/);
+      const lastLine = lastLineMatch ? lastLineMatch[0] : "";
+      
+      const match = lastLine.match(/[a-zA-Z0-9_]*$/);
+      const prefix = match ? match[0] : "";
+      
+      const lastChar = textBeforeCursor.slice(-1);
+      const isTriggerChar = lastChar === '.' || lastChar === ':' || lastChar === '>';
+
+      if (character > 0 && (prefix.length > 0 || isTriggerChar)) {
+        if (completionTimerRef.current) window.clearTimeout(completionTimerRef.current);
+        if (pendingLspReqIdRef.current) {
+          LspClient.getInstance().cancelRequest(language, pendingLspReqIdRef.current);
+          pendingLspReqIdRef.current = null;
+        }
+        
+        const reqId = Date.now();
+        completionTimerRef.current = window.setTimeout(() => {
+          pendingLspReqIdRef.current = reqId;
+          LspClient.getInstance().getCompletions(language, path, line, character, reqId).then((res: any) => {
+            if (pendingLspReqIdRef.current !== reqId) return; // Ignore if a new request was made
+            pendingLspReqIdRef.current = null;
+            
+            let items: CompletionItem[] = [];
+            if (Array.isArray(res)) items = res;
+            else if (res && res.items) items = res.items;
+
+            if (items.length > 0) {
+              const rect = textareaRef.current?.getBoundingClientRect();
+              if (rect && textareaRef.current) {
+                const x = rect.left + (character * charWidthRef.current) - textareaRef.current.scrollLeft + 16;
+                const y = rect.top + ((line + 1) * lineHeightRef.current) - textareaRef.current.scrollTop + 16;
+                setCompletionPos({ x, y, line, character, prefix });
+                setCompletions(items.slice(0, 50));
+                setCompletionIndex(0);
+              }
+            } else {
+              setCompletions([]);
+            }
+          });
+        }, 150);
+      } else {
+        if (pendingLspReqIdRef.current) {
+          LspClient.getInstance().cancelRequest(language, pendingLspReqIdRef.current);
+          pendingLspReqIdRef.current = null;
+        }
+        setCompletions([]);
+      }
     }
   };
 
+  const handleAutocompleteSelect = (index: number) => {
+    const item = completions[index];
+    if (!item) return;
+    const el = textareaRef.current;
+    if (!el) return;
+
+    const insertText = item.insertText || item.label;
+    const textBeforeCursor = content.substring(0, el.selectionStart - completionPos.prefix.length);
+    const textAfterCursor = content.substring(el.selectionStart);
+    const newContent = textBeforeCursor + insertText + textAfterCursor;
+    
+    setContent(newContent);
+    onChange?.(newContent);
+    setCompletions([]);
+    
+    const newCursor = textBeforeCursor.length + insertText.length;
+    pushHistory(newContent, newCursor);
+    
+    setTimeout(() => {
+      el.focus();
+      el.selectionStart = el.selectionEnd = newCursor;
+      updateStatus();
+    }, 0);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const el = textareaRef.current;
+    if (!el) return;
+
+    if (completions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setCompletionIndex(prev => (prev + 1) % completions.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setCompletionIndex(prev => (prev - 1 + completions.length) % completions.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        handleAutocompleteSelect(completionIndex);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setCompletions([]);
+        return;
+      }
+    }
+
+    if (e.key === "f" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      setIsSearchOpen(true);
+      return;
+    }
+
+    if (e.key === "z" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (historyIndex > 0) {
+        const prevState = history[historyIndex - 1];
+        setContent(prevState.content);
+        onChange?.(prevState.content);
+        setHistoryIndex(historyIndex - 1);
+        setTimeout(() => {
+          el.selectionStart = el.selectionEnd = prevState.selectionStart;
+          updateStatus();
+        }, 0);
+      }
+      return;
+    }
+
+    if (e.key === "y" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (historyIndex < history.length - 1) {
+        const nextState = history[historyIndex + 1];
+        setContent(nextState.content);
+        onChange?.(nextState.content);
+        setHistoryIndex(historyIndex + 1);
+        setTimeout(() => {
+          el.selectionStart = el.selectionEnd = nextState.selectionStart;
+          updateStatus();
+        }, 0);
+      }
+      return;
+    }
+
     if (e.key === "Tab") {
       e.preventDefault();
-      const el = textareaRef.current;
-      if (!el) return;
       const start = el.selectionStart;
       const end = el.selectionEnd;
-      const newText = content.substring(0, start) + "  " + content.substring(end);
-      setContent(newText);
-      onChange?.(newText);
+      const newContent = content.substring(0, start) + "  " + content.substring(end);
+      setContent(newContent);
+      onChange?.(newContent);
+      pushHistory(newContent, start + 2);
       setTimeout(() => {
         el.selectionStart = el.selectionEnd = start + 2;
         updateStatus();
@@ -198,7 +410,6 @@ export function AuronaEngine({
     const x = e.clientX - rect.left + e.currentTarget.scrollLeft;
     const y = e.clientY - rect.top + e.currentTarget.scrollTop;
     
-    // Account for padding (p-4 = 16px)
     const line = Math.floor((y - 16) / lineHeightRef.current);
     const character = Math.floor((x - 16) / charWidthRef.current);
     
@@ -223,6 +434,47 @@ export function AuronaEngine({
   };
 
   useEffect(() => {
+    if (!searchQuery) {
+      setSearchMatches([]);
+      return;
+    }
+    const matches: number[] = [];
+    let idx = content.toLowerCase().indexOf(searchQuery.toLowerCase());
+    while (idx !== -1) {
+      matches.push(idx);
+      idx = content.toLowerCase().indexOf(searchQuery.toLowerCase(), idx + searchQuery.length);
+    }
+    setSearchMatches(matches);
+    setCurrentMatchIndex(0);
+  }, [searchQuery, content]);
+
+  const handleSearchNext = () => {
+    if (searchMatches.length === 0) return;
+    const nextIdx = (currentMatchIndex + 1) % searchMatches.length;
+    setCurrentMatchIndex(nextIdx);
+    scrollToMatch(searchMatches[nextIdx]);
+  };
+
+  const handleSearchPrev = () => {
+    if (searchMatches.length === 0) return;
+    const prevIdx = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+    setCurrentMatchIndex(prevIdx);
+    scrollToMatch(searchMatches[prevIdx]);
+  };
+
+  const scrollToMatch = (index: number) => {
+    if (!textareaRef.current) return;
+    const { line } = getLineAndChar(index);
+    const top = line * lineHeightRef.current;
+    
+    // Smooth scroll to line
+    textareaRef.current.parentElement?.parentElement?.scrollTo({
+      top: top - 100,
+      behavior: "smooth"
+    });
+  };
+
+  useEffect(() => {
     const engineImpl: IEditorEngine = {
       getText: () => textareaRef.current?.value || "",
       getSelectionText: () => {
@@ -240,6 +492,7 @@ export function AuronaEngine({
           const newText = curContent.substring(0, start) + text + curContent.substring(end);
           setContent(newText);
           onChangeRef.current?.(newText);
+          pushHistory(newText, start + text.length);
           setTimeout(() => {
             el.selectionStart = el.selectionEnd = start + text.length;
             updateStatus();
@@ -248,6 +501,7 @@ export function AuronaEngine({
           const newText = curContent + text;
           setContent(newText);
           onChangeRef.current?.(newText);
+          pushHistory(newText, newText.length);
           updateStatus();
         }
       },
@@ -263,6 +517,7 @@ export function AuronaEngine({
         const resText = newLines.join("\n");
         setContent(resText);
         onChangeRef.current?.(resText);
+        pushHistory(resText, el.selectionStart);
         updateStatus();
       },
       getStatus: () => statusRef.current,
@@ -279,37 +534,50 @@ export function AuronaEngine({
     return () => {
       EditorAdapter.unbindEngine(engineImpl);
     };
-  }, [isActive, updateStatus]);
+  }, [isActive, updateStatus, pushHistory]);
 
   useEffect(() => {
     if (isActive) updateStatus();
   }, [isActive, updateStatus]);
 
-  // LSP 初始化与文档打开同步
   useEffect(() => {
     if (!path || !language) return;
     const lsp = LspClient.getInstance();
-    
     const initLsp = async () => {
       await lsp.startServer(language);
       await lsp.didOpen(language, path, content);
     };
-    
     initLsp();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, language]);
 
-  // fallback to generic plain text if language is missing
-  const grammar = Prism.languages[language === 'typescript' ? 'typescript' : language] || Prism.languages.javascript;
-  const highlightedHTML = Prism.highlight(content, grammar, language);
+  const deferredContent = React.useDeferredValue(content);
+  const grammar = Prism.languages[language === 'typescript' ? 'typescript' : language] || Prism.languages.javascript || Prism.languages.clike || {};
+  const highlightedHTML = grammar ? Prism.highlight(deferredContent, grammar, language) : deferredContent;
 
-  const linesCount = content.split('\n').length;
-  const lineNumbers = Array.from({ length: Math.max(1, linesCount) }, (_, i) => i + 1);
+  const linesCount = deferredContent.split('\n').length;
+  const lineNumbers = React.useMemo(() => {
+    return Array.from({ length: Math.max(1, linesCount) }, (_, i) => i + 1);
+  }, [linesCount]);
 
   return (
     <div className="relative w-full h-full flex bg-transparent overflow-hidden">
       <style>{prismTheme}</style>
       
+      {isSearchOpen && (
+        <SearchWidget 
+          onSearch={setSearchQuery} 
+          onClose={() => {
+            setIsSearchOpen(false);
+            setSearchQuery("");
+            setSearchMatches([]);
+          }}
+          onNext={handleSearchNext}
+          onPrev={handleSearchPrev}
+          totalMatches={searchMatches.length}
+          currentIndex={currentMatchIndex}
+        />
+      )}
+
       {/* 侧边栏（行号槽） */}
       <div className="w-[48px] shrink-0 bg-transparent border-r border-black/5 dark:border-white/5 flex flex-col items-end py-4 px-2 select-none overflow-hidden">
         <div 
@@ -337,6 +605,7 @@ export function AuronaEngine({
             lineNumbersRef.current.style.transform = `translateY(-${e.currentTarget.scrollTop}px)`;
           }
         }}
+        onClick={() => setCompletions([])}
       >
         <div className="relative inline-block min-w-full p-4">
           <pre
@@ -347,24 +616,50 @@ export function AuronaEngine({
               lineHeight: "var(--EditorLineHeight)",
               whiteSpace: "pre",
               tabSize: 2,
-              textShadow: "0 1px 2px rgba(0,0,0,0.1)", /* 增加一点发光投影保证裸背时的可读性 */
+              textShadow: "0 1px 2px rgba(0,0,0,0.1)",
             }}
             dangerouslySetInnerHTML={{ __html: highlightedHTML + (content.endsWith('\n') ? '\n' : '') }}
           />
 
           <div className="absolute top-0 left-0 w-full h-full m-0 p-4 pointer-events-none z-[5] overflow-hidden">
+            {/* Search Highlights */}
+            {searchMatches.map((index, i) => {
+              const { line, char } = getLineAndChar(index);
+              
+              const top = line * lineHeightRef.current;
+              const left = char * charWidthRef.current;
+              const width = searchQuery.length * charWidthRef.current;
+              
+              const isCurrent = i === currentMatchIndex;
+              
+              return (
+                <div 
+                  key={`search-${i}`}
+                  style={{
+                    position: "absolute",
+                    top: `${top}px`,
+                    left: `${left}px`,
+                    width: `${width}px`,
+                    height: `${lineHeightRef.current}px`,
+                    backgroundColor: isCurrent ? "rgba(255, 165, 0, 0.5)" : "rgba(255, 255, 0, 0.2)",
+                    borderRadius: "2px",
+                  }}
+                />
+              );
+            })}
+
+            {/* Diagnostics */}
             {diagnostics.map((diag, i) => {
               const top = diag.range.start.line * lineHeightRef.current;
               const left = diag.range.start.character * charWidthRef.current;
               const width = Math.max(charWidthRef.current, (diag.range.end.character - diag.range.start.character) * charWidthRef.current);
               
-              // LSP severity: 1 = Error, 2 = Warning, 3 = Information, 4 = Hint
               const isError = diag.severity === 1;
               const color = isError ? "rgba(239, 68, 68, 0.8)" : "rgba(234, 179, 8, 0.8)";
               
               return (
                 <div 
-                  key={i}
+                  key={`diag-${i}`}
                   style={{
                     position: "absolute",
                     top: `${top}px`,
@@ -389,18 +684,28 @@ export function AuronaEngine({
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
             spellCheck={false}
-            className="absolute top-0 left-0 w-full h-full m-0 p-4 resize-none outline-none border-none bg-transparent text-transparent caret-[var(--ColorTextHighlight)] whitespace-pre overflow-hidden z-10"
+            className="absolute top-0 left-0 w-full h-full m-0 p-4 resize-none outline-none focus:outline-none focus:ring-0 focus:border-none border-none bg-transparent text-transparent caret-[var(--ColorTextHighlight)] whitespace-pre overflow-hidden z-10"
             style={{
               fontFamily: "var(--EditorFontFamily)",
               fontSize: "var(--EditorFontSize)",
               lineHeight: "var(--EditorLineHeight)",
               tabSize: 2,
+              outline: "none",
+              boxShadow: "none",
+              border: "none",
             }}
           />
         </div>
       </div>
       
-      {/* 悬停提示浮层 */}
+      <AutocompleteMenu 
+        x={completionPos.x} 
+        y={completionPos.y} 
+        items={completions} 
+        selectedIndex={completionIndex} 
+        onSelect={handleAutocompleteSelect} 
+      />
+
       {hoverTooltip && (
         <div 
           className="fixed z-50 p-2.5 text-[12px] bg-black/80 dark:bg-white/90 text-white dark:text-black backdrop-blur-md rounded-xl shadow-xl border border-white/10 max-w-[400px] whitespace-pre-wrap break-words pointer-events-none transition-opacity"
@@ -411,4 +716,4 @@ export function AuronaEngine({
       )}
     </div>
   );
-}
+});

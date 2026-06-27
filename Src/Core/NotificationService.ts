@@ -10,9 +10,10 @@ export interface NotificationItem {
 
 class NotificationServiceImpl {
   private history: NotificationItem[] = [];
+  private unsubToast: (() => void) | null = null;
 
   constructor() {
-    EventBus.on("app:toast", (payload) => {
+    this.unsubToast = EventBus.on("app:toast", (payload) => {
       this.add({
         id: Date.now().toString() + Math.random().toString(),
         type: payload.type,
@@ -21,6 +22,13 @@ class NotificationServiceImpl {
         read: false,
       });
     });
+  }
+
+  public destroy() {
+    if (this.unsubToast) {
+      this.unsubToast();
+      this.unsubToast = null;
+    }
   }
 
   private add(item: NotificationItem) {

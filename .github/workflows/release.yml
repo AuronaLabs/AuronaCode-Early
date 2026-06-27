@@ -53,6 +53,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Aurona Code ${{ github.ref_name }} 发布'
+          releaseAssetNamePattern: 'AuronaCode-v[version]-[arch][setup][ext]'
           args: ${{ matrix.settings.args }}
           releaseBody: |
             

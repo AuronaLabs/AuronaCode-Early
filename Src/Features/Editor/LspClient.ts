@@ -54,6 +54,9 @@ export class LspClient {
     } else if (language === "typescript" || language === "javascript") {
       command = "cmd.exe";
       args = ["/c", "npx", "typescript-language-server", "--stdio"];
+    } else if (language === "python") {
+      command = "cmd.exe";
+      args = ["/c", "npx", "--yes", "--package", "pyright", "pyright-langserver", "--stdio"];
     } else {
       return;
     }
@@ -94,6 +97,97 @@ export class LspClient {
       await invoke("lsp_did_close", { language, path });
     } catch (e) {
       console.error(`Failed didClose for ${path}:`, e);
+    }
+  }
+
+  public async getCompletions(language: string, path: string, line: number, character: number, reqId?: number): Promise<any> {
+    if (!this.runningServers.has(language)) return null;
+    try {
+      const params = {
+        textDocument: { uri: `file:///${path.replace(/\\/g, "/")}` },
+        position: { line, character }
+      };
+      
+      if (reqId !== undefined) {
+        return await invoke("lsp_call_with_id", {
+          language,
+          id: reqId,
+          method: "textDocument/completion",
+          params
+        });
+      }
+
+      return await invoke("lsp_call", {
+        language,
+        method: "textDocument/completion",
+        params
+      });
+    } catch (e) {
+      console.error(`Failed getCompletions for ${path}:`, e);
+      return null;
+    }
+  }
+
+  public async cancelRequest(language: string, id: number) {
+    if (!this.runningServers.has(language)) return;
+    try {
+      await invoke("lsp_cancel", { language, id });
+    } catch (e) {
+      console.error(`Failed to cancel request ${id} for ${language}:`, e);
+    }
+  }
+
+  public async getHoverInfo(language: string, path: string, line: number, character: number): Promise<HoverResult | null> {
+    if (!this.runningServers.has(language)) return null;
+    try {
+      return await invoke("lsp_call", {
+        language,
+        method: "textDocument/hover",
+        params: {
+          textDocument: { uri: `file:///${path.replace(/\\/g, "/")}` },
+          position: { line, character }
+        }
+      });
+    } catch (e) {
+      console.error(`Failed getHoverInfo for ${path}:`, e);
+      return null;
+    }
+  }
+
+  public async getDefinition(language: string, path: string, line: number, character: number): Promise<any> {
+    if (!this.runningServers.has(language)) return null;
+    try {
+      return await invoke("lsp_call", {
+        language,
+        method: "textDocument/definition",
+        params: {
+          textDocument: { uri: `file:///${path.replace(/\\/g, "/")}` },
+          position: { line, character }
+        }
+      });
+    } catch (e) {
+      console.error(`Failed getDefinition for ${path}:`, e);
+      return null;
+    }
+  }
+
+  public async formatDocument(language: string, path: string): Promise<any> {
+    if (!this.runningServers.has(language)) return null;
+    try {
+      return await invoke("lsp_call", {
+        language,
+        method: "textDocument/formatting",
+        params: {
+          textDocument: { uri: `file:///${path.replace(/\\/g, "/")}` },
+          options: {
+            tabSize: 2,
+            insertSpaces: true
+          }
+        }
+      });
+    } catch (e) {
+      console.error(`Failed formatDocument for ${path}:`, e);
+      return null;
     }
   }
 }

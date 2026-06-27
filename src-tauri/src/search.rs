@@ -2,6 +2,9 @@ use ignore::WalkBuilder;
 use regex::RegexBuilder;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SearchResult {
@@ -17,14 +20,11 @@ pub async fn search_workspace(
     query: String,
     is_case_sensitive: bool,
     is_regex: bool,
-) -> Result<Vec<SearchResult>, String> {
+    app: AppHandle,
+) -> Result<(), String> {
     if query.is_empty() {
-        return Ok(Vec::new());
+        return Ok(());
     }
-
-    let mut results = Vec::new();
-    let mut builder = WalkBuilder::new(&path);
-    builder.hidden(false);
 
     let regex = if is_regex {
         RegexBuilder::new(&query)
@@ -39,44 +39,73 @@ pub async fn search_workspace(
             .map_err(|e| e.to_string())?
     };
 
-    let base_path = Path::new(&path);
-    let max_results = 500; // Limit results
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut builder = WalkBuilder::new(&path);
+        builder.hidden(false);
+        
+        let walker = builder.build_parallel();
+        let base_path = Path::new(&path).to_path_buf();
+        let max_results = 500;
+        let result_count = Arc::new(AtomicUsize::new(0));
 
-    for result in builder.build() {
-        if results.len() >= max_results {
-            break;
-        }
+        walker.run(|| {
+            let regex = regex.clone();
+            let base_path = base_path.clone();
+            let result_count = Arc::clone(&result_count);
+            let app = app_clone.clone();
 
-        let entry = match result {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
+            Box::new(move |result| {
+                if result_count.load(Ordering::Relaxed) >= max_results {
+                    return ignore::WalkState::Quit;
+                }
 
-        if entry.file_type().map_or(false, |ft| ft.is_file()) {
-            let file_path = entry.path();
-            if let Ok(content) = std::fs::read_to_string(file_path) {
-                for (line_idx, line) in content.lines().enumerate() {
-                    if results.len() >= max_results {
-                        break;
-                    }
-                    if regex.is_match(line) {
-                        let relative_path = file_path
-                            .strip_prefix(base_path)
-                            .unwrap_or(file_path)
-                            .to_string_lossy()
-                            .to_string();
-                        
-                        results.push(SearchResult {
-                            file_path: relative_path.replace("\\", "/"),
-                            line_number: line_idx + 1,
-                            match_text: line.trim().to_string(),
-                            index: results.len(),
-                        });
+                let entry = match result {
+                    Ok(e) => e,
+                    Err(_) => return ignore::WalkState::Continue,
+                };
+
+                if entry.file_type().map_or(false, |ft| ft.is_file()) {
+                    let file_path = entry.path();
+                    if let Ok(content) = std::fs::read_to_string(file_path) {
+                        for (line_idx, line) in content.lines().enumerate() {
+                            let current_count = result_count.load(Ordering::Relaxed);
+                            if current_count >= max_results {
+                                return ignore::WalkState::Quit;
+                            }
+                            
+                            if regex.is_match(line) {
+                                let relative_path = file_path
+                                    .strip_prefix(&base_path)
+                                    .unwrap_or(file_path)
+                                    .to_string_lossy()
+                                    .to_string();
+                                
+                                let new_count = result_count.fetch_add(1, Ordering::Relaxed);
+                                if new_count >= max_results {
+                                    return ignore::WalkState::Quit;
+                                }
+
+                                let res = SearchResult {
+                                    file_path: relative_path.replace("\\", "/"),
+                                    line_number: line_idx + 1,
+                                    match_text: line.trim().to_string(),
+                                    index: new_count,
+                                };
+                                
+                                let _ = app.emit("search-result", res);
+                            }
+                        }
                     }
                 }
-            }
-        }
-    }
+                ignore::WalkState::Continue
+            })
+        });
+    })
+    .await
+    .map_err(|e| e.to_string())?;
 
-    Ok(results)
+    let _ = app.emit("search-done", ());
+
+    Ok(())
 }

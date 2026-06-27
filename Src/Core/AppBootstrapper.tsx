@@ -91,10 +91,14 @@ export function AppBootstrapper({ children }: Props) {
 
     initializeCoreServices();
 
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const handleResize = () => {
-      UserConfigStore.get().then(config => {
-        applyResponsiveDensity(config.density);
-      });
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        UserConfigStore.get().then(config => {
+          applyResponsiveDensity(config.density);
+        });
+      }, 150);
     };
     
     window.addEventListener("resize", handleResize);

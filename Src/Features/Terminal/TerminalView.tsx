@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { PtyIPC } from "../../Foundation/IPC/PtyCommands";
 import "@xterm/xterm/css/xterm.css";
 import { StorageManager } from "../../Core/StorageManager";
@@ -17,13 +18,64 @@ interface TerminalViewProps {
   shellProfile?: ShellProfile;
 }
 
-export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) {
+const getModernTheme = (isDark: boolean) => {
+  // 现代极客调色板，根据深浅色模式自动适配
+  return isDark ? {
+    background: "transparent",
+    foreground: "#F8F8F2",
+    cursor: "#BD93F9",
+    cursorAccent: "#282A36",
+    selectionBackground: "rgba(189, 147, 249, 0.3)",
+    black: "#21222C",
+    red: "#FF5555",
+    green: "#50FA7B",
+    yellow: "#F1FA8C",
+    blue: "#BD93F9",
+    magenta: "#FF79C6",
+    cyan: "#8BE9FD",
+    white: "#F8F8F2",
+    brightBlack: "#6272A4",
+    brightRed: "#FF6E6E",
+    brightGreen: "#69FF94",
+    brightYellow: "#FFFFA5",
+    brightBlue: "#D6ACFF",
+    brightMagenta: "#FF92DF",
+    brightCyan: "#A4FFFF",
+    brightWhite: "#FFFFFF"
+  } : {
+    background: "transparent",
+    foreground: "#383A42",
+    cursor: "#526FFF",
+    cursorAccent: "#FAFAFA",
+    selectionBackground: "rgba(82, 111, 255, 0.2)",
+    black: "#383A42",
+    red: "#E45649",
+    green: "#50A14F",
+    yellow: "#C18401",
+    blue: "#4078F2",
+    magenta: "#A626A4",
+    cyan: "#0184BC",
+    white: "#FAFAFA",
+    brightBlack: "#A0A1A7",
+    brightRed: "#E45649",
+    brightGreen: "#50A14F",
+    brightYellow: "#C18401",
+    brightBlue: "#4078F2",
+    brightMagenta: "#A626A4",
+    brightCyan: "#0184BC",
+    brightWhite: "#FFFFFF"
+  };
+};
+
+import React from "react";
+export const TerminalView = React.memo(function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const webglAddonRef = useRef<WebglAddon | null>(null);
   const [isSpawned, setIsSpawned] = useState(false);
+  const isSpawningRef = useRef(false);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
-  const isInitializingRef = useRef(true);
 
   const [terminalSettings, setTerminalSettings] = useState({
     fontSize: 13,
@@ -40,61 +92,22 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
     };
     loadSettings();
 
-    const handleSettingsChange = () => {
-      loadSettings();
-    };
+    const handleSettingsChange = () => loadSettings();
     return EventBus.on("settings:terminal-changed", handleSettingsChange);
   }, []);
 
   useEffect(() => {
     if (!terminalRef.current) return;
 
-    const getTerminalTheme = () => {
-      const computedStyle = getComputedStyle(document.body);
-      const foregroundColor = computedStyle.getPropertyValue("--ColorTextHighlight").trim() || "#cccccc";
-      const cursorColor = computedStyle.getPropertyValue("--ColorAccent").trim() || "#007acc";
-      const backgroundColor = computedStyle.getPropertyValue("--ColorEditor").trim() || "#1e1e1e";
-      const isDark = document.documentElement.classList.contains("dark");
-
-      const ansiColors = isDark 
-        ? {
-            red: '#cd3131', brightRed: '#f14c4c',
-            green: '#0DBC79', brightGreen: '#23d18b',
-            yellow: '#e5e510', brightYellow: '#f5f543',
-            blue: '#2472c8', brightBlue: '#3b8eea',
-            magenta: '#bc3fbc', brightMagenta: '#d670d6',
-            cyan: '#11a8cd', brightCyan: '#29b8db',
-            white: '#e5e5e5', brightWhite: '#e5e5e5',
-          }
-        : {
-            red: '#cd3131', brightRed: '#cd3131',
-            green: '#008000', brightGreen: '#14ce14',
-            yellow: '#949800', brightYellow: '#b5ba00',
-            blue: '#0451a5', brightBlue: '#0451a5',
-            magenta: '#bc05bc', brightMagenta: '#bc05bc',
-            cyan: '#0598bc', brightCyan: '#0598bc',
-            white: '#555555', brightWhite: '#a5a5a5',
-          };
-
-      return {
-        background: backgroundColor,
-        foreground: foregroundColor,
-        cursor: cursorColor,
-        cursorAccent: backgroundColor,
-        black: backgroundColor,
-        ...ansiColors
-      };
-    };
+    const isDark = document.documentElement.classList.contains("dark");
 
     const term = new Terminal({
       cursorBlink: terminalSettings.cursorBlink,
       fontSize: terminalSettings.fontSize,
+      fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
       allowTransparency: true,
-      fontFamily: "Consolas, 'Courier New', monospace",
-      theme: {
-        ...getTerminalTheme(),
-        background: "transparent",
-      },
+      theme: getModernTheme(isDark),
+      rightClickSelectsWord: true,
     });
 
     const fitAddon = new FitAddon();
@@ -102,10 +115,21 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
     term.loadAddon(new WebLinksAddon());
 
     term.open(terminalRef.current);
+    
+    try {
+      const webglAddon = new WebglAddon();
+      webglAddon.onContextLoss(() => webglAddon.dispose());
+      term.loadAddon(webglAddon);
+      webglAddonRef.current = webglAddon;
+    } catch (e) {
+      console.warn("WebGL addon could not be loaded, falling back to DOM/Canvas render", e);
+    }
+
     fitAddon.fit();
 
     term.attachCustomKeyEventHandler((e) => {
-      if (e.ctrlKey && e.type === 'keydown') {
+      // 修复复制粘贴逻辑：支持 Ctrl+C / Ctrl+V 和 Cmd+C / Cmd+V
+      if ((e.ctrlKey || e.metaKey) && e.type === 'keydown') {
         if (e.code === 'KeyC' && term.hasSelection()) {
           navigator.clipboard.writeText(term.getSelection());
           term.clearSelection();
@@ -124,79 +148,91 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    const onKeyDisposable = term.onKey(() => {
-      isInitializingRef.current = false;
-    });
-
     const onDataDisposable = term.onData((data) => {
-      // Robust DA response suppression without timeout.
-      // We strip out typical terminal report sequences until the user types something.
-      if (isInitializingRef.current) {
-        // Primary DA, Secondary DA, and Cursor Position Reports
-        data = data.replace(/\x1b\[\??[>0-9;]*[cR]/g, '');
-        // OSC color/palette responses
-        data = data.replace(/\x1b\][0-9;]*;.*?(?:\x07|\x1b\\)/g, '');
-        
-        if (data.length === 0) {
-          return; // Fully suppressed
-        }
+      // 过滤掉 xterm.js 自动回复给 PTY 的设备属性查询 (DA) 序列。
+      // Windows ConPTY 会错误地将这些内部序列回显到屏幕上，导致出现垃圾字符 [?1;2c。
+      const filtered = data.replace(/\x1b\[\??[>0-9;]*[cR]/g, '');
+      if (filtered) {
+        PtyIPC.write(id, filtered).catch(console.error);
       }
-      PtyIPC.write(id, data).catch(console.error);
     });
 
+    let resizeTimeout: ReturnType<typeof setTimeout>;
     const onResizeDisposable = term.onResize(({ cols, rows }) => {
-      PtyIPC.resize(id, rows, cols).catch(console.error);
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        PtyIPC.resize(id, rows, cols).catch(console.error);
+      }, 100);
     });
+
+    // 监听深浅色模式切换
+    const observer = new MutationObserver(() => {
+      if (xtermRef.current) {
+        const dark = document.documentElement.classList.contains("dark");
+        xtermRef.current.options.theme = getModernTheme(dark);
+      }
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
     return () => {
-      onKeyDisposable.dispose();
+      clearTimeout(resizeTimeout);
+      observer.disconnect();
       onDataDisposable.dispose();
       onResizeDisposable.dispose();
       term.dispose();
     };
-  }, [id, terminalSettings.fontSize, terminalSettings.cursorBlink]); // Re-create terminal when settings change significantly since xterm.js doesn't nicely update some things dynamically, or we can just apply dynamically.
+  }, [id, terminalSettings.fontSize, terminalSettings.cursorBlink]); 
 
   useEffect(() => {
-    let unlisten: (() => void) | null = null;
+    let unlistenFn: (() => void) | null = null;
+    let isMounted = true;
 
     const setupPty = async () => {
-      if (isSpawned) return;
+      if (isSpawned || isSpawningRef.current) return;
+      isSpawningRef.current = true;
       try {
         const config = await StorageManager.getConfig();
         const cwd = config.lastOpenedPath || ".";
         
-        // Listen for output before spawning to ensure we don't miss anything
-        unlisten = await listen<{ id: string; data: number[] }>("pty-output", (event) => {
+        const unlisten = await listen<{ id: string; data: string }>("pty-output", (event) => {
           if (event.payload.id === id && xtermRef.current) {
-            const arr = new Uint8Array(event.payload.data);
+            const decoded = atob(event.payload.data);
+            const arr = new Uint8Array(decoded.length);
+            for (let i = 0; i < decoded.length; i++) {
+              arr[i] = decoded.charCodeAt(i);
+            }
             xtermRef.current.write(arr);
           }
         });
+        
+        if (!isMounted) {
+          unlisten();
+          return;
+        }
+        unlistenFn = unlisten;
 
         await PtyIPC.spawn(id, cwd, shellProfile?.path);
-        setIsSpawned(true);
+        if (isMounted) setIsSpawned(true);
       } catch (error) {
         console.error("Failed to spawn PTY", error);
-        xtermRef.current?.write(`\x1b[31mFailed to spawn terminal: ${error}\x1b[0m\r\n`);
+        if (isMounted) xtermRef.current?.write(`\x1b[31m[Aurona PTY Engine] Failed to spawn terminal: ${error}\x1b[0m\r\n`);
+      } finally {
+        if (isMounted) isSpawningRef.current = false;
       }
     };
 
     setupPty();
 
     return () => {
-      if (unlisten) unlisten();
+      isMounted = false;
+      if (unlistenFn) unlistenFn();
     };
-  }, [id, isSpawned]);
+  }, [id, isSpawned, shellProfile]);
 
   useEffect(() => {
     if (isActive && fitAddonRef.current) {
-      // Need a slight delay to allow container layout to settle before fitting
       const timeoutId = setTimeout(() => {
-        try {
-          fitAddonRef.current?.fit();
-        } catch (e) {
-            // Ignore fit errors on resize
-        }
+        try { fitAddonRef.current?.fit(); } catch (e) {}
       }, 50);
       return () => clearTimeout(timeoutId);
     }
@@ -206,62 +242,12 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
     if (!terminalRef.current) return;
     const observer = new ResizeObserver(() => {
       if (isActive && fitAddonRef.current) {
-         try {
-            fitAddonRef.current.fit();
-         } catch (e) {
-             // Ignore
-         }
+         try { fitAddonRef.current.fit(); } catch (e) {}
       }
     });
     observer.observe(terminalRef.current);
     return () => observer.disconnect();
   }, [isActive]);
-
-  useEffect(() => {
-    // Attempt to observe theme changes on the html or body element to dynamically update xterm colors
-    const observer = new MutationObserver(() => {
-      if (xtermRef.current) {
-        const computedStyle = getComputedStyle(document.body);
-        const foregroundColor = computedStyle.getPropertyValue("--ColorTextHighlight").trim() || "#cccccc";
-        const cursorColor = computedStyle.getPropertyValue("--ColorAccent").trim() || "#007acc";
-        const backgroundColor = computedStyle.getPropertyValue("--ColorEditor").trim() || "#1e1e1e";
-        const isDark = document.documentElement.classList.contains("dark");
-
-        const ansiColors = isDark 
-          ? {
-              red: '#cd3131', brightRed: '#f14c4c',
-              green: '#0DBC79', brightGreen: '#23d18b',
-              yellow: '#e5e510', brightYellow: '#f5f543',
-              blue: '#2472c8', brightBlue: '#3b8eea',
-              magenta: '#bc3fbc', brightMagenta: '#d670d6',
-              cyan: '#11a8cd', brightCyan: '#29b8db',
-              white: '#e5e5e5', brightWhite: '#e5e5e5',
-            }
-          : {
-              red: '#cd3131', brightRed: '#cd3131',
-              green: '#008000', brightGreen: '#14ce14',
-              yellow: '#949800', brightYellow: '#b5ba00',
-              blue: '#0451a5', brightBlue: '#0451a5',
-              magenta: '#bc05bc', brightMagenta: '#bc05bc',
-              cyan: '#0598bc', brightCyan: '#0598bc',
-              white: '#555555', brightWhite: '#a5a5a5',
-            };
-        
-        xtermRef.current.options.theme = {
-          ...xtermRef.current.options.theme,
-          background: "transparent",
-          foreground: foregroundColor,
-          cursor: cursorColor,
-          cursorAccent: backgroundColor,
-          black: backgroundColor,
-          ...ansiColors
-        };
-      }
-    });
-
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme"] });
-    return () => observer.disconnect();
-  }, []);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -278,8 +264,24 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
           user-select: text !important;
           -webkit-user-select: text !important;
         }
+        .xterm-viewport::-webkit-scrollbar {
+          width: 12px;
+          height: 12px;
+        }
+        .xterm-viewport::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .xterm-viewport::-webkit-scrollbar-thumb {
+          background-color: var(--ColorPanelBorder);
+          border-radius: 10px;
+          border: 3px solid transparent;
+          background-clip: padding-box;
+        }
+        .xterm-viewport::-webkit-scrollbar-thumb:hover {
+          background-color: var(--ColorMuted);
+        }
       `}</style>
-      <div ref={terminalRef} className="h-full w-full" />
+      <div ref={terminalRef} className="h-full w-full p-2" />
       
       {contextMenu && (
         <ContextMenu
@@ -325,4 +327,4 @@ export function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) 
       )}
     </div>
   );
-}
+});

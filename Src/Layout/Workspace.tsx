@@ -1,16 +1,7 @@
-import { useCallback, useEffect } from "react";
-import { FileExplorer } from "../Features/Explorer/FileExplorer";
+import React, { useCallback, useEffect, Suspense, lazy } from "react";
 import { Icons } from "../UI/Icons/IconManager";
 import { Card } from "../UI/Components/Card";
-import { EditorTab } from "../Features/Editor/EditorTab";
 import { EditorTabBar } from "../Features/Editor/EditorTabBar";
-import { AboutTab } from "../Features/Settings/AboutTab";
-import { SettingsTab } from "../Features/Settings/SettingsTab";
-import { ChangelogTab } from "../Features/Settings/ChangelogTab";
-import { NotificationsPanel } from "../Features/Notifications/NotificationsPanel";
-import { SourceControl } from "../Features/SourceControl/SourceControl";
-import { TerminalView } from "../Features/Terminal/TerminalView";
-import { SearchPanel } from "../Features/Search/SearchPanel";
 import { showToast } from "../UI/Feedback/Toast";
 import { Tooltip } from "../UI/Feedback/Tooltip";
 import { Modal } from "../UI/Components/Modal";
@@ -28,13 +19,29 @@ import {
   SIDEBAR_SOURCE_CONTROL,
 } from "../Shared/Constants/Sidebar";
 
+const FileExplorer = lazy(() => import("../Features/Explorer/FileExplorer").then(m => ({ default: m.FileExplorer })));
+const EditorTab = lazy(() => import("../Features/Editor/EditorTab").then(m => ({ default: m.EditorTab })));
+const AboutTab = lazy(() => import("../Features/Settings/AboutTab").then(m => ({ default: m.AboutTab })));
+const SettingsTab = lazy(() => import("../Features/Settings/SettingsTab").then(m => ({ default: m.SettingsTab })));
+const ChangelogTab = lazy(() => import("../Features/Settings/ChangelogTab").then(m => ({ default: m.ChangelogTab })));
+const NotificationsPanel = lazy(() => import("../Features/Notifications/NotificationsPanel").then(m => ({ default: m.NotificationsPanel })));
+const SourceControl = lazy(() => import("../Features/SourceControl/SourceControl").then(m => ({ default: m.SourceControl })));
+const TerminalView = lazy(() => import("../Features/Terminal/TerminalView").then(m => ({ default: m.TerminalView })));
+const SearchPanel = lazy(() => import("../Features/Search/SearchPanel").then(m => ({ default: m.SearchPanel })));
+
+
 function renderTabContent(tab: TabItem, activeTabId: string | null) {
-  if (tab.type === "file" && tab.path)
-    return <EditorTab path={tab.path} isActive={activeTabId === tab.id} />;
-  if (tab.type === "about") return <AboutTab />;
-  if (tab.type === "settings") return <SettingsTab />;
-  if (tab.type === "changelog") return <ChangelogTab />;
-  return null;
+  let content = null;
+  if (tab.type === "file" && tab.path) {
+    content = <EditorTab path={tab.path} isActive={activeTabId === tab.id} />;
+  } else if (tab.type === "about") {
+    content = <AboutTab />;
+  } else if (tab.type === "settings") {
+    content = <SettingsTab />;
+  } else if (tab.type === "changelog") {
+    content = <ChangelogTab />;
+  }
+  return <Suspense fallback={<div className="w-full h-full bg-transparent flex items-center justify-center text-[var(--ColorMuted)] text-xs">加载中...</div>}>{content}</Suspense>;
 }
 
 export function WorkspaceView() {
@@ -89,26 +96,26 @@ export function WorkspaceView() {
         className="flex w-[var(--SidebarWidth)] flex-col shrink-0 z-10"
         style={{ display: activeSidebar ? "flex" : "none" }}
       >
-        {activeSidebar === SIDEBAR_EXPLORER && (
-          <div className="flex flex-1 flex-col min-h-0">
+        <div className="flex flex-1 flex-col min-h-0" style={{ display: activeSidebar === SIDEBAR_EXPLORER ? "flex" : "none" }}>
+          <Suspense fallback={<div className="p-4 text-[var(--ColorMuted)] text-xs">Loading Explorer...</div>}>
             <FileExplorer onFileSelect={openFile} />
-          </div>
-        )}
-        {activeSidebar === SIDEBAR_SEARCH && (
-          <div className="flex flex-1 flex-col min-h-0">
+          </Suspense>
+        </div>
+        <div className="flex flex-1 flex-col min-h-0" style={{ display: activeSidebar === SIDEBAR_SEARCH ? "flex" : "none" }}>
+          <Suspense fallback={<div className="p-4 text-[var(--ColorMuted)] text-xs">Loading Search...</div>}>
             <SearchPanel />
-          </div>
-        )}
-        {activeSidebar === SIDEBAR_SOURCE_CONTROL && (
-          <div className="flex flex-1 flex-col min-h-0">
+          </Suspense>
+        </div>
+        <div className="flex flex-1 flex-col min-h-0" style={{ display: activeSidebar === SIDEBAR_SOURCE_CONTROL ? "flex" : "none" }}>
+          <Suspense fallback={<div className="p-4 text-[var(--ColorMuted)] text-xs">Loading Git...</div>}>
             <SourceControl />
-          </div>
-        )}
-        {activeSidebar === SIDEBAR_NOTIFICATIONS && (
-          <div className="flex flex-1 flex-col min-h-0">
+          </Suspense>
+        </div>
+        <div className="flex flex-1 flex-col min-h-0" style={{ display: activeSidebar === SIDEBAR_NOTIFICATIONS ? "flex" : "none" }}>
+          <Suspense fallback={<div className="p-4 text-[var(--ColorMuted)] text-xs">Loading Notifications...</div>}>
             <NotificationsPanel />
-          </div>
-        )}
+          </Suspense>
+        </div>
       </Card>
 
       {/* 主区域 */}
@@ -295,11 +302,13 @@ export function WorkspaceView() {
                     zIndex: activeTerminalId === term.id ? 1 : 0,
                   }}
                 >
-                  <TerminalView
-                    id={term.id}
-                    isActive={activeBottomTab === "terminal" && activeTerminalId === term.id}
-                    shellProfile={term.shell}
-                  />
+                  <Suspense fallback={<div className="flex items-center justify-center w-full h-full text-[var(--ColorMuted)] text-xs">加载终端...</div>}>
+                    <TerminalView
+                      id={term.id}
+                      isActive={activeBottomTab === "terminal" && activeTerminalId === term.id}
+                      shellProfile={term.shell}
+                    />
+                  </Suspense>
                 </div>
               ))}
             </div>

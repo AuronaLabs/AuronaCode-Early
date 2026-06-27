@@ -11,6 +11,7 @@ const FILE = "user-config.json";
 const BASE = BaseDirectory.AppLocalData;
 
 let writeQueue: Promise<void> = Promise.resolve();
+let memoryCache: UserConfig | null = null;
 
 export const UserConfigStore = {
   async init(): Promise<void> {
@@ -21,10 +22,16 @@ export const UserConfigStore = {
 
   async get(): Promise<UserConfig> {
     try {
+      if (memoryCache !== null) return memoryCache;
+      
       const fileExists = await exists(FILE, { baseDir: BASE });
-      if (!fileExists) return {};
+      if (!fileExists) {
+        memoryCache = {};
+        return memoryCache;
+      }
       const content = await readTextFile(FILE, { baseDir: BASE });
-      return JSON.parse(content) as UserConfig;
+      memoryCache = JSON.parse(content) as UserConfig;
+      return memoryCache;
     } catch {
       return {};
     }
@@ -36,6 +43,7 @@ export const UserConfigStore = {
         try {
           const current = await this.get();
           const next = { ...current, ...config };
+          memoryCache = next; // Update memory cache synchronously
           await writeTextFile(FILE, JSON.stringify(next, null, 2), {
             baseDir: BASE,
           });
