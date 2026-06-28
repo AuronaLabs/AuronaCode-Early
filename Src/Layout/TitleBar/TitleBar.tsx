@@ -77,7 +77,7 @@ export function TitleBar() {
                           className={menuItemClass}
                           onClick={() => {
                             setActiveMenu(null);
-                            EventBus.emit("app:create-new-file");
+                            EventBus.emit("app:create-file-prompt");
                           }}
                         >
                           <span>新建文件</span>
@@ -87,7 +87,7 @@ export function TitleBar() {
                           className={menuItemClass}
                           onClick={() => {
                             setActiveMenu(null);
-                            EventBus.emit("app:create-new-folder");
+                            EventBus.emit("app:create-folder-prompt");
                           }}
                         >
                           <span>新建文件夹</span>

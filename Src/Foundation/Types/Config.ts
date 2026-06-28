@@ -13,6 +13,10 @@ export interface UserConfig {
   fontSize?: number;
   lineHeight?: number;
   density?: "compact" | "default" | "comfortable";
+  // 编辑器偏好
+  editorFontSize?: number;
+  editorWordWrap?: "on" | "off" | "wordWrapColumn" | "bounded";
+  editorMinimap?: boolean;
   // 终端偏好
   terminalFontSize?: number;
   terminalCursorBlink?: boolean;

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "../../UI/Components/Button";
 import { Icons } from "../../UI/Icons/IconManager";
+import { EventBus } from "../../Foundation/EventBus";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Modal } from "../../UI/Components/Modal";
 import { ContextMenu, ContextMenuItem, ContextMenuDivider } from "../../UI/Components/ContextMenu";

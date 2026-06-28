@@ -19,6 +19,7 @@ export interface EventMap {
   /** payload 为 true 强制展开，false 强制收起，undefined 切换 */
   "app:toggle-terminal": boolean | undefined;
   "app:terminal-state-changed": boolean;
+  "app:open-terminal-at": string;
   // 编辑器
   "app:active-file-changed": string | null;
   "editor:dirty-set": { path: string };

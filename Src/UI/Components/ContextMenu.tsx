@@ -56,18 +56,22 @@ export interface ContextMenuItemProps {
   label: string;
   onClick: () => void;
   variant?: "default" | "danger";
+  disabled?: boolean;
 }
 
-export function ContextMenuItem({ icon, label, onClick, variant = "default" }: ContextMenuItemProps) {
+export function ContextMenuItem({ icon, label, onClick, variant = "default", disabled }: ContextMenuItemProps) {
   const isDanger = variant === "danger";
   return (
     <button 
+      disabled={disabled}
       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] transition-colors text-left w-full outline-none ${
-        isDanger 
-          ? "text-red-500 hover:bg-red-500/10" 
-          : "text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
+        disabled 
+          ? "opacity-50 cursor-not-allowed text-[var(--ColorMuted)]"
+          : isDanger 
+            ? "text-red-500 hover:bg-red-500/10" 
+            : "text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
       }`}
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
     >
       {icon}
       {label}

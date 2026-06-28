@@ -98,7 +98,7 @@ class LoggerImpl {
     this.writeErrorFile(message, data);
   }
 
-  private async writeErrorFile(message: string, data?: unknown): void {
+  private async writeErrorFile(message: string, data?: unknown): Promise<void> {
     const d = new Date();
     const pad = (n: number, width = 2) => n.toString().padStart(width, "0");
     const ts = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}-${pad(d.getMilliseconds(), 3)}`;

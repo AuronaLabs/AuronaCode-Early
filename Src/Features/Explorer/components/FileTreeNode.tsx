@@ -103,8 +103,7 @@ export const FileTreeNode = React.memo(function FileTreeNode({
               : "text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
         }`}
         style={{ 
-          paddingLeft: `calc(${depth} * var(--TreeIndent) + 4px)`,
-          WebkitUserDrag: 'element'
+          paddingLeft: `calc(${depth} * var(--TreeIndent) + 4px)`
         }}
         onClick={() => onToggle(node)}
         onContextMenu={(e) => {

@@ -12,6 +12,7 @@ const BASE = BaseDirectory.AppLocalData;
 
 let isWriting = false;
 let pendingWrite = false;
+let memoryCache: UserConfig | null = null;
 
 export const UserConfigStore = {
   async init(): Promise<void> {
