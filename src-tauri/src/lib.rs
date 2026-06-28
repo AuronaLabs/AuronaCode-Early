@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::process::Command;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::fs;
 
 mod pty;
 mod search;
@@ -177,31 +178,35 @@ fn git_current_branch(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn git_push(path: String) -> Result<(), String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .arg("push")
-        .output()
-        .map_err(|e| e.to_string())?;
-        
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).to_string());
-    }
-    Ok(())
+async fn git_push(path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let output = create_command("git")
+            .current_dir(&path)
+            .arg("push")
+            .output()
+            .map_err(|e| e.to_string())?;
+            
+        if !output.status.success() {
+            return Err(String::from_utf8_lossy(&output.stderr).to_string());
+        }
+        Ok(())
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn git_pull(path: String) -> Result<(), String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .arg("pull")
-        .output()
-        .map_err(|e| e.to_string())?;
-        
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).to_string());
-    }
-    Ok(())
+async fn git_pull(path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let output = create_command("git")
+            .current_dir(&path)
+            .arg("pull")
+            .output()
+            .map_err(|e| e.to_string())?;
+            
+        if !output.status.success() {
+            return Err(String::from_utf8_lossy(&output.stderr).to_string());
+        }
+        Ok(())
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -379,9 +384,11 @@ async fn lsp_start(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, LspState>,
 ) -> Result<(), String> {
-    let mut clients = state.clients.lock().await;
-    if clients.contains_key(&language) {
-        return Ok(()); // 已在运行中
+    {
+        let clients = state.clients.lock().await;
+        if clients.contains_key(&language) {
+            return Ok(()); // 已在运行中
+        }
     }
 
     // 任务 J：从 AppHandle 的 package_info() 读取版本号，避免硬编码
@@ -414,7 +421,10 @@ async fn lsp_start(
     let _ = client.call("initialize", init_params).await?;
     let _ = client.notify("initialized", serde_json::json!({})).await?;
 
-    clients.insert(language, std::sync::Arc::new(client));
+    let mut clients = state.clients.lock().await;
+    if !clients.contains_key(&language) {
+        clients.insert(language, std::sync::Arc::new(client));
+    }
     Ok(())
 }
 
@@ -533,6 +543,78 @@ async fn lsp_cancel(
     }
 }
 
+#[tauri::command]
+fn reveal_in_os(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .args(["/select,", &path])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .args(["-R", &path])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let parent = Path::new(&path).parent().unwrap_or(Path::new(&path));
+        Command::new("xdg-open")
+            .arg(parent)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result<()> {
+    fs::create_dir_all(&dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        } else {
+            fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn fs_copy_or_move(source: String, destination: String, is_move: bool) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let src = Path::new(&source);
+        let dst = Path::new(&destination);
+        
+        if !src.exists() {
+            return Err(format!("Source path does not exist: {}", source));
+        }
+
+        if src.is_dir() {
+            if is_move {
+                fs::rename(src, dst).map_err(|e| e.to_string())?;
+            } else {
+                copy_dir_all(src, dst).map_err(|e| e.to_string())?;
+            }
+        } else {
+            if is_move {
+                fs::rename(src, dst).map_err(|e| e.to_string())?;
+            } else {
+                fs::copy(src, dst).map_err(|e| e.to_string())?;
+            }
+        }
+
+        Ok(())
+    }).await.map_err(|e| e.to_string())?
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -571,6 +653,8 @@ pub fn run() {
             lsp_call,
             lsp_call_with_id,
             lsp_cancel,
+            reveal_in_os,
+            fs_copy_or_move,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Aurona Code");

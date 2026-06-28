@@ -122,7 +122,7 @@ pub fn spawn_pty(
 
     let id_clone = id.clone();
     thread::spawn(move || {
-        let mut buf = [0u8; 1024];
+        let mut buf = [0u8; 8192];
         loop {
             // 检查停止标志
             if stop_flag.load(Ordering::Relaxed) {

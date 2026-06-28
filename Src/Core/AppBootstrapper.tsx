@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { StorageManager } from "./StorageManager";
+import { WorkspaceStore } from "../Foundation/Storage/WorkspaceStore";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 
 interface Props {
@@ -53,12 +53,12 @@ export function AppBootstrapper({ children }: Props) {
         applyResponsiveDensity(userConfig.density);
 
         // Apply Editor and Terminal font sizes
-        const savedEditorFont = localStorage.getItem("aurona-editor-fontsize") || "14";
-        const savedTerminalFont = localStorage.getItem("aurona-terminal-fontsize") || "13";
+        const savedEditorFont = userConfig.editorFontSize?.toString() || "14";
+        const savedTerminalFont = userConfig.terminalFontSize?.toString() || "13";
         document.documentElement.style.setProperty("--EditorFontSize", `${savedEditorFont}px`);
         document.documentElement.style.setProperty("--TerminalFontSize", `${savedTerminalFont}px`);
 
-        const initPromise = Promise.all([StorageManager.init()]);
+        const initPromise = Promise.all([WorkspaceStore.init()]);
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error("启动引擎超时 请检查 Tauri IPC 或系统资源占用")), 5000),
         );
@@ -105,6 +105,7 @@ export function AppBootstrapper({ children }: Props) {
     return () => {
       mounted = false;
       window.removeEventListener("resize", handleResize);
+      if (resizeTimer) clearTimeout(resizeTimer);
     };
   }, []);
 

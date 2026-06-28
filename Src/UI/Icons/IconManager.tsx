@@ -117,6 +117,7 @@ export const Icons = {
   Moon: IconMoon,
   Monitor: IconDeviceDesktop,
   Info: IconInfoCircle,
+  InfoCircle: IconInfoCircle,
   FileText: IconFileText,
   Terminal: IconTerminal2,
   History: IconHistory,

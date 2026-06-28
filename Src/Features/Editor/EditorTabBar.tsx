@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Icons } from "../../UI/Icons/IconManager";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { useWorkspace } from "../../State/WorkspaceContext";
-import { EventBus } from "../../Core/EventBus";
+import { EventBus } from "../../Foundation/EventBus";
 import { ContextMenu, ContextMenuItem, ContextMenuDivider } from "../../UI/Components/ContextMenu";
 
 import React from "react";

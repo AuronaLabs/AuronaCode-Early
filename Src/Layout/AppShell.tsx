@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { TitleBar } from "./TitleBar/TitleBar";
 import { ActivitySquare } from "../UI/Components/ActivitySquare";
 import { Icons } from "../UI/Icons/IconManager";
-import { EventBus } from "../Core/EventBus";
+import { EventBus } from "../Foundation/EventBus";
 import { ToastContainer } from "../UI/Feedback/Toast";
 import { StatusBar } from "./StatusBar";
 import { SearchPanel } from "../Features/Search/SearchPanel";

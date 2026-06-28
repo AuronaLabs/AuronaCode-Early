@@ -10,12 +10,13 @@ import type { WorkspaceState } from "../Types/Config";
 const FILE = "workspace.json";
 const BASE = BaseDirectory.AppLocalData;
 
-
+let memoryCache: WorkspaceState | null = null;
+let isWriting = false;
+let pendingWrite = false;
 
 export const WorkspaceStore = {
-  _writeQueue: Promise.resolve() as Promise<void>,
   _debounceTimer: null as ReturnType<typeof setTimeout> | null,
-  _pendingState: {} as Partial<WorkspaceState>,
+  
   async init(): Promise<void> {
     try {
       await mkdir("", { baseDir: BASE, recursive: true });
@@ -26,40 +27,50 @@ export const WorkspaceStore = {
 
   async get(): Promise<WorkspaceState> {
     try {
+      if (memoryCache !== null) return memoryCache;
+      
       const fileExists = await exists(FILE, { baseDir: BASE });
-      if (!fileExists) return {};
+      if (!fileExists) {
+        memoryCache = {};
+        return memoryCache;
+      }
       const content = await readTextFile(FILE, { baseDir: BASE });
-      return JSON.parse(content) as WorkspaceState;
+      memoryCache = JSON.parse(content) as WorkspaceState;
+      return memoryCache;
     } catch {
       return {};
     }
   },
 
-  set(state: Partial<WorkspaceState>): void {
-    // 合并挂起的状态
-    this._pendingState = { ...this._pendingState, ...state };
+  async set(state: Partial<WorkspaceState>): Promise<void> {
+    const current = await this.get();
+    memoryCache = { ...current, ...state };
     
     if (this._debounceTimer) {
       clearTimeout(this._debounceTimer);
     }
     
     this._debounceTimer = setTimeout(() => {
-      const stateToWrite = { ...this._pendingState };
-      this._pendingState = {};
+      if (isWriting) {
+        pendingWrite = true;
+        return;
+      }
+
+      const flush = async () => {
+        isWriting = true;
+        pendingWrite = false;
+        try {
+          await writeTextFile(FILE, JSON.stringify(memoryCache, null, 2), {
+            baseDir: BASE,
+          });
+        } catch {}
+        isWriting = false;
+        if (pendingWrite) {
+          flush();
+        }
+      };
       
-      this._writeQueue = this._writeQueue
-        .then(async () => {
-          try {
-            const current = await this.get();
-            const next = { ...current, ...stateToWrite };
-            await writeTextFile(FILE, JSON.stringify(next, null, 2), {
-              baseDir: BASE,
-            });
-          } catch {
-            // 存储失败不应影响应用运行
-          }
-        })
-        .catch(() => {});
+      flush();
     }, 500); // 500ms 防抖
   },
 };

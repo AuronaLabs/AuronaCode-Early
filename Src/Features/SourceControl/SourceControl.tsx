@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Icons } from "../../UI/Icons/IconManager";
-import { StorageManager } from "../../Core/StorageManager";
+import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
-import { EventBus } from "../../Core/EventBus";
+import { EventBus } from "../../Foundation/EventBus";
 import { showToast } from "../../UI/Feedback/Toast";
 import { GitIPC, GitFile, GitCommit } from "../../Foundation/IPC/GitCommands";
 import { GitService, SourceControlCache } from "../../Core/GitService";
@@ -81,7 +81,7 @@ export const SourceControl = React.memo(function SourceControl() {
 
     const init = async () => {
       try {
-        const config = await StorageManager.getConfig();
+        const config = await WorkspaceStore.get();
         const path = config.lastOpenedPath || null;
         if (!mounted) return;
 

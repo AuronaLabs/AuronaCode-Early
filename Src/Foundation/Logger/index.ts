@@ -31,18 +31,19 @@ class LoggerImpl {
   private readonly queue: string[] = [];
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private dirEnsured = false;
+  private initialized = false;
 
   constructor() {
     const d = new Date();
     const pad = (n: number) => n.toString().padStart(2, "0");
     const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     const time = `${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
-    this.logId = `Aurona-Session-${date}_${time}`;
+    this.logId = `Aurona-Log-${date}_${time}`;
     this.logFilePath = `logs/${this.logId}.log`;
 
     // 立即将文件头写入队列（等待 init() 后 flush）
     this.queue.push(
-      `# Aurona Code Log\n# Session: ${this.logId}\n# Started: ${d.toISOString()}\n\n`
+      `# Aurona Code Log\n# Log: ${this.logId}\n# Started: ${d.toISOString()}\n\n`
     );
   }
 
@@ -55,6 +56,9 @@ class LoggerImpl {
    * 使用全局错误钩子，替代危险的 monkey-patch console.error。
    */
   init(): void {
+    if (this.initialized) return;
+    this.initialized = true;
+
     window.onerror = (message, source, lineno, colno, error) => {
       this.error(
         `Uncaught: ${message} (${source}:${lineno}:${colno})`,
@@ -91,6 +95,38 @@ class LoggerImpl {
 
   error(message: string, data?: unknown): void {
     this.log("error", message, data);
+    this.writeErrorFile(message, data);
+  }
+
+  private async writeErrorFile(message: string, data?: unknown): void {
+    const d = new Date();
+    const pad = (n: number, width = 2) => n.toString().padStart(width, "0");
+    const ts = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}-${pad(d.getMilliseconds(), 3)}`;
+    const errFileName = `errlogs/Aurona-Error-${ts}.log`;
+    
+    let suffix = "";
+    if (data !== undefined) {
+      try {
+        const serialized = serializeError(data);
+        suffix = `\n  ${JSON.stringify(serialized, null, 2)}`;
+      } catch {
+        suffix = `\n  ${String(data)}`;
+      }
+    }
+    
+    const content = `[${d.toISOString()}] [ERROR] ${message}${suffix}\n`;
+    
+    try {
+      await mkdir("errlogs", {
+        baseDir: BaseDirectory.AppLocalData,
+        recursive: true,
+      });
+      await writeTextFile(errFileName, content, {
+        baseDir: BaseDirectory.AppLocalData,
+      });
+    } catch {
+      // 写入失败时静默处理
+    }
   }
 
   private log(level: LogLevel, message: string, data?: unknown): void {

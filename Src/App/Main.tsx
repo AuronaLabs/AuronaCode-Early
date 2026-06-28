@@ -7,8 +7,8 @@ import "@fontsource/righteous";
 import "harmonyos-sans-sc-webfont-splitted";
 import { ErrorBoundary } from "../Layout/ErrorBoundary";
 import { AppBootstrapper } from "../Core/AppBootstrapper";
-import { EventBus } from "../Core/EventBus";
-import { Logger } from "../Core/Logger";
+import { EventBus } from "../Foundation/EventBus";
+import { Logger } from "../Foundation/Logger";
 
 Logger.init();
 

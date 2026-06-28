@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useRef, useState, createContext, useMemo } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { EventBus } from "../Core/EventBus";
-import { StorageManager } from "../Core/StorageManager";
+import { EventBus } from "../Foundation/EventBus";
+import { WorkspaceStore } from "../Foundation/Storage/WorkspaceStore";
 import { FileSystemService } from "../Core/FileSystemService";
 import { showToast } from "../UI/Feedback/Toast";
 import type { TabItem } from "../Foundation/Types/Tab";
@@ -41,8 +41,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   // 恢复上次打开的标签页
   useEffect(() => {
     const initTabs = async () => {
-      await StorageManager.init();
-      const config = await StorageManager.getConfig();
+      await WorkspaceStore.init();
+      const config = await WorkspaceStore.get();
       if (config.openTabs && config.openTabs.length > 0) {
         setTabs(config.openTabs);
         if (config.activeTabId) setActiveTabId(config.activeTabId);
@@ -55,7 +55,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   // 持久化标签页状态（跳过 hydration 初次触发）
   useEffect(() => {
     if (!isHydratedRef.current) return;
-    StorageManager.saveConfig({ openTabs: tabs, activeTabId });
+    WorkspaceStore.set({ openTabs: tabs, activeTabId });
   }, [tabs, activeTabId]);
 
   // 活跃文件广播

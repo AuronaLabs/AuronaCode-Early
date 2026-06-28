@@ -49,11 +49,29 @@ pub async fn search_workspace(
         let max_results = 500;
         let result_count = Arc::new(AtomicUsize::new(0));
 
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        // Spawn a thread to receive and batch emit results
+        let app_emitter = app_clone.clone();
+        let batch_thread = std::thread::spawn(move || {
+            let mut batch: Vec<SearchResult> = Vec::new();
+            for res in rx {
+                batch.push(res);
+                if batch.len() >= 50 {
+                    let _ = app_emitter.emit("search-result", &batch);
+                    batch.clear();
+                }
+            }
+            if !batch.is_empty() {
+                let _ = app_emitter.emit("search-result", &batch);
+            }
+        });
+
         walker.run(|| {
             let regex = regex.clone();
             let base_path = base_path.clone();
             let result_count = Arc::clone(&result_count);
-            let app = app_clone.clone();
+            let tx = tx.clone();
 
             Box::new(move |result| {
                 if result_count.load(Ordering::Relaxed) >= max_results {
@@ -67,14 +85,29 @@ pub async fn search_workspace(
 
                 if entry.file_type().map_or(false, |ft| ft.is_file()) {
                     let file_path = entry.path();
-                    if let Ok(content) = std::fs::read_to_string(file_path) {
-                        for (line_idx, line) in content.lines().enumerate() {
+                    
+                    if let Ok(file) = std::fs::File::open(file_path) {
+                        if let Ok(metadata) = file.metadata() {
+                            // 忽略大于 2MB 的文件，避免内存爆炸
+                            if metadata.len() > 2 * 1024 * 1024 {
+                                return ignore::WalkState::Continue;
+                            }
+                        }
+
+                        let reader = std::io::BufReader::new(file);
+                        use std::io::BufRead;
+                        for (line_idx, line_res) in reader.lines().enumerate() {
+                            let line = match line_res {
+                                Ok(l) => l,
+                                Err(_) => break, // 遇到非 UTF-8 字符直接跳出
+                            };
+
                             let current_count = result_count.load(Ordering::Relaxed);
                             if current_count >= max_results {
                                 return ignore::WalkState::Quit;
                             }
                             
-                            if regex.is_match(line) {
+                            if regex.is_match(&line) {
                                 let relative_path = file_path
                                     .strip_prefix(&base_path)
                                     .unwrap_or(file_path)
@@ -93,7 +126,7 @@ pub async fn search_workspace(
                                     index: new_count,
                                 };
                                 
-                                let _ = app.emit("search-result", res);
+                                let _ = tx.send(res);
                             }
                         }
                     }
@@ -101,6 +134,9 @@ pub async fn search_workspace(
                 ignore::WalkState::Continue
             })
         });
+
+        drop(tx); // Close the channel so the receiver thread stops
+        let _ = batch_thread.join();
     })
     .await
     .map_err(|e| e.to_string())?;

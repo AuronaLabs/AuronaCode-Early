@@ -9,16 +9,15 @@ import { showToast } from "../../UI/Feedback/Toast";
 import { FileSystemService } from "../../Core/FileSystemService";
 import { FileTreeNode } from "./components/FileTreeNode";
 import { InlineInput } from "./components/InlineInput";
+import { ExplorerContext } from "./ExplorerContext";
 import { useFileTree } from "./hooks/useFileTree";
 
+import React from "react";
 export type InlineCreation = {
   type: "file" | "folder";
   parentPath: string;
 };
 
-import { ExplorerContext } from "./ExplorerContext";
-
-import React from "react";
 export const FileExplorer = React.memo(function FileExplorer({ onFileSelect }: { onFileSelect: (path: string) => void }) {
   const {
     rootNode,
@@ -38,6 +37,13 @@ export const FileExplorer = React.memo(function FileExplorer({ onFileSelect }: {
     handleInlineRename,
     handleConfirmDelete,
     handleContextMenu,
+    clipboard,
+    setClipboard,
+    handlePaste,
+    collapseAll,
+    startInlineCreateAt,
+    handleDuplicate,
+    handleDrop,
     toggleDir,
   } = useFileTree(onFileSelect);
 
@@ -53,6 +59,7 @@ export const FileExplorer = React.memo(function FileExplorer({ onFileSelect }: {
     onInlineCancel: handleInlineCancel,
     onInlineRename: handleInlineRename,
     onContextMenu: handleContextMenu,
+    onDrop: handleDrop,
   }), [
     activePath,
     inlineCreation,
@@ -61,7 +68,8 @@ export const FileExplorer = React.memo(function FileExplorer({ onFileSelect }: {
     handleInlineCreate,
     handleInlineCancel,
     handleInlineRename,
-    handleContextMenu
+    handleContextMenu,
+    handleDrop
   ]);
 
   return (
@@ -94,6 +102,15 @@ export const FileExplorer = React.memo(function FileExplorer({ onFileSelect }: {
                 onClick={() => startInlineCreate("folder")}
               >
                 <Icons.FolderPlus size={16} />
+              </button>
+            </Tooltip>
+            <div className="w-px h-3 bg-[var(--ColorPanelBorder)] mx-1" />
+            <Tooltip content="折叠全部" placement="bottom">
+              <button
+                className="p-1.5 rounded-lg text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                onClick={collapseAll}
+              >
+                <Icons.Minus size={16} />
               </button>
             </Tooltip>
             <Tooltip content="刷新" placement="bottom">
@@ -130,6 +147,17 @@ export const FileExplorer = React.memo(function FileExplorer({ onFileSelect }: {
           className="flex-1 overflow-y-auto overflow-x-hidden py-1 outline-none focus:outline-none relative"
           tabIndex={-1}
           onClick={() => setContextMenu(null)}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            const src = e.dataTransfer.getData("text/plain");
+            if (src && rootNode) {
+              handleDrop(src, rootNode.path);
+            }
+          }}
         >
           {isRootTargetForInline && inlineCreation && (
             <InlineInput
@@ -156,9 +184,96 @@ export const FileExplorer = React.memo(function FileExplorer({ onFileSelect }: {
               onClose={() => setContextMenu(null)}
             >
               <ContextMenuItem
+                label="在此处新建文件"
+                disabled={!contextMenu.node.isDirectory}
+                onClick={() => {
+                  if (contextMenu.node.isDirectory) {
+                    startInlineCreateAt("file", contextMenu.node.path);
+                  }
+                  setContextMenu(null);
+                }}
+              />
+              <ContextMenuItem
+                label="在此处新建文件夹"
+                disabled={!contextMenu.node.isDirectory}
+                onClick={() => {
+                  if (contextMenu.node.isDirectory) {
+                    startInlineCreateAt("folder", contextMenu.node.path);
+                  }
+                  setContextMenu(null);
+                }}
+              />
+              <ContextMenuDivider />
+              <ContextMenuItem
                 label="重命名"
                 onClick={() => {
                   setInlineEditing(contextMenu.node.path);
+                  setContextMenu(null);
+                }}
+              />
+              <ContextMenuItem
+                label="复制"
+                onClick={() => {
+                  setClipboard({ path: contextMenu.node.path, isCut: false });
+                  setContextMenu(null);
+                }}
+              />
+              <ContextMenuItem
+                label="剪切"
+                onClick={() => {
+                  setClipboard({ path: contextMenu.node.path, isCut: true });
+                  setContextMenu(null);
+                }}
+              />
+              <ContextMenuItem
+                label="粘贴"
+                disabled={!clipboard || !contextMenu.node.isDirectory}
+                onClick={() => {
+                  if (clipboard && contextMenu.node.isDirectory) {
+                    handlePaste(contextMenu.node.path);
+                  }
+                  setContextMenu(null);
+                }}
+              />
+              <ContextMenuItem
+                label="创建副本"
+                onClick={() => {
+                  handleDuplicate(contextMenu.node);
+                  setContextMenu(null);
+                }}
+              />
+              <ContextMenuDivider />
+              <ContextMenuItem
+                label="复制相对路径"
+                onClick={() => {
+                  if (rootNode) {
+                    const relativePath = contextMenu.node.path.replace(rootNode.path + '/', '');
+                    navigator.clipboard.writeText(relativePath);
+                  }
+                  setContextMenu(null);
+                }}
+              />
+              <ContextMenuItem
+                label="复制绝对路径"
+                onClick={() => {
+                  navigator.clipboard.writeText(contextMenu.node.path);
+                  setContextMenu(null);
+                }}
+              />
+              <ContextMenuItem
+                label="在资源管理器中显示"
+                onClick={() => {
+                  FileSystemService.revealInOs(contextMenu.node.path);
+                  setContextMenu(null);
+                }}
+              />
+              <ContextMenuItem
+                label="在集成终端中打开"
+                disabled={!contextMenu.node.isDirectory}
+                onClick={() => {
+                  if (contextMenu.node.isDirectory) {
+                    EventBus.emit("app:open-terminal-at", contextMenu.node.path);
+                  }
                   setContextMenu(null);
                 }}
               />

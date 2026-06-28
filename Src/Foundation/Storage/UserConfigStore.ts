@@ -10,8 +10,8 @@ import type { UserConfig } from "../Types/Config";
 const FILE = "user-config.json";
 const BASE = BaseDirectory.AppLocalData;
 
-let writeQueue: Promise<void> = Promise.resolve();
-let memoryCache: UserConfig | null = null;
+let isWriting = false;
+let pendingWrite = false;
 
 export const UserConfigStore = {
   async init(): Promise<void> {
@@ -37,18 +37,30 @@ export const UserConfigStore = {
     }
   },
 
-  set(config: Partial<UserConfig>): void {
-    writeQueue = writeQueue
-      .then(async () => {
-        try {
-          const current = await this.get();
-          const next = { ...current, ...config };
-          memoryCache = next; // Update memory cache synchronously
-          await writeTextFile(FILE, JSON.stringify(next, null, 2), {
-            baseDir: BASE,
-          });
-        } catch {}
-      })
-      .catch(() => {});
+  async set(config: Partial<UserConfig>): Promise<void> {
+    const current = await this.get();
+    const next = { ...current, ...config };
+    memoryCache = next; // Sync update to memory cache
+    
+    if (isWriting) {
+      pendingWrite = true;
+      return;
+    }
+
+    const flush = async () => {
+      isWriting = true;
+      pendingWrite = false;
+      try {
+        await writeTextFile(FILE, JSON.stringify(memoryCache, null, 2), {
+          baseDir: BASE,
+        });
+      } catch {}
+      isWriting = false;
+      if (pendingWrite) {
+        flush();
+      }
+    };
+    
+    flush();
   },
 };

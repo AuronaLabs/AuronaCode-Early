@@ -2,8 +2,8 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Icons } from "../../UI/Icons/IconManager";
-import { StorageManager } from "../../Core/StorageManager";
-import { EventBus } from "../../Core/EventBus";
+import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
+import { EventBus } from "../../Foundation/EventBus";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Input } from "../../UI/Components/Input";
 
@@ -25,7 +25,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
 
   useEffect(() => {
     const init = async () => {
-      const config = await StorageManager.getConfig();
+      const config = await WorkspaceStore.get();
       if (config.lastOpenedPath) {
         setRepoPath(config.lastOpenedPath);
       }
@@ -42,13 +42,13 @@ export const SearchPanel = React.memo(function SearchPanel() {
 
   const handleSearch = async () => {
     if (isSearching || !query.trim() || !repoPath) return;
-    
+
     setIsSearching(true);
     setHasSearched(true);
     setResults([]);
 
-    const unlisten = await listen<SearchResult>("search-result", (event) => {
-      setResults(prev => [...prev, event.payload]);
+    const unlisten = await listen<SearchResult[]>("search-result", (event) => {
+      setResults(prev => [...prev, ...event.payload]);
     });
 
     try {
@@ -93,7 +93,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
     const fullPath = `${repoPath}/${file_path}`;
     const name = file_path.split("/").pop() || file_path;
     EventBus.emit("app:open-tab", { id: fullPath, type: "file", title: name, path: fullPath });
-    
+
     // Slight delay to allow the editor to mount if it wasn't open
     setTimeout(() => {
       // In Phase 3, we will add jumping to line logic. For now it just opens the file.
@@ -111,9 +111,14 @@ export const SearchPanel = React.memo(function SearchPanel() {
         </h2>
       </div>
 
-      <div className="px-[var(--PanelPaddingX)] pb-4 shrink-0 mt-2">
-        <div className="flex flex-col p-3 rounded-2xl bg-white/5 dark:bg-white/10 backdrop-blur-md border border-black/5 dark:border-white/5 shadow-inner gap-3 relative transition-all">
-          <input 
+      <div className="px-[var(--PanelPaddingX)] pb-4 shrink-0 mt-2 flex flex-col gap-3">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 text-[11.5px] text-[var(--ColorMuted)]">
+          <Icons.Info size={14} className="opacity-60 shrink-0" />
+          <span className="opacity-80">全局搜索即将被 Fliuno 搜索替代</span>
+        </div>
+
+        <div className="flex flex-col p-3 rounded-2xl bg-white/5 dark:bg-white/10 backdrop-blur-md border border-black/5 dark:border-white/5 shadow-inner gap-3 transition-all">
+          <input
             type="text"
             className="w-full bg-transparent text-[13px] text-[var(--ColorTextHighlight)] outline-none placeholder-[var(--ColorMuted)] leading-relaxed"
             placeholder="全局搜索... (回车以执行)"
@@ -124,7 +129,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
               <Tooltip content="区分大小写">
-                <button 
+                <button
                   onClick={() => setIsCaseSensitive(!isCaseSensitive)}
                   className={`p-1.5 rounded-lg transition-colors ${isCaseSensitive ? 'bg-[var(--ColorAccent)] text-white shadow-sm' : 'text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/10 dark:hover:bg-white/20'}`}
                 >
@@ -132,7 +137,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
                 </button>
               </Tooltip>
               <Tooltip content="正则表达式">
-                <button 
+                <button
                   onClick={() => setIsRegex(!isRegex)}
                   className={`p-1.5 rounded-lg transition-colors ${isRegex ? 'bg-[var(--ColorAccent)] text-white shadow-sm' : 'text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/10 dark:hover:bg-white/20'}`}
                 >
@@ -141,7 +146,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
               </Tooltip>
             </div>
             <Tooltip content="执行搜索">
-              <button 
+              <button
                 onClick={handleSearch}
                 disabled={isSearching || !query.trim()}
                 className="px-3 py-1.5 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 border border-[var(--ColorPanelBorder)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--ColorTextHighlight)] text-[12px] font-medium rounded-lg transition-all flex items-center gap-1.5"
@@ -179,25 +184,29 @@ export const SearchPanel = React.memo(function SearchPanel() {
               )}
             </div>
             {fileKeys.map(file => (
-              <div key={file} className="flex flex-col mb-3">
-                <div className="flex items-center gap-2 px-2 py-1.5 mx-[calc(var(--PanelPaddingX)-8px)] mb-1 rounded-xl bg-white/5 dark:bg-white/5 backdrop-blur-md border border-transparent cursor-pointer text-[12px] font-medium text-[var(--ColorTextHighlight)] truncate group">
-                  <Icons.FileCode size={14} className="text-[var(--ColorMuted)] shrink-0 ml-1" />
+              <div key={file} className="flex flex-col mb-4 bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-2xl overflow-hidden mx-[calc(var(--PanelPaddingX)-8px)] shadow-sm">
+                <div className="flex items-center gap-2 px-3 py-2.5 bg-black/5 dark:bg-white/5 border-b border-black/5 dark:border-white/5 text-[12px] font-bold text-[var(--ColorTextHighlight)] group">
+                  <Icons.FileCode size={16} className="text-blue-500 shrink-0" stroke={2} />
                   <span className="truncate">{grouped[file].name}</span>
-                  <span className="truncate text-[10px] text-[var(--ColorMuted)] opacity-70 group-hover:opacity-100 transition-opacity">
+                  <span className="truncate text-[10px] text-[var(--ColorMuted)] opacity-60 group-hover:opacity-100 transition-opacity ml-1 font-normal">
                     {grouped[file].dir}
                   </span>
+                  <span className="ml-auto text-[10px] bg-black/10 dark:bg-white/10 px-2 py-0.5 rounded-full text-[var(--ColorMuted)]">
+                    {grouped[file].matches.length}
+                  </span>
                 </div>
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col py-1.5">
                   {grouped[file].matches.map(match => (
-                    <div 
+                    <div
                       key={match.index}
                       onClick={() => openFile(file, match.line_number)}
-                      className="flex gap-2 pl-6 pr-4 py-1 mx-[var(--PanelPaddingX)] rounded-lg hover:bg-[var(--ColorAccent)] hover:text-white cursor-pointer group transition-colors text-[11.5px]"
+                      className="flex items-start gap-3 px-3 py-1.5 hover:bg-[var(--ColorAccent)] hover:text-white cursor-pointer group transition-all text-[12px] relative"
                     >
-                      <span className="text-[var(--ColorMuted)] group-hover:text-white/70 w-6 text-right shrink-0 select-none">
+                      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-transparent group-hover:bg-white transition-colors" />
+                      <span className="text-[var(--ColorMuted)] group-hover:text-white/80 w-7 text-right shrink-0 select-none font-mono text-[11px] pt-[2px]">
                         {match.line_number}
                       </span>
-                      <span className="truncate text-[var(--ColorText)] group-hover:text-white font-mono opacity-80">
+                      <span className="truncate text-[var(--ColorText)] group-hover:text-white font-mono opacity-90 leading-relaxed">
                         {match.match_text.trim()}
                       </span>
                     </div>

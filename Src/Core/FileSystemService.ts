@@ -7,6 +7,7 @@ import {
   rename,
   writeTextFile,
 } from "@tauri-apps/plugin-fs";
+import { invoke } from "@tauri-apps/api/core";
 
 export type FileNode = {
   name: string;
@@ -109,6 +110,14 @@ export const FileSystemService = {
 
   async deleteEntry(path: string, isDirectory: boolean) {
     await remove(path, { recursive: isDirectory });
+  },
+
+  async revealInOs(path: string) {
+    await invoke("reveal_in_os", { path });
+  },
+
+  async copyOrMove(source: string, destination: string, isMove: boolean) {
+    await invoke("fs_copy_or_move", { source, destination, isMove });
   },
 
   readTextFile,

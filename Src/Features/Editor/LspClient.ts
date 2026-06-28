@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { EventBus } from "../../Core/EventBus";
+import { EventBus } from "../../Foundation/EventBus";
 
 export interface HoverResult {
   contents: {

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { watch } from "@tauri-apps/plugin-fs";
-import { EventBus } from "../../../Core/EventBus";
-import { StorageManager } from "../../../Core/StorageManager";
+import { EventBus } from "../../../Foundation/EventBus";
+import { WorkspaceStore } from "../../../Foundation/Storage/WorkspaceStore";
 import { showToast } from "../../../UI/Feedback/Toast";
 import { FileNode, FileSystemService } from "../../../Core/FileSystemService";
 import {
@@ -23,6 +23,9 @@ export interface UseFileTreeReturn {
   setContextMenu: (menu: { x: number; y: number; node: FileNode } | null) => void;
   setDeletePrompt: (node: FileNode | null) => void;
   setInlineEditing: (path: string | null) => void;
+  clipboard: { path: string; isCut: boolean } | null;
+  setClipboard: (state: { path: string; isCut: boolean } | null) => void;
+  handlePaste: (targetDir: string) => Promise<void>;
   handleOpenFolder: () => Promise<void>;
   refreshDirectory: (dirPath: string) => Promise<void>;
   toggleDir: (node: FileNode) => Promise<void>;
@@ -32,6 +35,10 @@ export interface UseFileTreeReturn {
   handleInlineRename: (oldPath: string, newName: string) => Promise<void>;
   handleConfirmDelete: () => Promise<void>;
   handleContextMenu: (event: React.MouseEvent, node: FileNode) => void;
+  collapseAll: () => void;
+  startInlineCreateAt: (type: "file" | "folder", targetParentPath: string) => void;
+  handleDuplicate: (node: FileNode) => Promise<void>;
+  handleDrop: (sourcePath: string, targetPath: string) => Promise<void>;
 }
 
 export function useFileTree(
@@ -47,13 +54,14 @@ export function useFileTree(
     node: FileNode;
   } | null>(null);
   const [deletePrompt, setDeletePrompt] = useState<FileNode | null>(null);
+  const [clipboard, setClipboard] = useState<{ path: string; isCut: boolean } | null>(null);
 
   const loadFolderDirectly = useCallback(async (selectedPath: string) => {
     try {
       const folderName = FileSystemService.basename(selectedPath);
       const children = await FileSystemService.readDirectory(selectedPath);
       setRootNode({ name: folderName, path: selectedPath, isDirectory: true, isOpen: true, children });
-      StorageManager.saveConfig({ lastOpenedPath: selectedPath });
+      WorkspaceStore.set({ lastOpenedPath: selectedPath });
       EventBus.emit("workspace:root-changed", selectedPath);
     } catch (error) {
       showToast(`打开文件夹失败：${FileSystemService.toMessage(error)}`, "error");
@@ -63,8 +71,8 @@ export function useFileTree(
   // 恢复上次打开的工作区
   useEffect(() => {
     const init = async () => {
-      await StorageManager.init();
-      const config = await StorageManager.getConfig();
+      await WorkspaceStore.init();
+      const config = await WorkspaceStore.get();
       if (config.lastOpenedPath) {
         await loadFolderDirectly(config.lastOpenedPath);
       }
@@ -79,13 +87,13 @@ export function useFileTree(
         if (!prev) return prev;
         const openPaths = collectOpenPaths([prev]);
         if (prev.path === dirPath) {
-          return { ...prev, children: mergeOpenState(refreshedChildren, openPaths), isOpen: true };
+          return { ...prev, children: mergeOpenState(refreshedChildren, prev.children || [], openPaths), isOpen: true };
         }
         return {
           ...prev,
           children: updateTree(prev.children || [], dirPath, (node) => ({
             ...node,
-            children: mergeOpenState(refreshedChildren, openPaths),
+            children: mergeOpenState(refreshedChildren, node.children || [], openPaths),
             isOpen: true,
           })),
         };
@@ -164,6 +172,20 @@ export function useFileTree(
     [onFileSelect]
   );
 
+  const collapseAll = useCallback(() => {
+    setRootNode((prev) => {
+      if (!prev) return prev;
+      // 递归将所有文件夹的 isOpen 设置为 false
+      const closeAll = (nodes: FileNode[]): FileNode[] => {
+        return nodes.map(n => {
+          if (!n.isDirectory) return n;
+          return { ...n, isOpen: false, children: n.children ? closeAll(n.children) : undefined };
+        });
+      };
+      return { ...prev, children: prev.children ? closeAll(prev.children) : undefined };
+    });
+  }, []);
+
   const findActiveDirectory = useCallback(
     (nodes: FileNode[], targetPath: string | null): FileNode | null => {
       if (!targetPath) return null;
@@ -194,6 +216,13 @@ export function useFileTree(
     (type: "file" | "folder") => {
       const parentPath = getTargetParentPath();
       if (!parentPath) return;
+      startInlineCreateAt(type, parentPath);
+    },
+    [getTargetParentPath]
+  );
+
+  const startInlineCreateAt = useCallback(
+    (type: "file" | "folder", parentPath: string) => {
       setInlineCreation({ type, parentPath });
       setRootNode((prev) => {
         if (!prev) return prev;
@@ -201,7 +230,7 @@ export function useFileTree(
         return { ...prev, children: updateTree(prev.children || [], parentPath, (node) => ({ ...node, isOpen: true })) };
       });
     },
-    [getTargetParentPath]
+    []
   );
 
   const handleInlineCreate = useCallback(
@@ -272,12 +301,91 @@ export function useFileTree(
     }
   }, [activePath, deletePrompt, refreshDirectory]);
 
+  const handlePaste = useCallback(async (targetDir: string) => {
+    if (!clipboard) return;
+    try {
+      const fileName = FileSystemService.basename(clipboard.path);
+      const destPath = FileSystemService.joinPath(targetDir, fileName);
+      
+      if (clipboard.path === destPath) {
+        showToast("不能粘贴到同一位置", "warning");
+        return;
+      }
+
+      await FileSystemService.copyOrMove(clipboard.path, destPath, clipboard.isCut);
+
+      if (clipboard.isCut) {
+        const oldParent = FileSystemService.dirname(clipboard.path);
+        await refreshDirectory(oldParent);
+        setClipboard(null); // Clear clipboard after cut
+      }
+      await refreshDirectory(targetDir);
+      
+      showToast(clipboard.isCut ? "移动成功" : "复制成功", "success");
+    } catch (error) {
+      showToast(`粘贴失败: ${FileSystemService.toMessage(error)}`, "error");
+    }
+  }, [clipboard, refreshDirectory]);
+
+  const handleDuplicate = useCallback(async (node: FileNode) => {
+    try {
+      const parentPath = FileSystemService.dirname(node.path);
+      const fileName = FileSystemService.basename(node.path);
+      
+      let newFileName = "";
+      if (node.isDirectory) {
+        newFileName = `${fileName} - 副本`;
+      } else {
+        const lastDotIndex = fileName.lastIndexOf(".");
+        if (lastDotIndex > 0) {
+          const name = fileName.substring(0, lastDotIndex);
+          const ext = fileName.substring(lastDotIndex);
+          newFileName = `${name} - 副本${ext}`;
+        } else {
+          newFileName = `${fileName} - 副本`;
+        }
+      }
+      
+      const newPath = FileSystemService.joinPath(parentPath, newFileName);
+      await FileSystemService.copyOrMove(node.path, newPath, false);
+      await refreshDirectory(parentPath);
+      showToast("副本创建成功", "success");
+    } catch (error) {
+      showToast(`创建副本失败: ${FileSystemService.toMessage(error)}`, "error");
+    }
+  }, [refreshDirectory]);
+
   const handleContextMenu = useCallback(
     (event: React.MouseEvent, node: FileNode) => {
       setContextMenu({ x: event.pageX, y: event.pageY, node });
     },
     []
   );
+
+  const handleDrop = useCallback(async (sourcePath: string, targetPath: string) => {
+    if (sourcePath === targetPath) return; // 拖放到自身
+    // 不能将父文件夹拖入其子文件夹中
+    if (targetPath.startsWith(sourcePath + '/') || targetPath.startsWith(sourcePath + '\\')) {
+      showToast("无法将文件夹移动到其子文件夹中", "error");
+      return;
+    }
+
+    try {
+      const fileName = FileSystemService.basename(sourcePath);
+      const destPath = FileSystemService.joinPath(targetPath, fileName);
+      if (sourcePath === destPath) return; // 相同位置
+
+      await FileSystemService.copyOrMove(sourcePath, destPath, true); // true表示移动
+
+      const oldParent = FileSystemService.dirname(sourcePath);
+      await refreshDirectory(oldParent);
+      await refreshDirectory(targetPath);
+      
+      showToast("移动成功", "success");
+    } catch (error) {
+      showToast(`移动失败: ${FileSystemService.toMessage(error)}`, "error");
+    }
+  }, [refreshDirectory]);
 
   // EventBus 事件订阅
   useEffect(() => {
@@ -310,5 +418,12 @@ export function useFileTree(
     handleInlineRename,
     handleConfirmDelete,
     handleContextMenu,
+    clipboard,
+    setClipboard,
+    handlePaste,
+    collapseAll,
+    startInlineCreateAt,
+    handleDuplicate,
+    handleDrop,
   };
 }

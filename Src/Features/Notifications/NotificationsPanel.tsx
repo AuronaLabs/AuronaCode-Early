@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Icons } from "../../UI/Icons/IconManager";
 import { NotificationService, NotificationItem } from "../../Core/NotificationService";
-import { EventBus } from "../../Core/EventBus";
+import { EventBus } from "../../Foundation/EventBus";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 
 export const NotificationsPanel = React.memo(function NotificationsPanel() {

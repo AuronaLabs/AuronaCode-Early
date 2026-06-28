@@ -11,4 +11,5 @@ export interface TerminalInstance {
   id: string;
   name: string;
   shell: ShellProfile;
+  cwd?: string;
 }

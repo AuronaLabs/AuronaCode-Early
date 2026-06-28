@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { EventBus } from "../../Core/EventBus";
+import { EventBus } from "../../Foundation/EventBus";
 import { Icons } from "../../UI/Icons/IconManager";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { isRunnable, handleSmartRun } from "../../Shared/Constants/RunConfig";
 
-type MenuName = "文件" | "编辑" | "帮助";
+type MenuName = "文件" | "编辑" | "运行" | "帮助";
 
 const appWindow = getCurrentWindow();
 
@@ -53,7 +53,7 @@ export function TitleBar() {
         </div>
 
         <div className="flex h-full items-center space-x-0.5 min-w-0">
-          {(["文件", "编辑", "帮助"] as MenuName[]).map((menu) => (
+          {(["文件", "编辑", "运行", "帮助"] as MenuName[]).map((menu) => (
             <div key={menu} className="relative h-full flex items-center">
               <div
                 className={`flex h-[26px] cursor-pointer items-center rounded-md px-2.5 hover:bg-black/5 dark:hover:bg-white/10 hover:text-[var(--ColorTextHighlight)] transition-colors relative z-50 ${
@@ -73,6 +73,26 @@ export function TitleBar() {
                   <div className="absolute top-[32px] left-0 w-52 rounded-lg border border-[var(--ColorPanelBorder)] bg-[var(--ColorEditor)] backdrop-blur-xl p-1 shadow-lg z-50 text-[12px]">
                     {menu === "文件" && (
                       <>
+                        <button
+                          className={menuItemClass}
+                          onClick={() => {
+                            setActiveMenu(null);
+                            EventBus.emit("app:create-new-file");
+                          }}
+                        >
+                          <span>新建文件</span>
+                          <span className="text-[var(--ColorMuted)]">Ctrl+N</span>
+                        </button>
+                        <button
+                          className={menuItemClass}
+                          onClick={() => {
+                            setActiveMenu(null);
+                            EventBus.emit("app:create-new-folder");
+                          }}
+                        >
+                          <span>新建文件夹</span>
+                        </button>
+                        <div className="my-1 h-px w-full bg-[var(--ColorPanelBorder)]" />
                         <button
                           className={menuItemClass}
                           onClick={() => {
@@ -129,6 +149,23 @@ export function TitleBar() {
                         <div className="my-1 h-px w-full bg-[var(--ColorPanelBorder)]" />
                         <button className={menuItemClass} onClick={() => { setActiveMenu(null); EventBus.emit("editor:action", "selectAll"); }}>
                           <span>全选</span>
+                        </button>
+                      </>
+                    )}
+
+                    {menu === "运行" && (
+                      <>
+                        <button 
+                          className={`${menuItemClass} ${(!activeFilePath || !isRunnable(activeFilePath)) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          onClick={() => {
+                            if (activeFilePath && isRunnable(activeFilePath)) {
+                              setActiveMenu(null);
+                              handleSmartRun(activeFilePath);
+                            }
+                          }}
+                        >
+                          <span>运行当前文件</span>
+                          <span className="text-[var(--ColorMuted)]">F5</span>
                         </button>
                       </>
                     )}

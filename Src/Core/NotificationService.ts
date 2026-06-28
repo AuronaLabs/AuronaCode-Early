@@ -1,4 +1,4 @@
-import { EventBus } from "./EventBus";
+import { EventBus } from "../Foundation/EventBus";
 
 export interface NotificationItem {
   id: string;

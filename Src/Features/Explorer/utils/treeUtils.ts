@@ -30,15 +30,22 @@ export const collectOpenPaths = (
   return result;
 };
 
-// 刷新后将旧展开状态合并到新节点树
+// 刷新后将旧展开状态合并到新节点树，同时保留原有的 children 数据
 export const mergeOpenState = (
   nodes: FileNode[],
+  oldNodes: FileNode[],
   openPaths: Set<string>
-): FileNode[] =>
-  nodes.map((node) => ({
-    ...node,
-    isOpen: openPaths.has(node.path),
-    children: node.children
-      ? mergeOpenState(node.children, openPaths)
-      : node.children,
-  }));
+): FileNode[] => {
+  const oldNodeMap = new Map(oldNodes.map(n => [n.path, n]));
+  return nodes.map((node) => {
+    const oldNode = oldNodeMap.get(node.path);
+    const childrenToMerge = node.children || oldNode?.children;
+    return {
+      ...node,
+      isOpen: openPaths.has(node.path),
+      children: childrenToMerge
+        ? mergeOpenState(childrenToMerge, oldNode?.children || [], openPaths)
+        : undefined,
+    };
+  });
+};

@@ -13,7 +13,7 @@ import "prismjs/components/prism-markdown";
 import { EditorAdapter } from "./EditorAdapter";
 import { EditorStatus, EditorStatusListener, IEditorEngine } from "../../Foundation/Types/Editor";
 import { LspClient } from "./LspClient";
-import { EventBus } from "../../Core/EventBus";
+import { EventBus } from "../../Foundation/EventBus";
 import { AutocompleteMenu, CompletionItem } from "./components/AutocompleteMenu";
 import { SearchWidget } from "./components/SearchWidget";
 
@@ -101,12 +101,15 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const onChangeRef = useRef(onChange);
   const completionTimerRef = useRef<number | null>(null);
   const didChangeTimerRef = useRef<number | null>(null);
+  const historyTimerRef = useRef<number | null>(null);
   const pendingLspReqIdRef = useRef<number | null>(null);
+  const [currentLine, setCurrentLine] = useState(1);
 
   useEffect(() => {
     return () => {
       if (completionTimerRef.current) window.clearTimeout(completionTimerRef.current);
       if (didChangeTimerRef.current) window.clearTimeout(didChangeTimerRef.current);
+      if (historyTimerRef.current) window.clearTimeout(historyTimerRef.current);
       if (pendingLspReqIdRef.current && language) {
         LspClient.getInstance().cancelRequest(language, pendingLspReqIdRef.current);
       }
@@ -227,6 +230,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       column,
       selectionLength: Math.abs(el.selectionEnd - el.selectionStart),
     });
+    setCurrentLine(lineNum);
   }, [emitStatus, getLineAndChar]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -234,7 +238,13 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     const selectionStart = e.target.selectionStart;
     setContent(newContent);
     onChange?.(newContent);
-    pushHistory(newContent, selectionStart);
+    
+    // Undo/Redo Debounce
+    if (historyTimerRef.current) window.clearTimeout(historyTimerRef.current);
+    historyTimerRef.current = window.setTimeout(() => {
+      pushHistory(newContent, selectionStart);
+    }, 800);
+    
     updateStatus();
 
     if (path && language) {
@@ -347,6 +357,50 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         setCompletions([]);
         return;
       }
+    }
+
+    // Auto-closing pairs
+    const pairs: Record<string, string> = { "(": ")", "[": "]", "{": "}", "\"": "\"", "'": "'" };
+    if (pairs[e.key]) {
+      e.preventDefault();
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const closing = pairs[e.key];
+      const newContent = content.substring(0, start) + e.key + closing + content.substring(end);
+      setContent(newContent);
+      onChange?.(newContent);
+      pushHistory(newContent, start + 1);
+      setTimeout(() => {
+        el.selectionStart = el.selectionEnd = start + 1;
+        updateStatus();
+      }, 0);
+      return;
+    }
+
+    // Smart Indentation on Enter
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const start = el.selectionStart;
+      const textBefore = content.substring(0, start);
+      const lastLineMatch = textBefore.match(/[^\n]*$/);
+      const lastLine = lastLineMatch ? lastLineMatch[0] : "";
+      
+      const indentMatch = lastLine.match(/^\s*/);
+      let indent = indentMatch ? indentMatch[0] : "";
+      
+      if (lastLine.trim().endsWith("{") || lastLine.trim().endsWith("[")) {
+        indent += "  ";
+      }
+      
+      const newContent = content.substring(0, start) + "\n" + indent + content.substring(el.selectionEnd);
+      setContent(newContent);
+      onChange?.(newContent);
+      pushHistory(newContent, start + 1 + indent.length);
+      setTimeout(() => {
+        el.selectionStart = el.selectionEnd = start + 1 + indent.length;
+        updateStatus();
+      }, 0);
+      return;
     }
 
     if (e.key === "f" && (e.ctrlKey || e.metaKey)) {
@@ -548,11 +602,15 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       await lsp.didOpen(language, path, content);
     };
     initLsp();
+
+    return () => {
+      lsp.didClose(language, path).catch(console.error);
+    };
   }, [path, language]);
 
   const deferredContent = React.useDeferredValue(content);
-  const grammar = Prism.languages[language === 'typescript' ? 'typescript' : language] || Prism.languages.javascript || Prism.languages.clike || {};
-  const highlightedHTML = grammar ? Prism.highlight(deferredContent, grammar, language) : deferredContent;
+  const grammar = React.useMemo(() => Prism.languages[language === 'typescript' ? 'typescript' : language] || Prism.languages.javascript || Prism.languages.clike || {}, [language]);
+  const highlightedHTML = React.useMemo(() => grammar ? Prism.highlight(deferredContent, grammar, language) : deferredContent, [deferredContent, grammar, language]);
 
   const linesCount = deferredContent.split('\n').length;
   const lineNumbers = React.useMemo(() => {
@@ -622,6 +680,22 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           />
 
           <div className="absolute top-0 left-0 w-full h-full m-0 p-4 pointer-events-none z-[5] overflow-hidden">
+            {/* Current Line Highlight */}
+            <div 
+              style={{
+                position: "absolute",
+                top: `${(currentLine - 1) * lineHeightRef.current}px`,
+                left: 0,
+                width: "100%",
+                height: `${lineHeightRef.current}px`,
+                backgroundColor: "rgba(255, 255, 255, 0.04)",
+                borderTop: "1px solid rgba(255, 255, 255, 0.05)",
+                borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+                zIndex: -1,
+                pointerEvents: "none"
+              }}
+            />
+
             {/* Search Highlights */}
             {searchMatches.map((index, i) => {
               const { line, char } = getLineAndChar(index);

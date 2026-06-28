@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useMemo } from "react";
-import { EventBus } from "../Core/EventBus";
+import { EventBus } from "../Foundation/EventBus";
 import { TerminalManager } from "../Core/TerminalService";
 import type { TerminalInstance } from "../Foundation/Types/Terminal";
 import type { ReactNode } from "react";
@@ -71,10 +71,21 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
 
   // 监听外部触发的终端切换
   useEffect(() => {
-    const unsub = EventBus.on("app:toggle-terminal", (force) => {
+    const unsubToggle = EventBus.on("app:toggle-terminal", (force) => {
       setIsTerminalOpenState((prev) => (force !== undefined ? force : !prev));
     });
-    return unsub;
+
+    const unsubOpenAt = EventBus.on("app:open-terminal-at", (path: string) => {
+      TerminalManager.createTerminal(undefined, path);
+      setActiveBottomTab("terminal");
+      setIsTerminalOpenState(true);
+      EventBus.emit("app:terminal-state-changed", true);
+    });
+
+    return () => {
+      unsubToggle();
+      unsubOpenAt();
+    };
   }, []);
 
   const value: TerminalContextValue = useMemo(() => ({

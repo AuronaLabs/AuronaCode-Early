@@ -6,10 +6,12 @@ import { Button } from "../../UI/Components/Button";
 import { Input } from "../../UI/Components/Input";
 import { Select } from "../../UI/Components/Select";
 import { Switch } from "../../UI/Components/Switch";
-import { StorageManager } from "../../Core/StorageManager";
+import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { showToast } from "../../UI/Feedback/Toast";
-import { EventBus } from "../../Core/EventBus";
+import { EventBus } from "../../Foundation/EventBus";
 import { GitIPC } from "../../Foundation/IPC/GitCommands";
+import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
+import { remove, BaseDirectory } from "@tauri-apps/plugin-fs";
 
 export type SettingsSection = "appearance" | "editor" | "terminal" | "git" | "advanced";
 
@@ -36,26 +38,28 @@ export function SettingsTab() {
   const [terminalCursorBlink, setTerminalCursorBlink] = useState("true");
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("aurona-theme") as "light" | "dark" | "system" | null;
-    if (savedTheme) setTheme(savedTheme);
-    
-    const savedEditorFont = localStorage.getItem("aurona-editor-fontsize") || "14";
-    const savedTerminalFont = localStorage.getItem("aurona-terminal-fontsize") || "13";
-    setEditorFontSize(savedEditorFont);
-    setEditorWordWrap(localStorage.getItem("aurona-editor-wordwrap") || "on");
-    setEditorMinimap(localStorage.getItem("aurona-editor-minimap") || "true");
-    
-    setTerminalFontSize(savedTerminalFont);
-    setTerminalCursorBlink(localStorage.getItem("aurona-terminal-cursorblink") || "true");
+    UserConfigStore.get().then(config => {
+      const savedTheme = config.theme as "light" | "dark" | "system" | undefined;
+      if (savedTheme) setTheme(savedTheme);
+      
+      const savedEditorFont = config.editorFontSize?.toString() || "14";
+      const savedTerminalFont = config.terminalFontSize?.toString() || "13";
+      setEditorFontSize(savedEditorFont);
+      setEditorWordWrap(config.editorWordWrap || "on");
+      setEditorMinimap(config.editorMinimap !== false ? "true" : "false");
+      
+      setTerminalFontSize(savedTerminalFont);
+      setTerminalCursorBlink(config.terminalCursorBlink !== false ? "true" : "false");
 
-    // Apply CSS variables
-    document.documentElement.style.setProperty("--EditorFontSize", `${savedEditorFont}px`);
-    document.documentElement.style.setProperty("--TerminalFontSize", `${savedTerminalFont}px`);
+      // Apply CSS variables
+      document.documentElement.style.setProperty("--EditorFontSize", `${savedEditorFont}px`);
+      document.documentElement.style.setProperty("--TerminalFontSize", `${savedTerminalFont}px`);
+    });
   }, []);
 
   const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
     setTheme(newTheme);
-    localStorage.setItem("aurona-theme", newTheme);
+    UserConfigStore.set({ theme: newTheme });
     const isDark = newTheme === "dark" || (newTheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     if (isDark) {
       document.documentElement.classList.add("dark");
@@ -74,8 +78,8 @@ export function SettingsTab() {
   useEffect(() => {
     if (activeSection !== "git") return;
     const loadGitConfig = async () => {
-      await StorageManager.init();
-      const config = await StorageManager.getConfig();
+      await WorkspaceStore.init();
+      const config = await WorkspaceStore.get();
       if (config.lastOpenedPath) {
         setRepoPath(config.lastOpenedPath);
         try {
@@ -167,7 +171,7 @@ export function SettingsTab() {
             value={editorFontSize}
             onChange={(val) => {
               setEditorFontSize(val);
-              localStorage.setItem("aurona-editor-fontsize", val);
+              UserConfigStore.set({ editorFontSize: parseInt(val, 10) });
               document.documentElement.style.setProperty("--EditorFontSize", `${val}px`);
               EventBus.emit("settings:editor-changed");
             }}
@@ -185,7 +189,7 @@ export function SettingsTab() {
             onChange={(checked) => {
               const val = checked ? "on" : "off";
               setEditorWordWrap(val);
-              localStorage.setItem("aurona-editor-wordwrap", val);
+              UserConfigStore.set({ editorWordWrap: val });
               EventBus.emit("settings:editor-changed");
             }}
           />
@@ -201,7 +205,7 @@ export function SettingsTab() {
             onChange={(checked) => {
               const val = checked ? "true" : "false";
               setEditorMinimap(val);
-              localStorage.setItem("aurona-editor-minimap", val);
+              UserConfigStore.set({ editorMinimap: checked });
               EventBus.emit("settings:editor-changed");
             }}
           />
@@ -226,7 +230,7 @@ export function SettingsTab() {
             value={terminalFontSize}
             onChange={(val) => {
               setTerminalFontSize(val);
-              localStorage.setItem("aurona-terminal-fontsize", val);
+              UserConfigStore.set({ terminalFontSize: parseInt(val, 10) });
               document.documentElement.style.setProperty("--TerminalFontSize", `${val}px`);
               EventBus.emit("settings:terminal-changed");
             }}
@@ -244,7 +248,7 @@ export function SettingsTab() {
             onChange={(checked) => {
               const val = checked ? "true" : "false";
               setTerminalCursorBlink(val);
-              localStorage.setItem("aurona-terminal-cursorblink", val);
+              UserConfigStore.set({ terminalCursorBlink: checked });
               EventBus.emit("settings:terminal-changed");
             }}
           />
@@ -298,7 +302,12 @@ export function SettingsTab() {
       <div className="flex flex-col gap-4">
         <h3 className="text-[14px] font-semibold text-[var(--ColorTextHighlight)]">缓存与重置</h3>
         <p className="text-[13px] text-[var(--ColorMuted)] mb-2">清除应用全部本地缓存数据，包括最近打开的文件夹记录、界面布局状态等，这会让编辑器回到初始状态</p>
-        <Button variant="danger" className="w-fit" onClick={() => { localStorage.clear(); showToast("缓存已清理，请重启应用"); }}>
+        <Button variant="danger" className="w-fit" onClick={() => { 
+          remove("user-config.json", { baseDir: BaseDirectory.AppLocalData }).catch(() => {});
+          remove("workspace.json", { baseDir: BaseDirectory.AppLocalData }).catch(() => {});
+          localStorage.clear(); 
+          showToast("缓存已清理，请重启应用"); 
+        }}>
           清除本地缓存
         </Button>
       </div>

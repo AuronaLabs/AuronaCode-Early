@@ -58,8 +58,11 @@ export const FileTreeNode = React.memo(function FileTreeNode({
     onInlineCancel,
     onInlineRename,
     onContextMenu,
+    onDrop,
   } = useExplorerContext();
   
+  const [isDragHover, setIsDragHover] = React.useState(false);
+
   const isActive = activePath === node.path;
   const isTargetForInline =
     inlineCreation?.parentPath === node.path &&
@@ -91,16 +94,56 @@ export const FileTreeNode = React.memo(function FileTreeNode({
         ))}
 
       <div
+        draggable={true}
         className={`group/tree flex items-center gap-1.5 py-[3px] mx-1 pr-2 rounded-md text-[13px] cursor-pointer select-none transition-colors ${
-          isActive
-            ? "bg-[var(--ColorAccent)]/15 text-[var(--ColorTextHighlight)] font-medium"
-            : "text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
+          isDragHover 
+            ? "bg-[var(--ColorAccent)]/20 border border-[var(--ColorAccent)]/50" 
+            : isActive
+              ? "bg-[var(--ColorAccent)]/15 text-[var(--ColorTextHighlight)] font-medium"
+              : "text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
         }`}
-        style={{ paddingLeft: `calc(${depth} * var(--TreeIndent) + 4px)` }}
+        style={{ 
+          paddingLeft: `calc(${depth} * var(--TreeIndent) + 4px)`,
+          WebkitUserDrag: 'element'
+        }}
         onClick={() => onToggle(node)}
         onContextMenu={(e) => {
           e.preventDefault();
           onContextMenu(e, node);
+        }}
+        onDragStart={(e) => {
+          e.stopPropagation();
+          e.dataTransfer.setData("text/plain", node.path);
+          e.dataTransfer.effectAllowed = "move";
+        }}
+        onDragOver={(e) => {
+          if (node.isDirectory) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+          }
+        }}
+        onDragEnter={(e) => {
+          if (node.isDirectory) {
+            e.preventDefault();
+            setIsDragHover(true);
+          }
+        }}
+        onDragLeave={(e) => {
+          if (node.isDirectory) {
+            e.preventDefault();
+            setIsDragHover(false);
+          }
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragHover(false);
+          if (node.isDirectory) {
+            const src = e.dataTransfer.getData("text/plain");
+            if (src) {
+              onDrop(src, node.path);
+            }
+          }
         }}
       >
         <div className="w-4 h-4 flex items-center justify-center shrink-0">

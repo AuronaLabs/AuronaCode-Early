@@ -11,6 +11,7 @@ export interface ExplorerContextValue {
   onInlineCancel: () => void;
   onInlineRename: (oldPath: string, newName: string) => void;
   onContextMenu: (event: React.MouseEvent, node: FileNode) => void;
+  onDrop: (sourcePath: string, targetPath: string) => void;
 }
 
 export const ExplorerContext = createContext<ExplorerContextValue | null>(null);

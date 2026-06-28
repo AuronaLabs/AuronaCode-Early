@@ -152,6 +152,7 @@ def ShowMenu():
   [bold]6.[/bold] 生成标准安装包 (Tauri Build)
   [bold]7.[/bold] 配置打包参数 (Edit Tauri Config)
   [bold]8.[/bold] 检查环境配置 (Auto Setup Env)
+  [bold]9.[/bold] 检查 GitHub 仓库状态 (Check GitHub Status)
   
   [bold]0.[/bold] 退出 (Exit)
 """
@@ -294,7 +295,7 @@ def HandleDistribution():
 def Main():
     while True:
         ShowMenu()
-        Choice = Prompt.ask("请选择操作编号", choices=["0", "1", "2", "3", "4", "5", "6", "7", "8"], default="1")
+        Choice = Prompt.ask("请选择操作编号", choices=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], default="1")
         
         if Choice == "1":
             ConsoleInstance.print("\n[dim]:: 启动 Tauri 开发服务器... (Ctrl+C 中止) ::[/dim]")
@@ -336,6 +337,15 @@ def Main():
 
         elif Choice == "8":
             CheckAndInstallEnvironment()
+            
+        elif Choice == "9":
+            ConsoleInstance.print("\n[dim]:: 正在拉取 GitHub 仓库状态... ::[/dim]\n")
+            try:
+                Cmd = ["python", "GithubStatusChecker.py"]
+                subprocess.run(Cmd)
+            except Exception as Err:
+                ConsoleInstance.print(f"[bold red]无法运行 GitHub 状态检查器: {Err}[/bold red]")
+            input("\n按回车键返回主菜单...")
             
         elif Choice == "0":
             ConsoleInstance.print("\n[dim]进程已结束。[/dim]\n")

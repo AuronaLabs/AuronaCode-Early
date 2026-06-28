@@ -21,7 +21,7 @@ class TerminalServiceImpl {
     return this.cachedShells;
   }
 
-  async createTerminal(shellId?: string): Promise<TerminalInstance> {
+  async createTerminal(shellId?: string, cwd?: string): Promise<TerminalInstance> {
     const shells = await this.getAvailableShells();
     const shell =
       (shellId ? shells.find((s) => s.id === shellId) : null) ??
@@ -31,7 +31,7 @@ class TerminalServiceImpl {
     // 使用递增索引而不是 length，避免删除后编号重复
     const id = `terminal-${Date.now()}`;
     const name = `${shell.name} ${this.nextIndex++}`;
-    const instance: TerminalInstance = { id, name, shell };
+    const instance: TerminalInstance = { id, name, shell, cwd };
 
     this.terminals.push(instance);
     this.setActiveTerminal(id);

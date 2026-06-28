@@ -7,7 +7,7 @@ import { Tooltip } from "../UI/Feedback/Tooltip";
 import { Modal } from "../UI/Components/Modal";
 import { Button } from "../UI/Components/Button";
 import { TerminalManager } from "../Core/TerminalService";
-import { EventBus } from "../Core/EventBus";
+import { EventBus } from "../Foundation/EventBus";
 import { useWorkspace } from "../State/WorkspaceContext";
 import { useTerminal } from "../State/TerminalContext";
 import { useEditor } from "../State/EditorContext";
@@ -307,6 +307,7 @@ export function WorkspaceView() {
                       id={term.id}
                       isActive={activeBottomTab === "terminal" && activeTerminalId === term.id}
                       shellProfile={term.shell}
+                      cwd={term.cwd}
                     />
                   </Suspense>
                 </div>

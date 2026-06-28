@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { EventBus } from "../../Core/EventBus";
+import { EventBus } from "../../Foundation/EventBus";
 import { Icons } from "../Icons/IconManager";
 
 interface ToastMessage {

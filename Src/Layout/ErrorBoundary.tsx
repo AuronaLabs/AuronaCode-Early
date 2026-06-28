@@ -1,5 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from "react";
-import { Logger } from "../Core/Logger";
+import { Logger } from "../Foundation/Logger";
 import { Icons } from "../UI/Icons/IconManager";
 import { Button } from "../UI/Components/Button";
 
@@ -28,7 +28,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleReload = () => {
-    import("../Core/EventBus").then(({ EventBus }) => {
+    import("../Foundation/EventBus").then(({ EventBus }) => {
       EventBus.emit("app:reboot");
     });
   };

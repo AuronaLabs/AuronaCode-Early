@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Icons } from "../../UI/Icons/IconManager";
-import { EventBus } from "../../Core/EventBus";
+import { EventBus } from "../../Foundation/EventBus";
 import { FileSystemService } from "../../Core/FileSystemService";
 import { showToast } from "../../UI/Feedback/Toast";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";

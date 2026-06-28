@@ -6,16 +6,17 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { PtyIPC } from "../../Foundation/IPC/PtyCommands";
 import "@xterm/xterm/css/xterm.css";
-import { StorageManager } from "../../Core/StorageManager";
+import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { ShellProfile } from "../../Core/TerminalService";
-import { EventBus } from "../../Core/EventBus";
+import { EventBus } from "../../Foundation/EventBus";
 import { ContextMenu, ContextMenuItem, ContextMenuDivider } from "../../UI/Components/ContextMenu";
 
 interface TerminalViewProps {
   id: string;
   isActive: boolean;
   shellProfile?: ShellProfile;
+  cwd?: string;
 }
 
 const getModernTheme = (isDark: boolean) => {
@@ -68,7 +69,7 @@ const getModernTheme = (isDark: boolean) => {
 };
 
 import React from "react";
-export const TerminalView = React.memo(function TerminalView({ id, isActive, shellProfile }: TerminalViewProps) {
+export const TerminalView = React.memo(function TerminalView({ id, isActive, shellProfile, cwd: customCwd }: TerminalViewProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -86,8 +87,8 @@ export const TerminalView = React.memo(function TerminalView({ id, isActive, she
     const loadSettings = async () => {
       const config = await UserConfigStore.get();
       setTerminalSettings({
-        fontSize: config.terminalFontSize || parseInt(localStorage.getItem("aurona-terminal-fontsize") || "13"),
-        cursorBlink: config.terminalCursorBlink !== false && localStorage.getItem("aurona-terminal-cursorblink") !== "false"
+        fontSize: config.terminalFontSize || 13,
+        cursorBlink: config.terminalCursorBlink !== false
       });
     };
     loadSettings();
@@ -179,6 +180,8 @@ export const TerminalView = React.memo(function TerminalView({ id, isActive, she
       observer.disconnect();
       onDataDisposable.dispose();
       onResizeDisposable.dispose();
+      fitAddonRef.current?.dispose();
+      webglAddonRef.current?.dispose();
       term.dispose();
     };
   }, [id, terminalSettings.fontSize, terminalSettings.cursorBlink]); 
@@ -191,8 +194,8 @@ export const TerminalView = React.memo(function TerminalView({ id, isActive, she
       if (isSpawned || isSpawningRef.current) return;
       isSpawningRef.current = true;
       try {
-        const config = await StorageManager.getConfig();
-        const cwd = config.lastOpenedPath || ".";
+        const config = await WorkspaceStore.get();
+        const cwd = customCwd || config.lastOpenedPath || ".";
         
         const unlisten = await listen<{ id: string; data: string }>("pty-output", (event) => {
           if (event.payload.id === id && xtermRef.current) {
@@ -226,6 +229,7 @@ export const TerminalView = React.memo(function TerminalView({ id, isActive, she
     return () => {
       isMounted = false;
       if (unlistenFn) unlistenFn();
+      PtyIPC.close(id).catch(console.error);
     };
   }, [id, isSpawned, shellProfile]);
 
