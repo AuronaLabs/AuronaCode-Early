@@ -35,7 +35,7 @@ export function StatusBar() {
   }, []);
 
   return (
-    <footer className="flex h-[var(--StatusBarHeight)] shrink-0 items-center bg-transparent px-4 text-xs text-[var(--ColorMuted)] font-medium overflow-hidden">
+    <footer className="flex h-[var(--StatusBarHeight)] shrink-0 items-center bg-transparent px-4 text-xs text-[var(--TextMuted)] font-medium overflow-hidden">
       <div className="flex items-center gap-4 min-w-0">
         <span className="cursor-default truncate">
           {editorStatus.errors} 错误, {editorStatus.warnings} 警告

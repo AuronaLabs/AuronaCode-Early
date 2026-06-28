@@ -41,7 +41,7 @@ function renderTabContent(tab: TabItem, activeTabId: string | null) {
   } else if (tab.type === "changelog") {
     content = <ChangelogTab />;
   }
-  return <Suspense fallback={<div className="w-full h-full bg-transparent flex items-center justify-center text-[var(--ColorMuted)] text-xs">加载中...</div>}>{content}</Suspense>;
+  return <Suspense fallback={<div className="w-full h-full bg-transparent flex items-center justify-center text-[var(--TextMuted)] text-xs">加载中...</div>}>{content}</Suspense>;
 }
 
 export function WorkspaceView() {
@@ -97,22 +97,22 @@ export function WorkspaceView() {
         style={{ display: activeSidebar ? "flex" : "none" }}
       >
         <div className="flex flex-1 flex-col min-h-0" style={{ display: activeSidebar === SIDEBAR_EXPLORER ? "flex" : "none" }}>
-          <Suspense fallback={<div className="p-4 text-[var(--ColorMuted)] text-xs">Loading Explorer...</div>}>
+          <Suspense fallback={<div className="p-4 text-[var(--TextMuted)] text-xs">Loading Explorer...</div>}>
             <FileExplorer onFileSelect={openFile} />
           </Suspense>
         </div>
         <div className="flex flex-1 flex-col min-h-0" style={{ display: activeSidebar === SIDEBAR_SEARCH ? "flex" : "none" }}>
-          <Suspense fallback={<div className="p-4 text-[var(--ColorMuted)] text-xs">Loading Search...</div>}>
+          <Suspense fallback={<div className="p-4 text-[var(--TextMuted)] text-xs">Loading Search...</div>}>
             <SearchPanel />
           </Suspense>
         </div>
         <div className="flex flex-1 flex-col min-h-0" style={{ display: activeSidebar === SIDEBAR_SOURCE_CONTROL ? "flex" : "none" }}>
-          <Suspense fallback={<div className="p-4 text-[var(--ColorMuted)] text-xs">Loading Git...</div>}>
+          <Suspense fallback={<div className="p-4 text-[var(--TextMuted)] text-xs">Loading Git...</div>}>
             <SourceControl />
           </Suspense>
         </div>
         <div className="flex flex-1 flex-col min-h-0" style={{ display: activeSidebar === SIDEBAR_NOTIFICATIONS ? "flex" : "none" }}>
-          <Suspense fallback={<div className="p-4 text-[var(--ColorMuted)] text-xs">Loading Notifications...</div>}>
+          <Suspense fallback={<div className="p-4 text-[var(--TextMuted)] text-xs">Loading Notifications...</div>}>
             <NotificationsPanel />
           </Suspense>
         </div>
@@ -145,7 +145,7 @@ export function WorkspaceView() {
             </div>
           ) : (
             /* 欢迎页 */
-            <div className="flex flex-1 items-center justify-center text-[var(--ColorMuted)] flex-col gap-6 select-none bg-transparent">
+            <div className="flex flex-1 items-center justify-center text-[var(--TextMuted)] flex-col gap-6 select-none bg-transparent">
               <div className="flex flex-col items-center gap-4 opacity-50 hover:opacity-80 transition-opacity duration-500">
                 <img src="/logo.png" alt="Logo" className="w-24 h-24 object-contain" />
               </div>
@@ -180,7 +180,7 @@ export function WorkspaceView() {
           style={{ height: isTerminalOpen ? "300px" : 0, display: isTerminalOpen ? "flex" : "none" }}
         >
           {/* 面板标签栏 */}
-          <div className="flex items-center px-3 py-1.5 bg-transparent relative z-10 select-none border-t border-[var(--ColorPanelBorder)]">
+          <div className="flex items-center px-3 py-1.5 bg-transparent relative z-10 select-none border-t border-[var(--GlassBorder)]">
             <div className="flex items-center gap-0.5">
               {(["problems", "output", "terminal"] as const).map((tabId) => {
                 const labels = { problems: "问题", output: "输出", terminal: "终端" };
@@ -195,8 +195,8 @@ export function WorkspaceView() {
                     onClick={() => setActiveBottomTab(tabId)}
                     className={`relative h-[26px] px-2.5 text-[12px] transition-colors duration-150 flex items-center gap-1.5 rounded-md ${
                       isActive
-                        ? "bg-black/5 dark:bg-white/10 text-[var(--ColorTextHighlight)]"
-                        : "text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
+                        ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]"
+                        : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
                     }`}
                   >
                     <span>{labels[tabId]}</span>
@@ -204,8 +204,8 @@ export function WorkspaceView() {
                       <span
                         className={`flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] rounded-full ${
                           isActive
-                            ? "bg-[var(--ColorAccent)] text-white"
-                            : "bg-[var(--ColorAccent)]/20 text-[var(--ColorAccent)] font-bold"
+                            ? "bg-[var(--AccentPrimary)] text-white"
+                            : "bg-[var(--AccentPrimary)]/20 text-[var(--AccentPrimary)] font-bold"
                         }`}
                       >
                         {count}
@@ -220,13 +220,13 @@ export function WorkspaceView() {
 
             <div className="flex items-center gap-0.5">
               {activeBottomTab === "terminal" && (
-                <div className="flex items-center gap-0.5 mr-2 pr-2 relative after:content-[''] after:absolute after:right-0 after:top-1/2 after:-translate-y-1/2 after:w-px after:h-[14px] after:bg-[var(--ColorPanelBorder)]">
+                <div className="flex items-center gap-0.5 mr-2 pr-2 relative after:content-[''] after:absolute after:right-0 after:top-1/2 after:-translate-y-1/2 after:w-px after:h-[14px] after:bg-[var(--GlassBorder)]">
                   <Tooltip content="列表" delay={300} placement="top">
                     <button
                       className={`flex h-[26px] w-[26px] items-center justify-center rounded-md transition-colors ${
                         isTerminalListVisible
-                          ? "bg-black/5 dark:bg-white/10 text-[var(--ColorTextHighlight)]"
-                          : "text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
+                          ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]"
+                          : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
                       }`}
                       onClick={() => setIsTerminalListVisible(!isTerminalListVisible)}
                     >
@@ -236,7 +236,7 @@ export function WorkspaceView() {
                   <div className="relative">
                     <Tooltip content="清空终端" delay={300} placement="top">
                       <button
-                        className="flex h-[26px] w-[26px] items-center justify-center text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors"
+                        className="flex h-[26px] w-[26px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors"
                         onClick={() => { if (activeTerminalId) TerminalManager.clearTerminal(activeTerminalId); }}
                       >
                         <Icons.Eraser size={14} />
@@ -244,14 +244,14 @@ export function WorkspaceView() {
                     </Tooltip>
                     <Tooltip content="新建终端" delay={300} placement="top">
                       <button
-                        className="flex h-[26px] w-[26px] items-center justify-center text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors"
+                        className="flex h-[26px] w-[26px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors"
                         onClick={() => TerminalManager.createTerminal()}
                       >
                         <Icons.Plus size={14} />
                       </button>
                     </Tooltip>
                     <button
-                      className="flex h-[26px] w-[16px] items-center justify-center text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors absolute -right-4 top-0"
+                      className="flex h-[26px] w-[16px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors absolute -right-4 top-0"
                       onClick={() => setIsShellDropdownOpen(!isShellDropdownOpen)}
                     >
                       <Icons.ChevronDown size={10} />
@@ -259,11 +259,11 @@ export function WorkspaceView() {
                     {isShellDropdownOpen && (
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setIsShellDropdownOpen(false)} />
-                        <div className="absolute right-0 top-full mt-1 w-52 bg-[var(--ColorEditor)] backdrop-blur-xl border border-[var(--ColorPanelBorder)] rounded-lg shadow-lg z-50 p-1">
+                        <div className="absolute right-0 top-full mt-1 w-52 bg-[var(--GlassSurface)] backdrop-blur-xl border border-[var(--GlassBorder)] rounded-lg shadow-lg z-50 p-1">
                           {availableShells.map((shell) => (
                             <button
                               key={shell.id}
-                              className="flex w-full cursor-pointer items-center justify-between gap-8 rounded px-3 py-1.5 text-left hover:bg-black/5 dark:hover:bg-white/10 text-[var(--ColorText)] hover:text-[var(--ColorTextHighlight)] transition-colors text-[12px]"
+                              className="flex w-full cursor-pointer items-center justify-between gap-8 rounded px-3 py-1.5 text-left hover:bg-black/5 dark:hover:bg-white/10 text-[var(--TextPrimary)] hover:text-[var(--TextHighlight)] transition-colors text-[12px]"
                               onClick={() => { TerminalManager.createTerminal(shell.id); setIsShellDropdownOpen(false); }}
                             >
                               {shell.name}
@@ -278,7 +278,7 @@ export function WorkspaceView() {
 
               <Tooltip content="最小化面板" delay={300} placement="top">
                 <button
-                  className="flex h-[26px] w-[26px] items-center justify-center text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors"
+                  className="flex h-[26px] w-[26px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors"
                   onClick={() => setIsTerminalOpen(false)}
                 >
                   <Icons.Minimize size={14} />
@@ -288,7 +288,7 @@ export function WorkspaceView() {
           </div>
 
           {/* 面板内容 */}
-          <div className="flex-1 relative overflow-hidden bg-transparent border-t border-[var(--ColorPanelBorder)] flex">
+          <div className="flex-1 relative overflow-hidden bg-transparent border-t border-[var(--GlassBorder)] flex">
             <div
               className="flex-1 relative"
               style={{ display: activeBottomTab === "terminal" ? "block" : "none" }}
@@ -302,7 +302,7 @@ export function WorkspaceView() {
                     zIndex: activeTerminalId === term.id ? 1 : 0,
                   }}
                 >
-                  <Suspense fallback={<div className="flex items-center justify-center w-full h-full text-[var(--ColorMuted)] text-xs">加载终端...</div>}>
+                  <Suspense fallback={<div className="flex items-center justify-center w-full h-full text-[var(--TextMuted)] text-xs">加载终端...</div>}>
                     <TerminalView
                       id={term.id}
                       isActive={activeBottomTab === "terminal" && activeTerminalId === term.id}
@@ -315,7 +315,7 @@ export function WorkspaceView() {
             </div>
 
             {activeBottomTab === "terminal" && isTerminalListVisible && (
-              <div className="w-48 shrink-0 bg-transparent border-l border-[var(--ColorPanelBorder)] flex flex-col p-1 gap-0.5 overflow-y-auto no-scrollbar relative z-20">
+              <div className="w-48 shrink-0 bg-transparent border-l border-[var(--GlassBorder)] flex flex-col p-1 gap-0.5 overflow-y-auto no-scrollbar relative z-20">
                 {terminals.map((term) => (
                   <div
                     key={term.id}
@@ -323,8 +323,8 @@ export function WorkspaceView() {
                     onDoubleClick={() => { setEditingTerminalId(term.id); setEditingName(term.name); }}
                     className={`group flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer select-none transition-colors ${
                       activeTerminalId === term.id
-                        ? "bg-[var(--ColorAccent)]/10 text-[var(--ColorAccent)]"
-                        : "text-[var(--ColorMuted)] hover:bg-black/5 dark:hover:bg-white/10 hover:text-[var(--ColorTextHighlight)]"
+                        ? "bg-[var(--AccentPrimary)]/10 text-[var(--AccentPrimary)]"
+                        : "text-[var(--TextMuted)] hover:bg-black/5 dark:hover:bg-white/10 hover:text-[var(--TextHighlight)]"
                     }`}
                   >
                     <div className="flex items-center gap-2 truncate flex-1 min-w-0">
@@ -334,7 +334,7 @@ export function WorkspaceView() {
                           type="text"
                           autoFocus
                           value={editingName}
-                          className="bg-transparent outline-none w-full text-[12px] text-[var(--ColorTextHighlight)]"
+                          className="bg-transparent outline-none w-full text-[12px] text-[var(--TextHighlight)]"
                           onChange={(e) => setEditingName(e.target.value)}
                           onBlur={() => { TerminalManager.renameTerminal(term.id, editingName); setEditingTerminalId(null); }}
                           onKeyDown={(e) => {
@@ -375,10 +375,10 @@ export function WorkspaceView() {
                         <Icons.AlertTriangle size={14} stroke={2} />
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-[13px] font-medium text-[var(--ColorTextHighlight)] whitespace-pre-wrap">
+                        <span className="text-[13px] font-medium text-[var(--TextHighlight)] whitespace-pre-wrap">
                           {marker.message}
                         </span>
-                        <span className="text-[11px] text-[var(--ColorMuted)] mt-0.5 font-mono">
+                        <span className="text-[11px] text-[var(--TextMuted)] mt-0.5 font-mono">
                           [{marker.source || "monaco"}] Ln {marker.line}, Col {marker.column}
                         </span>
                       </div>
@@ -394,7 +394,7 @@ export function WorkspaceView() {
             )}
 
             {activeBottomTab === "output" && (
-              <div className="absolute inset-0 p-3 font-mono text-[13px] text-[var(--ColorMuted)] overflow-y-auto no-scrollbar">
+              <div className="absolute inset-0 p-3 font-mono text-[13px] text-[var(--TextMuted)] overflow-y-auto no-scrollbar">
                 {/* TODO: 接管真实的 EventBus 输出流 */}
               </div>
             )}
@@ -407,7 +407,7 @@ export function WorkspaceView() {
         isOpen={!!pendingCloseTab}
         onClose={() => setPendingCloseTab(null)}
         title="文件尚未保存"
-        icon={<Icons.AlertTriangle className="text-[var(--ColorAccent)]" size={18} stroke={2} />}
+        icon={<Icons.AlertTriangle className="text-[var(--AccentPrimary)]" size={18} stroke={2} />}
         footer={
           <>
             <Button variant="secondary" onClick={() => setPendingCloseTab(null)}>

@@ -33,8 +33,8 @@ export function ChangelogTab() {
           onClick={() => setSelectedFamily(f)}
           className={`px-3 py-1 rounded-full text-[11px] font-bold transition-colors duration-200 ${
             selectedFamily === f
-              ? "bg-[var(--ColorPillSelected)] text-[var(--ColorPillText)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]" 
-              : "text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)]"
+              ? "bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]" 
+              : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)]"
           }`}
         >
           {f} 系列
@@ -49,10 +49,10 @@ export function ChangelogTab() {
         {filteredData.map((release) => (
           <div key={release.version} className={`flex flex-col gap-6 ${!release.isLatest ? "opacity-75 hover:opacity-100 transition-opacity" : ""}`}>
             <div className="flex items-center gap-4 border-b border-black/10 dark:border-white/10 pb-2">
-              <span className="text-[18px] font-bold text-[var(--ColorTextHighlight)] tracking-tight">{release.version}</span>
-              <span className="text-[12px] font-medium text-[var(--ColorMuted)] bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">{release.date}</span>
+              <span className="text-[18px] font-bold text-[var(--TextHighlight)] tracking-tight">{release.version}</span>
+              <span className="text-[12px] font-medium text-[var(--TextMuted)] bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">{release.date}</span>
               {release.isLatest && (
-                <span className="px-2 py-0.5 rounded-md bg-[var(--ColorAccent)] text-white text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                <span className="px-2 py-0.5 rounded-md bg-[var(--AccentPrimary)] text-white text-[10px] font-bold uppercase tracking-wider shadow-sm">
                   最新版本
                 </span>
               )}
@@ -61,17 +61,17 @@ export function ChangelogTab() {
             <div className="flex flex-col gap-8">
               {release.sections.map((section) => (
                 <div key={section.title} className="flex flex-col gap-3">
-                  <h3 className="text-[14px] font-semibold text-[var(--ColorTextHighlight)]">{section.title}</h3>
+                  <h3 className="text-[14px] font-semibold text-[var(--TextHighlight)]">{section.title}</h3>
                   {section.description && (
-                    <div className="text-[13px] text-[var(--ColorText)] leading-relaxed opacity-90 whitespace-pre-line">
+                    <div className="text-[13px] text-[var(--TextPrimary)] leading-relaxed opacity-90 whitespace-pre-line">
                       {section.description}
                     </div>
                   )}
                   {section.items && section.items.length > 0 && (
-                    <ul className="flex flex-col gap-2.5 text-[13px] text-[var(--ColorText)] leading-relaxed">
+                    <ul className="flex flex-col gap-2.5 text-[13px] text-[var(--TextPrimary)] leading-relaxed">
                       {section.items.map((item, idx) => (
                         <li key={idx} className="flex gap-3">
-                          <span className={release.isLatest ? "text-[var(--ColorAccent)]" : "text-[var(--ColorMuted)]"}>•</span>
+                          <span className={release.isLatest ? "text-[var(--AccentPrimary)]" : "text-[var(--TextMuted)]"}>•</span>
                           <span className="opacity-90">{item}</span>
                         </li>
                       ))}

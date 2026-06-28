@@ -115,7 +115,7 @@ export function Tooltip({ content, children, delay = 300, placement = "top" }: T
       {isVisible &&
         createPortal(
           <div
-            className="fixed z-[9999] pointer-events-none px-2.5 py-1.5 text-[12px] font-medium text-[var(--ColorTextHighlight)] bg-[var(--ColorEditor)] backdrop-blur-xl border border-[var(--ColorPanelBorder)] rounded-lg animate-in fade-in duration-200 whitespace-nowrap shadow-xl shadow-black/10"
+            className="fixed z-[9999] pointer-events-none px-2.5 py-1.5 text-[12px] font-medium text-[var(--TextHighlight)] bg-[var(--GlassSurface)] backdrop-blur-xl border border-[var(--GlassBorder)] rounded-lg animate-in fade-in duration-200 whitespace-nowrap shadow-xl shadow-black/10"
             style={{
               left: coords.x,
               top: coords.y,

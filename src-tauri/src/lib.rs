@@ -615,6 +615,33 @@ async fn fs_copy_or_move(source: String, destination: String, is_move: bool) -> 
     }).await.map_err(|e| e.to_string())?
 }
 
+#[derive(Deserialize)]
+pub struct IpcRequest {
+    pub action: String,
+    pub payload: Option<serde_json::Value>,
+}
+
+#[derive(Serialize)]
+pub struct IpcResponse {
+    pub success: bool,
+    pub data: Option<serde_json::Value>,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+async fn aurona_bridge(req: IpcRequest) -> IpcResponse {
+    let result = match req.action.as_str() {
+        "sys:ping" => Ok(serde_json::json!("pong")),
+        // Migrated IPC routes will go here
+        _ => Err(format!("Unknown IPC Action: {}", req.action)),
+    };
+
+    match result {
+        Ok(data) => IpcResponse { success: true, data: Some(data), error: None },
+        Err(err) => IpcResponse { success: false, data: None, error: Some(err) },
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -655,6 +682,7 @@ pub fn run() {
             lsp_cancel,
             reveal_in_os,
             fs_copy_or_move,
+            aurona_bridge,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Aurona Code");

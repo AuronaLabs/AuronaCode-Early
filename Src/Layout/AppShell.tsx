@@ -54,7 +54,7 @@ export function AppShell({ Children }: AppShellProps) {
   };
 
   return (
-    <div className="flex h-dvh w-screen flex-col text-[var(--ColorText)] overflow-hidden" style={{ background: "var(--AppBackground, var(--ColorApp))" }}>
+    <div className="flex h-dvh w-screen flex-col text-[var(--TextPrimary)] overflow-hidden" style={{ background: "var(--AppBackground, var(--AppBg))" }}>
       <TitleBar />
 
       <div className="flex flex-1 min-h-0 overflow-hidden">

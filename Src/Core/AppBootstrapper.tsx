@@ -113,14 +113,14 @@ export function AppBootstrapper({ children }: Props) {
     <>
       {status === "initializing" && (
         <div
-          className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[var(--ColorApp)] select-none"
+          className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[var(--AppBg)] select-none"
           style={{
             opacity: fade ? 0 : 1,
             transition: "opacity 0.4s ease-out",
             pointerEvents: fade ? "none" : "auto"
           }}
         >
-          <svg className="w-11 h-11 mb-6 animate-spin text-[var(--ColorAccent)]" viewBox="0 0 50 50">
+          <svg className="w-11 h-11 mb-6 animate-spin text-[var(--AccentPrimary)]" viewBox="0 0 50 50">
             <circle className="stroke-current" cx="25" cy="25" r="20" fill="none" strokeWidth="8" strokeLinecap="round" strokeDasharray="90, 150" />
           </svg>
           <div className="h-6 overflow-hidden text-slate-500 text-sm font-medium">

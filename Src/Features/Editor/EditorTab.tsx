@@ -133,12 +133,12 @@ export const EditorTab = React.memo(function EditorTab({ path, isActive }: Edito
       )}
 
       {isBinaryWarning ? (
-        <div className="flex flex-1 flex-col items-center justify-center bg-transparent text-[var(--ColorText)] select-none px-6 text-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5 text-[var(--ColorMuted)] mb-6">
+        <div className="flex flex-1 flex-col items-center justify-center bg-transparent text-[var(--TextPrimary)] select-none px-6 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5 text-[var(--TextMuted)] mb-6">
             <Icons.FileCode size={40} stroke={1} />
           </div>
-          <h3 className="text-[16px] font-semibold text-[var(--ColorTextHighlight)] mb-2">无法显示此文件</h3>
-          <p className="text-[13px] text-[var(--ColorMuted)] mb-8 max-w-[420px] leading-relaxed">
+          <h3 className="text-[16px] font-semibold text-[var(--TextHighlight)] mb-2">无法显示此文件</h3>
+          <p className="text-[13px] text-[var(--TextMuted)] mb-8 max-w-[420px] leading-relaxed">
             该文件可能是二进制文件，或使用了暂不支持的文本编码强行在编辑器中打开可能会导致乱码或性能问题
           </p>
           <button
@@ -146,7 +146,7 @@ export const EditorTab = React.memo(function EditorTab({ path, isActive }: Edito
               setIsBinaryWarning(false);
               loadContent(path, true);
             }}
-            className="px-6 py-2 bg-[var(--ColorAccent)] hover:bg-[var(--ColorAccentHover)] text-white rounded-md font-medium transition-colors cursor-pointer"
+            className="px-6 py-2 bg-[var(--AccentPrimary)] hover:bg-[var(--AccentHover)] text-white rounded-md font-medium transition-colors cursor-pointer"
           >
             仍然强制打开
           </button>
@@ -161,7 +161,7 @@ export const EditorTab = React.memo(function EditorTab({ path, isActive }: Edito
               path={path}
             />
           {isSaving && (
-            <div className="absolute right-3 bottom-3 rounded-md border border-[var(--ColorPanelBorder)] bg-[var(--ColorEditor)] backdrop-blur-xl px-3 py-1.5 text-[12px] text-[var(--ColorMuted)] shadow-lg">
+            <div className="absolute right-3 bottom-3 rounded-md border border-[var(--GlassBorder)] bg-[var(--GlassSurface)] backdrop-blur-xl px-3 py-1.5 text-[12px] text-[var(--TextMuted)] shadow-lg">
               正在保存...
             </div>
           )}

@@ -14,14 +14,14 @@ export const ActivitySquare = React.forwardRef<HTMLButtonElement, ActivitySquare
         ref={ref}
         className={`relative flex h-[calc(var(--ActivityBarWidth)-16px)] w-[calc(var(--ActivityBarWidth)-16px)] min-h-8 min-w-8 items-center justify-center rounded-lg transition-colors duration-150 focus:outline-none ${
           active
-            ? "bg-black/10 dark:bg-white/15 text-[var(--ColorTextHighlight)]"
-            : "text-[var(--ColorMuted)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--ColorTextHighlight)]"
+            ? "bg-black/10 dark:bg-white/15 text-[var(--TextHighlight)]"
+            : "text-[var(--TextMuted)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--TextHighlight)]"
         } ${className}`}
         {...props}
       >
         <div className="flex items-center justify-center relative">
           {icon}
-          {badge && <span className="absolute -top-0.5 -right-0.5 w-[7px] h-[7px] rounded-full bg-[var(--ColorAccent)] shadow-sm"></span>}
+          {badge && <span className="absolute -top-0.5 -right-0.5 w-[7px] h-[7px] rounded-full bg-[var(--AccentPrimary)] shadow-sm"></span>}
         </div>
       </button>
     );

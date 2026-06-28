@@ -276,13 +276,13 @@ export const TerminalView = React.memo(function TerminalView({ id, isActive, she
           background: transparent;
         }
         .xterm-viewport::-webkit-scrollbar-thumb {
-          background-color: var(--ColorPanelBorder);
+          background-color: var(--GlassBorder);
           border-radius: 10px;
           border: 3px solid transparent;
           background-clip: padding-box;
         }
         .xterm-viewport::-webkit-scrollbar-thumb:hover {
-          background-color: var(--ColorMuted);
+          background-color: var(--TextMuted);
         }
       `}</style>
       <div ref={terminalRef} className="h-full w-full p-2" />

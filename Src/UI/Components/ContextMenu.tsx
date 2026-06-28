@@ -40,7 +40,7 @@ export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
   return createPortal(
     <div 
       ref={menuRef}
-      className="fixed bg-[var(--ColorEditor)] backdrop-blur-2xl border border-[var(--ColorPanelBorder)] shadow-2xl rounded-xl p-1 z-[9999] flex flex-col min-w-[160px] animate-in fade-in zoom-in-95 duration-100"
+      className="fixed bg-[var(--GlassSurface)] backdrop-blur-2xl border border-[var(--GlassBorder)] shadow-2xl rounded-xl p-1 z-[9999] flex flex-col min-w-[160px] animate-in fade-in zoom-in-95 duration-100"
       style={{ top, left }}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
@@ -66,10 +66,10 @@ export function ContextMenuItem({ icon, label, onClick, variant = "default", dis
       disabled={disabled}
       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] transition-colors text-left w-full outline-none ${
         disabled 
-          ? "opacity-50 cursor-not-allowed text-[var(--ColorMuted)]"
+          ? "opacity-50 cursor-not-allowed text-[var(--TextMuted)]"
           : isDanger 
             ? "text-red-500 hover:bg-red-500/10" 
-            : "text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
+            : "text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
       }`}
       onClick={disabled ? undefined : onClick}
     >
@@ -80,5 +80,5 @@ export function ContextMenuItem({ icon, label, onClick, variant = "default", dis
 }
 
 export function ContextMenuDivider() {
-  return <div className="h-px bg-[var(--ColorPanelBorder)] my-0.5 mx-1" />;
+  return <div className="h-px bg-[var(--GlassBorder)] my-0.5 mx-1" />;
 }

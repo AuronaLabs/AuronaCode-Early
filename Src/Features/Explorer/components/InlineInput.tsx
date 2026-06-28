@@ -29,7 +29,7 @@ export function InlineInput({
         Array.from({ length: depth }).map((_, index) => (
           <div
             key={index}
-            className="absolute top-0 bottom-0 border-l border-[var(--ColorPanelBorder)]/60 pointer-events-none"
+            className="absolute top-0 bottom-0 border-l border-[var(--GlassBorder)]/60 pointer-events-none"
             style={{ left: `calc(${index} * var(--TreeIndent) + 14px)` }}
           />
         ))}
@@ -40,14 +40,14 @@ export function InlineInput({
         <div className="w-4 h-4 flex items-center justify-center shrink-0" />
         <div className="shrink-0 flex items-center">
           {type === "folder" ? (
-            <Icons.Folder size={16} stroke={2} className="text-[var(--ColorAccent)]" />
+            <Icons.Folder size={16} stroke={2} className="text-[var(--AccentPrimary)]" />
           ) : (
-            <Icons.File size={16} stroke={1.5} className="text-[var(--ColorTextHighlight)]" />
+            <Icons.File size={16} stroke={1.5} className="text-[var(--TextHighlight)]" />
           )}
         </div>
         <input
           autoFocus
-          className="flex-1 bg-transparent border-b border-[var(--ColorAccent)] outline-none text-[12.5px] text-[var(--ColorTextHighlight)] px-1 py-0 rounded-none min-w-0"
+          className="flex-1 bg-transparent border-b border-[var(--AccentPrimary)] outline-none text-[12.5px] text-[var(--TextHighlight)] px-1 py-0 rounded-none min-w-0"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {

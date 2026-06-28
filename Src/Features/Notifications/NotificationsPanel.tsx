@@ -25,12 +25,12 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
     <div className="flex flex-col h-full w-full bg-transparent">
       {/* Header */}
       <div className="flex items-center justify-between px-[var(--PanelPaddingX)] pt-4 pb-2 shrink-0">
-        <h2 className="text-[14px] font-bold text-[var(--ColorTextHighlight)] tracking-tight">通知</h2>
+        <h2 className="text-[14px] font-bold text-[var(--TextHighlight)] tracking-tight">通知</h2>
         {notifications.length > 0 && (
           <Tooltip content="清除所有通知" delay={300}>
             <button 
               onClick={handleClear}
-              className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] transition-colors"
+              className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-colors"
             >
               <Icons.Checks size={14} />
             </button>
@@ -42,12 +42,12 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
       <div className="flex flex-col flex-1 overflow-y-auto aurona-scroll px-3 pb-4">
         {notifications.length === 0 ? (
           <div className="flex flex-col flex-1 items-center justify-center text-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5 text-[var(--ColorMuted)]">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5 text-[var(--TextMuted)]">
               <Icons.Bell size={32} stroke={1} />
             </div>
             <div className="space-y-1">
-              <h3 className="text-[13px] font-semibold text-[var(--ColorTextHighlight)]">暂无新通知</h3>
-              <p className="text-[11px] text-[var(--ColorMuted)] leading-relaxed">
+              <h3 className="text-[13px] font-semibold text-[var(--TextHighlight)]">暂无新通知</h3>
+              <p className="text-[11px] text-[var(--TextMuted)] leading-relaxed">
                 我们会在后台静默处理大部分任务
                 <br />
                 仅在必要时通知你
@@ -75,10 +75,10 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
                     <Icon size={14} />
                   </div>
                   <div className="flex flex-col justify-center gap-1 min-w-0">
-                    <span className="text-[12px] text-[var(--ColorTextHighlight)] leading-relaxed break-words">
+                    <span className="text-[12px] text-[var(--TextHighlight)] leading-relaxed break-words">
                       {item.message}
                     </span>
-                    <span className="text-[10px] text-[var(--ColorMuted)]">
+                    <span className="text-[10px] text-[var(--TextMuted)]">
                       {new Date(item.timestamp).toLocaleTimeString()}
                     </span>
                   </div>

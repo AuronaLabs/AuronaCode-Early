@@ -14,16 +14,16 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     let variantStyles = "";
     switch (variant) {
       case "primary":
-        variantStyles = "bg-[var(--ColorAccent)] text-white hover:bg-[var(--ColorAccentHover)] border border-white/20 dark:border-white/10 focus-visible:ring-2 focus-visible:ring-[var(--ColorAccent)]/50";
+        variantStyles = "bg-[var(--AccentPrimary)] text-white hover:bg-[var(--AccentHover)] border border-white/20 dark:border-white/10 focus-visible:ring-2 focus-visible:ring-[var(--AccentPrimary)]/50";
         break;
       case "secondary":
-        variantStyles = "bg-[var(--ColorRailHover)] text-[var(--ColorTextHighlight)] hover:bg-[var(--ColorPanelBorder)] border border-[var(--ColorPanelBorder)] focus-visible:ring-2 focus-visible:ring-[var(--ColorPanelBorder)]";
+        variantStyles = "bg-[var(--GlassHover)] text-[var(--TextHighlight)] hover:bg-[var(--GlassBorder)] border border-[var(--GlassBorder)] focus-visible:ring-2 focus-visible:ring-[var(--GlassBorder)]";
         break;
       case "danger":
         variantStyles = "bg-red-500/90 text-white hover:bg-red-500 border border-red-400/20 focus-visible:ring-2 focus-visible:ring-red-500/50";
         break;
       case "ghost":
-        variantStyles = "bg-transparent text-[var(--ColorText)] hover:bg-[var(--ColorRailHover)] hover:text-[var(--ColorTextHighlight)] focus-visible:ring-2 focus-visible:ring-[var(--ColorPanelBorder)]";
+        variantStyles = "bg-transparent text-[var(--TextPrimary)] hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] focus-visible:ring-2 focus-visible:ring-[var(--GlassBorder)]";
         break;
     }
 

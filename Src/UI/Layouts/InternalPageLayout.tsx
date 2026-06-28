@@ -11,7 +11,7 @@ interface InternalPageLayoutProps {
 
 export function InternalPageLayout({ children, title, icon, sidebar, headerRight, titleRight }: InternalPageLayoutProps) {
   return (
-    <div className="flex h-full w-full bg-transparent select-none text-[var(--ColorText)] overflow-hidden">
+    <div className="flex h-full w-full bg-transparent select-none text-[var(--TextPrimary)] overflow-hidden">
       {/* 极简无边框悬浮侧边栏 */}
       {sidebar && (
         <div className="w-64 flex-shrink-0 bg-transparent py-10 px-6 overflow-y-auto">
@@ -28,9 +28,9 @@ export function InternalPageLayout({ children, title, icon, sidebar, headerRight
             <div className="flex items-center justify-between mb-8 w-full gap-4 shrink-0">
               <div className="flex items-baseline gap-4">
                 <div className="flex items-center gap-3">
-                  {icon && <div className="text-[var(--ColorTextHighlight)]">{icon}</div>}
+                  {icon && <div className="text-[var(--TextHighlight)]">{icon}</div>}
                   {title && (
-                    <h1 className="text-2xl text-[var(--ColorTextHighlight)] font-bold tracking-tight text-shadow-sm whitespace-nowrap">
+                    <h1 className="text-2xl text-[var(--TextHighlight)] font-bold tracking-tight text-shadow-sm whitespace-nowrap">
                       {title}
                     </h1>
                   )}

@@ -133,8 +133,8 @@ export function SettingsTab() {
   const renderAppearance = () => (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
-        <h3 className="text-[14px] font-semibold text-[var(--ColorTextHighlight)]">色彩主题</h3>
-        <p className="text-[13px] text-[var(--ColorMuted)] mb-1">选择浅色或深色界面，或者让应用跟随您的操作系统同步改变外观</p>
+        <h3 className="text-[14px] font-semibold text-[var(--TextHighlight)]">色彩主题</h3>
+        <p className="text-[13px] text-[var(--TextMuted)] mb-1">选择浅色或深色界面，或者让应用跟随您的操作系统同步改变外观</p>
         <div className="flex bg-black/5 dark:bg-white/5 p-1 rounded-full w-fit mt-2">
           {(['system', 'light', 'dark'] as const).map(t => (
             <button
@@ -142,8 +142,8 @@ export function SettingsTab() {
               onClick={() => handleThemeChange(t)}
               className={`flex items-center gap-2 px-6 py-2 rounded-full text-[13px] font-medium transition-colors duration-200 ${
                 theme === t 
-                  ? "bg-[var(--ColorPillSelected)] text-[var(--ColorPillText)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]" 
-                  : "text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)]"
+                  ? "bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]" 
+                  : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)]"
               }`}
             >
               {t === 'system' && <><Icons.Monitor size={14}/>跟随系统</>}
@@ -159,13 +159,13 @@ export function SettingsTab() {
   const renderEditor = () => (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
-        <h3 className="text-[14px] font-semibold text-[var(--ColorTextHighlight)]">编辑器设置</h3>
-        <p className="text-[13px] text-[var(--ColorMuted)] mb-2">配置代码编辑器的外观和行为</p>
+        <h3 className="text-[14px] font-semibold text-[var(--TextHighlight)]">编辑器设置</h3>
+        <p className="text-[13px] text-[var(--TextMuted)] mb-2">配置代码编辑器的外观和行为</p>
         
         <div className="flex items-center justify-between py-4 group">
           <div className="flex flex-col">
-            <span className="text-[13px] font-medium text-[var(--ColorTextHighlight)]">字体大小</span>
-            <span className="text-[12px] text-[var(--ColorMuted)]">控制编辑器的主代码字体大小</span>
+            <span className="text-[13px] font-medium text-[var(--TextHighlight)]">字体大小</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">控制编辑器的主代码字体大小</span>
           </div>
           <Select 
             value={editorFontSize}
@@ -181,8 +181,8 @@ export function SettingsTab() {
 
         <div className="flex items-center justify-between py-4 group">
           <div className="flex flex-col">
-            <span className="text-[13px] font-medium text-[var(--ColorTextHighlight)]">自动换行</span>
-            <span className="text-[12px] text-[var(--ColorMuted)]">当代码超出一行长度时自动折行显示</span>
+            <span className="text-[13px] font-medium text-[var(--TextHighlight)]">自动换行</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">当代码超出一行长度时自动折行显示</span>
           </div>
           <Switch
             checked={editorWordWrap === "on"}
@@ -197,8 +197,8 @@ export function SettingsTab() {
 
         <div className="flex items-center justify-between py-4 group">
           <div className="flex flex-col">
-            <span className="text-[13px] font-medium text-[var(--ColorTextHighlight)]">代码缩略图</span>
-            <span className="text-[12px] text-[var(--ColorMuted)]">在右侧显示代码文件的全局缩略图</span>
+            <span className="text-[13px] font-medium text-[var(--TextHighlight)]">代码缩略图</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">在右侧显示代码文件的全局缩略图</span>
           </div>
           <Switch
             checked={editorMinimap === "true"}
@@ -218,13 +218,13 @@ export function SettingsTab() {
   const renderTerminal = () => (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
-        <h3 className="text-[14px] font-semibold text-[var(--ColorTextHighlight)]">终端设置</h3>
-        <p className="text-[13px] text-[var(--ColorMuted)] mb-2">自定义集成终端的显示效果</p>
+        <h3 className="text-[14px] font-semibold text-[var(--TextHighlight)]">终端设置</h3>
+        <p className="text-[13px] text-[var(--TextMuted)] mb-2">自定义集成终端的显示效果</p>
         
         <div className="flex items-center justify-between py-4 group">
           <div className="flex flex-col">
-            <span className="text-[13px] font-medium text-[var(--ColorTextHighlight)]">字体大小</span>
-            <span className="text-[12px] text-[var(--ColorMuted)]">控制终端控制台的字体大小</span>
+            <span className="text-[13px] font-medium text-[var(--TextHighlight)]">字体大小</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">控制终端控制台的字体大小</span>
           </div>
           <Select 
             value={terminalFontSize}
@@ -240,8 +240,8 @@ export function SettingsTab() {
 
         <div className="flex items-center justify-between py-4 group">
           <div className="flex flex-col">
-            <span className="text-[13px] font-medium text-[var(--ColorTextHighlight)]">光标闪烁</span>
-            <span className="text-[12px] text-[var(--ColorMuted)]">是否开启终端光标的呼吸闪烁效果</span>
+            <span className="text-[13px] font-medium text-[var(--TextHighlight)]">光标闪烁</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">是否开启终端光标的呼吸闪烁效果</span>
           </div>
           <Switch
             checked={terminalCursorBlink === "true"}
@@ -261,8 +261,8 @@ export function SettingsTab() {
   const renderGit = () => (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
-        <h3 className="text-[14px] font-semibold text-[var(--ColorTextHighlight)]">远程仓库配置</h3>
-        <p className="text-[13px] text-[var(--ColorMuted)]">配置当前工作区 Git 仓库的远程拉取和推送地址及凭据</p>
+        <h3 className="text-[14px] font-semibold text-[var(--TextHighlight)]">远程仓库配置</h3>
+        <p className="text-[13px] text-[var(--TextMuted)]">配置当前工作区 Git 仓库的远程拉取和推送地址及凭据</p>
         
         {!repoPath ? (
           <div className="p-4 bg-yellow-500/10 text-yellow-600 rounded-2xl text-[13px]">
@@ -271,17 +271,17 @@ export function SettingsTab() {
         ) : (
           <div className="space-y-6 mt-2 max-w-xl">
             <div className="flex flex-col gap-2">
-              <label className="text-[13px] font-medium text-[var(--ColorTextHighlight)]">Remote URL</label>
+              <label className="text-[13px] font-medium text-[var(--TextHighlight)]">Remote URL</label>
               <Input value={remoteUrl} onChange={e => setRemoteUrl(e.target.value)} placeholder="https://github.com/..." />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
-                <label className="text-[13px] font-medium text-[var(--ColorTextHighlight)]">用户名 (可选)</label>
+                <label className="text-[13px] font-medium text-[var(--TextHighlight)]">用户名 (可选)</label>
                 <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="Git 用户名" />
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-[13px] font-medium text-[var(--ColorTextHighlight)]">访问令牌</label>
+                <label className="text-[13px] font-medium text-[var(--TextHighlight)]">访问令牌</label>
                 <Input value={token} type="password" onChange={e => setToken(e.target.value)} placeholder="Token 或 密码" />
               </div>
             </div>
@@ -300,8 +300,8 @@ export function SettingsTab() {
   const renderAdvanced = () => (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
-        <h3 className="text-[14px] font-semibold text-[var(--ColorTextHighlight)]">缓存与重置</h3>
-        <p className="text-[13px] text-[var(--ColorMuted)] mb-2">清除应用全部本地缓存数据，包括最近打开的文件夹记录、界面布局状态等，这会让编辑器回到初始状态</p>
+        <h3 className="text-[14px] font-semibold text-[var(--TextHighlight)]">缓存与重置</h3>
+        <p className="text-[13px] text-[var(--TextMuted)] mb-2">清除应用全部本地缓存数据，包括最近打开的文件夹记录、界面布局状态等，这会让编辑器回到初始状态</p>
         <Button variant="danger" className="w-fit" onClick={() => { 
           remove("user-config.json", { baseDir: BaseDirectory.AppLocalData }).catch(() => {});
           remove("workspace.json", { baseDir: BaseDirectory.AppLocalData }).catch(() => {});
@@ -316,41 +316,41 @@ export function SettingsTab() {
 
   const sidebarMenu = (
     <div className="flex flex-col gap-1 w-full pl-2">
-      <h2 className="text-[11px] font-bold text-[var(--ColorMuted)] uppercase tracking-widest mb-6 px-4 mt-2">
+      <h2 className="text-[11px] font-bold text-[var(--TextMuted)] uppercase tracking-widest mb-6 px-4 mt-2">
         设置中心
       </h2>
       
       <button 
         onClick={() => setActiveSection("appearance")}
-        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "appearance" ? "bg-black/5 dark:bg-white/10 text-[var(--ColorTextHighlight)]" : "text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
+        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "appearance" ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
       >
         <Icons.Palette size={16} /> 外观
       </button>
 
       <button 
         onClick={() => setActiveSection("editor")}
-        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "editor" ? "bg-black/5 dark:bg-white/10 text-[var(--ColorTextHighlight)]" : "text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
+        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "editor" ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
       >
         <Icons.FileCode size={16} /> 编辑器
       </button>
 
       <button 
         onClick={() => setActiveSection("terminal")}
-        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "terminal" ? "bg-black/5 dark:bg-white/10 text-[var(--ColorTextHighlight)]" : "text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
+        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "terminal" ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
       >
         <Icons.Terminal size={16} /> 终端
       </button>
 
       <button 
         onClick={() => setActiveSection("git")}
-        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "git" ? "bg-black/5 dark:bg-white/10 text-[var(--ColorTextHighlight)]" : "text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
+        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "git" ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
       >
         <Icons.Git size={16} /> 版本控制
       </button>
 
       <button 
         onClick={() => setActiveSection("advanced")}
-        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "advanced" ? "bg-black/5 dark:bg-white/10 text-[var(--ColorTextHighlight)]" : "text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
+        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "advanced" ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
       >
         <Icons.Settings size={16} /> 高级
       </button>

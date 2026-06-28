@@ -1,15 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import Prism from "prismjs";
-import "prismjs/components/prism-clike";
-import "prismjs/components/prism-javascript";
-import "prismjs/components/prism-typescript";
-import "prismjs/components/prism-css";
-import "prismjs/components/prism-json";
-import "prismjs/components/prism-rust";
-import "prismjs/components/prism-python";
-import "prismjs/components/prism-bash";
-import "prismjs/components/prism-markup";
-import "prismjs/components/prism-markdown";
+import hljs from "highlight.js";
 import { EditorAdapter } from "./EditorAdapter";
 import { EditorStatus, EditorStatusListener, IEditorEngine } from "../../Foundation/Types/Editor";
 import { LspClient } from "./LspClient";
@@ -17,9 +7,9 @@ import { EventBus } from "../../Foundation/EventBus";
 import { AutocompleteMenu, CompletionItem } from "./components/AutocompleteMenu";
 import { SearchWidget } from "./components/SearchWidget";
 
-const prismTheme = `
-code[class*="language-"], pre[class*="language-"] {
-  color: var(--ColorTextHighlight);
+const hljsTheme = `
+.hljs, code {
+  color: var(--TextHighlight);
   text-shadow: none;
   font-family: var(--EditorFontFamily);
   font-size: var(--EditorFontSize);
@@ -40,23 +30,21 @@ code[class*="language-"], pre[class*="language-"] {
   background: transparent;
 }
 .aurona-scroll::-webkit-scrollbar-thumb {
-  background-color: var(--ColorPanelBorder);
+  background-color: var(--GlassBorder);
   border-radius: 10px;
   border: 3px solid transparent;
   background-clip: padding-box;
 }
 .aurona-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: var(--ColorMuted);
+  background-color: var(--TextMuted);
 }
-.token.comment, .token.prolog, .token.doctype, .token.cdata { color: #8b949e; }
-.token.punctuation { color: #c9d1d9; }
-.token.namespace { opacity: .7; }
-.token.property, .token.tag, .token.boolean, .token.number, .token.constant, .token.symbol, .token.deleted { color: #79c0ff; }
-.token.selector, .token.attr-name, .token.string, .token.char, .token.builtin, .token.inserted { color: #a5d6ff; }
-.token.operator, .token.entity, .token.url, .language-css .token.string, .style .token.string { color: #c9d1d9; }
-.token.atrule, .token.attr-value, .token.keyword { color: #ff7b72; }
-.token.function, .token.class-name { color: #d2a8ff; }
-.token.regex, .token.important, .token.variable { color: #ffa657; }
+.hljs-comment, .hljs-quote { color: var(--SyntaxComment); }
+.hljs-keyword, .hljs-selector-tag { color: var(--SyntaxKeyword); }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute, .hljs-meta .hljs-string { color: var(--SyntaxString); }
+.hljs-number, .hljs-built_in, .hljs-literal, .hljs-type, .hljs-params, .hljs-meta, .hljs-link { color: var(--SyntaxNumber); }
+.hljs-title, .hljs-title.function_, .hljs-section, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: var(--SyntaxFunction); }
+.hljs-variable, .hljs-template-variable { color: var(--SyntaxVariable); }
+.hljs-operator, .hljs-punctuation { color: var(--SyntaxOperator); }
 `;
 
 export type AuronaEngineProps = {
@@ -609,8 +597,16 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   }, [path, language]);
 
   const deferredContent = React.useDeferredValue(content);
-  const grammar = React.useMemo(() => Prism.languages[language === 'typescript' ? 'typescript' : language] || Prism.languages.javascript || Prism.languages.clike || {}, [language]);
-  const highlightedHTML = React.useMemo(() => grammar ? Prism.highlight(deferredContent, grammar, language) : deferredContent, [deferredContent, grammar, language]);
+  const highlightedHTML = React.useMemo(() => {
+    try {
+      if (language && hljs.getLanguage(language)) {
+        return hljs.highlight(deferredContent, { language, ignoreIllegals: true }).value;
+      }
+      return hljs.highlightAuto(deferredContent).value;
+    } catch (e) {
+      return deferredContent;
+    }
+  }, [deferredContent, language]);
 
   const linesCount = deferredContent.split('\n').length;
   const lineNumbers = React.useMemo(() => {
@@ -619,7 +615,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
   return (
     <div className="relative w-full h-full flex bg-transparent overflow-hidden">
-      <style>{prismTheme}</style>
+      <style>{hljsTheme}</style>
       
       {isSearchOpen && (
         <SearchWidget 
@@ -645,7 +641,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
             fontFamily: "var(--EditorFontFamily)",
             fontSize: "var(--EditorFontSize)",
             lineHeight: "var(--EditorLineHeight)",
-            color: "var(--ColorMuted)",
+            color: "var(--TextMuted)",
             opacity: 0.7,
           }}
         >
@@ -667,7 +663,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       >
         <div className="relative inline-block min-w-full p-4">
           <pre
-            className="m-0 p-0 pointer-events-none z-0"
+            className="m-0 p-0 pointer-events-none z-0 hljs"
             style={{
               fontFamily: "var(--EditorFontFamily)",
               fontSize: "var(--EditorFontSize)",
@@ -758,7 +754,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
             spellCheck={false}
-            className="absolute top-0 left-0 w-full h-full m-0 p-4 resize-none outline-none focus:outline-none focus:ring-0 focus:border-none border-none bg-transparent text-transparent caret-[var(--ColorTextHighlight)] whitespace-pre overflow-hidden z-10"
+            className="absolute top-0 left-0 w-full h-full m-0 p-4 resize-none outline-none focus:outline-none focus:ring-0 focus:border-none border-none bg-transparent text-transparent caret-[var(--TextHighlight)] whitespace-pre overflow-hidden z-10"
             style={{
               fontFamily: "var(--EditorFontFamily)",
               fontSize: "var(--EditorFontSize)",

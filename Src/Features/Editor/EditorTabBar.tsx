@@ -73,10 +73,10 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
             }`}
           >
             <div className="flex items-center gap-2.5 overflow-hidden min-w-0 z-10 relative">
-              {tab.type === "file" && <Icons.FileCode size={16} stroke={1.5} className={`shrink-0 ${isActive ? "text-[var(--ColorTabIndicator)]" : ""}`} />}
+              {tab.type === "file" && <Icons.FileCode size={16} stroke={1.5} className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`} />}
               {tab.type === "about" && <Icons.Info size={16} stroke={1.5} className={`shrink-0 ${isActive ? "text-blue-500" : ""}`} />}
-              {tab.type === "settings" && <Icons.Settings size={16} stroke={1.5} className={`shrink-0 ${isActive ? "text-[var(--ColorTabIndicator)]" : ""}`} />}
-              {tab.type === "changelog" && <Icons.FileText size={16} stroke={1.5} className={`shrink-0 ${isActive ? "text-[var(--ColorTabIndicator)]" : ""}`} />}
+              {tab.type === "settings" && <Icons.Settings size={16} stroke={1.5} className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`} />}
+              {tab.type === "changelog" && <Icons.FileText size={16} stroke={1.5} className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`} />}
               <Tooltip content={tab.path || tab.title} delay={450} placement="bottom">
                 <span className={`block truncate max-w-[150px] transition-opacity duration-200 ${!isActive ? "opacity-60" : "opacity-100"}`}>
                   {tab.title}
@@ -86,13 +86,13 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
             <button
               className={`ml-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/20 transition-all z-10 relative ${
                 isActive || tab.isDirty ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-              } ${isActive ? "text-[var(--ColorTextHighlight)]" : "text-[var(--ColorMuted)]"}`}
+              } ${isActive ? "text-[var(--TextHighlight)]" : "text-[var(--TextMuted)]"}`}
               onClick={(e) => { e.stopPropagation(); closeTab(tab); }}
               aria-label={tab.isDirty ? "未保存，关闭标签" : "关闭标签"}
             >
               {tab.isDirty ? (
                 <>
-                  <span className="h-2 w-2 rounded-full bg-[var(--ColorTabIndicator)] group-hover:hidden" />
+                  <span className="h-2 w-2 rounded-full bg-[var(--TextHighlight)] group-hover:hidden" />
                   <Icons.Close size={14} stroke={2} className="hidden group-hover:block" />
                 </>
               ) : (

@@ -2,27 +2,17 @@
 @import "tailwindcss";
 
 @theme {
-  --color-app: var(--ColorApp);
-  --color-title-bar: var(--ColorTitleBar);
-  --color-title-bar-text: var(--ColorTitleBarText);
-  --color-title-bar-hover: var(--ColorTitleBarHover);
-  --color-rail: var(--ColorRail);
-  --color-rail-hover: var(--ColorRailHover);
-  --color-rail-active: var(--ColorRailActive);
-  --color-sidebar: var(--ColorSidebar);
-  --color-editor: var(--ColorEditor);
-  --color-panel-border: var(--ColorPanelBorder);
-  --color-text: var(--ColorText);
-  --color-text-highlight: var(--ColorTextHighlight);
-  --color-muted: var(--ColorMuted);
-  --color-accent: var(--ColorAccent);
-  --color-accent-hover: var(--ColorAccentHover);
-  --color-accent-text: var(--ColorAccentText);
-  --color-list-hover: var(--ColorListHover);
-  --color-list-active: var(--ColorListActive);
-  --color-tab-active: var(--ColorTabActive);
-  --color-tab-inactive: var(--ColorTabInactive);
-  --color-tab-indicator: var(--ColorTabIndicator);
+  --color-app: var(--AppBg);
+  --color-surface: var(--GlassSurface);
+  --color-hover: var(--GlassHover);
+  --color-active: var(--GlassActive);
+  --color-border: var(--GlassBorder);
+  --color-text-primary: var(--TextPrimary);
+  --color-text-highlight: var(--TextHighlight);
+  --color-text-muted: var(--TextMuted);
+  --color-accent: var(--AccentPrimary);
+  --color-accent-hover: var(--AccentHover);
+  --color-accent-text: var(--AccentText);
 }
 
 @font-face {
@@ -39,7 +29,7 @@
   position: relative;
   height: var(--TabActiveHeight);
   background: transparent;
-  color: var(--ColorText);
+  color: var(--TextPrimary);
   border-radius: 12px; /* 改回类似主卡片的圆角，消除突兀感 */
   transition: background var(--duration-fast) var(--ease-smooth), 
               color var(--duration-fast) ease,
@@ -51,16 +41,17 @@
 
 /* 激活态药丸：独立的毛玻璃悬浮效果 */
 .aurona-tab-active {
-  background-color: var(--ColorTabActive); /* 玻璃色 */
-  color: var(--ColorTextHighlight);
-  border-color: var(--ColorPanelBorder); /* 细微边框质感 */
+  background-color: var(--GlassActive); /* 玻璃色 */
+  color: var(--TextHighlight);
+  border-color: var(--GlassBorder); /* 细微边框质感 */
   backdrop-filter: blur(12px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   z-index: 10;
 }
 
 /* 非激活悬停效果：保持全圆角 */
 .aurona-tab:not(.aurona-tab-active):hover {
-  background-color: var(--ColorListHover);
+  background-color: var(--GlassHover);
 }
 
 :root {
@@ -70,31 +61,34 @@
   --duration-normal: 250ms;
   --duration-slow: 400ms;
 
-  /* Light Theme (Pearl Glass) */
-  --ColorApp: #f8fafc;
-  --ColorTitleBar: rgba(255, 255, 255, 0.4);
-  --ColorTitleBarText: #475569;
-  --ColorTitleBarHover: rgba(15, 23, 42, 0.04);
-  --ColorRail: rgba(255, 255, 255, 0.5);
-  --ColorRailHover: rgba(15, 23, 42, 0.04);
-  --ColorRailActive: #0f172a;
-  --ColorSidebar: rgba(255, 255, 255, 0.3);
-  --ColorEditor: rgba(255, 255, 255, 0.55);
-  --ColorSolid: #f8fafc;
-  --ColorPanelBorder: rgba(15, 23, 42, 0.06);
-  --ColorText: #475569;
-  --ColorTextHighlight: #0f172a;
-  --ColorMuted: #94a3b8;
-  --ColorAccent: #2563eb;
-  --ColorAccentHover: #3b82f6;
-  --ColorAccentText: #ffffff;
-  --ColorListHover: rgba(15, 23, 42, 0.04);
-  --ColorListActive: rgba(15, 23, 42, 0.08);
-  --ColorTabActive: rgba(255, 255, 255, 0.7);
-  --ColorTabInactive: transparent;
-  --ColorPillSelected: #ffffff;
-  --ColorPillText: #0f172a;
-  --ColorTabIndicator: #000000;
+  /* Global Base Colors (RGB) */
+  --RGB-Bg: 248, 250, 252; /* #f8fafc slate-50 */
+  --RGB-Fg: 15, 23, 42;    /* #0f172a slate-900 */
+  --RGB-Accent: 37, 99, 235; /* #2563eb blue-600 */
+
+  /* Glassmorphism Layers */
+  --GlassSurface: rgba(255, 255, 255, 0.6); /* Slightly more opaque for cleaner background */
+  --GlassHover: rgba(var(--RGB-Fg), 0.03); /* Extremely subtle hover */
+  --GlassActive: rgba(255, 255, 255, 0.85); /* Clean white for active states instead of muddy gray */
+  --GlassBorder: rgba(var(--RGB-Fg), 0.04); /* Softer borders */
+
+  /* Semantic Colors */
+  --AppBg: rgb(var(--RGB-Bg));
+  --TextPrimary: rgba(var(--RGB-Fg), 0.8);
+  --TextHighlight: rgb(var(--RGB-Fg));
+  --TextMuted: rgba(var(--RGB-Fg), 0.45);
+  --AccentPrimary: rgb(var(--RGB-Accent));
+  --AccentHover: #3b82f6;
+  --AccentText: #ffffff;
+  
+  /* Light Mode Syntax Highlighting (High Contrast) */
+  --SyntaxKeyword: #c53030;     
+  --SyntaxString: #276749;      
+  --SyntaxNumber: #2b6cb0;      
+  --SyntaxFunction: #6b46c1;    
+  --SyntaxVariable: #b7791f;    
+  --SyntaxComment: #a0aec0;     
+  --SyntaxOperator: #4a5568;
   
   /* A vibrant mesh gradient background so the glassmorphism pops */
   --AppBackground: 
@@ -154,31 +148,34 @@
 }
 
 .dark {
-  /* Dark Theme (Obsidian Glass) */
-  --ColorApp: #09090b;
-  --ColorTitleBar: rgba(0, 0, 0, 0.3);
-  --ColorTitleBarText: rgba(255, 255, 255, 0.7);
-  --ColorTitleBarHover: rgba(255, 255, 255, 0.08);
-  --ColorRail: rgba(0, 0, 0, 0.3);
-  --ColorRailHover: rgba(255, 255, 255, 0.06);
-  --ColorRailActive: #ffffff;
-  --ColorSidebar: rgba(0, 0, 0, 0.2);
-  --ColorEditor: rgba(0, 0, 0, 0.35);
-  --ColorSolid: #09090b;
-  --ColorPanelBorder: rgba(255, 255, 255, 0.06);
-  --ColorText: rgba(255, 255, 255, 0.7);
-  --ColorTextHighlight: #ffffff;
-  --ColorMuted: rgba(255, 255, 255, 0.4);
-  --ColorAccent: #3b82f6;
-  --ColorAccentHover: #60a5fa;
-  --ColorAccentText: #ffffff;
-  --ColorListHover: rgba(255, 255, 255, 0.06);
-  --ColorListActive: rgba(255, 255, 255, 0.1);
-  --ColorTabActive: rgba(255, 255, 255, 0.08);
-  --ColorTabInactive: transparent;
-  --ColorPillSelected: rgba(255, 255, 255, 0.15);
-  --ColorPillText: #ffffff;
-  --ColorTabIndicator: #ffffff;
+  /* Global Base Colors (RGB) */
+  --RGB-Bg: 9, 9, 11;      /* #09090b zinc-950 */
+  --RGB-Fg: 255, 255, 255; /* #ffffff white */
+  --RGB-Accent: 59, 130, 246; /* #3b82f6 blue-500 */
+
+  /* Glassmorphism Layers */
+  --GlassSurface: rgba(0, 0, 0, 0.3);
+  --GlassHover: rgba(var(--RGB-Fg), 0.06);
+  --GlassActive: rgba(var(--RGB-Fg), 0.1);
+  --GlassBorder: rgba(var(--RGB-Fg), 0.06);
+
+  /* Semantic Colors */
+  --AppBg: rgb(var(--RGB-Bg));
+  --TextPrimary: rgba(var(--RGB-Fg), 0.7);
+  --TextHighlight: rgb(var(--RGB-Fg));
+  --TextMuted: rgba(var(--RGB-Fg), 0.4);
+  --AccentPrimary: rgb(var(--RGB-Accent));
+  --AccentHover: #60a5fa;
+  --AccentText: #ffffff;
+  
+  /* Dark Mode Syntax Highlighting (Neon Vibrant) */
+  --SyntaxKeyword: #f97316;     
+  --SyntaxString: #a3e635;      
+  --SyntaxNumber: #38bdf8;      
+  --SyntaxFunction: #c084fc;    
+  --SyntaxVariable: #fcd34d;    
+  --SyntaxComment: #64748b;     
+  --SyntaxOperator: #cbd5e1;
   
   /* A deep background with vibrant colored light refractions */
   --AppBackground: 
@@ -213,14 +210,14 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: var(--ColorPanelBorder);
+  background-color: var(--GlassBorder);
   border: 2px solid transparent;
   background-clip: padding-box;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--ColorMuted);
+  background-color: var(--TextMuted);
 }
 
 ::-webkit-scrollbar-corner {
@@ -243,8 +240,8 @@ body,
 }
 
 body {
-  background-color: var(--ColorApp);
-  color: var(--ColorText);
+  background-color: var(--AppBg);
+  color: var(--TextPrimary);
   font-family: 'HarmonyOS Sans SC', 'Microsoft YaHei', sans-serif;
   font-size: var(--FontSizeBase);
   user-select: none;
@@ -269,7 +266,7 @@ select {
 }
 
 *:focus-visible {
-  outline: 2px solid var(--ColorTextHighlight);
+  outline: 2px solid var(--TextHighlight);
   border-radius: 4px; /* 呼应你偏好的圆角风格 */
 }
 
@@ -323,15 +320,15 @@ button {
 }
 
 .monaco-editor .monaco-scrollable-element:hover > .scrollbar > .slider {
-  background: color-mix(in srgb, var(--ColorText) 20%, transparent) !important;
+  background: color-mix(in srgb, var(--TextPrimary) 20%, transparent) !important;
 }
 
 .monaco-editor .monaco-scrollable-element > .scrollbar > .slider:hover {
-  background: color-mix(in srgb, var(--ColorText) 40%, transparent) !important;
+  background: color-mix(in srgb, var(--TextPrimary) 40%, transparent) !important;
 }
 
 .monaco-editor .monaco-scrollable-element > .scrollbar > .slider.active {
-  background: color-mix(in srgb, var(--ColorText) 50%, transparent) !important;
+  background: color-mix(in srgb, var(--TextPrimary) 50%, transparent) !important;
 }
 
  /* Smooth theme transitions */

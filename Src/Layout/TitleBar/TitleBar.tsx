@@ -37,16 +37,16 @@ export function TitleBar() {
     else await appWindow.maximize();
   };
 
-  const menuItemClass = "flex w-full cursor-pointer items-center justify-between rounded px-3 py-1 text-left hover:bg-black/10 dark:hover:bg-white/20 text-[var(--ColorText)] hover:text-[var(--ColorTextHighlight)] transition-colors";
+  const menuItemClass = "flex w-full cursor-pointer items-center justify-between rounded px-3 py-1 text-left hover:bg-black/10 dark:hover:bg-white/20 text-[var(--TextPrimary)] hover:text-[var(--TextHighlight)] transition-colors";
 
   return (
     <div
       data-tauri-drag-region
-      className="flex h-[var(--TitleBarHeight)] shrink-0 select-none items-center justify-between bg-transparent text-[var(--ColorTitleBarText)] text-[13px] relative z-30"
+      className="flex h-[var(--TitleBarHeight)] shrink-0 select-none items-center justify-between bg-transparent text-[var(--TextPrimary)] text-[13px] relative z-30"
     >
       <div className="flex h-full items-center pl-4 gap-3 min-w-0">
         <div
-          className="pointer-events-none text-[15px] text-[var(--ColorTextHighlight)] flex items-center shrink-0"
+          className="pointer-events-none text-[15px] text-[var(--TextHighlight)] flex items-center shrink-0"
           style={{ fontFamily: "'Righteous', sans-serif", fontWeight: 400, letterSpacing: "0.8px" }}
         >
           Aurona Code
@@ -56,8 +56,8 @@ export function TitleBar() {
           {(["文件", "编辑", "运行", "帮助"] as MenuName[]).map((menu) => (
             <div key={menu} className="relative h-full flex items-center">
               <div
-                className={`flex h-[26px] cursor-pointer items-center rounded-md px-2.5 hover:bg-black/5 dark:hover:bg-white/10 hover:text-[var(--ColorTextHighlight)] transition-colors relative z-50 ${
-                  activeMenu === menu ? "bg-black/5 dark:bg-white/10 text-[var(--ColorTextHighlight)]" : ""
+                className={`flex h-[26px] cursor-pointer items-center rounded-md px-2.5 hover:bg-black/5 dark:hover:bg-white/10 hover:text-[var(--TextHighlight)] transition-colors relative z-50 ${
+                  activeMenu === menu ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]" : ""
                 }`}
                 onClick={() => setActiveMenu(activeMenu === menu ? null : menu)}
                 onMouseEnter={() => {
@@ -70,7 +70,7 @@ export function TitleBar() {
               {activeMenu === menu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)} />
-                  <div className="absolute top-[32px] left-0 w-52 rounded-lg border border-[var(--ColorPanelBorder)] bg-[var(--ColorEditor)] backdrop-blur-xl p-1 shadow-lg z-50 text-[12px]">
+                  <div className="absolute top-[32px] left-0 w-52 rounded-lg border border-[var(--GlassBorder)] bg-[var(--GlassSurface)] backdrop-blur-xl p-1 shadow-lg z-50 text-[12px]">
                     {menu === "文件" && (
                       <>
                         <button
@@ -81,7 +81,7 @@ export function TitleBar() {
                           }}
                         >
                           <span>新建文件</span>
-                          <span className="text-[var(--ColorMuted)]">Ctrl+N</span>
+                          <span className="text-[var(--TextMuted)]">Ctrl+N</span>
                         </button>
                         <button
                           className={menuItemClass}
@@ -92,7 +92,7 @@ export function TitleBar() {
                         >
                           <span>新建文件夹</span>
                         </button>
-                        <div className="my-1 h-px w-full bg-[var(--ColorPanelBorder)]" />
+                        <div className="my-1 h-px w-full bg-[var(--GlassBorder)]" />
                         <button
                           className={menuItemClass}
                           onClick={() => {
@@ -119,9 +119,9 @@ export function TitleBar() {
                           }}
                         >
                           <span>保存</span>
-                          <span className="text-[var(--ColorMuted)]">Ctrl+S</span>
+                          <span className="text-[var(--TextMuted)]">Ctrl+S</span>
                         </button>
-                        <div className="my-1 h-px w-full bg-[var(--ColorPanelBorder)]" />
+                        <div className="my-1 h-px w-full bg-[var(--GlassBorder)]" />
                         <button className={`${menuItemClass} hover:bg-red-500/10 hover:text-red-600`} onClick={() => appWindow.close()}>
                           <span>退出</span>
                         </button>
@@ -136,7 +136,7 @@ export function TitleBar() {
                         <button className={menuItemClass} onClick={() => { setActiveMenu(null); EventBus.emit("editor:action", "redo"); }}>
                           <span>重做</span>
                         </button>
-                        <div className="my-1 h-px w-full bg-[var(--ColorPanelBorder)]" />
+                        <div className="my-1 h-px w-full bg-[var(--GlassBorder)]" />
                         <button className={menuItemClass} onClick={() => { setActiveMenu(null); EventBus.emit("editor:action", "cut"); }}>
                           <span>剪切</span>
                         </button>
@@ -146,7 +146,7 @@ export function TitleBar() {
                         <button className={menuItemClass} onClick={() => { setActiveMenu(null); EventBus.emit("editor:action", "paste"); }}>
                           <span>粘贴</span>
                         </button>
-                        <div className="my-1 h-px w-full bg-[var(--ColorPanelBorder)]" />
+                        <div className="my-1 h-px w-full bg-[var(--GlassBorder)]" />
                         <button className={menuItemClass} onClick={() => { setActiveMenu(null); EventBus.emit("editor:action", "selectAll"); }}>
                           <span>全选</span>
                         </button>
@@ -165,7 +165,7 @@ export function TitleBar() {
                           }}
                         >
                           <span>运行当前文件</span>
-                          <span className="text-[var(--ColorMuted)]">F5</span>
+                          <span className="text-[var(--TextMuted)]">F5</span>
                         </button>
                       </>
                     )}
@@ -204,7 +204,7 @@ export function TitleBar() {
         {activeFilePath && isRunnable(activeFilePath) && (
           <Tooltip content="运行当前文件" delay={300} placement="bottom">
             <button
-              className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 text-[var(--ColorTextHighlight)] transition-colors mr-2"
+              className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 text-[var(--TextHighlight)] transition-colors mr-2"
               onClick={() => handleSmartRun(activeFilePath)}
             >
               <Icons.Play size={16} stroke={2} />
@@ -213,16 +213,16 @@ export function TitleBar() {
         )}
         <Tooltip content="切换底侧面板" delay={500} placement="bottom">
           <button
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--ColorTextHighlight)] transition-colors"
+            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--TextHighlight)] transition-colors"
             onClick={() => EventBus.emit("app:toggle-terminal")}
           >
             {isTerminalOpen ? <Icons.BottomPanelFilled size={16} stroke={2} /> : <Icons.BottomPanel size={16} stroke={2} />}
           </button>
         </Tooltip>
-        <div className="w-px h-[14px] bg-[var(--ColorPanelBorder)] mx-0.5" />
+        <div className="w-px h-[14px] bg-[var(--GlassBorder)] mx-0.5" />
         <Tooltip content="最小化" delay={500} placement="bottom">
           <button
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--ColorTextHighlight)] transition-colors"
+            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--TextHighlight)] transition-colors"
             onClick={() => appWindow.minimize()}
           >
             <Icons.Minimize size={15} stroke={2} />
@@ -230,7 +230,7 @@ export function TitleBar() {
         </Tooltip>
         <Tooltip content={isMaximized ? "向下还原" : "最大化"} delay={500} placement="bottom">
           <button
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--ColorTextHighlight)] transition-colors"
+            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--TextHighlight)] transition-colors"
             onClick={toggleMaximize}
           >
             {isMaximized ? <Icons.Restore size={14} stroke={2} /> : <Icons.Maximize size={14} stroke={2} />}

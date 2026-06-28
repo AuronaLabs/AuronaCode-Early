@@ -106,13 +106,13 @@ export const SearchPanel = React.memo(function SearchPanel() {
   return (
     <div className="flex flex-col h-full w-full select-none bg-transparent">
       <div className="flex items-center justify-between px-[var(--PanelPaddingX)] pt-4 pb-2 shrink-0">
-        <h2 className="text-[14px] font-bold text-[var(--ColorTextHighlight)] tracking-tight flex items-center gap-2">
+        <h2 className="text-[14px] font-bold text-[var(--TextHighlight)] tracking-tight flex items-center gap-2">
           全局搜索
         </h2>
       </div>
 
       <div className="px-[var(--PanelPaddingX)] pb-4 shrink-0 mt-2 flex flex-col gap-3">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 text-[11.5px] text-[var(--ColorMuted)]">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 text-[11.5px] text-[var(--TextMuted)]">
           <Icons.Info size={14} className="opacity-60 shrink-0" />
           <span className="opacity-80">全局搜索即将被 Fliuno 搜索替代</span>
         </div>
@@ -120,7 +120,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
         <div className="flex flex-col p-3 rounded-2xl bg-white/5 dark:bg-white/10 backdrop-blur-md border border-black/5 dark:border-white/5 shadow-inner gap-3 transition-all">
           <input
             type="text"
-            className="w-full bg-transparent text-[13px] text-[var(--ColorTextHighlight)] outline-none placeholder-[var(--ColorMuted)] leading-relaxed"
+            className="w-full bg-transparent text-[13px] text-[var(--TextHighlight)] outline-none placeholder-[var(--TextMuted)] leading-relaxed"
             placeholder="全局搜索... (回车以执行)"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -131,7 +131,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
               <Tooltip content="区分大小写">
                 <button
                   onClick={() => setIsCaseSensitive(!isCaseSensitive)}
-                  className={`p-1.5 rounded-lg transition-colors ${isCaseSensitive ? 'bg-[var(--ColorAccent)] text-white shadow-sm' : 'text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/10 dark:hover:bg-white/20'}`}
+                  className={`p-1.5 rounded-lg transition-colors ${isCaseSensitive ? 'bg-[var(--AccentPrimary)] text-white shadow-sm' : 'text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/10 dark:hover:bg-white/20'}`}
                 >
                   <Icons.Typography size={14} stroke={isCaseSensitive ? 2.5 : 2} />
                 </button>
@@ -139,7 +139,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
               <Tooltip content="正则表达式">
                 <button
                   onClick={() => setIsRegex(!isRegex)}
-                  className={`p-1.5 rounded-lg transition-colors ${isRegex ? 'bg-[var(--ColorAccent)] text-white shadow-sm' : 'text-[var(--ColorMuted)] hover:text-[var(--ColorTextHighlight)] hover:bg-black/10 dark:hover:bg-white/20'}`}
+                  className={`p-1.5 rounded-lg transition-colors ${isRegex ? 'bg-[var(--AccentPrimary)] text-white shadow-sm' : 'text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/10 dark:hover:bg-white/20'}`}
                 >
                   <Icons.Asterisk size={14} stroke={isRegex ? 2.5 : 2} />
                 </button>
@@ -149,7 +149,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
               <button
                 onClick={handleSearch}
                 disabled={isSearching || !query.trim()}
-                className="px-3 py-1.5 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 border border-[var(--ColorPanelBorder)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--ColorTextHighlight)] text-[12px] font-medium rounded-lg transition-all flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 border border-[var(--GlassBorder)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--TextHighlight)] text-[12px] font-medium rounded-lg transition-all flex items-center gap-1.5"
               >
                 <Icons.Search size={13} stroke={2} />
                 搜索
@@ -161,37 +161,37 @@ export const SearchPanel = React.memo(function SearchPanel() {
 
       <div className="flex-1 overflow-y-auto aurona-scroll flex flex-col relative">
         {isSearching && results.length === 0 ? (
-          <div className="absolute inset-0 flex items-center justify-center text-[var(--ColorMuted)] text-[12px] gap-2">
+          <div className="absolute inset-0 flex items-center justify-center text-[var(--TextMuted)] text-[12px] gap-2">
             <Icons.Refresh size={14} className="animate-spin" />
             搜索中...
           </div>
         ) : !repoPath ? (
-          <div className="p-4 text-center text-[12px] text-[var(--ColorMuted)] mt-4">
+          <div className="p-4 text-center text-[12px] text-[var(--TextMuted)] mt-4">
             未打开任何工作区
           </div>
         ) : hasSearched && results.length === 0 ? (
-          <div className="p-4 text-center text-[12px] text-[var(--ColorMuted)] mt-4">
+          <div className="p-4 text-center text-[12px] text-[var(--TextMuted)] mt-4">
             没有找到匹配项
           </div>
         ) : hasSearched ? (
           <div className="flex flex-col gap-0.5 py-2">
             <div className="px-[var(--PanelPaddingX)] mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-bold text-[var(--ColorMuted)] uppercase tracking-widest">
+              <span className="text-[11px] font-bold text-[var(--TextMuted)] uppercase tracking-widest">
                 找到 {results.length} 个结果 (在 {fileKeys.length} 个文件中)
               </span>
               {isSearching && (
-                <Icons.Refresh size={12} className="animate-spin text-[var(--ColorMuted)]" />
+                <Icons.Refresh size={12} className="animate-spin text-[var(--TextMuted)]" />
               )}
             </div>
             {fileKeys.map(file => (
               <div key={file} className="flex flex-col mb-4 bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-2xl overflow-hidden mx-[calc(var(--PanelPaddingX)-8px)] shadow-sm">
-                <div className="flex items-center gap-2 px-3 py-2.5 bg-black/5 dark:bg-white/5 border-b border-black/5 dark:border-white/5 text-[12px] font-bold text-[var(--ColorTextHighlight)] group">
+                <div className="flex items-center gap-2 px-3 py-2.5 bg-black/5 dark:bg-white/5 border-b border-black/5 dark:border-white/5 text-[12px] font-bold text-[var(--TextHighlight)] group">
                   <Icons.FileCode size={16} className="text-blue-500 shrink-0" stroke={2} />
                   <span className="truncate">{grouped[file].name}</span>
-                  <span className="truncate text-[10px] text-[var(--ColorMuted)] opacity-60 group-hover:opacity-100 transition-opacity ml-1 font-normal">
+                  <span className="truncate text-[10px] text-[var(--TextMuted)] opacity-60 group-hover:opacity-100 transition-opacity ml-1 font-normal">
                     {grouped[file].dir}
                   </span>
-                  <span className="ml-auto text-[10px] bg-black/10 dark:bg-white/10 px-2 py-0.5 rounded-full text-[var(--ColorMuted)]">
+                  <span className="ml-auto text-[10px] bg-black/10 dark:bg-white/10 px-2 py-0.5 rounded-full text-[var(--TextMuted)]">
                     {grouped[file].matches.length}
                   </span>
                 </div>
@@ -200,13 +200,13 @@ export const SearchPanel = React.memo(function SearchPanel() {
                     <div
                       key={match.index}
                       onClick={() => openFile(file, match.line_number)}
-                      className="flex items-start gap-3 px-3 py-1.5 hover:bg-[var(--ColorAccent)] hover:text-white cursor-pointer group transition-all text-[12px] relative"
+                      className="flex items-start gap-3 px-3 py-1.5 hover:bg-[var(--AccentPrimary)] hover:text-white cursor-pointer group transition-all text-[12px] relative"
                     >
                       <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-transparent group-hover:bg-white transition-colors" />
-                      <span className="text-[var(--ColorMuted)] group-hover:text-white/80 w-7 text-right shrink-0 select-none font-mono text-[11px] pt-[2px]">
+                      <span className="text-[var(--TextMuted)] group-hover:text-white/80 w-7 text-right shrink-0 select-none font-mono text-[11px] pt-[2px]">
                         {match.line_number}
                       </span>
-                      <span className="truncate text-[var(--ColorText)] group-hover:text-white font-mono opacity-90 leading-relaxed">
+                      <span className="truncate text-[var(--TextPrimary)] group-hover:text-white font-mono opacity-90 leading-relaxed">
                         {match.match_text.trim()}
                       </span>
                     </div>
@@ -216,7 +216,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
             ))}
           </div>
         ) : (
-          <div className="p-4 text-center text-[12px] text-[var(--ColorMuted)] mt-4 opacity-50">
+          <div className="p-4 text-center text-[12px] text-[var(--TextMuted)] mt-4 opacity-50">
             <Icons.Search size={32} className="mx-auto mb-2 opacity-50" />
             输入内容并在全部文件中搜索
           </div>
