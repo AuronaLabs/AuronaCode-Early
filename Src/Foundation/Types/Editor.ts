@@ -1,4 +1,4 @@
-// 编辑器状态与接口定义（从 Features/Editor 迁出至基础层）
+
 
 export interface EditorMarker {
   message: string;

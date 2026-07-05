@@ -1,16 +1,21 @@
-import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useEffect, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
-import { Icons } from "../../UI/Icons/IconManager";
+import { handleSmartRun, isRunnable } from "../../Shared/Constants/RunConfig";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
-import { isRunnable, handleSmartRun } from "../../Shared/Constants/RunConfig";
-
-type MenuName = "文件" | "编辑" | "运行" | "帮助";
+import { Icons } from "../../UI/Icons/IconManager";
+import {
+  MenubarRoot,
+  MenubarMenu,
+  MenubarTrigger,
+  MenubarContent,
+  MenubarItem,
+  MenubarDivider,
+} from "../../UI/Components/Menubar";
 
 const appWindow = getCurrentWindow();
 
 export function TitleBar() {
-  const [activeMenu, setActiveMenu] = useState<MenuName | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
@@ -22,8 +27,12 @@ export function TitleBar() {
       setIsMaximized(await appWindow.isMaximized());
     });
 
-    const unsubTerminal = EventBus.on("app:terminal-state-changed", (isOpen: boolean) => setIsTerminalOpen(isOpen));
-    const unsubFile = EventBus.on("app:active-file-changed", (path: string | null) => setActiveFilePath(path));
+    const unsubTerminal = EventBus.on("app:terminal-state-changed", (isOpen: boolean) =>
+      setIsTerminalOpen(isOpen),
+    );
+    const unsubFile = EventBus.on("app:active-file-changed", (path: string | null) =>
+      setActiveFilePath(path),
+    );
 
     return () => {
       unlisten.then((dispose) => dispose());
@@ -36,8 +45,6 @@ export function TitleBar() {
     if (isMaximized) await appWindow.unmaximize();
     else await appWindow.maximize();
   };
-
-  const menuItemClass = "flex w-full cursor-pointer items-center justify-between rounded px-3 py-1 text-left hover:bg-black/10 dark:hover:bg-white/20 text-[var(--TextPrimary)] hover:text-[var(--TextHighlight)] transition-colors";
 
   return (
     <div
@@ -52,152 +59,116 @@ export function TitleBar() {
           Aurona Code
         </div>
 
-        <div className="flex h-full items-center space-x-0.5 min-w-0">
-          {(["文件", "编辑", "运行", "帮助"] as MenuName[]).map((menu) => (
-            <div key={menu} className="relative h-full flex items-center">
-              <div
-                className={`flex h-[26px] cursor-pointer items-center rounded-md px-2.5 hover:bg-black/5 dark:hover:bg-white/10 hover:text-[var(--TextHighlight)] transition-colors relative z-50 ${
-                  activeMenu === menu ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]" : ""
-                }`}
-                onClick={() => setActiveMenu(activeMenu === menu ? null : menu)}
-                onMouseEnter={() => {
-                  if (activeMenu && activeMenu !== menu) setActiveMenu(menu);
+        <MenubarRoot className="flex h-full items-center space-x-0.5 min-w-0">
+          <MenubarMenu>
+            <MenubarTrigger>文件</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem
+                label="新建文件"
+                rightElement="Ctrl+N"
+                onSelect={() => EventBus.emit("app:create-file-prompt")}
+              />
+              <MenubarItem
+                label="新建文件夹"
+                onSelect={() => EventBus.emit("app:create-folder-prompt")}
+              />
+              <MenubarDivider />
+              <MenubarItem
+                label="打开文件..."
+                onSelect={() => EventBus.emit("app:open-file")}
+              />
+              <MenubarItem
+                label="打开文件夹..."
+                onSelect={() => EventBus.emit("app:open-folder")}
+              />
+              <MenubarItem
+                label="保存"
+                rightElement="Ctrl+S"
+                onSelect={() => EventBus.emit("app:save-file")}
+              />
+              <MenubarDivider />
+              <MenubarItem
+                label="退出"
+                variant="danger"
+                onSelect={() => appWindow.close()}
+              />
+            </MenubarContent>
+          </MenubarMenu>
+
+          <MenubarMenu>
+            <MenubarTrigger>编辑</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem
+                label="撤销"
+                onSelect={() => EventBus.emit("editor:action", "undo")}
+              />
+              <MenubarItem
+                label="重做"
+                onSelect={() => EventBus.emit("editor:action", "redo")}
+              />
+              <MenubarDivider />
+              <MenubarItem
+                label="剪切"
+                onSelect={() => EventBus.emit("editor:action", "cut")}
+              />
+              <MenubarItem
+                label="复制"
+                onSelect={() => EventBus.emit("editor:action", "copy")}
+              />
+              <MenubarItem
+                label="粘贴"
+                onSelect={() => EventBus.emit("editor:action", "paste")}
+              />
+              <MenubarDivider />
+              <MenubarItem
+                label="全选"
+                onSelect={() => EventBus.emit("editor:action", "selectAll")}
+              />
+            </MenubarContent>
+          </MenubarMenu>
+
+          <MenubarMenu>
+            <MenubarTrigger>运行</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem
+                label="运行"
+                onSelect={() => {
+                  if (activeFilePath && isRunnable(activeFilePath)) {
+                    if (!isTerminalOpen) {
+                      EventBus.emit("app:toggle-terminal", true);
+                    }
+                    setTimeout(() => {
+                      handleSmartRun(activeFilePath);
+                    }, 50);
+                  }
                 }}
-              >
-                {menu}
-              </div>
+              />
+            </MenubarContent>
+          </MenubarMenu>
 
-              {activeMenu === menu && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)} />
-                  <div className="absolute top-[32px] left-0 w-52 rounded-lg border border-[var(--GlassBorder)] bg-[var(--GlassSurface)] backdrop-blur-xl p-1 shadow-lg z-50 text-[12px]">
-                    {menu === "文件" && (
-                      <>
-                        <button
-                          className={menuItemClass}
-                          onClick={() => {
-                            setActiveMenu(null);
-                            EventBus.emit("app:create-file-prompt");
-                          }}
-                        >
-                          <span>新建文件</span>
-                          <span className="text-[var(--TextMuted)]">Ctrl+N</span>
-                        </button>
-                        <button
-                          className={menuItemClass}
-                          onClick={() => {
-                            setActiveMenu(null);
-                            EventBus.emit("app:create-folder-prompt");
-                          }}
-                        >
-                          <span>新建文件夹</span>
-                        </button>
-                        <div className="my-1 h-px w-full bg-[var(--GlassBorder)]" />
-                        <button
-                          className={menuItemClass}
-                          onClick={() => {
-                            setActiveMenu(null);
-                            EventBus.emit("app:open-file");
-                          }}
-                        >
-                          <span>打开文件...</span>
-                        </button>
-                        <button
-                          className={menuItemClass}
-                          onClick={() => {
-                            setActiveMenu(null);
-                            EventBus.emit("app:open-folder");
-                          }}
-                        >
-                          <span>打开文件夹...</span>
-                        </button>
-                        <button
-                          className={menuItemClass}
-                          onClick={() => {
-                            setActiveMenu(null);
-                            EventBus.emit("app:save-file");
-                          }}
-                        >
-                          <span>保存</span>
-                          <span className="text-[var(--TextMuted)]">Ctrl+S</span>
-                        </button>
-                        <div className="my-1 h-px w-full bg-[var(--GlassBorder)]" />
-                        <button className={`${menuItemClass} hover:bg-red-500/10 hover:text-red-600`} onClick={() => appWindow.close()}>
-                          <span>退出</span>
-                        </button>
-                      </>
-                    )}
-
-                    {menu === "编辑" && (
-                      <>
-                        <button className={menuItemClass} onClick={() => { setActiveMenu(null); EventBus.emit("editor:action", "undo"); }}>
-                          <span>撤销</span>
-                        </button>
-                        <button className={menuItemClass} onClick={() => { setActiveMenu(null); EventBus.emit("editor:action", "redo"); }}>
-                          <span>重做</span>
-                        </button>
-                        <div className="my-1 h-px w-full bg-[var(--GlassBorder)]" />
-                        <button className={menuItemClass} onClick={() => { setActiveMenu(null); EventBus.emit("editor:action", "cut"); }}>
-                          <span>剪切</span>
-                        </button>
-                        <button className={menuItemClass} onClick={() => { setActiveMenu(null); EventBus.emit("editor:action", "copy"); }}>
-                          <span>复制</span>
-                        </button>
-                        <button className={menuItemClass} onClick={() => { setActiveMenu(null); EventBus.emit("editor:action", "paste"); }}>
-                          <span>粘贴</span>
-                        </button>
-                        <div className="my-1 h-px w-full bg-[var(--GlassBorder)]" />
-                        <button className={menuItemClass} onClick={() => { setActiveMenu(null); EventBus.emit("editor:action", "selectAll"); }}>
-                          <span>全选</span>
-                        </button>
-                      </>
-                    )}
-
-                    {menu === "运行" && (
-                      <>
-                        <button 
-                          className={`${menuItemClass} ${(!activeFilePath || !isRunnable(activeFilePath)) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          onClick={() => {
-                            if (activeFilePath && isRunnable(activeFilePath)) {
-                              setActiveMenu(null);
-                              handleSmartRun(activeFilePath);
-                            }
-                          }}
-                        >
-                          <span>运行当前文件</span>
-                          <span className="text-[var(--TextMuted)]">F5</span>
-                        </button>
-                      </>
-                    )}
-
-                    {menu === "帮助" && (
-                      <>
-                        <button
-                          className={menuItemClass}
-                          onClick={() => {
-                            setActiveMenu(null);
-                            EventBus.emit("app:open-tab", { id: "changelog", type: "changelog", title: "更新记录" });
-                          }}
-                        >
-                          <span>版本更新记录</span>
-                        </button>
-                        <button
-                          className={menuItemClass}
-                          onClick={() => {
-                            setActiveMenu(null);
-                            EventBus.emit("app:open-tab", { id: "about", type: "about", title: "关于 Aurona Code" });
-                          }}
-                        >
-                          <span>关于 Aurona Code</span>
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
+          <MenubarMenu>
+            <MenubarTrigger>帮助</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem
+                label="版本更新记录"
+                onSelect={() => EventBus.emit("app:open-tab", { id: "changelog", type: "changelog", title: "更新记录" })}
+              />
+              <MenubarItem
+                label="关于 Aurona Code"
+                onSelect={() => EventBus.emit("app:open-tab", { id: "about", type: "about", title: "关于 Aurona Code" })}
+              />
+              <MenubarDivider />
+              <MenubarItem
+                label="开发者工具 (F12)"
+                onSelect={() => {
+                  import("@tauri-apps/api/core").then(({ invoke }) => {
+                    invoke("open_devtools");
+                  }).catch(console.error);
+                }}
+              />
+            </MenubarContent>
+          </MenubarMenu>
+        </MenubarRoot>
       </div>
 
       <div className="flex h-full items-center pr-3 gap-2 shrink-0">
@@ -216,7 +187,11 @@ export function TitleBar() {
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--TextHighlight)] transition-colors"
             onClick={() => EventBus.emit("app:toggle-terminal")}
           >
-            {isTerminalOpen ? <Icons.BottomPanelFilled size={16} stroke={2} /> : <Icons.BottomPanel size={16} stroke={2} />}
+            {isTerminalOpen ? (
+              <Icons.BottomPanelFilled size={16} stroke={2} />
+            ) : (
+              <Icons.BottomPanel size={16} stroke={2} />
+            )}
           </button>
         </Tooltip>
         <div className="w-px h-[14px] bg-[var(--GlassBorder)] mx-0.5" />
@@ -233,7 +208,11 @@ export function TitleBar() {
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--TextHighlight)] transition-colors"
             onClick={toggleMaximize}
           >
-            {isMaximized ? <Icons.Restore size={14} stroke={2} /> : <Icons.Maximize size={14} stroke={2} />}
+            {isMaximized ? (
+              <Icons.Restore size={14} stroke={2} />
+            ) : (
+              <Icons.Maximize size={14} stroke={2} />
+            )}
           </button>
         </Tooltip>
         <Tooltip content="关闭" delay={500} placement="bottom">

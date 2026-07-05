@@ -17,43 +17,37 @@ export interface AutocompleteMenuProps {
 }
 
 const kindIconMap: Record<number, string> = {
-  1: "t", // Text
-  2: "m", // Method
-  3: "f", // Function
-  4: "c", // Constructor
-  5: "f", // Field
-  6: "v", // Variable
-  7: "c", // Class
-  8: "i", // Interface
-  9: "m", // Module
-  10: "p", // Property
-  11: "u", // Unit
-  12: "v", // Value
-  13: "e", // Enum
-  14: "k", // Keyword
-  15: "s", // Snippet
-  16: "c", // Color
-  17: "f", // File
-  18: "r", // Reference
-  19: "f", // Folder
-  20: "e", // EnumMember
-  21: "c", // Constant
-  22: "s", // Struct
-  23: "e", // Event
-  24: "o", // Operator
-  25: "t", // TypeParameter
+  1: "t", 
+  2: "m", 
+  3: "f", 
+  4: "c", 
+  5: "f", 
+  6: "v", 
+  7: "c", 
+  8: "i", 
+  9: "m", 
+  10: "p", 
+  11: "u", 
+  12: "v", 
+  13: "e", 
+  14: "k", 
+  15: "s", 
+  16: "c", 
+  17: "f", 
+  18: "r", 
+  19: "f", 
+  20: "e", 
+  21: "c", 
+  22: "s", 
+  23: "e", 
+  24: "o", 
+  25: "t", 
 };
 
-export function AutocompleteMenu({
-  x,
-  y,
-  items,
-  selectedIndex,
-  onSelect,
-}: AutocompleteMenuProps) {
+export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: AutocompleteMenuProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to keep selected item in view
+  
   useEffect(() => {
     if (scrollRef.current) {
       const container = scrollRef.current;
@@ -80,11 +74,8 @@ export function AutocompleteMenu({
       className="fixed z-50 bg-white/80 dark:bg-black/80 backdrop-blur-xl border border-black/10 dark:border-white/10 shadow-2xl rounded-lg overflow-hidden flex font-sans"
       style={{ left: x, top: y, maxHeight: "300px" }}
     >
-      {/* 补全列表侧 */}
-      <div 
-        ref={scrollRef}
-        className="w-[280px] overflow-y-auto aurona-scroll flex flex-col py-1"
-      >
+      {}
+      <div ref={scrollRef} className="w-[280px] overflow-y-auto aurona-scroll flex flex-col py-1">
         {items.map((item, index) => {
           const isSelected = index === selectedIndex;
           const kindText = item.kind ? kindIconMap[item.kind] || "•" : "•";
@@ -93,8 +84,8 @@ export function AutocompleteMenu({
               key={index}
               onClick={() => onSelect(index)}
               className={`flex items-center px-3 py-1 cursor-pointer select-none text-[13px] transition-colors ${
-                isSelected 
-                  ? "bg-blue-500/20 text-blue-700 dark:text-blue-300" 
+                isSelected
+                  ? "bg-blue-500/20 text-blue-700 dark:text-blue-300"
                   : "text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5"
               }`}
             >
@@ -111,20 +102,21 @@ export function AutocompleteMenu({
           );
         })}
       </div>
-      
-      {/* 详情侧 (如果有选中且有文档) */}
-      {items[selectedIndex] && (items[selectedIndex].detail || items[selectedIndex].documentation) && (
-        <div className="w-[240px] border-l border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-900/50 p-3 overflow-y-auto aurona-scroll">
-          <div className="text-[12px] font-mono text-blue-600 dark:text-blue-400 mb-2 whitespace-pre-wrap break-all">
-            {items[selectedIndex].detail}
+
+      {}
+      {items[selectedIndex] &&
+        (items[selectedIndex].detail || items[selectedIndex].documentation) && (
+          <div className="w-[240px] border-l border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-900/50 p-3 overflow-y-auto aurona-scroll">
+            <div className="text-[12px] font-mono text-blue-600 dark:text-blue-400 mb-2 whitespace-pre-wrap break-all">
+              {items[selectedIndex].detail}
+            </div>
+            <div className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap break-all">
+              {typeof items[selectedIndex].documentation === "string"
+                ? items[selectedIndex].documentation
+                : (items[selectedIndex].documentation as any)?.value}
+            </div>
           </div>
-          <div className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap break-all">
-            {typeof items[selectedIndex].documentation === 'string' 
-              ? items[selectedIndex].documentation 
-              : (items[selectedIndex].documentation as any)?.value}
-          </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }

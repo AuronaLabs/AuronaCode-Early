@@ -1,47 +1,76 @@
-import React, { useCallback, useEffect, Suspense, lazy } from "react";
-import { Icons } from "../UI/Icons/IconManager";
-import { Card } from "../UI/Components/Card";
-import { EditorTabBar } from "../Features/Editor/EditorTabBar";
-import { showToast } from "../UI/Feedback/Toast";
-import { Tooltip } from "../UI/Feedback/Tooltip";
-import { Modal } from "../UI/Components/Modal";
-import { Button } from "../UI/Components/Button";
+import React, { lazy, Suspense, useCallback, useEffect } from "react";
+import { AboutTab } from "../Features/Settings/AboutTab";
+import { SettingsTab } from "../Features/Settings/SettingsTab";
+import { ChangelogTab } from "../Features/Settings/ChangelogTab";
 import { TerminalManager } from "../Core/TerminalService";
+import { EditorTabBar } from "../Features/Editor/EditorTabBar";
 import { EventBus } from "../Foundation/EventBus";
-import { useWorkspace } from "../State/WorkspaceContext";
-import { useTerminal } from "../State/TerminalContext";
-import { useEditor } from "../State/EditorContext";
 import type { TabItem } from "../Foundation/Types/Tab";
 import {
   SIDEBAR_EXPLORER,
   SIDEBAR_NOTIFICATIONS,
   SIDEBAR_SEARCH,
   SIDEBAR_SOURCE_CONTROL,
+  SIDEBAR_PLUGINS,
 } from "../Shared/Constants/Sidebar";
+import { useEditorStore } from "../State/useEditorStore";
+import { useTerminalStore } from "../State/useTerminalStore";
+import { useWorkspaceStore } from "../State/useWorkspaceStore";
+import { Button } from "../UI/Components/Button";
+import { Card } from "../UI/Components/Card";
+import { Modal } from "../UI/Components/Modal";
+import {
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "../UI/Components/DropdownMenu";
+import { showToast } from "../UI/Feedback/Toast";
+import { Tooltip } from "../UI/Feedback/Tooltip";
+import { Icons } from "../UI/Icons/IconManager";
 
-const FileExplorer = lazy(() => import("../Features/Explorer/FileExplorer").then(m => ({ default: m.FileExplorer })));
-const EditorTab = lazy(() => import("../Features/Editor/EditorTab").then(m => ({ default: m.EditorTab })));
-const AboutTab = lazy(() => import("../Features/Settings/AboutTab").then(m => ({ default: m.AboutTab })));
-const SettingsTab = lazy(() => import("../Features/Settings/SettingsTab").then(m => ({ default: m.SettingsTab })));
-const ChangelogTab = lazy(() => import("../Features/Settings/ChangelogTab").then(m => ({ default: m.ChangelogTab })));
-const NotificationsPanel = lazy(() => import("../Features/Notifications/NotificationsPanel").then(m => ({ default: m.NotificationsPanel })));
-const SourceControl = lazy(() => import("../Features/SourceControl/SourceControl").then(m => ({ default: m.SourceControl })));
-const TerminalView = lazy(() => import("../Features/Terminal/TerminalView").then(m => ({ default: m.TerminalView })));
-const SearchPanel = lazy(() => import("../Features/Search/SearchPanel").then(m => ({ default: m.SearchPanel })));
+const FileExplorer = lazy(() =>
+  import("../Features/Explorer/FileExplorer").then((m) => ({ default: m.FileExplorer })),
+);
+const EditorTab = lazy(() =>
+  import("../Features/Editor/EditorTab").then((m) => ({ default: m.EditorTab })),
+);
 
+const NotificationsPanel = lazy(() =>
+  import("../Features/Notifications/NotificationsPanel").then((m) => ({
+    default: m.NotificationsPanel,
+  })),
+);
+const SourceControl = lazy(() =>
+  import("../Features/SourceControl/SourceControl").then((m) => ({ default: m.SourceControl })),
+);
+const TerminalView = lazy(() =>
+  import("../Features/Terminal/TerminalView").then((m) => ({ default: m.TerminalView })),
+);
+const SearchPanel = lazy(() =>
+  import("../Features/Search/SearchPanel").then((m) => ({ default: m.SearchPanel })),
+);
+const PluginsPanel = lazy(() =>
+  import("../Features/Plugins/PluginsPanel").then((m) => ({ default: m.PluginsPanel })),
+);
 
 function renderTabContent(tab: TabItem, activeTabId: string | null) {
   let content = null;
+  const isActive = activeTabId === tab.id;
   if (tab.type === "file" && tab.path) {
-    content = <EditorTab path={tab.path} isActive={activeTabId === tab.id} />;
+    content = <EditorTab path={tab.path} isActive={isActive} />;
   } else if (tab.type === "about") {
-    content = <AboutTab />;
+    content = isActive ? <AboutTab /> : null;
   } else if (tab.type === "settings") {
-    content = <SettingsTab />;
+    content = isActive ? <SettingsTab /> : null;
   } else if (tab.type === "changelog") {
-    content = <ChangelogTab />;
+    content = isActive ? <ChangelogTab /> : null;
   }
-  return <Suspense fallback={<div className="w-full h-full bg-transparent flex items-center justify-center text-[var(--TextMuted)] text-xs">加载中...</div>}>{content}</Suspense>;
+  return (
+    <Suspense fallback={<div className="w-full h-full bg-transparent" />}>
+      {content}
+    </Suspense>
+  );
 }
 
 export function WorkspaceView() {
@@ -55,7 +84,7 @@ export function WorkspaceView() {
     openFile,
     closeTab,
     closeTabById,
-  } = useWorkspace();
+  } = useWorkspaceStore();
 
   const {
     terminals,
@@ -73,16 +102,16 @@ export function WorkspaceView() {
     setIsShellDropdownOpen,
     setEditingTerminalId,
     setEditingName,
-  } = useTerminal();
+  } = useTerminalStore();
 
-  const { editorStatus } = useEditor();
+  const { editorStatus } = useEditorStore();
 
   const handleSaveAndClose = useCallback(() => {
     if (!pendingCloseTab) return;
     setActiveTabId(pendingCloseTab.id);
   }, [pendingCloseTab, setActiveTabId]);
 
-  // 当为保存而切换的 tab 激活后，触发保存动作
+  
   useEffect(() => {
     if (pendingCloseTab && activeTabId === pendingCloseTab.id) {
       EventBus.emit("app:save-file");
@@ -91,43 +120,77 @@ export function WorkspaceView() {
 
   return (
     <div className="flex h-full w-full overflow-hidden text-[13px] bg-transparent pr-[var(--WorkspaceGap)] pb-1 pl-0 gap-[var(--WorkspaceGap)]">
-      {/* 侧边栏 */}
+      {}
       <Card
         className="flex w-[var(--SidebarWidth)] flex-col shrink-0 z-10"
         style={{ display: activeSidebar ? "flex" : "none" }}
       >
-        <div className="flex flex-1 flex-col min-h-0" style={{ display: activeSidebar === SIDEBAR_EXPLORER ? "flex" : "none" }}>
-          <Suspense fallback={<div className="p-4 text-[var(--TextMuted)] text-xs">Loading Explorer...</div>}>
+        <div
+          className="flex flex-1 flex-col min-h-0"
+          style={{ display: activeSidebar === SIDEBAR_EXPLORER ? "flex" : "none" }}
+        >
+          <Suspense
+            fallback={
+              <div className="p-4 text-[var(--TextMuted)] text-xs">Loading Explorer...</div>
+            }
+          >
             <FileExplorer onFileSelect={openFile} />
           </Suspense>
         </div>
-        <div className="flex flex-1 flex-col min-h-0" style={{ display: activeSidebar === SIDEBAR_SEARCH ? "flex" : "none" }}>
-          <Suspense fallback={<div className="p-4 text-[var(--TextMuted)] text-xs">Loading Search...</div>}>
+        <div
+          className="flex flex-1 flex-col min-h-0"
+          style={{ display: activeSidebar === SIDEBAR_SEARCH ? "flex" : "none" }}
+        >
+          <Suspense
+            fallback={<div className="p-4 text-[var(--TextMuted)] text-xs">Loading Search...</div>}
+          >
             <SearchPanel />
           </Suspense>
         </div>
-        <div className="flex flex-1 flex-col min-h-0" style={{ display: activeSidebar === SIDEBAR_SOURCE_CONTROL ? "flex" : "none" }}>
-          <Suspense fallback={<div className="p-4 text-[var(--TextMuted)] text-xs">Loading Git...</div>}>
+        <div
+          className="flex flex-1 flex-col min-h-0"
+          style={{ display: activeSidebar === SIDEBAR_SOURCE_CONTROL ? "flex" : "none" }}
+        >
+          <Suspense
+            fallback={<div className="p-4 text-[var(--TextMuted)] text-xs">Loading Git...</div>}
+          >
             <SourceControl />
           </Suspense>
         </div>
-        <div className="flex flex-1 flex-col min-h-0" style={{ display: activeSidebar === SIDEBAR_NOTIFICATIONS ? "flex" : "none" }}>
-          <Suspense fallback={<div className="p-4 text-[var(--TextMuted)] text-xs">Loading Notifications...</div>}>
+        <div
+          className="flex flex-1 flex-col min-h-0"
+          style={{ display: activeSidebar === SIDEBAR_NOTIFICATIONS ? "flex" : "none" }}
+        >
+          <Suspense
+            fallback={
+              <div className="p-4 text-[var(--TextMuted)] text-xs">Loading Notifications...</div>
+            }
+          >
             <NotificationsPanel />
+          </Suspense>
+        </div>
+        <div
+          className="flex flex-1 flex-col min-h-0"
+          style={{ display: activeSidebar === SIDEBAR_PLUGINS ? "flex" : "none" }}
+        >
+          <Suspense
+            fallback={<div className="p-4 text-[var(--TextMuted)] text-xs">Loading Plugins...</div>}
+          >
+            <PluginsPanel />
           </Suspense>
         </div>
       </Card>
 
-      {/* 主区域 */}
+      {}
       <div className="flex flex-1 flex-col min-w-0 gap-[var(--WorkspaceGap)] relative">
-        {/* 编辑器区域 */}
+        {}
         <Card className="flex flex-1 flex-col min-w-0 relative overflow-hidden">
           {tabs.length > 0 ? (
             <div className="flex flex-1 flex-col overflow-hidden bg-transparent relative">
-              {/* 标签栏 */}
+              {}
               <EditorTabBar />
 
-              {/* 内容区 */}
+              {}
               <div className="flex-1 min-h-0 overflow-hidden relative">
                 {tabs.map((tab) => (
                   <div
@@ -144,8 +207,7 @@ export function WorkspaceView() {
               </div>
             </div>
           ) : (
-            /* 欢迎页 */
-            <div className="flex flex-1 items-center justify-center text-[var(--TextMuted)] flex-col gap-6 select-none bg-transparent">
+                        <div className="flex flex-1 items-center justify-center text-[var(--TextMuted)] flex-col gap-6 select-none bg-transparent">
               <div className="flex flex-col items-center gap-4 opacity-50 hover:opacity-80 transition-opacity duration-500">
                 <img src="/logo.png" alt="Logo" className="w-24 h-24 object-contain" />
               </div>
@@ -174,12 +236,15 @@ export function WorkspaceView() {
           )}
         </Card>
 
-        {/* 底部面板（终端/问题/输出） */}
+        {}
         <Card
           className="shrink-0 flex flex-col min-w-0 relative overflow-hidden group border-t-0"
-          style={{ height: isTerminalOpen ? "300px" : 0, display: isTerminalOpen ? "flex" : "none" }}
+          style={{
+            height: isTerminalOpen ? "300px" : 0,
+            display: isTerminalOpen ? "flex" : "none",
+          }}
         >
-          {/* 面板标签栏 */}
+          {}
           <div className="flex items-center px-3 py-1.5 bg-transparent relative z-10 select-none border-t border-[var(--GlassBorder)]">
             <div className="flex items-center gap-0.5">
               {(["problems", "output", "terminal"] as const).map((tabId) => {
@@ -237,7 +302,9 @@ export function WorkspaceView() {
                     <Tooltip content="清空终端" delay={300} placement="top">
                       <button
                         className="flex h-[26px] w-[26px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors"
-                        onClick={() => { if (activeTerminalId) TerminalManager.clearTerminal(activeTerminalId); }}
+                        onClick={() => {
+                          if (activeTerminalId) TerminalManager.clearTerminal(activeTerminalId);
+                        }}
                       >
                         <Icons.Eraser size={14} />
                       </button>
@@ -250,28 +317,28 @@ export function WorkspaceView() {
                         <Icons.Plus size={14} />
                       </button>
                     </Tooltip>
-                    <button
-                      className="flex h-[26px] w-[16px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors absolute -right-4 top-0"
-                      onClick={() => setIsShellDropdownOpen(!isShellDropdownOpen)}
+                    <DropdownMenuRoot
+                      open={isShellDropdownOpen}
+                      onOpenChange={setIsShellDropdownOpen}
                     >
-                      <Icons.ChevronDown size={10} />
-                    </button>
-                    {isShellDropdownOpen && (
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={() => setIsShellDropdownOpen(false)} />
-                        <div className="absolute right-0 top-full mt-1 w-52 bg-[var(--GlassSurface)] backdrop-blur-xl border border-[var(--GlassBorder)] rounded-lg shadow-lg z-50 p-1">
-                          {availableShells.map((shell) => (
-                            <button
-                              key={shell.id}
-                              className="flex w-full cursor-pointer items-center justify-between gap-8 rounded px-3 py-1.5 text-left hover:bg-black/5 dark:hover:bg-white/10 text-[var(--TextPrimary)] hover:text-[var(--TextHighlight)] transition-colors text-[12px]"
-                              onClick={() => { TerminalManager.createTerminal(shell.id); setIsShellDropdownOpen(false); }}
-                            >
-                              {shell.name}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
+                      <DropdownMenuTrigger asChild>
+                        <button className="flex h-[26px] w-[16px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors absolute -right-4 top-0">
+                          <Icons.ChevronDown size={10} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" sideOffset={4}>
+                        {availableShells.map((shell) => (
+                          <DropdownMenuItem
+                            key={shell.id}
+                            label={shell.name}
+                            onSelect={() => {
+                              TerminalManager.createTerminal(shell.id);
+                              setIsShellDropdownOpen(false);
+                            }}
+                          />
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenuRoot>
                   </div>
                 </div>
               )}
@@ -287,7 +354,7 @@ export function WorkspaceView() {
             </div>
           </div>
 
-          {/* 面板内容 */}
+          {}
           <div className="flex-1 relative overflow-hidden bg-transparent border-t border-[var(--GlassBorder)] flex">
             <div
               className="flex-1 relative"
@@ -302,7 +369,13 @@ export function WorkspaceView() {
                     zIndex: activeTerminalId === term.id ? 1 : 0,
                   }}
                 >
-                  <Suspense fallback={<div className="flex items-center justify-center w-full h-full text-[var(--TextMuted)] text-xs">加载终端...</div>}>
+                  <Suspense
+                    fallback={
+                      <div className="flex items-center justify-center w-full h-full text-[var(--TextMuted)] text-xs">
+                        加载终端...
+                      </div>
+                    }
+                  >
                     <TerminalView
                       id={term.id}
                       isActive={activeBottomTab === "terminal" && activeTerminalId === term.id}
@@ -320,7 +393,10 @@ export function WorkspaceView() {
                   <div
                     key={term.id}
                     onClick={() => TerminalManager.setActiveTerminal(term.id)}
-                    onDoubleClick={() => { setEditingTerminalId(term.id); setEditingName(term.name); }}
+                    onDoubleClick={() => {
+                      setEditingTerminalId(term.id);
+                      setEditingName(term.name);
+                    }}
                     className={`group flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer select-none transition-colors ${
                       activeTerminalId === term.id
                         ? "bg-[var(--AccentPrimary)]/10 text-[var(--AccentPrimary)]"
@@ -336,9 +412,15 @@ export function WorkspaceView() {
                           value={editingName}
                           className="bg-transparent outline-none w-full text-[12px] text-[var(--TextHighlight)]"
                           onChange={(e) => setEditingName(e.target.value)}
-                          onBlur={() => { TerminalManager.renameTerminal(term.id, editingName); setEditingTerminalId(null); }}
+                          onBlur={() => {
+                            TerminalManager.renameTerminal(term.id, editingName);
+                            setEditingTerminalId(null);
+                          }}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") { TerminalManager.renameTerminal(term.id, editingName); setEditingTerminalId(null); }
+                            if (e.key === "Enter") {
+                              TerminalManager.renameTerminal(term.id, editingName);
+                              setEditingTerminalId(null);
+                            }
                             if (e.key === "Escape") setEditingTerminalId(null);
                           }}
                         />
@@ -348,7 +430,10 @@ export function WorkspaceView() {
                     </div>
                     <button
                       className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-black/10 dark:hover:bg-white/20 rounded transition-all shrink-0 ml-1"
-                      onClick={(e) => { e.stopPropagation(); TerminalManager.removeTerminal(term.id); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        TerminalManager.removeTerminal(term.id);
+                      }}
                     >
                       <Icons.Trash size={12} className="text-red-500/80 hover:text-red-500" />
                     </button>
@@ -379,7 +464,7 @@ export function WorkspaceView() {
                           {marker.message}
                         </span>
                         <span className="text-[11px] text-[var(--TextMuted)] mt-0.5 font-mono">
-                          [{marker.source || "monaco"}] Ln {marker.line}, Col {marker.column}
+                          [{marker.source || "aurona"}] Ln {marker.line}, Col {marker.column}
                         </span>
                       </div>
                     </div>
@@ -395,14 +480,14 @@ export function WorkspaceView() {
 
             {activeBottomTab === "output" && (
               <div className="absolute inset-0 p-3 font-mono text-[13px] text-[var(--TextMuted)] overflow-y-auto no-scrollbar">
-                {/* TODO: 接管真实的 EventBus 输出流 */}
+                {}
               </div>
             )}
           </div>
         </Card>
       </div>
 
-      {/* 未保存关闭确认弹窗 */}
+      {}
       <Modal
         isOpen={!!pendingCloseTab}
         onClose={() => setPendingCloseTab(null)}

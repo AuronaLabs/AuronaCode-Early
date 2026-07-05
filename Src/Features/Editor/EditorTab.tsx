@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Icons } from "../../UI/Icons/IconManager";
-import { EventBus } from "../../Foundation/EventBus";
 import { FileSystemService } from "../../Core/FileSystemService";
-import { showToast } from "../../UI/Feedback/Toast";
-import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
+import { EventBus } from "../../Foundation/EventBus";
 import { isBinaryExtension } from "../../Shared/Constants/FileTypes";
+import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
+import { showToast } from "../../UI/Feedback/Toast";
+import { Icons } from "../../UI/Icons/IconManager";
 
 import { AuronaEngine } from "./AuronaEngine";
 
@@ -137,7 +137,9 @@ export const EditorTab = React.memo(function EditorTab({ path, isActive }: Edito
           <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5 text-[var(--TextMuted)] mb-6">
             <Icons.FileCode size={40} stroke={1} />
           </div>
-          <h3 className="text-[16px] font-semibold text-[var(--TextHighlight)] mb-2">无法显示此文件</h3>
+          <h3 className="text-[16px] font-semibold text-[var(--TextHighlight)] mb-2">
+            无法显示此文件
+          </h3>
           <p className="text-[13px] text-[var(--TextMuted)] mb-8 max-w-[420px] leading-relaxed">
             该文件可能是二进制文件，或使用了暂不支持的文本编码强行在编辑器中打开可能会导致乱码或性能问题
           </p>
@@ -152,14 +154,16 @@ export const EditorTab = React.memo(function EditorTab({ path, isActive }: Edito
           </button>
         </div>
       ) : (
-        <div className={`flex-1 overflow-hidden relative bg-transparent transition-opacity duration-300 ${isEditorReady ? "opacity-100" : "opacity-0"}`}>
-            <AuronaEngine
-              value={fileContent}
-              language={GetLanguageFromPath(path)}
-              isActive={isActive}
-              onChange={setFileContent}
-              path={path}
-            />
+        <div
+          className={`flex-1 overflow-hidden relative bg-transparent transition-opacity duration-300 ${isEditorReady ? "opacity-100" : "opacity-0"}`}
+        >
+          <AuronaEngine
+            value={fileContent}
+            language={GetLanguageFromPath(path)}
+            isActive={isActive}
+            onChange={setFileContent}
+            path={path}
+          />
           {isSaving && (
             <div className="absolute right-3 bottom-3 rounded-md border border-[var(--GlassBorder)] bg-[var(--GlassSurface)] backdrop-blur-xl px-3 py-1.5 text-[12px] text-[var(--TextMuted)] shadow-lg">
               正在保存...

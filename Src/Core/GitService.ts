@@ -1,4 +1,4 @@
-import { GitFullStatus, GitFile, GitCommit } from "../Foundation/IPC/GitCommands";
+import { type GitCommit, type GitFile, GitFullStatus } from "../Foundation/IPC/GitCommands";
 
 export type SourceControlCache = {
   repoPath: string | null;

@@ -1,7 +1,7 @@
-import { Component, ErrorInfo, ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Logger } from "../Foundation/Logger";
-import { Icons } from "../UI/Icons/IconManager";
 import { Button } from "../UI/Components/Button";
+import { Icons } from "../UI/Icons/IconManager";
 
 interface Props {
   children?: ReactNode;
@@ -58,7 +58,9 @@ export class ErrorBoundary extends Component<Props, State> {
             <p className="text-sm text-[var(--TextMuted)] leading-relaxed">
               工作区遇到了未处理错误你可以重启前端引擎，或复制日志地址继续排查
             </p>
-            <p className="text-sm text-[var(--TextMuted)] font-mono">CrashID: {Logger.getLogId()}</p>
+            <p className="text-sm text-[var(--TextMuted)] font-mono">
+              CrashID: {Logger.getLogId()}
+            </p>
 
             <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
               <Button variant="primary" onClick={this.handleReload} className="px-8 py-2">

@@ -20,7 +20,7 @@ export class LspClient {
   private unlistenDiagnostics: (() => void) | null = null;
 
   private constructor() {
-    this.setupListeners().catch(e => console.error("Failed to setup LSP listeners:", e));
+    this.setupListeners().catch((e) => console.error("Failed to setup LSP listeners:", e));
   }
 
   public static getInstance(): LspClient {
@@ -36,7 +36,7 @@ export class LspClient {
       this.unlistenDiagnostics = null;
     }
     this.unlistenDiagnostics = await listen("lsp://diagnostics", (event: any) => {
-      // payload looks like: { uri: "file://...", diagnostics: [...] }
+      
       if (event.payload && event.payload.params) {
         EventBus.emit("lsp:diagnostics", event.payload.params);
       }
@@ -45,10 +45,10 @@ export class LspClient {
 
   public async startServer(language: string) {
     if (this.runningServers.has(language)) return;
-    
+
     let command = "";
     let args: string[] = [];
-    
+
     if (language === "rust") {
       command = "rust-analyzer";
     } else if (language === "typescript" || language === "javascript") {
@@ -100,27 +100,33 @@ export class LspClient {
     }
   }
 
-  public async getCompletions(language: string, path: string, line: number, character: number, reqId?: number): Promise<any> {
+  public async getCompletions(
+    language: string,
+    path: string,
+    line: number,
+    character: number,
+    reqId?: number,
+  ): Promise<any> {
     if (!this.runningServers.has(language)) return null;
     try {
       const params = {
         textDocument: { uri: `file:///${path.replace(/\\/g, "/")}` },
-        position: { line, character }
+        position: { line, character },
       };
-      
+
       if (reqId !== undefined) {
         return await invoke("lsp_call_with_id", {
           language,
           id: reqId,
           method: "textDocument/completion",
-          params
+          params,
         });
       }
 
       return await invoke("lsp_call", {
         language,
         method: "textDocument/completion",
-        params
+        params,
       });
     } catch (e) {
       console.error(`Failed getCompletions for ${path}:`, e);
@@ -137,7 +143,12 @@ export class LspClient {
     }
   }
 
-  public async getHoverInfo(language: string, path: string, line: number, character: number): Promise<HoverResult | null> {
+  public async getHoverInfo(
+    language: string,
+    path: string,
+    line: number,
+    character: number,
+  ): Promise<HoverResult | null> {
     if (!this.runningServers.has(language)) return null;
     try {
       return await invoke("lsp_call", {
@@ -145,8 +156,8 @@ export class LspClient {
         method: "textDocument/hover",
         params: {
           textDocument: { uri: `file:///${path.replace(/\\/g, "/")}` },
-          position: { line, character }
-        }
+          position: { line, character },
+        },
       });
     } catch (e) {
       console.error(`Failed getHoverInfo for ${path}:`, e);
@@ -154,7 +165,12 @@ export class LspClient {
     }
   }
 
-  public async getDefinition(language: string, path: string, line: number, character: number): Promise<any> {
+  public async getDefinition(
+    language: string,
+    path: string,
+    line: number,
+    character: number,
+  ): Promise<any> {
     if (!this.runningServers.has(language)) return null;
     try {
       return await invoke("lsp_call", {
@@ -162,8 +178,8 @@ export class LspClient {
         method: "textDocument/definition",
         params: {
           textDocument: { uri: `file:///${path.replace(/\\/g, "/")}` },
-          position: { line, character }
-        }
+          position: { line, character },
+        },
       });
     } catch (e) {
       console.error(`Failed getDefinition for ${path}:`, e);
@@ -181,9 +197,9 @@ export class LspClient {
           textDocument: { uri: `file:///${path.replace(/\\/g, "/")}` },
           options: {
             tabSize: 2,
-            insertSpaces: true
-          }
-        }
+            insertSpaces: true,
+          },
+        },
       });
     } catch (e) {
       console.error(`Failed formatDocument for ${path}:`, e);

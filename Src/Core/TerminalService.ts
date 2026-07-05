@@ -2,7 +2,7 @@ import { EventBus } from "../Foundation/EventBus";
 import { PtyIPC } from "../Foundation/IPC/PtyCommands";
 import type { ShellProfile, TerminalInstance } from "../Foundation/Types/Terminal";
 
-// 向后兼容 re-export
+
 export type { ShellProfile, TerminalInstance };
 
 class TerminalServiceImpl {
@@ -28,14 +28,14 @@ class TerminalServiceImpl {
       shells[0] ??
       ({ id: "default", name: "Shell", path: "", icon: "terminal" } as ShellProfile);
 
-    // 使用递增索引而不是 length，避免删除后编号重复
+    
     const id = `terminal-${Date.now()}`;
     const name = `${shell.name} ${this.nextIndex++}`;
     const instance: TerminalInstance = { id, name, shell, cwd };
 
     this.terminals.push(instance);
     this.setActiveTerminal(id);
-    // 发布浅拷贝，防止外部修改内部状态
+    
     EventBus.emit("terminal:list-changed", [...this.terminals]);
     return instance;
   }
@@ -72,19 +72,14 @@ class TerminalServiceImpl {
     return this.activeTerminalId;
   }
 
-  /**
-   * 向指定终端（或新建终端）写入命令。
-   * 不再使用 setTimeout hack，改为通过 PTY ready 事件确保时序。
-   * 当前仍使用 300ms 延迟作为过渡方案，待 0.1.1 引入 PTY ready 回调后移除。
-   */
-  async executeCommand(id: string | null, command: string): Promise<void> {
+    async executeCommand(id: string | null, command: string): Promise<void> {
     let targetId = id ?? this.activeTerminalId;
     if (!targetId) {
       const instance = await this.createTerminal();
       targetId = instance.id;
     }
     EventBus.emit("app:toggle-terminal", true);
-    // TODO(0.1.1): 替换为 PTY ready 事件，移除硬编码延迟
+    
     await new Promise<void>((resolve) => setTimeout(resolve, 300));
     await PtyIPC.write(targetId, command + "\r\n");
   }
@@ -94,5 +89,5 @@ class TerminalServiceImpl {
   }
 }
 
-// 统一命名：TerminalManager
+
 export const TerminalManager = new TerminalServiceImpl();

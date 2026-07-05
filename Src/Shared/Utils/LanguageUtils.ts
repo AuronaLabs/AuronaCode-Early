@@ -7,7 +7,8 @@ export function GetLanguageFromPath(path: string | null): string {
 
   if (["ts", "tsx", "mts", "cts"].includes(ext)) return "typescript";
   if (["js", "jsx", "mjs", "cjs"].includes(ext)) return "javascript";
-  if (["json", "jsonc", "eslintrc", "prettierrc"].includes(ext) || filename.endsWith("rc")) return "json";
+  if (["json", "jsonc", "eslintrc", "prettierrc"].includes(ext) || filename.endsWith("rc"))
+    return "json";
   if (["css", "scss", "sass", "less"].includes(ext)) return ext === "css" ? "css" : "scss";
   if (["html", "htm", "xhtml"].includes(ext)) return "html";
   if (["md", "mdx", "markdown"].includes(ext)) return "markdown";
@@ -16,7 +17,8 @@ export function GetLanguageFromPath(path: string | null): string {
   if (["java"].includes(ext)) return "java";
   if (["c", "cc", "cpp", "cxx", "h", "hh", "hpp", "hxx"].includes(ext)) return "cpp";
   if (["go"].includes(ext)) return "go";
-  if (["sh", "bash", "zsh", "fish", "ps1"].includes(ext)) return ext === "ps1" ? "powershell" : "shell";
+  if (["sh", "bash", "zsh", "fish", "ps1"].includes(ext))
+    return ext === "ps1" ? "powershell" : "shell";
   if (["xml", "svg"].includes(ext)) return "xml";
   if (["yaml", "yml"].includes(ext)) return "yaml";
   if (["toml"].includes(ext)) return "toml";

@@ -38,7 +38,7 @@ Src/
  │    └── TerminalContext.tsx # 终端实例的集合状态
  │
  ├── Features/            [业务功能实体模块]
- │    ├── Editor/         # 代码编辑器引擎 (LSP 客户端、Monaco 集成、TabBar)
+ │    ├── Editor/         # 代码编辑器引擎 (LSP 客户端、Aurona Editor、TabBar)
  │    ├── Explorer/       # 左侧文件树面板
  │    ├── Search/         # 跨文件文本搜索面板
  │    ├── SourceControl/  # Git 暂存与提交交互面板

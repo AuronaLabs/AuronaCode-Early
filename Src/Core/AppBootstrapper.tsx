@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { WorkspaceStore } from "../Foundation/Storage/WorkspaceStore";
+import type React from "react";
+import { useEffect, useState } from "react";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
+import { WorkspaceStore } from "../Foundation/Storage/WorkspaceStore";
 
 interface Props {
   children: React.ReactNode;
@@ -12,7 +13,7 @@ const applyResponsiveDensity = (density?: "compact" | "default" | "comfortable")
     root.dataset.density = density;
     return;
   }
-  
+
   const width = window.innerWidth;
   const height = window.innerHeight;
   const dpr = window.devicePixelRatio || 1;
@@ -41,7 +42,7 @@ export function AppBootstrapper({ children }: Props) {
       try {
         await UserConfigStore.init();
         const userConfig = await UserConfigStore.get();
-        
+
         const savedTheme = userConfig.theme || "system";
         const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
         if (savedTheme === "dark" || (savedTheme === "system" && prefersDark)) {
@@ -49,10 +50,10 @@ export function AppBootstrapper({ children }: Props) {
         } else {
           document.documentElement.classList.remove("dark");
         }
-        
+
         applyResponsiveDensity(userConfig.density);
 
-        // Apply Editor and Terminal font sizes
+        
         const savedEditorFont = userConfig.editorFontSize?.toString() || "14";
         const savedTerminalFont = userConfig.terminalFontSize?.toString() || "13";
         document.documentElement.style.setProperty("--EditorFontSize", `${savedEditorFont}px`);
@@ -71,14 +72,14 @@ export function AppBootstrapper({ children }: Props) {
 
         setTimeout(() => {
           if (!mounted) return;
-          
+
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               if (!mounted) return;
               setFade(true);
               setTimeout(() => {
                 if (mounted) setStatus("ready");
-              }, 700); // 700ms wait for the new scale/blur transition
+              }, 700); 
             });
           });
         }, waitTime);
@@ -95,12 +96,12 @@ export function AppBootstrapper({ children }: Props) {
     const handleResize = () => {
       if (resizeTimer) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
-        UserConfigStore.get().then(config => {
+        UserConfigStore.get().then((config) => {
           applyResponsiveDensity(config.density);
         });
       }, 150);
     };
-    
+
     window.addEventListener("resize", handleResize);
     return () => {
       mounted = false;
@@ -117,11 +118,23 @@ export function AppBootstrapper({ children }: Props) {
           style={{
             opacity: fade ? 0 : 1,
             transition: "opacity 0.4s ease-out",
-            pointerEvents: fade ? "none" : "auto"
+            pointerEvents: fade ? "none" : "auto",
           }}
         >
-          <svg className="w-11 h-11 mb-6 animate-spin text-[var(--AccentPrimary)]" viewBox="0 0 50 50">
-            <circle className="stroke-current" cx="25" cy="25" r="20" fill="none" strokeWidth="8" strokeLinecap="round" strokeDasharray="90, 150" />
+          <svg
+            className="w-11 h-11 mb-6 animate-spin text-[var(--AccentPrimary)]"
+            viewBox="0 0 50 50"
+          >
+            <circle
+              className="stroke-current"
+              cx="25"
+              cy="25"
+              r="20"
+              fill="none"
+              strokeWidth="8"
+              strokeLinecap="round"
+              strokeDasharray="90, 150"
+            />
           </svg>
           <div className="h-6 overflow-hidden text-slate-500 text-sm font-medium">
             <div className="h-6 flex items-center justify-center whitespace-nowrap">

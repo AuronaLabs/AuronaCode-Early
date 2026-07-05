@@ -10,8 +10,15 @@ export interface ExplorerContextValue {
   onInlineCreate: (name: string) => void;
   onInlineCancel: () => void;
   onInlineRename: (oldPath: string, newName: string) => void;
-  onContextMenu: (event: React.MouseEvent, node: FileNode) => void;
   onDrop: (sourcePath: string, targetPath: string) => void;
+  startInlineCreateAt: (type: "file" | "folder", parentPath: string) => void;
+  setInlineEditing: (path: string | null) => void;
+  setClipboard: (cb: { path: string; isCut: boolean } | null) => void;
+  clipboard: { path: string; isCut: boolean } | null;
+  handlePaste: (targetDir: string) => void;
+  handleDuplicate: (node: FileNode) => void;
+  setDeletePrompt: (node: FileNode | null) => void;
+  rootPath: string;
 }
 
 export const ExplorerContext = createContext<ExplorerContextValue | null>(null);

@@ -32,7 +32,7 @@ class NotificationServiceImpl {
   }
 
   private add(item: NotificationItem) {
-    this.history = [item, ...this.history].slice(0, 100); // 仅保留最近100条
+    this.history = [item, ...this.history].slice(0, 100); 
     EventBus.emit("notifications:updated", this.history);
   }
 
@@ -46,16 +46,16 @@ class NotificationServiceImpl {
   }
 
   public markAllAsRead() {
-    this.history = this.history.map(item => ({ ...item, read: true }));
+    this.history = this.history.map((item) => ({ ...item, read: true }));
     EventBus.emit("notifications:updated", this.history);
   }
 
   public getUnreadCount() {
-    return this.history.filter(item => !item.read).length;
+    return this.history.filter((item) => !item.read).length;
   }
 }
 
-// 扩展全局事件
+
 declare module "../Foundation/EventBus" {
   interface EventMap {
     "notifications:updated": NotificationItem[];

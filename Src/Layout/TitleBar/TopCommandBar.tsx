@@ -11,7 +11,9 @@ export function TopCommandBar() {
     <header className="flex h-[76px] shrink-0 items-center gap-4 border-b border-white/8 bg-[var(--ColorTopbar)] px-6 backdrop-blur">
       <div className="flex min-w-0 flex-1 items-center gap-3 rounded-[18px] border border-white/10 bg-white/[0.045] px-4 py-3">
         <IconSearch className="shrink-0 text-[var(--TextMuted)]" size={20} stroke={1.8} />
-        <span className="truncate text-sm text-[var(--ColorSubtle)]">Search project, ask Agent, or jump to a Git story</span>
+        <span className="truncate text-sm text-[var(--ColorSubtle)]">
+          Search project, ask Agent, or jump to a Git story
+        </span>
         <kbd className="ml-auto flex shrink-0 items-center gap-1 rounded-[10px] border border-white/10 bg-black/20 px-2 py-1 text-xs text-[var(--TextMuted)]">
           <IconCommand size={13} /> K
         </kbd>

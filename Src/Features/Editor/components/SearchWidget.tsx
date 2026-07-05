@@ -1,10 +1,6 @@
-import React, { useState, useRef, useEffect } from "react";
-import {
-  IconSearch,
-  IconX,
-  IconChevronUp,
-  IconChevronDown,
-} from "@tabler/icons-react";
+import { IconChevronDown, IconChevronUp, IconSearch, IconX } from "@tabler/icons-react";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface SearchWidgetProps {
   onSearch: (query: string) => void;
@@ -51,11 +47,7 @@ export function SearchWidget({
   return (
     <div className="absolute top-4 right-8 z-50 flex items-center bg-white/70 dark:bg-[#1e1e1e]/80 backdrop-blur-2xl border border-black/5 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)] rounded-xl overflow-hidden h-10 font-sans transition-all w-[340px]">
       <div className="flex-1 flex items-center pl-4 pr-3 h-full">
-        <IconSearch
-          size={14}
-          stroke={2}
-          className="text-gray-400 dark:text-gray-500 mr-2.5"
-        />
+        <IconSearch size={14} stroke={2} className="text-gray-400 dark:text-gray-500 mr-2.5" />
         <input
           ref={inputRef}
           type="text"

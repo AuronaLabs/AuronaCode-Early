@@ -1,30 +1,31 @@
-import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { TitleBar } from "./TitleBar/TitleBar";
-import { ActivitySquare } from "../UI/Components/ActivitySquare";
-import { Icons } from "../UI/Icons/IconManager";
-import { EventBus } from "../Foundation/EventBus";
-import { ToastContainer } from "../UI/Feedback/Toast";
-import { StatusBar } from "./StatusBar";
-import { SearchPanel } from "../Features/Search/SearchPanel";
+import { useEffect, useState } from "react";
 import { NotificationService } from "../Core/NotificationService";
+import { SearchPanel } from "../Features/Search/SearchPanel";
+import { EventBus } from "../Foundation/EventBus";
 import {
   SIDEBAR_EXPLORER,
   SIDEBAR_NOTIFICATIONS,
   SIDEBAR_SEARCH,
   SIDEBAR_SOURCE_CONTROL,
+  SIDEBAR_PLUGINS,
 } from "../Shared/Constants/Sidebar";
+import { ActivitySquare } from "../UI/Components/ActivitySquare";
+import { ToastContainer } from "../UI/Feedback/Toast";
+import { Icons } from "../UI/Icons/IconManager";
+import { StatusBar } from "./StatusBar";
+import { TitleBar } from "./TitleBar/TitleBar";
 
 type AppShellProps = {
   Children: ReactNode;
 };
 
-
-
 export function AppShell({ Children }: AppShellProps) {
   const [activeTab, setActiveTab] = useState<string | null>(SIDEBAR_EXPLORER);
   const [hasGitBadge, setHasGitBadge] = useState(false);
-  const [unreadNotifications, setUnreadNotifications] = useState(NotificationService.getUnreadCount());
+  const [unreadNotifications, setUnreadNotifications] = useState(
+    NotificationService.getUnreadCount(),
+  );
 
   useEffect(() => {
     const unsubGit = EventBus.on("git:changes-count", (count: number) => {
@@ -39,12 +40,11 @@ export function AppShell({ Children }: AppShellProps) {
     };
   }, []);
 
-
-
   const activityItems = [
     { label: SIDEBAR_EXPLORER, Icon: Icons.Files, badge: false },
     { label: SIDEBAR_SEARCH, Icon: Icons.Search, badge: false },
     { label: SIDEBAR_SOURCE_CONTROL, Icon: Icons.Git, badge: hasGitBadge },
+    { label: SIDEBAR_PLUGINS, Icon: Icons.Extensions, badge: false },
   ];
 
   const toggleActivity = (label: string) => {
@@ -54,7 +54,10 @@ export function AppShell({ Children }: AppShellProps) {
   };
 
   return (
-    <div className="flex h-dvh w-screen flex-col text-[var(--TextPrimary)] overflow-hidden" style={{ background: "var(--AppBackground, var(--AppBg))" }}>
+    <div
+      className="flex h-dvh w-screen flex-col text-[var(--TextPrimary)] overflow-hidden"
+      style={{ background: "var(--AppBackground, var(--AppBg))" }}
+    >
       <TitleBar />
 
       <div className="flex flex-1 min-h-0 overflow-hidden">

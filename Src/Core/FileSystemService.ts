@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import {
   exists,
   mkdir,
@@ -7,7 +8,6 @@ import {
   rename,
   writeTextFile,
 } from "@tauri-apps/plugin-fs";
-import { invoke } from "@tauri-apps/api/core";
 
 export type FileNode = {
   name: string;
@@ -39,7 +39,8 @@ export const FileSystemService = {
     if (/[\\/]/.test(trimmed)) return "名称不能包含路径分隔符";
     if (/^[. ]+$/.test(trimmed)) return "名称不能只包含点或空格";
     if (/[<>:"|?*]/.test(trimmed)) return "名称包含 Windows 不支持的字符";
-    if (/^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i.test(trimmed)) return "名称为 Windows 保留字";
+    if (/^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i.test(trimmed))
+      return "名称为 Windows 保留字";
     return null;
   },
 
@@ -128,7 +129,7 @@ export const FileSystemService = {
     const bakPath = `${path}.aurona.bak`;
     try {
       await writeTextFile(tmpPath, content);
-      
+
       const fileExists = await exists(path);
       if (fileExists) {
         if (await exists(bakPath)) {
@@ -136,9 +137,9 @@ export const FileSystemService = {
         }
         await rename(path, bakPath);
       }
-      
+
       await rename(tmpPath, path);
-      
+
       if (fileExists) {
         await remove(bakPath).catch(() => {});
       }

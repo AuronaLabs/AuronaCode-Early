@@ -140,23 +140,26 @@ def ShowMenu():
     except Exception:
         Version = 'Error Reading Config'
     
-    Title = " AURONA MANAGER "
-    Content = f"""[dim]Version:[/dim] {Version}
-[dim]Workspace:[/dim] {os.getcwd()}
+    Title = " [bold cyan]AURONA MANAGER[/bold cyan] [dim](Corona+)[/dim] "
+    Content = f"""[dim]Version:[/dim] [bold white]{Version}[/bold white]
+[dim]Workspace:[/dim] [italic]{os.getcwd()}[/italic]
 
-  [bold]1.[/bold] 启动开发环境 (Tauri Dev)
-  [bold]2.[/bold] 安装前端依赖项 (Install Dependencies)
-  [bold]3.[/bold] 清理构建缓存 (Clean Targets)
-  [bold]4.[/bold] 修改应用版本号 (Sync Version)
-  [bold]5.[/bold] 编译前端资源 (Vite Build)
-  [bold]6.[/bold] 生成标准安装包 (Tauri Build)
-  [bold]7.[/bold] 配置打包参数 (Edit Tauri Config)
-  [bold]8.[/bold] 检查环境配置 (Auto Setup Env)
-  [bold]9.[/bold] 检查 GitHub 仓库状态 (Check GitHub Status)
+[bold cyan]▶[/bold cyan] [bold]开发与构建[/bold]
+  [bold]1.[/bold] 启动极速开发环境 [dim](Tauri Dev)[/dim]
+  [bold]2.[/bold] 编译前端静态资源 [dim](Vite Build)[/dim]
+  [bold]3.[/bold] 生成生产级安装包 [dim](Tauri Build)[/dim]
+  [bold]4.[/bold] 清理应用构建缓存 [dim](Clean Targets)[/dim]
+
+[bold magenta]▶[/bold magenta] [bold]配置与维护[/bold]
+  [bold]5.[/bold] 同步工程版本号   [dim](Sync Version)[/dim]
+  [bold]6.[/bold] 交互式打包配置   [dim](Edit Tauri Config)[/dim]
+  [bold]7.[/bold] 全自动环境检查   [dim](Auto Setup Env)[/dim]
+  [bold]8.[/bold] 安装前端依赖项   [dim](Install Dependencies)[/dim]
+  [bold]9.[/bold] 检查 GitHub 状态 [dim](Check GitHub Status)[/dim]
   
-  [bold]0.[/bold] 退出 (Exit)
+  [bold red]0.[/bold red] 安全退出         [dim](Exit)[/dim]
 """
-    ConsoleInstance.print(Panel(Content, title=Title, title_align="left", border_style="dim", padding=(1, 4)))
+    ConsoleInstance.print(Panel(Content, title=Title, title_align="left", border_style="cyan", padding=(1, 4)))
 
 def UpdateVersions():
     TauriData = ReadJson(TauriConf)
@@ -298,7 +301,7 @@ def Main():
         Choice = Prompt.ask("请选择操作编号", choices=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], default="1")
         
         if Choice == "1":
-            ConsoleInstance.print("\n[dim]:: 启动 Tauri 开发服务器... (Ctrl+C 中止) ::[/dim]")
+            ConsoleInstance.print("\n[dim]:: 启动极速开发环境 (Tauri Dev)... (Ctrl+C 中止) ::[/dim]")
             try:
                 cmd = ["npm.cmd", "run", "tauri:dev"] if os.name == 'nt' else ["npm", "run", "tauri:dev"]
                 subprocess.run(cmd)
@@ -307,11 +310,14 @@ def Main():
             time.sleep(1)
             
         elif Choice == "2":
-            RunCommand(["npm", "install"], "安装项目前端依赖")
+            RunCommand(["npm", "run", "build"], "编译前端静态资源")
             time.sleep(1)
             
         elif Choice == "3":
-            ConsoleInstance.print("\n[bold blue]:: 清理工作区 ::[/bold blue]")
+            HandleDistribution()
+            
+        elif Choice == "4":
+            ConsoleInstance.print("\n[bold cyan]:: 清理构建缓存 ::[/bold cyan]")
             import shutil
             if os.path.exists("Dist"):
                 shutil.rmtree("Dist", ignore_errors=True)
@@ -322,21 +328,18 @@ def Main():
             ConsoleInstance.print("[bold green]✓ 清理完成[/bold green]")
             time.sleep(1)
             
-        elif Choice == "4":
+        elif Choice == "5":
             UpdateVersions()
             
-        elif Choice == "5":
-            RunCommand(["npm", "run", "build"], "编译前端静态资源")
-            time.sleep(1)
-            
         elif Choice == "6":
-            HandleDistribution()
-            
-        elif Choice == "7":
             EditBuildConfig()
 
-        elif Choice == "8":
+        elif Choice == "7":
             CheckAndInstallEnvironment()
+            
+        elif Choice == "8":
+            RunCommand(["npm", "install"], "安装项目前端依赖")
+            time.sleep(1)
             
         elif Choice == "9":
             ConsoleInstance.print("\n[dim]:: 正在拉取 GitHub 仓库状态... ::[/dim]\n")
@@ -348,7 +351,7 @@ def Main():
             input("\n按回车键返回主菜单...")
             
         elif Choice == "0":
-            ConsoleInstance.print("\n[dim]进程已结束。[/dim]\n")
+            ConsoleInstance.print("\n[dim]进程已安全退出。[/dim]\n")
             break
 
 if __name__ == "__main__":

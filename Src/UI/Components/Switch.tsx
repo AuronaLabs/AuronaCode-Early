@@ -1,25 +1,25 @@
-interface SwitchProps {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  className?: string;
-}
+import * as React from "react";
+import * as SwitchPrimitive from "@radix-ui/react-switch";
+import { cn } from "../../Shared/Utils/cn";
 
-export function Switch({ checked, onChange, className = "" }: SwitchProps) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-        checked ? "bg-[var(--AccentPrimary)]" : "bg-black/10 dark:bg-white/20"
-      } ${className}`}
+export interface SwitchProps extends React.ComponentPropsWithoutRef<typeof SwitchPrimitive.Root> {}
+
+export const Switch = React.forwardRef<React.ElementRef<typeof SwitchPrimitive.Root>, SwitchProps>(
+  ({ className, ...props }, ref) => (
+    <SwitchPrimitive.Root
+      className={cn(
+        "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--AccentPrimary)]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--AppBg)] disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-[var(--AccentPrimary)] data-[state=unchecked]:bg-black/10 dark:data-[state=unchecked]:bg-white/20",
+        className
+      )}
+      {...props}
+      ref={ref}
     >
-      <span
-        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-          checked ? "translate-x-4" : "translate-x-0"
-        }`}
+      <SwitchPrimitive.Thumb
+        className={cn(
+          "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0"
+        )}
       />
-    </button>
-  );
-}
+    </SwitchPrimitive.Root>
+  )
+);
+Switch.displayName = SwitchPrimitive.Root.displayName;

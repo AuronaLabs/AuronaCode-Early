@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 interface InternalPageLayoutProps {
   children: ReactNode;
@@ -7,23 +7,32 @@ interface InternalPageLayoutProps {
   sidebar?: ReactNode;
   headerRight?: ReactNode;
   titleRight?: ReactNode;
+  maxWidth?: string;
 }
 
-export function InternalPageLayout({ children, title, icon, sidebar, headerRight, titleRight }: InternalPageLayoutProps) {
+export function InternalPageLayout({
+  children,
+  title,
+  icon,
+  sidebar,
+  headerRight,
+  titleRight,
+  maxWidth,
+}: InternalPageLayoutProps) {
   return (
     <div className="flex h-full w-full bg-transparent select-none text-[var(--TextPrimary)] overflow-hidden">
-      {/* 极简无边框悬浮侧边栏 */}
+      {}
       {sidebar && (
         <div className="w-64 flex-shrink-0 bg-transparent py-10 px-6 overflow-y-auto">
           {sidebar}
         </div>
       )}
 
-      {/* 主内容区裸背渲染 */}
+      {}
       <div className="flex-1 flex flex-col p-10 overflow-y-auto aurona-scroll relative">
-        <div className="flex flex-col w-full max-w-3xl mx-auto z-10 relative">
-          {/* Optional Header */}
-          {/* Optional Header */}
+        <div className={`flex flex-col w-full ${maxWidth || "max-w-3xl"} mx-auto z-10 relative`}>
+          {}
+          {}
           {(title || icon || headerRight || titleRight) && (
             <div className="flex items-center justify-between mb-8 w-full gap-4 shrink-0">
               <div className="flex items-baseline gap-4">
@@ -35,24 +44,14 @@ export function InternalPageLayout({ children, title, icon, sidebar, headerRight
                     </h1>
                   )}
                 </div>
-                {titleRight && (
-                  <div className="flex items-center shrink-0">
-                    {titleRight}
-                  </div>
-                )}
+                {titleRight && <div className="flex items-center shrink-0">{titleRight}</div>}
               </div>
-              {headerRight && (
-                <div className="flex items-center shrink-0">
-                  {headerRight}
-                </div>
-              )}
+              {headerRight && <div className="flex items-center shrink-0">{headerRight}</div>}
             </div>
           )}
-          
-          {/* Content Area */}
-          <div className="flex flex-col flex-1 w-full gap-10">
-            {children}
-          </div>
+
+          {}
+          <div className="flex flex-col flex-1 w-full gap-10">{children}</div>
         </div>
       </div>
     </div>

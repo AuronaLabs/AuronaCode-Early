@@ -2,7 +2,7 @@ import { BaseDirectory, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
-// A robust serializer to deeply extract non-enumerable properties from Errors
+
 function serializeError(obj: any, seen = new WeakSet()): any {
   if (obj === null || typeof obj !== "object") return obj;
   if (seen.has(obj)) return "[Circular]";
@@ -11,7 +11,7 @@ function serializeError(obj: any, seen = new WeakSet()): any {
   if (obj instanceof Error) {
     const err: any = { name: obj.name, message: obj.message, stack: obj.stack };
     for (const key of Object.getOwnPropertyNames(obj)) {
-      if (!['name', 'message', 'stack'].includes(key)) {
+      if (!["name", "message", "stack"].includes(key)) {
         err[key] = serializeError(obj[key as keyof typeof obj], seen);
       }
     }
@@ -41,29 +41,20 @@ class LoggerImpl {
     this.logId = `Aurona-Log-${date}_${time}`;
     this.logFilePath = `logs/${this.logId}.log`;
 
-    // 立即将文件头写入队列（等待 init() 后 flush）
-    this.queue.push(
-      `# Aurona Code Log\n# Log: ${this.logId}\n# Started: ${d.toISOString()}\n\n`
-    );
+    
+    this.queue.push(`# Aurona Code Log\n# Log: ${this.logId}\n# Started: ${d.toISOString()}\n\n`);
   }
 
   getLogId(): string {
     return this.logId;
   }
 
-  /**
-   * 初始化日志系统。
-   * 使用全局错误钩子，替代危险的 monkey-patch console.error。
-   */
-  init(): void {
+    init(): void {
     if (this.initialized) return;
     this.initialized = true;
 
     window.onerror = (message, source, lineno, colno, error) => {
-      this.error(
-        `Uncaught: ${message} (${source}:${lineno}:${colno})`,
-        error
-      );
+      this.error(`Uncaught: ${message} (${source}:${lineno}:${colno})`, error);
     };
 
     window.addEventListener("unhandledrejection", (event) => {
@@ -71,13 +62,13 @@ class LoggerImpl {
     });
 
     window.addEventListener("beforeunload", () => {
-      // 尝试在退出前最后刷入一次日志
+      
       if (this.queue.length > 0) {
         void this.flush();
       }
     });
 
-    // 触发第一次 flush，写入会话头部
+    
     this.scheduleFlush();
   }
 
@@ -103,7 +94,7 @@ class LoggerImpl {
     const pad = (n: number, width = 2) => n.toString().padStart(width, "0");
     const ts = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}-${pad(d.getMilliseconds(), 3)}`;
     const errFileName = `errlogs/Aurona-Error-${ts}.log`;
-    
+
     let suffix = "";
     if (data !== undefined) {
       try {
@@ -113,9 +104,9 @@ class LoggerImpl {
         suffix = `\n  ${String(data)}`;
       }
     }
-    
+
     const content = `[${d.toISOString()}] [ERROR] ${message}${suffix}\n`;
-    
+
     try {
       await mkdir("errlogs", {
         baseDir: BaseDirectory.AppLocalData,
@@ -125,7 +116,7 @@ class LoggerImpl {
         baseDir: BaseDirectory.AppLocalData,
       });
     } catch {
-      // 写入失败时静默处理
+      
     }
   }
 
@@ -169,7 +160,7 @@ class LoggerImpl {
         append: true,
       });
     } catch {
-      // 日志写入失败不能影响主程序
+      
     }
   }
 }

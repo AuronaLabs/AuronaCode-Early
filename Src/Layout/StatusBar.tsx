@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { EditorAdapter } from "../Features/Editor/EditorAdapter";
-import { EMPTY_EDITOR_STATUS, EditorStatus } from "../Features/Editor/IEditorEngine";
+import { type EditorStatus, EMPTY_EDITOR_STATUS } from "../Features/Editor/IEditorEngine";
 
 const formatLanguage = (language: string) => {
   const labels: Record<string, string> = {

@@ -1,4 +1,9 @@
-import { EMPTY_EDITOR_STATUS, EditorStatus, EditorStatusListener, IEditorEngine } from "./IEditorEngine";
+import {
+  type EditorStatus,
+  type EditorStatusListener,
+  EMPTY_EDITOR_STATUS,
+  type IEditorEngine,
+} from "./IEditorEngine";
 
 class GlobalEditorAdapter {
   private activeEngine: IEditorEngine | null = null;

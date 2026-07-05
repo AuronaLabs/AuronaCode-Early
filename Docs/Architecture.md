@@ -25,7 +25,7 @@ Aurona Code 当前已步入 0.1.0 时代，采用高度严格的 **Corona 架构
 
 ### 3. Features 层 (功能业务层)
 各自独立、自洽的业务拼图组合模块。
-- `Editor/`：包含代码编辑器界面、Monaco 引擎适配与 LSP 客户端（`LspClient`）。
+- `Editor/`：包含代码编辑器界面、Aurona Editor 引擎适配与 LSP 客户端（`LspClient`）。
 - `Explorer/`：文件树渲染引擎。
 - `SourceControl/`：利用 `GitService` 封装的 Git 追踪控制面板。
 - `Terminal/`：终端视图控制器，通过 `PtyIPC` 获取输入输出流。

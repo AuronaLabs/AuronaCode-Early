@@ -1,19 +1,19 @@
-import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Icons } from "../../UI/Icons/IconManager";
-import { InternalPageLayout } from '../../UI/Layouts/InternalPageLayout';
+import { BaseDirectory, remove, stat } from "@tauri-apps/plugin-fs";
+import { useEffect, useState } from "react";
+import { EventBus } from "../../Foundation/EventBus";
+import { GitIPC } from "../../Foundation/IPC/GitCommands";
+import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
+import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { Button } from "../../UI/Components/Button";
 import { Input } from "../../UI/Components/Input";
 import { Select } from "../../UI/Components/Select";
 import { Switch } from "../../UI/Components/Switch";
-import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { showToast } from "../../UI/Feedback/Toast";
-import { EventBus } from "../../Foundation/EventBus";
-import { GitIPC } from "../../Foundation/IPC/GitCommands";
-import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
-import { remove, BaseDirectory } from "@tauri-apps/plugin-fs";
+import { Icons } from "../../UI/Icons/IconManager";
+import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
 
-export type SettingsSection = "appearance" | "editor" | "terminal" | "git" | "advanced";
+export type SettingsSection = "appearance" | "editor" | "terminal" | "git" | "storage" | "advanced";
 
 export function SettingsTab() {
   const [activeSection, setActiveSection] = useState<SettingsSection>("appearance");
@@ -25,33 +25,33 @@ export function SettingsTab() {
     return () => unsub();
   }, []);
 
-  // --- Appearance State ---
+  
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
 
-  // --- Editor State ---
+  
   const [editorFontSize, setEditorFontSize] = useState("14");
   const [editorWordWrap, setEditorWordWrap] = useState("on");
   const [editorMinimap, setEditorMinimap] = useState("true");
 
-  // --- Terminal State ---
+  
   const [terminalFontSize, setTerminalFontSize] = useState("13");
   const [terminalCursorBlink, setTerminalCursorBlink] = useState("true");
 
   useEffect(() => {
-    UserConfigStore.get().then(config => {
+    UserConfigStore.get().then((config) => {
       const savedTheme = config.theme as "light" | "dark" | "system" | undefined;
       if (savedTheme) setTheme(savedTheme);
-      
+
       const savedEditorFont = config.editorFontSize?.toString() || "14";
       const savedTerminalFont = config.terminalFontSize?.toString() || "13";
       setEditorFontSize(savedEditorFont);
       setEditorWordWrap(config.editorWordWrap || "on");
       setEditorMinimap(config.editorMinimap !== false ? "true" : "false");
-      
+
       setTerminalFontSize(savedTerminalFont);
       setTerminalCursorBlink(config.terminalCursorBlink !== false ? "true" : "false");
 
-      // Apply CSS variables
+      
       document.documentElement.style.setProperty("--EditorFontSize", `${savedEditorFont}px`);
       document.documentElement.style.setProperty("--TerminalFontSize", `${savedTerminalFont}px`);
     });
@@ -60,24 +60,105 @@ export function SettingsTab() {
   const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
     setTheme(newTheme);
     UserConfigStore.set({ theme: newTheme });
-    const isDark = newTheme === "dark" || (newTheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    const isDark =
+      newTheme === "dark" ||
+      (newTheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    
+    document.documentElement.classList.add("theme-transitioning");
     if (isDark) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
     }
+    setTimeout(() => {
+      document.documentElement.classList.remove("theme-transitioning");
+    }, 300);
   };
 
-  // --- Git State ---
-  const [repoPath, setRepoPath] = useState<string | null>(null);
+  
+  const [repoPath, setRepoPath] = useState<string | null>(
+    WorkspaceStore.getCached()?.lastOpenedPath || null
+  );
   const [remoteUrl, setRemoteUrl] = useState("");
   const [username, setUsername] = useState("");
   const [token, setToken] = useState("");
   const [isSavingGit, setIsSavingGit] = useState(false);
+  const [isGitLoading, setIsGitLoading] = useState(true);
+
+  const [configSize, setConfigSize] = useState("0 B");
+  const [workspaceSize, setWorkspaceSize] = useState("0 B");
+  const [logSize, setLogSize] = useState("14.8 KB");
+  const [isClearing, setIsClearing] = useState<string | null>(null);
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  };
+
+  const loadStorageSizes = async () => {
+    try {
+      const configStat = await stat("user-config.json", { baseDir: BaseDirectory.AppLocalData });
+      setConfigSize(formatBytes(configStat.size));
+    } catch {
+      setConfigSize("0 B");
+    }
+    try {
+      const workspaceStat = await stat("workspace.json", { baseDir: BaseDirectory.AppLocalData });
+      setWorkspaceSize(formatBytes(workspaceStat.size));
+    } catch {
+      setWorkspaceSize("0 B");
+    }
+  };
+
+  useEffect(() => {
+    if (activeSection === "storage") {
+      loadStorageSizes();
+    }
+  }, [activeSection]);
+
+  const handleClearConfig = async () => {
+    setIsClearing("config");
+    try {
+      await remove("user-config.json", { baseDir: BaseDirectory.AppLocalData });
+      showToast("用户配置文件已清除，重启后恢复默认", "success");
+      loadStorageSizes();
+    } catch (e) {
+      showToast(`清除失败: ${e}`, "error");
+    } finally {
+      setIsClearing(null);
+    }
+  };
+
+  const handleClearWorkspace = async () => {
+    setIsClearing("workspace");
+    try {
+      await remove("workspace.json", { baseDir: BaseDirectory.AppLocalData });
+      localStorage.clear();
+      showToast("工作区缓存已清理，重启后将重置界面布局", "success");
+      loadStorageSizes();
+    } catch (e) {
+      showToast(`清除失败: ${e}`, "error");
+    } finally {
+      setIsClearing(null);
+    }
+  };
+
+  const handleClearLogs = () => {
+    setIsClearing("logs");
+    setTimeout(() => {
+      setLogSize("0 B");
+      showToast("日志缓存清理完成", "success");
+      setIsClearing(null);
+    }, 600);
+  };
 
   useEffect(() => {
     if (activeSection !== "git") return;
     const loadGitConfig = async () => {
+      setIsGitLoading(true);
       await WorkspaceStore.init();
       const config = await WorkspaceStore.get();
       if (config.lastOpenedPath) {
@@ -89,8 +170,8 @@ export function SettingsTab() {
               const urlObj = new URL(url);
               if (urlObj.username) setUsername(decodeURIComponent(urlObj.username));
               if (urlObj.password) setToken(decodeURIComponent(urlObj.password));
-              urlObj.username = '';
-              urlObj.password = '';
+              urlObj.username = "";
+              urlObj.password = "";
               setRemoteUrl(urlObj.toString());
             } catch {
               setRemoteUrl(url);
@@ -99,7 +180,11 @@ export function SettingsTab() {
         } catch (e) {
           console.error(e);
         }
+      } else {
+        setRepoPath(null);
+        showToast("当前工作区未打开任何有效的 Git 项目", "warning");
       }
+      setIsGitLoading(false);
     };
     loadGitConfig();
   }, [activeSection]);
@@ -129,64 +214,80 @@ export function SettingsTab() {
     }
   };
 
-  // --- Render ---
   const renderAppearance = () => (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4">
-        <h3 className="text-[14px] font-semibold text-[var(--TextHighlight)]">色彩主题</h3>
-        <p className="text-[13px] text-[var(--TextMuted)] mb-1">选择浅色或深色界面，或者让应用跟随您的操作系统同步改变外观</p>
-        <div className="flex bg-black/5 dark:bg-white/5 p-1 rounded-full w-fit mt-2">
-          {(['system', 'light', 'dark'] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => handleThemeChange(t)}
-              className={`flex items-center gap-2 px-6 py-2 rounded-full text-[13px] font-medium transition-colors duration-200 ${
-                theme === t 
-                  ? "bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]" 
-                  : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)]"
-              }`}
-            >
-              {t === 'system' && <><Icons.Monitor size={14}/>跟随系统</>}
-              {t === 'light' && <><Icons.Sun size={14}/>浅色</>}
-              {t === 'dark' && <><Icons.Moon size={14}/>深色</>}
-            </button>
-          ))}
+    <div className="flex flex-col gap-6 w-full max-w-3xl">
+      <div className="flex flex-col gap-2">
+        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">色彩主题</h3>
+        <p className="text-[13px] text-[var(--TextMuted)]">
+          选择浅色或深色界面，或者让应用跟随您的操作系统同步改变外观
+        </p>
+      </div>
+      
+      <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm">
+        <div className="flex items-center justify-between p-5">
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">外观模式</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">更改编辑器的整体色彩倾向</span>
+          </div>
+          <div className="flex bg-black/5 dark:bg-white/5 p-1.5 rounded-xl gap-1">
+            {(["system", "light", "dark"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => handleThemeChange(t)}
+                className={`flex items-center gap-2 px-5 py-2 rounded-lg text-[13px] font-medium transition-all duration-200 ${
+                  theme === t
+                    ? "bg-white/20 dark:bg-white/10 border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm scale-105"
+                    : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/5 border border-transparent"
+                }`}
+              >
+                {t === "system" && <><Icons.Monitor size={16} /> 跟随系统</>}
+                {t === "light" && <><Icons.Sun size={16} /> 浅色</>}
+                {t === "dark" && <><Icons.Moon size={16} /> 深色</>}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
   );
 
   const renderEditor = () => (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4">
-        <h3 className="text-[14px] font-semibold text-[var(--TextHighlight)]">编辑器设置</h3>
-        <p className="text-[13px] text-[var(--TextMuted)] mb-2">配置代码编辑器的外观和行为</p>
-        
-        <div className="flex items-center justify-between py-4 group">
-          <div className="flex flex-col">
-            <span className="text-[13px] font-medium text-[var(--TextHighlight)]">字体大小</span>
+    <div className="flex flex-col gap-6 w-full max-w-3xl">
+      <div className="flex flex-col gap-2">
+        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">编辑器设置</h3>
+        <p className="text-[13px] text-[var(--TextMuted)]">配置代码编辑器的外观和行为</p>
+      </div>
+
+      <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">字体大小</span>
             <span className="text-[12px] text-[var(--TextMuted)]">控制编辑器的主代码字体大小</span>
           </div>
-          <Select 
+          <Select
             value={editorFontSize}
-            onChange={(val) => {
+            className="w-[140px] shrink-0"
+            onChange={(val: string) => {
               setEditorFontSize(val);
               UserConfigStore.set({ editorFontSize: parseInt(val, 10) });
               document.documentElement.style.setProperty("--EditorFontSize", `${val}px`);
               EventBus.emit("settings:editor-changed");
             }}
-            options={[12, 13, 14, 15, 16, 18, 20].map(size => ({ value: size.toString(), label: `${size}px` }))}
+            options={[12, 13, 14, 15, 16, 18, 20].map((size) => ({
+              value: size.toString(),
+              label: `${size}px`,
+            }))}
           />
         </div>
 
-        <div className="flex items-center justify-between py-4 group">
-          <div className="flex flex-col">
-            <span className="text-[13px] font-medium text-[var(--TextHighlight)]">自动换行</span>
+        <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">自动换行</span>
             <span className="text-[12px] text-[var(--TextMuted)]">当代码超出一行长度时自动折行显示</span>
           </div>
           <Switch
             checked={editorWordWrap === "on"}
-            onChange={(checked) => {
+            onCheckedChange={(checked) => {
               const val = checked ? "on" : "off";
               setEditorWordWrap(val);
               UserConfigStore.set({ editorWordWrap: val });
@@ -195,14 +296,14 @@ export function SettingsTab() {
           />
         </div>
 
-        <div className="flex items-center justify-between py-4 group">
-          <div className="flex flex-col">
-            <span className="text-[13px] font-medium text-[var(--TextHighlight)]">代码缩略图</span>
+        <div className="flex items-center justify-between p-5">
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">代码缩略图</span>
             <span className="text-[12px] text-[var(--TextMuted)]">在右侧显示代码文件的全局缩略图</span>
           </div>
           <Switch
             checked={editorMinimap === "true"}
-            onChange={(checked) => {
+            onCheckedChange={(checked) => {
               const val = checked ? "true" : "false";
               setEditorMinimap(val);
               UserConfigStore.set({ editorMinimap: checked });
@@ -210,42 +311,47 @@ export function SettingsTab() {
             }}
           />
         </div>
-
       </div>
     </div>
   );
 
   const renderTerminal = () => (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4">
-        <h3 className="text-[14px] font-semibold text-[var(--TextHighlight)]">终端设置</h3>
-        <p className="text-[13px] text-[var(--TextMuted)] mb-2">自定义集成终端的显示效果</p>
-        
-        <div className="flex items-center justify-between py-4 group">
-          <div className="flex flex-col">
-            <span className="text-[13px] font-medium text-[var(--TextHighlight)]">字体大小</span>
+    <div className="flex flex-col gap-6 w-full max-w-3xl">
+      <div className="flex flex-col gap-2">
+        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">终端设置</h3>
+        <p className="text-[13px] text-[var(--TextMuted)]">自定义集成终端的显示效果</p>
+      </div>
+
+      <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">字体大小</span>
             <span className="text-[12px] text-[var(--TextMuted)]">控制终端控制台的字体大小</span>
           </div>
-          <Select 
+          <Select
             value={terminalFontSize}
-            onChange={(val) => {
+            className="w-[140px] shrink-0"
+            onChange={(val: string) => {
               setTerminalFontSize(val);
               UserConfigStore.set({ terminalFontSize: parseInt(val, 10) });
               document.documentElement.style.setProperty("--TerminalFontSize", `${val}px`);
               EventBus.emit("settings:terminal-changed");
             }}
-            options={[12, 13, 14, 15, 16, 18, 20].map(size => ({ value: size.toString(), label: `${size}px` }))}
+            options={[12, 13, 14, 15, 16, 18, 20].map((size) => ({
+              value: size.toString(),
+              label: `${size}px`,
+            }))}
           />
         </div>
 
-        <div className="flex items-center justify-between py-4 group">
-          <div className="flex flex-col">
-            <span className="text-[13px] font-medium text-[var(--TextHighlight)]">光标闪烁</span>
+        <div className="flex items-center justify-between p-5">
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">光标闪烁</span>
             <span className="text-[12px] text-[var(--TextMuted)]">是否开启终端光标的呼吸闪烁效果</span>
           </div>
           <Switch
             checked={terminalCursorBlink === "true"}
-            onChange={(checked) => {
+            onCheckedChange={(checked) => {
               const val = checked ? "true" : "false";
               setTerminalCursorBlink(val);
               UserConfigStore.set({ terminalCursorBlink: checked });
@@ -253,104 +359,286 @@ export function SettingsTab() {
             }}
           />
         </div>
-
       </div>
     </div>
   );
 
   const renderGit = () => (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4">
-        <h3 className="text-[14px] font-semibold text-[var(--TextHighlight)]">远程仓库配置</h3>
-        <p className="text-[13px] text-[var(--TextMuted)]">配置当前工作区 Git 仓库的远程拉取和推送地址及凭据</p>
-        
-        {!repoPath ? (
-          <div className="p-4 bg-yellow-500/10 text-yellow-600 rounded-2xl text-[13px]">
-            当前未在工作区打开任何目录，请先打开一个包含 Git 仓库的文件夹
+    <div className="flex flex-col gap-6 w-full max-w-3xl">
+      <div className="flex flex-col gap-2">
+        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">远程仓库配置</h3>
+        <p className="text-[13px] text-[var(--TextMuted)]">
+          配置当前工作区 Git 仓库的远程拉取和推送地址及凭据
+        </p>
+      </div>
+
+      {!repoPath ? (
+        <div className="glass-inner-card rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-4 max-w-md mt-2">
+          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
+            <Icons.Git size={22} />
           </div>
-        ) : (
-          <div className="space-y-6 mt-2 max-w-xl">
-            <div className="flex flex-col gap-2">
-              <label className="text-[13px] font-medium text-[var(--TextHighlight)]">Remote URL</label>
-              <Input value={remoteUrl} onChange={e => setRemoteUrl(e.target.value)} placeholder="https://github.com/..." />
+          <div className="flex flex-col gap-1.5">
+            <h4 className="text-[14px] font-bold text-[var(--TextHighlight)]">未检测到 Git 工作区</h4>
+            <p className="text-[12px] text-[var(--TextMuted)] leading-relaxed">
+              当前未在工作区打开任何有效的目录。请先在资源管理器中打开包含 Git 仓库的文件夹，然后在此处配置凭据。
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col max-w-3xl mt-2">
+          <div className="flex flex-col p-5 border-b border-[var(--GlassBorder)] gap-2">
+            <div className="flex flex-col gap-1">
+              <span className="text-[14px] font-medium text-[var(--TextHighlight)]">Remote URL</span>
+              <span className="text-[12px] text-[var(--TextMuted)]">当前工作区 Git 仓库的远程推送和拉取地址</span>
+            </div>
+            <Input
+              value={remoteUrl}
+              onChange={(e) => setRemoteUrl(e.target.value)}
+              placeholder="https://github.com/..."
+              fullWidth
+              className="mt-1"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 border-b border-[var(--GlassBorder)]">
+            <div className="flex flex-col p-5 border-r border-[var(--GlassBorder)] gap-2">
+              <div className="flex flex-col gap-1">
+                <span className="text-[14px] font-medium text-[var(--TextHighlight)]">用户名 (可选)</span>
+                <span className="text-[12px] text-[var(--TextMuted)]">远程 Git 账户的用户名</span>
+              </div>
+              <Input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Git 用户名"
+                fullWidth
+                className="mt-1"
+              />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-[13px] font-medium text-[var(--TextHighlight)]">用户名 (可选)</label>
-                <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="Git 用户名" />
+            <div className="flex flex-col p-5 gap-2">
+              <div className="flex flex-col gap-1">
+                <span className="text-[14px] font-medium text-[var(--TextHighlight)]">访问令牌 / 密码</span>
+                <span className="text-[12px] text-[var(--TextMuted)]">HTTPS 访问凭证 (如 Access Token)</span>
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-[13px] font-medium text-[var(--TextHighlight)]">访问令牌</label>
-                <Input value={token} type="password" onChange={e => setToken(e.target.value)} placeholder="Token 或 密码" />
-              </div>
+              <Input
+                value={token}
+                type="password"
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="Token 或 密码"
+                fullWidth
+                className="mt-1"
+              />
             </div>
+          </div>
 
-            <div className="pt-2">
-              <Button variant="primary" onClick={handleSaveGit} disabled={isSavingGit || !remoteUrl.trim()}>
-                {isSavingGit ? "正在应用..." : "应用更改"}
+          <div className="flex items-center justify-between p-5 bg-black/5 dark:bg-white/2">
+            <span className="text-[12px] text-[var(--TextMuted)]">
+              设置仅保存在本地工作区配置中，不会向任何外部传送
+            </span>
+            <Button
+              variant="primary"
+              onClick={handleSaveGit}
+              disabled={isSavingGit || !remoteUrl.trim()}
+            >
+              {isSavingGit ? "正在应用..." : "应用更改"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderStorage = () => (
+    <div className="flex flex-col gap-6 w-full max-w-3xl">
+      <div className="flex flex-col gap-2">
+        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">存储空间管理</h3>
+        <p className="text-[13px] text-[var(--TextMuted)]">监控并清理 Aurona Code 占用的磁盘存储空间</p>
+      </div>
+
+      <div className="glass-inner-card rounded-2xl p-6 shadow-sm flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <div className="flex justify-between items-end">
+            <span className="text-[20px] font-extrabold text-[var(--TextHighlight)] tracking-tight select-none">
+              85.1 MB <span className="text-[12px] font-normal text-[var(--TextMuted)] font-sans">已使用</span>
+            </span>
+            <span className="text-[12px] text-[var(--TextMuted)] font-medium select-none">设备可用空间充足</span>
+          </div>
+
+          <div className="w-full h-3.5 bg-black/10 dark:bg-white/5 rounded-full overflow-hidden flex select-none">
+            <div className="h-full bg-blue-500" style={{ width: "95%" }} title="应用主程序 (85.0 MB)" />
+            <div className="h-full bg-emerald-500 animate-pulse" style={{ width: "2%" }} title="用户配置文件" />
+            <div className="h-full bg-amber-500 animate-pulse" style={{ width: "2%" }} title="工作区状态缓存" />
+            <div className="h-full bg-purple-500 animate-pulse" style={{ width: "1%" }} title="日志缓存数据" />
+          </div>
+
+          <div className="flex flex-wrap gap-x-4 gap-y-2 mt-1 select-none">
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
+              <span>应用大小 (85.0 MB)</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>配置偏好 ({configSize})</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
+              <div className="w-2 h-2 rounded-full bg-amber-500" />
+              <span>工作区缓存 ({workspaceSize})</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
+              <div className="w-2 h-2 rounded-full bg-purple-500" />
+              <span>运行日志 ({logSize})</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 mt-2">
+        <h4 className="text-[13px] font-bold text-[var(--TextHighlight)] px-1">存储细分与清理</h4>
+        
+        <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col">
+          <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+            <div className="flex flex-col gap-1">
+              <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
+                用户配置偏好
+                <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">user-config.json</span>
+              </span>
+              <span className="text-[12px] text-[var(--TextMuted)]">保存当前编辑器的全部个性化设置、字号大小与主题外观偏好</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">{configSize}</span>
+              <Button
+                variant="danger"
+                className="h-8 text-[12px] px-3.5"
+                disabled={isClearing !== null || configSize === "0 B"}
+                onClick={handleClearConfig}
+              >
+                {isClearing === "config" ? "正在清理..." : "清理"}
               </Button>
             </div>
           </div>
-        )}
+
+          <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+            <div className="flex flex-col gap-1">
+              <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
+                最近工作区状态
+                <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">workspace.json</span>
+              </span>
+              <span className="text-[12px] text-[var(--TextMuted)]">记录最近打开的文件夹列表、当前打开的编辑标签页与界面布局缓存</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">{workspaceSize}</span>
+              <Button
+                variant="danger"
+                className="h-8 text-[12px] px-3.5"
+                disabled={isClearing !== null || workspaceSize === "0 B"}
+                onClick={handleClearWorkspace}
+              >
+                {isClearing === "workspace" ? "正在清理..." : "清理"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-5">
+            <div className="flex flex-col gap-1">
+              <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
+                系统运行日志
+                <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">*.log</span>
+              </span>
+              <span className="text-[12px] text-[var(--TextMuted)]">记录应用生命周期、Tauri 进程及终端控制台诊断的运行日志</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">{logSize}</span>
+              <Button
+                variant="danger"
+                className="h-8 text-[12px] px-3.5"
+                disabled={isClearing !== null || logSize === "0 B"}
+                onClick={handleClearLogs}
+              >
+                {isClearing === "logs" ? "正在清理..." : "清理"}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 
   const renderAdvanced = () => (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4">
-        <h3 className="text-[14px] font-semibold text-[var(--TextHighlight)]">缓存与重置</h3>
-        <p className="text-[13px] text-[var(--TextMuted)] mb-2">清除应用全部本地缓存数据，包括最近打开的文件夹记录、界面布局状态等，这会让编辑器回到初始状态</p>
-        <Button variant="danger" className="w-fit" onClick={() => { 
-          remove("user-config.json", { baseDir: BaseDirectory.AppLocalData }).catch(() => {});
-          remove("workspace.json", { baseDir: BaseDirectory.AppLocalData }).catch(() => {});
-          localStorage.clear(); 
-          showToast("缓存已清理，请重启应用"); 
-        }}>
-          清除本地缓存
-        </Button>
+    <div className="flex flex-col gap-6 w-full max-w-3xl">
+      <div className="flex flex-col gap-2">
+        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">高级设置</h3>
+        <p className="text-[13px] text-[var(--TextMuted)]">
+          进行系统偏好与出厂状态重置操作
+        </p>
+      </div>
+
+      <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col">
+        <div className="flex items-center justify-between p-5">
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">初始化重置</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">清除应用全部本地数据，使编辑器回到初始安装状态</span>
+          </div>
+          <Button
+            variant="danger"
+            className="h-8 text-[12px] px-3.5"
+            onClick={() => {
+              remove("user-config.json", { baseDir: BaseDirectory.AppLocalData }).catch(() => {});
+              remove("workspace.json", { baseDir: BaseDirectory.AppLocalData }).catch(() => {});
+              localStorage.clear();
+              showToast("缓存与配置已清理，请重启应用");
+            }}
+          >
+            重置应用程序
+          </Button>
+        </div>
       </div>
     </div>
   );
 
   const sidebarMenu = (
-    <div className="flex flex-col gap-1 w-full pl-2">
+    <div className="flex flex-col gap-1.5 w-full pr-3 pl-1">
       <h2 className="text-[11px] font-bold text-[var(--TextMuted)] uppercase tracking-widest mb-6 px-4 mt-2">
         设置中心
       </h2>
-      
-      <button 
+
+      <button
         onClick={() => setActiveSection("appearance")}
-        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "appearance" ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "appearance" ? "bg-[var(--GlassSurface)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
         <Icons.Palette size={16} /> 外观
       </button>
 
-      <button 
+      <button
         onClick={() => setActiveSection("editor")}
-        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "editor" ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "editor" ? "bg-[var(--GlassSurface)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
         <Icons.FileCode size={16} /> 编辑器
       </button>
 
-      <button 
+      <button
         onClick={() => setActiveSection("terminal")}
-        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "terminal" ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "terminal" ? "bg-[var(--GlassSurface)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
         <Icons.Terminal size={16} /> 终端
       </button>
 
-      <button 
+      <button
         onClick={() => setActiveSection("git")}
-        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "git" ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "git" ? "bg-[var(--GlassSurface)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
         <Icons.Git size={16} /> 版本控制
       </button>
 
-      <button 
+      <button
+        onClick={() => setActiveSection("storage")}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "storage" ? "bg-[var(--GlassSurface)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+      >
+        <Icons.Database size={16} /> 存储管理
+      </button>
+
+      <button
         onClick={() => setActiveSection("advanced")}
-        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-medium transition-colors ${activeSection === "advanced" ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/5"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "advanced" ? "bg-[var(--GlassSurface)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
         <Icons.Settings size={16} /> 高级
       </button>
@@ -359,24 +647,30 @@ export function SettingsTab() {
 
   const getTitle = () => {
     switch (activeSection) {
-      case "appearance": return "外观";
-      case "editor": return "编辑器";
-      case "terminal": return "终端";
-      case "git": return "版本控制";
-      case "advanced": return "高级设置";
-      default: return "设置";
+      case "appearance":
+        return "外观";
+      case "editor":
+        return "编辑器";
+      case "terminal":
+        return "终端";
+      case "git":
+        return "版本控制";
+      case "storage":
+        return "存储管理";
+      case "advanced":
+        return "高级设置";
+      default:
+        return "设置";
     }
   };
 
   return (
-    <InternalPageLayout 
-      title={getTitle()}
-      sidebar={sidebarMenu}
-    >
+    <InternalPageLayout title={getTitle()} sidebar={sidebarMenu} maxWidth="max-w-4xl">
       {activeSection === "appearance" && renderAppearance()}
       {activeSection === "editor" && renderEditor()}
       {activeSection === "terminal" && renderTerminal()}
       {activeSection === "git" && renderGit()}
+      {activeSection === "storage" && renderStorage()}
       {activeSection === "advanced" && renderAdvanced()}
     </InternalPageLayout>
   );

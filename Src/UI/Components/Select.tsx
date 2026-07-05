@@ -1,5 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import * as React from "react";
+import * as SelectPrimitive from "@radix-ui/react-select";
 import { Icons } from "../Icons/IconManager";
+import { cn } from "../../Shared/Utils/cn";
 
 export interface SelectOption {
   value: string;
@@ -13,54 +15,55 @@ interface SelectProps {
   className?: string;
 }
 
-export function Select({ options, value, onChange, className = "" }: SelectProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const selectedOption = options.find((o) => o.value === value);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    if (isOpen) {
-      window.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => window.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
-
+export function Select({ options, value, onChange, className }: SelectProps) {
   return (
-    <div className={`relative ${className}`} ref={containerRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full min-w-[120px] items-center justify-between gap-3 bg-black/5 dark:bg-white/10 border border-[var(--GlassBorder)] rounded-md px-3 py-1.5 text-[13px] text-[var(--TextHighlight)] outline-none hover:bg-black/10 dark:hover:bg-white/20 transition-colors cursor-pointer"
+    <SelectPrimitive.Root value={value} onValueChange={onChange}>
+      <SelectPrimitive.Trigger
+        className={cn(
+          "flex h-8 w-full min-w-[120px] items-center justify-between gap-3 bg-[var(--GlassSurface)] backdrop-blur-md border border-[var(--GlassBorder)] rounded-xl px-3 py-1.5 text-[13px] text-[var(--TextHighlight)] outline-none hover:bg-[var(--GlassHover)] transition-all cursor-pointer focus:ring-2 focus:ring-[var(--AccentPrimary)]/50 shadow-sm",
+          className
+        )}
       >
-        <span className="truncate">{selectedOption?.label || value}</span>
-        <Icons.ChevronDown size={14} className={`text-[var(--TextMuted)] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
-      </button>
+        <SelectPrimitive.Value placeholder="Select an option" />
+        <SelectPrimitive.Icon asChild>
+          <Icons.ChevronDown size={14} className="text-[var(--TextMuted)] opacity-70" />
+        </SelectPrimitive.Icon>
+      </SelectPrimitive.Trigger>
 
-      {isOpen && (
-        <div className="absolute z-[100] top-full mt-1 w-full max-h-60 overflow-y-auto no-scrollbar rounded-md border border-[var(--GlassBorder)] bg-white/80 dark:bg-black/80 backdrop-blur-xl shadow-lg p-1 animate-in fade-in slide-in-from-top-1 duration-200">
-          {options.map((opt) => (
-            <div
-              key={opt.value}
-              onClick={() => {
-                onChange(opt.value);
-                setIsOpen(false);
-              }}
-              className={`px-3 py-1.5 text-[12px] rounded cursor-pointer transition-colors ${
-                opt.value === value
-                  ? "bg-[var(--AccentPrimary)] text-white"
-                  : "text-[var(--TextPrimary)] hover:bg-black/5 dark:hover:bg-white/10 hover:text-[var(--TextHighlight)]"
-              }`}
-            >
-              {opt.label}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+      <SelectPrimitive.Portal>
+        <SelectPrimitive.Content
+          className="relative z-[9999] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden frosted-glass rounded-xl p-1 shadow-2xl animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95"
+          position="popper"
+          side="bottom"
+          align="end"
+          sideOffset={4}
+        >
+          <SelectPrimitive.ScrollUpButton className="flex items-center justify-center h-[25px] bg-transparent text-[var(--TextPrimary)] cursor-default">
+            <Icons.ChevronUp size={14} />
+          </SelectPrimitive.ScrollUpButton>
+          <SelectPrimitive.Viewport className="p-1">
+            {options.map((opt) => (
+              <SelectPrimitive.Item
+                key={opt.value}
+                value={opt.value}
+                className={cn(
+                  "relative flex w-full cursor-pointer select-none items-center rounded-md py-1.5 pl-8 pr-2 text-[13px] text-[var(--TextPrimary)] outline-none focus:bg-[var(--AccentPrimary)] focus:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50 transition-colors"
+                )}
+              >
+                <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                  <SelectPrimitive.ItemIndicator>
+                    <Icons.Check size={14} className="text-current" />
+                  </SelectPrimitive.ItemIndicator>
+                </span>
+                <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
+              </SelectPrimitive.Item>
+            ))}
+          </SelectPrimitive.Viewport>
+          <SelectPrimitive.ScrollDownButton className="flex items-center justify-center h-[25px] bg-transparent text-[var(--TextPrimary)] cursor-default">
+            <Icons.ChevronDown size={14} />
+          </SelectPrimitive.ScrollDownButton>
+        </SelectPrimitive.Content>
+      </SelectPrimitive.Portal>
+    </SelectPrimitive.Root>
   );
 }

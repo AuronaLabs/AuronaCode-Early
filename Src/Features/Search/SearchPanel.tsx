@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Icons } from "../../UI/Icons/IconManager";
-import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
-import { Tooltip } from "../../UI/Feedback/Tooltip";
+import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { Input } from "../../UI/Components/Input";
+import { Tooltip } from "../../UI/Feedback/Tooltip";
+import { Icons } from "../../UI/Icons/IconManager";
 
 export interface SearchResult {
   file_path: string;
@@ -22,6 +22,14 @@ export const SearchPanel = React.memo(function SearchPanel() {
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [repoPath, setRepoPath] = useState<string | null>(null);
+  const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({});
+
+  const toggleFileCollapse = (filePath: string) => {
+    setCollapsedFiles((prev) => ({
+      ...prev,
+      [filePath]: !prev[filePath],
+    }));
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -48,7 +56,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
     setResults([]);
 
     const unlisten = await listen<SearchResult[]>("search-result", (event) => {
-      setResults(prev => [...prev, ...event.payload]);
+      setResults((prev) => [...prev, ...event.payload]);
     });
 
     try {
@@ -56,7 +64,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
         path: repoPath,
         query,
         isCaseSensitive,
-        isRegex
+        isRegex,
       });
     } catch (e) {
       console.error("Search failed:", e);
@@ -73,7 +81,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
   };
 
   const grouped = useMemo(() => {
-    const groups: Record<string, { name: string, dir: string, matches: SearchResult[] }> = {};
+    const groups: Record<string, { name: string; dir: string; matches: SearchResult[] }> = {};
     for (const r of results) {
       if (!groups[r.file_path]) {
         const parts = r.file_path.split("/");
@@ -94,10 +102,10 @@ export const SearchPanel = React.memo(function SearchPanel() {
     const name = file_path.split("/").pop() || file_path;
     EventBus.emit("app:open-tab", { id: fullPath, type: "file", title: name, path: fullPath });
 
-    // Slight delay to allow the editor to mount if it wasn't open
+    
     setTimeout(() => {
-      // In Phase 3, we will add jumping to line logic. For now it just opens the file.
-      // But we can trigger a cursor move event via EventBus if needed.
+      
+      
     }, 100);
   };
 
@@ -112,12 +120,12 @@ export const SearchPanel = React.memo(function SearchPanel() {
       </div>
 
       <div className="px-[var(--PanelPaddingX)] pb-4 shrink-0 mt-2 flex flex-col gap-3">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 text-[11.5px] text-[var(--TextMuted)]">
+        <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl glass-inner-card text-[11.5px] text-[var(--TextMuted)]">
           <Icons.Info size={14} className="opacity-60 shrink-0" />
           <span className="opacity-80">全局搜索即将被 Fliuno 搜索替代</span>
         </div>
 
-        <div className="flex flex-col p-3 rounded-2xl bg-white/5 dark:bg-white/10 backdrop-blur-md border border-black/5 dark:border-white/5 shadow-inner gap-3 transition-all">
+        <div className="flex flex-col p-3.5 rounded-2xl glass-inner-card gap-3.5 transition-all">
           <input
             type="text"
             className="w-full bg-transparent text-[13px] text-[var(--TextHighlight)] outline-none placeholder-[var(--TextMuted)] leading-relaxed"
@@ -131,7 +139,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
               <Tooltip content="区分大小写">
                 <button
                   onClick={() => setIsCaseSensitive(!isCaseSensitive)}
-                  className={`p-1.5 rounded-lg transition-colors ${isCaseSensitive ? 'bg-[var(--AccentPrimary)] text-white shadow-sm' : 'text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/10 dark:hover:bg-white/20'}`}
+                  className={`p-1.5 rounded-lg transition-colors ${isCaseSensitive ? "bg-[var(--AccentPrimary)] text-white shadow-sm" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/10 dark:hover:bg-white/20"}`}
                 >
                   <Icons.Typography size={14} stroke={isCaseSensitive ? 2.5 : 2} />
                 </button>
@@ -139,7 +147,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
               <Tooltip content="正则表达式">
                 <button
                   onClick={() => setIsRegex(!isRegex)}
-                  className={`p-1.5 rounded-lg transition-colors ${isRegex ? 'bg-[var(--AccentPrimary)] text-white shadow-sm' : 'text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/10 dark:hover:bg-white/20'}`}
+                  className={`p-1.5 rounded-lg transition-colors ${isRegex ? "bg-[var(--AccentPrimary)] text-white shadow-sm" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/10 dark:hover:bg-white/20"}`}
                 >
                   <Icons.Asterisk size={14} stroke={isRegex ? 2.5 : 2} />
                 </button>
@@ -183,37 +191,51 @@ export const SearchPanel = React.memo(function SearchPanel() {
                 <Icons.Refresh size={12} className="animate-spin text-[var(--TextMuted)]" />
               )}
             </div>
-            {fileKeys.map(file => (
-              <div key={file} className="flex flex-col mb-4 bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-2xl overflow-hidden mx-[calc(var(--PanelPaddingX)-8px)] shadow-sm">
-                <div className="flex items-center gap-2 px-3 py-2.5 bg-black/5 dark:bg-white/5 border-b border-black/5 dark:border-white/5 text-[12px] font-bold text-[var(--TextHighlight)] group">
-                  <Icons.FileCode size={16} className="text-blue-500 shrink-0" stroke={2} />
-                  <span className="truncate">{grouped[file].name}</span>
-                  <span className="truncate text-[10px] text-[var(--TextMuted)] opacity-60 group-hover:opacity-100 transition-opacity ml-1 font-normal">
-                    {grouped[file].dir}
-                  </span>
-                  <span className="ml-auto text-[10px] bg-black/10 dark:bg-white/10 px-2 py-0.5 rounded-full text-[var(--TextMuted)]">
-                    {grouped[file].matches.length}
-                  </span>
-                </div>
-                <div className="flex flex-col py-1.5">
-                  {grouped[file].matches.map(match => (
-                    <div
-                      key={match.index}
-                      onClick={() => openFile(file, match.line_number)}
-                      className="flex items-start gap-3 px-3 py-1.5 hover:bg-[var(--AccentPrimary)] hover:text-white cursor-pointer group transition-all text-[12px] relative"
-                    >
-                      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-transparent group-hover:bg-white transition-colors" />
-                      <span className="text-[var(--TextMuted)] group-hover:text-white/80 w-7 text-right shrink-0 select-none font-mono text-[11px] pt-[2px]">
-                        {match.line_number}
-                      </span>
-                      <span className="truncate text-[var(--TextPrimary)] group-hover:text-white font-mono opacity-90 leading-relaxed">
-                        {match.match_text.trim()}
-                      </span>
+            {fileKeys.map((file) => {
+              const isCollapsed = !!collapsedFiles[file];
+              return (
+                <div
+                  key={file}
+                  className="flex flex-col mb-3 glass-inner-card rounded-2xl overflow-hidden mx-[calc(var(--PanelPaddingX)-8px)]"
+                >
+                  <div
+                    onClick={() => toggleFileCollapse(file)}
+                    className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none border-b border-[var(--GlassBorder)] bg-[var(--GlassHover)]/20 hover:bg-[var(--GlassHover)]/40 transition-colors text-[12px] font-bold text-[var(--TextHighlight)] group"
+                  >
+                    <Icons.ChevronDown
+                      size={15}
+                      className={`text-[var(--TextMuted)] transition-transform ${isCollapsed ? "-rotate-90" : ""}`}
+                    />
+                    <Icons.FileCode size={16} className="text-blue-500 shrink-0" stroke={2} />
+                    <span className="truncate">{grouped[file].name}</span>
+                    <span className="truncate text-[10px] text-[var(--TextMuted)] opacity-60 ml-1 font-normal">
+                      {grouped[file].dir}
+                    </span>
+                    <span className="ml-auto text-[10px] bg-black/10 dark:bg-white/10 px-2 py-0.5 rounded-full text-[var(--TextMuted)] font-medium">
+                      {grouped[file].matches.length}
+                    </span>
+                  </div>
+                  {!isCollapsed && (
+                    <div className="flex flex-col py-1.5 bg-transparent">
+                      {grouped[file].matches.map((match) => (
+                        <div
+                          key={match.index}
+                          onClick={() => openFile(file, match.line_number)}
+                          className="flex items-center gap-3 px-3 py-1.5 mx-1 my-0.5 rounded-lg hover:bg-[var(--GlassHover)] cursor-pointer group transition-all text-[12px]"
+                        >
+                          <span className="text-[var(--TextMuted)] group-hover:text-[var(--TextHighlight)] w-7 text-right shrink-0 select-none font-mono text-[11.5px] font-medium transition-colors">
+                            {match.line_number}
+                          </span>
+                          <span className="truncate text-[var(--TextPrimary)] group-hover:text-[var(--TextHighlight)] font-mono opacity-90 leading-relaxed transition-colors">
+                            {match.match_text.trim()}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="p-4 text-center text-[12px] text-[var(--TextMuted)] mt-4 opacity-50">

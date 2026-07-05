@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, ReactNode } from "react";
+import React, { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export type TooltipProps = {
@@ -20,52 +20,52 @@ export function Tooltip({ content, children, delay = 300, placement = "top" }: T
     timeoutRef.current = setTimeout(() => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        
+
         let x = 0;
         let y = 0;
         const gap = 8;
         let currentPlacement = placement;
         let align = "center";
+
         
-        // Initial positioning
         switch (currentPlacement) {
           case "top":
             y = rect.top - gap;
-            if (y - 30 < 0) currentPlacement = "bottom"; // Flip
+            if (y - 30 < 0) currentPlacement = "bottom"; 
             break;
           case "bottom":
             y = rect.bottom + gap;
-            if (y + 30 > window.innerHeight) currentPlacement = "top"; // Flip
+            if (y + 30 > window.innerHeight) currentPlacement = "top"; 
             break;
           case "left":
             x = rect.left - gap;
-            if (x - 60 < 0) currentPlacement = "right"; // Flip
+            if (x - 60 < 0) currentPlacement = "right"; 
             break;
           case "right":
             x = rect.right + gap;
-            if (x + 60 > window.innerWidth) currentPlacement = "left"; // Flip
+            if (x + 60 > window.innerWidth) currentPlacement = "left"; 
             break;
         }
 
-        // Recalculate Y after possible flip
+        
         if (currentPlacement === "top") y = rect.top - gap;
         if (currentPlacement === "bottom") y = rect.bottom + gap;
 
-        // Alignment logic for top/bottom
+        
         if (currentPlacement === "top" || currentPlacement === "bottom") {
           if (rect.right > window.innerWidth - 60) align = "end";
           else if (rect.left < 60) align = "start";
-          
+
           if (align === "center") x = rect.left + rect.width / 2;
           else if (align === "end") x = rect.right;
           else if (align === "start") x = rect.left;
         }
 
-        // Alignment logic for left/right
+        
         if (currentPlacement === "left" || currentPlacement === "right") {
           if (rect.bottom > window.innerHeight - 30) align = "end";
           else if (rect.top < 30) align = "start";
-          
+
           if (align === "center") y = rect.top + rect.height / 2;
           else if (align === "end") y = rect.bottom;
           else if (align === "start") y = rect.top;
@@ -93,12 +93,16 @@ export function Tooltip({ content, children, delay = 300, placement = "top" }: T
   const getTransform = () => {
     const xTrans = actualAlign === "center" ? "-50%" : actualAlign === "end" ? "-100%" : "0";
     const yTrans = actualAlign === "center" ? "-50%" : actualAlign === "end" ? "-100%" : "0";
-    
+
     switch (actualPlacement) {
-      case "top": return `translate(${xTrans}, -100%)`;
-      case "bottom": return `translate(${xTrans}, 0)`;
-      case "left": return `translate(-100%, ${yTrans})`;
-      case "right": return `translate(0, ${yTrans})`;
+      case "top":
+        return `translate(${xTrans}, -100%)`;
+      case "bottom":
+        return `translate(${xTrans}, 0)`;
+      case "left":
+        return `translate(-100%, ${yTrans})`;
+      case "right":
+        return `translate(0, ${yTrans})`;
     }
   };
 
@@ -124,7 +128,7 @@ export function Tooltip({ content, children, delay = 300, placement = "top" }: T
           >
             {content}
           </div>,
-          document.body
+          document.body,
         )}
     </>
   );

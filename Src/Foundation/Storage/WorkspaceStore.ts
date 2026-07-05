@@ -1,10 +1,4 @@
-import {
-  BaseDirectory,
-  exists,
-  mkdir,
-  readTextFile,
-  writeTextFile,
-} from "@tauri-apps/plugin-fs";
+import { BaseDirectory, exists, mkdir, readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import type { WorkspaceState } from "../Types/Config";
 
 const FILE = "workspace.json";
@@ -16,19 +10,19 @@ let pendingWrite = false;
 
 export const WorkspaceStore = {
   _debounceTimer: null as ReturnType<typeof setTimeout> | null,
-  
+
   async init(): Promise<void> {
     try {
       await mkdir("", { baseDir: BASE, recursive: true });
     } catch {
-      // 目录可能已存在
+      
     }
   },
 
   async get(): Promise<WorkspaceState> {
     try {
       if (memoryCache !== null) return memoryCache;
-      
+
       const fileExists = await exists(FILE, { baseDir: BASE });
       if (!fileExists) {
         memoryCache = {};
@@ -42,14 +36,18 @@ export const WorkspaceStore = {
     }
   },
 
+  getCached(): WorkspaceState | null {
+    return memoryCache;
+  },
+
   async set(state: Partial<WorkspaceState>): Promise<void> {
     const current = await this.get();
     memoryCache = { ...current, ...state };
-    
+
     if (this._debounceTimer) {
       clearTimeout(this._debounceTimer);
     }
-    
+
     this._debounceTimer = setTimeout(() => {
       if (isWriting) {
         pendingWrite = true;
@@ -69,8 +67,8 @@ export const WorkspaceStore = {
           flush();
         }
       };
-      
+
       flush();
-    }, 500); // 500ms 防抖
+    }, 500); 
   },
 };

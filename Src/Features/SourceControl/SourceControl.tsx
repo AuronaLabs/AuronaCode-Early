@@ -178,47 +178,62 @@ export const SourceControl = React.memo(function SourceControl() {
       showToast(`提交失败：${error}`, "error");
     }
   };
-
-  const getStatusColor = (status: string) => {
+  const getStatusBadgeStyle = (status: string) => {
     switch (status) {
-      case "M":
-        return "text-[#eab308] bg-[#eab308]/10";
-      case "A":
-        return "text-[#22c55e] bg-[#22c55e]/10";
-      case "D":
-        return "text-[#ef4444] bg-[#ef4444]/10";
-      case "U":
-        return "text-[#22c55e] bg-[#22c55e]/10";
-      default:
-        return "text-[var(--TextMuted)] bg-black/5";
+      case "M": return "text-amber-500 bg-amber-500/10 border border-amber-500/20";
+      case "A": return "text-emerald-500 bg-emerald-500/10 border border-emerald-500/20";
+      case "D": return "text-red-500 bg-red-500/10 border border-red-500/20";
+      case "U": return "text-blue-500 bg-blue-500/10 border border-blue-500/20";
+      default: return "text-[var(--TextMuted)] bg-black/5 border border-transparent";
     }
   };
 
   const renderFileCard = (file: GitFile, index: number) => {
     const parentPath = file.path.split("/").slice(0, -1).join("/") || "/";
     return (
-      <div key={`${file.path}-${index}`} className="group relative flex items-center justify-between py-1.5 px-2 mb-1 rounded-xl bg-white/5 dark:bg-white/5 backdrop-blur-md border border-transparent hover:border-black/10 dark:hover:border-white/10 hover:shadow-sm transition-all cursor-pointer">
-        <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2">
+      <div
+        key={`${file.path}-${index}`}
+        className="group relative flex items-center justify-between py-2 px-3 mx-1 my-0.5 rounded-lg border border-transparent hover:border-[var(--GlassBorder)] hover:bg-[var(--GlassHover)] transition-all cursor-pointer"
+      >
+        <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2 min-w-0">
           <Icons.FileCode size={14} stroke={1.5} className="text-[var(--TextMuted)] shrink-0" />
-          <span className="text-[12.5px] font-medium text-[var(--TextHighlight)] truncate shrink-0">{file.name}</span>
-          <span className="text-[10px] text-[var(--TextMuted)] truncate opacity-70 group-hover:opacity-100 transition-opacity">{parentPath}</span>
+          <span className="text-[12.5px] font-medium text-[var(--TextHighlight)] truncate min-w-0">
+            {file.name}
+          </span>
+          <span className="text-[10px] text-[var(--TextMuted)] truncate opacity-70 group-hover:opacity-100 transition-opacity min-w-0">
+            {parentPath}
+          </span>
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className={`text-[10px] px-1.5 py-[1px] rounded flex items-center justify-center font-bold tracking-wide ${getStatusColor(file.status)}`}>
+          <span
+            className={`text-[10px] px-1.5 py-[1px] rounded flex items-center justify-center font-bold tracking-wide select-none ${getStatusBadgeStyle(file.status)}`}
+          >
             {file.status}
           </span>
           <div className="opacity-0 w-0 group-hover:w-auto group-hover:opacity-100 transition-all flex items-center shrink-0">
             {file.is_staged ? (
               <Tooltip content="取消暂存" delay={300}>
-                <button onClick={(event) => { event.stopPropagation(); toggleStage(file); }} className="p-1 rounded-md bg-black/5 dark:bg-white/10 hover:bg-red-500/10 hover:text-red-500 text-[var(--TextPrimary)] transition-colors ml-1.5">
-                  <Icons.Minus size={13} stroke={2} />
+                <button
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleStage(file);
+                  }}
+                  className="w-5 h-5 rounded-full bg-black/5 dark:bg-white/5 border border-[var(--GlassBorder)] hover:bg-red-500/10 hover:text-red-500 text-[var(--TextPrimary)] flex items-center justify-center transition-all ml-1.5 shadow-sm"
+                >
+                  <Icons.Minus size={11} stroke={3} />
                 </button>
               </Tooltip>
             ) : (
               <Tooltip content="暂存更改" delay={300}>
-                <button onClick={(event) => { event.stopPropagation(); toggleStage(file); }} className="p-1 rounded-md bg-black/5 dark:bg-white/10 hover:bg-[var(--AccentPrimary)] hover:text-white text-[var(--TextPrimary)] transition-colors ml-1.5">
-                  <Icons.Plus size={13} stroke={2} />
+                <button
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleStage(file);
+                  }}
+                  className="w-5 h-5 rounded-full bg-black/5 dark:bg-white/5 border border-[var(--GlassBorder)] hover:bg-[var(--AccentPrimary)]/10 hover:text-[var(--AccentHover)] text-[var(--TextPrimary)] flex items-center justify-center transition-all ml-1.5 shadow-sm"
+                >
+                  <Icons.Plus size={11} stroke={3} />
                 </button>
               </Tooltip>
             )}
@@ -329,42 +344,75 @@ export const SourceControl = React.memo(function SourceControl() {
             </div>
           </div>
 
-          <div className="flex-1 flex flex-col gap-4 overflow-y-auto aurona-scroll pr-2 pb-4">
+          <div className="flex-1 flex flex-col gap-3 overflow-hidden px-[var(--PanelPaddingX)] pb-4 min-h-0">
             {stagedFiles.length > 0 && (
-              <div className="flex flex-col shrink-0">
-                <div className="flex items-center justify-between px-1 mb-2 cursor-pointer select-none group" onClick={() => setStagedExpanded(!stagedExpanded)}>
-                  <div className="flex items-center gap-1.5">
-                    <Icons.ChevronDown size={14} className={`text-[var(--TextMuted)] transition-transform ${!stagedExpanded ? "-rotate-90" : ""}`} />
-                    <span className="text-[12px] font-bold text-[var(--TextMuted)] uppercase tracking-wider group-hover:text-[var(--TextHighlight)] transition-colors">
+              <div className={`flex flex-col min-h-0 ${stagedExpanded ? "flex-1" : "flex-initial"} bg-[var(--GlassSurface)] backdrop-blur-xl border border-[var(--GlassBorder)] rounded-2xl overflow-hidden shadow-sm`}>
+                <div
+                  className="flex items-center justify-between px-4 py-3 cursor-pointer select-none border-b border-[var(--GlassBorder)] bg-[var(--GlassHover)]/20 group"
+                  onClick={() => {
+                    const next = !stagedExpanded;
+                    setStagedExpanded(next);
+                    if (next) setUnstagedExpanded(false);
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icons.ChevronDown
+                      size={15}
+                      className={`text-[var(--TextMuted)] transition-transform ${!stagedExpanded ? "-rotate-90" : ""}`}
+                    />
+                    <span className="text-[12.5px] font-bold text-[var(--TextHighlight)] uppercase tracking-wider">
                       已暂存 ({stagedFiles.length})
                     </span>
                   </div>
                   <Tooltip content="全部取消暂存" delay={300}>
-                    <button onClick={(event) => { event.stopPropagation(); unstageAll(); }} className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[var(--TextMuted)] hover:text-white hover:bg-red-500/80 transition-all">
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        unstageAll();
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[var(--TextMuted)] hover:text-white hover:bg-red-500/80 transition-all flex items-center justify-center"
+                    >
                       <Icons.Minus size={14} />
                     </button>
                   </Tooltip>
                 </div>
                 {stagedExpanded && (
-                  <div className="flex flex-col pl-2 border-l-2 border-black/5 dark:border-white/5 ml-2.5 mr-1">
+                  <div className="flex-1 overflow-y-auto overflow-x-hidden aurona-scroll p-2 bg-transparent">
                     {stagedFiles.map(renderFileCard)}
                   </div>
                 )}
               </div>
             )}
 
-            {(unstagedFiles.length > 0 || (stagedFiles.length === 0 && unstagedFiles.length === 0)) && (
-              <div className="flex flex-col shrink-0">
-                <div className="flex items-center justify-between px-1 mb-2 cursor-pointer select-none group" onClick={() => setUnstagedExpanded(!unstagedExpanded)}>
-                  <div className="flex items-center gap-1.5">
-                    <Icons.ChevronDown size={14} className={`text-[var(--TextMuted)] transition-transform ${!unstagedExpanded ? "-rotate-90" : ""}`} />
-                    <span className="text-[12px] font-bold text-[var(--TextMuted)] uppercase tracking-wider group-hover:text-[var(--TextHighlight)] transition-colors">
+            {(unstagedFiles.length > 0 ||
+              (stagedFiles.length === 0 && unstagedFiles.length === 0)) && (
+              <div className={`flex flex-col min-h-0 ${unstagedExpanded && unstagedFiles.length > 0 ? "flex-1" : "flex-initial"} bg-[var(--GlassSurface)] backdrop-blur-xl border border-[var(--GlassBorder)] rounded-2xl overflow-hidden shadow-sm`}>
+                <div
+                  className="flex items-center justify-between px-4 py-3 cursor-pointer select-none border-b border-[var(--GlassBorder)] bg-[var(--GlassHover)]/20 group"
+                  onClick={() => {
+                    const next = !unstagedExpanded;
+                    setUnstagedExpanded(next);
+                    if (next) setStagedExpanded(false);
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icons.ChevronDown
+                      size={15}
+                      className={`text-[var(--TextMuted)] transition-transform ${!unstagedExpanded ? "-rotate-90" : ""}`}
+                    />
+                    <span className="text-[12.5px] font-bold text-[var(--TextHighlight)] uppercase tracking-wider">
                       更改 ({unstagedFiles.length})
                     </span>
                   </div>
                   {unstagedFiles.length > 0 && (
                     <Tooltip content="全部暂存" delay={300}>
-                      <button onClick={(event) => { event.stopPropagation(); stageAll(); }} className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[var(--TextMuted)] hover:text-white hover:bg-[var(--AccentPrimary)] transition-all">
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          stageAll();
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[var(--TextMuted)] hover:text-white hover:bg-[var(--AccentPrimary)] transition-all flex items-center justify-center"
+                      >
                         <Icons.Checks size={14} />
                       </button>
                     </Tooltip>
@@ -372,11 +420,11 @@ export const SourceControl = React.memo(function SourceControl() {
                 </div>
                 {unstagedExpanded &&
                   (unstagedFiles.length === 0 ? (
-                    <div className="p-4 text-center text-[12px] text-[var(--TextMuted)] border border-dashed border-black/10 dark:border-white/10 rounded-2xl ml-2.5 mr-3">
+                    <div className="p-4 text-center text-[12px] text-[var(--TextMuted)] bg-transparent">
                       目前没有任何更改
                     </div>
                   ) : (
-                    <div className="flex flex-col pl-2 border-l-2 border-black/5 dark:border-white/5 ml-2.5 mr-1 pb-2">
+                    <div className="flex-1 overflow-y-auto overflow-x-hidden aurona-scroll p-2 bg-transparent">
                       {unstagedFiles.map(renderFileCard)}
                     </div>
                   ))}

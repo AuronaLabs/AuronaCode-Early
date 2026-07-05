@@ -1,84 +1,72 @@
-import { ReactNode, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import * as React from "react";
+import * as ContextMenuPrimitive from "@radix-ui/react-context-menu";
+import { cn } from "../../Shared/Utils/cn";
 
-export interface ContextMenuProps {
-  x: number;
-  y: number;
-  onClose: () => void;
-  children: ReactNode;
-}
+export const ContextMenuRoot = ContextMenuPrimitive.Root;
+export const ContextMenuTrigger = ContextMenuPrimitive.Trigger;
+export const ContextMenuPortal = ContextMenuPrimitive.Portal;
+export const ContextMenuSub = ContextMenuPrimitive.Sub;
+export const ContextMenuSubTrigger = ContextMenuPrimitive.SubTrigger;
+export const ContextMenuSubContent = ContextMenuPrimitive.SubContent;
 
-export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
+export const ContextMenuContent = React.forwardRef<
+  React.ElementRef<typeof ContextMenuPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Content>
+>(({ className, ...props }, ref) => (
+  <ContextMenuPrimitive.Portal>
+    <ContextMenuPrimitive.Content
+      ref={ref}
+      className={cn(
+        "frosted-glass rounded-xl p-1 z-[9999] flex flex-col min-w-[160px]",
+        "animate-in fade-in zoom-in-95 duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95",
+        className
+      )}
+      {...props}
+    />
+  </ContextMenuPrimitive.Portal>
+));
+ContextMenuContent.displayName = ContextMenuPrimitive.Content.displayName;
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    
-    // Close on any scroll
-    const handleScroll = () => {
-      onClose();
-    };
-
-    document.addEventListener("mousedown", handleClickOutside, true);
-    document.addEventListener("scroll", handleScroll, true);
-    
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside, true);
-      document.removeEventListener("scroll", handleScroll, true);
-    };
-  }, [onClose]);
-
-  // Adjust position to stay within viewport
-  const left = Math.min(x, window.innerWidth - 170);
-  const top = Math.min(y, window.innerHeight - 110);
-
-  return createPortal(
-    <div 
-      ref={menuRef}
-      className="fixed bg-[var(--GlassSurface)] backdrop-blur-2xl border border-[var(--GlassBorder)] shadow-2xl rounded-xl p-1 z-[9999] flex flex-col min-w-[160px] animate-in fade-in zoom-in-95 duration-100"
-      style={{ top, left }}
-      onClick={(e) => e.stopPropagation()}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      {children}
-    </div>,
-    document.body
-  );
-}
-
-export interface ContextMenuItemProps {
-  icon?: ReactNode;
-  label: string;
-  onClick: () => void;
+export interface ContextMenuItemProps extends React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Item> {
+  icon?: React.ReactNode;
+  label?: React.ReactNode;
   variant?: "default" | "danger";
-  disabled?: boolean;
 }
 
-export function ContextMenuItem({ icon, label, onClick, variant = "default", disabled }: ContextMenuItemProps) {
+export const ContextMenuItem = React.forwardRef<
+  React.ElementRef<typeof ContextMenuPrimitive.Item>,
+  ContextMenuItemProps
+>(({ className, icon, label, variant = "default", disabled, children, ...props }, ref) => {
   const isDanger = variant === "danger";
+
   return (
-    <button 
+    <ContextMenuPrimitive.Item
+      ref={ref}
       disabled={disabled}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] transition-colors text-left w-full outline-none ${
-        disabled 
-          ? "opacity-50 cursor-not-allowed text-[var(--TextMuted)]"
-          : isDanger 
-            ? "text-red-500 hover:bg-red-500/10" 
-            : "text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
-      }`}
-      onClick={disabled ? undefined : onClick}
+      className={cn(
+        "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] transition-colors text-left w-full outline-none cursor-pointer select-none",
+        disabled && "opacity-50 cursor-not-allowed text-[var(--TextMuted)]",
+        !disabled && isDanger && "text-red-500 focus:bg-red-500/10",
+        !disabled && !isDanger && "text-[var(--TextHighlight)] focus:bg-black/8 dark:focus:bg-white/15",
+        className
+      )}
+      {...props}
     >
       {icon}
-      {label}
-    </button>
+      {label || children}
+    </ContextMenuPrimitive.Item>
   );
-}
+});
+ContextMenuItem.displayName = ContextMenuPrimitive.Item.displayName;
 
-export function ContextMenuDivider() {
-  return <div className="h-px bg-[var(--GlassBorder)] my-0.5 mx-1" />;
-}
+export const ContextMenuDivider = React.forwardRef<
+  React.ElementRef<typeof ContextMenuPrimitive.Separator>,
+  React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Separator>
+>(({ className, ...props }, ref) => (
+  <ContextMenuPrimitive.Separator
+    ref={ref}
+    className={cn("h-px bg-[var(--GlassBorder)] my-0.5 mx-1", className)}
+    {...props}
+  />
+));
+ContextMenuDivider.displayName = ContextMenuPrimitive.Separator.displayName;

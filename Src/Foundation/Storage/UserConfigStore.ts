@@ -1,10 +1,4 @@
-import {
-  BaseDirectory,
-  exists,
-  mkdir,
-  readTextFile,
-  writeTextFile,
-} from "@tauri-apps/plugin-fs";
+import { BaseDirectory, exists, mkdir, readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import type { UserConfig } from "../Types/Config";
 
 const FILE = "user-config.json";
@@ -24,7 +18,7 @@ export const UserConfigStore = {
   async get(): Promise<UserConfig> {
     try {
       if (memoryCache !== null) return memoryCache;
-      
+
       const fileExists = await exists(FILE, { baseDir: BASE });
       if (!fileExists) {
         memoryCache = {};
@@ -41,8 +35,8 @@ export const UserConfigStore = {
   async set(config: Partial<UserConfig>): Promise<void> {
     const current = await this.get();
     const next = { ...current, ...config };
-    memoryCache = next; // Sync update to memory cache
-    
+    memoryCache = next; 
+
     if (isWriting) {
       pendingWrite = true;
       return;
@@ -61,7 +55,7 @@ export const UserConfigStore = {
         flush();
       }
     };
-    
+
     flush();
   },
 };

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -16,40 +16,58 @@
 }
 
 @font-face {
-  font-family: 'Righteous';
-  src: url('/Righteous-Regular.ttf') format('truetype');
+  font-family: "Righteous";
+  src: url("/Righteous-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
-/* Custom styles for reverse border-radius tabs */
-/* 磁悬浮卡片标签样式 (Floating Cards) */
+/* Frosted Glassmorphism Utility Class */
+.frosted-glass {
+  background-color: var(--GlassSurface);
+  background-image: var(--NoiseTexture);
+  background-blend-mode: overlay;
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border: 1px solid var(--GlassBorder);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.dark .frosted-glass {
+  background-color: rgba(22, 22, 36, 0.82);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
 .aurona-tab {
   position: relative;
   height: var(--TabActiveHeight);
   background: transparent;
   color: var(--TextPrimary);
-  border-radius: 12px; /* 改回类似主卡片的圆角，消除突兀感 */
-  transition: background var(--duration-fast) var(--ease-smooth), 
-              color var(--duration-fast) ease,
-              border-color var(--duration-fast) var(--ease-smooth);
+  border-radius: 12px; 
+  transition:
+    background var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) ease,
+    border-color var(--duration-fast) var(--ease-smooth);
   will-change: background;
   margin-bottom: 0;
   border: 1px solid transparent;
 }
 
-/* 激活态药丸：独立的毛玻璃悬浮效果 */
 .aurona-tab-active {
-  background-color: var(--GlassActive); /* 玻璃色 */
+  background-color: var(--GlassActive); 
   color: var(--TextHighlight);
-  border-color: var(--GlassBorder); /* 细微边框质感 */
-  backdrop-filter: blur(12px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border-color: var(--GlassBorder); 
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   z-index: 10;
 }
 
-/* 非激活悬停效果：保持全圆角 */
+.dark .aurona-tab-active {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
 .aurona-tab:not(.aurona-tab-active):hover {
   background-color: var(--GlassHover);
 }
@@ -61,16 +79,20 @@
   --duration-normal: 250ms;
   --duration-slow: 400ms;
 
-  /* Global Base Colors (RGB) */
-  --RGB-Bg: 248, 250, 252; /* #f8fafc slate-50 */
-  --RGB-Fg: 15, 23, 42;    /* #0f172a slate-900 */
-  --RGB-Accent: 37, 99, 235; /* #2563eb blue-600 */
+  --RGB-Bg: 248, 250, 252; 
+  --RGB-Fg: 15, 23, 42; 
+  --RGB-Accent: 37, 99, 235; 
 
   /* Glassmorphism Layers */
-  --GlassSurface: rgba(255, 255, 255, 0.6); /* Slightly more opaque for cleaner background */
-  --GlassHover: rgba(var(--RGB-Fg), 0.03); /* Extremely subtle hover */
-  --GlassActive: rgba(255, 255, 255, 0.85); /* Clean white for active states instead of muddy gray */
-  --GlassBorder: rgba(var(--RGB-Fg), 0.04); /* Softer borders */
+  --NoiseTexture: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+  --GlassSurface: rgba(255, 255, 255, 0.4); 
+  --GlassHover: rgba(var(--RGB-Fg), 0.03); 
+  --GlassActive: rgba(255, 255, 255, 0.7);
+  --GlassBorder: rgba(var(--RGB-Fg), 0.04); 
+  
+  /* Editor Active Line Highlight variables */
+  --EditorActiveLineBg: rgba(0, 0, 0, 0.015);
+  --EditorActiveLineBorder: rgba(0, 0, 0, 0.03); 
 
   /* Semantic Colors */
   --AppBg: rgb(var(--RGB-Bg));
@@ -80,20 +102,21 @@
   --AccentPrimary: rgb(var(--RGB-Accent));
   --AccentHover: #3b82f6;
   --AccentText: #ffffff;
-  
+
   /* Light Mode Syntax Highlighting (High Contrast) */
-  --SyntaxKeyword: #c53030;     
-  --SyntaxString: #276749;      
-  --SyntaxNumber: #2b6cb0;      
-  --SyntaxFunction: #6b46c1;    
-  --SyntaxVariable: #b7791f;    
-  --SyntaxComment: #a0aec0;     
+  --SyntaxKeyword: #c53030;
+  --SyntaxString: #276749;
+  --SyntaxNumber: #2b6cb0;
+  --SyntaxFunction: #6b46c1;
+  --SyntaxVariable: #b7791f;
+  --SyntaxComment: #a0aec0;
   --SyntaxOperator: #4a5568;
-  
+
   /* A vibrant mesh gradient background so the glassmorphism pops */
-  --AppBackground: 
-    radial-gradient(circle at 15% 50%, rgba(219, 234, 254, 0.8), transparent 30%),
-    radial-gradient(circle at 85% 30%, rgba(243, 232, 255, 0.8), transparent 30%),
+  --AppBackground:
+    radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.1) 0%, transparent 60%),
     linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
 
   --FontSizeBase: 13px;
@@ -109,9 +132,8 @@
   --TabBarHeight: calc(var(--TabActiveHeight) + 8px);
   --EditorFontSize: 14px;
   --EditorLineHeight: 24px;
-  --EditorFontFamily: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
-  
-  
+  --EditorFontFamily: "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+
   color-scheme: light;
 }
 
@@ -148,18 +170,20 @@
 }
 
 .dark {
-  /* Global Base Colors (RGB) */
-  --RGB-Bg: 9, 9, 11;      /* #09090b zinc-950 */
-  --RGB-Fg: 255, 255, 255; /* #ffffff white */
-  --RGB-Accent: 59, 130, 246; /* #3b82f6 blue-500 */
 
-  /* Glassmorphism Layers */
-  --GlassSurface: rgba(0, 0, 0, 0.3);
-  --GlassHover: rgba(var(--RGB-Fg), 0.06);
-  --GlassActive: rgba(var(--RGB-Fg), 0.1);
-  --GlassBorder: rgba(var(--RGB-Fg), 0.06);
+  --RGB-Bg: 9, 9, 11; 
+  --RGB-Fg: 255, 255, 255; 
+  --RGB-Accent: 59, 130, 246; 
 
-  /* Semantic Colors */
+  --GlassSurface: rgba(18, 18, 28, 0.55);
+  --GlassHover: rgba(255, 255, 255, 0.09);
+  --GlassActive: rgba(255, 255, 255, 0.18);
+  --GlassBorder: rgba(255, 255, 255, 0.07);
+  
+  /* Editor Active Line Highlight variables */
+  --EditorActiveLineBg: rgba(255, 255, 255, 0.015);
+  --EditorActiveLineBorder: rgba(255, 255, 255, 0.03);
+
   --AppBg: rgb(var(--RGB-Bg));
   --TextPrimary: rgba(var(--RGB-Fg), 0.7);
   --TextHighlight: rgb(var(--RGB-Fg));
@@ -167,22 +191,21 @@
   --AccentPrimary: rgb(var(--RGB-Accent));
   --AccentHover: #60a5fa;
   --AccentText: #ffffff;
-  
-  /* Dark Mode Syntax Highlighting (Neon Vibrant) */
-  --SyntaxKeyword: #f97316;     
-  --SyntaxString: #a3e635;      
-  --SyntaxNumber: #38bdf8;      
-  --SyntaxFunction: #c084fc;    
-  --SyntaxVariable: #fcd34d;    
-  --SyntaxComment: #64748b;     
+
+  --SyntaxKeyword: #f97316;
+  --SyntaxString: #a3e635;
+  --SyntaxNumber: #38bdf8;
+  --SyntaxFunction: #c084fc;
+  --SyntaxVariable: #fcd34d;
+  --SyntaxComment: #64748b;
   --SyntaxOperator: #cbd5e1;
-  
-  /* A deep background with vibrant colored light refractions */
-  --AppBackground: 
-    radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.12), transparent 40%),
-    radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.12), transparent 40%),
+
+  --AppBackground:
+    radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.25) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.25) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.15) 0%, transparent 60%),
     linear-gradient(135deg, #09090b 0%, #000000 100%);
-  
+
   color-scheme: dark;
 }
 
@@ -197,9 +220,6 @@
   box-sizing: border-box;
 }
 
-/* ------------------------------------- */
-/* Global Scrollbar Customization        */
-/* Custom Scrollbars for all elements including Monaco */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -224,11 +244,6 @@
   background: transparent;
 }
 
-/* Force Monaco to use our transparent background to match the theme */
-.monaco-editor, .monaco-editor-background, .monaco-editor .margin {
-  background-color: transparent !important;
-}
-
 html,
 body,
 #Root {
@@ -236,19 +251,22 @@ body,
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden; /* App is a fixed viewport */
+  overflow: hidden; 
 }
 
 body {
   background-color: var(--AppBg);
   color: var(--TextPrimary);
-  font-family: 'HarmonyOS Sans SC', 'Microsoft YaHei', sans-serif;
+  font-family: "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
   font-size: var(--FontSizeBase);
   user-select: none;
   -webkit-user-select: none;
 }
 
-input, textarea, [contenteditable="true"], .monaco-editor, .selectable {
+input,
+textarea,
+[contenteditable="true"],
+.selectable {
   user-select: text;
   -webkit-user-select: text;
 }
@@ -267,12 +285,15 @@ select {
 
 *:focus-visible {
   outline: 2px solid var(--TextHighlight);
-  border-radius: 4px; /* 呼应你偏好的圆角风格 */
+  border-radius: 4px; 
 }
 
-/* 全局移除 input 和 textarea 的默认黑框/高亮环 */
-input:focus, textarea:focus, select:focus,
-input:focus-visible, textarea:focus-visible, select:focus-visible {
+input:focus,
+textarea:focus,
+select:focus,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
   outline: none !important;
   box-shadow: none !important;
 }
@@ -281,7 +302,6 @@ button {
   cursor: pointer;
 }
 
-/* Custom minimal scrollbar */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -307,36 +327,39 @@ button {
   background: transparent;
 }
 
-/* ------------------------------------- */
-/* Custom Monaco Editor Scrollbar        */
-/* ------------------------------------- */
-.monaco-editor .monaco-scrollable-element > .scrollbar {
-  background: transparent !important;
+.theme-transitioning,
+.theme-transitioning * {
+  transition: background-color 300ms cubic-bezier(0.4, 0, 0.2, 1) !important,
+              border-color 300ms cubic-bezier(0.4, 0, 0.2, 1) !important,
+              color 300ms cubic-bezier(0.4, 0, 0.2, 1) !important,
+              opacity 300ms cubic-bezier(0.4, 0, 0.2, 1) !important,
+              box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1) !important,
+              backdrop-filter 300ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+* { outline: none !important; }  
+
+/* Second-layer Glassmorphism Utility Class for inner cards/inputs on glass canvas */
+.glass-inner-card {
+  background-color: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid var(--GlassBorder);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  transition: background-color var(--duration-fast) var(--ease-smooth),
+              border-color var(--duration-fast) var(--ease-smooth);
 }
 
-.monaco-editor .monaco-scrollable-element > .scrollbar > .slider {
-  background: transparent !important;
-  border-radius: 9999px !important;
+.dark .glass-inner-card {
+  background-color: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
-.monaco-editor .monaco-scrollable-element:hover > .scrollbar > .slider {
-  background: color-mix(in srgb, var(--TextPrimary) 20%, transparent) !important;
+.glass-inner-card:hover {
+  background-color: rgba(255, 255, 255, 0.22);
 }
 
-.monaco-editor .monaco-scrollable-element > .scrollbar > .slider:hover {
-  background: color-mix(in srgb, var(--TextPrimary) 40%, transparent) !important;
-}
-
-.monaco-editor .monaco-scrollable-element > .scrollbar > .slider.active {
-  background: color-mix(in srgb, var(--TextPrimary) 50%, transparent) !important;
-}
-
- /* Smooth theme transitions */
-body {
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-div[class*="bg-"], button[class*="bg-"], input[class*="bg-"], select[class*="bg-"] {
-  transition-property: background-color, border-color, color, fill, stroke;
-  transition-duration: 300ms;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+.dark .glass-inner-card:hover {
+  background-color: rgba(255, 255, 255, 0.07);
 }

@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { Icons } from "../../UI/Icons/IconManager";
-import { NotificationService, NotificationItem } from "../../Core/NotificationService";
+import { type NotificationItem, NotificationService } from "../../Core/NotificationService";
 import { EventBus } from "../../Foundation/EventBus";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
+import { Icons } from "../../UI/Icons/IconManager";
 
 export const NotificationsPanel = React.memo(function NotificationsPanel() {
-  const [notifications, setNotifications] = useState<NotificationItem[]>(NotificationService.getHistory());
+  const [notifications, setNotifications] = useState<NotificationItem[]>(
+    NotificationService.getHistory(),
+  );
 
   useEffect(() => {
-    // 标记所有为已读
+    
     NotificationService.markAllAsRead();
 
     const unsub = EventBus.on("notifications:updated", (history) => {
@@ -23,12 +25,12 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
 
   return (
     <div className="flex flex-col h-full w-full bg-transparent">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between px-[var(--PanelPaddingX)] pt-4 pb-2 shrink-0">
         <h2 className="text-[14px] font-bold text-[var(--TextHighlight)] tracking-tight">通知</h2>
         {notifications.length > 0 && (
           <Tooltip content="清除所有通知" delay={300}>
-            <button 
+            <button
               onClick={handleClear}
               className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-colors"
             >
@@ -38,7 +40,7 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
         )}
       </div>
 
-      {/* Content */}
+      {}
       <div className="flex flex-col flex-1 overflow-y-auto aurona-scroll px-3 pb-4">
         {notifications.length === 0 ? (
           <div className="flex flex-col flex-1 items-center justify-center text-center gap-4">
@@ -57,21 +59,32 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
         ) : (
           <div className="flex flex-col gap-2 mt-2">
             {notifications.map((item) => {
-              const Icon = 
-                item.type === "success" ? Icons.Checks :
-                item.type === "error" ? Icons.Close :
-                item.type === "warning" ? Icons.AlertTriangle :
-                Icons.Info;
+              const Icon =
+                item.type === "success"
+                  ? Icons.Checks
+                  : item.type === "error"
+                    ? Icons.Close
+                    : item.type === "warning"
+                      ? Icons.AlertTriangle
+                      : Icons.Info;
 
-              const bgColor = 
-                item.type === "success" ? "bg-green-500/10 text-green-500" :
-                item.type === "error" ? "bg-red-500/10 text-red-500" :
-                item.type === "warning" ? "bg-yellow-500/10 text-yellow-500" :
-                "bg-blue-500/10 text-blue-500";
+              const bgColor =
+                item.type === "success"
+                  ? "bg-green-500/10 text-green-500"
+                  : item.type === "error"
+                    ? "bg-red-500/10 text-red-500"
+                    : item.type === "warning"
+                      ? "bg-yellow-500/10 text-yellow-500"
+                      : "bg-blue-500/10 text-blue-500";
 
               return (
-                <div key={item.id} className="flex gap-3 bg-white/5 dark:bg-white/10 backdrop-blur-md border border-black/5 dark:border-white/5 rounded-2xl p-3 z-10 hover:border-black/20 dark:hover:border-white/20 transition-all group relative">
-                  <div className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full ${bgColor}`}>
+                <div
+                  key={item.id}
+                  className="flex gap-3 bg-white/5 dark:bg-white/10 backdrop-blur-md border border-black/5 dark:border-white/5 rounded-2xl p-3 z-10 hover:border-black/20 dark:hover:border-white/20 transition-all group relative"
+                >
+                  <div
+                    className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full ${bgColor}`}
+                  >
                     <Icon size={14} />
                   </div>
                   <div className="flex flex-col justify-center gap-1 min-w-0">
