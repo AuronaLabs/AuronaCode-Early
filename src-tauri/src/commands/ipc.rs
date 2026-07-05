@@ -29,9 +29,13 @@ pub async fn aurona_bridge(req: IpcRequest) -> IpcResponse {
 
 #[tauri::command]
 pub fn open_devtools(window: tauri::WebviewWindow) {
-    #[cfg(debug_assertions)]
-    window.open_devtools();
-    
-    #[cfg(not(debug_assertions))]
-    window.open_devtools(); // we try to open it even in release if possible
+    #[cfg(any(debug_assertions, feature = "devtools"))]
+    {
+        window.open_devtools();
+    }
+
+    #[cfg(not(any(debug_assertions, feature = "devtools")))]
+    {
+        tracing::warn!("用户请求打开 DevTools，但当前构建未启用 devtools 功能");
+    }
 }
