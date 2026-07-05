@@ -36,6 +36,6 @@ pub fn open_devtools(window: tauri::WebviewWindow) {
 
     #[cfg(not(any(debug_assertions, feature = "devtools")))]
     {
-        tracing::warn!("用户请求打开 DevTools，但当前构建未启用 devtools 功能");
+        println!("[Aurona] DevTools requested in release build");
     }
 }
