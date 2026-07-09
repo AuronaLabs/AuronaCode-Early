@@ -85,8 +85,18 @@ export function Tooltip({ content, children, delay = 300, placement = "top" }: T
   };
 
   useEffect(() => {
+    const handleGlobalHide = () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      setIsVisible(false);
+    };
+
+    window.addEventListener("blur", handleGlobalHide);
+    window.addEventListener("scroll", handleGlobalHide, true); // true for capturing scroll events from any scrollable element
+
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      window.removeEventListener("blur", handleGlobalHide);
+      window.removeEventListener("scroll", handleGlobalHide, true);
     };
   }, []);
 

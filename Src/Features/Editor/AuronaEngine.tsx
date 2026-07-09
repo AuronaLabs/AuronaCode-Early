@@ -18,46 +18,6 @@ import {
   ContextMenuDivider,
 } from "../../UI/Components/ContextMenu";
 
-const hljsTheme = `
-.hljs, code {
-  color: var(--TextHighlight);
-  text-shadow: none;
-  font-family: var(--EditorFontFamily);
-  font-size: var(--EditorFontSize);
-  line-height: var(--EditorLineHeight);
-  direction: ltr;
-  text-align: left;
-  white-space: pre;
-  word-spacing: normal;
-  word-break: normal;
-  tab-size: 2;
-  hyphens: none;
-}
-.aurona-scroll::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-}
-.aurona-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.aurona-scroll::-webkit-scrollbar-thumb {
-  background-color: var(--GlassBorder);
-  border-radius: 10px;
-  border: 3px solid transparent;
-  background-clip: padding-box;
-}
-.aurona-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: var(--TextMuted);
-}
-.hljs-comment, .hljs-quote { color: var(--SyntaxComment); }
-.hljs-keyword, .hljs-selector-tag { color: var(--SyntaxKeyword); }
-.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute, .hljs-meta .hljs-string { color: var(--SyntaxString); }
-.hljs-number, .hljs-built_in, .hljs-literal, .hljs-type, .hljs-params, .hljs-meta, .hljs-link { color: var(--SyntaxNumber); }
-.hljs-title, .hljs-title.function_, .hljs-section, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: var(--SyntaxFunction); }
-.hljs-variable, .hljs-template-variable { color: var(--SyntaxVariable); }
-.hljs-operator, .hljs-punctuation { color: var(--SyntaxOperator); }
-`;
-
 export type AuronaEngineProps = {
   value: string;
   language: string;
@@ -682,10 +642,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   }, [linesCount]);
 
   return (
-    <div className="relative w-full h-full flex bg-transparent overflow-hidden">
-      <style>{hljsTheme}</style>
-
-      {isSearchOpen && (
+    <div className="relative w-full h-full flex bg-transparent overflow-hidden">      {isSearchOpen && (
         <SearchWidget
           onSearch={setSearchQuery}
           onClose={() => {
@@ -750,7 +707,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
             <div
               style={{
                 position: "absolute",
-                top: `${(currentLine - 1) * lineHeightRef.current}px`,
+                top: `${(currentLine - 1) * lineHeightRef.current + 16}px`,
                 left: 0,
                 width: "100%",
                 height: `${lineHeightRef.current}px`,
@@ -766,7 +723,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
             {searchMatches.map((index, i) => {
               const { line, char } = getLineAndChar(index);
 
-              const top = line * lineHeightRef.current;
+              const top = line * lineHeightRef.current + 16;
               const left = char * charWidthRef.current;
               const width = searchQuery.length * charWidthRef.current;
 
@@ -792,7 +749,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
             {}
             {diagnostics.map((diag, i) => {
-              const top = diag.range.start.line * lineHeightRef.current;
+              if (!diag.range) return null;
+              const top = diag.range.start.line * lineHeightRef.current + 16;
               const left = diag.range.start.character * charWidthRef.current;
               const width = Math.max(
                 charWidthRef.current,

@@ -23,21 +23,7 @@
   font-display: swap;
 }
 
-/* Frosted Glassmorphism Utility Class */
-.frosted-glass {
-  background-color: var(--GlassSurface);
-  background-image: var(--NoiseTexture);
-  background-blend-mode: overlay;
-  backdrop-filter: blur(24px) saturate(200%);
-  -webkit-backdrop-filter: blur(24px) saturate(200%);
-  border: 1px solid var(--GlassBorder);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-}
 
-.dark .frosted-glass {
-  background-color: rgba(22, 22, 36, 0.82);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-}
 
 .aurona-tab {
   position: relative;
@@ -338,28 +324,43 @@ button {
 }
 * { outline: none !important; }  
 
-/* Second-layer Glassmorphism Utility Class for inner cards/inputs on glass canvas */
-.glass-inner-card {
-  background-color: rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(12px) saturate(160%);
-  -webkit-backdrop-filter: blur(12px) saturate(160%);
-  border: 1px solid var(--GlassBorder);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              border-color var(--duration-fast) var(--ease-smooth);
-}
 
-.dark .glass-inner-card {
-  background-color: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-}
 
-.glass-inner-card:hover {
-  background-color: rgba(255, 255, 255, 0.22);
+/* Highlight.js Theme (Migrated from AuronaEngine.tsx) */
+.hljs, code {
+  color: var(--TextHighlight);
+  text-shadow: none;
+  font-family: var(--EditorFontFamily);
+  font-size: var(--EditorFontSize);
+  line-height: var(--EditorLineHeight);
+  direction: ltr;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  tab-size: 2;
+  hyphens: none;
 }
-
-.dark .glass-inner-card:hover {
-  background-color: rgba(255, 255, 255, 0.07);
+.aurona-scroll::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
 }
+.aurona-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.aurona-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--GlassBorder);
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+.aurona-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--TextMuted);
+}
+.hljs-comment, .hljs-quote { color: var(--SyntaxComment); }
+.hljs-keyword, .hljs-selector-tag { color: var(--SyntaxKeyword); }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute, .hljs-meta .hljs-string { color: var(--SyntaxString); }
+.hljs-number, .hljs-built_in, .hljs-literal, .hljs-type, .hljs-params, .hljs-meta, .hljs-link { color: var(--SyntaxNumber); }
+.hljs-title, .hljs-title.function_, .hljs-section, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: var(--SyntaxFunction); }
+.hljs-variable, .hljs-template-variable { color: var(--SyntaxVariable); }
+.hljs-operator, .hljs-punctuation { color: var(--SyntaxOperator); }

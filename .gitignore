@@ -27,8 +27,7 @@ dist-ssr
 
 # Tauri
 src-tauri/target
-src-tauri/gen/android
-src-tauri/gen/apple
+src-tauri/gen
 
 # Python (manager.py artifacts)
 __pycache__/
@@ -39,4 +38,7 @@ venv/
 
 # AI Agent Configs
 .agents/
+
+# Build & CI Artifacts
+RELEASE_BODY.md
 publish.py

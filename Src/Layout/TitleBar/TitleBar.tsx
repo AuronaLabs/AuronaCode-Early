@@ -162,7 +162,9 @@ export function TitleBar() {
                 label="开发者工具 (F12)"
                 onSelect={() => {
                   import("@tauri-apps/api/core").then(({ invoke }) => {
-                    invoke("open_devtools");
+                    invoke("open_devtools").catch((err) => {
+                      EventBus.emit("app:toast", { type: "warning", message: err });
+                    });
                   }).catch(console.error);
                 }}
               />

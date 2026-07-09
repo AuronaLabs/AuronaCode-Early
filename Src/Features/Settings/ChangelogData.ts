@@ -2,6 +2,7 @@ export interface ChangelogEntry {
   version: string;
   date: string;
   isLatest?: boolean;
+  summary?: string;
   sections: {
     title: string;
     description?: string;
@@ -11,15 +12,36 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-    version: "V0.2.0",
-    date: "2026-07-04",
+    version: "V0.2.1",
+    date: "2026-07-09",
     isLatest: true,
+    summary: "基于 V0.2.0 发布后的反馈，本次更新致力于进一步打磨使用体验，并对跨平台兼容性（如 macOS）进行了针对性优化。同时修复了生产构建环境中的一系列关键性 Bug，让编辑器的视觉与体验在正式环境中依旧无懈可击。",
     sections: [
       {
-        title: "Corona+ 架构大升级：极致性能与现代极客美学",
-        description:
-          "Aurona Code 迎来了史诗级的大版本更新！\n\n我们全面升级了应用架构，正式步入 **Corona+ 时代**。本次升级彻底清除了早期迭代遗留的历史包袱与旧版 UI，带来了贯穿全局的「极客玻璃态 (Frosted Glass)」质感设计以及 Radix UI 无障碍底层支持。因为底层架构发生了不可逆的深度重构，我们将过去的 0.0.X 与 0.1.X 的冗长记录全部封存并归档，开启 V0.2.0 新纪元。",
+        title: "交互与生态优化",
+        items: [
+          "新增对 macOS 的原生支持：引入顶部原生系统菜单栏同步映射（文件、编辑、运行、帮助等），与系统浑然一体。应用内置自定义窗口菜单依然保留，满足不同用户习惯。",
+          "全面优化生产环境开发者工具 (DevTools) 支持：抛弃了粗暴的剔除策略，现在生产版本按 F12 也能调出 DevTools（需要预先支持），当环境不支持时会有贴心的全局 Toast 弱提醒，彻底杜绝无响应和崩溃问题。",
+          "修复了悬浮提示气泡 (Tooltip) 的残留 Bug：现在只要切换窗口失焦或滚动页面，气泡会智能即刻隐去，告别“视觉幽灵”。",
+          "优化存储空间管理逻辑：移除了硬编码的预估体积，现在将通过后端接口递归计算 APPDATA 与日志目录的真实物理大小，提供更准确的存储空间监测。",
+        ],
       },
+      {
+        title: "视觉与样式修复",
+        items: [
+          "修复生产环境打包后「玻璃态 (Frosted Glass)」材质消失退化的问题，让深浅色模式的毛玻璃质感在生产环境同样剔透。",
+          "修复生产环境打包后编辑器高亮样式 (Highlight.js) 完全失效的严重 Bug，确保语言渲染颜色准确。",
+          "精确校准了编辑器 (AuronaEngine) 中的选中行背景与搜索高亮块的纵向偏移量，彻底解决了因外部布局引起的背景错位痛点。",
+        ],
+      },
+    ],
+  },
+  {
+    version: "V0.2.0",
+    date: "2026-07-04",
+    isLatest: false,
+    summary: "Aurona Code 迎来了史诗级的大版本更新！\n\n我们全面升级了应用架构，正式步入 **Corona+ 时代**。本次升级彻底清除了早期迭代遗留的历史包袱与旧版 UI，带来了贯穿全局的「极客玻璃态 (Frosted Glass)」质感设计以及 Radix UI 无障碍底层支持。因为底层架构发生了不可逆的深度重构，我们将过去的 0.0.X 与 0.1.X 的冗长记录全部封存并归档，开启 V0.2.0 新纪元。",
+    sections: [
       {
         title: "全局极客级 UI 重构",
         items: [
@@ -37,14 +59,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
           "彻底清理了历史遗留的旧版编辑器样式痕迹和所有冗余调试注释，应用包体与 DOM 树结构变得无比纯净",
           "优化代码搜索高亮与选中背景层次，在光标停留时有更柔和的光晕过渡",
         ],
-      },
-      {
-        title: "周边与生态更新",
-        items: [
-          "重构了位于项目根目录的 `manager.py`，启用了全新的 rich 命令行 TUI 界面，开发管理与打包构建体验大幅跃升",
-          "项目 README 与 GitHub 模板已同步升级至 Corona+ 风格设计文档",
-        ],
-      },
+      }
     ],
   },
 ];

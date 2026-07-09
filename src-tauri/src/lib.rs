@@ -47,6 +47,9 @@ pub fn run() {
             commands::fs::fs_copy_or_move,
             commands::ipc::aurona_bridge,
             commands::ipc::open_devtools,
+            commands::ipc::get_app_data_size,
+            commands::ipc::get_app_log_size,
+            commands::ipc::clear_other_app_data,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Aurona Code");

@@ -87,7 +87,14 @@ export function SettingsTab() {
 
   const [configSize, setConfigSize] = useState("0 B");
   const [workspaceSize, setWorkspaceSize] = useState("0 B");
-  const [logSize, setLogSize] = useState("14.8 KB");
+  const [otherDataSize, setOtherDataSize] = useState("0 B");
+  const [appDataSize, setAppDataSize] = useState("0 B");
+  const [logSize, setLogSize] = useState("0 B");
+  const [rawConfigSize, setRawConfigSize] = useState(0);
+  const [rawWorkspaceSize, setRawWorkspaceSize] = useState(0);
+  const [rawOtherDataSize, setRawOtherDataSize] = useState(0);
+  const [rawAppDataSize, setRawAppDataSize] = useState(0);
+  const [rawLogSize, setRawLogSize] = useState(0);
   const [isClearing, setIsClearing] = useState<string | null>(null);
 
   const formatBytes = (bytes: number) => {
@@ -99,17 +106,43 @@ export function SettingsTab() {
   };
 
   const loadStorageSizes = async () => {
+    let cSize = 0;
+    let wSize = 0;
     try {
       const configStat = await stat("user-config.json", { baseDir: BaseDirectory.AppLocalData });
-      setConfigSize(formatBytes(configStat.size));
-    } catch {
-      setConfigSize("0 B");
-    }
+      cSize = configStat.size;
+    } catch {}
+    setConfigSize(formatBytes(cSize));
+    setRawConfigSize(cSize);
+
     try {
       const workspaceStat = await stat("workspace.json", { baseDir: BaseDirectory.AppLocalData });
-      setWorkspaceSize(formatBytes(workspaceStat.size));
+      wSize = workspaceStat.size;
+    } catch {}
+    setWorkspaceSize(formatBytes(wSize));
+    setRawWorkspaceSize(wSize);
+
+    try {
+      const dataSize: number = await invoke("get_app_data_size");
+      setAppDataSize(formatBytes(dataSize));
+      setRawAppDataSize(dataSize);
+      
+      const other = Math.max(0, dataSize - cSize - wSize);
+      setOtherDataSize(formatBytes(other));
+      setRawOtherDataSize(other);
     } catch {
-      setWorkspaceSize("0 B");
+      setAppDataSize("0 B");
+      setRawAppDataSize(0);
+      setOtherDataSize("0 B");
+      setRawOtherDataSize(0);
+    }
+    try {
+      const lSize: number = await invoke("get_app_log_size");
+      setLogSize(formatBytes(lSize));
+      setRawLogSize(lSize);
+    } catch {
+      setLogSize("0 B");
+      setRawLogSize(0);
     }
   };
 
@@ -146,13 +179,32 @@ export function SettingsTab() {
     }
   };
 
-  const handleClearLogs = () => {
-    setIsClearing("logs");
-    setTimeout(() => {
-      setLogSize("0 B");
-      showToast("日志缓存清理完成", "success");
+  const handleClearOtherAppData = async () => {
+    setIsClearing("other");
+    try {
+      await invoke("clear_other_app_data");
+      showToast("已清理其他缓存数据与碎片，部分可能需重启后释放", "success");
+      loadStorageSizes();
+    } catch (e) {
+      showToast(`清除时发生错误: ${e}`, "warning");
+      loadStorageSizes(); // Still reload because some files might have been deleted
+    } finally {
       setIsClearing(null);
-    }, 600);
+    }
+  };
+
+  const handleClearLogs = async () => {
+    setIsClearing("logs");
+    try {
+      await remove("app.log", { baseDir: BaseDirectory.AppLog });
+      setLogSize("0 B");
+      setRawLogSize(0);
+      showToast("运行日志已清理完毕", "success");
+    } catch (e) {
+      showToast(`没有发现可清理的日志`, "warning");
+    } finally {
+      setIsClearing(null);
+    }
   };
 
   useEffect(() => {
@@ -448,7 +500,17 @@ export function SettingsTab() {
     </div>
   );
 
-  const renderStorage = () => (
+  const renderStorage = () => {
+    const totalRawSize = rawAppDataSize + rawLogSize;
+    const totalSizeFormatted = formatBytes(totalRawSize);
+    
+    const totalForBar = totalRawSize === 0 ? 1 : totalRawSize;
+    const configPct = (rawConfigSize / totalForBar) * 100;
+    const workspacePct = (rawWorkspaceSize / totalForBar) * 100;
+    const otherPct = (rawOtherDataSize / totalForBar) * 100;
+    const logPct = (rawLogSize / totalForBar) * 100;
+
+    return (
     <div className="flex flex-col gap-6 w-full max-w-3xl">
       <div className="flex flex-col gap-2">
         <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">存储空间管理</h3>
@@ -459,23 +521,22 @@ export function SettingsTab() {
         <div className="flex flex-col gap-2">
           <div className="flex justify-between items-end">
             <span className="text-[20px] font-extrabold text-[var(--TextHighlight)] tracking-tight select-none">
-              85.1 MB <span className="text-[12px] font-normal text-[var(--TextMuted)] font-sans">已使用</span>
+              {totalSizeFormatted} <span className="text-[12px] font-normal text-[var(--TextMuted)] font-sans">本地数据已使用</span>
             </span>
             <span className="text-[12px] text-[var(--TextMuted)] font-medium select-none">设备可用空间充足</span>
           </div>
 
           <div className="w-full h-3.5 bg-black/10 dark:bg-white/5 rounded-full overflow-hidden flex select-none">
-            <div className="h-full bg-blue-500" style={{ width: "95%" }} title="应用主程序 (85.0 MB)" />
-            <div className="h-full bg-emerald-500 animate-pulse" style={{ width: "2%" }} title="用户配置文件" />
-            <div className="h-full bg-amber-500 animate-pulse" style={{ width: "2%" }} title="工作区状态缓存" />
-            <div className="h-full bg-purple-500 animate-pulse" style={{ width: "1%" }} title="日志缓存数据" />
+            {totalRawSize === 0 && (
+              <div className="h-full bg-black/20 dark:bg-white/10" style={{ width: "100%" }} />
+            )}
+            {rawConfigSize > 0 && <div className="h-full bg-emerald-500 hover:opacity-80 transition-opacity" style={{ width: `${configPct}%` }} title={`配置偏好 (${configSize})`} />}
+            {rawWorkspaceSize > 0 && <div className="h-full bg-amber-500 hover:opacity-80 transition-opacity" style={{ width: `${workspacePct}%` }} title={`工作区缓存 (${workspaceSize})`} />}
+            {rawOtherDataSize > 0 && <div className="h-full bg-blue-500 hover:opacity-80 transition-opacity" style={{ width: `${otherPct}%` }} title={`其他缓存数据 (${otherDataSize})`} />}
+            {rawLogSize > 0 && <div className="h-full bg-purple-500 hover:opacity-80 transition-opacity" style={{ width: `${logPct}%` }} title={`运行日志 (${logSize})`} />}
           </div>
 
           <div className="flex flex-wrap gap-x-4 gap-y-2 mt-1 select-none">
-            <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
-              <div className="w-2 h-2 rounded-full bg-blue-500" />
-              <span>应用大小 (85.0 MB)</span>
-            </div>
             <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
               <div className="w-2 h-2 rounded-full bg-emerald-500" />
               <span>配置偏好 ({configSize})</span>
@@ -483,6 +544,10 @@ export function SettingsTab() {
             <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
               <div className="w-2 h-2 rounded-full bg-amber-500" />
               <span>工作区缓存 ({workspaceSize})</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
+              <span>其他数据 ({otherDataSize})</span>
             </div>
             <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
               <div className="w-2 h-2 rounded-full bg-purple-500" />
@@ -509,7 +574,7 @@ export function SettingsTab() {
               <Button
                 variant="danger"
                 className="h-8 text-[12px] px-3.5"
-                disabled={isClearing !== null || configSize === "0 B"}
+                disabled={isClearing !== null || rawConfigSize === 0}
                 onClick={handleClearConfig}
               >
                 {isClearing === "config" ? "正在清理..." : "清理"}
@@ -530,10 +595,31 @@ export function SettingsTab() {
               <Button
                 variant="danger"
                 className="h-8 text-[12px] px-3.5"
-                disabled={isClearing !== null || workspaceSize === "0 B"}
+                disabled={isClearing !== null || rawWorkspaceSize === 0}
                 onClick={handleClearWorkspace}
               >
                 {isClearing === "workspace" ? "正在清理..." : "清理"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+            <div className="flex flex-col gap-1">
+              <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
+                WebView 缓存与杂项
+                <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">Cache / WebKit</span>
+              </span>
+              <span className="text-[12px] text-[var(--TextMuted)]">清除 Tauri 与内置网页引擎在运行期间产生的离线图片、网络请求与其他碎片文件</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">{otherDataSize}</span>
+              <Button
+                variant="danger"
+                className="h-8 text-[12px] px-3.5"
+                disabled={isClearing !== null || rawOtherDataSize === 0}
+                onClick={handleClearOtherAppData}
+              >
+                {isClearing === "other" ? "正在清理..." : "清理"}
               </Button>
             </div>
           </div>
@@ -561,7 +647,8 @@ export function SettingsTab() {
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   const renderAdvanced = () => (
     <div className="flex flex-col gap-6 w-full max-w-3xl">

@@ -46,7 +46,7 @@ export function ChangelogTab() {
         {filteredData.map((release) => (
           <div
             key={release.version}
-            className={`flex flex-col gap-6 ${!release.isLatest ? "opacity-80 hover:opacity-100 transition-opacity" : ""}`}
+            className={`flex flex-col gap-6 ${!release.isLatest ? "opacity-80" : ""}`}
           >
             <div className="flex items-center gap-4 border-b border-black/10 dark:border-[var(--GlassBorder)] pb-4">
               <span className="text-[24px] font-bold text-[var(--TextHighlight)] tracking-tight" style={{ fontFamily: "'Righteous', sans-serif" }}>
@@ -61,6 +61,12 @@ export function ChangelogTab() {
                 </span>
               )}
             </div>
+
+            {release.summary && (
+              <div className="text-[14px] text-[var(--TextPrimary)] leading-relaxed opacity-90 whitespace-pre-line px-1">
+                {parseMarkdownBold(release.summary)}
+              </div>
+            )}
 
             <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-5">
               {release.sections.map((section) => (

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize)]
 pub struct IpcRequest {
     pub action: String,
-    pub payload: Option<serde_json::Value>,
+    pub _payload: Option<serde_json::Value>,
 }
 
 #[derive(Serialize)]
@@ -28,14 +28,77 @@ pub async fn aurona_bridge(req: IpcRequest) -> IpcResponse {
 }
 
 #[tauri::command]
-pub fn open_devtools(window: tauri::WebviewWindow) {
+pub fn open_devtools(_window: tauri::WebviewWindow) -> Result<(), String> {
     #[cfg(any(debug_assertions, feature = "devtools"))]
     {
-        window.open_devtools();
+        _window.open_devtools();
+        Ok(())
     }
 
     #[cfg(not(any(debug_assertions, feature = "devtools")))]
     {
-        println!("[Aurona] DevTools requested in release build");
+        Err("开发者工具在当前生产版本中未启用".to_string())
+    }
+}
+
+use std::path::Path;
+use std::fs;
+use tauri::Manager;
+
+fn get_dir_size(path: &Path) -> u64 {
+    let mut size = 0;
+    if let Ok(entries) = fs::read_dir(path) {
+        for entry in entries.flatten() {
+            if let Ok(metadata) = entry.metadata() {
+                if metadata.is_dir() {
+                    size += get_dir_size(&entry.path());
+                } else {
+                    size += metadata.len();
+                }
+            }
+        }
+    }
+    size
+}
+
+#[tauri::command]
+pub fn get_app_data_size(app: tauri::AppHandle) -> Result<u64, String> {
+    if let Ok(path) = app.path().app_local_data_dir() {
+        Ok(get_dir_size(&path))
+    } else {
+        Err("Failed to get app local data dir".to_string())
+    }
+}
+
+#[tauri::command]
+pub fn get_app_log_size(app: tauri::AppHandle) -> u64 {
+    if let Ok(log_dir) = app.path().app_log_dir() {
+        get_dir_size(&log_dir)
+    } else {
+        0
+    }
+}
+
+#[tauri::command]
+pub fn clear_other_app_data(app: tauri::AppHandle) -> Result<(), String> {
+    if let Ok(app_dir) = app.path().app_local_data_dir() {
+        if let Ok(entries) = fs::read_dir(&app_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                // Skip the configuration files
+                if name == "user-config.json" || name == "workspace.json" {
+                    continue;
+                }
+                let path = entry.path();
+                if path.is_dir() {
+                    let _ = fs::remove_dir_all(path);
+                } else {
+                    let _ = fs::remove_file(path);
+                }
+            }
+        }
+        Ok(())
+    } else {
+        Err("Failed to get app local data dir".to_string())
     }
 }
