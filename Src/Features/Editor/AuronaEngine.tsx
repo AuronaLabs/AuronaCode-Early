@@ -17,6 +17,8 @@ import {
   ContextMenuItem,
   ContextMenuDivider,
 } from "../../UI/Components/ContextMenu";
+import { useEditorHistory } from "./Hooks/useEditorHistory";
+import { useEditorSelection } from "./Hooks/useEditorSelection";
 
 export type AuronaEngineProps = {
   value: string;
@@ -40,10 +42,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   );
 
   
-  const [history, setHistory] = useState<{ content: string; selectionStart: number }[]>([
-    { content: value, selectionStart: 0 },
-  ]);
-  const [historyIndex, setHistoryIndex] = useState(0);
+  const { pushHistory, undo, redo, historyTimerRef, syncExternalValue } = useEditorHistory(value);
+  const { currentLine, statusListenersRef, statusRef, emitStatus, updateStatus, getLineAndChar, lineStarts } = useEditorSelection(content, path, language);
 
   
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -70,15 +70,12 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const onChangeRef = useRef(onChange);
   const completionTimerRef = useRef<number | null>(null);
   const didChangeTimerRef = useRef<number | null>(null);
-  const historyTimerRef = useRef<number | null>(null);
   const pendingLspReqIdRef = useRef<number | null>(null);
-  const [currentLine, setCurrentLine] = useState(1);
 
   useEffect(() => {
     return () => {
       if (completionTimerRef.current) window.clearTimeout(completionTimerRef.current);
       if (didChangeTimerRef.current) window.clearTimeout(didChangeTimerRef.current);
-      if (historyTimerRef.current) window.clearTimeout(historyTimerRef.current);
       if (pendingLspReqIdRef.current && language) {
         LspClient.getInstance().cancelRequest(language, pendingLspReqIdRef.current);
       }
@@ -120,72 +117,12 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     onChangeRef.current = onChange;
   }, [onChange]);
 
-  const lineStarts = React.useMemo(() => {
-    const starts = [0];
-    for (let i = 0; i < content.length; i++) {
-      if (content[i] === "\n") starts.push(i + 1);
-    }
-    return starts;
-  }, [content]);
-
-  const getLineAndChar = useCallback(
-    (index: number) => {
-      let low = 0;
-      let high = lineStarts.length - 1;
-      while (low <= high) {
-        const mid = (low + high) >> 1;
-        if (lineStarts[mid] <= index) {
-          if (mid === lineStarts.length - 1 || lineStarts[mid + 1] > index) {
-            return { line: mid, char: index - lineStarts[mid] };
-          }
-          low = mid + 1;
-        } else {
-          high = mid - 1;
-        }
-      }
-      return { line: 0, char: 0 };
-    },
-    [lineStarts],
-  );
-
-  const engineImplRef = useRef<IEditorEngine | null>(null);
-  const statusListenersRef = useRef(new Set<EditorStatusListener>());
-  const statusRef = useRef<EditorStatus>({
-    hasEditor: true,
-    path,
-    language,
-    line: 1,
-    column: 1,
-    selectionLength: 0,
-    tabSize: 2,
-    insertSpaces: true,
-    encoding: "UTF-8",
-    lineEnding: "LF",
-    errors: 0,
-    warnings: 0,
-    markers: [],
-  });
-
-  const pushHistory = useCallback(
-    (newContent: string, cursor: number) => {
-      setHistory((prev) => {
-        const newHist = prev.slice(0, historyIndex + 1);
-        newHist.push({ content: newContent, selectionStart: cursor });
-        return newHist;
-      });
-      setHistoryIndex((prev) => prev + 1);
-    },
-    [historyIndex],
-  );
-
   useEffect(() => {
-    
     if (value !== contentRef.current) {
       setContent(value);
-      setHistory([{ content: value, selectionStart: 0 }]);
-      setHistoryIndex(0);
+      syncExternalValue(value);
     }
-  }, [value]);
+  }, [value, syncExternalValue]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -218,26 +155,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     return () => unsub();
   }, [isActive]);
 
-  const emitStatus = useCallback((status: EditorStatus) => {
-    statusRef.current = status;
-    statusListenersRef.current.forEach((listener) => listener(status));
-  }, []);
-
-  const updateStatus = useCallback(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    const { line, char } = getLineAndChar(el.selectionStart);
-    const lineNum = line + 1;
-    const column = char + 1;
-
-    emitStatus({
-      ...statusRef.current,
-      line: lineNum,
-      column,
-      selectionLength: Math.abs(el.selectionEnd - el.selectionStart),
-    });
-    setCurrentLine(lineNum);
-  }, [emitStatus, getLineAndChar]);
+  const engineImplRef = useRef<IEditorEngine | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
@@ -251,7 +169,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       pushHistory(newContent, selectionStart);
     }, 800);
 
-    updateStatus();
+    updateStatus(selectionStart, e.target.selectionEnd);
 
     if (path && language) {
       if (didChangeTimerRef.current) window.clearTimeout(didChangeTimerRef.current);
@@ -344,7 +262,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setTimeout(() => {
       el.focus();
       el.selectionStart = el.selectionEnd = newCursor;
-      updateStatus();
+      updateStatus(newCursor, newCursor);
     }, 0);
   };
 
@@ -388,7 +306,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       pushHistory(newContent, start + 1);
       setTimeout(() => {
         el.selectionStart = el.selectionEnd = start + 1;
-        updateStatus();
+        updateStatus(start + 1, start + 1);
       }, 0);
       return;
     }
@@ -415,7 +333,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       pushHistory(newContent, start + 1 + indent.length);
       setTimeout(() => {
         el.selectionStart = el.selectionEnd = start + 1 + indent.length;
-        updateStatus();
+        updateStatus(start + 1 + indent.length, start + 1 + indent.length);
       }, 0);
       return;
     }
@@ -428,14 +346,13 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
     if (e.key === "z" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      if (historyIndex > 0) {
-        const prevState = history[historyIndex - 1];
+      const prevState = undo();
+      if (prevState) {
         setContent(prevState.content);
         onChange?.(prevState.content);
-        setHistoryIndex(historyIndex - 1);
         setTimeout(() => {
           el.selectionStart = el.selectionEnd = prevState.selectionStart;
-          updateStatus();
+          updateStatus(prevState.selectionStart, prevState.selectionStart);
         }, 0);
       }
       return;
@@ -443,14 +360,13 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
     if (e.key === "y" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      if (historyIndex < history.length - 1) {
-        const nextState = history[historyIndex + 1];
+      const nextState = redo();
+      if (nextState) {
         setContent(nextState.content);
         onChange?.(nextState.content);
-        setHistoryIndex(historyIndex + 1);
         setTimeout(() => {
           el.selectionStart = el.selectionEnd = nextState.selectionStart;
-          updateStatus();
+          updateStatus(nextState.selectionStart, nextState.selectionStart);
         }, 0);
       }
       return;
@@ -466,7 +382,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       pushHistory(newContent, start + 2);
       setTimeout(() => {
         el.selectionStart = el.selectionEnd = start + 2;
-        updateStatus();
+        updateStatus(start + 2, start + 2);
       }, 0);
     }
   };
@@ -569,14 +485,15 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           pushHistory(newText, start + text.length);
           setTimeout(() => {
             el.selectionStart = el.selectionEnd = start + text.length;
-            updateStatus();
+            updateStatus(start + text.length, start + text.length);
           }, 0);
         } else {
           const newText = curContent + text;
           setContent(newText);
           onChangeRef.current?.(newText);
           pushHistory(newText, newText.length);
-          updateStatus();
+          const el = textareaRef.current;
+          if (el) updateStatus(el.selectionStart, el.selectionEnd);
         }
       },
       replaceRange: (startLine: number, endLine: number, newText: string) => {
@@ -588,7 +505,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         setContent(resText);
         onChangeRef.current?.(resText);
         pushHistory(resText, el.selectionStart);
-        updateStatus();
+        if (el) updateStatus(el.selectionStart, el.selectionEnd);
       },
       getStatus: () => statusRef.current,
       onStatusChange: (listener: EditorStatusListener) => {
@@ -607,7 +524,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   }, [isActive, updateStatus, pushHistory]);
 
   useEffect(() => {
-    if (isActive) updateStatus();
+    const el = textareaRef.current;
+    if (isActive && el) updateStatus(el.selectionStart, el.selectionEnd);
   }, [isActive, updateStatus]);
 
   useEffect(() => {
@@ -783,9 +701,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
                 value={content}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                onSelect={updateStatus}
-                onClick={updateStatus}
-                onKeyUp={updateStatus}
+                onSelect={(e) => updateStatus(e.currentTarget.selectionStart, e.currentTarget.selectionEnd)}
+                onClick={(e) => updateStatus(e.currentTarget.selectionStart, e.currentTarget.selectionEnd)}
+                onKeyUp={(e) => updateStatus(e.currentTarget.selectionStart, e.currentTarget.selectionEnd)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
                 spellCheck={false}

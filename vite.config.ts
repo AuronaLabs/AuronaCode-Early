@@ -18,6 +18,10 @@ export default defineConfig({
     minify: "esbuild",
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
+      input: {
+        main: "index.html",
+        splash: "splash.html",
+      },
       output: {
         manualChunks: {
           react: ["react", "react-dom"],

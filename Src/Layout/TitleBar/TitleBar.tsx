@@ -159,6 +159,43 @@ export function TitleBar() {
               />
               <MenubarDivider />
               <MenubarItem
+                label="强制重启 (测试启动页/急救)"
+                onSelect={async () => {
+                  try {
+                    // @ts-ignore
+                    if (import.meta.env?.DEV || (import.meta as any).env?.DEV) {
+                      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+                      const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+                      // Hide current main window
+                      await getCurrentWindow().hide();
+                      // Re-create splashscreen window
+                      new WebviewWindow("splashscreen", {
+                        url: "/splash.html",
+                        title: "Aurona Code Initializing",
+                        width: 500,
+                        height: 300,
+                        decorations: false,
+                        transparent: true,
+                        resizable: false,
+                        alwaysOnTop: true,
+                        center: true,
+                        skipTaskbar: true
+                      });
+                      // Wait a fraction of a second for the IPC command to reach Rust before destroying the JS context
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 100);
+                    } else {
+                      const { relaunch } = await import("@tauri-apps/plugin-process");
+                      await relaunch();
+                    }
+                  } catch (e) {
+                    console.error("重启失败", e);
+                  }
+                }}
+              />
+              <MenubarDivider />
+              <MenubarItem
                 label="开发者工具 (F12)"
                 onSelect={() => {
                   import("@tauri-apps/api/core").then(({ invoke }) => {

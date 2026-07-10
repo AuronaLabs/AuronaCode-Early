@@ -1,5 +1,5 @@
 
-export type TabType = "file" | "about" | "settings" | "custom" | "changelog" | "notifications";
+export type TabType = "file" | "about" | "settings" | "custom" | "changelog" | "notifications" | "diff";
 
 export type TabItem = {
   id: string;

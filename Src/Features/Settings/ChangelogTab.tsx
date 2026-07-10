@@ -68,7 +68,7 @@ export function ChangelogTab() {
               </div>
             )}
 
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-5">
+            <div className="grid grid-cols-2 gap-5">
               {release.sections.map((section) => (
                 <div key={section.title} className="frosted-glass p-6 rounded-2xl border border-[var(--GlassBorder)] flex flex-col gap-4">
                   <div className="flex items-center gap-2 text-[var(--TextHighlight)]">

@@ -28,8 +28,7 @@ const applyResponsiveDensity = (density?: "compact" | "default" | "comfortable")
 };
 
 export function AppBootstrapper({ children }: Props) {
-  const [status, setStatus] = useState<"initializing" | "ready">("initializing");
-  const [fade, setFade] = useState(false);
+  const [ready, setReady] = useState(false);
   const [initError, setInitError] = useState<Error | null>(null);
 
   if (initError) throw initError;
@@ -53,36 +52,34 @@ export function AppBootstrapper({ children }: Props) {
 
         applyResponsiveDensity(userConfig.density);
 
-        
         const savedEditorFont = userConfig.editorFontSize?.toString() || "14";
         const savedTerminalFont = userConfig.terminalFontSize?.toString() || "13";
         document.documentElement.style.setProperty("--EditorFontSize", `${savedEditorFont}px`);
         document.documentElement.style.setProperty("--TerminalFontSize", `${savedTerminalFont}px`);
 
-        const initPromise = Promise.all([WorkspaceStore.init()]);
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("启动引擎超时 请检查 Tauri IPC 或系统资源占用")), 5000),
-        );
+        // Load workspace in parallel
+        await WorkspaceStore.init();
 
-        await Promise.race([initPromise, timeoutPromise]);
         if (!mounted) return;
 
+        // Force a minimum load time of 2000ms from initialization start.
+        // Because React takes ~500ms to mount before the splash window shows,
+        // this guarantees the splash window is VISIBLE for at least ~1.5s!
         const elapsed = performance.now() - startTime;
-        const waitTime = Math.max(0, 1000 - elapsed);
+        const waitTime = Math.max(0, 2000 - elapsed);
 
         setTimeout(() => {
           if (!mounted) return;
+          
+          setReady(true);
 
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              if (!mounted) return;
-              setFade(true);
-              setTimeout(() => {
-                if (mounted) setStatus("ready");
-              }, 700); 
-            });
+          // Once we are completely ready, tell the Rust backend to close the splashscreen.
+          // The Rust backend will also show and maximize the main window safely!
+          import("@tauri-apps/api/core").then(({ invoke }) => {
+            invoke("close_splashscreen").catch(console.error);
           });
         }, waitTime);
+
       } catch (error) {
         if (mounted) {
           setInitError(error instanceof Error ? error : new Error(String(error)));
@@ -110,40 +107,11 @@ export function AppBootstrapper({ children }: Props) {
     };
   }, []);
 
+  // We only render children once the bootstrapping is fully complete.
+  // This ensures the main window is rendered with its full DOM tree before it becomes visible!
   return (
     <>
-      {status === "initializing" && (
-        <div
-          className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[var(--AppBg)] select-none"
-          style={{
-            opacity: fade ? 0 : 1,
-            transition: "opacity 0.4s ease-out",
-            pointerEvents: fade ? "none" : "auto",
-          }}
-        >
-          <svg
-            className="w-11 h-11 mb-6 animate-spin text-[var(--AccentPrimary)]"
-            viewBox="0 0 50 50"
-          >
-            <circle
-              className="stroke-current"
-              cx="25"
-              cy="25"
-              r="20"
-              fill="none"
-              strokeWidth="8"
-              strokeLinecap="round"
-              strokeDasharray="90, 150"
-            />
-          </svg>
-          <div className="h-6 overflow-hidden text-slate-500 text-sm font-medium">
-            <div className="h-6 flex items-center justify-center whitespace-nowrap">
-              正在前往 Aurona Code 的路上
-            </div>
-          </div>
-        </div>
-      )}
-      {children}
+      {ready ? children : null}
     </>
   );
 }

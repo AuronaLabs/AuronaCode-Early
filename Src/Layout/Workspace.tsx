@@ -54,6 +54,10 @@ const PluginsPanel = lazy(() =>
   import("../Features/Plugins/PluginsPanel").then((m) => ({ default: m.PluginsPanel })),
 );
 
+const DiffViewer = lazy(() =>
+  import("../Features/SourceControl/DiffViewer").then((m) => ({ default: m.DiffViewer })),
+);
+
 function renderTabContent(tab: TabItem, activeTabId: string | null) {
   let content = null;
   const isActive = activeTabId === tab.id;
@@ -65,6 +69,9 @@ function renderTabContent(tab: TabItem, activeTabId: string | null) {
     content = isActive ? <SettingsTab /> : null;
   } else if (tab.type === "changelog") {
     content = isActive ? <ChangelogTab /> : null;
+  } else if (tab.type === "diff" && tab.path) {
+    // For diff, tab.path stores the commit hash
+    content = isActive ? <DiffViewer commitHash={tab.path} /> : null;
   }
   return (
     <Suspense fallback={<div className="w-full h-full bg-transparent" />}>

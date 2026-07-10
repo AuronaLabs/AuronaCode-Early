@@ -73,42 +73,14 @@
     </script>
     <div id="Root">
       <style>
-        #app-loader {
-          position: fixed; inset: 0; background-color: var(--ColorApp, #f1f5f9); display: flex;
-          flex-direction: column; align-items: center; justify-content: center; z-index: 99999;
-          font-family: 'HarmonyOS Sans SC', 'Microsoft YaHei', sans-serif;
-          user-select: none; /* Prevent text selection */
-        }
-        .loader-spinner {
-          width: 44px; height: 44px; animation: rotate 2s linear infinite; margin-bottom: 24px;
-        }
-        .loader-spinner .path {
-          stroke: #2563eb;
-          stroke-linecap: round;
-          animation: dash 1.5s ease-in-out infinite;
-        }
-        @keyframes rotate { 100% { transform: rotate(360deg); } }
-        @keyframes dash {
-          0% { stroke-dasharray: 1, 150; stroke-dashoffset: 0; }
-          50% { stroke-dasharray: 90, 150; stroke-dashoffset: -35; }
-          100% { stroke-dasharray: 90, 150; stroke-dashoffset: -124; }
-        }
+
         #fatal-error {
           display: none;
           flex-direction: column; align-items: center; justify-content: center;
           text-align: center; padding: 20px; color: #ef4444; font-family: sans-serif;
         }
       </style>
-      <div id="app-loader">
-        <svg class="loader-spinner" viewBox="0 0 50 50">
-          <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="8"></circle>
-        </svg>
-        <div style="height: 24px; overflow: hidden; color: #64748b; font-size: 14px; font-weight: 500;">
-          <div style="height: 24px; display: flex; align-items: center; justify-content: center; white-space: nowrap;">
-            正在前往 Aurona Code 的路上
-          </div>
-        </div>
-      </div>
+
       <div id="fatal-error">
         <svg style="width:64px;height:64px;margin-bottom:16px;" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
           <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
@@ -123,8 +95,7 @@
     <script>
       // Global error catcher for module execution failures
       window.addEventListener('error', function(e) {
-        var loader = document.getElementById('app-loader');
-        if (loader) loader.style.display = 'none';
+
         
         var errContainer = document.getElementById('fatal-error');
         if (errContainer) errContainer.style.display = 'flex';
@@ -133,9 +104,7 @@
         if (errMsg) errMsg.innerText = e.message || String(e.error);
       });
       window.addEventListener('unhandledrejection', function(e) {
-        var loader = document.getElementById('app-loader');
-        if (loader) loader.style.display = 'none';
-        
+
         var errContainer = document.getElementById('fatal-error');
         if (errContainer) errContainer.style.display = 'flex';
         

@@ -433,33 +433,46 @@ export const SourceControl = React.memo(function SourceControl() {
           </div>
         </>
       ) : (
-        <div className="flex-1 overflow-y-auto aurona-scroll px-3 pb-4 flex flex-col gap-2 relative">
+        <div className="flex-1 overflow-y-auto aurona-scroll px-3 pb-4">
           {commits.length === 0 ? (
             <div className="p-4 text-center text-[12px] text-[var(--TextMuted)] bg-white/5 dark:bg-white/10 backdrop-blur-md rounded-2xl z-10 mt-2 border border-black/5 dark:border-white/5 shadow-sm">
               尚未找到提交记录
             </div>
           ) : (
-            commits.map((commit, index) => (
-              <div key={`${commit.hash}-${index}`} className="flex flex-col bg-white/5 dark:bg-white/10 backdrop-blur-md border border-black/5 dark:border-white/5 shadow-sm rounded-2xl p-4 z-10 hover:border-black/20 dark:hover:border-white/20 transition-all group mt-2">
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <div className="font-medium text-[13px] text-[var(--TextHighlight)] leading-snug">
-                    {commit.message}
+            <div className="flex flex-col gap-3 mt-2 relative z-10">
+              {commits.map((commit, index) => (
+                <div 
+                  key={`${commit.hash}-${index}`} 
+                  className="flex flex-col bg-[var(--GlassSurface)] backdrop-blur-md border border-[var(--GlassBorder)] shadow-sm rounded-xl p-4 cursor-pointer hover:border-black/20 dark:hover:border-white/30 hover:bg-black/5 dark:hover:bg-white/5 transition-all group active:scale-[0.98]"
+                  onClick={() => {
+                    EventBus.emit("app:open-tab", { 
+                      id: `diff-${commit.hash}`, 
+                      type: "diff", 
+                      title: `Diff: ${commit.hash.substring(0, 7)}`, 
+                      path: commit.hash 
+                    });
+                  }}
+                >
+                  <div className="flex flex-col gap-2 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-[10px] px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)] font-mono shrink-0 font-medium">
+                        {commit.hash.substring(0, 7)}
+                      </div>
+                      <span className="text-[11px] text-[var(--TextMuted)] opacity-80 font-medium">{commit.date}</span>
+                    </div>
+                    <div className="font-bold text-[13px] text-[var(--TextHighlight)] leading-relaxed mt-1">
+                      {commit.message}
+                    </div>
                   </div>
-                  <div className="text-[10px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-[var(--TextMuted)] font-mono shrink-0 select-text">
-                    {commit.hash}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between mt-1 text-[11px] text-[var(--TextMuted)]">
-                  <span className="flex items-center gap-1.5">
-                    <div className="w-4 h-4 rounded-full bg-[var(--AccentPrimary)] text-white flex items-center justify-center text-[8px] font-bold">
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--GlassBorder)] text-[12px] text-[var(--TextMuted)] font-medium">
+                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[var(--AccentPrimary)] to-blue-600 text-white flex items-center justify-center text-[10px] font-bold shadow-sm">
                       {commit.author.charAt(0).toUpperCase()}
                     </div>
-                    {commit.author}
-                  </span>
-                  <span>{commit.date}</span>
+                    <span className="truncate">{commit.author}</span>
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
       )}

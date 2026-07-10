@@ -275,6 +275,21 @@ pub fn git_set_remote(path: String, url: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn git_diff_commit(path: String, hash: String) -> Result<String, String> {
+    let output = create_command("git")
+        .current_dir(&path)
+        .args(&["show", &hash, "--pretty=format:", "--color=never"])
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[tauri::command]
 pub fn git_log(path: String) -> Result<Vec<GitCommit>, String> {
     let output = create_command("git")
         .current_dir(&path)

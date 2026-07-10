@@ -10,6 +10,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_process::init())
         .manage(pty::PtyState::new())
         .manage(LspState {
             clients: tokio::sync::Mutex::new(std::collections::HashMap::new()),
@@ -28,6 +29,7 @@ pub fn run() {
             commands::git::git_unstage_all,
             commands::git::git_get_remote,
             commands::git::git_set_remote,
+            commands::git::git_diff_commit,
             commands::git::git_log,
             commands::git::git_get_full_status,
             pty::spawn_pty,
@@ -50,6 +52,7 @@ pub fn run() {
             commands::ipc::get_app_data_size,
             commands::ipc::get_app_log_size,
             commands::ipc::clear_other_app_data,
+            commands::ipc::close_splashscreen,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Aurona Code");

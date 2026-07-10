@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Aurona Code",
   "mainBinaryName": "Aurona Code",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "identifier": "com.aurona.code",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -13,6 +13,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Aurona Code",
         "width": 1440,
         "height": 920,
@@ -22,8 +23,22 @@
         "fullscreen": false,
         "decorations": false,
         "center": true,
-        "visible": true,
-        "maximized": true
+        "visible": false,
+        "maximized": false
+      },
+      {
+        "label": "splashscreen",
+        "url": "/splash.html",
+        "title": "Aurona Code Initializing",
+        "width": 500,
+        "height": 300,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "center": true,
+        "visible": false,
+        "skipTaskbar": true
       }
     ],
     "security": {

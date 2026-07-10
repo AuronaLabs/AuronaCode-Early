@@ -89,6 +89,13 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
                       className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
                     />
                   )}
+                  {tab.type === "diff" && (
+                    <Icons.GitBranch
+                      size={16}
+                      stroke={1.5}
+                      className={`shrink-0 ${isActive ? "text-purple-400" : ""}`}
+                    />
+                  )}
                   <span
                     className={`truncate tracking-wide pt-0.5 ${
                       tab.isDirty ? "italic font-medium" : ""

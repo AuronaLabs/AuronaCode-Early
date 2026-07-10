@@ -1,9 +1,11 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./Styles/Theme.css";
 import "@fontsource/righteous";
+import "@fontsource/jetbrains-mono";
 import "harmonyos-sans-sc-webfont-splitted";
 import { AppBootstrapper } from "../Core/AppBootstrapper";
 import { EventBus } from "../Foundation/EventBus";
@@ -17,10 +19,7 @@ function RootApp() {
 
   useEffect(() => {
     
-    document.getElementById("app-loader")?.remove();
-
-    
-    getCurrentWindow().show();
+    // Splash screen close logic is now handled in AppBootstrapper.tsx
 
     
     const onReboot = () => {

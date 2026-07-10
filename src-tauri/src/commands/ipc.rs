@@ -102,3 +102,15 @@ pub fn clear_other_app_data(app: tauri::AppHandle) -> Result<(), String> {
         Err("Failed to get app local data dir".to_string())
     }
 }
+
+#[tauri::command]
+pub fn close_splashscreen(app: tauri::AppHandle) {
+    if let Some(splashscreen) = app.get_webview_window("splashscreen") {
+        let _ = splashscreen.close();
+    }
+    if let Some(main_window) = app.get_webview_window("main") {
+        let _ = main_window.show();
+        let _ = main_window.maximize();
+        let _ = main_window.set_focus();
+    }
+}
