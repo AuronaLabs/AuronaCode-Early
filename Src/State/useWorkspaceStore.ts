@@ -12,16 +12,16 @@ export interface WorkspaceState {
   activeTabId: string | null;
   activeSidebar: string | null;
   pendingCloseTab: TabItem | null;
-  
+
   setActiveTabId: (id: string | null) => void;
   setActiveSidebar: (id: string | null) => void;
   setPendingCloseTab: (tab: TabItem | null) => void;
-  
+
   openFile: (path: string) => void;
   openTab: (tab: TabItem) => void;
   closeTab: (tab: TabItem) => void;
   closeTabById: (id: string) => void;
-  
+
   _setTabs: (updater: (prev: TabItem[]) => TabItem[]) => void;
   _initHydration: () => Promise<void>;
 }
@@ -45,7 +45,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     );
     WorkspaceStore.set({ openTabs: tabs, activeTabId: id });
   },
-  
+
   setActiveSidebar: (id) => set({ activeSidebar: id }),
   setPendingCloseTab: (tab) => set({ pendingCloseTab: tab }),
 
@@ -65,7 +65,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         newActiveTabId = newTabs[newTabs.length - 1]?.id ?? null;
       }
       WorkspaceStore.set({ openTabs: newTabs, activeTabId: newActiveTabId });
-      
+
       if (state.activeTabId !== newActiveTabId) {
         const activeTab = newTabs.find((t) => t.id === newActiveTabId);
         EventBus.emit(
@@ -73,7 +73,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           activeTab?.type === "file" ? (activeTab.path ?? null) : null,
         );
       }
-      
+
       return { tabs: newTabs, activeTabId: newActiveTabId };
     });
   },
@@ -82,11 +82,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const fileName = FileSystemService.basename(path) || "未知文件";
     set((state) => {
       const existing = state.tabs.find((tab) => tab.id === path);
-      const newTabs = existing ? state.tabs : [...state.tabs, { id: path, type: "file" as const, title: fileName, path, isDirty: false }];
+      const newTabs = existing
+        ? state.tabs
+        : [
+            ...state.tabs,
+            { id: path, type: "file" as const, title: fileName, path, isDirty: false },
+          ];
       WorkspaceStore.set({ openTabs: newTabs, activeTabId: path });
-      
+
       EventBus.emit("app:active-file-changed", path);
-      
+
       return { tabs: newTabs, activeTabId: path };
     });
   },
@@ -97,12 +102,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const existing = state.tabs.find((t) => t.id === tab.id);
       const newTabs = existing ? state.tabs : [...state.tabs, tab];
       WorkspaceStore.set({ openTabs: newTabs, activeTabId: tab.id });
-      
-      EventBus.emit(
-        "app:active-file-changed",
-        tab.type === "file" ? (tab.path ?? null) : null,
-      );
-      
+
+      EventBus.emit("app:active-file-changed", tab.type === "file" ? (tab.path ?? null) : null);
+
       return { tabs: newTabs, activeTabId: tab.id };
     });
   },
@@ -124,12 +126,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         get().setActiveTabId(config.activeTabId);
       }
     }
-  }
+  },
 }));
 
-
 useWorkspaceStore.getState()._initHydration();
-
 
 EventBus.on("app:open-file", async () => {
   try {
@@ -151,15 +151,15 @@ EventBus.on("app:activity-changed", (id: string | null) => {
 });
 
 EventBus.on("editor:dirty-set", ({ path }: { path: string }) => {
-  useWorkspaceStore.getState()._setTabs((prev) => 
-    prev.map((tab) => (tab.path === path ? { ...tab, isDirty: true } : tab))
-  );
+  useWorkspaceStore
+    .getState()
+    ._setTabs((prev) => prev.map((tab) => (tab.path === path ? { ...tab, isDirty: true } : tab)));
 });
 
 EventBus.on("editor:dirty-cleared", ({ path }: { path: string }) => {
-  useWorkspaceStore.getState()._setTabs((prev) => 
-    prev.map((tab) => (tab.path === path ? { ...tab, isDirty: false } : tab))
-  );
+  useWorkspaceStore
+    .getState()
+    ._setTabs((prev) => prev.map((tab) => (tab.path === path ? { ...tab, isDirty: false } : tab)));
 });
 
 EventBus.on("file:renamed", (payload: { oldPath: string; newPath: string }) => {
@@ -185,9 +185,9 @@ EventBus.on("file:renamed", (payload: { oldPath: string; newPath: string }) => {
         };
       }
       return tab;
-    })
+    }),
   );
-  
+
   const { activeTabId } = store;
   if (activeTabId) {
     if (activeTabId === payload.oldPath) {
@@ -207,8 +207,7 @@ EventBus.on("file:deleted", (payload: { path: string; isDirectory: boolean }) =>
       return !(payload.isDirectory && isPathInside(tab.path, payload.path));
     });
   });
-  
-  
+
   const { tabs, activeTabId } = store;
   if (activeTabId && !tabs.some((tab) => tab.id === activeTabId)) {
     store.setActiveTabId(tabs[tabs.length - 1]?.id ?? null);

@@ -2,7 +2,6 @@ import type { TabItem } from "../Types/Tab";
 import type { TerminalInstance } from "../Types/Terminal";
 
 export interface EventMap {
-  
   "app:reboot": undefined;
   "app:open-file": undefined;
   "app:open-folder": undefined;
@@ -10,34 +9,38 @@ export interface EventMap {
   "app:open-tab": TabItem;
   "app:activity-changed": string | null;
   "app:toast": { message: string; type: "info" | "success" | "error" | "warning" };
-  
-    "app:toggle-terminal": boolean | undefined;
+
+  "app:toggle-terminal": boolean | undefined;
   "app:terminal-state-changed": boolean;
   "app:open-terminal-at": string;
   "app:reveal-in-explorer": string;
-  
+
   "app:active-file-changed": string | null;
   "editor:dirty-set": { path: string };
   "editor:dirty-cleared": { path: string };
   "editor:file-saved": { path: string };
   "editor:action": "undo" | "redo" | "cut" | "copy" | "paste" | "selectAll";
-  
+
   "file:renamed": { oldPath: string; newPath: string };
   "file:deleted": { path: string; isDirectory: boolean };
-  
+
   "workspace:root-changed": string;
   "app:create-file-prompt": undefined;
   "app:create-folder-prompt": undefined;
-  
+
   "terminal:list-changed": TerminalInstance[];
   "terminal:active-changed": string | null;
-  
+
   "git:changes-count": number;
-  
+
   "settings:nav": "appearance" | "editor" | "terminal" | "git" | "advanced";
   "settings:editor-changed": undefined;
   "settings:terminal-changed": undefined;
   "lsp:diagnostics": any;
+  "app:update-available": any;
+  "app:update-progress": { progress: number; total?: number; current?: number } | any;
+  "app:show-update-modal": undefined;
+  "fs:changed": any;
 }
 
 type EventCallback<T = unknown> = (payload: T) => void;

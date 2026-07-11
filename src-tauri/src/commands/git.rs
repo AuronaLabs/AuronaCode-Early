@@ -1,8 +1,10 @@
+use super::utils::create_command;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use super::utils::create_command;
+use ts_rs::TS;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
 pub struct GitFile {
     pub path: String,
     pub name: String,
@@ -10,7 +12,8 @@ pub struct GitFile {
     pub is_staged: bool,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
 pub struct GitCommit {
     pub hash: String,
     pub author: String,
@@ -18,7 +21,8 @@ pub struct GitCommit {
     pub date: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct GitFullStatus {
     pub repo_path: String,
     pub is_repo: bool,
@@ -40,7 +44,7 @@ pub fn git_init(path: String) -> Result<(), String> {
         .arg("init")
         .output()
         .map_err(|e| e.to_string())?;
-        
+
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
     }
@@ -51,7 +55,7 @@ pub fn git_init(path: String) -> Result<(), String> {
 pub fn git_status(path: String) -> Result<Vec<GitFile>, String> {
     let output = create_command("git")
         .current_dir(&path)
-        .args(&["status", "--porcelain", "-uall"])
+        .args(["status", "--porcelain", "-uall"])
         .output()
         .map_err(|e| e.to_string())?;
 
@@ -63,8 +67,10 @@ pub fn git_status(path: String) -> Result<Vec<GitFile>, String> {
     let mut files = Vec::new();
 
     for line in out_str.lines() {
-        if line.len() < 4 { continue; }
-        
+        if line.len() < 4 {
+            continue;
+        }
+
         let chars: Vec<char> = line.chars().collect();
         let index_status = chars[0];
         let work_tree_status = chars[1];
@@ -90,7 +96,7 @@ pub fn git_status(path: String) -> Result<Vec<GitFile>, String> {
             } else {
                 work_tree_status.to_string()
             };
-            
+
             files.push(GitFile {
                 path: file_path.clone(),
                 name: name.clone(),
@@ -107,10 +113,10 @@ pub fn git_status(path: String) -> Result<Vec<GitFile>, String> {
 pub fn git_add(path: String, file: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
-        .args(&["add", &file])
+        .args(["add", "--", &file])
         .output()
         .map_err(|e| e.to_string())?;
-        
+
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
     }
@@ -121,10 +127,10 @@ pub fn git_add(path: String, file: String) -> Result<(), String> {
 pub fn git_unstage(path: String, file: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
-        .args(&["reset", "HEAD", "--", &file])
+        .args(["reset", "HEAD", "--", &file])
         .output()
         .map_err(|e| e.to_string())?;
-        
+
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
     }
@@ -135,10 +141,10 @@ pub fn git_unstage(path: String, file: String) -> Result<(), String> {
 pub fn git_commit(path: String, message: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
-        .args(&["commit", "-m", &message])
+        .args(["commit", "-m", &message])
         .output()
         .map_err(|e| e.to_string())?;
-        
+
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
     }
@@ -149,10 +155,10 @@ pub fn git_commit(path: String, message: String) -> Result<(), String> {
 pub fn git_current_branch(path: String) -> Result<String, String> {
     let output = create_command("git")
         .current_dir(&path)
-        .args(&["rev-parse", "--abbrev-ref", "HEAD"])
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
         .output()
         .map_err(|e| e.to_string())?;
-        
+
     if !output.status.success() {
         return Ok("".to_string());
     }
@@ -167,12 +173,14 @@ pub async fn git_push(path: String) -> Result<(), String> {
             .arg("push")
             .output()
             .map_err(|e| e.to_string())?;
-            
+
         if !output.status.success() {
             return Err(String::from_utf8_lossy(&output.stderr).to_string());
         }
         Ok(())
-    }).await.map_err(|e| e.to_string())?
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -183,36 +191,38 @@ pub async fn git_pull(path: String) -> Result<(), String> {
             .arg("pull")
             .output()
             .map_err(|e| e.to_string())?;
-            
+
         if !output.status.success() {
             return Err(String::from_utf8_lossy(&output.stderr).to_string());
         }
         Ok(())
-    }).await.map_err(|e| e.to_string())?
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
 pub fn git_discard_all(path: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
-        .args(&["reset", "--hard", "HEAD"])
+        .args(["reset", "--hard", "HEAD"])
         .output()
         .map_err(|e| e.to_string())?;
-        
+
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
     }
-    
+
     let output = create_command("git")
         .current_dir(&path)
-        .args(&["clean", "-fd"])
+        .args(["clean", "-fd"])
         .output()
         .map_err(|e| e.to_string())?;
-        
+
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
     }
-        
+
     Ok(())
 }
 
@@ -223,7 +233,7 @@ pub fn git_unstage_all(path: String) -> Result<(), String> {
         .arg("reset")
         .output()
         .map_err(|e| e.to_string())?;
-        
+
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
     }
@@ -234,10 +244,10 @@ pub fn git_unstage_all(path: String) -> Result<(), String> {
 pub fn git_get_remote(path: String) -> Result<String, String> {
     let output = create_command("git")
         .current_dir(&path)
-        .args(&["remote", "get-url", "origin"])
+        .args(["remote", "get-url", "origin"])
         .output()
         .map_err(|e| e.to_string())?;
-        
+
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     } else {
@@ -249,7 +259,7 @@ pub fn git_get_remote(path: String) -> Result<String, String> {
 pub fn git_set_remote(path: String, url: String) -> Result<(), String> {
     let has_remote = create_command("git")
         .current_dir(&path)
-        .args(&["remote", "get-url", "origin"])
+        .args(["remote", "get-url", "origin"])
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false);
@@ -257,13 +267,13 @@ pub fn git_set_remote(path: String, url: String) -> Result<(), String> {
     let output = if has_remote {
         create_command("git")
             .current_dir(&path)
-            .args(&["remote", "set-url", "origin", &url])
+            .args(["remote", "set-url", "origin", &url])
             .output()
             .map_err(|e| e.to_string())?
     } else {
         create_command("git")
             .current_dir(&path)
-            .args(&["remote", "add", "origin", &url])
+            .args(["remote", "add", "origin", &url])
             .output()
             .map_err(|e| e.to_string())?
     };
@@ -276,9 +286,12 @@ pub fn git_set_remote(path: String, url: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn git_diff_commit(path: String, hash: String) -> Result<String, String> {
+    if !hash.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err("Invalid commit hash".to_string());
+    }
     let output = create_command("git")
         .current_dir(&path)
-        .args(&["show", &hash, "--pretty=format:", "--color=never"])
+        .args(["show", &hash, "--pretty=format:", "--color=never"])
         .output()
         .map_err(|e| e.to_string())?;
 
@@ -293,7 +306,13 @@ pub fn git_diff_commit(path: String, hash: String) -> Result<String, String> {
 pub fn git_log(path: String) -> Result<Vec<GitCommit>, String> {
     let output = create_command("git")
         .current_dir(&path)
-        .args(&["log", "--pretty=format:%h\x1f%an\x1f%s\x1f%ad", "--date=short", "-n", "50"])
+        .args([
+            "log",
+            "--pretty=format:%h\x1f%an\x1f%s\x1f%ad",
+            "--date=short",
+            "-n",
+            "50",
+        ])
         .output()
         .map_err(|e| e.to_string())?;
 

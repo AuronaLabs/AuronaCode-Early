@@ -33,13 +33,22 @@ export function AboutTab() {
         {/* Logo and Version */}
         <div className="flex flex-col items-center gap-6 relative">
           <div className="absolute inset-0 bg-[var(--AccentPrimary)]/30 blur-[100px] rounded-full pointer-events-none" />
-          <img src="/logo.png" alt="Aurona Code Logo" className="w-32 h-32 object-contain relative z-10 drop-shadow-2xl" />
+          <img
+            src="/logo.png"
+            alt="Aurona Code Logo"
+            className="w-32 h-32 object-contain relative z-10 drop-shadow-2xl"
+          />
           <div className="flex flex-col items-center gap-2 relative z-10">
-            <h1 className="text-[32px] font-bold text-[var(--TextHighlight)] tracking-wider" style={{ fontFamily: "'Righteous', sans-serif" }}>
+            <h1
+              className="text-[32px] font-bold text-[var(--TextHighlight)] tracking-wider"
+              style={{ fontFamily: "'Righteous', sans-serif" }}
+            >
               Aurona Code
             </h1>
             <div className="flex items-center gap-3">
-              <span className="text-[14px] font-medium text-[var(--TextNormal)]">V{appVersion}</span>
+              <span className="text-[14px] font-medium text-[var(--TextNormal)]">
+                V{appVersion}
+              </span>
               <span className="px-2 py-0.5 rounded-full bg-[var(--AccentPrimary)]/20 text-[var(--AccentPrimary)] text-[11px] font-bold tracking-widest border border-[var(--AccentPrimary)]/30">
                 基于Corona+ 架构开发
               </span>
@@ -66,14 +75,21 @@ export function AboutTab() {
               <Icons.Sparkles size={16} />
               <span className="text-[12px] font-medium uppercase tracking-wider">技术栈</span>
             </div>
-            <span className="text-[15px] font-medium text-[var(--TextHighlight)]">Tauri / WebView2</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">React 19 + Tailwind CSS + Radix UI</span>
+            <span className="text-[15px] font-medium text-[var(--TextHighlight)]">
+              Tauri / WebView2
+            </span>
+            <span className="text-[12px] text-[var(--TextMuted)]">
+              React 19 + Tailwind CSS + Radix UI
+            </span>
           </div>
         </div>
 
         {/* Copyright */}
         <div className="flex flex-col items-center gap-2 text-[12px] text-[var(--TextMuted)]/60 mt-8 text-center max-w-lg">
-          <p>Aurona Code 的诞生离不开开源社区的伟大力量。特别感谢 Tauri 团队提供的高效跨平台能力，以及所有参与本项目的开源作者们。</p>
+          <p>
+            Aurona Code 的诞生离不开开源社区的伟大力量。特别感谢 Tauri
+            团队提供的高效跨平台能力，以及所有参与本项目的开源作者们。
+          </p>
           <p className="mt-2">Copyright © 2026 Aurona Labs. All rights reserved.</p>
         </div>
       </div>

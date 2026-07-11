@@ -5,8 +5,10 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
+use ts_rs::TS;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
 pub struct SearchResult {
     pub file_path: String,
     pub line_number: usize,
@@ -22,6 +24,9 @@ pub async fn search_workspace(
     is_regex: bool,
     app: AppHandle,
 ) -> Result<(), String> {
+    if path.contains("..") {
+        return Err("Path traversal detected".to_string());
+    }
     if query.is_empty() {
         return Ok(());
     }
@@ -43,7 +48,7 @@ pub async fn search_workspace(
     tokio::task::spawn_blocking(move || {
         let mut builder = WalkBuilder::new(&path);
         builder.hidden(false);
-        
+
         let walker = builder.build_parallel();
         let base_path = Path::new(&path).to_path_buf();
         let max_results = 500;
@@ -83,9 +88,9 @@ pub async fn search_workspace(
                     Err(_) => return ignore::WalkState::Continue,
                 };
 
-                if entry.file_type().map_or(false, |ft| ft.is_file()) {
+                if entry.file_type().is_some_and(|ft| ft.is_file()) {
                     let file_path = entry.path();
-                    
+
                     if let Ok(file) = std::fs::File::open(file_path) {
                         if let Ok(metadata) = file.metadata() {
                             // 忽略大于 2MB 的文件，避免内存爆炸
@@ -106,14 +111,14 @@ pub async fn search_workspace(
                             if current_count >= max_results {
                                 return ignore::WalkState::Quit;
                             }
-                            
+
                             if regex.is_match(&line) {
                                 let relative_path = file_path
                                     .strip_prefix(&base_path)
                                     .unwrap_or(file_path)
                                     .to_string_lossy()
                                     .to_string();
-                                
+
                                 let new_count = result_count.fetch_add(1, Ordering::Relaxed);
                                 if new_count >= max_results {
                                     return ignore::WalkState::Quit;
@@ -125,7 +130,7 @@ pub async fn search_workspace(
                                     match_text: line.trim().to_string(),
                                     index: new_count,
                                 };
-                                
+
                                 let _ = tx.send(res);
                             }
                         }

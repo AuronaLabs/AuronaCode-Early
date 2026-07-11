@@ -1,7 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ShellProfile } from "../Types/Terminal";
 
-
 export const PtyIPC = {
   spawn: (id: string, cwd: string, shellPath?: string) =>
     invoke<void>("spawn_pty", { id, cwd, shellPath }),

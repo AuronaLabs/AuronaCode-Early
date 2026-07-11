@@ -1,5 +1,3 @@
-
-
 export interface EditorMarker {
   message: string;
   severity: "error" | "warning" | "info" | "hint";

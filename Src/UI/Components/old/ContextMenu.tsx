@@ -11,7 +11,6 @@ export interface ContextMenuProps {
 export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
-  
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -19,7 +18,6 @@ export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
       }
     };
 
-    
     const handleScroll = () => {
       onClose();
     };
@@ -33,7 +31,6 @@ export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
     };
   }, [onClose]);
 
-  
   const left = Math.min(x, window.innerWidth - 170);
   const top = Math.min(y, window.innerHeight - 110);
 

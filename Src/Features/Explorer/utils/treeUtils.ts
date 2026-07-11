@@ -1,6 +1,5 @@
 import type { FileNode } from "../../../Core/FileSystemService";
 
-
 export const updateTree = (
   nodes: FileNode[],
   targetPath: string,
@@ -14,10 +13,8 @@ export const updateTree = (
     return node;
   });
 
-
 export const isDescendant = (path: string, possibleParent: string): boolean =>
   path.startsWith(`${possibleParent}/`) || path.startsWith(`${possibleParent}\\`);
-
 
 export const collectOpenPaths = (
   nodes: FileNode[] = [],
@@ -29,7 +26,6 @@ export const collectOpenPaths = (
   }
   return result;
 };
-
 
 export const mergeOpenState = (
   nodes: FileNode[],

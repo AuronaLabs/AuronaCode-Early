@@ -31,7 +31,7 @@ export const MenubarTrigger = React.forwardRef<
       "flex h-[26px] cursor-pointer items-center rounded-md px-2.5 outline-none select-none text-[var(--TextPrimary)] text-[13px]",
       "hover:bg-black/8 dark:hover:bg-white/15 hover:text-[var(--TextHighlight)] transition-colors",
       "data-[state=open]:bg-black/8 dark:data-[state=open]:bg-white/15 data-[state=open]:text-[var(--TextHighlight)]",
-      className
+      className,
     )}
     {...props}
   />
@@ -51,7 +51,7 @@ export const MenubarContent = React.forwardRef<
       className={cn(
         "frosted-glass rounded-xl p-1 z-[9999] flex flex-col min-w-[160px]",
         "animate-in fade-in zoom-in-95 duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95",
-        className
+        className,
       )}
       {...props}
     />
@@ -59,7 +59,8 @@ export const MenubarContent = React.forwardRef<
 ));
 MenubarContent.displayName = MenubarPrimitive.Content.displayName;
 
-export interface MenubarItemProps extends React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Item> {
+export interface MenubarItemProps
+  extends React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Item> {
   icon?: React.ReactNode;
   label?: React.ReactNode;
   rightElement?: React.ReactNode;
@@ -69,30 +70,39 @@ export interface MenubarItemProps extends React.ComponentPropsWithoutRef<typeof 
 export const MenubarItem = React.forwardRef<
   React.ElementRef<typeof MenubarPrimitive.Item>,
   MenubarItemProps
->(({ className, icon, label, rightElement, variant = "default", disabled, children, ...props }, ref) => {
-  const isDanger = variant === "danger";
+>(
+  (
+    { className, icon, label, rightElement, variant = "default", disabled, children, ...props },
+    ref,
+  ) => {
+    const isDanger = variant === "danger";
 
-  return (
-    <MenubarPrimitive.Item
-      ref={ref}
-      disabled={disabled}
-      className={cn(
-        "flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-[13px] transition-colors text-left w-full outline-none cursor-pointer select-none",
-        disabled && "opacity-50 cursor-not-allowed text-[var(--TextMuted)]",
-        !disabled && isDanger && "text-red-500 focus:bg-red-500/10",
-        !disabled && !isDanger && "text-[var(--TextHighlight)] focus:bg-black/8 dark:focus:bg-white/15",
-        className
-      )}
-      {...props}
-    >
-      <div className="flex items-center gap-2">
-        {icon}
-        {label || children}
-      </div>
-      {rightElement && <div className="text-[var(--TextMuted)] text-[11px] ml-auto">{rightElement}</div>}
-    </MenubarPrimitive.Item>
-  );
-});
+    return (
+      <MenubarPrimitive.Item
+        ref={ref}
+        disabled={disabled}
+        className={cn(
+          "flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-[13px] transition-colors text-left w-full outline-none cursor-pointer select-none",
+          disabled && "opacity-50 cursor-not-allowed text-[var(--TextMuted)]",
+          !disabled && isDanger && "text-red-500 focus:bg-red-500/10",
+          !disabled &&
+            !isDanger &&
+            "text-[var(--TextHighlight)] focus:bg-black/8 dark:focus:bg-white/15",
+          className,
+        )}
+        {...props}
+      >
+        <div className="flex items-center gap-2">
+          {icon}
+          {label || children}
+        </div>
+        {rightElement && (
+          <div className="text-[var(--TextMuted)] text-[11px] ml-auto">{rightElement}</div>
+        )}
+      </MenubarPrimitive.Item>
+    );
+  },
+);
 MenubarItem.displayName = MenubarPrimitive.Item.displayName;
 
 export const MenubarDivider = React.forwardRef<

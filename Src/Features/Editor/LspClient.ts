@@ -36,7 +36,6 @@ export class LspClient {
       this.unlistenDiagnostics = null;
     }
     this.unlistenDiagnostics = await listen("lsp://diagnostics", (event: any) => {
-      
       if (event.payload && event.payload.params) {
         EventBus.emit("lsp:diagnostics", event.payload.params);
       }
@@ -46,23 +45,8 @@ export class LspClient {
   public async startServer(language: string) {
     if (this.runningServers.has(language)) return;
 
-    let command = "";
-    let args: string[] = [];
-
-    if (language === "rust") {
-      command = "rust-analyzer";
-    } else if (language === "typescript" || language === "javascript") {
-      command = "cmd.exe";
-      args = ["/c", "npx", "typescript-language-server", "--stdio"];
-    } else if (language === "python") {
-      command = "cmd.exe";
-      args = ["/c", "npx", "--yes", "--package", "pyright", "pyright-langserver", "--stdio"];
-    } else {
-      return;
-    }
-
     try {
-      await invoke("lsp_start", { language, command, args });
+      await invoke("lsp_start", { language });
       this.runningServers.add(language);
     } catch (e) {
       console.error(`Failed to start LSP for ${language}:`, e);

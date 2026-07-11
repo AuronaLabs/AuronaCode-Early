@@ -1,5 +1,3 @@
-
-
 import IconAlertTriangle from "@tabler/icons-react/dist/esm/icons/IconAlertTriangle.mjs";
 import IconArrowRight from "@tabler/icons-react/dist/esm/icons/IconArrowRight.mjs";
 import IconAsterisk from "@tabler/icons-react/dist/esm/icons/IconAsterisk.mjs";
@@ -61,11 +59,12 @@ import IconTypography from "@tabler/icons-react/dist/esm/icons/IconTypography.mj
 import IconX from "@tabler/icons-react/dist/esm/icons/IconX.mjs";
 import IconCopy from "@tabler/icons-react/dist/esm/icons/IconCopy.mjs";
 import IconClearAll from "@tabler/icons-react/dist/esm/icons/IconClearAll.mjs";
+import IconDownload from "@tabler/icons-react/dist/esm/icons/IconDownload.mjs";
 
 export const Icons = {
   CloseAll: IconClearAll,
   Copy: IconCopy,
-  
+
   Menu: IconMenu2,
   Search: IconSearch,
   Git: IconGitBranch,
@@ -81,7 +80,6 @@ export const Icons = {
   Database: IconDatabase,
   Extensions: IconPuzzle,
 
-  
   FileTs: IconBrandTypescript,
   FileJs: IconBrandJavascript,
   FilePy: IconBrandPython,
@@ -94,14 +92,12 @@ export const Icons = {
   Settings: IconSettings,
   SidebarToggle: IconLayoutSidebarLeftCollapse,
 
-  
   Close: IconX,
   Minimize: IconMinus,
   Maximize: IconCrop11,
   Restore: IconSquares,
   Minus: IconMinus,
 
-  
   Folder: IconFolder,
   FolderOpen: IconFolderOpen,
   File: IconFile,
@@ -111,16 +107,13 @@ export const Icons = {
   Refresh: IconRefresh,
   ArrowRight: IconArrowRight,
 
-  
   FileCode: IconFileCode,
   Save: IconDeviceFloppy,
 
-  
   Github: IconBrandGithub,
   Sparkles: IconSparkles,
   Files: IconFiles,
 
-  
   AlertTriangle: IconAlertTriangle,
   Paintbrush: IconPalette,
   Palette: IconPalette,
@@ -140,4 +133,5 @@ export const Icons = {
   Eraser: IconEraser,
   Typography: IconTypography,
   Asterisk: IconAsterisk,
+  Download: IconDownload,
 };

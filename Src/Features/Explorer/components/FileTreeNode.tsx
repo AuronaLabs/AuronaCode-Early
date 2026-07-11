@@ -13,7 +13,6 @@ import { useExplorerContext } from "../ExplorerContext";
 import type { InlineCreation } from "../FileExplorer";
 import { InlineInput } from "./InlineInput";
 
-
 function getFileIcon(filename: string, isActive: boolean) {
   const ext = filename.split(".").pop()?.toLowerCase();
   const baseColor = isActive ? "text-[var(--TextHighlight)]" : "text-[var(--TextMuted)]";
@@ -168,7 +167,11 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
             <div className="shrink-0 flex items-center opacity-90 group-hover/tree:opacity-100 transition-opacity">
               {node.isDirectory ? (
                 node.isOpen ? (
-                  <Icons.FolderOpen size={16} stroke={1.5} className="text-[var(--AccentPrimary)]" />
+                  <Icons.FolderOpen
+                    size={16}
+                    stroke={1.5}
+                    className="text-[var(--AccentPrimary)]"
+                  />
                 ) : (
                   <Icons.Folder size={16} stroke={1.5} className="text-[var(--AccentPrimary)]" />
                 )

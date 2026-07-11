@@ -13,7 +13,6 @@ export const useEditorStore = create<EditorState>((set) => ({
   _setEditorStatus: (status) => set({ editorStatus: status }),
 }));
 
-
 EditorAdapter.onStatusChange((status) => {
   useEditorStore.getState()._setEditorStatus(status);
 });

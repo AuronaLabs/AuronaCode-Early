@@ -1,10 +1,10 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { EditorStatus, EditorStatusListener } from "../../../Foundation/Types/Editor";
+import type { EditorStatus, EditorStatusListener } from "../../../Foundation/Types/Editor";
 
 export function useEditorSelection(content: string, path?: string, language?: string) {
   const [currentLine, setCurrentLine] = useState(1);
   const statusListenersRef = useRef(new Set<EditorStatusListener>());
-  
+
   const statusRef = useRef<EditorStatus>({
     hasEditor: true,
     path,
@@ -68,7 +68,7 @@ export function useEditorSelection(content: string, path?: string, language?: st
       });
       setCurrentLine(lineNum);
     },
-    [emitStatus, getLineAndChar]
+    [emitStatus, getLineAndChar],
   );
 
   return {
@@ -78,6 +78,6 @@ export function useEditorSelection(content: string, path?: string, language?: st
     getLineAndChar,
     emitStatus,
     updateStatus,
-    lineStarts
+    lineStarts,
   };
 }

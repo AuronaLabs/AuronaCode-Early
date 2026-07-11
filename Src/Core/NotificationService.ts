@@ -32,7 +32,7 @@ class NotificationServiceImpl {
   }
 
   private add(item: NotificationItem) {
-    this.history = [item, ...this.history].slice(0, 100); 
+    this.history = [item, ...this.history].slice(0, 100);
     EventBus.emit("notifications:updated", this.history);
   }
 
@@ -54,7 +54,6 @@ class NotificationServiceImpl {
     return this.history.filter((item) => !item.read).length;
   }
 }
-
 
 declare module "../Foundation/EventBus" {
   interface EventMap {

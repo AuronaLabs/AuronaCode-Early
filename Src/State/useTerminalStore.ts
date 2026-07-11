@@ -38,12 +38,12 @@ export const useTerminalStore = create<TerminalState>((set) => ({
   editingName: "",
 
   addTerminal: (shellPath) => TerminalManager.createTerminal(shellPath),
-  
+
   setIsTerminalOpen: (open) => {
     set({ isTerminalOpen: open });
     EventBus.emit("app:terminal-state-changed", open);
   },
-  
+
   setActiveBottomTab: (tab) => set({ activeBottomTab: tab }),
   setIsTerminalListVisible: (visible) => set({ isTerminalListVisible: visible }),
   setIsShellDropdownOpen: (open) => set({ isShellDropdownOpen: open }),
@@ -53,7 +53,6 @@ export const useTerminalStore = create<TerminalState>((set) => ({
   _setActiveTerminalId: (id) => set({ activeTerminalId: id }),
   _setAvailableShells: (shells) => set({ availableShells: shells }),
 }));
-
 
 TerminalManager.getAvailableShells().then((shells) => {
   useTerminalStore.getState()._setAvailableShells(shells);
@@ -66,7 +65,6 @@ if (initialList.length === 0) {
   useTerminalStore.getState()._setTerminals(initialList);
   useTerminalStore.getState()._setActiveTerminalId(TerminalManager.getActiveTerminalId());
 }
-
 
 EventBus.on("terminal:list-changed", (list: TerminalInstance[]) => {
   useTerminalStore.getState()._setTerminals([...list]);

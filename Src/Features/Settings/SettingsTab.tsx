@@ -25,15 +25,12 @@ export function SettingsTab() {
     return () => unsub();
   }, []);
 
-  
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
 
-  
   const [editorFontSize, setEditorFontSize] = useState("14");
   const [editorWordWrap, setEditorWordWrap] = useState("on");
   const [editorMinimap, setEditorMinimap] = useState("true");
 
-  
   const [terminalFontSize, setTerminalFontSize] = useState("13");
   const [terminalCursorBlink, setTerminalCursorBlink] = useState("true");
 
@@ -51,7 +48,6 @@ export function SettingsTab() {
       setTerminalFontSize(savedTerminalFont);
       setTerminalCursorBlink(config.terminalCursorBlink !== false ? "true" : "false");
 
-      
       document.documentElement.style.setProperty("--EditorFontSize", `${savedEditorFont}px`);
       document.documentElement.style.setProperty("--TerminalFontSize", `${savedTerminalFont}px`);
     });
@@ -63,7 +59,7 @@ export function SettingsTab() {
     const isDark =
       newTheme === "dark" ||
       (newTheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    
+
     document.documentElement.classList.add("theme-transitioning");
     if (isDark) {
       document.documentElement.classList.add("dark");
@@ -75,9 +71,8 @@ export function SettingsTab() {
     }, 300);
   };
 
-  
   const [repoPath, setRepoPath] = useState<string | null>(
-    WorkspaceStore.getCached()?.lastOpenedPath || null
+    WorkspaceStore.getCached()?.lastOpenedPath || null,
   );
   const [remoteUrl, setRemoteUrl] = useState("");
   const [username, setUsername] = useState("");
@@ -102,7 +97,7 @@ export function SettingsTab() {
     const k = 1024;
     const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+    return parseFloat((bytes / k ** i).toFixed(1)) + " " + sizes[i];
   };
 
   const loadStorageSizes = async () => {
@@ -126,7 +121,7 @@ export function SettingsTab() {
       const dataSize: number = await invoke("get_app_data_size");
       setAppDataSize(formatBytes(dataSize));
       setRawAppDataSize(dataSize);
-      
+
       const other = Math.max(0, dataSize - cSize - wSize);
       setOtherDataSize(formatBytes(other));
       setRawOtherDataSize(other);
@@ -274,7 +269,7 @@ export function SettingsTab() {
           选择浅色或深色界面，或者让应用跟随您的操作系统同步改变外观
         </p>
       </div>
-      
+
       <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm">
         <div className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
@@ -292,9 +287,21 @@ export function SettingsTab() {
                     : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/5 border border-transparent"
                 }`}
               >
-                {t === "system" && <><Icons.Monitor size={16} /> 跟随系统</>}
-                {t === "light" && <><Icons.Sun size={16} /> 浅色</>}
-                {t === "dark" && <><Icons.Moon size={16} /> 深色</>}
+                {t === "system" && (
+                  <>
+                    <Icons.Monitor size={16} /> 跟随系统
+                  </>
+                )}
+                {t === "light" && (
+                  <>
+                    <Icons.Sun size={16} /> 浅色
+                  </>
+                )}
+                {t === "dark" && (
+                  <>
+                    <Icons.Moon size={16} /> 深色
+                  </>
+                )}
               </button>
             ))}
           </div>
@@ -335,7 +342,9 @@ export function SettingsTab() {
         <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--TextHighlight)]">自动换行</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">当代码超出一行长度时自动折行显示</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">
+              当代码超出一行长度时自动折行显示
+            </span>
           </div>
           <Switch
             checked={editorWordWrap === "on"}
@@ -351,7 +360,9 @@ export function SettingsTab() {
         <div className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--TextHighlight)]">代码缩略图</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">在右侧显示代码文件的全局缩略图</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">
+              在右侧显示代码文件的全局缩略图
+            </span>
           </div>
           <Switch
             checked={editorMinimap === "true"}
@@ -399,7 +410,9 @@ export function SettingsTab() {
         <div className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--TextHighlight)]">光标闪烁</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">是否开启终端光标的呼吸闪烁效果</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">
+              是否开启终端光标的呼吸闪烁效果
+            </span>
           </div>
           <Switch
             checked={terminalCursorBlink === "true"}
@@ -430,9 +443,12 @@ export function SettingsTab() {
             <Icons.Git size={22} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <h4 className="text-[14px] font-bold text-[var(--TextHighlight)]">未检测到 Git 工作区</h4>
+            <h4 className="text-[14px] font-bold text-[var(--TextHighlight)]">
+              未检测到 Git 工作区
+            </h4>
             <p className="text-[12px] text-[var(--TextMuted)] leading-relaxed">
-              当前未在工作区打开任何有效的目录。请先在资源管理器中打开包含 Git 仓库的文件夹，然后在此处配置凭据。
+              当前未在工作区打开任何有效的目录。请先在资源管理器中打开包含 Git
+              仓库的文件夹，然后在此处配置凭据。
             </p>
           </div>
         </div>
@@ -440,8 +456,12 @@ export function SettingsTab() {
         <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col max-w-3xl mt-2">
           <div className="flex flex-col p-5 border-b border-[var(--GlassBorder)] gap-2">
             <div className="flex flex-col gap-1">
-              <span className="text-[14px] font-medium text-[var(--TextHighlight)]">Remote URL</span>
-              <span className="text-[12px] text-[var(--TextMuted)]">当前工作区 Git 仓库的远程推送和拉取地址</span>
+              <span className="text-[14px] font-medium text-[var(--TextHighlight)]">
+                Remote URL
+              </span>
+              <span className="text-[12px] text-[var(--TextMuted)]">
+                当前工作区 Git 仓库的远程推送和拉取地址
+              </span>
             </div>
             <Input
               value={remoteUrl}
@@ -455,7 +475,9 @@ export function SettingsTab() {
           <div className="grid grid-cols-2 border-b border-[var(--GlassBorder)]">
             <div className="flex flex-col p-5 border-r border-[var(--GlassBorder)] gap-2">
               <div className="flex flex-col gap-1">
-                <span className="text-[14px] font-medium text-[var(--TextHighlight)]">用户名 (可选)</span>
+                <span className="text-[14px] font-medium text-[var(--TextHighlight)]">
+                  用户名 (可选)
+                </span>
                 <span className="text-[12px] text-[var(--TextMuted)]">远程 Git 账户的用户名</span>
               </div>
               <Input
@@ -469,8 +491,12 @@ export function SettingsTab() {
 
             <div className="flex flex-col p-5 gap-2">
               <div className="flex flex-col gap-1">
-                <span className="text-[14px] font-medium text-[var(--TextHighlight)]">访问令牌 / 密码</span>
-                <span className="text-[12px] text-[var(--TextMuted)]">HTTPS 访问凭证 (如 Access Token)</span>
+                <span className="text-[14px] font-medium text-[var(--TextHighlight)]">
+                  访问令牌 / 密码
+                </span>
+                <span className="text-[12px] text-[var(--TextMuted)]">
+                  HTTPS 访问凭证 (如 Access Token)
+                </span>
               </div>
               <Input
                 value={token}
@@ -503,7 +529,7 @@ export function SettingsTab() {
   const renderStorage = () => {
     const totalRawSize = rawAppDataSize + rawLogSize;
     const totalSizeFormatted = formatBytes(totalRawSize);
-    
+
     const totalForBar = totalRawSize === 0 ? 1 : totalRawSize;
     const configPct = (rawConfigSize / totalForBar) * 100;
     const workspacePct = (rawWorkspaceSize / totalForBar) * 100;
@@ -511,142 +537,197 @@ export function SettingsTab() {
     const logPct = (rawLogSize / totalForBar) * 100;
 
     return (
-    <div className="flex flex-col gap-6 w-full max-w-3xl">
-      <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">存储空间管理</h3>
-        <p className="text-[13px] text-[var(--TextMuted)]">监控并清理 Aurona Code 占用的磁盘存储空间</p>
-      </div>
-
-      <div className="glass-inner-card rounded-2xl p-6 shadow-sm flex flex-col gap-6">
+      <div className="flex flex-col gap-6 w-full max-w-3xl">
         <div className="flex flex-col gap-2">
-          <div className="flex justify-between items-end">
-            <span className="text-[20px] font-extrabold text-[var(--TextHighlight)] tracking-tight select-none">
-              {totalSizeFormatted} <span className="text-[12px] font-normal text-[var(--TextMuted)] font-sans">本地数据已使用</span>
-            </span>
-            <span className="text-[12px] text-[var(--TextMuted)] font-medium select-none">设备可用空间充足</span>
-          </div>
+          <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">存储空间管理</h3>
+          <p className="text-[13px] text-[var(--TextMuted)]">
+            监控并清理 Aurona Code 占用的磁盘存储空间
+          </p>
+        </div>
 
-          <div className="w-full h-3.5 bg-black/10 dark:bg-white/5 rounded-full overflow-hidden flex select-none">
-            {totalRawSize === 0 && (
-              <div className="h-full bg-black/20 dark:bg-white/10" style={{ width: "100%" }} />
-            )}
-            {rawConfigSize > 0 && <div className="h-full bg-emerald-500 hover:opacity-80 transition-opacity" style={{ width: `${configPct}%` }} title={`配置偏好 (${configSize})`} />}
-            {rawWorkspaceSize > 0 && <div className="h-full bg-amber-500 hover:opacity-80 transition-opacity" style={{ width: `${workspacePct}%` }} title={`工作区缓存 (${workspaceSize})`} />}
-            {rawOtherDataSize > 0 && <div className="h-full bg-blue-500 hover:opacity-80 transition-opacity" style={{ width: `${otherPct}%` }} title={`其他缓存数据 (${otherDataSize})`} />}
-            {rawLogSize > 0 && <div className="h-full bg-purple-500 hover:opacity-80 transition-opacity" style={{ width: `${logPct}%` }} title={`运行日志 (${logSize})`} />}
-          </div>
+        <div className="glass-inner-card rounded-2xl p-6 shadow-sm flex flex-col gap-6">
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-between items-end">
+              <span className="text-[20px] font-extrabold text-[var(--TextHighlight)] tracking-tight select-none">
+                {totalSizeFormatted}{" "}
+                <span className="text-[12px] font-normal text-[var(--TextMuted)] font-sans">
+                  本地数据已使用
+                </span>
+              </span>
+              <span className="text-[12px] text-[var(--TextMuted)] font-medium select-none">
+                设备可用空间充足
+              </span>
+            </div>
 
-          <div className="flex flex-wrap gap-x-4 gap-y-2 mt-1 select-none">
-            <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
-              <div className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>配置偏好 ({configSize})</span>
+            <div className="w-full h-3.5 bg-black/10 dark:bg-white/5 rounded-full overflow-hidden flex select-none">
+              {totalRawSize === 0 && (
+                <div className="h-full bg-black/20 dark:bg-white/10" style={{ width: "100%" }} />
+              )}
+              {rawConfigSize > 0 && (
+                <div
+                  className="h-full bg-emerald-500 hover:opacity-80 transition-opacity"
+                  style={{ width: `${configPct}%` }}
+                  title={`配置偏好 (${configSize})`}
+                />
+              )}
+              {rawWorkspaceSize > 0 && (
+                <div
+                  className="h-full bg-amber-500 hover:opacity-80 transition-opacity"
+                  style={{ width: `${workspacePct}%` }}
+                  title={`工作区缓存 (${workspaceSize})`}
+                />
+              )}
+              {rawOtherDataSize > 0 && (
+                <div
+                  className="h-full bg-blue-500 hover:opacity-80 transition-opacity"
+                  style={{ width: `${otherPct}%` }}
+                  title={`其他缓存数据 (${otherDataSize})`}
+                />
+              )}
+              {rawLogSize > 0 && (
+                <div
+                  className="h-full bg-purple-500 hover:opacity-80 transition-opacity"
+                  style={{ width: `${logPct}%` }}
+                  title={`运行日志 (${logSize})`}
+                />
+              )}
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
-              <div className="w-2 h-2 rounded-full bg-amber-500" />
-              <span>工作区缓存 ({workspaceSize})</span>
+
+            <div className="flex flex-wrap gap-x-4 gap-y-2 mt-1 select-none">
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>配置偏好 ({configSize})</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
+                <div className="w-2 h-2 rounded-full bg-amber-500" />
+                <span>工作区缓存 ({workspaceSize})</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                <span>其他数据 ({otherDataSize})</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
+                <div className="w-2 h-2 rounded-full bg-purple-500" />
+                <span>运行日志 ({logSize})</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
-              <div className="w-2 h-2 rounded-full bg-blue-500" />
-              <span>其他数据 ({otherDataSize})</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4 mt-2">
+          <h4 className="text-[13px] font-bold text-[var(--TextHighlight)] px-1">存储细分与清理</h4>
+
+          <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+              <div className="flex flex-col gap-1">
+                <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
+                  用户配置偏好
+                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">
+                    user-config.json
+                  </span>
+                </span>
+                <span className="text-[12px] text-[var(--TextMuted)]">
+                  保存当前编辑器的全部个性化设置、字号大小与主题外观偏好
+                </span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">
+                  {configSize}
+                </span>
+                <Button
+                  variant="danger"
+                  className="h-8 text-[12px] px-3.5"
+                  disabled={isClearing !== null || rawConfigSize === 0}
+                  onClick={handleClearConfig}
+                >
+                  {isClearing === "config" ? "正在清理..." : "清理"}
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
-              <div className="w-2 h-2 rounded-full bg-purple-500" />
-              <span>运行日志 ({logSize})</span>
+
+            <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+              <div className="flex flex-col gap-1">
+                <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
+                  最近工作区状态
+                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">
+                    workspace.json
+                  </span>
+                </span>
+                <span className="text-[12px] text-[var(--TextMuted)]">
+                  记录最近打开的文件夹列表、当前打开的编辑标签页与界面布局缓存
+                </span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">
+                  {workspaceSize}
+                </span>
+                <Button
+                  variant="danger"
+                  className="h-8 text-[12px] px-3.5"
+                  disabled={isClearing !== null || rawWorkspaceSize === 0}
+                  onClick={handleClearWorkspace}
+                >
+                  {isClearing === "workspace" ? "正在清理..." : "清理"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+              <div className="flex flex-col gap-1">
+                <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
+                  WebView 缓存与杂项
+                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">
+                    Cache / WebKit
+                  </span>
+                </span>
+                <span className="text-[12px] text-[var(--TextMuted)]">
+                  清除 Tauri 与内置网页引擎在运行期间产生的离线图片、网络请求与其他碎片文件
+                </span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">
+                  {otherDataSize}
+                </span>
+                <Button
+                  variant="danger"
+                  className="h-8 text-[12px] px-3.5"
+                  disabled={isClearing !== null || rawOtherDataSize === 0}
+                  onClick={handleClearOtherAppData}
+                >
+                  {isClearing === "other" ? "正在清理..." : "清理"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-5">
+              <div className="flex flex-col gap-1">
+                <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
+                  系统运行日志
+                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">
+                    *.log
+                  </span>
+                </span>
+                <span className="text-[12px] text-[var(--TextMuted)]">
+                  记录应用生命周期、Tauri 进程及终端控制台诊断的运行日志
+                </span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">
+                  {logSize}
+                </span>
+                <Button
+                  variant="danger"
+                  className="h-8 text-[12px] px-3.5"
+                  disabled={isClearing !== null || logSize === "0 B"}
+                  onClick={handleClearLogs}
+                >
+                  {isClearing === "logs" ? "正在清理..." : "清理"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-
-      <div className="flex flex-col gap-4 mt-2">
-        <h4 className="text-[13px] font-bold text-[var(--TextHighlight)] px-1">存储细分与清理</h4>
-        
-        <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col">
-          <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
-            <div className="flex flex-col gap-1">
-              <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
-                用户配置偏好
-                <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">user-config.json</span>
-              </span>
-              <span className="text-[12px] text-[var(--TextMuted)]">保存当前编辑器的全部个性化设置、字号大小与主题外观偏好</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">{configSize}</span>
-              <Button
-                variant="danger"
-                className="h-8 text-[12px] px-3.5"
-                disabled={isClearing !== null || rawConfigSize === 0}
-                onClick={handleClearConfig}
-              >
-                {isClearing === "config" ? "正在清理..." : "清理"}
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
-            <div className="flex flex-col gap-1">
-              <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
-                最近工作区状态
-                <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">workspace.json</span>
-              </span>
-              <span className="text-[12px] text-[var(--TextMuted)]">记录最近打开的文件夹列表、当前打开的编辑标签页与界面布局缓存</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">{workspaceSize}</span>
-              <Button
-                variant="danger"
-                className="h-8 text-[12px] px-3.5"
-                disabled={isClearing !== null || rawWorkspaceSize === 0}
-                onClick={handleClearWorkspace}
-              >
-                {isClearing === "workspace" ? "正在清理..." : "清理"}
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
-            <div className="flex flex-col gap-1">
-              <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
-                WebView 缓存与杂项
-                <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">Cache / WebKit</span>
-              </span>
-              <span className="text-[12px] text-[var(--TextMuted)]">清除 Tauri 与内置网页引擎在运行期间产生的离线图片、网络请求与其他碎片文件</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">{otherDataSize}</span>
-              <Button
-                variant="danger"
-                className="h-8 text-[12px] px-3.5"
-                disabled={isClearing !== null || rawOtherDataSize === 0}
-                onClick={handleClearOtherAppData}
-              >
-                {isClearing === "other" ? "正在清理..." : "清理"}
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between p-5">
-            <div className="flex flex-col gap-1">
-              <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
-                系统运行日志
-                <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">*.log</span>
-              </span>
-              <span className="text-[12px] text-[var(--TextMuted)]">记录应用生命周期、Tauri 进程及终端控制台诊断的运行日志</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">{logSize}</span>
-              <Button
-                variant="danger"
-                className="h-8 text-[12px] px-3.5"
-                disabled={isClearing !== null || logSize === "0 B"}
-                onClick={handleClearLogs}
-              >
-                {isClearing === "logs" ? "正在清理..." : "清理"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
     );
   };
 
@@ -654,16 +735,16 @@ export function SettingsTab() {
     <div className="flex flex-col gap-6 w-full max-w-3xl">
       <div className="flex flex-col gap-2">
         <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">高级设置</h3>
-        <p className="text-[13px] text-[var(--TextMuted)]">
-          进行系统偏好与出厂状态重置操作
-        </p>
+        <p className="text-[13px] text-[var(--TextMuted)]">进行系统偏好与出厂状态重置操作</p>
       </div>
 
       <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col">
         <div className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--TextHighlight)]">初始化重置</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">清除应用全部本地数据，使编辑器回到初始安装状态</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">
+              清除应用全部本地数据，使编辑器回到初始安装状态
+            </span>
           </div>
           <Button
             variant="danger"

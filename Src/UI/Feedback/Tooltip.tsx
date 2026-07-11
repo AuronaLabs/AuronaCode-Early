@@ -27,31 +27,28 @@ export function Tooltip({ content, children, delay = 300, placement = "top" }: T
         let currentPlacement = placement;
         let align = "center";
 
-        
         switch (currentPlacement) {
           case "top":
             y = rect.top - gap;
-            if (y - 30 < 0) currentPlacement = "bottom"; 
+            if (y - 30 < 0) currentPlacement = "bottom";
             break;
           case "bottom":
             y = rect.bottom + gap;
-            if (y + 30 > window.innerHeight) currentPlacement = "top"; 
+            if (y + 30 > window.innerHeight) currentPlacement = "top";
             break;
           case "left":
             x = rect.left - gap;
-            if (x - 60 < 0) currentPlacement = "right"; 
+            if (x - 60 < 0) currentPlacement = "right";
             break;
           case "right":
             x = rect.right + gap;
-            if (x + 60 > window.innerWidth) currentPlacement = "left"; 
+            if (x + 60 > window.innerWidth) currentPlacement = "left";
             break;
         }
 
-        
         if (currentPlacement === "top") y = rect.top - gap;
         if (currentPlacement === "bottom") y = rect.bottom + gap;
 
-        
         if (currentPlacement === "top" || currentPlacement === "bottom") {
           if (rect.right > window.innerWidth - 60) align = "end";
           else if (rect.left < 60) align = "start";
@@ -61,7 +58,6 @@ export function Tooltip({ content, children, delay = 300, placement = "top" }: T
           else if (align === "start") x = rect.left;
         }
 
-        
         if (currentPlacement === "left" || currentPlacement === "right") {
           if (rect.bottom > window.innerHeight - 30) align = "end";
           else if (rect.top < 30) align = "start";

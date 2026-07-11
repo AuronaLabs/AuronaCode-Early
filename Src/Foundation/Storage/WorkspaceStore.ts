@@ -14,9 +14,7 @@ export const WorkspaceStore = {
   async init(): Promise<void> {
     try {
       await mkdir("", { baseDir: BASE, recursive: true });
-    } catch {
-      
-    }
+    } catch {}
   },
 
   async get(): Promise<WorkspaceState> {
@@ -69,6 +67,6 @@ export const WorkspaceStore = {
       };
 
       flush();
-    }, 500); 
+    }, 500);
   },
 };

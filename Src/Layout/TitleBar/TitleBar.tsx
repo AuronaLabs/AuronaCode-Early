@@ -1,4 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { invoke } from "@tauri-apps/api/core";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { useEffect, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { handleSmartRun, isRunnable } from "../../Shared/Constants/RunConfig";
@@ -19,6 +22,7 @@ export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
+  const [hasUpdate, setHasUpdate] = useState(false);
 
   useEffect(() => {
     appWindow.isMaximized().then(setIsMaximized);
@@ -33,11 +37,15 @@ export function TitleBar() {
     const unsubFile = EventBus.on("app:active-file-changed", (path: string | null) =>
       setActiveFilePath(path),
     );
+    const unsubUpdate = EventBus.on("app:update-available", () => {
+      setHasUpdate(true);
+    });
 
     return () => {
       unlisten.then((dispose) => dispose());
       unsubTerminal();
       unsubFile();
+      unsubUpdate();
     };
   }, []);
 
@@ -73,10 +81,7 @@ export function TitleBar() {
                 onSelect={() => EventBus.emit("app:create-folder-prompt")}
               />
               <MenubarDivider />
-              <MenubarItem
-                label="打开文件..."
-                onSelect={() => EventBus.emit("app:open-file")}
-              />
+              <MenubarItem label="打开文件..." onSelect={() => EventBus.emit("app:open-file")} />
               <MenubarItem
                 label="打开文件夹..."
                 onSelect={() => EventBus.emit("app:open-folder")}
@@ -87,38 +92,19 @@ export function TitleBar() {
                 onSelect={() => EventBus.emit("app:save-file")}
               />
               <MenubarDivider />
-              <MenubarItem
-                label="退出"
-                variant="danger"
-                onSelect={() => appWindow.close()}
-              />
+              <MenubarItem label="退出" variant="danger" onSelect={() => appWindow.close()} />
             </MenubarContent>
           </MenubarMenu>
 
           <MenubarMenu>
             <MenubarTrigger>编辑</MenubarTrigger>
             <MenubarContent>
-              <MenubarItem
-                label="撤销"
-                onSelect={() => EventBus.emit("editor:action", "undo")}
-              />
-              <MenubarItem
-                label="重做"
-                onSelect={() => EventBus.emit("editor:action", "redo")}
-              />
+              <MenubarItem label="撤销" onSelect={() => EventBus.emit("editor:action", "undo")} />
+              <MenubarItem label="重做" onSelect={() => EventBus.emit("editor:action", "redo")} />
               <MenubarDivider />
-              <MenubarItem
-                label="剪切"
-                onSelect={() => EventBus.emit("editor:action", "cut")}
-              />
-              <MenubarItem
-                label="复制"
-                onSelect={() => EventBus.emit("editor:action", "copy")}
-              />
-              <MenubarItem
-                label="粘贴"
-                onSelect={() => EventBus.emit("editor:action", "paste")}
-              />
+              <MenubarItem label="剪切" onSelect={() => EventBus.emit("editor:action", "cut")} />
+              <MenubarItem label="复制" onSelect={() => EventBus.emit("editor:action", "copy")} />
+              <MenubarItem label="粘贴" onSelect={() => EventBus.emit("editor:action", "paste")} />
               <MenubarDivider />
               <MenubarItem
                 label="全选"
@@ -150,22 +136,11 @@ export function TitleBar() {
             <MenubarTrigger>帮助</MenubarTrigger>
             <MenubarContent>
               <MenubarItem
-                label="版本更新记录"
-                onSelect={() => EventBus.emit("app:open-tab", { id: "changelog", type: "changelog", title: "更新记录" })}
-              />
-              <MenubarItem
-                label="关于 Aurona Code"
-                onSelect={() => EventBus.emit("app:open-tab", { id: "about", type: "about", title: "关于 Aurona Code" })}
-              />
-              <MenubarDivider />
-              <MenubarItem
-                label="强制重启 (测试启动页/急救)"
+                label="强制重启"
                 onSelect={async () => {
                   try {
-                    // @ts-ignore
+                    // @ts-expect-error
                     if (import.meta.env?.DEV || (import.meta as any).env?.DEV) {
-                      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-                      const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
                       // Hide current main window
                       await getCurrentWindow().hide();
                       // Re-create splashscreen window
@@ -179,14 +154,13 @@ export function TitleBar() {
                         resizable: false,
                         alwaysOnTop: true,
                         center: true,
-                        skipTaskbar: true
+                        skipTaskbar: true,
                       });
                       // Wait a fraction of a second for the IPC command to reach Rust before destroying the JS context
                       setTimeout(() => {
                         window.location.reload();
                       }, 100);
                     } else {
-                      const { relaunch } = await import("@tauri-apps/plugin-process");
                       await relaunch();
                     }
                   } catch (e) {
@@ -194,16 +168,34 @@ export function TitleBar() {
                   }
                 }}
               />
-              <MenubarDivider />
               <MenubarItem
                 label="开发者工具 (F12)"
                 onSelect={() => {
-                  import("@tauri-apps/api/core").then(({ invoke }) => {
-                    invoke("open_devtools").catch((err) => {
-                      EventBus.emit("app:toast", { type: "warning", message: err });
-                    });
-                  }).catch(console.error);
+                  invoke("open_devtools").catch((err) => {
+                    EventBus.emit("app:toast", { type: "warning", message: err });
+                  });
                 }}
+              />
+              <MenubarDivider />
+              <MenubarItem
+                label="版本更新记录"
+                onSelect={() =>
+                  EventBus.emit("app:open-tab", {
+                    id: "changelog",
+                    type: "changelog",
+                    title: "更新记录",
+                  })
+                }
+              />
+              <MenubarItem
+                label="关于 Aurona Code"
+                onSelect={() =>
+                  EventBus.emit("app:open-tab", {
+                    id: "about",
+                    type: "about",
+                    title: "关于 Aurona Code",
+                  })
+                }
               />
             </MenubarContent>
           </MenubarMenu>
@@ -221,6 +213,19 @@ export function TitleBar() {
             </button>
           </Tooltip>
         )}
+
+        {hasUpdate && (
+          <Tooltip content="发现新版本" delay={300} placement="bottom">
+            <button
+              className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 text-blue-500 hover:text-blue-400 transition-colors mr-1 relative"
+              onClick={() => EventBus.emit("app:show-update-modal")}
+            >
+              <Icons.Download size={16} stroke={2} />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse border border-white dark:border-zinc-900"></span>
+            </button>
+          </Tooltip>
+        )}
+
         <Tooltip content="切换底侧面板" delay={500} placement="bottom">
           <button
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--TextHighlight)] transition-colors"

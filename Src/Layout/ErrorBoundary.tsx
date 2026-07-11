@@ -1,4 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { EventBus } from "../Foundation/EventBus";
+import { appLocalDataDir, join } from "@tauri-apps/api/path";
 import { Logger } from "../Foundation/Logger";
 import { Button } from "../UI/Components/Button";
 import { Icons } from "../UI/Icons/IconManager";
@@ -28,14 +30,11 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleReload = () => {
-    import("../Foundation/EventBus").then(({ EventBus }) => {
-      EventBus.emit("app:reboot");
-    });
+    EventBus.emit("app:reboot");
   };
 
   private handleCopyLog = async () => {
     try {
-      const { appLocalDataDir, join } = await import("@tauri-apps/api/path");
       const appLocalData = await appLocalDataDir();
       const logPath = await join(appLocalData, "logs", `${Logger.getLogId()}.log`);
       await navigator.clipboard.writeText(logPath);

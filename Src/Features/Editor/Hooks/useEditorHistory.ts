@@ -60,6 +60,6 @@ export function useEditorHistory(initialValue: string, onChange?: (value: string
     undo,
     redo,
     historyTimerRef,
-    contentRef
+    contentRef,
   };
 }

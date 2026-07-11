@@ -73,11 +73,7 @@ function renderTabContent(tab: TabItem, activeTabId: string | null) {
     // For diff, tab.path stores the commit hash
     content = isActive ? <DiffViewer commitHash={tab.path} /> : null;
   }
-  return (
-    <Suspense fallback={<div className="w-full h-full bg-transparent" />}>
-      {content}
-    </Suspense>
-  );
+  return <Suspense fallback={<div className="w-full h-full bg-transparent" />}>{content}</Suspense>;
 }
 
 export function WorkspaceView() {
@@ -118,7 +114,6 @@ export function WorkspaceView() {
     setActiveTabId(pendingCloseTab.id);
   }, [pendingCloseTab, setActiveTabId]);
 
-  
   useEffect(() => {
     if (pendingCloseTab && activeTabId === pendingCloseTab.id) {
       EventBus.emit("app:save-file");
@@ -214,7 +209,7 @@ export function WorkspaceView() {
               </div>
             </div>
           ) : (
-                        <div className="flex flex-1 items-center justify-center text-[var(--TextMuted)] flex-col gap-6 select-none bg-transparent">
+            <div className="flex flex-1 items-center justify-center text-[var(--TextMuted)] flex-col gap-6 select-none bg-transparent">
               <div className="flex flex-col items-center gap-4 opacity-50 hover:opacity-80 transition-opacity duration-500">
                 <img src="/logo.png" alt="Logo" className="w-24 h-24 object-contain" />
               </div>

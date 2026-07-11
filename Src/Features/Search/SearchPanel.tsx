@@ -102,11 +102,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
     const name = file_path.split("/").pop() || file_path;
     EventBus.emit("app:open-tab", { id: fullPath, type: "file", title: name, path: fullPath });
 
-    
-    setTimeout(() => {
-      
-      
-    }, 100);
+    setTimeout(() => {}, 100);
   };
 
   const fileKeys = Object.keys(grouped);

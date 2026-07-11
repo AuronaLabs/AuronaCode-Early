@@ -1,7 +1,7 @@
+mod commands;
+mod lsp;
 mod pty;
 mod search;
-mod lsp;
-mod commands;
 
 pub use commands::lsp_cmds::LspState;
 
@@ -11,6 +11,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(pty::PtyState::new())
         .manage(LspState {
             clients: tokio::sync::Mutex::new(std::collections::HashMap::new()),
@@ -57,4 +58,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("failed to run Aurona Code");
 }
-

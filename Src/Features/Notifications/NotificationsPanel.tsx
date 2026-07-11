@@ -10,7 +10,6 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
   );
 
   useEffect(() => {
-    
     NotificationService.markAllAsRead();
 
     const unsub = EventBus.on("notifications:updated", (history) => {

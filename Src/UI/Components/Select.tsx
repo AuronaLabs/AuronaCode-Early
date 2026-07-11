@@ -21,7 +21,7 @@ export function Select({ options, value, onChange, className }: SelectProps) {
       <SelectPrimitive.Trigger
         className={cn(
           "flex h-8 w-full min-w-[120px] items-center justify-between gap-3 bg-[var(--GlassSurface)] backdrop-blur-md border border-[var(--GlassBorder)] rounded-xl px-3 py-1.5 text-[13px] text-[var(--TextHighlight)] outline-none hover:bg-[var(--GlassHover)] transition-all cursor-pointer focus:ring-2 focus:ring-[var(--AccentPrimary)]/50 shadow-sm",
-          className
+          className,
         )}
       >
         <SelectPrimitive.Value placeholder="Select an option" />
@@ -47,7 +47,7 @@ export function Select({ options, value, onChange, className }: SelectProps) {
                 key={opt.value}
                 value={opt.value}
                 className={cn(
-                  "relative flex w-full cursor-pointer select-none items-center rounded-md py-1.5 pl-8 pr-2 text-[13px] text-[var(--TextPrimary)] outline-none focus:bg-[var(--AccentPrimary)] focus:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50 transition-colors"
+                  "relative flex w-full cursor-pointer select-none items-center rounded-md py-1.5 pl-8 pr-2 text-[13px] text-[var(--TextPrimary)] outline-none focus:bg-[var(--AccentPrimary)] focus:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50 transition-colors",
                 )}
               >
                 <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">

@@ -13,7 +13,7 @@ export interface IpcResponse<T = any> {
 }
 
 export class AuronaChannel {
-    static async request<T = any>(action: string, payload?: any): Promise<T> {
+  static async request<T = any>(action: string, payload?: any): Promise<T> {
     try {
       const response: IpcResponse<T> = await invoke("aurona_bridge", {
         req: { action, payload },
@@ -33,11 +33,10 @@ export class AuronaChannel {
     }
   }
 
-    static createStream(channelId: string) {
+  static createStream(channelId: string) {
     console.log(`[IPC] Initializing data stream for: ${channelId}`);
     return {
       onMessage: (callback: (data: any) => void) => {
-        
         return () => {
           console.log(`[IPC] Unsubscribed from stream: ${channelId}`);
         };

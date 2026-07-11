@@ -1,12 +1,13 @@
-use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
-use serde::Serialize;
 use base64::prelude::*;
 use dashmap::DashMap;
+use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
+use serde::Serialize;
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use tauri::{AppHandle, Emitter, State};
+use ts_rs::TS;
 
 // 任务 C：Shell 列表全局缓存，只初始化一次
 static SHELL_CACHE: OnceLock<Vec<ShellProfile>> = OnceLock::new();
@@ -41,7 +42,8 @@ impl Drop for PtyState {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, TS)]
+#[ts(export)]
 pub struct ShellProfile {
     pub id: String,
     pub name: String,
@@ -113,7 +115,9 @@ pub fn spawn_pty(
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
 
     state.writers.insert(id.clone(), Mutex::new(writer));
-    state.master_ptys.insert(id.clone(), Mutex::new(pair.master));
+    state
+        .master_ptys
+        .insert(id.clone(), Mutex::new(pair.master));
     state.children.insert(id.clone(), child);
 
     // 任务 B：创建停止标志并传入读线程
@@ -123,19 +127,37 @@ pub fn spawn_pty(
     let id_clone = id.clone();
     thread::spawn(move || {
         let mut buf = [0u8; 8192];
+        let mut buffer = Vec::new();
+        let mut last_emit = std::time::Instant::now();
         loop {
             // 检查停止标志
             if stop_flag.load(Ordering::Relaxed) {
                 break;
             }
             match reader.read(&mut buf) {
-                Ok(0) => break,
+                Ok(0) => {
+                    if !buffer.is_empty() {
+                        let payload = PtyOutputPayload {
+                            id: id_clone.clone(),
+                            data: BASE64_STANDARD.encode(&buffer),
+                        };
+                        let _ = app.emit("pty-output", payload);
+                    }
+                    break;
+                }
                 Ok(n) => {
-                    let payload = PtyOutputPayload {
-                        id: id_clone.clone(),
-                        data: BASE64_STANDARD.encode(&buf[..n]),
-                    };
-                    let _ = app.emit("pty-output", payload);
+                    buffer.extend_from_slice(&buf[..n]);
+                    if buffer.len() > 4096
+                        || last_emit.elapsed() >= std::time::Duration::from_millis(16)
+                    {
+                        let payload = PtyOutputPayload {
+                            id: id_clone.clone(),
+                            data: BASE64_STANDARD.encode(&buffer),
+                        };
+                        let _ = app.emit("pty-output", payload);
+                        buffer.clear();
+                        last_emit = std::time::Instant::now();
+                    }
                 }
                 Err(_) => break,
             }
@@ -221,7 +243,7 @@ pub fn get_available_shells() -> Vec<ShellProfile> {
             use std::os::windows::process::CommandExt;
             pwsh_cmd.creation_flags(0x08000000);
         }
-        
+
         if pwsh_cmd.output().is_ok() {
             shells.push(ShellProfile {
                 id: "pwsh".to_string(),

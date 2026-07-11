@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Aurona Code",
   "mainBinaryName": "Aurona Code",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "identifier": "com.aurona.code",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -45,8 +45,17 @@
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVGRjQxOURGODdCQ0I1MzIKUldReXRieUgzeG4wNzFtWi8vMXZxbVNvbC9aeXhjU2VuYlM4bVQrS3ZUeW1VdEdvRzBwRnlsQlIK",
+      "endpoints": [
+        "https://github.com/AuronaLabs/AuronaCode-Early/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "icon": [
       "icons/32x32.png",
@@ -55,7 +64,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "license": "../build/license.txt",
+    "license": "../LICENSE",
     "windows": {
       "wix": {
         "language": "zh-CN"

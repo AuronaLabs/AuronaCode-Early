@@ -7,7 +7,9 @@ import {
   remove,
   rename,
   writeTextFile,
+  watch,
 } from "@tauri-apps/plugin-fs";
+import { EventBus } from "../Foundation/EventBus";
 
 export type FileNode = {
   name: string;
@@ -119,6 +121,32 @@ export const FileSystemService = {
 
   async copyOrMove(source: string, destination: string, isMove: boolean) {
     await invoke("fs_copy_or_move", { source, destination, isMove });
+  },
+
+  _unwatch: undefined as (() => void) | undefined,
+  async startWatch(dirPath: string) {
+    if (this._unwatch) {
+      this._unwatch();
+      this._unwatch = undefined;
+    }
+    try {
+      this._unwatch = await watch(
+        dirPath,
+        (event) => {
+          EventBus.emit("fs:changed", event);
+        },
+        { recursive: true, delayMs: 500 },
+      );
+    } catch (e) {
+      console.warn("Failed to start file watcher:", e);
+    }
+  },
+
+  stopWatch() {
+    if (this._unwatch) {
+      this._unwatch();
+      this._unwatch = undefined;
+    }
   },
 
   readTextFile,

@@ -39,11 +39,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {icon}
           </div>
         )}
-        <input
-          className={cn(inputVariants({ inputSize, hasIcon: !!icon }))}
-          ref={ref}
-          {...props}
-        />
+        <input className={cn(inputVariants({ inputSize, hasIcon: !!icon }))} ref={ref} {...props} />
       </div>
     );
   },

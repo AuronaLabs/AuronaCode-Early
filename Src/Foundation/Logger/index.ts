@@ -2,7 +2,6 @@ import { BaseDirectory, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
-
 function serializeError(obj: any, seen = new WeakSet()): any {
   if (obj === null || typeof obj !== "object") return obj;
   if (seen.has(obj)) return "[Circular]";
@@ -41,7 +40,6 @@ class LoggerImpl {
     this.logId = `Aurona-Log-${date}_${time}`;
     this.logFilePath = `logs/${this.logId}.log`;
 
-    
     this.queue.push(`# Aurona Code Log\n# Log: ${this.logId}\n# Started: ${d.toISOString()}\n\n`);
   }
 
@@ -49,7 +47,7 @@ class LoggerImpl {
     return this.logId;
   }
 
-    init(): void {
+  init(): void {
     if (this.initialized) return;
     this.initialized = true;
 
@@ -62,13 +60,11 @@ class LoggerImpl {
     });
 
     window.addEventListener("beforeunload", () => {
-      
       if (this.queue.length > 0) {
         void this.flush();
       }
     });
 
-    
     this.scheduleFlush();
   }
 
@@ -115,9 +111,7 @@ class LoggerImpl {
       await writeTextFile(errFileName, content, {
         baseDir: BaseDirectory.AppLocalData,
       });
-    } catch {
-      
-    }
+    } catch {}
   }
 
   private log(level: LogLevel, message: string, data?: unknown): void {
@@ -159,9 +153,7 @@ class LoggerImpl {
         baseDir: BaseDirectory.AppLocalData,
         append: true,
       });
-    } catch {
-      
-    }
+    } catch {}
   }
 }
 

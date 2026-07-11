@@ -1,6 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
 
-
 export interface GitFile {
   path: string;
   name: string;
@@ -22,7 +21,6 @@ export interface GitFullStatus {
   commits: GitCommit[];
   branch: string;
 }
-
 
 export const GitIPC = {
   checkIsRepo: (path: string) => invoke<boolean>("git_check_is_repo", { path }),

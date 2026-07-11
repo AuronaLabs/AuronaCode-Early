@@ -1,6 +1,4 @@
-
 export const BINARY_EXTENSIONS = [
-  
   "png",
   "jpg",
   "jpeg",
@@ -13,18 +11,18 @@ export const BINARY_EXTENSIONS = [
   "mp3",
   "wav",
   "ogg",
-  
+
   "ttf",
   "otf",
   "woff",
   "woff2",
-  
+
   "zip",
   "tar",
   "gz",
   "7z",
   "rar",
-  
+
   "exe",
   "dll",
   "so",
@@ -33,7 +31,7 @@ export const BINARY_EXTENSIONS = [
   "class",
   "jar",
   "pyc",
-  
+
   "pdf",
   "doc",
   "docx",

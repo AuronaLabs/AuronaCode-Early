@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use tauri::Emitter;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot, Mutex};
-use tauri::Emitter;
 
 pub struct LspClient {
     id_counter: AtomicU64,
@@ -19,9 +19,9 @@ pub struct LspClient {
 // 任务 E：实现 Drop，进程退出时自动清理
 impl Drop for LspClient {
     fn drop(&mut self) {
-        self.child.take().map(|mut c| {
+        if let Some(mut c) = self.child.take() {
             let _ = c.start_kill();
-        });
+        }
     }
 }
 
@@ -46,8 +46,8 @@ impl LspClient {
             .spawn()
             .map_err(|e| format!("Failed to spawn LSP: {}", e))?;
 
-        let mut stdin = child.stdin.take().ok_or_else(|| "Failed to capture stdin")?;
-        let stdout = child.stdout.take().ok_or_else(|| "Failed to capture stdout")?;
+        let mut stdin = child.stdin.take().ok_or("Failed to capture stdin")?;
+        let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
 
         let (writer_tx, mut writer_rx) = mpsc::channel::<String>(32);
         let response_waiters: Arc<Mutex<HashMap<u64, oneshot::Sender<Value>>>> =
@@ -93,7 +93,9 @@ impl LspClient {
                         break; // 请求头结束
                     }
 
-                    if line_buf.len() > 15 && line_buf[..15].eq_ignore_ascii_case(b"content-length:") {
+                    if line_buf.len() > 15
+                        && line_buf[..15].eq_ignore_ascii_case(b"content-length:")
+                    {
                         let line = String::from_utf8_lossy(&line_buf);
                         if let Some(val) = line.split_once(':') {
                             if let Ok(len) = val.1.trim().parse::<usize>() {
@@ -115,21 +117,21 @@ impl LspClient {
                 }
 
                 if let Ok(json) = serde_json::from_slice::<Value>(&body_buf) {
-                        if let Some(id) = json.get("id").and_then(|id| id.as_u64()) {
-                            // 响应消息
-                            let mut waiters = waiters_clone.lock().await;
-                            if let Some(sender) = waiters.remove(&id) {
-                                let _ = sender.send(json);
-                            }
-                        } else if let Some(method) = json.get("method").and_then(|m| m.as_str()) {
-                            // 服务端推送通知
-                            if method == "textDocument/publishDiagnostics" {
-                                let _ = app_handle.emit("lsp://diagnostics", &json);
-                            }
+                    if let Some(id) = json.get("id").and_then(|id| id.as_u64()) {
+                        // 响应消息
+                        let mut waiters = waiters_clone.lock().await;
+                        if let Some(sender) = waiters.remove(&id) {
+                            let _ = sender.send(json);
+                        }
+                    } else if let Some(method) = json.get("method").and_then(|m| m.as_str()) {
+                        // 服务端推送通知
+                        if method == "textDocument/publishDiagnostics" {
+                            let _ = app_handle.emit("lsp://diagnostics", &json);
                         }
                     }
                 }
-            });
+            }
+        });
 
         // 任务 E：将 child 移入结构体
         Ok(Self {
@@ -145,7 +147,12 @@ impl LspClient {
         self.call_with_id(id, method, params).await
     }
 
-    pub async fn call_with_id(&self, id: u64, method: &str, params: Value) -> Result<Value, String> {
+    pub async fn call_with_id(
+        &self,
+        id: u64,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, String> {
         let msg = json!({
             "jsonrpc": "2.0",
             "id": id,

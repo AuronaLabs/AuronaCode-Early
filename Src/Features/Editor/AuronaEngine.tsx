@@ -41,11 +41,17 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     null,
   );
 
-  
   const { pushHistory, undo, redo, historyTimerRef, syncExternalValue } = useEditorHistory(value);
-  const { currentLine, statusListenersRef, statusRef, emitStatus, updateStatus, getLineAndChar, lineStarts } = useEditorSelection(content, path, language);
+  const {
+    currentLine,
+    statusListenersRef,
+    statusRef,
+    emitStatus,
+    updateStatus,
+    getLineAndChar,
+    lineStarts,
+  } = useEditorSelection(content, path, language);
 
-  
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatches, setSearchMatches] = useState<number[]>([]);
@@ -130,7 +136,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       const textarea = textareaRef.current;
       if (!textarea) return;
       textarea.focus();
-      
+
       switch (action) {
         case "undo":
           document.execCommand("undo");
@@ -163,7 +169,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setContent(newContent);
     onChange?.(newContent);
 
-    
     if (historyTimerRef.current) window.clearTimeout(historyTimerRef.current);
     historyTimerRef.current = window.setTimeout(() => {
       pushHistory(newContent, selectionStart);
@@ -293,7 +298,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       }
     }
 
-    
     const pairs: Record<string, string> = { "(": ")", "[": "]", "{": "}", '"': '"', "'": "'" };
     if (pairs[e.key]) {
       e.preventDefault();
@@ -311,7 +315,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       return;
     }
 
-    
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       const start = el.selectionStart;
@@ -457,7 +460,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     const { line } = getLineAndChar(index);
     const top = line * lineHeightRef.current;
 
-    
     textareaRef.current.parentElement?.parentElement?.scrollTo({
       top: top - 100,
       behavior: "smooth",
@@ -550,7 +552,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       }
       return hljs.highlightAuto(deferredContent).value;
     } catch (e) {
-      return deferredContent;
+      return deferredContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
   }, [deferredContent, language]);
 
@@ -560,7 +562,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   }, [linesCount]);
 
   return (
-    <div className="relative w-full h-full flex bg-transparent overflow-hidden">      {isSearchOpen && (
+    <div className="relative w-full h-full flex bg-transparent overflow-hidden">
+      {" "}
+      {isSearchOpen && (
         <SearchWidget
           onSearch={setSearchQuery}
           onClose={() => {
@@ -574,7 +578,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           currentIndex={currentMatchIndex}
         />
       )}
-
       {/* 侧边栏（行号槽） */}
       <div className="w-[48px] shrink-0 bg-transparent border-r border-black/5 dark:border-white/5 flex flex-col items-end py-4 px-2 select-none overflow-hidden">
         <div
@@ -593,7 +596,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           ))}
         </div>
       </div>
-
       {}
       <div
         className="relative flex-1 overflow-auto aurona-scroll"
@@ -701,9 +703,15 @@ export const AuronaEngine = React.memo(function AuronaEngine({
                 value={content}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                onSelect={(e) => updateStatus(e.currentTarget.selectionStart, e.currentTarget.selectionEnd)}
-                onClick={(e) => updateStatus(e.currentTarget.selectionStart, e.currentTarget.selectionEnd)}
-                onKeyUp={(e) => updateStatus(e.currentTarget.selectionStart, e.currentTarget.selectionEnd)}
+                onSelect={(e) =>
+                  updateStatus(e.currentTarget.selectionStart, e.currentTarget.selectionEnd)
+                }
+                onClick={(e) =>
+                  updateStatus(e.currentTarget.selectionStart, e.currentTarget.selectionEnd)
+                }
+                onKeyUp={(e) =>
+                  updateStatus(e.currentTarget.selectionStart, e.currentTarget.selectionEnd)
+                }
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
                 spellCheck={false}
@@ -720,37 +728,18 @@ export const AuronaEngine = React.memo(function AuronaEngine({
               />
             </ContextMenuTrigger>
             <ContextMenuContent className="w-64">
-              <ContextMenuItem
-                label="撤销"
-                onSelect={() => document.execCommand("undo")}
-              />
-              <ContextMenuItem
-                label="重做"
-                onSelect={() => document.execCommand("redo")}
-              />
+              <ContextMenuItem label="撤销" onSelect={() => document.execCommand("undo")} />
+              <ContextMenuItem label="重做" onSelect={() => document.execCommand("redo")} />
               <ContextMenuDivider />
-              <ContextMenuItem
-                label="剪切"
-                onSelect={() => document.execCommand("cut")}
-              />
-              <ContextMenuItem
-                label="复制"
-                onSelect={() => document.execCommand("copy")}
-              />
-              <ContextMenuItem
-                label="粘贴"
-                onSelect={() => document.execCommand("paste")}
-              />
+              <ContextMenuItem label="剪切" onSelect={() => document.execCommand("cut")} />
+              <ContextMenuItem label="复制" onSelect={() => document.execCommand("copy")} />
+              <ContextMenuItem label="粘贴" onSelect={() => document.execCommand("paste")} />
               <ContextMenuDivider />
-              <ContextMenuItem
-                label="全选"
-                onSelect={() => textareaRef.current?.select()}
-              />
+              <ContextMenuItem label="全选" onSelect={() => textareaRef.current?.select()} />
             </ContextMenuContent>
           </ContextMenuRoot>
         </div>
       </div>
-
       <AutocompleteMenu
         x={completionPos.x}
         y={completionPos.y}
@@ -758,7 +747,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         selectedIndex={completionIndex}
         onSelect={handleAutocompleteSelect}
       />
-
       {hoverTooltip && (
         <div
           className="fixed z-50 p-2.5 text-[12px] bg-black/80 dark:bg-white/90 text-white dark:text-black backdrop-blur-md rounded-xl shadow-xl border border-white/10 max-w-[400px] whitespace-pre-wrap break-words pointer-events-none transition-opacity"

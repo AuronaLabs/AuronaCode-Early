@@ -41,7 +41,6 @@ class CommandRegistryImpl {
 
 export const CommandRegistry = new CommandRegistryImpl();
 
-
 CommandRegistry.register({
   id: "workbench.action.reloadWindow",
   title: "重新加载窗口",

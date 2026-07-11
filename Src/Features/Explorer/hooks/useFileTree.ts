@@ -67,7 +67,6 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
     }
   }, []);
 
-  
   useEffect(() => {
     const init = async () => {
       await WorkspaceStore.init();
@@ -101,12 +100,9 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
           })),
         };
       });
-    } catch {
-      
-    }
+    } catch {}
   }, []);
 
-  
   useEffect(() => {
     let unwatch: (() => void) | null = null;
     let timer: number | null = null;
@@ -192,7 +188,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
   const collapseAll = useCallback(() => {
     setRootNode((prev) => {
       if (!prev) return prev;
-      
+
       const closeAll = (nodes: FileNode[]): FileNode[] => {
         return nodes.map((n) => {
           if (!n.isDirectory) return n;
@@ -338,7 +334,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         if (clipboard.isCut) {
           const oldParent = FileSystemService.dirname(clipboard.path);
           await refreshDirectory(oldParent);
-          setClipboard(null); 
+          setClipboard(null);
         }
         await refreshDirectory(targetDir);
 
@@ -387,8 +383,8 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
 
   const handleDrop = useCallback(
     async (sourcePath: string, targetPath: string) => {
-      if (sourcePath === targetPath) return; 
-      
+      if (sourcePath === targetPath) return;
+
       if (targetPath.startsWith(sourcePath + "/") || targetPath.startsWith(sourcePath + "\\")) {
         showToast("无法将文件夹移动到其子文件夹中", "error");
         return;
@@ -397,9 +393,9 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
       try {
         const fileName = FileSystemService.basename(sourcePath);
         const destPath = FileSystemService.joinPath(targetPath, fileName);
-        if (sourcePath === destPath) return; 
+        if (sourcePath === destPath) return;
 
-        await FileSystemService.copyOrMove(sourcePath, destPath, true); 
+        await FileSystemService.copyOrMove(sourcePath, destPath, true);
 
         const oldParent = FileSystemService.dirname(sourcePath);
         await refreshDirectory(oldParent);
@@ -413,7 +409,6 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
     [refreshDirectory],
   );
 
-  
   useEffect(() => {
     const unsubOpenFolder = EventBus.on("app:open-folder", handleOpenFolder);
     const unsubNewFile = EventBus.on("app:create-file-prompt", () => startInlineCreate("file"));

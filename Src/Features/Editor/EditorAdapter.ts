@@ -54,7 +54,9 @@ class GlobalEditorAdapter {
   }
 
   private emitStatus(status: EditorStatus) {
-    this.listeners.forEach((listener) => listener(status));
+    this.listeners.forEach((listener) => {
+      listener(status);
+    });
   }
 }
 

@@ -17,37 +17,36 @@ export interface AutocompleteMenuProps {
 }
 
 const kindIconMap: Record<number, string> = {
-  1: "t", 
-  2: "m", 
-  3: "f", 
-  4: "c", 
-  5: "f", 
-  6: "v", 
-  7: "c", 
-  8: "i", 
-  9: "m", 
-  10: "p", 
-  11: "u", 
-  12: "v", 
-  13: "e", 
-  14: "k", 
-  15: "s", 
-  16: "c", 
-  17: "f", 
-  18: "r", 
-  19: "f", 
-  20: "e", 
-  21: "c", 
-  22: "s", 
-  23: "e", 
-  24: "o", 
-  25: "t", 
+  1: "t",
+  2: "m",
+  3: "f",
+  4: "c",
+  5: "f",
+  6: "v",
+  7: "c",
+  8: "i",
+  9: "m",
+  10: "p",
+  11: "u",
+  12: "v",
+  13: "e",
+  14: "k",
+  15: "s",
+  16: "c",
+  17: "f",
+  18: "r",
+  19: "f",
+  20: "e",
+  21: "c",
+  22: "s",
+  23: "e",
+  24: "o",
+  25: "t",
 };
 
 export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: AutocompleteMenuProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  
   useEffect(() => {
     if (scrollRef.current) {
       const container = scrollRef.current;

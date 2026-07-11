@@ -70,7 +70,7 @@ export function AppBootstrapper({ children }: Props) {
 
         setTimeout(() => {
           if (!mounted) return;
-          
+
           setReady(true);
 
           // Once we are completely ready, tell the Rust backend to close the splashscreen.
@@ -79,7 +79,6 @@ export function AppBootstrapper({ children }: Props) {
             invoke("close_splashscreen").catch(console.error);
           });
         }, waitTime);
-
       } catch (error) {
         if (mounted) {
           setInitError(error instanceof Error ? error : new Error(String(error)));
@@ -109,9 +108,5 @@ export function AppBootstrapper({ children }: Props) {
 
   // We only render children once the bootstrapping is fully complete.
   // This ensures the main window is rendered with its full DOM tree before it becomes visible!
-  return (
-    <>
-      {ready ? children : null}
-    </>
-  );
+  return <>{ready ? children : null}</>;
 }

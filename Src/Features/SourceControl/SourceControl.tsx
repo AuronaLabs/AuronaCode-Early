@@ -4,8 +4,8 @@ import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { EventBus } from "../../Foundation/EventBus";
 import { showToast } from "../../UI/Feedback/Toast";
-import { GitIPC, GitFile, GitCommit } from "../../Foundation/IPC/GitCommands";
-import { GitService, SourceControlCache } from "../../Core/GitService";
+import { GitIPC, type GitFile, type GitCommit } from "../../Foundation/IPC/GitCommands";
+import { GitService, type SourceControlCache } from "../../Core/GitService";
 
 import React from "react";
 
@@ -35,12 +35,19 @@ export const SourceControl = React.memo(function SourceControl() {
     try {
       if (background) setIsRefreshing(true);
       const fullStatus = await GitIPC.getFullStatus(path);
-      
+
       setFiles(fullStatus.files);
       setBranch(fullStatus.branch);
       setCommits(fullStatus.commits);
-      GitService.setCache({ repoPath: path, isRepo: true, files: fullStatus.files, commits: fullStatus.commits, branch: fullStatus.branch, checkedAt: Date.now() });
-      
+      GitService.setCache({
+        repoPath: path,
+        isRepo: true,
+        files: fullStatus.files,
+        commits: fullStatus.commits,
+        branch: fullStatus.branch,
+        checkedAt: Date.now(),
+      });
+
       EventBus.emit("git:changes-count", fullStatus.files.length);
     } catch (error) {
       console.error("Git status failed", error);
@@ -50,31 +57,41 @@ export const SourceControl = React.memo(function SourceControl() {
     }
   }, []);
 
-  const checkRepo = useCallback(async (path: string, background = false) => {
-    try {
-      if (background) setIsRefreshing(true);
-      else setIsLoading(true);
+  const checkRepo = useCallback(
+    async (path: string, background = false) => {
+      try {
+        if (background) setIsRefreshing(true);
+        else setIsLoading(true);
 
-      const repoExists = await GitIPC.checkIsRepo(path);
-      setRepoPath(path);
-      setIsRepo(repoExists);
+        const repoExists = await GitIPC.checkIsRepo(path);
+        setRepoPath(path);
+        setIsRepo(repoExists);
 
-      if (repoExists) {
-        await fetchStatus(path, background);
-      } else {
-        setFiles([]);
-        setCommits([]);
-        setBranch("");
-        GitService.setCache({ repoPath: path, isRepo: false, files: [], commits: [], branch: "", checkedAt: Date.now() });
+        if (repoExists) {
+          await fetchStatus(path, background);
+        } else {
+          setFiles([]);
+          setCommits([]);
+          setBranch("");
+          GitService.setCache({
+            repoPath: path,
+            isRepo: false,
+            files: [],
+            commits: [],
+            branch: "",
+            checkedAt: Date.now(),
+          });
+        }
+      } catch (error) {
+        console.error("Git repo check failed", error);
+        if (!background) showToast(`Git 仓库检查失败：${error}`, "error");
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
       }
-    } catch (error) {
-      console.error("Git repo check failed", error);
-      if (!background) showToast(`Git 仓库检查失败：${error}`, "error");
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [fetchStatus]);
+    },
+    [fetchStatus],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -180,11 +197,16 @@ export const SourceControl = React.memo(function SourceControl() {
   };
   const getStatusBadgeStyle = (status: string) => {
     switch (status) {
-      case "M": return "text-amber-500 bg-amber-500/10 border border-amber-500/20";
-      case "A": return "text-emerald-500 bg-emerald-500/10 border border-emerald-500/20";
-      case "D": return "text-red-500 bg-red-500/10 border border-red-500/20";
-      case "U": return "text-blue-500 bg-blue-500/10 border border-blue-500/20";
-      default: return "text-[var(--TextMuted)] bg-black/5 border border-transparent";
+      case "M":
+        return "text-amber-500 bg-amber-500/10 border border-amber-500/20";
+      case "A":
+        return "text-emerald-500 bg-emerald-500/10 border border-emerald-500/20";
+      case "D":
+        return "text-red-500 bg-red-500/10 border border-red-500/20";
+      case "U":
+        return "text-blue-500 bg-blue-500/10 border border-blue-500/20";
+      default:
+        return "text-[var(--TextMuted)] bg-black/5 border border-transparent";
     }
   };
 
@@ -244,7 +266,11 @@ export const SourceControl = React.memo(function SourceControl() {
   };
 
   if (isLoading) {
-    return <div className="flex h-full w-full items-center justify-center bg-transparent text-[var(--TextMuted)] text-sm">正在加载 Git 状态...</div>;
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-transparent text-[var(--TextMuted)] text-sm">
+        正在加载 Git 状态...
+      </div>
+    );
   }
 
   if (!repoPath) {
@@ -266,15 +292,22 @@ export const SourceControl = React.memo(function SourceControl() {
         <div className="flex items-center justify-between px-[var(--PanelPaddingX)] pt-4 pb-2 shrink-0">
           <h2 className="text-[14px] font-bold text-[var(--TextHighlight)] tracking-tight flex items-center gap-2">
             源代码管理
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-500 uppercase tracking-wider">Beta</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-500 uppercase tracking-wider">
+              Beta
+            </span>
           </h2>
         </div>
         <div className="flex flex-col flex-1 items-center justify-center p-6 text-center gap-6">
           <div className="flex flex-col items-center gap-2">
             <Icons.GitBranch size={48} stroke={1} className="text-[var(--TextMuted)] opacity-50" />
-            <p className="text-[13px] text-[var(--TextPrimary)] leading-relaxed mt-2">当前文件夹尚未初始化 Git 仓库</p>
+            <p className="text-[13px] text-[var(--TextPrimary)] leading-relaxed mt-2">
+              当前文件夹尚未初始化 Git 仓库
+            </p>
           </div>
-          <button onClick={handleInit} className="px-6 py-2.5 bg-[var(--AccentPrimary)] hover:opacity-90 text-white text-[13px] font-bold rounded-xl transition-all shadow-sm flex items-center gap-2">
+          <button
+            onClick={handleInit}
+            className="px-6 py-2.5 bg-[var(--AccentPrimary)] hover:opacity-90 text-white text-[13px] font-bold rounded-xl transition-all shadow-sm flex items-center gap-2"
+          >
             <Icons.Plus size={16} stroke={2.5} />
             初始化 Git 仓库
           </button>
@@ -291,7 +324,9 @@ export const SourceControl = React.memo(function SourceControl() {
       <div className="flex items-center justify-between px-[var(--PanelPaddingX)] pt-4 pb-2 shrink-0">
         <h2 className="text-[14px] font-bold text-[var(--TextHighlight)] tracking-tight flex items-center gap-2">
           源代码管理
-          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-500 uppercase tracking-wider">Beta</span>
+          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-500 uppercase tracking-wider">
+            Beta
+          </span>
         </h2>
 
         <Tooltip content="刷新" delay={300}>
@@ -300,7 +335,10 @@ export const SourceControl = React.memo(function SourceControl() {
             disabled={isRefreshing}
             className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-colors disabled:opacity-50"
           >
-            <Icons.Refresh size={16} className={isRefreshing ? "animate-spin text-[var(--TextHighlight)]" : ""} />
+            <Icons.Refresh
+              size={16}
+              className={isRefreshing ? "animate-spin text-[var(--TextHighlight)]" : ""}
+            />
           </button>
         </Tooltip>
       </div>
@@ -346,7 +384,9 @@ export const SourceControl = React.memo(function SourceControl() {
 
           <div className="flex-1 flex flex-col gap-3 overflow-hidden px-[var(--PanelPaddingX)] pb-4 min-h-0">
             {stagedFiles.length > 0 && (
-              <div className={`flex flex-col min-h-0 ${stagedExpanded ? "flex-1" : "flex-initial"} bg-[var(--GlassSurface)] backdrop-blur-xl border border-[var(--GlassBorder)] rounded-2xl overflow-hidden shadow-sm`}>
+              <div
+                className={`flex flex-col min-h-0 ${stagedExpanded ? "flex-1" : "flex-initial"} bg-[var(--GlassSurface)] backdrop-blur-xl border border-[var(--GlassBorder)] rounded-2xl overflow-hidden shadow-sm`}
+              >
                 <div
                   className="flex items-center justify-between px-4 py-3 cursor-pointer select-none border-b border-[var(--GlassBorder)] bg-[var(--GlassHover)]/20 group"
                   onClick={() => {
@@ -386,7 +426,9 @@ export const SourceControl = React.memo(function SourceControl() {
 
             {(unstagedFiles.length > 0 ||
               (stagedFiles.length === 0 && unstagedFiles.length === 0)) && (
-              <div className={`flex flex-col min-h-0 ${unstagedExpanded && unstagedFiles.length > 0 ? "flex-1" : "flex-initial"} bg-[var(--GlassSurface)] backdrop-blur-xl border border-[var(--GlassBorder)] rounded-2xl overflow-hidden shadow-sm`}>
+              <div
+                className={`flex flex-col min-h-0 ${unstagedExpanded && unstagedFiles.length > 0 ? "flex-1" : "flex-initial"} bg-[var(--GlassSurface)] backdrop-blur-xl border border-[var(--GlassBorder)] rounded-2xl overflow-hidden shadow-sm`}
+              >
                 <div
                   className="flex items-center justify-between px-4 py-3 cursor-pointer select-none border-b border-[var(--GlassBorder)] bg-[var(--GlassHover)]/20 group"
                   onClick={() => {
@@ -441,15 +483,15 @@ export const SourceControl = React.memo(function SourceControl() {
           ) : (
             <div className="flex flex-col gap-3 mt-2 relative z-10">
               {commits.map((commit, index) => (
-                <div 
-                  key={`${commit.hash}-${index}`} 
+                <div
+                  key={`${commit.hash}-${index}`}
                   className="flex flex-col bg-[var(--GlassSurface)] backdrop-blur-md border border-[var(--GlassBorder)] shadow-sm rounded-xl p-4 cursor-pointer hover:border-black/20 dark:hover:border-white/30 hover:bg-black/5 dark:hover:bg-white/5 transition-all group active:scale-[0.98]"
                   onClick={() => {
-                    EventBus.emit("app:open-tab", { 
-                      id: `diff-${commit.hash}`, 
-                      type: "diff", 
-                      title: `Diff: ${commit.hash.substring(0, 7)}`, 
-                      path: commit.hash 
+                    EventBus.emit("app:open-tab", {
+                      id: `diff-${commit.hash}`,
+                      type: "diff",
+                      title: `Diff: ${commit.hash.substring(0, 7)}`,
+                      path: commit.hash,
                     });
                   }}
                 >
@@ -458,7 +500,9 @@ export const SourceControl = React.memo(function SourceControl() {
                       <div className="text-[10px] px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)] font-mono shrink-0 font-medium">
                         {commit.hash.substring(0, 7)}
                       </div>
-                      <span className="text-[11px] text-[var(--TextMuted)] opacity-80 font-medium">{commit.date}</span>
+                      <span className="text-[11px] text-[var(--TextMuted)] opacity-80 font-medium">
+                        {commit.date}
+                      </span>
                     </div>
                     <div className="font-bold text-[13px] text-[var(--TextHighlight)] leading-relaxed mt-1">
                       {commit.message}

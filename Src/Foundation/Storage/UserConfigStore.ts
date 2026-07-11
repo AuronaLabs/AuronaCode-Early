@@ -35,7 +35,7 @@ export const UserConfigStore = {
   async set(config: Partial<UserConfig>): Promise<void> {
     const current = await this.get();
     const next = { ...current, ...config };
-    memoryCache = next; 
+    memoryCache = next;
 
     if (isWriting) {
       pendingWrite = true;

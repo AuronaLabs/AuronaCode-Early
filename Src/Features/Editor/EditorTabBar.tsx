@@ -104,62 +104,52 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
                     {tab.title}
                   </span>
                 </div>
-            <button
-              className={`ml-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/20 transition-all z-10 relative ${
-                isActive || tab.isDirty ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-              } ${isActive ? "text-[var(--TextHighlight)]" : "text-[var(--TextMuted)]"}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                closeTab(tab);
-              }}
-              aria-label={tab.isDirty ? "未保存，关闭标签" : "关闭标签"}
-              type="button"
-            >
-              {tab.isDirty ? (
-                <>
-                  <span className="h-2 w-2 rounded-full bg-[var(--TextHighlight)] group-hover:hidden" />
-                  <Icons.Close size={14} stroke={2} className="hidden group-hover:block" />
-                </>
-              ) : (
-                <Icons.Close size={14} stroke={2} />
-              )}
-            </button>
-          </div>
-        </ContextMenuTrigger>
+                <button
+                  className={`ml-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/20 transition-all z-10 relative ${
+                    isActive || tab.isDirty ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                  } ${isActive ? "text-[var(--TextHighlight)]" : "text-[var(--TextMuted)]"}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    closeTab(tab);
+                  }}
+                  aria-label={tab.isDirty ? "未保存，关闭标签" : "关闭标签"}
+                  type="button"
+                >
+                  {tab.isDirty ? (
+                    <>
+                      <span className="h-2 w-2 rounded-full bg-[var(--TextHighlight)] group-hover:hidden" />
+                      <Icons.Close size={14} stroke={2} className="hidden group-hover:block" />
+                    </>
+                  ) : (
+                    <Icons.Close size={14} stroke={2} />
+                  )}
+                </button>
+              </div>
+            </ContextMenuTrigger>
 
-        <ContextMenuContent>
-          <ContextMenuItem
-            label="关闭当前"
-            onSelect={() => handleCloseCurrent(tab.id)}
-          />
-          <ContextMenuItem
-            label="关闭右侧"
-            onSelect={() => handleCloseToRight(tab.id)}
-          />
-          <ContextMenuDivider />
-          <ContextMenuItem
-            label="关闭全部"
-            variant="danger"
-            onSelect={handleCloseAll}
-          />
-          {tab.type === "file" && tab.path && (
-            <>
+            <ContextMenuContent>
+              <ContextMenuItem label="关闭当前" onSelect={() => handleCloseCurrent(tab.id)} />
+              <ContextMenuItem label="关闭右侧" onSelect={() => handleCloseToRight(tab.id)} />
               <ContextMenuDivider />
-              <ContextMenuItem
-                label="复制路径"
-                onSelect={() => {
-                  navigator.clipboard.writeText(tab.path as string);
-                }}
-              />
-              <ContextMenuItem
-                label="在资源管理器中显示"
-                onSelect={() => {
-                  EventBus.emit("app:reveal-in-explorer", tab.path as string);
-                }}
-              />
-            </>
-          )}
-        </ContextMenuContent>
+              <ContextMenuItem label="关闭全部" variant="danger" onSelect={handleCloseAll} />
+              {tab.type === "file" && tab.path && (
+                <>
+                  <ContextMenuDivider />
+                  <ContextMenuItem
+                    label="复制路径"
+                    onSelect={() => {
+                      navigator.clipboard.writeText(tab.path as string);
+                    }}
+                  />
+                  <ContextMenuItem
+                    label="在资源管理器中显示"
+                    onSelect={() => {
+                      EventBus.emit("app:reveal-in-explorer", tab.path as string);
+                    }}
+                  />
+                </>
+              )}
+            </ContextMenuContent>
           </ContextMenuRoot>
         );
       })}

@@ -15,7 +15,7 @@ export const PluginsPanel = React.memo(function PluginsPanel() {
 
       <div className="flex-1 flex flex-col items-center justify-center p-[var(--PanelPaddingX)] text-center gap-6 overflow-y-auto relative">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-amber-500/5 blur-3xl rounded-full pointer-events-none" />
-        
+
         <div className="relative">
           <div className="absolute inset-0 bg-amber-500/20 blur-xl rounded-full scale-125" />
           <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 relative z-10 animate-pulse">
@@ -24,9 +24,7 @@ export const PluginsPanel = React.memo(function PluginsPanel() {
         </div>
 
         <div className="flex flex-col gap-2 relative z-10 max-w-[200px]">
-          <h3 className="text-[14px] font-bold text-[var(--TextHighlight)]">
-            闭源内测中
-          </h3>
+          <h3 className="text-[14px] font-bold text-[var(--TextHighlight)]">闭源内测中</h3>
           <p className="text-[12px] text-[var(--TextMuted)] leading-relaxed">
             插件系统与扩展 API 正在进行内部封闭测试，当前仅面向核心开发成员开放，其他用户暂不可用。
           </p>

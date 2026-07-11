@@ -15,6 +15,7 @@ import { ToastContainer } from "../UI/Feedback/Toast";
 import { Icons } from "../UI/Icons/IconManager";
 import { StatusBar } from "./StatusBar";
 import { TitleBar } from "./TitleBar/TitleBar";
+import { UpdateModal } from "../UI/Feedback/UpdateModal";
 
 type AppShellProps = {
   Children: ReactNode;
@@ -101,6 +102,7 @@ export function AppShell({ Children }: AppShellProps) {
       <StatusBar />
 
       <ToastContainer />
+      <UpdateModal />
     </div>
   );
 }

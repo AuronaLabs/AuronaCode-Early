@@ -1,6 +1,6 @@
-use std::process::Command;
-use std::path::Path;
 use std::fs;
+use std::path::Path;
+use std::process::Command;
 
 #[tauri::command]
 pub fn reveal_in_os(path: String) -> Result<(), String> {
@@ -47,11 +47,18 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result
 }
 
 #[tauri::command]
-pub async fn fs_copy_or_move(source: String, destination: String, is_move: bool) -> Result<(), String> {
+pub async fn fs_copy_or_move(
+    source: String,
+    destination: String,
+    is_move: bool,
+) -> Result<(), String> {
+    if source.contains("..") || destination.contains("..") {
+        return Err("Path traversal detected".to_string());
+    }
     tokio::task::spawn_blocking(move || {
         let src = Path::new(&source);
         let dst = Path::new(&destination);
-        
+
         if !src.exists() {
             return Err(format!("Source path does not exist: {}", source));
         }
@@ -71,5 +78,7 @@ pub async fn fs_copy_or_move(source: String, destination: String, is_move: bool)
         }
 
         Ok(())
-    }).await.map_err(|e| e.to_string())?
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

@@ -25,7 +25,6 @@ interface TerminalViewProps {
 }
 
 const getModernTheme = (isDark: boolean) => {
-  
   return isDark
     ? {
         background: "transparent",
@@ -140,7 +139,6 @@ export const TerminalView = React.memo(function TerminalView({
     fitAddon.fit();
 
     term.attachCustomKeyEventHandler((e) => {
-      
       if ((e.ctrlKey || e.metaKey) && e.type === "keydown") {
         if (e.code === "KeyC" && term.hasSelection()) {
           navigator.clipboard.writeText(term.getSelection());
@@ -161,8 +159,6 @@ export const TerminalView = React.memo(function TerminalView({
     fitAddonRef.current = fitAddon;
 
     const onDataDisposable = term.onData((data) => {
-      
-      
       const filtered = data.replace(/\x1b\[\??[>0-9;]*[cR]/g, "");
       if (filtered) {
         PtyIPC.write(id, filtered).catch(console.error);

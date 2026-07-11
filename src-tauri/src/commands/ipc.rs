@@ -22,8 +22,16 @@ pub async fn aurona_bridge(req: IpcRequest) -> IpcResponse {
     };
 
     match result {
-        Ok(data) => IpcResponse { success: true, data: Some(data), error: None },
-        Err(err) => IpcResponse { success: false, data: None, error: Some(err) },
+        Ok(data) => IpcResponse {
+            success: true,
+            data: Some(data),
+            error: None,
+        },
+        Err(err) => IpcResponse {
+            success: false,
+            data: None,
+            error: Some(err),
+        },
     }
 }
 
@@ -41,8 +49,8 @@ pub fn open_devtools(_window: tauri::WebviewWindow) -> Result<(), String> {
     }
 }
 
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 use tauri::Manager;
 
 fn get_dir_size(path: &Path) -> u64 {

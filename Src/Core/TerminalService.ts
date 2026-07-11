@@ -2,7 +2,6 @@ import { EventBus } from "../Foundation/EventBus";
 import { PtyIPC } from "../Foundation/IPC/PtyCommands";
 import type { ShellProfile, TerminalInstance } from "../Foundation/Types/Terminal";
 
-
 export type { ShellProfile, TerminalInstance };
 
 class TerminalServiceImpl {
@@ -28,14 +27,13 @@ class TerminalServiceImpl {
       shells[0] ??
       ({ id: "default", name: "Shell", path: "", icon: "terminal" } as ShellProfile);
 
-    
     const id = `terminal-${Date.now()}`;
     const name = `${shell.name} ${this.nextIndex++}`;
     const instance: TerminalInstance = { id, name, shell, cwd };
 
     this.terminals.push(instance);
     this.setActiveTerminal(id);
-    
+
     EventBus.emit("terminal:list-changed", [...this.terminals]);
     return instance;
   }
@@ -72,14 +70,14 @@ class TerminalServiceImpl {
     return this.activeTerminalId;
   }
 
-    async executeCommand(id: string | null, command: string): Promise<void> {
+  async executeCommand(id: string | null, command: string): Promise<void> {
     let targetId = id ?? this.activeTerminalId;
     if (!targetId) {
       const instance = await this.createTerminal();
       targetId = instance.id;
     }
     EventBus.emit("app:toggle-terminal", true);
-    
+
     await new Promise<void>((resolve) => setTimeout(resolve, 300));
     await PtyIPC.write(targetId, command + "\r\n");
   }
@@ -88,6 +86,5 @@ class TerminalServiceImpl {
     await PtyIPC.write(id, "\x1b[2J\x1b[H");
   }
 }
-
 
 export const TerminalManager = new TerminalServiceImpl();
