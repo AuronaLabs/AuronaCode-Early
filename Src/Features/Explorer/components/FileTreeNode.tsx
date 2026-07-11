@@ -104,12 +104,12 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
         <ContextMenuTrigger asChild>
           <div
             draggable={true}
-            className={`group/tree flex items-center gap-1.5 py-[3px] mx-1 pr-2 rounded-md text-[13px] cursor-pointer select-none transition-colors outline-none ${
+            className={`group/tree flex items-center gap-1.5 py-[3px] mx-1 pr-2 rounded-lg text-[13px] cursor-pointer select-none transition-colors outline-none ${
               isDragHover
-                ? "bg-[var(--AccentPrimary)]/20 border border-[var(--AccentPrimary)]/50"
+                ? "bg-[var(--GlassSurface-Floating)] border border-[var(--GlassBorder)] shadow-md"
                 : isActive
-                  ? "bg-[var(--AccentPrimary)]/15 text-[var(--TextHighlight)] font-medium"
-                  : "text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
+                  ? "bg-[var(--GlassSurface-Elevated)] text-[var(--TextHighlight)] font-medium shadow-sm border border-[var(--GlassBorder)]"
+                  : "text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)]"
             }`}
             style={{
               paddingLeft: `calc(${depth} * var(--TreeIndent) + 4px)`,

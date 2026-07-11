@@ -1,4 +1,6 @@
-import { IconChevronDown, IconChevronUp, IconSearch, IconX } from "@tabler/icons-react";
+import { IconSearch, IconChevronUp, IconChevronDown, IconX } from "@tabler/icons-react";
+import { cn } from "../../../Shared/Utils/cn";
+import { glassVariants } from "../../../UI/Core/GlassManager/variants";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 
@@ -45,7 +47,7 @@ export function SearchWidget({
   };
 
   return (
-    <div className="absolute top-4 right-8 z-50 flex items-center bg-white/70 dark:bg-[#1e1e1e]/80 backdrop-blur-2xl border border-black/5 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)] rounded-xl overflow-hidden h-10 font-sans transition-all w-[340px]">
+    <div className={cn(glassVariants({ layer: "floating" }), "absolute top-4 right-8 z-50 flex items-center rounded-xl overflow-hidden h-10 font-sans transition-all w-[340px]")}>
       <div className="flex-1 flex items-center pl-4 pr-3 h-full">
         <IconSearch size={14} stroke={2} className="text-gray-400 dark:text-gray-500 mr-2.5" />
         <input
@@ -67,21 +69,21 @@ export function SearchWidget({
         <button
           onClick={onPrev}
           disabled={totalMatches === 0}
-          className="w-7 h-7 rounded-md flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors mr-0.5"
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-[var(--GlassHover)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors mr-0.5"
         >
           <IconChevronUp size={14} stroke={2} />
         </button>
         <button
           onClick={onNext}
           disabled={totalMatches === 0}
-          className="w-7 h-7 rounded-md flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors mr-1"
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-[var(--GlassHover)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors mr-1"
         >
           <IconChevronDown size={14} stroke={2} />
         </button>
-        <div className="w-[1px] h-4 bg-black/10 dark:bg-white/10 mx-1"></div>
+        <div className="w-[1px] h-4 bg-black/10 bg-[var(--GlassSurface-Elevated)] mx-1"></div>
         <button
           onClick={onClose}
-          className="w-7 h-7 rounded-md flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-red-500 hover:text-white dark:hover:bg-red-500 dark:hover:text-white transition-colors ml-1"
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-red-500 hover:text-white dark:hover:bg-red-500 dark:hover:text-white transition-colors ml-1"
         >
           <IconX size={14} stroke={2} />
         </button>

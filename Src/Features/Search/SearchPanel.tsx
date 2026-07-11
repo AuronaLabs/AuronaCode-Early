@@ -3,8 +3,10 @@ import { listen } from "@tauri-apps/api/event";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
-import { Input } from "../../UI/Components/Input";
+import { cn } from "../../Shared/Utils/cn";
+import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
+import { Input } from "../../UI/Components/Input";
 import { Icons } from "../../UI/Icons/IconManager";
 
 export interface SearchResult {
@@ -116,15 +118,14 @@ export const SearchPanel = React.memo(function SearchPanel() {
       </div>
 
       <div className="px-[var(--PanelPaddingX)] pb-4 shrink-0 mt-2 flex flex-col gap-3">
-        <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl glass-inner-card text-[11.5px] text-[var(--TextMuted)]">
+        <div className={cn(glassVariants({ layer: "base" }), "flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[11.5px] text-[var(--TextMuted)]")}>
           <Icons.Info size={14} className="opacity-60 shrink-0" />
           <span className="opacity-80">全局搜索即将被 Fliuno 搜索替代</span>
         </div>
 
-        <div className="flex flex-col p-3.5 rounded-2xl glass-inner-card gap-3.5 transition-all">
-          <input
-            type="text"
-            className="w-full bg-transparent text-[13px] text-[var(--TextHighlight)] outline-none placeholder-[var(--TextMuted)] leading-relaxed"
+        <div className={cn(glassVariants({ layer: "base" }), "flex flex-col p-3 rounded-2xl gap-3 transition-all")}>
+          <Input
+            fullWidth
             placeholder="全局搜索... (回车以执行)"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -135,15 +136,16 @@ export const SearchPanel = React.memo(function SearchPanel() {
               <Tooltip content="区分大小写">
                 <button
                   onClick={() => setIsCaseSensitive(!isCaseSensitive)}
-                  className={`p-1.5 rounded-lg transition-colors ${isCaseSensitive ? "bg-[var(--AccentPrimary)] text-white shadow-sm" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/10 dark:hover:bg-white/20"}`}
+                  className={`p-1.5 rounded-lg transition-colors ${isCaseSensitive ? "bg-[var(--AccentPrimary)] text-white shadow-sm" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)]"}`}
                 >
                   <Icons.Typography size={14} stroke={isCaseSensitive ? 2.5 : 2} />
                 </button>
               </Tooltip>
-              <Tooltip content="正则表达式">
+
+              <Tooltip content="正则表达式" placement="bottom">
                 <button
                   onClick={() => setIsRegex(!isRegex)}
-                  className={`p-1.5 rounded-lg transition-colors ${isRegex ? "bg-[var(--AccentPrimary)] text-white shadow-sm" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/10 dark:hover:bg-white/20"}`}
+                  className={`p-1.5 rounded-lg transition-colors ${isRegex ? "bg-[var(--AccentPrimary)] text-white shadow-sm" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)]"}`}
                 >
                   <Icons.Asterisk size={14} stroke={isRegex ? 2.5 : 2} />
                 </button>
@@ -153,7 +155,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
               <button
                 onClick={handleSearch}
                 disabled={isSearching || !query.trim()}
-                className="px-3 py-1.5 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 border border-[var(--GlassBorder)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--TextHighlight)] text-[12px] font-medium rounded-lg transition-all flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-[var(--GlassSurface)] hover:bg-[var(--GlassHover)] border border-[var(--GlassBorder)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--TextHighlight)] text-[12px] font-medium rounded-lg transition-all flex items-center gap-1.5"
               >
                 <Icons.Search size={13} stroke={2} />
                 搜索
@@ -207,7 +209,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
                     <span className="truncate text-[10px] text-[var(--TextMuted)] opacity-60 ml-1 font-normal">
                       {grouped[file].dir}
                     </span>
-                    <span className="ml-auto text-[10px] bg-black/10 dark:bg-white/10 px-2 py-0.5 rounded-full text-[var(--TextMuted)] font-medium">
+                    <span className="ml-auto text-[10px] bg-black/10 bg-[var(--GlassSurface-Elevated)] px-2 py-0.5 rounded-full text-[var(--TextMuted)] font-medium">
                       {grouped[file].matches.length}
                     </span>
                   </div>
@@ -217,7 +219,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
                         <div
                           key={match.index}
                           onClick={() => openFile(file, match.line_number)}
-                          className="flex items-center gap-3 px-3 py-1.5 mx-1 my-0.5 rounded-lg hover:bg-[var(--GlassHover)] cursor-pointer group transition-all text-[12px]"
+                          className="flex gap-2 items-start text-left hover:bg-[var(--GlassHover)] w-full p-2 rounded-lg cursor-pointer selectable transition-colors text-[12px]"
                         >
                           <span className="text-[var(--TextMuted)] group-hover:text-[var(--TextHighlight)] w-7 text-right shrink-0 select-none font-mono text-[11.5px] font-medium transition-colors">
                             {match.line_number}

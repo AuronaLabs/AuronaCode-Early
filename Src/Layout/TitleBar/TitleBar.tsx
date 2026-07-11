@@ -206,7 +206,7 @@ export function TitleBar() {
         {activeFilePath && isRunnable(activeFilePath) && (
           <Tooltip content="运行当前文件" delay={300} placement="bottom">
             <button
-              className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 text-[var(--TextHighlight)] transition-colors mr-2"
+              className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] text-[var(--TextHighlight)] transition-colors mr-2"
               onClick={() => handleSmartRun(activeFilePath)}
             >
               <Icons.Play size={16} stroke={2} />
@@ -217,7 +217,7 @@ export function TitleBar() {
         {hasUpdate && (
           <Tooltip content="发现新版本" delay={300} placement="bottom">
             <button
-              className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 text-blue-500 hover:text-blue-400 transition-colors mr-1 relative"
+              className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] text-blue-500 hover:text-blue-400 transition-colors mr-1 relative"
               onClick={() => EventBus.emit("app:show-update-modal")}
             >
               <Icons.Download size={16} stroke={2} />
@@ -228,7 +228,7 @@ export function TitleBar() {
 
         <Tooltip content="切换底侧面板" delay={500} placement="bottom">
           <button
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--TextHighlight)] transition-colors"
+            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] transition-colors"
             onClick={() => EventBus.emit("app:toggle-terminal")}
           >
             {isTerminalOpen ? (
@@ -241,7 +241,7 @@ export function TitleBar() {
         <div className="w-px h-[14px] bg-[var(--GlassBorder)] mx-0.5" />
         <Tooltip content="最小化" delay={500} placement="bottom">
           <button
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--TextHighlight)] transition-colors"
+            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] transition-colors"
             onClick={() => appWindow.minimize()}
           >
             <Icons.Minimize size={15} stroke={2} />
@@ -249,7 +249,7 @@ export function TitleBar() {
         </Tooltip>
         <Tooltip content={isMaximized ? "向下还原" : "最大化"} delay={500} placement="bottom">
           <button
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10 hover:text-[var(--TextHighlight)] transition-colors"
+            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] transition-colors"
             onClick={toggleMaximize}
           >
             {isMaximized ? (
@@ -261,7 +261,7 @@ export function TitleBar() {
         </Tooltip>
         <Tooltip content="关闭" delay={500} placement="bottom">
           <button
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-md hover:bg-red-500 hover:text-white transition-colors"
+            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-red-500 hover:text-white transition-colors"
             onClick={() => appWindow.close()}
           >
             <Icons.Close size={15} stroke={2} />

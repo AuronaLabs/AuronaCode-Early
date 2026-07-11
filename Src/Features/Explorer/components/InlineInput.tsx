@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icons } from "../../../UI/Icons/IconManager";
+import { Input } from "../../../UI/Components/Input";
 
 interface InlineInputProps {
   type: "file" | "folder";
@@ -34,7 +35,7 @@ export function InlineInput({
           />
         ))}
       <div
-        className="flex items-center gap-1.5 py-1 px-1 rounded-md"
+        className="flex items-center gap-1.5 py-1 px-1 rounded-lg"
         style={{ paddingLeft: `calc(${depth} * var(--TreeIndent) + 4px)` }}
       >
         <div className="w-4 h-4 flex items-center justify-center shrink-0" />
@@ -45,9 +46,11 @@ export function InlineInput({
             <Icons.File size={16} stroke={1.5} className="text-[var(--TextHighlight)]" />
           )}
         </div>
-        <input
+        <Input
           autoFocus
-          className="flex-1 bg-transparent border-b border-[var(--AccentPrimary)] outline-none text-[12.5px] text-[var(--TextHighlight)] px-1 py-0 rounded-none min-w-0"
+          inputSize="sm"
+          fullWidth
+          className="ml-1"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {

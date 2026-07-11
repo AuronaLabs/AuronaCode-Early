@@ -53,7 +53,7 @@ export const DropdownMenuItem = React.forwardRef<
           !disabled && isDanger && "text-red-500 focus:bg-red-500/10",
           !disabled &&
             !isDanger &&
-            "text-[var(--TextHighlight)] focus:bg-black/8 dark:focus:bg-white/15",
+            "text-[var(--TextHighlight)] focus:bg-[var(--GlassHover)]",
           className,
         )}
         {...props}

@@ -7,7 +7,7 @@ const version = tag.toLowerCase().replace('v', '');
 
 const entry = CHANGELOG_DATA.find(e => e.version.toLowerCase().replace('v', '') === version);
 
-let body = `🚀 **Aurona Code ${tag} 发布！**\n\n`;
+let body = ``;
 
 if (!entry) {
   console.log(`[Warning] No changelog found for version ${tag}.`);
@@ -16,7 +16,7 @@ if (!entry) {
   if (entry.summary) {
     body += `${entry.summary}\n\n`;
   }
-  
+
   entry.sections.forEach(sec => {
     body += `### ${sec.title}\n`;
     if (sec.description) body += `${sec.description}\n`;

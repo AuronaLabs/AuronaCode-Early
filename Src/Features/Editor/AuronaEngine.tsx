@@ -11,12 +11,9 @@ import { SearchWidget } from "./components/SearchWidget";
 import { EditorAdapter } from "./EditorAdapter";
 import { LspClient } from "./LspClient";
 import {
-  ContextMenuRoot,
-  ContextMenuTrigger,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuDivider,
-} from "../../UI/Components/ContextMenu";
+import { ContextMenuRoot, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuDivider } from "../../UI/Components/ContextMenu";
+import { cn } from "../../Shared/Utils/cn";
+import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { useEditorHistory } from "./Hooks/useEditorHistory";
 import { useEditorSelection } from "./Hooks/useEditorSelection";
 
@@ -749,7 +746,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       />
       {hoverTooltip && (
         <div
-          className="fixed z-50 p-2.5 text-[12px] bg-black/80 dark:bg-white/90 text-white dark:text-black backdrop-blur-md rounded-xl shadow-xl border border-white/10 max-w-[400px] whitespace-pre-wrap break-words pointer-events-none transition-opacity"
+          className={cn(glassVariants({ layer: "floating" }), "fixed z-50 p-2.5 text-[12px] text-[var(--TextHighlight)] max-w-[400px] whitespace-pre-wrap break-words pointer-events-none transition-opacity rounded-xl")}
           style={{ left: hoverTooltip.x, top: hoverTooltip.y }}
         >
           {hoverTooltip.text}

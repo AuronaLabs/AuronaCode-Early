@@ -14,8 +14,8 @@ export const ActivitySquare = React.forwardRef<HTMLButtonElement, ActivitySquare
         ref={ref}
         className={`relative flex h-[calc(var(--ActivityBarWidth)-16px)] w-[calc(var(--ActivityBarWidth)-16px)] min-h-8 min-w-8 items-center justify-center rounded-xl transition-all duration-150 focus:outline-none ${
           active
-            ? "bg-black/15 dark:bg-white/20 text-[var(--TextHighlight)] shadow-sm"
-            : "text-[var(--TextMuted)] hover:bg-black/8 dark:hover:bg-white/12 hover:text-[var(--TextHighlight)]"
+            ? "bg-[var(--GlassSurface-Elevated)] dark:bg-white/20 text-[var(--TextHighlight)] shadow-sm"
+            : "text-[var(--TextMuted)] hover:bg-[var(--GlassHover)] dark:hover:bg-white/12 hover:text-[var(--TextHighlight)]"
         } ${className}`}
         {...props}
       >

@@ -105,7 +105,7 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
                   </span>
                 </div>
                 <button
-                  className={`ml-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/20 transition-all z-10 relative ${
+                  className={`ml-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] transition-all z-10 relative ${
                     isActive || tab.isDirty ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                   } ${isActive ? "text-[var(--TextHighlight)]" : "text-[var(--TextMuted)]"}`}
                   onClick={(e) => {

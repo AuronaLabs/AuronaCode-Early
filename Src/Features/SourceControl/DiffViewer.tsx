@@ -2,6 +2,9 @@ import { invoke } from "@tauri-apps/api/core";
 import React, { useEffect, useState } from "react";
 import { Icons } from "../../UI/Icons/IconManager";
 
+import { showToast } from "../../UI/Feedback/Toast";
+import { cn } from "../../Shared/Utils/cn";
+import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 
 interface DiffViewerProps {
@@ -170,9 +173,9 @@ export function DiffViewer({ commitHash }: DiffViewerProps) {
               return (
                 <div
                   key={fileIdx}
-                  className="rounded-xl border border-[var(--GlassBorder)] bg-[var(--GlassSurface)] backdrop-blur-sm overflow-hidden shadow-sm"
+                  className={cn(glassVariants({ layer: "base" }), "rounded-xl overflow-hidden shadow-sm")}
                 >
-                  <div className="px-4 py-2.5 bg-black/5 dark:bg-white/5 border-b border-[var(--GlassBorder)] flex items-center justify-between">
+                  <div className="px-4 py-2.5 bg-[var(--GlassSurface-Elevated)] border-b border-[var(--GlassBorder)] flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Icons.File size={16} className="text-[var(--TextMuted)]" />
                       <span className="text-[13px] font-bold text-[var(--TextHighlight)]">
@@ -204,19 +207,19 @@ export function DiffViewer({ commitHash }: DiffViewerProps) {
                                   ? "bg-transparent"
                                   : isDel
                                     ? "bg-red-500/10"
-                                    : "bg-black/5 dark:bg-white/5";
+                                    : "bg-[var(--GlassSurface-Elevated)]";
                                 const leftText = isContext ? line.content : isDel ? line.content : "";
 
                                 return (
                                   <div
                                     key={lineIdx}
-                                    className="flex group hover:bg-black/5 dark:hover:bg-white/5 transition-colors h-[22px] items-stretch"
+                                    className="flex group hover:bg-[var(--GlassHover)] transition-colors h-[22px] items-stretch"
                                     style={{
                                       contentVisibility: "auto",
                                       containIntrinsicSize: "22px",
                                     }}
                                   >
-                                    <div className="w-[45px] shrink-0 border-r border-[var(--GlassBorder)] text-right px-2 flex items-center justify-end text-[var(--TextMuted)] opacity-60 select-none bg-black/5 dark:bg-white/5">
+                                    <div className="w-[45px] shrink-0 border-r border-[var(--GlassBorder)] text-right px-2 flex items-center justify-end text-[var(--TextMuted)] opacity-60 select-none bg-[var(--GlassSurface-Elevated)]">
                                       {line.leftLineNum || ""}
                                     </div>
                                     <div
@@ -240,7 +243,7 @@ export function DiffViewer({ commitHash }: DiffViewerProps) {
                                   ? "bg-transparent"
                                   : isAdd
                                     ? "bg-green-500/10"
-                                    : "bg-black/5 dark:bg-white/5";
+                                    : "bg-[var(--GlassSurface-Elevated)]";
                                 const rightText = isContext
                                   ? line.content
                                   : isAdd
@@ -250,13 +253,13 @@ export function DiffViewer({ commitHash }: DiffViewerProps) {
                                 return (
                                   <div
                                     key={lineIdx}
-                                    className="flex group hover:bg-black/5 dark:hover:bg-white/5 transition-colors h-[22px] items-stretch"
+                                    className="flex group hover:bg-[var(--GlassHover)] transition-colors h-[22px] items-stretch"
                                     style={{
                                       contentVisibility: "auto",
                                       containIntrinsicSize: "22px",
                                     }}
                                   >
-                                    <div className="w-[45px] shrink-0 border-r border-[var(--GlassBorder)] text-right px-2 flex items-center justify-end text-[var(--TextMuted)] opacity-60 select-none bg-black/5 dark:bg-white/5">
+                                    <div className="w-[45px] shrink-0 border-r border-[var(--GlassBorder)] text-right px-2 flex items-center justify-end text-[var(--TextMuted)] opacity-60 select-none bg-[var(--GlassSurface-Elevated)]">
                                       {line.rightLineNum || ""}
                                     </div>
                                     <div

@@ -28,8 +28,8 @@ export const MenubarTrigger = React.forwardRef<
   <MenubarPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-[26px] cursor-pointer items-center rounded-md px-2.5 outline-none select-none text-[var(--TextPrimary)] text-[13px]",
-      "hover:bg-black/8 dark:hover:bg-white/15 hover:text-[var(--TextHighlight)] transition-colors",
+      "flex h-[26px] cursor-pointer items-center rounded-lg px-2.5 outline-none select-none text-[var(--TextPrimary)] text-[13px]",
+      "hover:bg-[var(--GlassHover)] dark:hover:bg-white/15 hover:text-[var(--TextHighlight)] transition-colors",
       "data-[state=open]:bg-black/8 dark:data-[state=open]:bg-white/15 data-[state=open]:text-[var(--TextHighlight)]",
       className,
     )}
@@ -87,7 +87,7 @@ export const MenubarItem = React.forwardRef<
           !disabled && isDanger && "text-red-500 focus:bg-red-500/10",
           !disabled &&
             !isDanger &&
-            "text-[var(--TextHighlight)] focus:bg-black/8 dark:focus:bg-white/15",
+            "text-[var(--TextHighlight)] focus:bg-[var(--GlassHover)]",
           className,
         )}
         {...props}

@@ -32,17 +32,13 @@
 }
 
 .aurona-tab-active {
-  background-color: var(--GlassActive); 
+  background-color: var(--GlassSurface-Base);
+  backdrop-filter: blur(var(--glass-blur-base));
+  -webkit-backdrop-filter: blur(var(--glass-blur-base));
+  border-color: var(--GlassBorder);
   color: var(--TextHighlight);
-  border-color: var(--GlassBorder); 
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   z-index: 10;
-}
-
-.dark .aurona-tab-active {
-  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .aurona-tab:not(.aurona-tab-active):hover {
@@ -63,7 +59,11 @@
   /* Glassmorphism Layers */
   --NoiseTexture: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
   --GlassSurface: rgba(255, 255, 255, 0.4); 
-  --GlassHover: rgba(var(--RGB-Fg), 0.03); 
+  --GlassOpacity-Multiplier: 1.0;
+  --GlassSurface-Base: rgba(255, 255, 255, calc(0.15 * var(--GlassOpacity-Multiplier)));
+  --GlassSurface-Elevated: rgba(255, 255, 255, calc(0.25 * var(--GlassOpacity-Multiplier)));
+  --GlassSurface-Floating: rgba(255, 255, 255, calc(0.4 * var(--GlassOpacity-Multiplier)));
+  --GlassHover: rgba(var(--RGB-Fg), 0.08); 
   --GlassActive: rgba(255, 255, 255, 0.7);
   --GlassBorder: rgba(var(--RGB-Fg), 0.04); 
   
@@ -153,7 +153,10 @@
   --RGB-Accent: 59, 130, 246; 
 
   --GlassSurface: rgba(18, 18, 28, 0.55);
-  --GlassHover: rgba(255, 255, 255, 0.09);
+  --GlassSurface-Base: rgba(255, 255, 255, calc(0.05 * var(--GlassOpacity-Multiplier)));
+  --GlassSurface-Elevated: rgba(255, 255, 255, calc(0.08 * var(--GlassOpacity-Multiplier)));
+  --GlassSurface-Floating: rgba(255, 255, 255, calc(0.12 * var(--GlassOpacity-Multiplier)));
+  --GlassHover: rgba(255, 255, 255, 0.12);
   --GlassActive: rgba(255, 255, 255, 0.18);
   --GlassBorder: rgba(255, 255, 255, 0.07);
   

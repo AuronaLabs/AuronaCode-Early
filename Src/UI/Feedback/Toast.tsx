@@ -32,7 +32,7 @@ export function ToastContainer() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="pointer-events-auto flex items-center gap-3 bg-[var(--GlassSurface)] backdrop-blur-2xl border border-[var(--GlassBorder)] rounded-xl p-3 pr-8 shadow-xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group relative max-w-sm"
+          className="pointer-events-auto flex items-center gap-3 bg-[var(--GlassSurface)] backdrop-blur-[var(--glass-blur-floating)] border border-[var(--GlassBorder)] rounded-xl p-3 pr-8 shadow-xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group relative max-w-sm"
         >
           <div
             className={`flex items-center justify-center h-8 w-8 rounded-full shrink-0 ${

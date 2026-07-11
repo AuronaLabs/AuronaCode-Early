@@ -1,5 +1,7 @@
 import React from "react";
 
+import { GlassContainer } from "../Core/GlassManager";
+
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 }
@@ -7,13 +9,14 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ children, className = "", ...props }, ref) => {
     return (
-      <div
+      <GlassContainer
         ref={ref}
-        className={`bg-[var(--GlassSurface)] rounded-xl overflow-hidden border border-[var(--GlassBorder)] backdrop-blur-2xl dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] ${className}`}
+        layer="base"
+        className={`rounded-xl overflow-hidden ${className}`}
         {...props}
       >
         {children}
-      </div>
+      </GlassContainer>
     );
   },
 );

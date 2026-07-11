@@ -10,7 +10,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
     return (
       <button
         ref={ref}
-        className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors focus:outline-none ${
+        className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors focus:outline-none ${
           active
             ? "bg-[var(--GlassActive)] text-[var(--AppBg)]"
             : "text-[var(--TextPrimary)] hover:bg-white/10 hover:text-[var(--TextHighlight)]"

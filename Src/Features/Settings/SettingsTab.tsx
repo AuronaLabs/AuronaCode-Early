@@ -12,11 +12,13 @@ import { Switch } from "../../UI/Components/Switch";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
+import { useGlassStore, type GlassIntensity } from "../../UI/Core/GlassManager";
 
 export type SettingsSection = "appearance" | "editor" | "terminal" | "git" | "storage" | "advanced";
 
 export function SettingsTab() {
   const [activeSection, setActiveSection] = useState<SettingsSection>("appearance");
+  const { intensity, setIntensity } = useGlassStore();
 
   useEffect(() => {
     const unsub = EventBus.on("settings:nav", (section: SettingsSection) => {
@@ -276,15 +278,15 @@ export function SettingsTab() {
             <span className="text-[14px] font-medium text-[var(--TextHighlight)]">外观模式</span>
             <span className="text-[12px] text-[var(--TextMuted)]">更改编辑器的整体色彩倾向</span>
           </div>
-          <div className="flex bg-black/5 dark:bg-white/5 p-1.5 rounded-xl gap-1">
+          <div className="flex bg-[var(--GlassSurface-Elevated)] p-1.5 rounded-xl gap-1">
             {(["system", "light", "dark"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => handleThemeChange(t)}
                 className={`flex items-center gap-2 px-5 py-2 rounded-lg text-[13px] font-medium transition-all duration-200 ${
                   theme === t
-                    ? "bg-white/20 dark:bg-white/10 border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm scale-105"
-                    : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/5 border border-transparent"
+                    ? "bg-white/20 bg-[var(--GlassSurface-Elevated)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm scale-105"
+                    : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"
                 }`}
               >
                 {t === "system" && (
@@ -305,6 +307,31 @@ export function SettingsTab() {
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2 mt-6">
+        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">视觉效果</h3>
+        <p className="text-[13px] text-[var(--TextMuted)]">调整界面元素的玻璃拟物（毛玻璃）效果强度</p>
+      </div>
+
+      <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm mt-2">
+        <div className="flex items-center justify-between p-5">
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">拟物强度</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">配置全局毛玻璃的模糊与透明度</span>
+          </div>
+          <Select 
+            value={intensity} 
+            onChange={(val: any) => setIntensity(val as GlassIntensity)}
+            className="w-[140px] shrink-0"
+            options={[
+              { value: "disabled", label: "Disabled (性能模式)" },
+              { value: "light", label: "Light (轻微)" },
+              { value: "medium", label: "Medium (默认)" },
+              { value: "heavy", label: "Heavy (强烈)" }
+            ]}
+          />
         </div>
       </div>
     </div>
@@ -509,7 +536,7 @@ export function SettingsTab() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-5 bg-black/5 dark:bg-white/2">
+          <div className="flex items-center justify-between p-5 bg-[var(--GlassSurface-Elevated)] dark:bg-white/2">
             <span className="text-[12px] text-[var(--TextMuted)]">
               设置仅保存在本地工作区配置中，不会向任何外部传送
             </span>
@@ -561,7 +588,7 @@ export function SettingsTab() {
 
             <div className="w-full h-3.5 bg-black/10 dark:bg-white/5 rounded-full overflow-hidden flex select-none">
               {totalRawSize === 0 && (
-                <div className="h-full bg-black/20 dark:bg-white/10" style={{ width: "100%" }} />
+                <div className="h-full bg-black/20 bg-[var(--GlassSurface-Elevated)]" style={{ width: "100%" }} />
               )}
               {rawConfigSize > 0 && (
                 <div
@@ -622,7 +649,7 @@ export function SettingsTab() {
               <div className="flex flex-col gap-1">
                 <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
                   用户配置偏好
-                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">
+                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-[var(--GlassSurface-Elevated)] px-2 py-0.5 rounded-lg">
                     user-config.json
                   </span>
                 </span>
@@ -649,7 +676,7 @@ export function SettingsTab() {
               <div className="flex flex-col gap-1">
                 <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
                   最近工作区状态
-                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">
+                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-[var(--GlassSurface-Elevated)] px-2 py-0.5 rounded-lg">
                     workspace.json
                   </span>
                 </span>
@@ -676,7 +703,7 @@ export function SettingsTab() {
               <div className="flex flex-col gap-1">
                 <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
                   WebView 缓存与杂项
-                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">
+                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-[var(--GlassSurface-Elevated)] px-2 py-0.5 rounded-lg">
                     Cache / WebKit
                   </span>
                 </span>
@@ -703,7 +730,7 @@ export function SettingsTab() {
               <div className="flex flex-col gap-1">
                 <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
                   系统运行日志
-                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md">
+                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-[var(--GlassSurface-Elevated)] px-2 py-0.5 rounded-lg">
                     *.log
                   </span>
                 </span>
@@ -771,42 +798,42 @@ export function SettingsTab() {
 
       <button
         onClick={() => setActiveSection("appearance")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "appearance" ? "bg-[var(--GlassSurface)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "appearance" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
         <Icons.Palette size={16} /> 外观
       </button>
 
       <button
         onClick={() => setActiveSection("editor")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "editor" ? "bg-[var(--GlassSurface)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "editor" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
         <Icons.FileCode size={16} /> 编辑器
       </button>
 
       <button
         onClick={() => setActiveSection("terminal")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "terminal" ? "bg-[var(--GlassSurface)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "terminal" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
         <Icons.Terminal size={16} /> 终端
       </button>
 
       <button
         onClick={() => setActiveSection("git")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "git" ? "bg-[var(--GlassSurface)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "git" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
         <Icons.Git size={16} /> 版本控制
       </button>
 
       <button
         onClick={() => setActiveSection("storage")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "storage" ? "bg-[var(--GlassSurface)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "storage" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
         <Icons.Database size={16} /> 存储管理
       </button>
 
       <button
         onClick={() => setActiveSection("advanced")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "advanced" ? "bg-[var(--GlassSurface)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "advanced" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
         <Icons.Settings size={16} /> 高级
       </button>

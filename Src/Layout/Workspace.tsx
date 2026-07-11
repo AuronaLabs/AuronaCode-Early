@@ -225,7 +225,7 @@ export function WorkspaceView() {
                       {keys.map((k) => (
                         <kbd
                           key={k}
-                          className="bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded border border-black/10 dark:border-white/20"
+                          className="bg-[var(--GlassSurface-Elevated)] px-1.5 py-0.5 rounded border border-black/10 dark:border-white/20"
                         >
                           {k}
                         </kbd>
@@ -260,10 +260,10 @@ export function WorkspaceView() {
                   <button
                     key={tabId}
                     onClick={() => setActiveBottomTab(tabId)}
-                    className={`relative h-[26px] px-2.5 text-[12px] transition-colors duration-150 flex items-center gap-1.5 rounded-md ${
+                    className={`relative h-[26px] px-2.5 text-[12px] transition-colors duration-150 flex items-center gap-1.5 rounded-lg ${
                       isActive
-                        ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]"
-                        : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
+                        ? "bg-[var(--GlassSurface-Elevated)] text-[var(--TextHighlight)]"
+                        : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)]"
                     }`}
                   >
                     <span>{labels[tabId]}</span>
@@ -290,10 +290,10 @@ export function WorkspaceView() {
                 <div className="flex items-center gap-0.5 mr-2 pr-2 relative after:content-[''] after:absolute after:right-0 after:top-1/2 after:-translate-y-1/2 after:w-px after:h-[14px] after:bg-[var(--GlassBorder)]">
                   <Tooltip content="列表" delay={300} placement="top">
                     <button
-                      className={`flex h-[26px] w-[26px] items-center justify-center rounded-md transition-colors ${
+                      className={`flex h-[26px] w-[26px] items-center justify-center rounded-lg transition-colors ${
                         isTerminalListVisible
-                          ? "bg-black/5 dark:bg-white/10 text-[var(--TextHighlight)]"
-                          : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10"
+                          ? "bg-[var(--GlassSurface-Elevated)] text-[var(--TextHighlight)]"
+                          : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)]"
                       }`}
                       onClick={() => setIsTerminalListVisible(!isTerminalListVisible)}
                     >
@@ -303,7 +303,7 @@ export function WorkspaceView() {
                   <div className="relative">
                     <Tooltip content="清空终端" delay={300} placement="top">
                       <button
-                        className="flex h-[26px] w-[26px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors"
+                        className="flex h-[26px] w-[26px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] rounded-lg transition-colors"
                         onClick={() => {
                           if (activeTerminalId) TerminalManager.clearTerminal(activeTerminalId);
                         }}
@@ -313,7 +313,7 @@ export function WorkspaceView() {
                     </Tooltip>
                     <Tooltip content="新建终端" delay={300} placement="top">
                       <button
-                        className="flex h-[26px] w-[26px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors"
+                        className="flex h-[26px] w-[26px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] rounded-lg transition-colors"
                         onClick={() => TerminalManager.createTerminal()}
                       >
                         <Icons.Plus size={14} />
@@ -324,7 +324,7 @@ export function WorkspaceView() {
                       onOpenChange={setIsShellDropdownOpen}
                     >
                       <DropdownMenuTrigger asChild>
-                        <button className="flex h-[26px] w-[16px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors absolute -right-4 top-0">
+                        <button className="flex h-[26px] w-[16px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] rounded-lg transition-colors absolute -right-4 top-0">
                           <Icons.ChevronDown size={10} />
                         </button>
                       </DropdownMenuTrigger>
@@ -347,7 +347,7 @@ export function WorkspaceView() {
 
               <Tooltip content="最小化面板" delay={300} placement="top">
                 <button
-                  className="flex h-[26px] w-[26px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 rounded-md transition-colors"
+                  className="flex h-[26px] w-[26px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] rounded-lg transition-colors"
                   onClick={() => setIsTerminalOpen(false)}
                 >
                   <Icons.Minimize size={14} />
@@ -399,10 +399,10 @@ export function WorkspaceView() {
                       setEditingTerminalId(term.id);
                       setEditingName(term.name);
                     }}
-                    className={`group flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer select-none transition-colors ${
+                    className={`group flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer select-none transition-colors ${
                       activeTerminalId === term.id
                         ? "bg-[var(--AccentPrimary)]/10 text-[var(--AccentPrimary)]"
-                        : "text-[var(--TextMuted)] hover:bg-black/5 dark:hover:bg-white/10 hover:text-[var(--TextHighlight)]"
+                        : "text-[var(--TextMuted)] hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)]"
                     }`}
                   >
                     <div className="flex items-center gap-2 truncate flex-1 min-w-0">
@@ -431,7 +431,7 @@ export function WorkspaceView() {
                       )}
                     </div>
                     <button
-                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-black/10 dark:hover:bg-white/20 rounded transition-all shrink-0 ml-1"
+                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-[var(--GlassHover)] rounded transition-all shrink-0 ml-1"
                       onClick={(e) => {
                         e.stopPropagation();
                         TerminalManager.removeTerminal(term.id);
@@ -450,7 +450,7 @@ export function WorkspaceView() {
                   editorStatus.markers.map((marker, i) => (
                     <div
                       key={i}
-                      className="flex gap-2 items-start text-left hover:bg-black/5 dark:hover:bg-white/5 w-full p-2 rounded-lg cursor-pointer selectable transition-colors"
+                      className="flex gap-2 items-start text-left hover:bg-[var(--GlassHover)] w-full p-2 rounded-lg cursor-pointer selectable transition-colors"
                     >
                       <div
                         className={`mt-0.5 shrink-0 flex items-center justify-center p-0.5 rounded ${

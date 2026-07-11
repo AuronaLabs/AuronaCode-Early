@@ -93,7 +93,7 @@ export function UpdateModal() {
         <div className="text-[13px] text-[var(--TextMuted)]">
           发布日期: {updateInfo.date ? new Date(updateInfo.date).toLocaleDateString() : "未知"}
         </div>
-        <div className="bg-black/5 dark:bg-white/5 p-3 rounded-lg border border-[var(--GlassBorder)]">
+        <div className="bg-[var(--GlassSurface-Elevated)] p-3 rounded-lg border border-[var(--GlassBorder)]">
           <pre
             className="whitespace-pre-wrap font-sans text-[13.5px] leading-relaxed text-[var(--TextPrimary)]"
             style={{ fontFamily: "inherit" }}

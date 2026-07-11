@@ -8,6 +8,9 @@ export interface CompletionItem {
   insertText?: string;
 }
 
+import { cn } from "../../../Shared/Utils/cn";
+import { glassVariants } from "../../../UI/Core/GlassManager/variants";
+
 export interface AutocompleteMenuProps {
   x: number;
   y: number;
@@ -70,7 +73,7 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
 
   return (
     <div
-      className="fixed z-50 bg-white/80 dark:bg-black/80 backdrop-blur-xl border border-black/10 dark:border-white/10 shadow-2xl rounded-lg overflow-hidden flex font-sans"
+      className={cn(glassVariants({ layer: "floating" }), "fixed z-50 rounded-xl overflow-hidden flex font-sans shadow-2xl")}
       style={{ left: x, top: y, maxHeight: "300px" }}
     >
       {}
@@ -84,8 +87,8 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
               onClick={() => onSelect(index)}
               className={`flex items-center px-3 py-1 cursor-pointer select-none text-[13px] transition-colors ${
                 isSelected
-                  ? "bg-blue-500/20 text-blue-700 dark:text-blue-300"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5"
+                  ? "bg-[var(--GlassSurface-Elevated)] text-[var(--TextHighlight)] shadow-sm"
+                  : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)]"
               }`}
             >
               <span className="w-5 text-center text-[11px] font-mono opacity-50 mr-2 flex-shrink-0">

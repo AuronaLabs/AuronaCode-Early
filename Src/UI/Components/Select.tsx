@@ -2,6 +2,7 @@ import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { Icons } from "../Icons/IconManager";
 import { cn } from "../../Shared/Utils/cn";
+import { glassVariants } from "../Core/GlassManager/variants";
 
 export interface SelectOption {
   value: string;
@@ -20,7 +21,8 @@ export function Select({ options, value, onChange, className }: SelectProps) {
     <SelectPrimitive.Root value={value} onValueChange={onChange}>
       <SelectPrimitive.Trigger
         className={cn(
-          "flex h-8 w-full min-w-[120px] items-center justify-between gap-3 bg-[var(--GlassSurface)] backdrop-blur-md border border-[var(--GlassBorder)] rounded-xl px-3 py-1.5 text-[13px] text-[var(--TextHighlight)] outline-none hover:bg-[var(--GlassHover)] transition-all cursor-pointer focus:ring-2 focus:ring-[var(--AccentPrimary)]/50 shadow-sm",
+          glassVariants({ layer: "elevated" }),
+          "flex h-8 min-w-[120px] items-center justify-between gap-3 rounded-xl px-3 py-1.5 text-[13px] text-[var(--TextHighlight)] outline-none transition-all cursor-pointer focus:ring-2 focus:ring-[var(--AccentPrimary)]/50",
           className,
         )}
       >
@@ -32,7 +34,10 @@ export function Select({ options, value, onChange, className }: SelectProps) {
 
       <SelectPrimitive.Portal>
         <SelectPrimitive.Content
-          className="relative z-[9999] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden frosted-glass rounded-xl p-1 shadow-2xl animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95"
+          className={cn(
+            glassVariants({ layer: "floating" }),
+            "relative z-[9999] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl p-1 animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95"
+          )}
           position="popper"
           side="bottom"
           align="end"
@@ -47,7 +52,7 @@ export function Select({ options, value, onChange, className }: SelectProps) {
                 key={opt.value}
                 value={opt.value}
                 className={cn(
-                  "relative flex w-full cursor-pointer select-none items-center rounded-md py-1.5 pl-8 pr-2 text-[13px] text-[var(--TextPrimary)] outline-none focus:bg-[var(--AccentPrimary)] focus:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50 transition-colors",
+                  "relative flex w-full cursor-pointer select-none items-center rounded-lg py-1.5 pl-8 pr-2 text-[13px] text-[var(--TextPrimary)] outline-none focus:bg-[var(--AccentPrimary)] focus:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50 transition-colors",
                 )}
               >
                 <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">

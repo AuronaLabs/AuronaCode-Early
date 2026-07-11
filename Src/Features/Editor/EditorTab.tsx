@@ -124,17 +124,17 @@ export const EditorTab = React.memo(function EditorTab({ path, isActive }: Edito
       {!isEditorReady && !isBinaryWarning && (
         <div className="absolute inset-0 z-20 flex flex-col bg-transparent">
           <div className="flex-1 p-6 space-y-4">
-            <div className="h-3 w-1/3 bg-slate-100 dark:bg-white/10 rounded-full animate-pulse" />
-            <div className="h-3 w-1/2 bg-slate-100 dark:bg-white/10 rounded-full animate-pulse" />
-            <div className="h-3 w-1/4 bg-slate-100 dark:bg-white/10 rounded-full animate-pulse" />
-            <div className="h-3 w-2/3 bg-slate-100 dark:bg-white/10 rounded-full animate-pulse" />
+            <div className="h-3 w-1/3 bg-[var(--GlassSurface-Elevated)] rounded-full animate-pulse" />
+            <div className="h-3 w-1/2 bg-[var(--GlassSurface-Elevated)] rounded-full animate-pulse" />
+            <div className="h-3 w-1/4 bg-[var(--GlassSurface-Elevated)] rounded-full animate-pulse" />
+            <div className="h-3 w-2/3 bg-[var(--GlassSurface-Elevated)] rounded-full animate-pulse" />
           </div>
         </div>
       )}
 
       {isBinaryWarning ? (
         <div className="flex flex-1 flex-col items-center justify-center bg-transparent text-[var(--TextPrimary)] select-none px-6 text-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5 text-[var(--TextMuted)] mb-6">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--GlassSurface-Elevated)] text-[var(--TextMuted)] mb-6">
             <Icons.FileCode size={40} stroke={1} />
           </div>
           <h3 className="text-[16px] font-semibold text-[var(--TextHighlight)] mb-2">
@@ -148,7 +148,7 @@ export const EditorTab = React.memo(function EditorTab({ path, isActive }: Edito
               setIsBinaryWarning(false);
               loadContent(path, true);
             }}
-            className="px-6 py-2 bg-[var(--AccentPrimary)] hover:bg-[var(--AccentHover)] text-white rounded-md font-medium transition-colors cursor-pointer"
+            className="px-6 py-2 bg-[var(--AccentPrimary)] hover:bg-[var(--AccentHover)] text-white rounded-lg font-medium transition-colors cursor-pointer"
           >
             仍然强制打开
           </button>
@@ -165,7 +165,7 @@ export const EditorTab = React.memo(function EditorTab({ path, isActive }: Edito
             path={path}
           />
           {isSaving && (
-            <div className="absolute right-3 bottom-3 rounded-md border border-[var(--GlassBorder)] bg-[var(--GlassSurface)] backdrop-blur-xl px-3 py-1.5 text-[12px] text-[var(--TextMuted)] shadow-lg">
+            <div className="absolute right-3 bottom-3 rounded-lg border border-[var(--GlassBorder)] bg-[var(--GlassSurface)] backdrop-blur-[var(--glass-blur-floating)] px-3 py-1.5 text-[12px] text-[var(--TextMuted)] shadow-lg">
               正在保存...
             </div>
           )}

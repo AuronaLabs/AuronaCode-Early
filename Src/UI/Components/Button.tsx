@@ -16,7 +16,7 @@ const buttonVariants = cva(
           "bg-red-500/90 text-white hover:bg-red-500 shadow-sm border border-red-400/20 focus-visible:ring-red-500/50",
         ghost:
           "bg-transparent text-[var(--TextPrimary)] hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)]",
-        glass: "frosted-glass text-[var(--TextHighlight)] hover:bg-white/10 dark:hover:bg-black/10",
+        glass: "frosted-glass text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)]",
       },
       size: {
         default: "h-8 px-4 py-1.5",

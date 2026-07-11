@@ -57,7 +57,7 @@ export function ChangelogTab() {
               >
                 {release.version}
               </span>
-              <span className="text-[13px] font-medium text-[var(--TextMuted)] bg-black/5 dark:bg-white/5 px-3 py-1 rounded-lg border border-[var(--GlassBorder)]">
+              <span className="text-[13px] font-medium text-[var(--TextMuted)] bg-[var(--GlassSurface-Elevated)] px-3 py-1 rounded-lg border border-[var(--GlassBorder)]">
                 {release.date}
               </span>
               {release.isLatest && (

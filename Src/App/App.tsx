@@ -6,11 +6,15 @@ import { EventBus } from "../Foundation/EventBus";
 import { invoke } from "@tauri-apps/api/core";
 import { handleSmartRun } from "../Shared/Constants/RunConfig";
 import { UpdaterService } from "../Core/UpdaterService";
+import { useGlassStore } from "../UI/Core/GlassManager";
 
 export default function App() {
   const activeFileRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // Initialize GlassManager
+    useGlassStore.getState().applyToDOM();
+
     // Check for updates silently after 3 seconds
     setTimeout(() => {
       UpdaterService.checkForUpdates();

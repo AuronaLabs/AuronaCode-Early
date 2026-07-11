@@ -1,10 +1,10 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../Shared/Utils/cn";
+import { glassVariants } from "../Core/GlassManager/variants";
 
 const inputVariants = cva(
-  "flex w-full rounded-md border border-[var(--GlassBorder)] bg-[var(--GlassSurface)] backdrop-blur-xl text-[12px] text-[var(--TextHighlight)] transition-all duration-200 placeholder:text-[var(--TextMuted)] focus:outline-none focus:ring-1 focus:ring-blue-500/50 disabled:cursor-not-allowed disabled:opacity-50",
-  {
+  "flex w-full rounded-lg text-[12px] text-[var(--TextHighlight)] transition-all duration-200 placeholder:text-[var(--TextMuted)] focus:outline-none focus:ring-1 focus:ring-blue-500/50 disabled:cursor-not-allowed disabled:opacity-50",  {
     variants: {
       inputSize: {
         default: "h-7 px-3",
@@ -39,7 +39,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {icon}
           </div>
         )}
-        <input className={cn(inputVariants({ inputSize, hasIcon: !!icon }))} ref={ref} {...props} />
+        <input className={cn(glassVariants({ layer: "elevated" }), inputVariants({ inputSize, hasIcon: !!icon }))} ref={ref} {...props} />
       </div>
     );
   },

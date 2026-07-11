@@ -31,7 +31,7 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
           <Tooltip content="清除所有通知" delay={300}>
             <button
               onClick={handleClear}
-              className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-colors"
+              className="p-1.5 hover:bg-[var(--GlassHover)] rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-colors"
             >
               <Icons.Checks size={14} />
             </button>
@@ -43,7 +43,7 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
       <div className="flex flex-col flex-1 overflow-y-auto aurona-scroll px-3 pb-4">
         {notifications.length === 0 ? (
           <div className="flex flex-col flex-1 items-center justify-center text-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5 text-[var(--TextMuted)]">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--GlassSurface-Elevated)] text-[var(--TextMuted)]">
               <Icons.Bell size={32} stroke={1} />
             </div>
             <div className="space-y-1">
@@ -79,7 +79,7 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
               return (
                 <div
                   key={item.id}
-                  className="flex gap-3 bg-white/5 dark:bg-white/10 backdrop-blur-md border border-black/5 dark:border-white/5 rounded-2xl p-3 z-10 hover:border-black/20 dark:hover:border-white/20 transition-all group relative"
+                  className="flex gap-3 bg-white/5 bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] border border-black/5 dark:border-white/5 rounded-2xl p-3 z-10 hover:border-black/20 dark:hover:border-white/20 transition-all group relative"
                 >
                   <div
                     className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full ${bgColor}`}

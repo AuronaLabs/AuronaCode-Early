@@ -110,7 +110,7 @@ export const FileExplorer = React.memo(function FileExplorer({
             <div className="flex items-center gap-0.5 transition-opacity">
               <Tooltip content="新建文件" placement="bottom">
                 <button
-                  className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                  className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
                   onClick={() => startInlineCreate("file")}
                 >
                   <Icons.FilePlus size={16} />
@@ -118,7 +118,7 @@ export const FileExplorer = React.memo(function FileExplorer({
               </Tooltip>
               <Tooltip content="新建文件夹" placement="bottom">
                 <button
-                  className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                  className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
                   onClick={() => startInlineCreate("folder")}
                 >
                   <Icons.FolderPlus size={16} />
@@ -127,7 +127,7 @@ export const FileExplorer = React.memo(function FileExplorer({
               <div className="w-px h-3 bg-[var(--GlassBorder)] mx-1" />
               <Tooltip content="折叠全部" placement="bottom">
                 <button
-                  className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                  className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
                   onClick={collapseAll}
                 >
                   <Icons.Minus size={16} />
@@ -135,7 +135,7 @@ export const FileExplorer = React.memo(function FileExplorer({
               </Tooltip>
               <Tooltip content="刷新" placement="bottom">
                 <button
-                  className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                  className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
                   onClick={() =>
                     refreshDirectory(rootNode.path).catch((error) =>
                       showToast(`刷新失败：${FileSystemService.toMessage(error)}`, "error"),

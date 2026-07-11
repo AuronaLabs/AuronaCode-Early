@@ -20,7 +20,7 @@ export function TopCommandBar() {
       </div>
 
       <button
-        className="flex h-11 items-center gap-2 rounded-[15px] border border-white/10 bg-white/[0.045] px-4 text-sm text-[var(--ColorSubtle)] transition hover:bg-white/10 hover:text-white"
+        className="flex h-11 items-center gap-2 rounded-[15px] border border-white/10 bg-white/[0.045] px-4 text-sm text-[var(--ColorSubtle)] transition hover:bg-[var(--GlassHover)] hover:text-white"
         type="button"
       >
         <IconGitBranch size={18} stroke={1.8} />
@@ -36,7 +36,7 @@ export function TopCommandBar() {
       </button>
 
       <button
-        className="grid h-11 w-11 place-items-center rounded-[15px] border border-white/10 bg-white/[0.045] text-[var(--ColorSubtle)] transition hover:bg-white/10 hover:text-white"
+        className="grid h-11 w-11 place-items-center rounded-[15px] border border-white/10 bg-white/[0.045] text-[var(--ColorSubtle)] transition hover:bg-[var(--GlassHover)] hover:text-white"
         title="Agent Context"
         type="button"
       >
