@@ -79,7 +79,7 @@ class TerminalServiceImpl {
     EventBus.emit("app:toggle-terminal", true);
 
     await new Promise<void>((resolve) => setTimeout(resolve, 300));
-    await PtyIPC.write(targetId, command + "\r\n");
+    await PtyIPC.write(targetId, `${command}\r\n`);
   }
 
   async clearTerminal(id: string): Promise<void> {

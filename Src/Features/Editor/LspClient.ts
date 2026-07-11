@@ -36,7 +36,7 @@ export class LspClient {
       this.unlistenDiagnostics = null;
     }
     this.unlistenDiagnostics = await listen("lsp://diagnostics", (event: any) => {
-      if (event.payload && event.payload.params) {
+      if (event.payload?.params) {
         EventBus.emit("lsp:diagnostics", event.payload.params);
       }
     });

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { NotificationService } from "../Core/NotificationService";
-import { SearchPanel } from "../Features/Search/SearchPanel";
 import { EventBus } from "../Foundation/EventBus";
 import {
   SIDEBAR_EXPLORER,

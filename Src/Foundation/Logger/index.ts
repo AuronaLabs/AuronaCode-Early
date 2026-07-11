@@ -38,7 +38,7 @@ class LoggerImpl {
     const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     const time = `${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
     this.logId = `Aurona-Log-${date}_${time}`;
-    this.logFilePath = `logs/${this.logId}.log`;
+    this.logFilePath = "app.log";
 
     this.queue.push(`# Aurona Code Log\n# Log: ${this.logId}\n# Started: ${d.toISOString()}\n\n`);
   }
@@ -105,11 +105,11 @@ class LoggerImpl {
 
     try {
       await mkdir("errlogs", {
-        baseDir: BaseDirectory.AppLocalData,
+        baseDir: BaseDirectory.AppLog,
         recursive: true,
       });
       await writeTextFile(errFileName, content, {
-        baseDir: BaseDirectory.AppLocalData,
+        baseDir: BaseDirectory.AppLog,
       });
     } catch {}
   }
@@ -143,14 +143,14 @@ class LoggerImpl {
     const lines = this.queue.splice(0);
     try {
       if (!this.dirEnsured) {
-        await mkdir("logs", {
-          baseDir: BaseDirectory.AppLocalData,
+        await mkdir("", {
+          baseDir: BaseDirectory.AppLog,
           recursive: true,
         });
         this.dirEnsured = true;
       }
       await writeTextFile(this.logFilePath, lines.join(""), {
-        baseDir: BaseDirectory.AppLocalData,
+          baseDir: BaseDirectory.AppLog,
         append: true,
       });
     } catch {}

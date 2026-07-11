@@ -30,7 +30,7 @@ export function ChangelogTab() {
     return Array.from(families);
   }, []);
 
-  const [selectedFamily, setSelectedFamily] = useState<string>(versionFamilies[0] || "All");
+  const [selectedFamily, _setSelectedFamily] = useState<string>(versionFamilies[0] || "All");
 
   const filteredData = useMemo(() => {
     return CHANGELOG_DATA.filter((release) => {
@@ -40,7 +40,7 @@ export function ChangelogTab() {
     });
   }, [selectedFamily]);
 
-  const pillSelector = <div className="hidden"></div>;
+  const _pillSelector = <div className="hidden"></div>;
 
   return (
     <InternalPageLayout title="更新历史" maxWidth="max-w-4xl">
@@ -77,7 +77,7 @@ export function ChangelogTab() {
               {release.sections.map((section) => (
                 <div
                   key={section.title}
-                  className="frosted-glass p-6 rounded-2xl border border-[var(--GlassBorder)] flex flex-col gap-4"
+                  className="bg-[var(--GlassSurface-Base)] backdrop-blur-[var(--glass-blur-base)] border border-[var(--GlassBorder)] p-6 rounded-2xl flex flex-col gap-4 shadow-sm"
                 >
                   <div className="flex items-center gap-2 text-[var(--TextHighlight)]">
                     <Icons.Sparkles size={18} />

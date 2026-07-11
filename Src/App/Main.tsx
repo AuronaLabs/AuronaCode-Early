@@ -1,5 +1,4 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { invoke } from "@tauri-apps/api/core";
+
 import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";

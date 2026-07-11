@@ -50,7 +50,6 @@ import IconRefresh from "@tabler/icons-react/dist/esm/icons/IconRefresh.mjs";
 import IconSearch from "@tabler/icons-react/dist/esm/icons/IconSearch.mjs";
 import IconSettings from "@tabler/icons-react/dist/esm/icons/IconSettings.mjs";
 import IconSparkles from "@tabler/icons-react/dist/esm/icons/IconSparkles.mjs";
-import IconSquare from "@tabler/icons-react/dist/esm/icons/IconSquare.mjs";
 import IconSquares from "@tabler/icons-react/dist/esm/icons/IconSquares.mjs";
 import IconSun from "@tabler/icons-react/dist/esm/icons/IconSun.mjs";
 import IconTerminal2 from "@tabler/icons-react/dist/esm/icons/IconTerminal2.mjs";

@@ -11,6 +11,8 @@ import { AuronaEngine } from "./AuronaEngine";
 type EditorTabProps = {
   path: string;
   isActive: boolean;
+  revealLine?: number;
+  onRevealHandled?: (path: string, line: number) => void;
 };
 
 const getExtension = (filePath: string) => {
@@ -18,7 +20,12 @@ const getExtension = (filePath: string) => {
   return index >= 0 ? filePath.slice(index + 1).toLowerCase() : "";
 };
 
-export const EditorTab = React.memo(function EditorTab({ path, isActive }: EditorTabProps) {
+export const EditorTab = React.memo(function EditorTab({
+  path,
+  isActive,
+  revealLine,
+  onRevealHandled,
+}: EditorTabProps) {
   const [fileContent, setFileContent] = useState("");
   const [savedContent, setSavedContent] = useState("");
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -163,6 +170,8 @@ export const EditorTab = React.memo(function EditorTab({ path, isActive }: Edito
             isActive={isActive}
             onChange={setFileContent}
             path={path}
+            revealLine={revealLine}
+            onRevealHandled={onRevealHandled}
           />
           {isSaving && (
             <div className="absolute right-3 bottom-3 rounded-lg border border-[var(--GlassBorder)] bg-[var(--GlassSurface)] backdrop-blur-[var(--glass-blur-floating)] px-3 py-1.5 text-[12px] text-[var(--TextMuted)] shadow-lg">

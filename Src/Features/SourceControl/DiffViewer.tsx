@@ -1,8 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
-import React, { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Icons } from "../../UI/Icons/IconManager";
 
-import { showToast } from "../../UI/Feedback/Toast";
 import { cn } from "../../Shared/Utils/cn";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
@@ -32,39 +31,16 @@ interface DiffLine {
 export function DiffViewer({ commitHash }: DiffViewerProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [commitMessage, setCommitMessage] = useState("");
+  const [_commitMessage, setCommitMessage] = useState("");
   const [files, setFiles] = useState<ParsedDiffFile[]>([]);
 
-  useEffect(() => {
-    async function loadDiff() {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const config = await WorkspaceStore.get();
-        const repoPath = config.lastOpenedPath || ".";
-
-        const rawDiff: string = await invoke("git_diff_commit", {
-          path: repoPath,
-          hash: commitHash,
-        });
-        parseGitDiff(rawDiff);
-      } catch (err) {
-        setError(String(err));
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadDiff();
-  }, [commitHash]);
-
-  const parseGitDiff = (rawText: string) => {
+  const parseGitDiff = useCallback((rawText: string) => {
     const lines = rawText.split("\n");
     let msg = "";
     let i = 0;
 
     while (i < lines.length && !lines[i].startsWith("diff --git")) {
-      msg += lines[i] + "\n";
+      msg += `${lines[i]}\n`;
       i++;
     }
     setCommitMessage(msg.trim());
@@ -131,7 +107,30 @@ export function DiffViewer({ commitHash }: DiffViewerProps) {
     }
 
     setFiles(parsedFiles);
-  };
+  }, []);
+
+  useEffect(() => {
+    async function loadDiff() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const config = await WorkspaceStore.get();
+        const repoPath = config.lastOpenedPath || ".";
+
+        const rawDiff: string = await invoke("git_diff_commit", {
+          path: repoPath,
+          hash: commitHash,
+        });
+        parseGitDiff(rawDiff);
+      } catch (err) {
+        setError(String(err));
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDiff();
+  }, [commitHash, parseGitDiff]);
 
   if (loading) {
     return (
@@ -173,7 +172,10 @@ export function DiffViewer({ commitHash }: DiffViewerProps) {
               return (
                 <div
                   key={fileIdx}
-                  className={cn(glassVariants({ layer: "base" }), "rounded-xl overflow-hidden shadow-sm")}
+                  className={cn(
+                    glassVariants({ layer: "base" }),
+                    "rounded-xl overflow-hidden shadow-sm",
+                  )}
                 >
                   <div className="px-4 py-2.5 bg-[var(--GlassSurface-Elevated)] border-b border-[var(--GlassBorder)] flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -208,7 +210,11 @@ export function DiffViewer({ commitHash }: DiffViewerProps) {
                                   : isDel
                                     ? "bg-red-500/10"
                                     : "bg-[var(--GlassSurface-Elevated)]";
-                                const leftText = isContext ? line.content : isDel ? line.content : "";
+                                const leftText = isContext
+                                  ? line.content
+                                  : isDel
+                                    ? line.content
+                                    : "";
 
                                 return (
                                   <div

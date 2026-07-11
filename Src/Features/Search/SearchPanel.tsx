@@ -1,8 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
+import { useWorkspaceStore } from "../../State/useWorkspaceStore";
 import { cn } from "../../Shared/Utils/cn";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
@@ -103,8 +104,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
     const fullPath = `${repoPath}/${file_path}`;
     const name = file_path.split("/").pop() || file_path;
     EventBus.emit("app:open-tab", { id: fullPath, type: "file", title: name, path: fullPath });
-
-    setTimeout(() => {}, 100);
+    useWorkspaceStore.getState().requestReveal(fullPath, line);
   };
 
   const fileKeys = Object.keys(grouped);

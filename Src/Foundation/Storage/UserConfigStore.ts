@@ -58,4 +58,10 @@ export const UserConfigStore = {
 
     flush();
   },
+
+  resetCache(): void {
+    memoryCache = null;
+    isWriting = false;
+    pendingWrite = false;
+  },
 };

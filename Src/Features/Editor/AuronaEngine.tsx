@@ -1,16 +1,19 @@
 import hljs from "highlight.js";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
-import type {
-  EditorStatus,
-  EditorStatusListener,
-  IEditorEngine,
-} from "../../Foundation/Types/Editor";
+import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
+import type { EditorStatusListener, IEditorEngine } from "../../Foundation/Types/Editor";
 import { AutocompleteMenu, type CompletionItem } from "./components/AutocompleteMenu";
 import { SearchWidget } from "./components/SearchWidget";
 import { EditorAdapter } from "./EditorAdapter";
 import { LspClient } from "./LspClient";
-import { ContextMenuRoot, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuDivider } from "../../UI/Components/ContextMenu";
+import {
+  ContextMenuRoot,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuDivider,
+} from "../../UI/Components/ContextMenu";
 import { cn } from "../../Shared/Utils/cn";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { useEditorHistory } from "./Hooks/useEditorHistory";
@@ -22,6 +25,8 @@ export type AuronaEngineProps = {
   isActive?: boolean;
   onChange?: (value: string) => void;
   path?: string;
+  revealLine?: number;
+  onRevealHandled?: (path: string, line: number) => void;
 };
 
 export const AuronaEngine = React.memo(function AuronaEngine({
@@ -30,14 +35,17 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   isActive = true,
   onChange,
   path,
+  revealLine,
+  onRevealHandled,
 }: AuronaEngineProps) {
   const [content, setContent] = useState(value);
   const [diagnostics, setDiagnostics] = useState<any[]>([]);
+  const [wordWrap, setWordWrap] = useState<"on" | "off">("on");
   const [hoverTooltip, setHoverTooltip] = useState<{ x: number; y: number; text: string } | null>(
     null,
   );
 
-  const { pushHistory, undo, redo, historyTimerRef, syncExternalValue } = useEditorHistory(value);
+  const { pushHistory, resetHistory, undo, redo, historyTimerRef } = useEditorHistory(value);
   const {
     currentLine,
     statusListenersRef,
@@ -121,10 +129,44 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
   useEffect(() => {
     if (value !== contentRef.current) {
+      contentRef.current = value;
       setContent(value);
-      syncExternalValue(value);
+      resetHistory(value);
     }
-  }, [value, syncExternalValue]);
+  }, [resetHistory, value]);
+
+  useEffect(() => {
+    const loadEditorSettings = async () => {
+      const config = await UserConfigStore.get();
+      setWordWrap(config.editorWordWrap === "off" ? "off" : "on");
+    };
+
+    void loadEditorSettings();
+    return EventBus.on("settings:editor-changed", () => {
+      void loadEditorSettings();
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isActive || !path || !revealLine || !textareaRef.current) return;
+
+    const lines = contentRef.current.split("\n");
+    const clampedLine = Math.min(Math.max(revealLine, 1), lines.length);
+    const selectionStart = lines
+      .slice(0, clampedLine - 1)
+      .reduce((offset, line) => offset + line.length + 1, 0);
+    const textarea = textareaRef.current;
+
+    textarea.focus();
+    textarea.selectionStart = selectionStart;
+    textarea.selectionEnd = selectionStart;
+    updateStatus(selectionStart, selectionStart);
+    textarea.parentElement?.parentElement?.scrollTo({
+      top: Math.max(0, (clampedLine - 1) * lineHeightRef.current - 100),
+      behavior: "smooth",
+    });
+    onRevealHandled?.(path, revealLine);
+  }, [isActive, onRevealHandled, path, revealLine, updateStatus]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -162,6 +204,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
     const selectionStart = e.target.selectionStart;
+    contentRef.current = newContent;
     setContent(newContent);
     onChange?.(newContent);
 
@@ -208,7 +251,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
               let items: CompletionItem[] = [];
               if (Array.isArray(res)) items = res;
-              else if (res && res.items) items = res.items;
+              else if (res?.items) items = res.items;
 
               if (items.length > 0) {
                 const rect = textareaRef.current?.getBoundingClientRect();
@@ -253,6 +296,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     const textAfterCursor = content.substring(el.selectionStart);
     const newContent = textBeforeCursor + insertText + textAfterCursor;
 
+    contentRef.current = newContent;
     setContent(newContent);
     onChange?.(newContent);
     setCompletions([]);
@@ -301,6 +345,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       const end = el.selectionEnd;
       const closing = pairs[e.key];
       const newContent = content.substring(0, start) + e.key + closing + content.substring(end);
+      contentRef.current = newContent;
       setContent(newContent);
       onChange?.(newContent);
       pushHistory(newContent, start + 1);
@@ -325,8 +370,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         indent += "  ";
       }
 
-      const newContent =
-        content.substring(0, start) + "\n" + indent + content.substring(el.selectionEnd);
+      const newContent = `${content.substring(0, start)}\n${indent}${content.substring(el.selectionEnd)}`;
+      contentRef.current = newContent;
       setContent(newContent);
       onChange?.(newContent);
       pushHistory(newContent, start + 1 + indent.length);
@@ -347,6 +392,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       e.preventDefault();
       const prevState = undo();
       if (prevState) {
+        contentRef.current = prevState.content;
         setContent(prevState.content);
         onChange?.(prevState.content);
         setTimeout(() => {
@@ -361,6 +407,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       e.preventDefault();
       const nextState = redo();
       if (nextState) {
+        contentRef.current = nextState.content;
         setContent(nextState.content);
         onChange?.(nextState.content);
         setTimeout(() => {
@@ -375,7 +422,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       e.preventDefault();
       const start = el.selectionStart;
       const end = el.selectionEnd;
-      const newContent = content.substring(0, start) + "  " + content.substring(end);
+      const newContent = `${content.substring(0, start)}  ${content.substring(end)}`;
+      contentRef.current = newContent;
       setContent(newContent);
       onChange?.(newContent);
       pushHistory(newContent, start + 2);
@@ -478,6 +526,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           const start = el.selectionStart;
           const end = el.selectionEnd;
           const newText = curContent.substring(0, start) + text + curContent.substring(end);
+          contentRef.current = newText;
           setContent(newText);
           onChangeRef.current?.(newText);
           pushHistory(newText, start + text.length);
@@ -487,6 +536,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           }, 0);
         } else {
           const newText = curContent + text;
+          contentRef.current = newText;
           setContent(newText);
           onChangeRef.current?.(newText);
           pushHistory(newText, newText.length);
@@ -500,6 +550,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         const lines = contentRef.current.split("\n");
         const newLines = [...lines.slice(0, startLine - 1), newText, ...lines.slice(endLine)];
         const resText = newLines.join("\n");
+        contentRef.current = resText;
         setContent(resText);
         onChangeRef.current?.(resText);
         pushHistory(resText, el.selectionStart);
@@ -547,7 +598,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         return hljs.highlight(deferredContent, { language, ignoreIllegals: true }).value;
       }
       return hljs.highlightAuto(deferredContent).value;
-    } catch (e) {
+    } catch (_e) {
       return deferredContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
   }, [deferredContent, language]);
@@ -609,7 +660,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
               fontFamily: "var(--EditorFontFamily)",
               fontSize: "var(--EditorFontSize)",
               lineHeight: "var(--EditorLineHeight)",
-              whiteSpace: "pre",
+              whiteSpace: wordWrap === "on" ? "pre-wrap" : "pre",
+              overflowWrap: wordWrap === "on" ? "break-word" : "normal",
               tabSize: 2,
               textShadow: "0 1px 2px rgba(0,0,0,0.1)",
             }}
@@ -711,12 +763,16 @@ export const AuronaEngine = React.memo(function AuronaEngine({
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
                 spellCheck={false}
-                className="absolute top-0 left-0 w-full h-full m-0 p-4 resize-none outline-none focus:outline-none focus:ring-0 focus:border-none border-none bg-transparent text-transparent caret-[var(--TextHighlight)] whitespace-pre overflow-hidden z-10"
+                className={`absolute top-0 left-0 w-full h-full m-0 p-4 resize-none outline-none focus:outline-none focus:ring-0 focus:border-none border-none bg-transparent text-transparent caret-[var(--TextHighlight)] overflow-hidden z-10 ${
+                  wordWrap === "on" ? "whitespace-pre-wrap break-words" : "whitespace-pre"
+                }`}
                 style={{
                   fontFamily: "var(--EditorFontFamily)",
                   fontSize: "var(--EditorFontSize)",
                   lineHeight: "var(--EditorLineHeight)",
                   tabSize: 2,
+                  whiteSpace: wordWrap === "on" ? "pre-wrap" : "pre",
+                  overflowWrap: wordWrap === "on" ? "break-word" : "normal",
                   outline: "none",
                   boxShadow: "none",
                   border: "none",
@@ -745,7 +801,10 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       />
       {hoverTooltip && (
         <div
-          className={cn(glassVariants({ layer: "floating" }), "fixed z-50 p-2.5 text-[12px] text-[var(--TextHighlight)] max-w-[400px] whitespace-pre-wrap break-words pointer-events-none transition-opacity rounded-xl")}
+          className={cn(
+            glassVariants({ layer: "floating" }),
+            "fixed z-50 p-2.5 text-[12px] text-[var(--TextHighlight)] max-w-[400px] whitespace-pre-wrap break-words pointer-events-none transition-opacity rounded-xl",
+          )}
           style={{ left: hoverTooltip.x, top: hoverTooltip.y }}
         >
           {hoverTooltip.text}

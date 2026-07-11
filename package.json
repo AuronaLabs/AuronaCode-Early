@@ -1,17 +1,23 @@
 {
   "name": "aurona-code",
   "private": true,
-  "version": "0.2.4",
+  "version": "0.2.5",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420",
-    "build": "tsc && vite build",
+    "build": "npm run typecheck && vite build",
+    "typecheck": "tsc --noEmit",
+    "check": "biome ci Src",
+    "smoke": "node scripts/smoke.mjs",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "preview": "vite preview --host 127.0.0.1 --port 1420",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "format": "biome format --write Src",
-    "lint": "biome lint --write Src"
+    "format:check": "biome ci --formatter-enabled=true --linter-enabled=false Src",
+    "lint": "biome lint Src",
+    "lint:fix": "biome lint --write Src"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.2.8",

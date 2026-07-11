@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { GlassIntensity, GLASS_PRESETS } from './glassConfig';
+import { type GlassIntensity, GLASS_PRESETS } from './glassConfig';
 
 interface GlassStore {
   intensity: GlassIntensity;
@@ -26,12 +26,6 @@ export const useGlassStore = create<GlassStore>()(
         root.style.setProperty('--glass-blur-elevated', preset.elevated);
         root.style.setProperty('--glass-blur-floating', preset.floating);
         root.style.setProperty('--GlassOpacity-Multiplier', preset.opacityMultiplier);
-        
-        if (intensity === 'disabled') {
-            root.classList.add('glass-disabled');
-        } else {
-            root.classList.remove('glass-disabled');
-        }
       }
     }),
     { name: 'aurona-glass-settings' }

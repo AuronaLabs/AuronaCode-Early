@@ -33,8 +33,13 @@ pub struct GitFullStatus {
 
 #[tauri::command]
 pub fn git_check_is_repo(path: String) -> Result<bool, String> {
-    let git_dir = Path::new(&path).join(".git");
-    Ok(git_dir.exists() && git_dir.is_dir())
+    let output = create_command("git")
+        .current_dir(&path)
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    Ok(output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true")
 }
 
 #[tauri::command]
@@ -55,7 +60,7 @@ pub fn git_init(path: String) -> Result<(), String> {
 pub fn git_status(path: String) -> Result<Vec<GitFile>, String> {
     let output = create_command("git")
         .current_dir(&path)
-        .args(["status", "--porcelain", "-uall"])
+        .args(["status", "--porcelain=v1", "-z", "-uall"])
         .output()
         .map_err(|e| e.to_string())?;
 
@@ -63,18 +68,23 @@ pub fn git_status(path: String) -> Result<Vec<GitFile>, String> {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
     }
 
-    let out_str = String::from_utf8_lossy(&output.stdout);
     let mut files = Vec::new();
+    let records = output
+        .stdout
+        .split(|byte| *byte == b'\0')
+        .collect::<Vec<_>>();
+    let mut index = 0;
 
-    for line in out_str.lines() {
-        if line.len() < 4 {
+    while index < records.len() {
+        let record = records[index];
+        if record.len() < 4 {
+            index += 1;
             continue;
         }
 
-        let chars: Vec<char> = line.chars().collect();
-        let index_status = chars[0];
-        let work_tree_status = chars[1];
-        let file_path = line[3..].trim().to_string();
+        let index_status = record[0] as char;
+        let work_tree_status = record[1] as char;
+        let file_path = String::from_utf8_lossy(&record[3..]).to_string();
         let name = Path::new(&file_path)
             .file_name()
             .unwrap_or_default()
@@ -104,6 +114,12 @@ pub fn git_status(path: String) -> Result<Vec<GitFile>, String> {
                 is_staged: false,
             });
         }
+
+        index += if matches!(index_status, 'R' | 'C') || matches!(work_tree_status, 'R' | 'C') {
+            2
+        } else {
+            1
+        };
     }
 
     Ok(files)
@@ -317,7 +333,13 @@ pub fn git_log(path: String) -> Result<Vec<GitCommit>, String> {
         .map_err(|e| e.to_string())?;
 
     if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+        let error = String::from_utf8_lossy(&output.stderr).to_string();
+        if error.contains("does not have any commits yet")
+            || error.contains("does not have any commits")
+        {
+            return Ok(vec![]);
+        }
+        return Err(error);
     }
 
     let out_str = String::from_utf8_lossy(&output.stdout);
@@ -354,18 +376,9 @@ pub async fn git_get_full_status(path: String) -> Result<GitFullStatus, String> 
                 });
             }
 
-            let files = git_status(path.clone()).unwrap_or_else(|e| {
-                eprintln!("git sub-command failed: {:?}", e);
-                vec![]
-            });
-            let branch = git_current_branch(path.clone()).unwrap_or_else(|e| {
-                eprintln!("git sub-command failed: {:?}", e);
-                String::new()
-            });
-            let commits = git_log(path.clone()).unwrap_or_else(|e| {
-                eprintln!("git sub-command failed: {:?}", e);
-                vec![]
-            });
+            let files = git_status(path.clone())?;
+            let branch = git_current_branch(path.clone())?;
+            let commits = git_log(path.clone())?;
 
             Ok::<GitFullStatus, String>(GitFullStatus {
                 repo_path: path,

@@ -12,10 +12,13 @@ export interface WorkspaceState {
   activeTabId: string | null;
   activeSidebar: string | null;
   pendingCloseTab: TabItem | null;
+  pendingReveal: { path: string; line: number } | null;
 
   setActiveTabId: (id: string | null) => void;
   setActiveSidebar: (id: string | null) => void;
   setPendingCloseTab: (tab: TabItem | null) => void;
+  requestReveal: (path: string, line: number) => void;
+  clearPendingReveal: (path: string, line: number) => void;
 
   openFile: (path: string) => void;
   openTab: (tab: TabItem) => void;
@@ -34,6 +37,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   activeTabId: null,
   activeSidebar: SIDEBAR_EXPLORER,
   pendingCloseTab: null,
+  pendingReveal: null,
 
   setActiveTabId: (id) => {
     set({ activeTabId: id });
@@ -48,6 +52,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   setActiveSidebar: (id) => set({ activeSidebar: id }),
   setPendingCloseTab: (tab) => set({ pendingCloseTab: tab }),
+  requestReveal: (path, line) => set({ pendingReveal: { path, line } }),
+  clearPendingReveal: (path, line) =>
+    set((state) =>
+      state.pendingReveal?.path === path && state.pendingReveal.line === line
+        ? { pendingReveal: null }
+        : state,
+    ),
 
   _setTabs: (updater) => {
     set((state) => {
@@ -200,17 +211,16 @@ EventBus.on("file:renamed", (payload: { oldPath: string; newPath: string }) => {
 
 EventBus.on("file:deleted", (payload: { path: string; isDirectory: boolean }) => {
   const store = useWorkspaceStore.getState();
-  store._setTabs((prev) => {
-    return prev.filter((tab) => {
-      if (!tab.path) return true;
-      if (tab.path === payload.path) return false;
-      return !(payload.isDirectory && isPathInside(tab.path, payload.path));
-    });
+  const remainingTabs = store.tabs.filter((tab) => {
+    if (!tab.path) return true;
+    if (tab.path === payload.path) return false;
+    return !(payload.isDirectory && isPathInside(tab.path, payload.path));
   });
+  store._setTabs(() => remainingTabs);
 
-  const { tabs, activeTabId } = store;
-  if (activeTabId && !tabs.some((tab) => tab.id === activeTabId)) {
-    store.setActiveTabId(tabs[tabs.length - 1]?.id ?? null);
+  const { activeTabId } = useWorkspaceStore.getState();
+  if (activeTabId && !remainingTabs.some((tab) => tab.id === activeTabId)) {
+    useWorkspaceStore.getState().setActiveTabId(remainingTabs[remainingTabs.length - 1]?.id ?? null);
   }
 });
 

@@ -8,7 +8,6 @@ import {
   ContextMenuItem,
   ContextMenuDivider,
 } from "../../UI/Components/ContextMenu";
-import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 
 export const EditorTabBar = React.memo(function EditorTabBar() {

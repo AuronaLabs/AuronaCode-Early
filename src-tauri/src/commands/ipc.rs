@@ -88,6 +88,29 @@ pub fn get_app_log_size(app: tauri::AppHandle) -> u64 {
 }
 
 #[tauri::command]
+pub fn clear_app_logs(app: tauri::AppHandle) -> Result<(), String> {
+    let log_dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|e| format!("Failed to get app log dir: {e}"))?;
+
+    if !log_dir.exists() {
+        return Ok(());
+    }
+
+    for entry in fs::read_dir(&log_dir).map_err(|e| e.to_string())? {
+        let path = entry.map_err(|e| e.to_string())?.path();
+        if path.is_dir() {
+            fs::remove_dir_all(path).map_err(|e| e.to_string())?;
+        } else {
+            fs::remove_file(path).map_err(|e| e.to_string())?;
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 pub fn clear_other_app_data(app: tauri::AppHandle) -> Result<(), String> {
     if let Ok(app_dir) = app.path().app_local_data_dir() {
         if let Ok(entries) = fs::read_dir(&app_dir) {

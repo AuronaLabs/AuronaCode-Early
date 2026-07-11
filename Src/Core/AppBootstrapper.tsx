@@ -99,9 +99,18 @@ export function AppBootstrapper({ children }: Props) {
     };
 
     window.addEventListener("resize", handleResize);
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleSystemThemeChange = () => {
+      UserConfigStore.get().then((config) => {
+        if (config.theme !== "system") return;
+        document.documentElement.classList.toggle("dark", mediaQuery.matches);
+      });
+    };
+    mediaQuery.addEventListener("change", handleSystemThemeChange);
     return () => {
       mounted = false;
       window.removeEventListener("resize", handleResize);
+      mediaQuery.removeEventListener("change", handleSystemThemeChange);
       if (resizeTimer) clearTimeout(resizeTimer);
     };
   }, []);

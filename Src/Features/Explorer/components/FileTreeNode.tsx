@@ -10,7 +10,6 @@ import {
 } from "../../../UI/Components/ContextMenu";
 import { Icons } from "../../../UI/Icons/IconManager";
 import { useExplorerContext } from "../ExplorerContext";
-import type { InlineCreation } from "../FileExplorer";
 import { InlineInput } from "./InlineInput";
 
 function getFileIcon(filename: string, isActive: boolean) {
@@ -241,7 +240,7 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
           <ContextMenuItem
             label="复制相对路径"
             onSelect={() => {
-              const relativePath = node.path.replace(rootPath + "/", "");
+              const relativePath = node.path.replace(`${rootPath}/`, "");
               navigator.clipboard.writeText(relativePath);
             }}
           />
@@ -281,7 +280,7 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
         <div className="flex flex-col relative">
           {isTargetForInline && (
             <InlineInput
-              type={inlineCreation!.type}
+              type={inlineCreation?.type}
               depth={depth + 1}
               onSubmit={onInlineCreate}
               onCancel={onInlineCancel}

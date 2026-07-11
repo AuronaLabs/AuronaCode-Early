@@ -54,13 +54,13 @@ class EventBusImpl {
     if (!this.listeners[event]) {
       this.listeners[event] = [];
     }
-    this.listeners[event]!.push(callback);
+    this.listeners[event]?.push(callback);
     return () => this.off(event, callback);
   }
 
   off<K extends keyof EventMap>(event: K, callback: EventCallback<EventMap[K]>): void {
     if (!this.listeners[event]) return;
-    this.listeners[event] = this.listeners[event]!.filter((cb) => cb !== callback) as any;
+    this.listeners[event] = this.listeners[event]?.filter((cb) => cb !== callback) as any;
   }
 
   emit<K extends keyof EventMap>(event: K, payload?: EventMap[K]): void {

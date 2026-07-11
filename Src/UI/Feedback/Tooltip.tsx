@@ -1,4 +1,4 @@
-import React, { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export type TooltipProps = {

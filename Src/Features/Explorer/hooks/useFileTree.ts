@@ -1,9 +1,10 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { watch } from "@tauri-apps/plugin-fs";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type FileNode, FileSystemService } from "../../../Core/FileSystemService";
 import { EventBus } from "../../../Foundation/EventBus";
 import { WorkspaceStore } from "../../../Foundation/Storage/WorkspaceStore";
+import { useWorkspaceStore } from "../../../State/useWorkspaceStore";
 import { showToast } from "../../../UI/Feedback/Toast";
 import type { InlineCreation } from "../FileExplorer";
 import { collectOpenPaths, isDescendant, mergeOpenState, updateTree } from "../utils/treeUtils";
@@ -48,6 +49,27 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
   } | null>(null);
   const [deletePrompt, setDeletePrompt] = useState<FileNode | null>(null);
   const [clipboard, setClipboard] = useState<{ path: string; isCut: boolean } | null>(null);
+  const rootNodeRef = useRef<FileNode | null>(null);
+
+  useEffect(() => {
+    rootNodeRef.current = rootNode;
+  }, [rootNode]);
+
+  const hasDirtyOpenTabAtOrBelow = useCallback((path: string) => {
+    return useWorkspaceStore
+      .getState()
+      .tabs.some((tab) => tab.isDirty && tab.path && (tab.path === path || isDescendant(tab.path, path)));
+  }, []);
+
+  const updateActivePathAfterMove = useCallback((oldPath: string, newPath: string) => {
+    setActivePath((currentPath) => {
+      if (currentPath === oldPath) return newPath;
+      if (currentPath && isDescendant(currentPath, oldPath)) {
+        return currentPath.replace(oldPath, newPath);
+      }
+      return currentPath;
+    });
+  }, []);
 
   const loadFolderDirectly = useCallback(async (selectedPath: string) => {
     try {
@@ -79,29 +101,37 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
   }, [loadFolderDirectly]);
 
   const refreshDirectory = useCallback(async (dirPath: string) => {
-    try {
-      const refreshedChildren = await FileSystemService.readDirectory(dirPath);
-      setRootNode((prev) => {
-        if (!prev) return prev;
-        const openPaths = collectOpenPaths([prev]);
-        if (prev.path === dirPath) {
-          return {
-            ...prev,
-            children: mergeOpenState(refreshedChildren, prev.children || [], openPaths),
-            isOpen: true,
-          };
-        }
+    const refreshedChildren = await FileSystemService.readDirectory(dirPath);
+    setRootNode((prev) => {
+      if (!prev) return prev;
+      const openPaths = collectOpenPaths([prev]);
+      if (prev.path === dirPath) {
         return {
           ...prev,
-          children: updateTree(prev.children || [], dirPath, (node) => ({
-            ...node,
-            children: mergeOpenState(refreshedChildren, node.children || [], openPaths),
-            isOpen: true,
-          })),
+          children: mergeOpenState(refreshedChildren, prev.children || [], openPaths),
+          isOpen: true,
         };
-      });
-    } catch {}
+      }
+      return {
+        ...prev,
+        children: updateTree(prev.children || [], dirPath, (node) => ({
+          ...node,
+          children: mergeOpenState(refreshedChildren, node.children || [], openPaths),
+          isOpen: true,
+        })),
+      };
+    });
   }, []);
+
+  const refreshOpenDirectories = useCallback(
+    async (node: FileNode) => {
+      const openPaths = Array.from(collectOpenPaths([node]));
+      for (const openPath of openPaths) {
+        await refreshDirectory(openPath);
+      }
+    },
+    [refreshDirectory],
+  );
 
   useEffect(() => {
     let unwatch: (() => void) | null = null;
@@ -113,7 +143,11 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         () => {
           if (timer) window.clearTimeout(timer);
           timer = window.setTimeout(() => {
-            refreshDirectory(rootNode.path).catch(() => {});
+            const currentRoot = rootNodeRef.current;
+            if (!currentRoot) return;
+            refreshOpenDirectories(currentRoot).catch((error) => {
+              console.warn("Failed to refresh watched directories:", error);
+            });
           }, 300);
         },
         { recursive: true },
@@ -130,7 +164,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
       if (timer) window.clearTimeout(timer);
       unwatch?.();
     };
-  }, [rootNode?.path, refreshDirectory]);
+  }, [refreshOpenDirectories, rootNode?.path]);
 
   const handleOpenFolder = useCallback(async () => {
     try {
@@ -225,15 +259,6 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
     return rootNode.path;
   }, [activePath, findActiveDirectory, rootNode]);
 
-  const startInlineCreate = useCallback(
-    (type: "file" | "folder") => {
-      const parentPath = getTargetParentPath();
-      if (!parentPath) return;
-      startInlineCreateAt(type, parentPath);
-    },
-    [getTargetParentPath],
-  );
-
   const startInlineCreateAt = useCallback((type: "file" | "folder", parentPath: string) => {
     setInlineCreation({ type, parentPath });
     setRootNode((prev) => {
@@ -248,6 +273,15 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
       };
     });
   }, []);
+
+  const startInlineCreate = useCallback(
+    (type: "file" | "folder") => {
+      const parentPath = getTargetParentPath();
+      if (!parentPath) return;
+      startInlineCreateAt(type, parentPath);
+    },
+    [getTargetParentPath, startInlineCreateAt],
+  );
 
   const handleInlineCreate = useCallback(
     async (name: string) => {
@@ -280,12 +314,16 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
 
   const handleInlineRename = useCallback(
     async (oldPath: string, newName: string) => {
+      if (hasDirtyOpenTabAtOrBelow(oldPath)) {
+        showToast("请先保存已打开文件的更改，再重命名", "warning");
+        return;
+      }
       try {
         const parentPath = FileSystemService.dirname(oldPath);
         const newPath = await FileSystemService.renameEntry(oldPath, newName);
         await refreshDirectory(parentPath);
         EventBus.emit("file:renamed", { oldPath, newPath });
-        if (activePath === oldPath) setActivePath(newPath);
+        updateActivePathAfterMove(oldPath, newPath);
         showToast("重命名完成", "success");
       } catch (error) {
         showToast(`重命名失败：${FileSystemService.toMessage(error)}`, "error");
@@ -293,12 +331,16 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         setInlineEditing(null);
       }
     },
-    [activePath, refreshDirectory],
+    [hasDirtyOpenTabAtOrBelow, refreshDirectory, updateActivePathAfterMove],
   );
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deletePrompt) return;
     const node = deletePrompt;
+    if (hasDirtyOpenTabAtOrBelow(node.path)) {
+      showToast("请先保存已打开文件的更改，再删除", "warning");
+      return;
+    }
     setDeletePrompt(null);
     try {
       const parentPath = FileSystemService.dirname(node.path);
@@ -315,11 +357,15 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
     } catch (error) {
       showToast(`删除失败：${FileSystemService.toMessage(error)}`, "error");
     }
-  }, [activePath, deletePrompt, refreshDirectory]);
+  }, [activePath, deletePrompt, hasDirtyOpenTabAtOrBelow, refreshDirectory]);
 
   const handlePaste = useCallback(
     async (targetDir: string) => {
       if (!clipboard) return;
+      if (clipboard.isCut && hasDirtyOpenTabAtOrBelow(clipboard.path)) {
+        showToast("请先保存已打开文件的更改，再移动", "warning");
+        return;
+      }
       try {
         const fileName = FileSystemService.basename(clipboard.path);
         const destPath = FileSystemService.joinPath(targetDir, fileName);
@@ -334,6 +380,8 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         if (clipboard.isCut) {
           const oldParent = FileSystemService.dirname(clipboard.path);
           await refreshDirectory(oldParent);
+          EventBus.emit("file:renamed", { oldPath: clipboard.path, newPath: destPath });
+          updateActivePathAfterMove(clipboard.path, destPath);
           setClipboard(null);
         }
         await refreshDirectory(targetDir);
@@ -343,7 +391,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         showToast(`粘贴失败: ${FileSystemService.toMessage(error)}`, "error");
       }
     },
-    [clipboard, refreshDirectory],
+    [clipboard, hasDirtyOpenTabAtOrBelow, refreshDirectory, updateActivePathAfterMove],
   );
 
   const handleDuplicate = useCallback(
@@ -385,7 +433,12 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
     async (sourcePath: string, targetPath: string) => {
       if (sourcePath === targetPath) return;
 
-      if (targetPath.startsWith(sourcePath + "/") || targetPath.startsWith(sourcePath + "\\")) {
+      if (hasDirtyOpenTabAtOrBelow(sourcePath)) {
+        showToast("请先保存已打开文件的更改，再移动", "warning");
+        return;
+      }
+
+      if (targetPath.startsWith(`${sourcePath}/`) || targetPath.startsWith(`${sourcePath}\\`)) {
         showToast("无法将文件夹移动到其子文件夹中", "error");
         return;
       }
@@ -400,13 +453,15 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         const oldParent = FileSystemService.dirname(sourcePath);
         await refreshDirectory(oldParent);
         await refreshDirectory(targetPath);
+        EventBus.emit("file:renamed", { oldPath: sourcePath, newPath: destPath });
+        updateActivePathAfterMove(sourcePath, destPath);
 
         showToast("移动成功", "success");
       } catch (error) {
         showToast(`移动失败: ${FileSystemService.toMessage(error)}`, "error");
       }
     },
-    [refreshDirectory],
+    [hasDirtyOpenTabAtOrBelow, refreshDirectory, updateActivePathAfterMove],
   );
 
   useEffect(() => {

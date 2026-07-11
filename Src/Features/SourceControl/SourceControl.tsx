@@ -19,7 +19,8 @@ export const SourceControl = React.memo(function SourceControl() {
   const [commitMsg, setCommitMsg] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [branch, setBranch] = useState("");
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [_branch, setBranch] = useState("");
   const [stagedExpanded, setStagedExpanded] = useState(true);
   const [unstagedExpanded, setUnstagedExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState<"changes" | "history">("changes");
@@ -38,12 +39,14 @@ export const SourceControl = React.memo(function SourceControl() {
       if (background) setIsRefreshing(true);
       const fullStatus = await GitIPC.getFullStatus(path);
 
+      setStatusError(null);
+      setIsRepo(fullStatus.is_repo);
       setFiles(fullStatus.files);
       setBranch(fullStatus.branch);
       setCommits(fullStatus.commits);
       GitService.setCache({
         repoPath: path,
-        isRepo: true,
+        isRepo: fullStatus.is_repo,
         files: fullStatus.files,
         commits: fullStatus.commits,
         branch: fullStatus.branch,
@@ -53,6 +56,7 @@ export const SourceControl = React.memo(function SourceControl() {
       EventBus.emit("git:changes-count", fullStatus.files.length);
     } catch (error) {
       console.error("Git status failed", error);
+      setStatusError(String(error));
       if (!background) showToast(`Git 状态读取失败：${error}`, "error");
     } finally {
       if (background) setIsRefreshing(false);
@@ -68,6 +72,7 @@ export const SourceControl = React.memo(function SourceControl() {
         const repoExists = await GitIPC.checkIsRepo(path);
         setRepoPath(path);
         setIsRepo(repoExists);
+        setStatusError(null);
 
         if (repoExists) {
           await fetchStatus(path, background);
@@ -86,6 +91,7 @@ export const SourceControl = React.memo(function SourceControl() {
         }
       } catch (error) {
         console.error("Git repo check failed", error);
+        setStatusError(String(error));
         if (!background) showToast(`Git 仓库检查失败：${error}`, "error");
       } finally {
         setIsLoading(false);
@@ -187,7 +193,10 @@ export const SourceControl = React.memo(function SourceControl() {
     if (!repoPath || !commitMsg.trim()) return;
     try {
       const stagedFilesCount = files.filter((file) => file.is_staged).length;
-      if (stagedFilesCount === 0) await GitIPC.add(repoPath, ".");
+      if (stagedFilesCount === 0) {
+        showToast("请先暂存至少一个文件，再提交", "warning");
+        return;
+      }
 
       await GitIPC.commit(repoPath, commitMsg);
       setCommitMsg("");
@@ -344,6 +353,12 @@ export const SourceControl = React.memo(function SourceControl() {
           </button>
         </Tooltip>
       </div>
+
+      {statusError && (
+        <div className="mx-[var(--PanelPaddingX)] mb-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-500">
+          Git 状态读取失败：{statusError}
+        </div>
+      )}
 
       <div className="flex items-center gap-1 mx-[var(--PanelPaddingX)] mb-3 shrink-0">
         <button

@@ -1,12 +1,16 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
-export function useEditorHistory(initialValue: string, onChange?: (value: string) => void) {
-  const [history, setHistory] = useState<{ content: string; selectionStart: number }[]>([
-    { content: initialValue, selectionStart: 0 },
-  ]);
-  const [historyIndex, setHistoryIndex] = useState(0);
+type HistoryEntry = {
+  content: string;
+  selectionStart: number;
+};
+
+const MAX_HISTORY_ENTRIES = 500;
+
+export function useEditorHistory(initialValue: string) {
+  const historyRef = useRef<HistoryEntry[]>([{ content: initialValue, selectionStart: 0 }]);
+  const historyIndexRef = useRef(0);
   const historyTimerRef = useRef<number | null>(null);
-  const contentRef = useRef(initialValue);
 
   useEffect(() => {
     return () => {
@@ -14,52 +18,40 @@ export function useEditorHistory(initialValue: string, onChange?: (value: string
     };
   }, []);
 
-  const pushHistory = useCallback(
-    (newContent: string, cursor: number) => {
-      setHistory((prev) => {
-        const newHist = prev.slice(0, historyIndex + 1);
-        newHist.push({ content: newContent, selectionStart: cursor });
-        return newHist;
-      });
-      setHistoryIndex((prev) => prev + 1);
-    },
-    [historyIndex],
-  );
+  const pushHistory = useCallback((content: string, selectionStart: number) => {
+    const currentIndex = historyIndexRef.current;
+    const nextHistory = historyRef.current.slice(0, currentIndex + 1);
+    const previous = nextHistory[nextHistory.length - 1];
 
-  const syncExternalValue = useCallback((value: string) => {
-    if (value !== contentRef.current) {
-      contentRef.current = value;
-      setHistory([{ content: value, selectionStart: 0 }]);
-      setHistoryIndex(0);
+    if (previous?.content === content) {
+      nextHistory[nextHistory.length - 1] = { content, selectionStart };
+    } else {
+      nextHistory.push({ content, selectionStart });
     }
+
+    const boundedHistory = nextHistory.slice(-MAX_HISTORY_ENTRIES);
+    historyRef.current = boundedHistory;
+    historyIndexRef.current = boundedHistory.length - 1;
   }, []);
 
-  const undo = useCallback((): { content: string; selectionStart: number } | null => {
-    if (historyIndex > 0) {
-      const prevState = history[historyIndex - 1];
-      setHistoryIndex(historyIndex - 1);
-      return prevState;
-    }
-    return null;
-  }, [history, historyIndex]);
+  const resetHistory = useCallback((content: string) => {
+    historyRef.current = [{ content, selectionStart: 0 }];
+    historyIndexRef.current = 0;
+  }, []);
 
-  const redo = useCallback((): { content: string; selectionStart: number } | null => {
-    if (historyIndex < history.length - 1) {
-      const nextState = history[historyIndex + 1];
-      setHistoryIndex(historyIndex + 1);
-      return nextState;
-    }
-    return null;
-  }, [history, historyIndex]);
+  const undo = useCallback((): HistoryEntry | null => {
+    if (historyIndexRef.current === 0) return null;
 
-  return {
-    history,
-    historyIndex,
-    pushHistory,
-    syncExternalValue,
-    undo,
-    redo,
-    historyTimerRef,
-    contentRef,
-  };
+    historyIndexRef.current -= 1;
+    return historyRef.current[historyIndexRef.current] ?? null;
+  }, []);
+
+  const redo = useCallback((): HistoryEntry | null => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return null;
+
+    historyIndexRef.current += 1;
+    return historyRef.current[historyIndexRef.current] ?? null;
+  }, []);
+
+  return { pushHistory, resetHistory, undo, redo, historyTimerRef };
 }

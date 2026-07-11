@@ -6,6 +6,7 @@ import "harmonyos-sans-sc-webfont-splitted";
 
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getVersion } from "@tauri-apps/api/app";
+import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 
 function SplashApp() {
   const [version, setVersion] = useState("...");
@@ -15,9 +16,7 @@ function SplashApp() {
       .then((v) => setVersion(`v${v}`))
       .catch(console.error);
 
-    // Determine theme from local storage
-    try {
-      const theme = localStorage.getItem("aurona-theme") || "system";
+    const applyTheme = (theme: "light" | "dark" | "system") => {
       const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
       const isDark = theme === "dark" || (theme === "system" && prefersDark);
       if (isDark) {
@@ -25,7 +24,11 @@ function SplashApp() {
       } else {
         document.documentElement.classList.remove("dark");
       }
-    } catch (e) {}
+    };
+    applyTheme("system");
+    UserConfigStore.get()
+      .then((config) => applyTheme(config.theme || "system"))
+      .catch(console.error);
 
     // Preload the Monet image before showing the window.
     // This ensures that when the window appears, the image is already fully decoded and painted,

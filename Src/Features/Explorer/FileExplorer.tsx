@@ -1,7 +1,5 @@
 import React, { useMemo } from "react";
-import { createPortal } from "react-dom";
 import { FileSystemService } from "../../Core/FileSystemService";
-import { EventBus } from "../../Foundation/EventBus";
 import { Button } from "../../UI/Components/Button";
 
 import { Modal } from "../../UI/Components/Modal";

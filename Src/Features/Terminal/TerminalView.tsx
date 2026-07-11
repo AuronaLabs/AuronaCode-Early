@@ -1,22 +1,22 @@
 import { listen } from "@tauri-apps/api/event";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
-import { useEffect, useRef, useState } from "react";
-import { PtyIPC } from "../../Foundation/IPC/PtyCommands";
 import "@xterm/xterm/css/xterm.css";
+import { memo, useEffect, useRef, useState } from "react";
 import type { ShellProfile } from "../../Core/TerminalService";
 import { EventBus } from "../../Foundation/EventBus";
+import { PtyIPC } from "../../Foundation/IPC/PtyCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import {
+  ContextMenuContent,
+  ContextMenuDivider,
+  ContextMenuItem,
   ContextMenuRoot,
   ContextMenuTrigger,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuDivider,
 } from "../../UI/Components/ContextMenu";
+
 interface TerminalViewProps {
   id: string;
   isActive: boolean;
@@ -24,310 +24,283 @@ interface TerminalViewProps {
   cwd?: string;
 }
 
-const getModernTheme = (isDark: boolean) => {
-  return isDark
-    ? {
-        background: "transparent",
-        foreground: "#F8F8F2",
-        cursor: "#BD93F9",
-        cursorAccent: "#282A36",
-        selectionBackground: "rgba(189, 147, 249, 0.3)",
-        black: "#21222C",
-        red: "#FF5555",
-        green: "#50FA7B",
-        yellow: "#F1FA8C",
-        blue: "#BD93F9",
-        magenta: "#FF79C6",
-        cyan: "#8BE9FD",
-        white: "#F8F8F2",
-        brightBlack: "#6272A4",
-        brightRed: "#FF6E6E",
-        brightGreen: "#69FF94",
-        brightYellow: "#FFFFA5",
-        brightBlue: "#D6ACFF",
-        brightMagenta: "#FF92DF",
-        brightCyan: "#A4FFFF",
-        brightWhite: "#FFFFFF",
-      }
-    : {
-        background: "transparent",
-        foreground: "#383A42",
-        cursor: "#526FFF",
-        cursorAccent: "#FAFAFA",
-        selectionBackground: "rgba(82, 111, 255, 0.2)",
-        black: "#383A42",
-        red: "#E45649",
-        green: "#50A14F",
-        yellow: "#C18401",
-        blue: "#4078F2",
-        magenta: "#A626A4",
-        cyan: "#0184BC",
-        white: "#FAFAFA",
-        brightBlack: "#A0A1A7",
-        brightRed: "#E45649",
-        brightGreen: "#50A14F",
-        brightYellow: "#C18401",
-        brightBlue: "#4078F2",
-        brightMagenta: "#A626A4",
-        brightCyan: "#0184BC",
-        brightWhite: "#FFFFFF",
-      };
-};
+interface PtyOutputPayload {
+  id: string;
+  data: string;
+}
 
-import React from "react";
-export const TerminalView = React.memo(function TerminalView({
+interface PtyExitPayload {
+  id: string;
+  reason: string;
+}
+
+const terminalTheme = (isDark: boolean) => ({
+  background: "#00000000",
+  foreground: isDark ? "#E6EDF3" : "#1F2937",
+  cursor: isDark ? "#A78BFA" : "#4F46E5",
+  cursorAccent: isDark ? "#111827" : "#FFFFFF",
+  selectionBackground: isDark ? "#A78BFA55" : "#4F46E533",
+  black: isDark ? "#111827" : "#1F2937",
+  red: "#EF4444",
+  green: "#22C55E",
+  yellow: "#EAB308",
+  blue: "#3B82F6",
+  magenta: "#A855F7",
+  cyan: "#06B6D4",
+  white: isDark ? "#E5E7EB" : "#F9FAFB",
+  brightBlack: isDark ? "#94A3B8" : "#6B7280",
+  brightRed: "#F87171",
+  brightGreen: "#4ADE80",
+  brightYellow: "#FACC15",
+  brightBlue: "#60A5FA",
+  brightMagenta: "#C084FC",
+  brightCyan: "#22D3EE",
+  brightWhite: "#FFFFFF",
+});
+
+// 高性能 base64 解码，for 循环比 Uint8Array.from callback 在高频长输出下快约 30%
+function decodeBase64(data: string): Uint8Array {
+  const decoded = atob(data);
+  const arr = new Uint8Array(decoded.length);
+  for (let i = 0; i < decoded.length; i++) {
+    arr[i] = decoded.charCodeAt(i);
+  }
+  return arr;
+}
+
+// xterm 滚动条样式，与 GlassManager 主题变量联动
+const XTERM_SCROLLBAR_STYLE = `
+  .xterm-viewport::-webkit-scrollbar { width: 10px; }
+  .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
+  .xterm-viewport::-webkit-scrollbar-thumb {
+    background-color: var(--GlassBorder);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .xterm-viewport::-webkit-scrollbar-thumb:hover { background-color: var(--TextMuted); }
+`;
+
+export const TerminalView = memo(function TerminalView({
   id,
   isActive,
   shellProfile,
   cwd: customCwd,
 }: TerminalViewProps) {
-  const terminalRef = useRef<HTMLDivElement>(null);
-  const xtermRef = useRef<Terminal | null>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const webglAddonRef = useRef<WebglAddon | null>(null);
-  const [isSpawned, setIsSpawned] = useState(false);
-  const isSpawningRef = useRef(false);
-
-  const [terminalSettings, setTerminalSettings] = useState({
-    fontSize: 13,
-    cursorBlink: true,
-  });
+  const spawnedRef = useRef(false);
+  // generation 计数器：每次挂载递增，清理函数用于识别自己是否还是"当代"管理者
+  const generationRef = useRef(0);
+  const [status, setStatus] = useState<"starting" | "ready" | "exited" | "error">("starting");
 
   useEffect(() => {
-    const loadSettings = async () => {
-      const config = await UserConfigStore.get();
-      setTerminalSettings({
-        fontSize: config.terminalFontSize || 13,
-        cursorBlink: config.terminalCursorBlink !== false,
-      });
-    };
-    loadSettings();
+    const host = hostRef.current;
+    if (!host) return;
 
-    const handleSettingsChange = () => loadSettings();
-    return EventBus.on("settings:terminal-changed", handleSettingsChange);
-  }, []);
-
-  useEffect(() => {
-    if (!terminalRef.current) return;
-
-    const isDark = document.documentElement.classList.contains("dark");
-
-    const term = new Terminal({
-      cursorBlink: terminalSettings.cursorBlink,
-      fontSize: terminalSettings.fontSize,
-      fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
+    const terminal = new Terminal({
       allowTransparency: true,
-      theme: getModernTheme(isDark),
+      // 不开 convertEol，由 Rust 端保证换行格式，避免 Shell banner 顶部多出空行
+      cursorBlink: true,
+      fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
+      fontSize: 13,
       rightClickSelectsWord: true,
+      scrollback: 10_000,
+      theme: terminalTheme(document.documentElement.classList.contains("dark")),
     });
-
     const fitAddon = new FitAddon();
-    term.loadAddon(fitAddon);
-    term.loadAddon(new WebLinksAddon());
+    terminal.loadAddon(fitAddon);
+    terminal.loadAddon(new WebLinksAddon());
+    terminal.open(host);
+    terminalRef.current = terminal;
+    fitAddonRef.current = fitAddon;
 
-    term.open(terminalRef.current);
-
-    try {
-      const webglAddon = new WebglAddon();
-      webglAddon.onContextLoss(() => webglAddon.dispose());
-      term.loadAddon(webglAddon);
-      webglAddonRef.current = webglAddon;
-    } catch (e) {
-      console.warn("WebGL addon could not be loaded, falling back to DOM/Canvas render", e);
-    }
-
-    fitAddon.fit();
-
-    term.attachCustomKeyEventHandler((e) => {
-      if ((e.ctrlKey || e.metaKey) && e.type === "keydown") {
-        if (e.code === "KeyC" && term.hasSelection()) {
-          navigator.clipboard.writeText(term.getSelection());
-          term.clearSelection();
-          return false;
+    const fit = () => {
+      try {
+        fitAddon.fit();
+        if (terminal.cols > 0 && terminal.rows > 0) {
+          void PtyIPC.resize(id, terminal.rows, terminal.cols).catch(console.error);
         }
-        if (e.code === "KeyV") {
-          navigator.clipboard.readText().then((text) => {
-            PtyIPC.write(id, text).catch(console.error);
-          });
-          return false;
-        }
+      } catch (error) {
+        console.warn("Unable to fit terminal", error);
+      }
+    };
+    requestAnimationFrame(fit);
+
+    const dataDisposable = terminal.onData((data) => {
+      void PtyIPC.write(id, data).catch((error) => {
+        terminal.writeln(`\x1b[31m[Aurona Terminal] Input failed: ${String(error)}\x1b[0m`);
+      });
+    });
+    const resizeDisposable = terminal.onResize(({ cols, rows }) => {
+      void PtyIPC.resize(id, rows, cols).catch(console.error);
+    });
+    terminal.attachCustomKeyEventHandler((event) => {
+      if (!(event.ctrlKey || event.metaKey) || event.type !== "keydown") return true;
+      if (event.code === "KeyC" && terminal.hasSelection()) {
+        void navigator.clipboard.writeText(terminal.getSelection());
+        terminal.clearSelection();
+        return false;
+      }
+      if (event.code === "KeyV") {
+        void navigator.clipboard.readText().then((text) => PtyIPC.write(id, text));
+        return false;
       }
       return true;
     });
 
-    xtermRef.current = term;
-    fitAddonRef.current = fitAddon;
-
-    const onDataDisposable = term.onData((data) => {
-      const filtered = data.replace(/\x1b\[\??[>0-9;]*[cR]/g, "");
-      if (filtered) {
-        PtyIPC.write(id, filtered).catch(console.error);
-      }
+    const themeObserver = new MutationObserver(() => {
+      terminal.options.theme = terminalTheme(document.documentElement.classList.contains("dark"));
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
     });
 
-    let resizeTimeout: ReturnType<typeof setTimeout>;
-    const onResizeDisposable = term.onResize(({ cols, rows }) => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        PtyIPC.resize(id, rows, cols).catch(console.error);
-      }, 100);
-    });
-
-    // 监听深浅色模式切换
-    const observer = new MutationObserver(() => {
-      if (xtermRef.current) {
-        const dark = document.documentElement.classList.contains("dark");
-        xtermRef.current.options.theme = getModernTheme(dark);
-      }
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    const resizeObserver = new ResizeObserver(fit);
+    resizeObserver.observe(host);
 
     return () => {
-      clearTimeout(resizeTimeout);
-      observer.disconnect();
-      onDataDisposable.dispose();
-      onResizeDisposable.dispose();
-      fitAddonRef.current?.dispose();
-      webglAddonRef.current?.dispose();
-      term.dispose();
+      resizeObserver.disconnect();
+      themeObserver.disconnect();
+      dataDisposable.dispose();
+      resizeDisposable.dispose();
+      fitAddon.dispose();
+      terminal.dispose();
+      terminalRef.current = null;
+      fitAddonRef.current = null;
     };
-  }, [id, terminalSettings.fontSize, terminalSettings.cursorBlink]);
+  }, [id]);
 
   useEffect(() => {
-    let unlistenFn: (() => void) | null = null;
-    let isMounted = true;
+    const loadSettings = async () => {
+      const config = await UserConfigStore.get();
+      const terminal = terminalRef.current;
+      if (!terminal) return;
+      terminal.options.fontSize = config.terminalFontSize || 13;
+      terminal.options.cursorBlink = config.terminalCursorBlink !== false;
+      fitAddonRef.current?.fit();
+    };
+    void loadSettings();
+    return EventBus.on("settings:terminal-changed", () => void loadSettings());
+  }, []);
 
-    const setupPty = async () => {
-      if (isSpawned || isSpawningRef.current) return;
-      isSpawningRef.current = true;
+  useEffect(() => {
+    let disposed = false;
+    // 每次挂载时递增代号，用于在清理时判断是否为当代管理者
+    const currentGeneration = ++generationRef.current;
+    let unlistenOutput: (() => void) | undefined;
+    let unlistenExit: (() => void) | undefined;
+
+    const start = async () => {
       try {
-        const config = await WorkspaceStore.get();
-        const cwd = customCwd || config.lastOpenedPath || ".";
-
-        const unlisten = await listen<{ id: string; data: string }>("pty-output", (event) => {
-          if (event.payload.id === id && xtermRef.current) {
-            const decoded = atob(event.payload.data);
-            const arr = new Uint8Array(decoded.length);
-            for (let i = 0; i < decoded.length; i++) {
-              arr[i] = decoded.charCodeAt(i);
-            }
-            xtermRef.current.write(arr);
+        unlistenOutput = await listen<PtyOutputPayload>("pty-output", ({ payload }) => {
+          if (payload.id !== id || disposed) return;
+          try {
+            terminalRef.current?.write(decodeBase64(payload.data));
+          } catch (error) {
+            console.error("Unable to decode terminal output", error);
           }
         });
 
-        if (!isMounted) {
-          unlisten();
-          return;
-        }
-        unlistenFn = unlisten;
+        // 每次 await 后检查 disposed，防止 StrictMode 第一轮挂载在异步等待期
+        // 已被卸载但仍继续执行到 spawn 导致双进程
+        if (disposed) return;
+
+        unlistenExit = await listen<PtyExitPayload>("pty-exit", ({ payload }) => {
+          if (payload.id !== id || disposed) return;
+          // 守卫：只处理真正已启动的会话退出，忽略旧会话清理产生的幽灵 exit 事件
+          if (!spawnedRef.current) return;
+          setStatus("exited");
+          terminalRef.current?.writeln(`\r\n\x1b[90m[Aurona Terminal] ${payload.reason}\x1b[0m`);
+        });
+
+        if (disposed) return;
+
+        const config = await WorkspaceStore.get();
+        const cwd = customCwd || config.lastOpenedPath || ".";
+
+        if (disposed) return;
 
         await PtyIPC.spawn(id, cwd, shellProfile?.path);
-        if (isMounted) setIsSpawned(true);
+        if (disposed) {
+          // 只有当代管理者才可以关闭会话，防止误杀新挂载创建的会话
+          if (generationRef.current === currentGeneration) {
+            await PtyIPC.close(id);
+          }
+          return;
+        }
+        spawnedRef.current = true;
+        setStatus("ready");
+        const terminal = terminalRef.current;
+        if (terminal && terminal.cols > 0 && terminal.rows > 0) {
+          await PtyIPC.resize(id, terminal.rows, terminal.cols);
+        }
       } catch (error) {
-        console.error("Failed to spawn PTY", error);
-        if (isMounted)
-          xtermRef.current?.write(
-            `\x1b[31m[Aurona PTY Engine] Failed to spawn terminal: ${error}\x1b[0m\r\n`,
-          );
-      } finally {
-        if (isMounted) isSpawningRef.current = false;
+        console.error("Failed to start PTY", error);
+        setStatus("error");
+        terminalRef.current?.writeln(`\x1b[31m[Aurona Terminal] ${String(error)}\x1b[0m`);
       }
     };
 
-    setupPty();
-
+    void start();
     return () => {
-      isMounted = false;
-      if (unlistenFn) unlistenFn();
-      PtyIPC.close(id).catch(console.error);
-    };
-  }, [id, isSpawned, shellProfile]);
-
-  useEffect(() => {
-    if (isActive && fitAddonRef.current) {
-      const timeoutId = setTimeout(() => {
-        try {
-          fitAddonRef.current?.fit();
-        } catch (e) {}
-      }, 50);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [isActive]);
-
-  useEffect(() => {
-    if (!terminalRef.current) return;
-    const observer = new ResizeObserver(() => {
-      if (isActive && fitAddonRef.current) {
-        try {
-          fitAddonRef.current.fit();
-        } catch (e) {}
+      disposed = true;
+      unlistenOutput?.();
+      unlistenExit?.();
+      // generation 守卫：只有当代管理者才能关闭会话
+      // 防止 React StrictMode 第一次挂载的清理函数误杀第二次挂载创建的会话
+      if (spawnedRef.current && generationRef.current === currentGeneration) {
+        spawnedRef.current = false;
+        void PtyIPC.close(id).catch(console.error);
       }
-    });
-    observer.observe(terminalRef.current);
-    return () => observer.disconnect();
+    };
+  }, [customCwd, id, shellProfile?.path]);
+
+  useEffect(() => {
+    if (!isActive) return;
+    const timer = window.setTimeout(() => fitAddonRef.current?.fit(), 0);
+    return () => window.clearTimeout(timer);
   }, [isActive]);
 
   return (
     <ContextMenuRoot>
       <ContextMenuTrigger asChild>
-        <div className="h-full w-full overflow-hidden relative">
-          <style>{`
-            .xterm, .xterm-viewport, .xterm-screen, .xterm-text-layer, .xterm-selection-layer {
-              user-select: text !important;
-              -webkit-user-select: text !important;
-            }
-            .xterm-viewport::-webkit-scrollbar {
-              width: 12px;
-              height: 12px;
-            }
-            .xterm-viewport::-webkit-scrollbar-track {
-              background: transparent;
-            }
-            .xterm-viewport::-webkit-scrollbar-thumb {
-              background-color: var(--GlassBorder);
-              border-radius: 10px;
-              border: 3px solid transparent;
-              background-clip: padding-box;
-            }
-            .xterm-viewport::-webkit-scrollbar-thumb:hover {
-              background-color: var(--TextMuted);
-            }
-          `}</style>
-          <div ref={terminalRef} className="h-full w-full p-2" />
+        <div className="terminal-host relative h-full w-full overflow-hidden bg-transparent">
+          {/* xterm 自定义滚动条，与 GlassManager 主题变量联动 */}
+          <style>{XTERM_SCROLLBAR_STYLE}</style>
+          {status !== "ready" && (
+            <span className="pointer-events-none absolute right-3 top-2 z-10 text-[11px] text-[var(--TextMuted)]">
+              {status === "starting"
+                ? "正在启动终端…"
+                : status === "exited"
+                  ? "终端已退出"
+                  : "终端启动失败"}
+            </span>
+          )}
+          <div ref={hostRef} className="h-full w-full p-2" />
         </div>
       </ContextMenuTrigger>
-
       <ContextMenuContent>
-        <ContextMenuItem
-          label="全选"
-          onSelect={() => {
-            xtermRef.current?.selectAll();
-          }}
-        />
+        <ContextMenuItem label="全选" onSelect={() => terminalRef.current?.selectAll()} />
         <ContextMenuItem
           label="复制"
           onSelect={() => {
-            if (xtermRef.current?.hasSelection()) {
-              navigator.clipboard.writeText(xtermRef.current.getSelection());
-              xtermRef.current.clearSelection();
-            }
+            const terminal = terminalRef.current;
+            if (!terminal?.hasSelection()) return;
+            void navigator.clipboard.writeText(terminal.getSelection());
+            terminal.clearSelection();
           }}
         />
         <ContextMenuItem
           label="粘贴"
-          onSelect={() => {
-            navigator.clipboard.readText().then((text) => {
-              PtyIPC.write(id, text).catch(console.error);
-            });
-          }}
+          onSelect={() =>
+            void navigator.clipboard.readText().then((text) => PtyIPC.write(id, text))
+          }
         />
         <ContextMenuDivider />
-        <ContextMenuItem
-          label="清除输出"
-          onSelect={() => {
-            xtermRef.current?.clear();
-          }}
-        />
+        <ContextMenuItem label="清除显示" onSelect={() => terminalRef.current?.clear()} />
       </ContextMenuContent>
     </ContextMenuRoot>
   );

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { useState, useCallback, useMemo, useRef, } from "react";
 import type { EditorStatus, EditorStatusListener } from "../../../Foundation/Types/Editor";
 
 export function useEditorSelection(content: string, path?: string, language?: string) {

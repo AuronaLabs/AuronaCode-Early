@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { BaseDirectory, remove, stat } from "@tauri-apps/plugin-fs";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { GitIPC } from "../../Foundation/IPC/GitCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
@@ -31,7 +31,6 @@ export function SettingsTab() {
 
   const [editorFontSize, setEditorFontSize] = useState("14");
   const [editorWordWrap, setEditorWordWrap] = useState("on");
-  const [editorMinimap, setEditorMinimap] = useState("true");
 
   const [terminalFontSize, setTerminalFontSize] = useState("13");
   const [terminalCursorBlink, setTerminalCursorBlink] = useState("true");
@@ -45,7 +44,6 @@ export function SettingsTab() {
       const savedTerminalFont = config.terminalFontSize?.toString() || "13";
       setEditorFontSize(savedEditorFont);
       setEditorWordWrap(config.editorWordWrap || "on");
-      setEditorMinimap(config.editorMinimap !== false ? "true" : "false");
 
       setTerminalFontSize(savedTerminalFont);
       setTerminalCursorBlink(config.terminalCursorBlink !== false ? "true" : "false");
@@ -77,15 +75,13 @@ export function SettingsTab() {
     WorkspaceStore.getCached()?.lastOpenedPath || null,
   );
   const [remoteUrl, setRemoteUrl] = useState("");
-  const [username, setUsername] = useState("");
-  const [token, setToken] = useState("");
   const [isSavingGit, setIsSavingGit] = useState(false);
-  const [isGitLoading, setIsGitLoading] = useState(true);
+  const [_isGitLoading, setIsGitLoading] = useState(true);
 
   const [configSize, setConfigSize] = useState("0 B");
   const [workspaceSize, setWorkspaceSize] = useState("0 B");
   const [otherDataSize, setOtherDataSize] = useState("0 B");
-  const [appDataSize, setAppDataSize] = useState("0 B");
+  const [_appDataSize, setAppDataSize] = useState("0 B");
   const [logSize, setLogSize] = useState("0 B");
   const [rawConfigSize, setRawConfigSize] = useState(0);
   const [rawWorkspaceSize, setRawWorkspaceSize] = useState(0);
@@ -94,15 +90,15 @@ export function SettingsTab() {
   const [rawLogSize, setRawLogSize] = useState(0);
   const [isClearing, setIsClearing] = useState<string | null>(null);
 
-  const formatBytes = (bytes: number) => {
+  const formatBytes = useCallback((bytes: number) => {
     if (bytes === 0) return "0 B";
     const k = 1024;
     const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / k ** i).toFixed(1)) + " " + sizes[i];
-  };
+    return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
+  }, []);
 
-  const loadStorageSizes = async () => {
+  const loadStorageSizes = useCallback(async () => {
     let cSize = 0;
     let wSize = 0;
     try {
@@ -141,18 +137,19 @@ export function SettingsTab() {
       setLogSize("0 B");
       setRawLogSize(0);
     }
-  };
+  }, [formatBytes]);
 
   useEffect(() => {
     if (activeSection === "storage") {
       loadStorageSizes();
     }
-  }, [activeSection]);
+  }, [activeSection, loadStorageSizes]);
 
   const handleClearConfig = async () => {
     setIsClearing("config");
     try {
       await remove("user-config.json", { baseDir: BaseDirectory.AppLocalData });
+      UserConfigStore.resetCache();
       showToast("用户配置文件已清除，重启后恢复默认", "success");
       loadStorageSizes();
     } catch (e) {
@@ -166,6 +163,7 @@ export function SettingsTab() {
     setIsClearing("workspace");
     try {
       await remove("workspace.json", { baseDir: BaseDirectory.AppLocalData });
+      WorkspaceStore.resetCache();
       localStorage.clear();
       showToast("工作区缓存已清理，重启后将重置界面布局", "success");
       loadStorageSizes();
@@ -193,11 +191,10 @@ export function SettingsTab() {
   const handleClearLogs = async () => {
     setIsClearing("logs");
     try {
-      await remove("app.log", { baseDir: BaseDirectory.AppLog });
-      setLogSize("0 B");
-      setRawLogSize(0);
+      await invoke("clear_app_logs");
+      await loadStorageSizes();
       showToast("运行日志已清理完毕", "success");
-    } catch (e) {
+    } catch (_e) {
       showToast(`没有发现可清理的日志`, "warning");
     } finally {
       setIsClearing(null);
@@ -217,8 +214,6 @@ export function SettingsTab() {
           if (url) {
             try {
               const urlObj = new URL(url);
-              if (urlObj.username) setUsername(decodeURIComponent(urlObj.username));
-              if (urlObj.password) setToken(decodeURIComponent(urlObj.password));
               urlObj.username = "";
               urlObj.password = "";
               setRemoteUrl(urlObj.toString());
@@ -245,14 +240,18 @@ export function SettingsTab() {
     }
     setIsSavingGit(true);
     try {
-      let finalUrl = remoteUrl.trim();
-      if (username.trim() && token.trim()) {
-        try {
-          const urlObj = new URL(finalUrl);
-          urlObj.username = encodeURIComponent(username.trim());
-          urlObj.password = encodeURIComponent(token.trim());
-          finalUrl = urlObj.toString();
-        } catch {}
+      const finalUrl = remoteUrl.trim();
+      try {
+        const urlObj = new URL(finalUrl);
+        if (urlObj.username || urlObj.password) {
+          showToast(
+            "请使用 Git Credential Manager 或 SSH 密钥管理凭据，不要将凭据写入远程地址",
+            "error",
+          );
+          return;
+        }
+      } catch {
+        // SCP-like SSH remote URLs are valid Git remote URLs and do not expose URL credentials.
       }
       await GitIPC.setRemote(repoPath, finalUrl);
       showToast("远程仓库地址已成功更新", "success");
@@ -312,24 +311,27 @@ export function SettingsTab() {
 
       <div className="flex flex-col gap-2 mt-6">
         <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">视觉效果</h3>
-        <p className="text-[13px] text-[var(--TextMuted)]">调整界面元素的玻璃拟物（毛玻璃）效果强度</p>
+        <p className="text-[13px] text-[var(--TextMuted)]">
+          调整界面元素的玻璃拟物（毛玻璃）效果强度
+        </p>
       </div>
 
       <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm mt-2">
         <div className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--TextHighlight)]">拟物强度</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">配置全局毛玻璃的模糊与透明度</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">
+              配置全局毛玻璃的模糊与透明度
+            </span>
           </div>
-          <Select 
-            value={intensity} 
+          <Select
+            value={intensity}
             onChange={(val: any) => setIntensity(val as GlassIntensity)}
             className="w-[140px] shrink-0"
             options={[
-              { value: "disabled", label: "Disabled (性能模式)" },
               { value: "light", label: "Light (轻微)" },
               { value: "medium", label: "Medium (默认)" },
-              { value: "heavy", label: "Heavy (强烈)" }
+              { value: "heavy", label: "Heavy (强烈)" },
             ]}
           />
         </div>
@@ -388,18 +390,12 @@ export function SettingsTab() {
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--TextHighlight)]">代码缩略图</span>
             <span className="text-[12px] text-[var(--TextMuted)]">
-              在右侧显示代码文件的全局缩略图
+              当前轻量编辑器内核暂不支持缩略图；该选项将在完整实现后再开放
             </span>
           </div>
-          <Switch
-            checked={editorMinimap === "true"}
-            onCheckedChange={(checked) => {
-              const val = checked ? "true" : "false";
-              setEditorMinimap(val);
-              UserConfigStore.set({ editorMinimap: checked });
-              EventBus.emit("settings:editor-changed");
-            }}
-          />
+          <span className="rounded-lg border border-[var(--GlassBorder)] px-3 py-1.5 text-[12px] text-[var(--TextMuted)]">
+            暂不可用
+          </span>
         </div>
       </div>
     </div>
@@ -499,41 +495,9 @@ export function SettingsTab() {
             />
           </div>
 
-          <div className="grid grid-cols-2 border-b border-[var(--GlassBorder)]">
-            <div className="flex flex-col p-5 border-r border-[var(--GlassBorder)] gap-2">
-              <div className="flex flex-col gap-1">
-                <span className="text-[14px] font-medium text-[var(--TextHighlight)]">
-                  用户名 (可选)
-                </span>
-                <span className="text-[12px] text-[var(--TextMuted)]">远程 Git 账户的用户名</span>
-              </div>
-              <Input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Git 用户名"
-                fullWidth
-                className="mt-1"
-              />
-            </div>
-
-            <div className="flex flex-col p-5 gap-2">
-              <div className="flex flex-col gap-1">
-                <span className="text-[14px] font-medium text-[var(--TextHighlight)]">
-                  访问令牌 / 密码
-                </span>
-                <span className="text-[12px] text-[var(--TextMuted)]">
-                  HTTPS 访问凭证 (如 Access Token)
-                </span>
-              </div>
-              <Input
-                value={token}
-                type="password"
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="Token 或 密码"
-                fullWidth
-                className="mt-1"
-              />
-            </div>
+          <div className="border-b border-[var(--GlassBorder)] p-5 text-[12px] leading-relaxed text-[var(--TextMuted)]">
+            凭据由 Git Credential Manager、系统钥匙串或 SSH 密钥管理。Aurona Code
+            不会将用户名、密码或 Token 写入 Git remote URL。
           </div>
 
           <div className="flex items-center justify-between p-5 bg-[var(--GlassSurface-Elevated)] dark:bg-white/2">
@@ -588,7 +552,10 @@ export function SettingsTab() {
 
             <div className="w-full h-3.5 bg-black/10 dark:bg-white/5 rounded-full overflow-hidden flex select-none">
               {totalRawSize === 0 && (
-                <div className="h-full bg-black/20 bg-[var(--GlassSurface-Elevated)]" style={{ width: "100%" }} />
+                <div
+                  className="h-full bg-black/20 bg-[var(--GlassSurface-Elevated)]"
+                  style={{ width: "100%" }}
+                />
               )}
               {rawConfigSize > 0 && (
                 <div

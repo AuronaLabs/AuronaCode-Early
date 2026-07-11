@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useEffect } from "react";
+import { lazy, Suspense, useCallback, useEffect } from "react";
 import { AboutTab } from "../Features/Settings/AboutTab";
 import { SettingsTab } from "../Features/Settings/SettingsTab";
 import { ChangelogTab } from "../Features/Settings/ChangelogTab";
@@ -25,7 +25,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "../UI/Components/DropdownMenu";
-import { showToast } from "../UI/Feedback/Toast";
 import { Tooltip } from "../UI/Feedback/Tooltip";
 import { Icons } from "../UI/Icons/IconManager";
 
@@ -58,11 +57,23 @@ const DiffViewer = lazy(() =>
   import("../Features/SourceControl/DiffViewer").then((m) => ({ default: m.DiffViewer })),
 );
 
-function renderTabContent(tab: TabItem, activeTabId: string | null) {
+function renderTabContent(
+  tab: TabItem,
+  activeTabId: string | null,
+  pendingReveal: { path: string; line: number } | null,
+  clearPendingReveal: (path: string, line: number) => void,
+) {
   let content = null;
   const isActive = activeTabId === tab.id;
   if (tab.type === "file" && tab.path) {
-    content = <EditorTab path={tab.path} isActive={isActive} />;
+    content = (
+      <EditorTab
+        path={tab.path}
+        isActive={isActive}
+        revealLine={pendingReveal?.path === tab.path ? pendingReveal.line : undefined}
+        onRevealHandled={clearPendingReveal}
+      />
+    );
   } else if (tab.type === "about") {
     content = isActive ? <AboutTab /> : null;
   } else if (tab.type === "settings") {
@@ -87,6 +98,8 @@ export function WorkspaceView() {
     openFile,
     closeTab,
     closeTabById,
+    pendingReveal,
+    clearPendingReveal,
   } = useWorkspaceStore();
 
   const {
@@ -203,7 +216,7 @@ export function WorkspaceView() {
                       pointerEvents: activeTabId === tab.id ? "auto" : "none",
                     }}
                   >
-                    {renderTabContent(tab, activeTabId)}
+                    {renderTabContent(tab, activeTabId, pendingReveal, clearPendingReveal)}
                   </div>
                 ))}
               </div>
@@ -410,7 +423,6 @@ export function WorkspaceView() {
                       {editingTerminalId === term.id ? (
                         <input
                           type="text"
-                          autoFocus
                           value={editingName}
                           className="bg-transparent outline-none w-full text-[12px] text-[var(--TextHighlight)]"
                           onChange={(e) => setEditingName(e.target.value)}

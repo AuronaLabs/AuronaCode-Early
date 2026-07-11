@@ -33,7 +33,7 @@ export function UpdateModal() {
       } else if (data.status === "error") {
         setIsUpdating(false);
         setProgressText("");
-        EventBus.emit("app:toast", { type: "error", message: "更新失败: " + data.error });
+        EventBus.emit("app:toast", { type: "error", message: `更新失败: ${data.error}` });
       }
     });
 

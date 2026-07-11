@@ -36,7 +36,7 @@ export class AuronaChannel {
   static createStream(channelId: string) {
     console.log(`[IPC] Initializing data stream for: ${channelId}`);
     return {
-      onMessage: (callback: (data: any) => void) => {
+      onMessage: (_callback: (data: any) => void) => {
         return () => {
           console.log(`[IPC] Unsubscribed from stream: ${channelId}`);
         };

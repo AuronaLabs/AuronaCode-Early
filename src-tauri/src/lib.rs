@@ -52,6 +52,7 @@ pub fn run() {
             commands::ipc::open_devtools,
             commands::ipc::get_app_data_size,
             commands::ipc::get_app_log_size,
+            commands::ipc::clear_app_logs,
             commands::ipc::clear_other_app_data,
             commands::ipc::close_splashscreen,
         ])

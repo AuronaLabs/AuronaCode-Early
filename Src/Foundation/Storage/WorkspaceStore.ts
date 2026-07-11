@@ -69,4 +69,12 @@ export const WorkspaceStore = {
       flush();
     }, 500);
   },
+
+  resetCache(): void {
+    if (this._debounceTimer) clearTimeout(this._debounceTimer);
+    this._debounceTimer = null;
+    memoryCache = null;
+    isWriting = false;
+    pendingWrite = false;
+  },
 };

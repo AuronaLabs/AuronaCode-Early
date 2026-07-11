@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { EventBus } from "../Foundation/EventBus";
-import { appLocalDataDir, join } from "@tauri-apps/api/path";
+import { appLogDir, join } from "@tauri-apps/api/path";
 import { Logger } from "../Foundation/Logger";
 import { Button } from "../UI/Components/Button";
 import { Icons } from "../UI/Icons/IconManager";
@@ -35,8 +35,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private handleCopyLog = async () => {
     try {
-      const appLocalData = await appLocalDataDir();
-      const logPath = await join(appLocalData, "logs", `${Logger.getLogId()}.log`);
+      const logDirectory = await appLogDir();
+      const logPath = await join(logDirectory, "app.log");
       await navigator.clipboard.writeText(logPath);
       alert(`日志地址已复制：${logPath}`);
     } catch {

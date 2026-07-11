@@ -1,0 +1,1035 @@
+﻿diff --git a/Src/Core/TerminalService.ts b/Src/Core/TerminalService.ts
+index e722124..84b2c28 100644
+--- a/Src/Core/TerminalService.ts
++++ b/Src/Core/TerminalService.ts
+@@ -79,7 +79,7 @@ class TerminalServiceImpl {
+     EventBus.emit("app:toggle-terminal", true);
+ 
+     await new Promise<void>((resolve) => setTimeout(resolve, 300));
+-    await PtyIPC.write(targetId, command + "\r\n");
++    await PtyIPC.write(targetId, `${command}\r\n`);
+   }
+ 
+   async clearTerminal(id: string): Promise<void> {
+diff --git a/Src/Features/Terminal/TerminalView.tsx b/Src/Features/Terminal/TerminalView.tsx
+index 75747ea..83d7a0a 100644
+--- a/Src/Features/Terminal/TerminalView.tsx
++++ b/Src/Features/Terminal/TerminalView.tsx
+@@ -1,22 +1,22 @@
+ import { listen } from "@tauri-apps/api/event";
+ import { FitAddon } from "@xterm/addon-fit";
+ import { WebLinksAddon } from "@xterm/addon-web-links";
+-import { WebglAddon } from "@xterm/addon-webgl";
+ import { Terminal } from "@xterm/xterm";
+-import { useEffect, useRef, useState } from "react";
+-import { PtyIPC } from "../../Foundation/IPC/PtyCommands";
+ import "@xterm/xterm/css/xterm.css";
++import { memo, useEffect, useRef, useState } from "react";
+ import type { ShellProfile } from "../../Core/TerminalService";
+ import { EventBus } from "../../Foundation/EventBus";
++import { PtyIPC } from "../../Foundation/IPC/PtyCommands";
+ import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
+ import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
+ import {
+-  ContextMenuRoot,
+-  ContextMenuTrigger,
+   ContextMenuContent,
+-  ContextMenuItem,
+   ContextMenuDivider,
++  ContextMenuItem,
++  ContextMenuRoot,
++  ContextMenuTrigger,
+ } from "../../UI/Components/ContextMenu";
++
+ interface TerminalViewProps {
+   id: string;
+   isActive: boolean;
+@@ -24,310 +24,242 @@ interface TerminalViewProps {
+   cwd?: string;
+ }
+ 
+-const getModernTheme = (isDark: boolean) => {
+-  return isDark
+-    ? {
+-        background: "transparent",
+-        foreground: "#F8F8F2",
+-        cursor: "#BD93F9",
+-        cursorAccent: "#282A36",
+-        selectionBackground: "rgba(189, 147, 249, 0.3)",
+-        black: "#21222C",
+-        red: "#FF5555",
+-        green: "#50FA7B",
+-        yellow: "#F1FA8C",
+-        blue: "#BD93F9",
+-        magenta: "#FF79C6",
+-        cyan: "#8BE9FD",
+-        white: "#F8F8F2",
+-        brightBlack: "#6272A4",
+-        brightRed: "#FF6E6E",
+-        brightGreen: "#69FF94",
+-        brightYellow: "#FFFFA5",
+-        brightBlue: "#D6ACFF",
+-        brightMagenta: "#FF92DF",
+-        brightCyan: "#A4FFFF",
+-        brightWhite: "#FFFFFF",
+-      }
+-    : {
+-        background: "transparent",
+-        foreground: "#383A42",
+-        cursor: "#526FFF",
+-        cursorAccent: "#FAFAFA",
+-        selectionBackground: "rgba(82, 111, 255, 0.2)",
+-        black: "#383A42",
+-        red: "#E45649",
+-        green: "#50A14F",
+-        yellow: "#C18401",
+-        blue: "#4078F2",
+-        magenta: "#A626A4",
+-        cyan: "#0184BC",
+-        white: "#FAFAFA",
+-        brightBlack: "#A0A1A7",
+-        brightRed: "#E45649",
+-        brightGreen: "#50A14F",
+-        brightYellow: "#C18401",
+-        brightBlue: "#4078F2",
+-        brightMagenta: "#A626A4",
+-        brightCyan: "#0184BC",
+-        brightWhite: "#FFFFFF",
+-      };
+-};
++interface PtyOutputPayload {
++  id: string;
++  data: string;
++}
++
++interface PtyExitPayload {
++  id: string;
++  reason: string;
++}
++
++const terminalTheme = (isDark: boolean) => ({
++  background: "#00000000",
++  foreground: isDark ? "#E6EDF3" : "#1F2937",
++  cursor: isDark ? "#A78BFA" : "#4F46E5",
++  cursorAccent: isDark ? "#111827" : "#FFFFFF",
++  selectionBackground: isDark ? "#A78BFA55" : "#4F46E533",
++  black: isDark ? "#111827" : "#1F2937",
++  red: "#EF4444",
++  green: "#22C55E",
++  yellow: "#EAB308",
++  blue: "#3B82F6",
++  magenta: "#A855F7",
++  cyan: "#06B6D4",
++  white: isDark ? "#E5E7EB" : "#F9FAFB",
++  brightBlack: isDark ? "#94A3B8" : "#6B7280",
++  brightRed: "#F87171",
++  brightGreen: "#4ADE80",
++  brightYellow: "#FACC15",
++  brightBlue: "#60A5FA",
++  brightMagenta: "#C084FC",
++  brightCyan: "#22D3EE",
++  brightWhite: "#FFFFFF",
++});
+ 
+-import React from "react";
+-export const TerminalView = React.memo(function TerminalView({
++function decodeBase64(data: string): Uint8Array {
++  const decoded = atob(data);
++  return Uint8Array.from(decoded, (character) => character.charCodeAt(0));
++}
++
++export const TerminalView = memo(function TerminalView({
+   id,
+   isActive,
+   shellProfile,
+   cwd: customCwd,
+ }: TerminalViewProps) {
+-  const terminalRef = useRef<HTMLDivElement>(null);
+-  const xtermRef = useRef<Terminal | null>(null);
++  const hostRef = useRef<HTMLDivElement>(null);
++  const terminalRef = useRef<Terminal | null>(null);
+   const fitAddonRef = useRef<FitAddon | null>(null);
+-  const webglAddonRef = useRef<WebglAddon | null>(null);
+-  const [isSpawned, setIsSpawned] = useState(false);
+-  const isSpawningRef = useRef(false);
+-
+-  const [terminalSettings, setTerminalSettings] = useState({
+-    fontSize: 13,
+-    cursorBlink: true,
+-  });
+-
+-  useEffect(() => {
+-    const loadSettings = async () => {
+-      const config = await UserConfigStore.get();
+-      setTerminalSettings({
+-        fontSize: config.terminalFontSize || 13,
+-        cursorBlink: config.terminalCursorBlink !== false,
+-      });
+-    };
+-    loadSettings();
+-
+-    const handleSettingsChange = () => loadSettings();
+-    return EventBus.on("settings:terminal-changed", handleSettingsChange);
+-  }, []);
++  const spawnedRef = useRef(false);
++  const [status, setStatus] = useState<"starting" | "ready" | "exited" | "error">("starting");
+ 
+   useEffect(() => {
+-    if (!terminalRef.current) return;
++    const host = hostRef.current;
++    if (!host) return;
+ 
+-    const isDark = document.documentElement.classList.contains("dark");
+-
+-    const term = new Terminal({
+-      cursorBlink: terminalSettings.cursorBlink,
+-      fontSize: terminalSettings.fontSize,
+-      fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
++    const terminal = new Terminal({
+       allowTransparency: true,
+-      theme: getModernTheme(isDark),
++      convertEol: true,
++      cursorBlink: true,
++      fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
++      fontSize: 13,
+       rightClickSelectsWord: true,
++      scrollback: 10_000,
++      theme: terminalTheme(document.documentElement.classList.contains("dark")),
+     });
+-
+     const fitAddon = new FitAddon();
+-    term.loadAddon(fitAddon);
+-    term.loadAddon(new WebLinksAddon());
+-
+-    term.open(terminalRef.current);
+-
+-    try {
+-      const webglAddon = new WebglAddon();
+-      webglAddon.onContextLoss(() => webglAddon.dispose());
+-      term.loadAddon(webglAddon);
+-      webglAddonRef.current = webglAddon;
+-    } catch (e) {
+-      console.warn("WebGL addon could not be loaded, falling back to DOM/Canvas render", e);
+-    }
+-
+-    fitAddon.fit();
++    terminal.loadAddon(fitAddon);
++    terminal.loadAddon(new WebLinksAddon());
++    terminal.open(host);
++    terminalRef.current = terminal;
++    fitAddonRef.current = fitAddon;
+ 
+-    term.attachCustomKeyEventHandler((e) => {
+-      if ((e.ctrlKey || e.metaKey) && e.type === "keydown") {
+-        if (e.code === "KeyC" && term.hasSelection()) {
+-          navigator.clipboard.writeText(term.getSelection());
+-          term.clearSelection();
+-          return false;
+-        }
+-        if (e.code === "KeyV") {
+-          navigator.clipboard.readText().then((text) => {
+-            PtyIPC.write(id, text).catch(console.error);
+-          });
+-          return false;
++    const fit = () => {
++      try {
++        fitAddon.fit();
++        if (terminal.cols > 0 && terminal.rows > 0) {
++          void PtyIPC.resize(id, terminal.rows, terminal.cols).catch(console.error);
+         }
++      } catch (error) {
++        console.warn("Unable to fit terminal", error);
+       }
+-      return true;
+-    });
+-
+-    xtermRef.current = term;
+-    fitAddonRef.current = fitAddon;
++    };
++    requestAnimationFrame(fit);
+ 
+-    const onDataDisposable = term.onData((data) => {
+-      const filtered = data.replace(/\x1b\[\??[>0-9;]*[cR]/g, "");
+-      if (filtered) {
+-        PtyIPC.write(id, filtered).catch(console.error);
++    const dataDisposable = terminal.onData((data) => {
++      void PtyIPC.write(id, data).catch((error) => {
++        terminal.writeln(`\x1b[31m[Aurona Terminal] Input failed: ${String(error)}\x1b[0m`);
++      });
++    });
++    const resizeDisposable = terminal.onResize(({ cols, rows }) => {
++      void PtyIPC.resize(id, rows, cols).catch(console.error);
++    });
++    terminal.attachCustomKeyEventHandler((event) => {
++      if (!(event.ctrlKey || event.metaKey) || event.type !== "keydown") return true;
++      if (event.code === "KeyC" && terminal.hasSelection()) {
++        void navigator.clipboard.writeText(terminal.getSelection());
++        terminal.clearSelection();
++        return false;
+       }
++      if (event.code === "KeyV") {
++        void navigator.clipboard.readText().then((text) => PtyIPC.write(id, text));
++        return false;
++      }
++      return true;
+     });
+ 
+-    let resizeTimeout: ReturnType<typeof setTimeout>;
+-    const onResizeDisposable = term.onResize(({ cols, rows }) => {
+-      clearTimeout(resizeTimeout);
+-      resizeTimeout = setTimeout(() => {
+-        PtyIPC.resize(id, rows, cols).catch(console.error);
+-      }, 100);
++    const themeObserver = new MutationObserver(() => {
++      terminal.options.theme = terminalTheme(document.documentElement.classList.contains("dark"));
+     });
+-
+-    // 鐩戝惉娣辨祬鑹叉ā寮忓垏鎹?-    const observer = new MutationObserver(() => {
+-      if (xtermRef.current) {
+-        const dark = document.documentElement.classList.contains("dark");
+-        xtermRef.current.options.theme = getModernTheme(dark);
+-      }
++    themeObserver.observe(document.documentElement, {
++      attributes: true,
++      attributeFilter: ["class"],
+     });
+-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
++
++    const resizeObserver = new ResizeObserver(fit);
++    resizeObserver.observe(host);
+ 
+     return () => {
+-      clearTimeout(resizeTimeout);
+-      observer.disconnect();
+-      onDataDisposable.dispose();
+-      onResizeDisposable.dispose();
+-      fitAddonRef.current?.dispose();
+-      webglAddonRef.current?.dispose();
+-      term.dispose();
++      resizeObserver.disconnect();
++      themeObserver.disconnect();
++      dataDisposable.dispose();
++      resizeDisposable.dispose();
++      fitAddon.dispose();
++      terminal.dispose();
++      terminalRef.current = null;
++      fitAddonRef.current = null;
++    };
++  }, [id]);
++
++  useEffect(() => {
++    const loadSettings = async () => {
++      const config = await UserConfigStore.get();
++      const terminal = terminalRef.current;
++      if (!terminal) return;
++      terminal.options.fontSize = config.terminalFontSize || 13;
++      terminal.options.cursorBlink = config.terminalCursorBlink !== false;
++      fitAddonRef.current?.fit();
+     };
+-  }, [id, terminalSettings.fontSize, terminalSettings.cursorBlink]);
++    void loadSettings();
++    return EventBus.on("settings:terminal-changed", () => void loadSettings());
++  }, []);
+ 
+   useEffect(() => {
+-    let unlistenFn: (() => void) | null = null;
+-    let isMounted = true;
++    let disposed = false;
++    let unlistenOutput: (() => void) | undefined;
++    let unlistenExit: (() => void) | undefined;
+ 
+-    const setupPty = async () => {
+-      if (isSpawned || isSpawningRef.current) return;
+-      isSpawningRef.current = true;
++    const start = async () => {
+       try {
+-        const config = await WorkspaceStore.get();
+-        const cwd = customCwd || config.lastOpenedPath || ".";
+-
+-        const unlisten = await listen<{ id: string; data: string }>("pty-output", (event) => {
+-          if (event.payload.id === id && xtermRef.current) {
+-            const decoded = atob(event.payload.data);
+-            const arr = new Uint8Array(decoded.length);
+-            for (let i = 0; i < decoded.length; i++) {
+-              arr[i] = decoded.charCodeAt(i);
+-            }
+-            xtermRef.current.write(arr);
++        unlistenOutput = await listen<PtyOutputPayload>("pty-output", ({ payload }) => {
++          if (payload.id !== id || disposed) return;
++          try {
++            terminalRef.current?.write(decodeBase64(payload.data));
++          } catch (error) {
++            console.error("Unable to decode terminal output", error);
+           }
+         });
++        unlistenExit = await listen<PtyExitPayload>("pty-exit", ({ payload }) => {
++          if (payload.id !== id || disposed) return;
++          setStatus("exited");
++          terminalRef.current?.writeln(`\r\n\x1b[90m[Aurona Terminal] ${payload.reason}\x1b[0m`);
++        });
+ 
+-        if (!isMounted) {
+-          unlisten();
++        const config = await WorkspaceStore.get();
++        const cwd = customCwd || config.lastOpenedPath || ".";
++        await PtyIPC.spawn(id, cwd, shellProfile?.path);
++        if (disposed) {
++          await PtyIPC.close(id);
+           return;
+         }
+-        unlistenFn = unlisten;
+-
+-        await PtyIPC.spawn(id, cwd, shellProfile?.path);
+-        if (isMounted) setIsSpawned(true);
++        spawnedRef.current = true;
++        setStatus("ready");
++        const terminal = terminalRef.current;
++        if (terminal && terminal.cols > 0 && terminal.rows > 0) {
++          await PtyIPC.resize(id, terminal.rows, terminal.cols);
++        }
+       } catch (error) {
+-        console.error("Failed to spawn PTY", error);
+-        if (isMounted)
+-          xtermRef.current?.write(
+-            `\x1b[31m[Aurona PTY Engine] Failed to spawn terminal: ${error}\x1b[0m\r\n`,
+-          );
+-      } finally {
+-        if (isMounted) isSpawningRef.current = false;
++        console.error("Failed to start PTY", error);
++        setStatus("error");
++        terminalRef.current?.writeln(`\x1b[31m[Aurona Terminal] ${String(error)}\x1b[0m`);
+       }
+     };
+ 
+-    setupPty();
+-
++    void start();
+     return () => {
+-      isMounted = false;
+-      if (unlistenFn) unlistenFn();
+-      PtyIPC.close(id).catch(console.error);
++      disposed = true;
++      unlistenOutput?.();
++      unlistenExit?.();
++      if (spawnedRef.current) {
++        spawnedRef.current = false;
++        void PtyIPC.close(id).catch(console.error);
++      }
+     };
+-  }, [id, isSpawned, shellProfile]);
++  }, [customCwd, id, shellProfile?.path]);
+ 
+   useEffect(() => {
+-    if (isActive && fitAddonRef.current) {
+-      const timeoutId = setTimeout(() => {
+-        try {
+-          fitAddonRef.current?.fit();
+-        } catch (e) {}
+-      }, 50);
+-      return () => clearTimeout(timeoutId);
+-    }
+-  }, [isActive]);
+-
+-  useEffect(() => {
+-    if (!terminalRef.current) return;
+-    const observer = new ResizeObserver(() => {
+-      if (isActive && fitAddonRef.current) {
+-        try {
+-          fitAddonRef.current.fit();
+-        } catch (e) {}
+-      }
+-    });
+-    observer.observe(terminalRef.current);
+-    return () => observer.disconnect();
++    if (!isActive) return;
++    const timer = window.setTimeout(() => fitAddonRef.current?.fit(), 0);
++    return () => window.clearTimeout(timer);
+   }, [isActive]);
+ 
+   return (
+     <ContextMenuRoot>
+       <ContextMenuTrigger asChild>
+-        <div className="h-full w-full overflow-hidden relative">
+-          <style>{`
+-            .xterm, .xterm-viewport, .xterm-screen, .xterm-text-layer, .xterm-selection-layer {
+-              user-select: text !important;
+-              -webkit-user-select: text !important;
+-            }
+-            .xterm-viewport::-webkit-scrollbar {
+-              width: 12px;
+-              height: 12px;
+-            }
+-            .xterm-viewport::-webkit-scrollbar-track {
+-              background: transparent;
+-            }
+-            .xterm-viewport::-webkit-scrollbar-thumb {
+-              background-color: var(--GlassBorder);
+-              border-radius: 10px;
+-              border: 3px solid transparent;
+-              background-clip: padding-box;
+-            }
+-            .xterm-viewport::-webkit-scrollbar-thumb:hover {
+-              background-color: var(--TextMuted);
+-            }
+-          `}</style>
+-          <div ref={terminalRef} className="h-full w-full p-2" />
++        <div className="terminal-host relative h-full w-full overflow-hidden bg-transparent">
++          {status !== "ready" && (
++            <span className="pointer-events-none absolute right-3 top-2 z-10 text-[11px] text-[var(--TextMuted)]">
++              {status === "starting"
++                ? "姝ｅ湪鍚姩缁堢鈥?
++                : status === "exited"
++                  ? "缁堢宸查€€鍑?
++                  : "缁堢鍚姩澶辫触"}
++            </span>
++          )}
++          <div ref={hostRef} className="h-full w-full p-2" />
+         </div>
+       </ContextMenuTrigger>
+-
+       <ContextMenuContent>
+-        <ContextMenuItem
+-          label="鍏ㄩ€?
+-          onSelect={() => {
+-            xtermRef.current?.selectAll();
+-          }}
+-        />
++        <ContextMenuItem label="鍏ㄩ€? onSelect={() => terminalRef.current?.selectAll()} />
+         <ContextMenuItem
+           label="澶嶅埗"
+           onSelect={() => {
+-            if (xtermRef.current?.hasSelection()) {
+-              navigator.clipboard.writeText(xtermRef.current.getSelection());
+-              xtermRef.current.clearSelection();
+-            }
++            const terminal = terminalRef.current;
++            if (!terminal?.hasSelection()) return;
++            void navigator.clipboard.writeText(terminal.getSelection());
++            terminal.clearSelection();
+           }}
+         />
+         <ContextMenuItem
+           label="绮樿创"
+-          onSelect={() => {
+-            navigator.clipboard.readText().then((text) => {
+-              PtyIPC.write(id, text).catch(console.error);
+-            });
+-          }}
++          onSelect={() =>
++            void navigator.clipboard.readText().then((text) => PtyIPC.write(id, text))
++          }
+         />
+         <ContextMenuDivider />
+-        <ContextMenuItem
+-          label="娓呴櫎杈撳嚭"
+-          onSelect={() => {
+-            xtermRef.current?.clear();
+-          }}
+-        />
++        <ContextMenuItem label="娓呴櫎鏄剧ず" onSelect={() => terminalRef.current?.clear()} />
+       </ContextMenuContent>
+     </ContextMenuRoot>
+   );
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+index 9095a4f..8b4ca13 100644
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -52,6 +52,7 @@ pub fn run() {
+             commands::ipc::open_devtools,
+             commands::ipc::get_app_data_size,
+             commands::ipc::get_app_log_size,
++            commands::ipc::clear_app_logs,
+             commands::ipc::clear_other_app_data,
+             commands::ipc::close_splashscreen,
+         ])
+diff --git a/src-tauri/src/pty.rs b/src-tauri/src/pty.rs
+index 2863efc..cbaef3b 100644
+--- a/src-tauri/src/pty.rs
++++ b/src-tauri/src/pty.rs
+@@ -1,43 +1,54 @@
+ use base64::prelude::*;
+ use dashmap::DashMap;
+-use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
++use portable_pty::{Child, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem};
+ use serde::Serialize;
+ use std::io::{Read, Write};
++use std::path::Path;
+ use std::sync::atomic::{AtomicBool, Ordering};
+ use std::sync::{Arc, Mutex, OnceLock};
+ use std::thread;
+ use tauri::{AppHandle, Emitter, State};
+ use ts_rs::TS;
+ 
+-// 浠诲姟 C锛歋hell 鍒楄〃鍏ㄥ眬缂撳瓨锛屽彧鍒濆鍖栦竴娆? static SHELL_CACHE: OnceLock<Vec<ShellProfile>> = OnceLock::new();
+ 
+-pub struct PtyState {
+-    pub writers: DashMap<String, Mutex<Box<dyn Write + Send>>>,
+-    pub master_ptys: DashMap<String, Mutex<Box<dyn portable_pty::MasterPty + Send>>>,
+-    // 浠诲姟 A锛氬瓨鍌ㄥ瓙杩涚▼鍙ユ焺锛岀敤浜?close_pty 鏃舵纭洖鏀?-    pub children: DashMap<String, Box<dyn portable_pty::Child + Send + Sync>>,
+-    // 浠诲姟 B锛氳绾跨▼鍋滄鏍囧織
+-    pub stop_flags: DashMap<String, Arc<AtomicBool>>,
++struct PtySession {
++    writer: Mutex<Option<Box<dyn Write + Send>>>,
++    master: Mutex<Option<Box<dyn MasterPty + Send>>>,
++    child: Mutex<Option<Box<dyn Child + Send + Sync>>>,
++    closed: AtomicBool,
+ }
+ 
+-impl PtyState {
+-    pub fn new() -> Self {
+-        Self {
+-            writers: DashMap::new(),
+-            master_ptys: DashMap::new(),
+-            children: DashMap::new(),
+-            stop_flags: DashMap::new(),
++impl PtySession {
++    fn shutdown(&self) {
++        if self.closed.swap(true, Ordering::SeqCst) {
++            return;
++        }
++        self.writer.lock().ok().and_then(|mut writer| writer.take());
++        self.master.lock().ok().and_then(|mut master| master.take());
++        if let Ok(mut child) = self.child.lock() {
++            if let Some(mut child) = child.take() {
++                let _ = child.kill();
++                let _ = child.wait();
++            }
+         }
+     }
+ }
+ 
+-// Ensure orphaned PTY child processes are cleaned up when the app is shut down
+-impl Drop for PtyState {
++impl Drop for PtySession {
+     fn drop(&mut self) {
+-        for mut child in self.children.iter_mut() {
+-            let _ = child.value_mut().kill();
+-            let _ = child.value_mut().wait();
++        self.shutdown();
++    }
++}
++
++pub struct PtyState {
++    sessions: Arc<DashMap<String, Arc<PtySession>>>,
++}
++
++impl PtyState {
++    pub fn new() -> Self {
++        Self {
++            sessions: Arc::new(DashMap::new()),
+         }
+     }
+ }
+@@ -57,6 +68,37 @@ struct PtyOutputPayload {
+     data: String,
+ }
+ 
++#[derive(Clone, Serialize)]
++struct PtyExitPayload {
++    id: String,
++    reason: String,
++}
++
++fn available_shells() -> &'static Vec<ShellProfile> {
++    SHELL_CACHE.get_or_init(get_available_shells)
++}
++
++fn shell_command(shell_path: Option<String>) -> Result<(String, CommandBuilder), String> {
++    #[cfg(target_os = "windows")]
++    let default_shell = "powershell.exe";
++    #[cfg(not(target_os = "windows"))]
++    let default_shell = "/bin/bash";
++
++    let shell = shell_path.unwrap_or_else(|| default_shell.to_string());
++    let profile = available_shells()
++        .iter()
++        .find(|profile| profile.path.eq_ignore_ascii_case(&shell))
++        .ok_or_else(|| format!("Unsupported terminal shell: {shell}"))?;
++
++    let mut command = CommandBuilder::new(&profile.path);
++    match profile.id.as_str() {
++        "powershell" | "pwsh" => command.args(["-NoLogo"]),
++        "git-bash" => command.args(["--login", "-i"]),
++        _ => {}
++    }
++    Ok((profile.name.clone(), command))
++}
++
+ #[tauri::command]
+ pub fn spawn_pty(
+     id: String,
+@@ -65,103 +107,74 @@ pub fn spawn_pty(
+     app: AppHandle,
+     state: State<'_, PtyState>,
+ ) -> Result<(), String> {
+-    let pty_system = NativePtySystem::default();
++    if id.trim().is_empty() {
++        return Err("Terminal id cannot be empty".to_string());
++    }
++    if state.sessions.contains_key(&id) {
++        return Err(format!("Terminal session {id} is already running"));
++    }
++    if !Path::new(&cwd).is_dir() {
++        return Err(format!("Terminal working directory does not exist: {cwd}"));
++    }
+ 
+-    let pair = pty_system
++    let (shell_name, mut command) = shell_command(shell_path)?;
++    command.cwd(&cwd);
++
++    let pair = NativePtySystem::default()
+         .openpty(PtySize {
+             rows: 24,
+             cols: 80,
+             pixel_width: 0,
+             pixel_height: 0,
+         })
+-        .map_err(|e| e.to_string())?;
+-
+-    #[cfg(target_os = "windows")]
+-    let default_shell = "powershell.exe".to_string();
+-    #[cfg(not(target_os = "windows"))]
+-    let default_shell = "/bin/bash".to_string();
+-
+-    let shell = shell_path.unwrap_or(default_shell);
+-
+-    // 浠诲姟 C锛氶€氳繃缂撳瓨鑾峰彇 shell 鍒楄〃锛岄伩鍏嶉噸澶嶅垵濮嬪寲
+-    let allowed_shells = SHELL_CACHE.get_or_init(get_available_shells);
+-    let mut is_allowed = false;
+-    for allowed in allowed_shells {
+-        if allowed.path == shell {
+-            is_allowed = true;
+-            break;
+-        }
+-    }
+-    if !is_allowed {
+-        return Err(format!(
+-            "Security Violation: Executable {} is not an allowed shell path.",
+-            shell
+-        ));
+-    }
+-
+-    let mut cmd = CommandBuilder::new(&shell);
+-
+-    // PowerShell 娣诲姞 -NoLogo
+-    if shell.to_lowercase().contains("powershell") || shell.to_lowercase().contains("pwsh") {
+-        cmd.args(["-NoLogo"]);
+-    }
+-
+-    cmd.cwd(cwd);
+-
+-    // 浠诲姟 A锛氬皢 child 瀛樺叆 PtyState
+-    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+-
+-    let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
+-    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+-
+-    state.writers.insert(id.clone(), Mutex::new(writer));
+-    state
+-        .master_ptys
+-        .insert(id.clone(), Mutex::new(pair.master));
+-    state.children.insert(id.clone(), child);
+-
+-    // 浠诲姟 B锛氬垱寤哄仠姝㈡爣蹇楀苟浼犲叆璇荤嚎绋?-    let stop_flag = Arc::new(AtomicBool::new(false));
+-    state.stop_flags.insert(id.clone(), Arc::clone(&stop_flag));
++        .map_err(|error| format!("Unable to allocate PTY: {error}"))?;
++    let child = pair
++        .slave
++        .spawn_command(command)
++        .map_err(|error| format!("Unable to start {shell_name}: {error}"))?;
++    let mut reader = pair
++        .master
++        .try_clone_reader()
++        .map_err(|error| format!("Unable to create PTY reader: {error}"))?;
++    let writer = pair
++        .master
++        .take_writer()
++        .map_err(|error| format!("Unable to create PTY writer: {error}"))?;
++
++    let session = Arc::new(PtySession {
++        writer: Mutex::new(Some(writer)),
++        master: Mutex::new(Some(pair.master)),
++        child: Mutex::new(Some(child)),
++        closed: AtomicBool::new(false),
++    });
++    state.sessions.insert(id.clone(), Arc::clone(&session));
+ 
+-    let id_clone = id.clone();
++    let sessions = Arc::clone(&state.sessions);
+     thread::spawn(move || {
+-        let mut buf = [0u8; 8192];
+-        let mut buffer = Vec::new();
+-        let mut last_emit = std::time::Instant::now();
+-        loop {
+-            // 妫€鏌ュ仠姝㈡爣蹇?-            if stop_flag.load(Ordering::Relaxed) {
+-                break;
+-            }
+-            match reader.read(&mut buf) {
+-                Ok(0) => {
+-                    if !buffer.is_empty() {
+-                        let payload = PtyOutputPayload {
+-                            id: id_clone.clone(),
+-                            data: BASE64_STANDARD.encode(&buffer),
+-                        };
+-                        let _ = app.emit("pty-output", payload);
++        let mut buffer = [0_u8; 8192];
++        let reason = loop {
++            match reader.read(&mut buffer) {
++                Ok(0) => break "terminal process exited".to_string(),
++                Ok(count) => {
++                    let payload = PtyOutputPayload {
++                        id: id.clone(),
++                        data: BASE64_STANDARD.encode(&buffer[..count]),
++                    };
++                    if app.emit("pty-output", payload).is_err() {
++                        break "terminal event channel closed".to_string();
+                     }
+-                    break;
+                 }
+-                Ok(n) => {
+-                    buffer.extend_from_slice(&buf[..n]);
+-                    if buffer.len() > 4096
+-                        || last_emit.elapsed() >= std::time::Duration::from_millis(16)
+-                    {
+-                        let payload = PtyOutputPayload {
+-                            id: id_clone.clone(),
+-                            data: BASE64_STANDARD.encode(&buffer),
+-                        };
+-                        let _ = app.emit("pty-output", payload);
+-                        buffer.clear();
+-                        last_emit = std::time::Instant::now();
+-                    }
++                Err(_error) if session.closed.load(Ordering::SeqCst) => {
++                    break "terminal closed".to_string();
+                 }
+-                Err(_) => break,
++                Err(error) => break format!("terminal read failed: {error}"),
+             }
++        };
++
++        if let Some((_, session)) = sessions.remove(&id) {
++            session.shutdown();
+         }
++        let _ = app.emit("pty-exit", PtyExitPayload { id, reason });
+     });
+ 
+     Ok(())
+@@ -169,15 +182,24 @@ pub fn spawn_pty(
+ 
+ #[tauri::command]
+ pub fn write_pty(id: String, data: String, state: State<'_, PtyState>) -> Result<(), String> {
+-    // 浠诲姟 D锛氭纭紶鎾啓鍏ラ敊璇?-    if let Some(writer_mutex) = state.writers.get(&id) {
+-        if let Ok(mut writer) = writer_mutex.lock() {
+-            writer
+-                .write_all(data.as_bytes())
+-                .map_err(|e| format!("PTY write error: {}", e))?;
+-        }
+-    }
+-    Ok(())
++    let session = state
++        .sessions
++        .get(&id)
++        .map(|entry| Arc::clone(entry.value()))
++        .ok_or_else(|| format!("Terminal session {id} is not running"))?;
++    let mut writer = session
++        .writer
++        .lock()
++        .map_err(|_| format!("Terminal session {id} writer is unavailable"))?;
++    let writer = writer
++        .as_mut()
++        .ok_or_else(|| format!("Terminal session {id} is closed"))?;
++    writer
++        .write_all(data.as_bytes())
++        .map_err(|error| format!("Terminal write failed: {error}"))?;
++    writer
++        .flush()
++        .map_err(|error| format!("Terminal flush failed: {error}"))
+ }
+ 
+ #[tauri::command]
+@@ -187,37 +209,36 @@ pub fn resize_pty(
+     cols: u16,
+     state: State<'_, PtyState>,
+ ) -> Result<(), String> {
+-    if let Some(master_mutex) = state.master_ptys.get(&id) {
+-        if let Ok(master) = master_mutex.lock() {
+-            let _ = master.resize(PtySize {
+-                rows,
+-                cols,
+-                pixel_width: 0,
+-                pixel_height: 0,
+-            });
+-        }
++    if rows == 0 || cols == 0 {
++        return Ok(());
+     }
+-    Ok(())
++    let session = state
++        .sessions
++        .get(&id)
++        .map(|entry| Arc::clone(entry.value()))
++        .ok_or_else(|| format!("Terminal session {id} is not running"))?;
++    let master = session
++        .master
++        .lock()
++        .map_err(|_| format!("Terminal session {id} resize handle is unavailable"))?;
++    let master = master
++        .as_ref()
++        .ok_or_else(|| format!("Terminal session {id} is closed"))?;
++    master
++        .resize(PtySize {
++            rows,
++            cols,
++            pixel_width: 0,
++            pixel_height: 0,
++        })
++        .map_err(|error| format!("Terminal resize failed: {error}"))
+ }
+ 
+ #[tauri::command]
+ pub fn close_pty(id: String, state: State<'_, PtyState>) -> Result<(), String> {
+-    // 浠诲姟 B锛氳缃仠姝㈡爣蹇楋紝閫氱煡璇荤嚎绋嬮€€鍑?-    if let Some(flag) = state.stop_flags.remove(&id) {
+-        flag.1.store(true, Ordering::Relaxed);
+-    }
+-
+-    // 鍏堥噴鏀?writer锛屽叧闂啓绔?-    state.writers.remove(&id);
+-    // 閲婃斁 master PTY
+-    state.master_ptys.remove(&id);
+-
+-    // 浠诲姟 A锛氬彇鍑哄瓙杩涚▼锛宬ill 骞?wait锛岄伩鍏嶅鍎胯繘绋?-    if let Some(mut child) = state.children.remove(&id) {
+-        let _ = child.1.kill();
+-        let _ = child.1.wait();
++    if let Some((_, session)) = state.sessions.remove(&id) {
++        session.shutdown();
+     }
+-
+     Ok(())
+ }
+ 
+@@ -227,24 +248,20 @@ pub fn get_available_shells() -> Vec<ShellProfile> {
+ 
+     #[cfg(target_os = "windows")]
+     {
+-        // 1. Windows PowerShell
+         shells.push(ShellProfile {
+             id: "powershell".to_string(),
+             name: "PowerShell".to_string(),
+             path: "powershell.exe".to_string(),
+             icon: "powershell".to_string(),
+         });
++        shells.push(ShellProfile {
++            id: "cmd".to_string(),
++            name: "Command Prompt".to_string(),
++            path: "cmd.exe".to_string(),
++            icon: "terminal".to_string(),
++        });
+ 
+-        // 2. PowerShell Core (pwsh)
+-        let mut pwsh_cmd = std::process::Command::new("pwsh.exe");
+-        pwsh_cmd.arg("-Version");
+-        #[cfg(target_os = "windows")]
+-        {
+-            use std::os::windows::process::CommandExt;
+-            pwsh_cmd.creation_flags(0x08000000);
+-        }
+-
+-        if pwsh_cmd.output().is_ok() {
++        if command_exists("pwsh.exe", "-Version") {
+             shells.push(ShellProfile {
+                 id: "pwsh".to_string(),
+                 name: "PowerShell Core".to_string(),
+@@ -252,37 +269,17 @@ pub fn get_available_shells() -> Vec<ShellProfile> {
+                 icon: "powershell".to_string(),
+             });
+         }
+-
+-        // 3. Command Prompt
+-        shells.push(ShellProfile {
+-            id: "cmd".to_string(),
+-            name: "Command Prompt".to_string(),
+-            path: "cmd.exe".to_string(),
+-            icon: "terminal".to_string(),
+-        });
+-
+-        // 4. Git Bash
+-        let git_bash_path = "C:\\Program Files\\Git\\bin\\bash.exe";
+-        if std::path::Path::new(git_bash_path).exists() {
++        let git_bash = "C:\\Program Files\\Git\\bin\\bash.exe";
++        if Path::new(git_bash).is_file() {
+             shells.push(ShellProfile {
+                 id: "git-bash".to_string(),
+                 name: "Git Bash".to_string(),
+-                path: git_bash_path.to_string(),
++                path: git_bash.to_string(),
+                 icon: "git".to_string(),
+             });
+         }
+-
+-        // 5. WSL
+-        let mut wsl_cmd = std::process::Command::new("wsl.exe");
+-        wsl_cmd.arg("--version");
+-        #[cfg(target_os = "windows")]
+-        {
+-            use std::os::windows::process::CommandExt;
+-            wsl_cmd.creation_flags(0x08000000);
+-        }
+-
+-        if wsl_cmd.output().is_ok()
+-            || std::path::Path::new("C:\\Windows\\System32\\wsl.exe").exists()
++        if Path::new("C:\\Windows\\System32\\wsl.exe").is_file()
++            || command_exists("wsl.exe", "--version")
+         {
+             shells.push(ShellProfile {
+                 id: "wsl".to_string(),
+@@ -295,27 +292,31 @@ pub fn get_available_shells() -> Vec<ShellProfile> {
+ 
+     #[cfg(not(target_os = "windows"))]
+     {
+-        shells.push(ShellProfile {
+-            id: "bash".to_string(),
+-            name: "Bash".to_string(),
+-            path: "/bin/bash".to_string(),
+-            icon: "terminal".to_string(),
+-        });
+-
+-        shells.push(ShellProfile {
+-            id: "zsh".to_string(),
+-            name: "Zsh".to_string(),
+-            path: "/bin/zsh".to_string(),
+-            icon: "terminal".to_string(),
+-        });
+-
+-        shells.push(ShellProfile {
+-            id: "sh".to_string(),
+-            name: "Shell".to_string(),
+-            path: "/bin/sh".to_string(),
+-            icon: "terminal".to_string(),
+-        });
++        for (id, name, path) in [
++            ("bash", "Bash", "/bin/bash"),
++            ("zsh", "Zsh", "/bin/zsh"),
++            ("sh", "Shell", "/bin/sh"),
++        ] {
++            if Path::new(path).is_file() {
++                shells.push(ShellProfile {
++                    id: id.to_string(),
++                    name: name.to_string(),
++                    path: path.to_string(),
++                    icon: "terminal".to_string(),
++                });
++            }
++        }
+     }
+ 
+     shells
+ }
++
++#[cfg(target_os = "windows")]
++fn command_exists(command: &str, argument: &str) -> bool {
++    use std::os::windows::process::CommandExt;
++    std::process::Command::new(command)
++        .arg(argument)
++        .creation_flags(0x08000000)
++        .output()
++        .is_ok()
++}
