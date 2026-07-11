@@ -10,7 +10,6 @@ import { AutocompleteMenu, type CompletionItem } from "./components/Autocomplete
 import { SearchWidget } from "./components/SearchWidget";
 import { EditorAdapter } from "./EditorAdapter";
 import { LspClient } from "./LspClient";
-import {
 import { ContextMenuRoot, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuDivider } from "../../UI/Components/ContextMenu";
 import { cn } from "../../Shared/Utils/cn";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
