@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FileSystemService } from "../../Core/FileSystemService";
 import { EventBus } from "../../Foundation/EventBus";
+import { EditorIPC } from "../../Foundation/IPC/EditorCommands";
 import { isBinaryExtension } from "../../Shared/Constants/FileTypes";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
 import { showToast } from "../../UI/Feedback/Toast";
@@ -80,7 +81,7 @@ export const EditorTab = React.memo(function EditorTab({
 
     try {
       setIsSaving(true);
-      await FileSystemService.writeTextFileAtomic(path, contentRef.current);
+      await EditorIPC.save(path);
       savedContentRef.current = contentRef.current;
       setSavedContent(contentRef.current);
       EventBus.emit("editor:dirty-cleared", { path });
@@ -151,6 +152,7 @@ export const EditorTab = React.memo(function EditorTab({
             该文件可能是二进制文件，或使用了暂不支持的文本编码强行在编辑器中打开可能会导致乱码或性能问题
           </p>
           <button
+            type="button"
             onClick={() => {
               setIsBinaryWarning(false);
               loadContent(path, true);

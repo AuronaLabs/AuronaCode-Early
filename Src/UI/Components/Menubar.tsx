@@ -1,5 +1,5 @@
-import * as React from "react";
 import * as MenubarPrimitive from "@radix-ui/react-menubar";
+import * as React from "react";
 import { cn } from "../../Shared/Utils/cn";
 
 export const MenubarRoot = React.forwardRef<
@@ -49,7 +49,7 @@ export const MenubarContent = React.forwardRef<
       alignOffset={alignOffset}
       sideOffset={sideOffset}
       className={cn(
-        "frosted-glass rounded-xl p-1 z-[9999] flex flex-col min-w-[160px]",
+        "bg-[var(--GlassSurface-Floating)] backdrop-blur-xl border border-[var(--GlassBorder)] shadow-lg rounded-xl p-1 z-[9999] flex flex-col min-w-[160px]",
         "animate-in fade-in zoom-in-95 duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95",
         className,
       )}
@@ -85,9 +85,7 @@ export const MenubarItem = React.forwardRef<
           "flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-[13px] transition-colors text-left w-full outline-none cursor-pointer select-none",
           disabled && "opacity-50 cursor-not-allowed text-[var(--TextMuted)]",
           !disabled && isDanger && "text-red-500 focus:bg-red-500/10",
-          !disabled &&
-            !isDanger &&
-            "text-[var(--TextHighlight)] focus:bg-[var(--GlassHover)]",
+          !disabled && !isDanger && "text-[var(--TextHighlight)] focus:bg-[var(--GlassHover)]",
           className,
         )}
         {...props}

@@ -1,6 +1,6 @@
+import { appLogDir, join } from "@tauri-apps/api/path";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { EventBus } from "../Foundation/EventBus";
-import { appLogDir, join } from "@tauri-apps/api/path";
 import { Logger } from "../Foundation/Logger";
 import { Button } from "../UI/Components/Button";
 import { Icons } from "../UI/Icons/IconManager";
@@ -47,8 +47,11 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center w-screen h-screen bg-[var(--AppBg)] text-[var(--TextHighlight)] select-none overflow-hidden px-6">
-          <div className="flex flex-col items-center text-center gap-4 max-w-[520px]">
+        <div
+          className="flex flex-col items-center justify-center w-screen h-screen text-[var(--TextHighlight)] select-none overflow-hidden px-6"
+          style={{ background: "var(--AppBackground)" }}
+        >
+          <div className="flex flex-col items-center text-center gap-4 max-w-[520px] bg-[var(--GlassSurface-Elevated)] backdrop-blur-md p-10 rounded-2xl border border-[var(--GlassBorder)] shadow-2xl">
             <div className="text-[var(--AccentPrimary)] mb-2">
               <Icons.AlertTriangle size={64} stroke={1.5} />
             </div>
