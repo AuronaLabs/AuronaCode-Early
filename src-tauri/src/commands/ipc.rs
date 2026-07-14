@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize)]
 pub struct IpcRequest {
     pub action: String,
-    pub _payload: Option<serde_json::Value>,
+    #[serde(default)]
+    pub payload: Option<serde_json::Value>,
 }
 
 #[derive(Serialize)]
@@ -15,10 +16,15 @@ pub struct IpcResponse {
 
 #[tauri::command]
 pub async fn aurona_bridge(req: IpcRequest) -> IpcResponse {
-    let result = match req.action.as_str() {
+    let action = req.action.trim();
+    // Routes are migrated incrementally. Deserialize the payload now so the
+    // bridge contract remains stable even for actions that do not consume it yet.
+    let _payload = req.payload;
+    let result = match action {
         "sys:ping" => Ok(serde_json::json!("pong")),
         // Migrated IPC routes will go here
-        _ => Err(format!("Unknown IPC Action: {}", req.action)),
+        _ if action.is_empty() => Err("IPC action must not be empty".to_string()),
+        _ => Err(format!("Unknown IPC Action: {action}")),
     };
 
     match result {
@@ -35,18 +41,32 @@ pub async fn aurona_bridge(req: IpcRequest) -> IpcResponse {
     }
 }
 
-#[tauri::command]
-pub fn open_devtools(_window: tauri::WebviewWindow) -> Result<(), String> {
-    #[cfg(any(debug_assertions, feature = "devtools"))]
-    {
-        _window.open_devtools();
-        Ok(())
-    }
+#[cfg(test)]
+mod tests {
+    use super::IpcRequest;
 
-    #[cfg(not(any(debug_assertions, feature = "devtools")))]
-    {
-        Err("开发者工具在当前生产版本中未启用".to_string())
+    #[test]
+    fn request_deserializes_the_frontend_payload_field() {
+        let request: IpcRequest = serde_json::from_value(serde_json::json!({
+            "action": "sys:ping",
+            "payload": { "source": "test" }
+        }))
+        .expect("the frontend IPC request shape should deserialize");
+
+        assert_eq!(
+            request.payload,
+            Some(serde_json::json!({ "source": "test" }))
+        );
     }
+}
+
+#[tauri::command]
+pub fn open_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
+    // Aurona deliberately exposes DevTools through the explicit application menu
+    // in release builds. The Tauri dependency is compiled with its `devtools`
+    // feature, so a crate-local cfg gate would incorrectly reject this command.
+    window.open_devtools();
+    Ok(())
 }
 
 use std::fs;

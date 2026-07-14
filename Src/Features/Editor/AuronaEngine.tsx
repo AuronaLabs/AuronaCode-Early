@@ -25,6 +25,7 @@ export type AuronaEngineProps = {
   path?: string;
   revealLine?: number;
   onRevealHandled?: (path: string, line: number) => void;
+  onSyncError?: (error: Error) => void;
 };
 
 const LINE_HEIGHT = 22;
@@ -81,6 +82,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   path,
   revealLine,
   onRevealHandled,
+  onSyncError,
 }: AuronaEngineProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -137,6 +139,11 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const { pushHistory, resetHistory, undo, redo } = useEditorHistory("");
   const documentLoadedRef = useRef(false);
   const lastHistoryContentRef = useRef("");
+
+  useEffect(() => {
+    if (!path || !onSyncError) return;
+    return EditorIPC.onSyncError(path, onSyncError);
+  }, [onSyncError, path]);
 
   useEffect(() => {
     const measure = () => {

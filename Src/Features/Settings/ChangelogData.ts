@@ -12,9 +12,51 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.2.8",
+    date: "2026-07-14",
+    isLatest: true,
+    summary:
+      "本次更新聚焦 AuronaEngine 的编辑可靠性升级。我们进一步收紧了前端编辑状态、Rust Rope 文档会话与安全落盘之间的同步边界，让保存、异常恢复与历史记录在高频编辑场景下拥有更清晰、更可信的行为。",
+    sections: [
+      {
+        title: "AuronaEngine 编辑可靠性升级",
+        items: [
+          "**同步失败保护**：编辑指令现会被持续追踪。若 Rust 文档会话无法应用某次修改，编辑器会立即显示同步异常状态，并主动阻止后续保存，避免将与界面不一致的旧版本错误写回磁盘。",
+          "**可控恢复入口**：同步异常状态提供“从磁盘重新加载”操作。重新加载会释放当前文档会话、清除异常标记并重新建立编辑器实例，使用户能够明确选择回到已安全落盘的版本。",
+          "**保存顺序加固**：保存前会等待同一文档的已排队编辑全部完成，并验证会话没有同步失败；只有 Rust 侧确认安全落盘后，标签才会清除未保存标记。",
+          "**即时内容引用更新**：编辑器内容变化会同步更新保存链路使用的内存引用，降低快速输入后立刻执行保存时读取到旧一帧文本状态的风险。",
+        ],
+      },
+      {
+        title: "历史记录与文档会话优化",
+        items: [
+          "**有界撤销历史**：撤销/重做历史现在同时受条目数量与内存预算限制。大型文件不再能够无限保留完整文本快照，从而降低长时间连续编辑带来的内存压力。",
+          "**会话版本回执**：Rust 编辑器保存命令现在会返回实际写入的文档版本，为后续接入更精确的文档状态机、外部变更检测与可审查修改能力预留了可靠基础。",
+        ],
+      },
+      {
+        title: "稳定性体验打磨",
+        items: [
+          "**错误不再静默丢失**：编辑同步异常不再只停留在开发者控制台；用户能够直接看到当前文档不能安全保存的原因与恢复路径。",
+          "**继续保持原生编辑器路线**：本次升级基于现有 AuronaEngine、Tauri IPC 与 Rust Rope 会话完成，没有引入第三方编辑器替换方案，确保后续优化持续沉淀在 Aurona 自身内核中。",
+        ],
+      },
+      {
+        title: "\u53d1\u5e03\u7248\u4e0e\u8fd0\u884c\u65f6\u5185\u6838\u7a33\u5b9a\u6027",
+        items: [
+          "**\u751f\u4ea7\u7248 DevTools \u5165\u53e3\u6536\u655b**\uff1a\u5df2\u7981\u7528 F12 \u4e0e Ctrl/Cmd+Shift+I \u5524\u8d77\u5f00\u53d1\u8005\u5de5\u5177\uff0c\u5f00\u53d1\u8005\u5de5\u5177\u53ea\u80fd\u4ece\u9876\u90e8\u83dc\u5355\u663e\u5f0f\u6253\u5f00\uff0c\u907f\u514d\u5feb\u6377\u952e\u4e0e\u83dc\u5355\u884c\u4e3a\u4e0d\u4e00\u81f4\u3002",
+          "**CSP \u517c\u5bb9\u6027\u4fee\u590d**\uff1a\u4e3a\u5185\u5d4c\u5b57\u4f53\u8865\u9f50 data: \u6765\u6e90\uff0c\u5e76\u5141\u8bb8 Tauri DevTools \u672c\u5730\u6e05\u5355\u8bf7\u6c42\uff1b\u4ec5\u5bf9 style-src \u505c\u7528 Tauri \u7684 CSP \u81ea\u52a8 nonce \u6539\u5199\uff0c\u4fdd\u7559\u811a\u672c\u7b56\u7565\u7684\u81ea\u52a8\u4fdd\u62a4\u3002",
+          "**IPC \u534f\u8bae\u5bf9\u9f50**\uff1a\u7edf\u4e00\u524d\u7aef\u4e0e Rust \u901a\u7528\u901a\u9053\u7684 payload \u5b57\u6bb5\u540d\u79f0\uff0c\u4ece\u6839\u6e90\u4fee\u590d\u8bf7\u6c42\u8d1f\u8f7d\u88ab\u9759\u9ed8\u4e22\u5f03\u7684\u95ee\u9898\uff0c\u5e76\u4e3a\u7a7a\u547d\u4ee4\u589e\u52a0\u660e\u786e\u9519\u8bef\u8fb9\u754c\u3002",
+          "**\u5355\u6b21\u5931\u8d25\u53cd\u9988**\uff1aIPC \u8bf7\u6c42\u5931\u8d25\u6539\u4e3a\u53ea\u663e\u793a\u4e00\u6b21 Toast\uff0c\u540c\u65f6\u5199\u5165\u7ed3\u6784\u5316\u9519\u8bef\u65e5\u5fd7\uff0c\u907f\u514d\u91cd\u590d\u63d0\u793a\u5e72\u6270\u4e0e\u6392\u969c\u4fe1\u606f\u4e22\u5931\u3002",
+          "**\u65e5\u5fd7\u961f\u5217\u5b89\u5168\u6027**\uff1a\u65e5\u5fd7\u5199\u5165\u73b0\u5728\u4e32\u884c\u6267\u884c\uff1b\u672c\u5730\u5199\u5165\u5931\u8d25\u65f6\u4f1a\u4fdd\u7559\u5f85\u5199\u5185\u5bb9\u5e76\u91cd\u8bd5\uff0c\u4e14\u8bbe\u7f6e\u4e86\u7f13\u51b2\u961f\u5217\u4e0a\u9650\uff0c\u9632\u6b62\u5f02\u5e38\u5b58\u50a8\u72b6\u6001\u5bfc\u81f4\u5185\u5b58\u4e0d\u65ad\u589e\u957f\u3002",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.2.7",
     date: "2026-07-12",
-    isLatest: true,
+    isLatest: false,
     summary: "资源管理器与 AuronaEditor 的基础交互、可靠性和大文件性能更新。",
     sections: [
       {

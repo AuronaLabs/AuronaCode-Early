@@ -5,7 +5,15 @@ type HistoryEntry = {
   selectionStart: number;
 };
 
-const MAX_HISTORY_ENTRIES = 500;
+const MAX_HISTORY_ENTRIES = 160;
+const MAX_HISTORY_BYTES = 24 * 1024 * 1024;
+
+function estimateEntryBytes(entry: HistoryEntry) {
+  // JavaScript strings use at least two bytes per UTF-16 code unit. This is a
+  // conservative budget that keeps large documents from retaining hundreds of
+  // complete snapshots while preserving the current history semantics.
+  return entry.content.length * 2 + 16;
+}
 
 export function useEditorHistory(initialValue: string) {
   const historyRef = useRef<HistoryEntry[]>([{ content: initialValue, selectionStart: 0 }]);
@@ -29,7 +37,22 @@ export function useEditorHistory(initialValue: string) {
       nextHistory.push({ content, selectionStart });
     }
 
-    const boundedHistory = nextHistory.slice(-MAX_HISTORY_ENTRIES);
+    let retainedBytes = 0;
+    let firstRetainedIndex = nextHistory.length;
+    for (let index = nextHistory.length - 1; index >= 0; index--) {
+      const entryBytes = estimateEntryBytes(nextHistory[index]);
+      if (
+        firstRetainedIndex < nextHistory.length &&
+        (retainedBytes + entryBytes > MAX_HISTORY_BYTES ||
+          nextHistory.length - index > MAX_HISTORY_ENTRIES)
+      ) {
+        break;
+      }
+      retainedBytes += entryBytes;
+      firstRetainedIndex = index;
+    }
+
+    const boundedHistory = nextHistory.slice(firstRetainedIndex);
     historyRef.current = boundedHistory;
     historyIndexRef.current = boundedHistory.length - 1;
   }, []);

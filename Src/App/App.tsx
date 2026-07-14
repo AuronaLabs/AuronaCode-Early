@@ -125,7 +125,7 @@ export default function App() {
               }),
               await PredefinedMenuItem.new({ item: "Separator" }),
               await MenuItem.new({
-                text: "开发者工具 (F12)",
+                text: "开发者工具",
                 action: () => {
                   invoke("open_devtools").catch((err) => {
                     EventBus.emit("app:toast", { type: "warning", message: err });

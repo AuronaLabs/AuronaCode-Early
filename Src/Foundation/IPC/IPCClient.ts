@@ -1,47 +1,53 @@
 import { invoke } from "@tauri-apps/api/core";
 import { EventBus } from "../EventBus";
+import { Logger } from "../Logger";
 
-export interface IpcRequest<T = any> {
+export interface IpcRequest<T = unknown> {
   action: string;
   payload?: T;
 }
 
-export interface IpcResponse<T = any> {
+export interface IpcResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
 }
 
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
 export class AuronaChannel {
-  static async request<T = any>(action: string, payload?: any): Promise<T> {
+  static async request<T = unknown>(action: string, payload?: unknown): Promise<T> {
     try {
       const response: IpcResponse<T> = await invoke("aurona_bridge", {
         req: { action, payload },
       });
 
       if (!response.success) {
-        EventBus.emit("app:toast", { message: `[${action}] ${response.error}`, type: "error" });
         throw new Error(response.error || "Unknown IPC Error");
       }
       return response.data as T;
-    } catch (err: any) {
+    } catch (cause: unknown) {
+      const error = toError(cause);
+      Logger.error(`IPC request failed: ${action}`, error);
       EventBus.emit("app:toast", {
-        message: `IPC Failed [${action}]: ${err.message || err}`,
+        message: `IPC Failed [${action}]: ${error.message}`,
         type: "error",
       });
-      throw err;
+      throw error;
     }
   }
 
   static createStream(channelId: string) {
     console.log(`[IPC] Initializing data stream for: ${channelId}`);
     return {
-      onMessage: (_callback: (data: any) => void) => {
+      onMessage: (_callback: (data: unknown) => void) => {
         return () => {
           console.log(`[IPC] Unsubscribed from stream: ${channelId}`);
         };
       },
-      send: (data: any) => {
+      send: (data: unknown) => {
         console.log(`[IPC] Stream ${channelId} send:`, data);
       },
     };

@@ -26,7 +26,13 @@ function RootApp() {
     EventBus.on("app:reboot", onReboot);
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F12" || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i")) {
+      const isDevtoolsShortcut =
+        e.key === "F12" ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "i");
+
+      if (isDevtoolsShortcut) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
         return;
       }
 
@@ -57,11 +63,11 @@ function RootApp() {
       }
     };
 
-    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, { capture: true });
 
     return () => {
       EventBus.off("app:reboot", onReboot);
-      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keydown", onKeyDown, { capture: true });
     };
   }, []);
 

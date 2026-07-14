@@ -16,7 +16,6 @@ pub struct DocumentSnapshot {
 }
 
 pub struct EditorSession {
-    pub path: String,
     pub language: String,
     pub line_ending: String,
     pub write_lock: Mutex<()>,
@@ -25,10 +24,9 @@ pub struct EditorSession {
 }
 
 impl EditorSession {
-    pub fn new(path: String, language: String, line_ending: String, rope: Rope) -> Self {
+    pub fn new(language: String, line_ending: String, rope: Rope) -> Self {
         let total_lines = rope.len_lines();
         Self {
-            path,
             language,
             line_ending,
             write_lock: Mutex::new(()),
@@ -71,25 +69,6 @@ pub fn utf16_to_char_idx(rope: &Rope, utf16_idx: usize) -> usize {
         }
     }
     current_char
-}
-
-pub fn char_to_utf16_idx(rope: &Rope, char_idx: usize) -> usize {
-    if char_idx == 0 {
-        return 0;
-    }
-    let mut current_utf16 = 0;
-    let mut current_char = 0;
-
-    for chunk in rope.chunks() {
-        for c in chunk.chars() {
-            if current_char >= char_idx {
-                return current_utf16;
-            }
-            current_utf16 += if (c as u32) > 0xFFFF { 2 } else { 1 };
-            current_char += 1;
-        }
-    }
-    current_utf16
 }
 
 // ── 状态机定义与词法着色引擎 ────────────────────────────────────────────────
@@ -385,17 +364,6 @@ pub fn highlight_line_stateful(
     (tokens, current_state)
 }
 
-fn byte_to_utf16_idx(char_indices: &[(usize, char)], byte_idx: usize) -> usize {
-    let mut utf16_idx = 0;
-    for &(b_idx, c) in char_indices {
-        if b_idx >= byte_idx {
-            return utf16_idx;
-        }
-        utf16_idx += if (c as u32) > 0xFFFF { 2 } else { 1 };
-    }
-    utf16_idx
-}
-
 fn detect_language(path: &str) -> String {
     let ext = Path::new(path)
         .extension()
@@ -439,12 +407,7 @@ pub fn open_file_internal(path: &str, state: &EditorState) -> Result<String, Str
     };
     let content = source_content.replace("\r\n", "\n");
     let rope = Rope::from_str(&content);
-    let session = Arc::new(EditorSession::new(
-        normalized_path.clone(),
-        language,
-        line_ending.to_string(),
-        rope,
-    ));
+    let session = Arc::new(EditorSession::new(language, line_ending.to_string(), rope));
     state.sessions.insert(normalized_path, session);
 
     Ok(content)
@@ -627,7 +590,7 @@ pub fn get_editor_lines(
 }
 
 #[tauri::command]
-pub fn save_editor_file(path: String, state: State<'_, EditorState>) -> Result<(), String> {
+pub fn save_editor_file(path: String, state: State<'_, EditorState>) -> Result<u64, String> {
     let normalized_path = Path::new(&path)
         .canonicalize()
         .map(|p| p.to_string_lossy().to_string())
@@ -684,7 +647,7 @@ pub fn save_editor_file(path: String, state: State<'_, EditorState>) -> Result<(
         })?;
     }
 
-    Ok(())
+    Ok(snap.version)
 }
 
 #[tauri::command]

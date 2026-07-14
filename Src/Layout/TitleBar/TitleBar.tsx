@@ -169,7 +169,7 @@ export function TitleBar() {
                 }}
               />
               <MenubarItem
-                label="开发者工具 (F12)"
+                label="开发者工具"
                 onSelect={() => {
                   invoke("open_devtools").catch((err) => {
                     EventBus.emit("app:toast", { type: "warning", message: err });

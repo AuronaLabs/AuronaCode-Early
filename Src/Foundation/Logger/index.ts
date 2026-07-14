@@ -2,6 +2,9 @@ import { BaseDirectory, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
+const MAX_QUEUED_LOG_ENTRIES = 1_000;
+const LOG_RETRY_DELAY_MS = 1_000;
+
 function serializeError(obj: any, seen = new WeakSet()): any {
   if (obj === null || typeof obj !== "object") return obj;
   if (seen.has(obj)) return "[Circular]";
@@ -29,6 +32,7 @@ class LoggerImpl {
   private readonly logFilePath: string;
   private readonly queue: string[] = [];
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  private flushInFlight: Promise<void> | null = null;
   private dirEnsured = false;
   private initialized = false;
 
@@ -126,20 +130,37 @@ class LoggerImpl {
       }
     }
     this.queue.push(`[${ts}] [${level.toUpperCase()}] ${message}${suffix}\n`);
+    this.trimQueue();
     this.scheduleFlush();
   }
 
-  private scheduleFlush(): void {
+  private scheduleFlush(delay = 100): void {
     if (this.flushTimer !== null) return;
     // 防抖批量写入，减少 I/O 频率
     this.flushTimer = setTimeout(() => {
       this.flushTimer = null;
       void this.flush();
-    }, 100);
+    }, delay);
   }
 
   private async flush(): Promise<void> {
+    if (this.flushInFlight) {
+      await this.flushInFlight;
+      return;
+    }
+
     if (this.queue.length === 0) return;
+
+    this.flushInFlight = this.flushQueuedLogs();
+    try {
+      await this.flushInFlight;
+    } finally {
+      this.flushInFlight = null;
+      if (this.queue.length > 0) this.scheduleFlush();
+    }
+  }
+
+  private async flushQueuedLogs(): Promise<void> {
     const lines = this.queue.splice(0);
     try {
       if (!this.dirEnsured) {
@@ -150,10 +171,24 @@ class LoggerImpl {
         this.dirEnsured = true;
       }
       await writeTextFile(this.logFilePath, lines.join(""), {
-          baseDir: BaseDirectory.AppLog,
+        baseDir: BaseDirectory.AppLog,
         append: true,
       });
-    } catch {}
+    } catch {
+      this.queue.unshift(...lines);
+      this.trimQueue();
+      this.scheduleFlush(LOG_RETRY_DELAY_MS);
+    }
+  }
+
+  private trimQueue(): void {
+    if (this.queue.length <= MAX_QUEUED_LOG_ENTRIES) return;
+
+    const dropped = this.queue.length - MAX_QUEUED_LOG_ENTRIES + 1;
+    this.queue.splice(0, dropped);
+    this.queue.unshift(
+      `[${new Date().toISOString()}] [WARN] Dropped ${dropped} buffered log entries after a write failure.\n`,
+    );
   }
 }
 
