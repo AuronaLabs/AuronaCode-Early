@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useRef } from "react";
 import { FileSystemService } from "../../Core/FileSystemService";
 import { Button } from "../../UI/Components/Button";
 
@@ -20,24 +20,23 @@ export const FileExplorer = React.memo(function FileExplorer({
 }: {
   onFileSelect: (path: string) => void;
 }) {
+  const treeRef = useRef<HTMLDivElement>(null);
   const {
     rootNode,
     activePath,
     inlineCreation,
     inlineEditing,
-    contextMenu,
     deletePrompt,
-    setContextMenu,
     setDeletePrompt,
     setInlineEditing,
     handleOpenFolder,
+    selectNode,
     refreshDirectory,
     startInlineCreate,
     handleInlineCreate,
     handleInlineCancel,
     handleInlineRename,
     handleConfirmDelete,
-    handleContextMenu,
     clipboard,
     setClipboard,
     handlePaste,
@@ -50,6 +49,68 @@ export const FileExplorer = React.memo(function FileExplorer({
 
   const isRootTargetForInline = inlineCreation?.parentPath === rootNode?.path;
   const title = useMemo(() => rootNode?.name || "资源管理器", [rootNode]);
+  const visibleNodes = useMemo(() => {
+    const nodes: { node: NonNullable<typeof rootNode>; depth: number }[] = [];
+    const visit = (children: NonNullable<typeof rootNode>["children"], depth: number) => {
+      for (const node of children || []) {
+        nodes.push({ node, depth });
+        if (node.isDirectory && node.isOpen) visit(node.children, depth + 1);
+      }
+    };
+    visit(rootNode?.children, 0);
+    return nodes;
+  }, [rootNode]);
+
+  const handleTreeKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!rootNode || visibleNodes.length === 0) return;
+    const activeIndex = Math.max(0, visibleNodes.findIndex(({ node }) => node.path === activePath));
+    const active = visibleNodes[activeIndex]?.node;
+    if (!active) return;
+
+    const selectAt = (index: number) => {
+      const next = visibleNodes[Math.max(0, Math.min(index, visibleNodes.length - 1))]?.node;
+      if (next) selectNode(next);
+    };
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      selectAt(activeIndex + 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      selectAt(activeIndex - 1);
+    } else if (event.key === "ArrowRight" && active.isDirectory) {
+      event.preventDefault();
+      if (!active.isOpen) void toggleDir(active);
+      else if (active.children?.[0]) selectNode(active.children[0]);
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      if (active.isDirectory && active.isOpen) void toggleDir(active);
+      else {
+        const parentPath = FileSystemService.dirname(active.path);
+        const parent = visibleNodes.find(({ node }) => node.path === parentPath)?.node;
+        if (parent) selectNode(parent);
+      }
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      void toggleDir(active);
+    } else if (event.key === "F2") {
+      event.preventDefault();
+      setInlineEditing(active.path);
+    } else if (event.key === "Delete" || event.key === "Backspace") {
+      event.preventDefault();
+      setDeletePrompt(active);
+    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
+      event.preventDefault();
+      setClipboard({ path: active.path, isCut: false });
+    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "x") {
+      event.preventDefault();
+      setClipboard({ path: active.path, isCut: true });
+    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") {
+      event.preventDefault();
+      const destination = active.isDirectory ? active.path : FileSystemService.dirname(active.path);
+      void handlePaste(destination);
+    }
+  };
 
   const contextValue = useMemo(
     () => ({
@@ -108,6 +169,7 @@ export const FileExplorer = React.memo(function FileExplorer({
             <div className="flex items-center gap-0.5 transition-opacity">
               <Tooltip content="新建文件" placement="bottom">
                 <button
+                  type="button"
                   className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
                   onClick={() => startInlineCreate("file")}
                 >
@@ -116,6 +178,7 @@ export const FileExplorer = React.memo(function FileExplorer({
               </Tooltip>
               <Tooltip content="新建文件夹" placement="bottom">
                 <button
+                  type="button"
                   className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
                   onClick={() => startInlineCreate("folder")}
                 >
@@ -125,6 +188,7 @@ export const FileExplorer = React.memo(function FileExplorer({
               <div className="w-px h-3 bg-[var(--GlassBorder)] mx-1" />
               <Tooltip content="折叠全部" placement="bottom">
                 <button
+                  type="button"
                   className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
                   onClick={collapseAll}
                 >
@@ -133,6 +197,7 @@ export const FileExplorer = React.memo(function FileExplorer({
               </Tooltip>
               <Tooltip content="刷新" placement="bottom">
                 <button
+                  type="button"
                   className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
                   onClick={() =>
                     refreshDirectory(rootNode.path).catch((error) =>
@@ -150,6 +215,7 @@ export const FileExplorer = React.memo(function FileExplorer({
         {}
         {!rootNode ? (
           <div
+            ref={treeRef}
             className="flex flex-1 flex-col items-center justify-center gap-4 px-4 outline-none"
             tabIndex={-1}
           >
@@ -162,17 +228,22 @@ export const FileExplorer = React.memo(function FileExplorer({
           </div>
         ) : (
           <div
+            ref={treeRef}
             className="flex-1 overflow-y-auto overflow-x-hidden py-1 outline-none focus:outline-none relative"
-            tabIndex={-1}
+            tabIndex={0}
+            role="tree"
+            aria-label="文件资源管理器"
+            onKeyDown={handleTreeKeyDown}
+            onClick={() => treeRef.current?.focus()}
             onDragOver={(e) => {
               e.preventDefault();
-              e.dataTransfer.dropEffect = "move";
+              e.dataTransfer.dropEffect = e.ctrlKey || e.metaKey ? "copy" : "move";
             }}
             onDrop={(e) => {
               e.preventDefault();
-              const src = e.dataTransfer.getData("text/plain");
+              const src = e.dataTransfer.getData("application/x-aurona-file-node");
               if (src && rootNode) {
-                handleDrop(src, rootNode.path);
+                handleDrop(src, rootNode.path, e.ctrlKey || e.metaKey);
               }
             }}
           >

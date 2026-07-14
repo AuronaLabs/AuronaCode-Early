@@ -2,11 +2,11 @@ import React from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { useWorkspaceStore } from "../../State/useWorkspaceStore";
 import {
+  ContextMenuContent,
+  ContextMenuDivider,
+  ContextMenuItem,
   ContextMenuRoot,
   ContextMenuTrigger,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuDivider,
 } from "../../UI/Components/ContextMenu";
 import { Icons } from "../../UI/Icons/IconManager";
 
@@ -48,11 +48,20 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
           <ContextMenuRoot key={tab.id}>
             <ContextMenuTrigger asChild>
               <div
+                role="tab"
+                tabIndex={0}
+                aria-selected={isActive}
                 onClick={() => setActiveTabId(tab.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActiveTabId(tab.id);
+                  }
+                }}
                 onMouseDown={(e) => {
                   if (e.button === 1) {
                     e.preventDefault();
-                    closeTabById(tab.id);
+                    closeTab(tab);
                   }
                 }}
                 className={`aurona-tab flex items-center px-3.5 text-[13px] select-none min-w-[112px] max-w-[220px] justify-between group cursor-pointer shrink-0 ${

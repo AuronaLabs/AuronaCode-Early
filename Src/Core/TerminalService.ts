@@ -9,6 +9,19 @@ class TerminalServiceImpl {
   private activeTerminalId: string | null = null;
   private cachedShells: ShellProfile[] | null = null;
   private nextIndex = 1;
+  private nextId = 1;
+  private readiness = new Map<
+    string,
+    { promise: Promise<void>; resolve: () => void; ready: boolean; failure?: Error }
+  >();
+
+  private createReadiness(id: string) {
+    let resolve!: () => void;
+    const promise = new Promise<void>((resolvePromise) => {
+      resolve = resolvePromise;
+    });
+    this.readiness.set(id, { promise, resolve, ready: false });
+  }
 
   async getAvailableShells(): Promise<ShellProfile[]> {
     if (this.cachedShells) return this.cachedShells;
@@ -27,11 +40,12 @@ class TerminalServiceImpl {
       shells[0] ??
       ({ id: "default", name: "Shell", path: "", icon: "terminal" } as ShellProfile);
 
-    const id = `terminal-${Date.now()}`;
+    const id = `terminal-${Date.now()}-${this.nextId++}`;
     const name = `${shell.name} ${this.nextIndex++}`;
     const instance: TerminalInstance = { id, name, shell, cwd };
 
     this.terminals.push(instance);
+    this.createReadiness(id);
     this.setActiveTerminal(id);
 
     EventBus.emit("terminal:list-changed", [...this.terminals]);
@@ -41,6 +55,12 @@ class TerminalServiceImpl {
   removeTerminal(id: string): void {
     this.terminals = this.terminals.filter((t) => t.id !== id);
     PtyIPC.close(id).catch(() => {});
+    const readiness = this.readiness.get(id);
+    if (readiness) {
+      readiness.failure = new Error("Terminal was closed before it became ready");
+      readiness.resolve();
+    }
+    this.readiness.delete(id);
 
     if (this.activeTerminalId === id) {
       const next = this.terminals[this.terminals.length - 1]?.id ?? null;
@@ -70,6 +90,35 @@ class TerminalServiceImpl {
     return this.activeTerminalId;
   }
 
+  markTerminalReady(id: string): void {
+    const readiness = this.readiness.get(id);
+    if (!readiness) return;
+    readiness.ready = true;
+    readiness.resolve();
+  }
+
+  markTerminalFailed(id: string, error: unknown): void {
+    console.warn("Terminal failed before becoming ready", id, error);
+    const readiness = this.readiness.get(id);
+    if (!readiness) return;
+    readiness.failure = error instanceof Error ? error : new Error(String(error));
+    readiness.resolve();
+  }
+
+  private async waitForTerminalReady(id: string): Promise<void> {
+    const readiness = this.readiness.get(id);
+    if (!readiness) return;
+    if (!readiness.ready && !readiness.failure) {
+      await Promise.race([
+        readiness.promise,
+        new Promise<void>((_, reject) => {
+          window.setTimeout(() => reject(new Error("Terminal startup timed out")), 10_000);
+        }),
+      ]);
+    }
+    if (readiness.failure) throw readiness.failure;
+  }
+
   async executeCommand(id: string | null, command: string): Promise<void> {
     let targetId = id ?? this.activeTerminalId;
     if (!targetId) {
@@ -78,7 +127,7 @@ class TerminalServiceImpl {
     }
     EventBus.emit("app:toggle-terminal", true);
 
-    await new Promise<void>((resolve) => setTimeout(resolve, 300));
+    await this.waitForTerminalReady(targetId);
     await PtyIPC.write(targetId, `${command}\r\n`);
   }
 

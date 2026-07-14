@@ -6,6 +6,13 @@ pub struct LspState {
         tokio::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<lsp::LspClient>>>,
 }
 
+async fn get_client(
+    state: &State<'_, LspState>,
+    language: &str,
+) -> Option<std::sync::Arc<lsp::LspClient>> {
+    state.clients.lock().await.get(language).cloned()
+}
+
 #[tauri::command]
 pub async fn lsp_start(
     language: String,
@@ -100,8 +107,7 @@ pub async fn lsp_did_open(
     version: i32,
     state: State<'_, LspState>,
 ) -> Result<(), String> {
-    let clients = state.clients.lock().await;
-    if let Some(client) = clients.get(&language) {
+    if let Some(client) = get_client(&state, &language).await {
         let uri = format!("file:///{}", path.replace('\\', "/"));
         let params = serde_json::json!({
             "textDocument": {
@@ -124,8 +130,7 @@ pub async fn lsp_did_change(
     version: i32,
     state: State<'_, LspState>,
 ) -> Result<(), String> {
-    let clients = state.clients.lock().await;
-    if let Some(client) = clients.get(&language) {
+    if let Some(client) = get_client(&state, &language).await {
         let uri = format!("file:///{}", path.replace('\\', "/"));
         let params = serde_json::json!({
             "textDocument": {
@@ -147,8 +152,7 @@ pub async fn lsp_did_close(
     path: String,
     state: State<'_, LspState>,
 ) -> Result<(), String> {
-    let clients = state.clients.lock().await;
-    if let Some(client) = clients.get(&language) {
+    if let Some(client) = get_client(&state, &language).await {
         let uri = format!("file:///{}", path.replace('\\', "/"));
         let params = serde_json::json!({
             "textDocument": {
@@ -167,8 +171,7 @@ pub async fn lsp_call(
     params: serde_json::Value,
     state: State<'_, LspState>,
 ) -> Result<serde_json::Value, String> {
-    let clients = state.clients.lock().await;
-    if let Some(client) = clients.get(&language) {
+    if let Some(client) = get_client(&state, &language).await {
         let res = client.call(&method, params).await?;
         Ok(res)
     } else {
@@ -184,8 +187,7 @@ pub async fn lsp_call_with_id(
     params: serde_json::Value,
     state: State<'_, LspState>,
 ) -> Result<serde_json::Value, String> {
-    let clients = state.clients.lock().await;
-    if let Some(client) = clients.get(&language) {
+    if let Some(client) = get_client(&state, &language).await {
         let res = client.call_with_id(id, &method, params).await?;
         Ok(res)
     } else {
@@ -199,8 +201,7 @@ pub async fn lsp_cancel(
     id: u64,
     state: State<'_, LspState>,
 ) -> Result<(), String> {
-    let clients = state.clients.lock().await;
-    if let Some(client) = clients.get(&language) {
+    if let Some(client) = get_client(&state, &language).await {
         client.cancel(id).await
     } else {
         Err(format!("LSP server for {} not running", language))

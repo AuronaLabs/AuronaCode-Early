@@ -28,6 +28,9 @@ export type AuronaEngineProps = {
 };
 
 const LINE_HEIGHT = 22;
+const LARGE_FILE_BYTES = 2 * 1024 * 1024;
+const LARGE_FILE_LINES = 20_000;
+const LARGE_FILE_OVERSCAN = 120;
 
 function getLineStartUtf16(lines: string[], lineIndex: number): number {
   let offset = 0;
@@ -198,9 +201,28 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   // 【Highlight.js 词法高亮引擎 (Web Worker 异步)】
   // ==========================================
   const [linesTokens, setLinesTokens] = useState<number[][]>([]);
+  const [largeLineTokens, setLargeLineTokens] = useState<Map<number, number[]>>(
+    () => new Map(),
+  );
   const highlightWorkerRef = useRef<Worker | null>(null);
   const highlightTimeoutRef = useRef<number | ReturnType<typeof setTimeout> | null>(null);
+  const maxLineLengthTimerRef = useRef<number | null>(null);
   const latestHighlightIdRef = useRef<string>("");
+  const latestLargeHighlightRequestRef = useRef<string>("");
+  const visibleStartIndex = Math.max(0, Math.floor(scrollTop / LINE_HEIGHT));
+  const visibleEndIndex = Math.min(
+    totalLines,
+    Math.ceil((scrollTop + viewportHeight) / LINE_HEIGHT),
+  );
+  const isLargeFileMode = totalLines > LARGE_FILE_LINES || value.length > LARGE_FILE_BYTES;
+
+  useEffect(() => {
+    return () => {
+      if (maxLineLengthTimerRef.current !== null) {
+        window.clearTimeout(maxLineLengthTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const HighlightWorker = async () => {
@@ -225,6 +247,10 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   useEffect(() => {
     if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
 
+    if (isLargeFileMode) {
+      return;
+    }
+
     // 立即同步行数，防止越界
     setLinesTokens((prev) => {
       if (prev.length === documentLines.length) return prev;
@@ -246,7 +272,41 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         });
       }
     }, 150); // 150ms 防抖，保证打字如丝般顺滑
-  }, [documentLines, language]);
+  }, [documentLines, isLargeFileMode, language]);
+
+  useEffect(() => {
+    setLargeLineTokens(new Map());
+  }, [isLargeFileMode, path]);
+
+  useEffect(() => {
+    if (!path || !isLargeFileMode) return;
+
+    const startLine = Math.max(0, visibleStartIndex - LARGE_FILE_OVERSCAN);
+    const endLine = Math.min(totalLines, visibleEndIndex + LARGE_FILE_OVERSCAN);
+    const requestId = `${path}:${startLine}:${endLine}:${Date.now()}`;
+    latestLargeHighlightRequestRef.current = requestId;
+    const timer = window.setTimeout(() => {
+      EditorIPC.getLines(path, startLine, endLine)
+        .then((lines) => {
+          if (latestLargeHighlightRequestRef.current !== requestId) return;
+          setLargeLineTokens((previous) => {
+            const next = new Map(previous);
+            for (let index = 0; index < lines.length; index++) {
+              next.set(startLine + index, lines[index].tokens);
+            }
+            const retainStart = Math.max(0, startLine - LARGE_FILE_OVERSCAN * 4);
+            const retainEnd = Math.min(totalLines, endLine + LARGE_FILE_OVERSCAN * 4);
+            for (const lineIndex of next.keys()) {
+              if (lineIndex < retainStart || lineIndex >= retainEnd) next.delete(lineIndex);
+            }
+            return next;
+          });
+        })
+        .catch(console.error);
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [isLargeFileMode, path, totalLines, visibleEndIndex, visibleStartIndex]);
 
   // ==========================================
   // 【LSP 与文档加载生命周期】
@@ -492,11 +552,15 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   };
 
   const updateMaxLineLength = (lines: string[]) => {
-    let maxLen = 1;
-    lines.forEach((l) => {
-      if (l.length > maxLen) maxLen = l.length;
-    });
-    setMaxLineLength(maxLen);
+    if (maxLineLengthTimerRef.current !== null) {
+      window.clearTimeout(maxLineLengthTimerRef.current);
+    }
+    maxLineLengthTimerRef.current = window.setTimeout(() => {
+      let maxLen = 1;
+      for (const line of lines) maxLen = Math.max(maxLen, line.length);
+      setMaxLineLength(maxLen);
+      maxLineLengthTimerRef.current = null;
+    }, 120);
   };
 
   const applyHistoryEntry = useCallback(
@@ -1222,19 +1286,15 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     if (hoverTooltip) setHoverTooltip(null);
   };
 
-  const visibleStartIndex = Math.max(0, Math.floor(scrollTop / LINE_HEIGHT));
-  const visibleEndIndex = Math.min(
-    totalLines,
-    Math.ceil((scrollTop + viewportHeight) / LINE_HEIGHT),
-  );
-
   // 10. DOM 渲染结构 (切分段 Span 渲染替代 ::highlight)
   const visibleLinesDOM = useMemo(() => {
     const list = [];
     for (let idx = visibleStartIndex; idx < visibleEndIndex; idx++) {
       const lineText = documentLines[idx] ?? "";
       const isCurrent = idx === cursor.line;
-      const tokens = linesTokens[idx] || [];
+      const tokens = isLargeFileMode
+        ? largeLineTokens.get(idx) || []
+        : linesTokens[idx] || [];
 
       const lineDiags = diagnostics.filter((d) => d.range.start.line === idx);
       const searchLineMatches = searchMatches.filter((m) => m.line === idx);
@@ -1270,6 +1330,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     documentLines,
     cursor.line,
     linesTokens,
+    largeLineTokens,
+    isLargeFileMode,
     selection,
     searchQuery,
     searchMatches,

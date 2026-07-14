@@ -163,16 +163,24 @@ impl LspClient {
         let (tx, rx) = oneshot::channel();
         self.response_waiters.lock().await.insert(id, tx);
 
-        self.writer_tx
-            .send(msg.to_string())
-            .await
-            .map_err(|_| "Writer channel closed")?;
+        if self.writer_tx.send(msg.to_string()).await.is_err() {
+            self.response_waiters.lock().await.remove(&id);
+            return Err("Writer channel closed".to_string());
+        }
 
-        // 任务 F：对 rx.await 施加 30 秒超时，防止永久等待
-        tokio::time::timeout(Duration::from_secs(30), rx)
-            .await
-            .map_err(|_| "LSP call timed out after 30 seconds".to_string())?
-            .map_err(|_| "Response channel closed".to_string())
+        // A timed-out or cancelled frontend request must not retain its oneshot
+        // sender forever; diagnostics and completion requests can be frequent.
+        match tokio::time::timeout(Duration::from_secs(30), rx).await {
+            Ok(Ok(response)) => Ok(response),
+            Ok(Err(_)) => {
+                self.response_waiters.lock().await.remove(&id);
+                Err("Response channel closed".to_string())
+            }
+            Err(_) => {
+                self.response_waiters.lock().await.remove(&id);
+                Err("LSP call timed out after 30 seconds".to_string())
+            }
+        }
     }
 
     pub async fn cancel(&self, id: u64) -> Result<(), String> {

@@ -4,7 +4,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { memo, useEffect, useRef, useState } from "react";
-import type { ShellProfile } from "../../Core/TerminalService";
+import { type ShellProfile, TerminalManager } from "../../Core/TerminalService";
 import { EventBus } from "../../Foundation/EventBus";
 import { PtyIPC } from "../../Foundation/IPC/PtyCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
@@ -232,12 +232,14 @@ export const TerminalView = memo(function TerminalView({
           return;
         }
         spawnedRef.current = true;
+        TerminalManager.markTerminalReady(id);
         setStatus("ready");
         const terminal = terminalRef.current;
         if (terminal && terminal.cols > 0 && terminal.rows > 0) {
           await PtyIPC.resize(id, terminal.rows, terminal.cols);
         }
       } catch (error) {
+        TerminalManager.markTerminalFailed(id, error);
         console.error("Failed to start PTY", error);
         setStatus("error");
         terminalRef.current?.writeln(`\x1b[31m[Aurona Terminal] ${String(error)}\x1b[0m`);

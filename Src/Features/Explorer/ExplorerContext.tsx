@@ -10,7 +10,7 @@ export interface ExplorerContextValue {
   onInlineCreate: (name: string) => void;
   onInlineCancel: () => void;
   onInlineRename: (oldPath: string, newName: string) => void;
-  onDrop: (sourcePath: string, targetPath: string) => void;
+  onDrop: (sourcePath: string, targetPath: string, copy?: boolean) => void;
   startInlineCreateAt: (type: "file" | "folder", parentPath: string) => void;
   setInlineEditing: (path: string | null) => void;
   setClipboard: (cb: { path: string; isCut: boolean } | null) => void;

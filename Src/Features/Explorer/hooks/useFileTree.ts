@@ -23,6 +23,7 @@ export interface UseFileTreeReturn {
   setClipboard: (state: { path: string; isCut: boolean } | null) => void;
   handlePaste: (targetDir: string) => Promise<void>;
   handleOpenFolder: () => Promise<void>;
+  selectNode: (node: FileNode, openFile?: boolean) => void;
   refreshDirectory: (dirPath: string) => Promise<void>;
   toggleDir: (node: FileNode) => Promise<void>;
   startInlineCreate: (type: "file" | "folder") => void;
@@ -34,7 +35,7 @@ export interface UseFileTreeReturn {
   collapseAll: () => void;
   startInlineCreateAt: (type: "file" | "folder", targetParentPath: string) => void;
   handleDuplicate: (node: FileNode) => Promise<void>;
-  handleDrop: (sourcePath: string, targetPath: string) => Promise<void>;
+  handleDrop: (sourcePath: string, targetPath: string, copy?: boolean) => Promise<void>;
 }
 
 export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeReturn {
@@ -177,11 +178,18 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
     }
   }, [loadFolderDirectly]);
 
+  const selectNode = useCallback(
+    (node: FileNode, openFile = false) => {
+      setActivePath(node.path);
+      if (openFile && !node.isDirectory) onFileSelect(node.path);
+    },
+    [onFileSelect],
+  );
+
   const toggleDir = useCallback(
     async (node: FileNode) => {
+      selectNode(node, !node.isDirectory);
       if (!node.isDirectory) {
-        setActivePath(node.path);
-        onFileSelect(node.path);
         return;
       }
       if (node.isOpen) {
@@ -216,7 +224,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         showToast(`读取目录失败：${FileSystemService.toMessage(error)}`, "error");
       }
     },
-    [onFileSelect],
+    [onFileSelect, selectNode],
   );
 
   const collapseAll = useCallback(() => {
@@ -430,10 +438,10 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
   }, []);
 
   const handleDrop = useCallback(
-    async (sourcePath: string, targetPath: string) => {
+    async (sourcePath: string, targetPath: string, copy = false) => {
       if (sourcePath === targetPath) return;
 
-      if (hasDirtyOpenTabAtOrBelow(sourcePath)) {
+      if (!copy && hasDirtyOpenTabAtOrBelow(sourcePath)) {
         showToast("请先保存已打开文件的更改，再移动", "warning");
         return;
       }
@@ -448,15 +456,19 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         const destPath = FileSystemService.joinPath(targetPath, fileName);
         if (sourcePath === destPath) return;
 
-        await FileSystemService.copyOrMove(sourcePath, destPath, true);
+        await FileSystemService.copyOrMove(sourcePath, destPath, !copy);
 
         const oldParent = FileSystemService.dirname(sourcePath);
-        await refreshDirectory(oldParent);
-        await refreshDirectory(targetPath);
-        EventBus.emit("file:renamed", { oldPath: sourcePath, newPath: destPath });
-        updateActivePathAfterMove(sourcePath, destPath);
+        if (copy) {
+          await refreshDirectory(targetPath);
+        } else {
+          await refreshDirectory(oldParent);
+          await refreshDirectory(targetPath);
+          EventBus.emit("file:renamed", { oldPath: sourcePath, newPath: destPath });
+          updateActivePathAfterMove(sourcePath, destPath);
+        }
 
-        showToast("移动成功", "success");
+        showToast(copy ? "复制成功" : "移动成功", "success");
       } catch (error) {
         showToast(`移动失败: ${FileSystemService.toMessage(error)}`, "error");
       }
@@ -488,6 +500,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
     setDeletePrompt,
     setInlineEditing,
     handleOpenFolder,
+    selectNode,
     refreshDirectory,
     toggleDir,
     startInlineCreate,

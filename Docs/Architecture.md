@@ -25,7 +25,7 @@ Aurona Code 现已步入 **Corona+ 架构** 时代。该架构的首要目标是
 
 ### 3. Features 层 (功能业务层)
 基于 Corona+ 原则开发的业务拼图，可随时插拔。
-- `Editor/`：包含代码编辑器引擎（Monaco/AuronaEditor）与 LSP 客户端抽象。
+- `Editor/`：包含 AuronaEditor 代码编辑器引擎与 LSP 客户端抽象。
 - `Explorer/`：文件树渲染引擎。
 - `Settings/`：支持动态存储读取的全局设置面板。
 - `Terminal/`：Xterm.js 终端视图控制器。

@@ -18,6 +18,7 @@ export class LspClient {
   private runningServers = new Set<string>();
   private documentVersions = new Map<string, number>();
   private unlistenDiagnostics: (() => void) | null = null;
+  private pendingChanges = new Map<string, ReturnType<typeof setTimeout>>();
 
   private constructor() {
     this.setupListeners().catch((e) => console.error("Failed to setup LSP listeners:", e));
@@ -67,15 +68,24 @@ export class LspClient {
     if (!this.runningServers.has(language)) return;
     const version = (this.documentVersions.get(path) || 1) + 1;
     this.documentVersions.set(path, version);
-    try {
-      await invoke("lsp_did_change", { language, path, text, version });
-    } catch (e) {
-      console.error(`Failed didChange for ${path}:`, e);
-    }
+    const pending = this.pendingChanges.get(path);
+    if (pending) window.clearTimeout(pending);
+    const timer = window.setTimeout(() => {
+      this.pendingChanges.delete(path);
+      invoke("lsp_did_change", { language, path, text, version }).catch((e) =>
+        console.error(`Failed didChange for ${path}:`, e),
+      );
+    }, 180);
+    this.pendingChanges.set(path, timer);
   }
 
   public async didClose(language: string, path: string) {
     if (!this.runningServers.has(language)) return;
+    const pending = this.pendingChanges.get(path);
+    if (pending) {
+      window.clearTimeout(pending);
+      this.pendingChanges.delete(path);
+    }
     this.documentVersions.delete(path);
     try {
       await invoke("lsp_did_close", { language, path });

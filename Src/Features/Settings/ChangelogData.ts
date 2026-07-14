@@ -12,9 +12,39 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.2.7",
+    date: "2026-07-12",
+    isLatest: true,
+    summary: "资源管理器与 AuronaEditor 的基础交互、可靠性和大文件性能更新。",
+    sections: [
+      {
+        title: "文件资源管理器",
+        items: [
+          "**拖放移动与复制**：拖到文件夹可移动，按 Ctrl 或 Cmd 拖动可复制，并提供目标高亮与自动展开。",
+          "**键盘导航**：支持方向键浏览树、Enter 打开或展开、F2 重命名、Delete 删除及复制剪切粘贴快捷键。",
+        ],
+      },
+      {
+        title: "AuronaEditor",
+        items: [
+          "**大文件高亮分级**：大文件改为按可见区域读取 Rust Rope 的语法 token，并使用有界行缓存，避免持续传输整份文本至 Web Worker。",
+          "**编辑同步加固**：同一文档的编辑、保存、关闭与可见区读取现在按顺序执行；最大行宽计算和 LSP 变更会在连续输入后合并处理。",
+        ],
+      },
+      {
+        title: "可靠性与底层",
+        items: [
+          "**安全保存与标签保护**：Windows 保存既有文件采用备份替换与失败回滚；中键关闭未保存标签也会进入确认流程。",
+          "**终端与语言服务稳定性**：智能运行等待 PTY 真正就绪再写入命令，并在启动超时时明确失败；LSP 不再跨 await 持有全局客户端锁，并会清理超时请求。",
+          "**架构说明统一**：项目文档中的旧编辑器说明已统一迁移为 AuronaEditor。",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.2.6",
     date: "2026-07-11",
-    isLatest: true,
+    isLatest: false,
     summary:
       "本次更新是 AuronaEngine 编辑器内核迈向高性能架构的一次关键跃迁。我们彻底告别了以整块文本域为中心的传统渲染模式，转而构建由行级文档模型、虚拟视口、异步词法高亮与 Rust 原子文档会话共同驱动的新一代编辑体验。无论是大文件滚动、中文输入、精确选区，还是 LSP 智能提示与诊断反馈，现在都拥有了更稳固、更细腻的底层支撑。",
     sections: [

@@ -659,10 +659,30 @@ pub fn save_editor_file(path: String, state: State<'_, EditorState>) -> Result<(
         writer.flush().map_err(|e| format!("刷新缓存失败: {e}"))?;
     }
 
-    std::fs::rename(&tmp_path, &normalized_path).map_err(|e| {
-        let _ = std::fs::remove_file(&tmp_path);
-        format!("覆盖文件失败: {e}")
-    })?;
+    // `rename` cannot replace an existing destination on Windows. Move the current
+    // file aside first so the same save path works on every supported platform,
+    // and restore it if promoting the temporary file fails.
+    if Path::new(&normalized_path).exists() {
+        let backup_path = format!("{normalized_path}.aurona_save.bak");
+        let _ = std::fs::remove_file(&backup_path);
+        std::fs::rename(&normalized_path, &backup_path).map_err(|e| {
+            let _ = std::fs::remove_file(&tmp_path);
+            format!("无法准备保存替换: {e}")
+        })?;
+
+        if let Err(error) = std::fs::rename(&tmp_path, &normalized_path) {
+            let _ = std::fs::rename(&backup_path, &normalized_path);
+            let _ = std::fs::remove_file(&tmp_path);
+            return Err(format!("覆盖文件失败: {error}"));
+        }
+
+        let _ = std::fs::remove_file(&backup_path);
+    } else {
+        std::fs::rename(&tmp_path, &normalized_path).map_err(|e| {
+            let _ = std::fs::remove_file(&tmp_path);
+            format!("创建文件失败: {e}")
+        })?;
+    }
 
     Ok(())
 }

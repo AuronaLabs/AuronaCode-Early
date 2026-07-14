@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { FileSystemService, type FileNode } from "../../../Core/FileSystemService";
 import { EventBus } from "../../../Foundation/EventBus";
 import {
@@ -70,11 +70,22 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
   } = useExplorerContext();
 
   const [isDragHover, setIsDragHover] = React.useState(false);
+  const autoExpandTimer = React.useRef<number | null>(null);
+  const dragEnterDepth = React.useRef(0);
+
+  const clearAutoExpandTimer = useCallback(() => {
+    if (autoExpandTimer.current !== null) {
+      window.clearTimeout(autoExpandTimer.current);
+      autoExpandTimer.current = null;
+    }
+  }, []);
 
   const isActive = activePath === node.path;
   const isTargetForInline =
     inlineCreation?.parentPath === node.path && node.isDirectory && node.isOpen;
   const isEditingThis = inlineEditing === node.path;
+
+  React.useEffect(() => clearAutoExpandTimer, []);
 
   if (isEditingThis) {
     return (
@@ -93,7 +104,7 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
       {depth > 0 &&
         Array.from({ length: depth }).map((_, index) => (
           <div
-            key={index}
+            key={`${node.path}-guide-${index}`}
             className="absolute top-0 bottom-0 border-l border-[var(--GlassBorder)]/50 pointer-events-none"
             style={{ left: `calc(${index} * var(--TreeIndent) + 14px)` }}
           />
@@ -102,6 +113,10 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
       <ContextMenuRoot>
         <ContextMenuTrigger asChild>
           <div
+            role="treeitem"
+            tabIndex={-1}
+            aria-selected={isActive}
+            aria-expanded={node.isDirectory ? node.isOpen : undefined}
             draggable={true}
             className={`group/tree flex items-center gap-1.5 py-[3px] mx-1 pr-2 rounded-lg text-[13px] cursor-pointer select-none transition-colors outline-none ${
               isDragHover
@@ -114,37 +129,52 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
               paddingLeft: `calc(${depth} * var(--TreeIndent) + 4px)`,
             }}
             onClick={() => onToggle(node)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") onToggle(node);
+            }}
             onDragStart={(e) => {
               e.stopPropagation();
+              e.dataTransfer.setData("application/x-aurona-file-node", node.path);
               e.dataTransfer.setData("text/plain", node.path);
-              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.effectAllowed = "copyMove";
             }}
             onDragOver={(e) => {
               if (node.isDirectory) {
                 e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
+                e.dataTransfer.dropEffect = e.ctrlKey || e.metaKey ? "copy" : "move";
               }
             }}
             onDragEnter={(e) => {
               if (node.isDirectory) {
                 e.preventDefault();
+                dragEnterDepth.current += 1;
                 setIsDragHover(true);
+                if (!node.isOpen) {
+                  clearAutoExpandTimer();
+                  autoExpandTimer.current = window.setTimeout(() => onToggle(node), 700);
+                }
               }
             }}
             onDragLeave={(e) => {
               if (node.isDirectory) {
                 e.preventDefault();
-                setIsDragHover(false);
+                dragEnterDepth.current = Math.max(0, dragEnterDepth.current - 1);
+                if (dragEnterDepth.current === 0) {
+                  setIsDragHover(false);
+                  clearAutoExpandTimer();
+                }
               }
             }}
             onDrop={(e) => {
               e.preventDefault();
               e.stopPropagation();
               setIsDragHover(false);
+              dragEnterDepth.current = 0;
+              clearAutoExpandTimer();
               if (node.isDirectory) {
-                const src = e.dataTransfer.getData("text/plain");
+                const src = e.dataTransfer.getData("application/x-aurona-file-node");
                 if (src) {
-                  onDrop(src, node.path);
+                  onDrop(src, node.path, e.ctrlKey || e.metaKey);
                 }
               }
             }}

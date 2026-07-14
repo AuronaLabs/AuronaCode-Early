@@ -36,7 +36,7 @@ Src/
  │    └── TerminalContext.tsx # 终端实例的集合状态
  │
  ├── Features/            [业务功能实体模块]
- │    ├── Editor/         # 核心代码编辑器引擎 (AuronaEditor, Monaco 封装)
+ │    ├── Editor/         # 核心代码编辑器引擎 (AuronaEditor)
  │    ├── Explorer/       # 左侧文件系统树与上下文面板
  │    ├── Search/         # 跨文件文本搜索面板
  │    ├── SourceControl/  # Git 暂存、提交与历史流交互面板
