@@ -1,5 +1,6 @@
 import { BaseDirectory, exists, mkdir, readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import type { WorkspaceState } from "../Types/Config";
+import { Logger } from "../Logger";
 
 const FILE = "workspace.json";
 const BASE = BaseDirectory.AppLocalData;
@@ -14,7 +15,9 @@ export const WorkspaceStore = {
   async init(): Promise<void> {
     try {
       await mkdir("", { baseDir: BASE, recursive: true });
-    } catch {}
+    } catch (error) {
+      Logger.warn("Unable to initialize workspace storage", error);
+    }
   },
 
   async get(): Promise<WorkspaceState> {
@@ -29,7 +32,8 @@ export const WorkspaceStore = {
       const content = await readTextFile(FILE, { baseDir: BASE });
       memoryCache = JSON.parse(content) as WorkspaceState;
       return memoryCache;
-    } catch {
+    } catch (error) {
+      Logger.error("Unable to read workspace state; using in-memory defaults", error);
       return {};
     }
   },
@@ -59,7 +63,9 @@ export const WorkspaceStore = {
           await writeTextFile(FILE, JSON.stringify(memoryCache, null, 2), {
             baseDir: BASE,
           });
-        } catch {}
+        } catch (error) {
+          Logger.error("Unable to persist workspace state", error);
+        }
         isWriting = false;
         if (pendingWrite) {
           flush();

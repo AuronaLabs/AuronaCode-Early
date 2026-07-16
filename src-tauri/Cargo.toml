@@ -1,6 +1,6 @@
 [package]
 name = "aurona_code"
-version = "0.2.9"
+version = "0.2.10"
 description = "Aurona Code Beta"
 authors = ["Aurona Team"]
 edition = "2021"
@@ -37,6 +37,7 @@ tauri-plugin-updater = "2"
 ts-rs = "8.1"
 ropey = "1.6"
 "arc-swap" = "1.7"
+sysinfo = "0.32"
 
 [features]
 devtools = []

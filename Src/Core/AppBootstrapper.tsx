@@ -73,10 +73,26 @@ export function AppBootstrapper({ children }: Props) {
 
           setReady(true);
 
-          // Once we are completely ready, tell the Rust backend to close the splashscreen.
-          // The Rust backend will also show and maximize the main window safely!
-          import("@tauri-apps/api/core").then(({ invoke }) => {
-            invoke("close_splashscreen").catch(console.error);
+          // Capture a real main-content paint after the intentional Splash presentation
+          // window. The two animation frames are not part of the fixed two-second delay.
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              if (!mounted) return;
+              import("@tauri-apps/api/core").then(({ invoke }) => {
+                const mainInteractiveMs = performance.now() - startTime;
+                invoke("record_startup_metrics", {
+                  input: {
+                    frontendBootstrapMs: elapsed,
+                    mainInteractiveMs,
+                    splashMinimumMs: 2_000,
+                  },
+                })
+                  .catch(console.error)
+                  .finally(() => {
+                    invoke("close_splashscreen").catch(console.error);
+                  });
+              });
+            });
           });
         }, waitTime);
       } catch (error) {

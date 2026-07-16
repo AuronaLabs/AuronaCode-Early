@@ -1,6 +1,7 @@
 mod commands;
 mod editor;
 mod lsp;
+mod performance;
 mod pty;
 mod search;
 
@@ -15,6 +16,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(pty::PtyState::new())
         .manage(editor::EditorState::new())
+        .manage(performance::PerformanceState::new())
         .manage(LspState {
             clients: tokio::sync::Mutex::new(std::collections::HashMap::new()),
         })
@@ -41,6 +43,12 @@ pub fn run() {
             pty::resize_pty,
             pty::get_available_shells,
             search::search_workspace,
+            performance::get_performance_environment,
+            performance::run_performance_benchmark,
+            performance::record_startup_metrics,
+            performance::get_startup_metrics,
+            performance::load_performance_baseline,
+            performance::save_performance_baseline,
             commands::lsp_cmds::lsp_start,
             commands::lsp_cmds::lsp_did_open,
             commands::lsp_cmds::lsp_did_change,

@@ -4,6 +4,7 @@ export type TabType =
   | "settings"
   | "custom"
   | "changelog"
+  | "performance"
   | "notifications"
   | "diff";
 

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { useWorkspaceStore } from "../../State/useWorkspaceStore";
@@ -33,6 +33,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [repoPath, setRepoPath] = useState<string | null>(null);
   const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({});
+  const latestSearchRef = useRef(0);
 
   const toggleFileCollapse = (filePath: string) => {
     setCollapsedFiles((prev) => ({
@@ -51,6 +52,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
     init();
 
     const unsub = EventBus.on("workspace:root-changed", (path: string) => {
+      latestSearchRef.current += 1;
       setRepoPath(path);
       setResults([]);
       setHasSearched(false);
@@ -61,7 +63,9 @@ export const SearchPanel = React.memo(function SearchPanel() {
   }, []);
 
   const handleSearch = async () => {
-    if (isSearching || !query.trim() || !repoPath) return;
+    if (!query.trim() || !repoPath) return;
+    const requestId = latestSearchRef.current + 1;
+    latestSearchRef.current = requestId;
 
     setIsSearching(true);
     setHasSearched(true);
@@ -76,14 +80,16 @@ export const SearchPanel = React.memo(function SearchPanel() {
         isCaseSensitive,
         isRegex,
       });
+      if (latestSearchRef.current !== requestId) return;
       setResults(response.results);
       setLimitReached(response.limit_reached);
     } catch (e) {
+      if (latestSearchRef.current !== requestId) return;
       const message = e instanceof Error ? e.message : String(e);
       setSearchError(message);
       showToast(`搜索失败：${message}`, "error");
     } finally {
-      setIsSearching(false);
+      if (latestSearchRef.current === requestId) setIsSearching(false);
     }
   };
 
@@ -130,7 +136,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
       <div className="px-[var(--PanelPaddingX)] pb-4 shrink-0 mt-2 flex flex-col gap-3">
         <div className={cn(glassVariants({ layer: "base" }), "flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[11.5px] text-[var(--TextMuted)]")}>
           <Icons.Info size={14} className="opacity-60 shrink-0" />
-          <span className="opacity-80">全局搜索即将被 Fliuno 搜索替代</span>
+          <span className="opacity-80">搜索结果按文件与行号稳定排序；大文件与超过 500 条的结果会被安全限制。</span>
         </div>
 
         <div className={cn(glassVariants({ layer: "base" }), "flex flex-col p-3 rounded-2xl gap-3 transition-all")}>
@@ -138,7 +144,11 @@ export const SearchPanel = React.memo(function SearchPanel() {
             fullWidth
             placeholder="全局搜索... (回车以执行)"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              latestSearchRef.current += 1;
+              setIsSearching(false);
+              setQuery(e.target.value);
+            }}
             onKeyDown={handleKeyDown}
           />
           <div className="flex items-center justify-between">
@@ -164,7 +174,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
             <Tooltip content="执行搜索">
               <button
                 onClick={handleSearch}
-                disabled={isSearching || !query.trim()}
+                disabled={!query.trim()}
                 className="px-3 py-1.5 bg-[var(--GlassSurface)] hover:bg-[var(--GlassHover)] border border-[var(--GlassBorder)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--TextHighlight)] text-[12px] font-medium rounded-lg transition-all flex items-center gap-1.5"
               >
                 <Icons.Search size={13} stroke={2} />

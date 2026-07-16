@@ -97,6 +97,13 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
                       className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
                     />
                   )}
+                  {tab.type === "performance" && (
+                    <Icons.History
+                      size={16}
+                      stroke={1.5}
+                      className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
+                    />
+                  )}
                   {tab.type === "diff" && (
                     <Icons.GitBranch
                       size={16}

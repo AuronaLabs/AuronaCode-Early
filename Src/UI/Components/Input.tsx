@@ -4,7 +4,7 @@ import { cn } from "../../Shared/Utils/cn";
 import { glassVariants } from "../Core/GlassManager/variants";
 
 const inputVariants = cva(
-  "flex w-full rounded-lg text-[12px] text-[var(--TextHighlight)] transition-all duration-200 placeholder:text-[var(--TextMuted)] focus:outline-none focus:ring-1 focus:ring-blue-500/50 disabled:cursor-not-allowed disabled:opacity-50",  {
+  "flex w-full rounded-lg text-[12px] text-[var(--TextHighlight)] transition-[background-color,border-color,color,box-shadow,opacity] duration-200 placeholder:text-[var(--TextMuted)] focus:outline-none focus:ring-1 focus:ring-blue-500/50 disabled:cursor-not-allowed disabled:opacity-50",  {
     variants: {
       inputSize: {
         default: "h-7 px-3",

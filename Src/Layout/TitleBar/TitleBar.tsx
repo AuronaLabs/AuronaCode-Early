@@ -169,6 +169,16 @@ export function TitleBar() {
                 }}
               />
               <MenubarItem
+                label="性能测试"
+                onSelect={() =>
+                  EventBus.emit("app:open-tab", {
+                    id: "performance",
+                    type: "performance",
+                    title: "性能测试",
+                  })
+                }
+              />
+              <MenubarItem
                 label="开发者工具"
                 onSelect={() => {
                   invoke("open_devtools").catch((err) => {

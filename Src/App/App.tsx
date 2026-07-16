@@ -123,6 +123,15 @@ export default function App() {
                     title: "更新记录",
                   }),
               }),
+              await MenuItem.new({
+                text: "性能测试",
+                action: () =>
+                  EventBus.emit("app:open-tab", {
+                    id: "performance",
+                    type: "performance",
+                    title: "性能测试",
+                  }),
+              }),
               await PredefinedMenuItem.new({ item: "Separator" }),
               await MenuItem.new({
                 text: "开发者工具",

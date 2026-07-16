@@ -15,6 +15,7 @@
     "core:window:allow-show",
     "dialog:default",
     "process:default",
+    "updater:default",
     "fs:default",
     {
       "identifier": "fs:allow-read-text-file",

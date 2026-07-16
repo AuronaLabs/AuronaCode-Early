@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect } from "react";
 import { AboutTab } from "../Features/Settings/AboutTab";
 import { SettingsTab } from "../Features/Settings/SettingsTab";
 import { ChangelogTab } from "../Features/Settings/ChangelogTab";
+import { PerformanceBenchmarkPage } from "../Features/Settings/PerformanceBenchmarkPage";
 import { TerminalManager } from "../Core/TerminalService";
 import { EditorTabBar } from "../Features/Editor/EditorTabBar";
 import { EventBus } from "../Foundation/EventBus";
@@ -80,6 +81,8 @@ function renderTabContent(
     content = isActive ? <SettingsTab /> : null;
   } else if (tab.type === "changelog") {
     content = isActive ? <ChangelogTab /> : null;
+  } else if (tab.type === "performance") {
+    content = isActive ? <PerformanceBenchmarkPage /> : null;
   } else if (tab.type === "diff" && tab.path) {
     // For diff, tab.path stores the commit hash
     content = isActive ? <DiffViewer commitHash={tab.path} /> : null;
