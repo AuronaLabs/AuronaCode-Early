@@ -52,7 +52,7 @@ Aurona Code 迎来了史诗级的大版本更新，我们正式步入 **Corona+*
 
 首次拉取代码后，我们推荐您使用项目内置的 `manager.py` 自动化管理脚本。
 
-1. **环境准备**：请确保您的计算机已安装 [Node.js](https://nodejs.org/) 与 [Rust](https://www.rust-lang.org/) 环境，以及 [Python](https://www.python.org/) 以运行管理脚本。
+1. **环境准备**：请安装 [Node.js 22](https://nodejs.org/)、[Rust](https://www.rust-lang.org/) 与 [Python](https://www.python.org/)（仅运行 `manager.py` 时需要）。项目统一使用 **pnpm 11.13.0**：首次使用前请执行 `corepack enable`，再执行 `corepack install --global pnpm@11.13.0`。
 2. **克隆代码**：
    ```bash
    git clone https://github.com/AuronaLabs/AuronaCode-Early.git
@@ -60,10 +60,10 @@ Aurona Code 迎来了史诗级的大版本更新，我们正式步入 **Corona+*
    ```
 3. **安装依赖**：
    ```bash
-   npm install
+   pnpm install
    ```
 4. **启动调试**：
-   在根目录运行以下命令打开交互式极客风管理面板，选择对应的功能启动：
+   在根目录运行以下命令打开交互式管理面板，选择对应功能；也可以直接运行 `pnpm tauri:dev`：
    ```bash
    python manager.py
    ```

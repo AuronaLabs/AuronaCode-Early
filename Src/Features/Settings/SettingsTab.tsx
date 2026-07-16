@@ -13,11 +13,13 @@ import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
 import { useGlassStore, type GlassIntensity } from "../../UI/Core/GlassManager";
+import { UpdaterService } from "../../Core/UpdaterService";
 
 export type SettingsSection = "appearance" | "editor" | "terminal" | "git" | "storage" | "advanced";
 
 export function SettingsTab() {
   const [activeSection, setActiveSection] = useState<SettingsSection>("appearance");
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const { intensity, setIntensity } = useGlassStore();
 
   useEffect(() => {
@@ -733,6 +735,31 @@ export function SettingsTab() {
       </div>
 
       <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">检查更新</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">
+              手动检查 GitHub Release 中是否有可安装的新版本
+            </span>
+          </div>
+          <Button
+            variant="secondary"
+            className="h-8 text-[12px] px-3.5"
+            disabled={isCheckingUpdate}
+            onClick={() => {
+              setIsCheckingUpdate(true);
+              void UpdaterService.checkForUpdates().then((result) => {
+                if (result.status === "up-to-date") {
+                  showToast("当前已是最新版本", "success");
+                } else if (result.status === "error") {
+                  showToast(`检查更新失败：${result.error}`, "error");
+                }
+              }).finally(() => setIsCheckingUpdate(false));
+            }}
+          >
+            {isCheckingUpdate ? "正在检查..." : "检查更新"}
+          </Button>
+        </div>
         <div className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--TextHighlight)]">初始化重置</span>

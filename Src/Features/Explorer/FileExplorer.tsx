@@ -151,6 +151,20 @@ export const FileExplorer = React.memo(function FileExplorer({
     ],
   );
 
+  React.useEffect(() => {
+    if (!activePath || !treeRef.current) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = Array.from(
+        treeRef.current?.querySelectorAll<HTMLElement>("[data-file-path]") ?? [],
+      ).find((element) => element.dataset.filePath === activePath);
+      target?.scrollIntoView({ block: "nearest" });
+      treeRef.current?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [activePath, rootNode]);
+
   return (
     <ExplorerContext.Provider value={contextValue}>
       <div

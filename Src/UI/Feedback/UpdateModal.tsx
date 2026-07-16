@@ -15,10 +15,15 @@ export function UpdateModal() {
   useEffect(() => {
     const unsubAvailable = EventBus.on("app:update-available", (update: Update) => {
       setUpdateInfo(update);
+      setIsOpen(true);
     });
 
     const unsubShow = EventBus.on("app:show-update-modal", () => {
-      if (updateInfo) setIsOpen(true);
+      const update = updateInfo ?? UpdaterService.currentUpdate;
+      if (update) {
+        setUpdateInfo(update);
+        setIsOpen(true);
+      }
     });
 
     const unsubProgress = EventBus.on("app:update-progress", (data: any) => {

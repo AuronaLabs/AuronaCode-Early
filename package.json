@@ -1,11 +1,12 @@
 {
   "name": "aurona-code",
   "private": true,
-  "version": "0.2.8",
+  "version": "0.2.9",
+  "packageManager": "pnpm@11.13.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420",
-    "build": "npm run typecheck && vite build",
+    "build": "pnpm run typecheck && vite build",
     "typecheck": "tsc --noEmit",
     "check": "biome ci Src",
     "smoke": "node scripts/smoke.mjs",

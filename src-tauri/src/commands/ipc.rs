@@ -43,7 +43,17 @@ pub async fn aurona_bridge(req: IpcRequest) -> IpcResponse {
 
 #[cfg(test)]
 mod tests {
-    use super::IpcRequest;
+    use super::{clear_directory_contents, get_dir_size, IpcRequest};
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_directory() -> std::path::PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after the Unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!("aurona-ipc-test-{unique}"))
+    }
 
     #[test]
     fn request_deserializes_the_frontend_payload_field() {
@@ -57,6 +67,27 @@ mod tests {
             request.payload,
             Some(serde_json::json!({ "source": "test" }))
         );
+    }
+
+    #[test]
+    fn storage_cleanup_preserves_configuration_and_reports_nested_size() {
+        let root = temp_directory();
+        let nested = root.join("cache").join("nested");
+        fs::create_dir_all(&nested).expect("test directories should be created");
+        fs::write(root.join("user-config.json"), "config").expect("config should be written");
+        fs::write(root.join("workspace.json"), "workspace").expect("workspace should be written");
+        fs::write(nested.join("payload.bin"), "payload").expect("cache payload should be written");
+
+        assert_eq!(get_dir_size(&root).expect("size should be calculated"), 22);
+
+        clear_directory_contents(&root, &["user-config.json", "workspace.json"])
+            .expect("cleanup should succeed");
+
+        assert!(root.join("user-config.json").exists());
+        assert!(root.join("workspace.json").exists());
+        assert!(!root.join("cache").exists());
+
+        fs::remove_dir_all(root).expect("test directory should be removed");
     }
 }
 
@@ -73,85 +104,117 @@ use std::fs;
 use std::path::Path;
 use tauri::Manager;
 
-fn get_dir_size(path: &Path) -> u64 {
-    let mut size = 0;
-    if let Ok(entries) = fs::read_dir(path) {
-        for entry in entries.flatten() {
-            if let Ok(metadata) = entry.metadata() {
-                if metadata.is_dir() {
-                    size += get_dir_size(&entry.path());
-                } else {
-                    size += metadata.len();
-                }
+fn get_dir_size(path: &Path) -> Result<u64, String> {
+    let mut total = 0_u64;
+    let mut directories = vec![path.to_path_buf()];
+
+    while let Some(directory) = directories.pop() {
+        for entry in fs::read_dir(&directory)
+            .map_err(|error| format!("Unable to read {}: {error}", directory.display()))?
+        {
+            let entry =
+                entry.map_err(|error| format!("Unable to read directory entry: {error}"))?;
+            let file_type = entry.file_type().map_err(|error| {
+                format!("Unable to inspect {}: {error}", entry.path().display())
+            })?;
+
+            if file_type.is_symlink() {
+                continue;
+            }
+            if file_type.is_dir() {
+                directories.push(entry.path());
+            } else if file_type.is_file() {
+                let length = entry
+                    .metadata()
+                    .map_err(|error| {
+                        format!("Unable to inspect {}: {error}", entry.path().display())
+                    })?
+                    .len();
+                total = total
+                    .checked_add(length)
+                    .ok_or_else(|| "Directory size exceeds supported range".to_string())?;
             }
         }
     }
-    size
+
+    Ok(total)
 }
 
 #[tauri::command]
-pub fn get_app_data_size(app: tauri::AppHandle) -> Result<u64, String> {
-    if let Ok(path) = app.path().app_local_data_dir() {
-        Ok(get_dir_size(&path))
-    } else {
-        Err("Failed to get app local data dir".to_string())
-    }
+pub async fn get_app_data_size(app: tauri::AppHandle) -> Result<u64, String> {
+    let path = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("Failed to get app local data dir: {error}"))?;
+    tokio::task::spawn_blocking(move || get_dir_size(&path))
+        .await
+        .map_err(|error| format!("App data size task failed: {error}"))?
 }
 
 #[tauri::command]
-pub fn get_app_log_size(app: tauri::AppHandle) -> u64 {
-    if let Ok(log_dir) = app.path().app_log_dir() {
-        get_dir_size(&log_dir)
-    } else {
-        0
-    }
+pub async fn get_app_log_size(app: tauri::AppHandle) -> Result<u64, String> {
+    let log_dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|error| format!("Failed to get app log dir: {error}"))?;
+    tokio::task::spawn_blocking(move || get_dir_size(&log_dir))
+        .await
+        .map_err(|error| format!("App log size task failed: {error}"))?
 }
 
 #[tauri::command]
-pub fn clear_app_logs(app: tauri::AppHandle) -> Result<(), String> {
+pub async fn clear_app_logs(app: tauri::AppHandle) -> Result<(), String> {
     let log_dir = app
         .path()
         .app_log_dir()
         .map_err(|e| format!("Failed to get app log dir: {e}"))?;
 
-    if !log_dir.exists() {
+    tokio::task::spawn_blocking(move || clear_directory_contents(&log_dir, &[]))
+        .await
+        .map_err(|error| format!("Log cleanup task failed: {error}"))?
+}
+
+#[tauri::command]
+pub async fn clear_other_app_data(app: tauri::AppHandle) -> Result<(), String> {
+    let app_dir = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("Failed to get app local data dir: {error}"))?;
+    tokio::task::spawn_blocking(move || {
+        clear_directory_contents(&app_dir, &["user-config.json", "workspace.json"])
+    })
+    .await
+    .map_err(|error| format!("App data cleanup task failed: {error}"))?
+}
+
+fn clear_directory_contents(path: &Path, preserved_names: &[&str]) -> Result<(), String> {
+    if !path.exists() {
         return Ok(());
     }
 
-    for entry in fs::read_dir(&log_dir).map_err(|e| e.to_string())? {
-        let path = entry.map_err(|e| e.to_string())?.path();
-        if path.is_dir() {
-            fs::remove_dir_all(path).map_err(|e| e.to_string())?;
+    for entry in
+        fs::read_dir(path).map_err(|error| format!("Unable to read {}: {error}", path.display()))?
+    {
+        let entry = entry.map_err(|error| format!("Unable to read directory entry: {error}"))?;
+        let name = entry.file_name();
+        if preserved_names.iter().any(|preserved| name == *preserved) {
+            continue;
+        }
+
+        let entry_path = entry.path();
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("Unable to inspect {}: {error}", entry_path.display()))?;
+        if file_type.is_dir() {
+            fs::remove_dir_all(&entry_path)
+                .map_err(|error| format!("Unable to remove {}: {error}", entry_path.display()))?;
         } else {
-            fs::remove_file(path).map_err(|e| e.to_string())?;
+            fs::remove_file(&entry_path)
+                .map_err(|error| format!("Unable to remove {}: {error}", entry_path.display()))?;
         }
     }
 
     Ok(())
-}
-
-#[tauri::command]
-pub fn clear_other_app_data(app: tauri::AppHandle) -> Result<(), String> {
-    if let Ok(app_dir) = app.path().app_local_data_dir() {
-        if let Ok(entries) = fs::read_dir(&app_dir) {
-            for entry in entries.flatten() {
-                let name = entry.file_name();
-                // Skip the configuration files
-                if name == "user-config.json" || name == "workspace.json" {
-                    continue;
-                }
-                let path = entry.path();
-                if path.is_dir() {
-                    let _ = fs::remove_dir_all(path);
-                } else {
-                    let _ = fs::remove_file(path);
-                }
-            }
-        }
-        Ok(())
-    } else {
-        Err("Failed to get app local data dir".to_string())
-    }
 }
 
 #[tauri::command]

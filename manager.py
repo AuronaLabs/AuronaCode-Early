@@ -26,6 +26,13 @@ ConsoleInstance = Console()
 TauriConf = 'src-tauri/tauri.conf.json'
 PackageJson = 'package.json'
 CargoToml  = 'src-tauri/Cargo.toml'
+PackageManager = 'pnpm'
+PackageManagerVersion = '11.13.0'
+
+def ResolveCommand(Command):
+    if os.name == 'nt' and Command == PackageManager:
+        return f'{PackageManager}.cmd'
+    return Command
 
 def ReadJson(Path):
     with open(Path, 'r', encoding='utf-8') as File:
@@ -80,11 +87,7 @@ def WriteSecurityVersion(NewVersion):
 def RunCommand(CommandList, Description):
     ConsoleInstance.print(f"\n[dim]:: {Description} ::[/dim]")
     try:
-        # 修复 WinError 2: Windows 下 npm 实际上是 npm.cmd
-        if os.name == 'nt' and CommandList[0] == 'npm':
-            CommandList[0] = 'npm.cmd'
-        elif os.name == 'nt' and CommandList[0] == 'cargo':
-            pass # cargo is an exe
+        CommandList[0] = ResolveCommand(CommandList[0])
         
         subprocess.run(CommandList, check=True)
         ConsoleInstance.print(f"[bold]✓ 任务完成[/bold] [dim]({Description})[/dim]\n")
@@ -102,6 +105,19 @@ def CheckAndInstallEnvironment():
         HasNode = True
     except Exception:
         ConsoleInstance.print("[bold red]✗ 未检测到 Node.js，请前往 https://nodejs.org 手动安装。[/bold red]")
+
+    HasPnpm = False
+    if HasNode:
+        try:
+            Result = subprocess.run([ResolveCommand(PackageManager), "--version"], check=True, capture_output=True, text=True)
+            ConsoleInstance.print(f"[bold green]✓ pnpm 已就绪[/bold green] [dim](v{Result.stdout.strip()})[/dim]")
+            HasPnpm = True
+        except Exception:
+            ConsoleInstance.print(
+                f"[bold red]✗ 未检测到 pnpm {PackageManagerVersion}[/bold red]，"
+                "请先运行 `corepack enable` 和 "
+                f"`corepack install --global pnpm@{PackageManagerVersion}`。"
+            )
 
     HasRust = False
     try:
@@ -126,8 +142,8 @@ def CheckAndInstallEnvironment():
             except Exception as Err:
                 ConsoleInstance.print(f"[bold red]✗ Tauri CLI 安装失败: {Err}[/bold red]")
 
-    if HasNode and Confirm.ask("\n是否需要自动执行 npm install 以同步前端依赖?", default=True):
-        RunCommand(["npm", "install"], "安装项目前端依赖")
+    if HasNode and HasPnpm and Confirm.ask("\n是否需要自动执行 pnpm install 以同步前端依赖?", default=True):
+        RunCommand([PackageManager, "install"], "安装项目前端依赖")
         
     ConsoleInstance.print("\n[dim]环境检查完成，按回车返回菜单...[/dim]")
     input()
@@ -291,7 +307,7 @@ def HandleDistribution():
         return
         
     ConsoleInstance.print("\n[dim]开始执行 Tauri 生产构建流水线...[/dim]")
-    RunCommand(["npm", "run", "tauri:build"], "执行 Tauri 构建 (Cargo Release)")
+    RunCommand([PackageManager, "run", "tauri:build"], "执行 Tauri 构建 (Cargo Release)")
     ConsoleInstance.print("[bold]✓ 构建成功！[/bold] [dim]安装包已输出至 src-tauri/target/release/bundle[/dim]")
     input("\n按回车键返回主菜单...")
 
@@ -303,14 +319,14 @@ def Main():
         if Choice == "1":
             ConsoleInstance.print("\n[dim]:: 启动极速开发环境 (Tauri Dev)... (Ctrl+C 中止) ::[/dim]")
             try:
-                cmd = ["npm.cmd", "run", "tauri:dev"] if os.name == 'nt' else ["npm", "run", "tauri:dev"]
+                cmd = [ResolveCommand(PackageManager), "run", "tauri:dev"]
                 subprocess.run(cmd)
             except KeyboardInterrupt:
                 ConsoleInstance.print("\n[dim]已终止进程。[/dim]")
             time.sleep(1)
             
         elif Choice == "2":
-            RunCommand(["npm", "run", "build"], "编译前端静态资源")
+            RunCommand([PackageManager, "run", "build"], "编译前端静态资源")
             time.sleep(1)
             
         elif Choice == "3":
@@ -338,7 +354,7 @@ def Main():
             CheckAndInstallEnvironment()
             
         elif Choice == "8":
-            RunCommand(["npm", "install"], "安装项目前端依赖")
+            RunCommand([PackageManager, "install"], "安装项目前端依赖")
             time.sleep(1)
             
         elif Choice == "9":

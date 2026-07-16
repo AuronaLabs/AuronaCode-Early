@@ -1,23 +1,31 @@
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { EventBus } from "../Foundation/EventBus";
+import { Logger } from "../Foundation/Logger";
 import { relaunch } from "@tauri-apps/plugin-process";
+
+export type UpdateCheckResult =
+  | { status: "available"; update: Update }
+  | { status: "up-to-date" }
+  | { status: "error"; error: string };
 
 export const UpdaterService = {
   currentUpdate: null as Update | null,
 
-  async checkForUpdates() {
+  async checkForUpdates(): Promise<UpdateCheckResult> {
     try {
       const update = await check();
       if (update) {
-        console.log(`Update available: ${update.version} from ${update.date}`);
         this.currentUpdate = update;
         EventBus.emit("app:update-available", update);
+        return { status: "available", update };
       } else {
-        console.log("No updates available");
         this.currentUpdate = null;
+        return { status: "up-to-date" };
       }
-    } catch (e) {
-      console.error("Failed to check for updates:", e);
+    } catch (cause) {
+      const error = cause instanceof Error ? cause.message : String(cause);
+      Logger.error("Update check failed", cause);
+      return { status: "error", error };
     }
   },
 
@@ -49,9 +57,10 @@ export const UpdaterService = {
         });
 
         await relaunch();
-      } catch (e) {
-        console.error("Failed to install update:", e);
-        EventBus.emit("app:update-progress", { status: "error", error: String(e) });
+      } catch (cause) {
+        const error = cause instanceof Error ? cause.message : String(cause);
+        Logger.error("Update installation failed", cause);
+        EventBus.emit("app:update-progress", { status: "error", error });
       }
     }
   },

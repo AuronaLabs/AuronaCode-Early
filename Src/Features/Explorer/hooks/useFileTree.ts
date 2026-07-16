@@ -5,6 +5,7 @@ import { type FileNode, FileSystemService } from "../../../Core/FileSystemServic
 import { EventBus } from "../../../Foundation/EventBus";
 import { WorkspaceStore } from "../../../Foundation/Storage/WorkspaceStore";
 import { useWorkspaceStore } from "../../../State/useWorkspaceStore";
+import { SIDEBAR_EXPLORER } from "../../../Shared/Constants/Sidebar";
 import { showToast } from "../../../UI/Feedback/Toast";
 import type { InlineCreation } from "../FileExplorer";
 import { collectOpenPaths, isDescendant, mergeOpenState, updateTree } from "../utils/treeUtils";
@@ -240,6 +241,35 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
       return { ...prev, children: prev.children ? closeAll(prev.children) : undefined };
     });
   }, []);
+
+  const revealInExplorer = useCallback(
+    async (targetPath: string) => {
+      const root = rootNodeRef.current;
+      if (!root) {
+        return;
+      }
+
+      const normalizedRoot = root.path.replace(/\\/g, "/").replace(/\/+$/, "");
+      const normalizedTarget = targetPath.replace(/\\/g, "/");
+      if (normalizedTarget !== normalizedRoot && !normalizedTarget.startsWith(`${normalizedRoot}/`)) {
+        return;
+      }
+
+      useWorkspaceStore.getState().setActiveSidebar(SIDEBAR_EXPLORER);
+      const relativePath = normalizedTarget.slice(normalizedRoot.length).replace(/^\/+/, "");
+      const parentSegments = relativePath.split("/").filter(Boolean).slice(0, -1);
+
+      let currentPath = root.path;
+      await refreshDirectory(currentPath);
+      for (const segment of parentSegments) {
+        currentPath = FileSystemService.joinPath(currentPath, segment);
+        await refreshDirectory(currentPath);
+      }
+
+      setActivePath(targetPath);
+    },
+    [refreshDirectory],
+  );
 
   const findActiveDirectory = useCallback(
     (nodes: FileNode[], targetPath: string | null): FileNode | null => {
@@ -482,12 +512,18 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
     const unsubNewFolder = EventBus.on("app:create-folder-prompt", () =>
       startInlineCreate("folder"),
     );
+    const unsubReveal = EventBus.on("app:reveal-in-explorer", (path: string) => {
+      void revealInExplorer(path).catch((error) => {
+        showToast(`Unable to reveal file: ${FileSystemService.toMessage(error)}`, "error");
+      });
+    });
     return () => {
       unsubOpenFolder();
       unsubNewFile();
       unsubNewFolder();
+      unsubReveal();
     };
-  }, [handleOpenFolder, startInlineCreate]);
+  }, [handleOpenFolder, revealInExplorer, startInlineCreate]);
 
   return {
     rootNode,

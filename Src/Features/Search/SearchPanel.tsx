@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import React, { useEffect, useMemo, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
@@ -7,6 +6,7 @@ import { useWorkspaceStore } from "../../State/useWorkspaceStore";
 import { cn } from "../../Shared/Utils/cn";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
+import { showToast } from "../../UI/Feedback/Toast";
 import { Input } from "../../UI/Components/Input";
 import { Icons } from "../../UI/Icons/IconManager";
 
@@ -17,6 +17,11 @@ export interface SearchResult {
   index: number;
 }
 
+interface SearchResponse {
+  results: SearchResult[];
+  limit_reached: boolean;
+}
+
 export const SearchPanel = React.memo(function SearchPanel() {
   const [query, setQuery] = useState("");
   const [isCaseSensitive, setIsCaseSensitive] = useState(false);
@@ -24,6 +29,8 @@ export const SearchPanel = React.memo(function SearchPanel() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [limitReached, setLimitReached] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [repoPath, setRepoPath] = useState<string | null>(null);
   const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({});
 
@@ -47,6 +54,8 @@ export const SearchPanel = React.memo(function SearchPanel() {
       setRepoPath(path);
       setResults([]);
       setHasSearched(false);
+      setLimitReached(false);
+      setSearchError(null);
     });
     return () => unsub();
   }, []);
@@ -57,23 +66,24 @@ export const SearchPanel = React.memo(function SearchPanel() {
     setIsSearching(true);
     setHasSearched(true);
     setResults([]);
-
-    const unlisten = await listen<SearchResult[]>("search-result", (event) => {
-      setResults((prev) => [...prev, ...event.payload]);
-    });
+    setLimitReached(false);
+    setSearchError(null);
 
     try {
-      await invoke("search_workspace", {
+      const response = await invoke<SearchResponse>("search_workspace", {
         path: repoPath,
         query,
         isCaseSensitive,
         isRegex,
       });
+      setResults(response.results);
+      setLimitReached(response.limit_reached);
     } catch (e) {
-      console.error("Search failed:", e);
+      const message = e instanceof Error ? e.message : String(e);
+      setSearchError(message);
+      showToast(`搜索失败：${message}`, "error");
     } finally {
       setIsSearching(false);
-      unlisten();
     }
   };
 
@@ -163,6 +173,11 @@ export const SearchPanel = React.memo(function SearchPanel() {
             </Tooltip>
           </div>
         </div>
+        {searchError && (
+          <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-[11px] text-red-500">
+            搜索失败：{searchError}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto aurona-scroll flex flex-col relative">
@@ -185,6 +200,9 @@ export const SearchPanel = React.memo(function SearchPanel() {
               <span className="text-[11px] font-bold text-[var(--TextMuted)] uppercase tracking-widest">
                 找到 {results.length} 个结果 (在 {fileKeys.length} 个文件中)
               </span>
+              {limitReached && (
+                <span className="text-[10px] font-medium text-amber-500">仅显示前 500 条结果</span>
+              )}
               {isSearching && (
                 <Icons.Refresh size={12} className="animate-spin text-[var(--TextMuted)]" />
               )}

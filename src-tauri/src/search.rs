@@ -1,10 +1,9 @@
 use ignore::WalkBuilder;
 use regex::RegexBuilder;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter};
 use ts_rs::TS;
 
 #[derive(Serialize, Deserialize, Clone, TS)]
@@ -16,19 +15,31 @@ pub struct SearchResult {
     pub index: usize,
 }
 
+#[derive(Serialize)]
+pub struct SearchResponse {
+    pub results: Vec<SearchResult>,
+    pub limit_reached: bool,
+}
+
 #[tauri::command]
 pub async fn search_workspace(
     path: String,
     query: String,
     is_case_sensitive: bool,
     is_regex: bool,
-    app: AppHandle,
-) -> Result<(), String> {
-    if path.contains("..") {
-        return Err("Path traversal detected".to_string());
+) -> Result<SearchResponse, String> {
+    let root = PathBuf::from(&path)
+        .canonicalize()
+        .map_err(|error| format!("Unable to resolve search workspace: {error}"))?;
+    if !root.is_dir() {
+        return Err("Search workspace must be a directory".to_string());
     }
-    if query.is_empty() {
-        return Ok(());
+
+    if query.trim().is_empty() {
+        return Ok(SearchResponse {
+            results: Vec::new(),
+            limit_reached: false,
+        });
     }
 
     let regex = if is_regex {
@@ -44,42 +55,28 @@ pub async fn search_workspace(
             .map_err(|e| e.to_string())?
     };
 
-    let app_clone = app.clone();
     tokio::task::spawn_blocking(move || {
-        let mut builder = WalkBuilder::new(&path);
+        const MAX_RESULTS: usize = 500;
+
+        let mut builder = WalkBuilder::new(&root);
         builder.hidden(false);
 
         let walker = builder.build_parallel();
-        let base_path = Path::new(&path).to_path_buf();
-        let max_results = 500;
+        let base_path = root;
         let result_count = Arc::new(AtomicUsize::new(0));
-
-        let (tx, rx) = std::sync::mpsc::channel();
-
-        // Spawn a thread to receive and batch emit results
-        let app_emitter = app_clone.clone();
-        let batch_thread = std::thread::spawn(move || {
-            let mut batch: Vec<SearchResult> = Vec::new();
-            for res in rx {
-                batch.push(res);
-                if batch.len() >= 50 {
-                    let _ = app_emitter.emit("search-result", &batch);
-                    batch.clear();
-                }
-            }
-            if !batch.is_empty() {
-                let _ = app_emitter.emit("search-result", &batch);
-            }
-        });
+        let limit_reached = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let results = Arc::new(std::sync::Mutex::new(Vec::new()));
 
         walker.run(|| {
             let regex = regex.clone();
             let base_path = base_path.clone();
             let result_count = Arc::clone(&result_count);
-            let tx = tx.clone();
+            let limit_reached = Arc::clone(&limit_reached);
+            let results = Arc::clone(&results);
 
             Box::new(move |result| {
-                if result_count.load(Ordering::Relaxed) >= max_results {
+                if result_count.load(Ordering::Relaxed) >= MAX_RESULTS {
+                    limit_reached.store(true, Ordering::Relaxed);
                     return ignore::WalkState::Quit;
                 }
 
@@ -107,11 +104,6 @@ pub async fn search_workspace(
                                 Err(_) => break, // 遇到非 UTF-8 字符直接跳出
                             };
 
-                            let current_count = result_count.load(Ordering::Relaxed);
-                            if current_count >= max_results {
-                                return ignore::WalkState::Quit;
-                            }
-
                             if regex.is_match(&line) {
                                 let relative_path = file_path
                                     .strip_prefix(&base_path)
@@ -119,19 +111,30 @@ pub async fn search_workspace(
                                     .to_string_lossy()
                                     .to_string();
 
-                                let new_count = result_count.fetch_add(1, Ordering::Relaxed);
-                                if new_count >= max_results {
-                                    return ignore::WalkState::Quit;
-                                }
+                                let index = match result_count.fetch_update(
+                                    Ordering::Relaxed,
+                                    Ordering::Relaxed,
+                                    |count| (count < MAX_RESULTS).then_some(count + 1),
+                                ) {
+                                    Ok(index) => index,
+                                    Err(_) => {
+                                        limit_reached.store(true, Ordering::Relaxed);
+                                        return ignore::WalkState::Quit;
+                                    }
+                                };
 
-                                let res = SearchResult {
+                                let search_result = SearchResult {
                                     file_path: relative_path.replace("\\", "/"),
                                     line_number: line_idx + 1,
                                     match_text: line.trim().to_string(),
-                                    index: new_count,
+                                    index,
                                 };
 
-                                let _ = tx.send(res);
+                                if let Ok(mut collected) = results.lock() {
+                                    collected.push(search_result);
+                                } else {
+                                    return ignore::WalkState::Quit;
+                                }
                             }
                         }
                     }
@@ -140,13 +143,67 @@ pub async fn search_workspace(
             })
         });
 
-        drop(tx); // Close the channel so the receiver thread stops
-        let _ = batch_thread.join();
+        let mut results = results
+            .lock()
+            .map_err(|_| "Search result collection failed".to_string())?
+            .clone();
+        results.sort_by(|left, right| {
+            left.file_path
+                .cmp(&right.file_path)
+                .then(left.line_number.cmp(&right.line_number))
+        });
+
+        Ok(SearchResponse {
+            results,
+            limit_reached: limit_reached.load(Ordering::Relaxed),
+        })
     })
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|error| format!("Search task failed: {error}"))?
+}
 
-    let _ = app.emit("search-done", ());
+#[cfg(test)]
+mod tests {
+    use super::search_workspace;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
-    Ok(())
+    fn temp_workspace() -> std::path::PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after the Unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!("aurona-search-test-{unique}"))
+    }
+
+    #[tokio::test]
+    async fn search_returns_sorted_results_and_reports_the_result_limit() {
+        let workspace = temp_workspace();
+        fs::create_dir_all(&workspace).expect("test workspace should be created");
+        fs::write(workspace.join("z-last.txt"), "needle\n").expect("test file should be written");
+        fs::write(workspace.join("a-first.txt"), "needle\n").expect("test file should be written");
+        fs::write(
+            workspace.join("limit.txt"),
+            (0..501).map(|_| "needle\n").collect::<String>(),
+        )
+        .expect("test file should be written");
+
+        let response = search_workspace(
+            workspace.to_string_lossy().to_string(),
+            "needle".to_string(),
+            false,
+            false,
+        )
+        .await
+        .expect("search should succeed");
+
+        assert_eq!(response.results.len(), 500);
+        assert!(response.limit_reached);
+        assert!(response
+            .results
+            .windows(2)
+            .all(|pair| pair[0].file_path <= pair[1].file_path));
+
+        fs::remove_dir_all(workspace).expect("test workspace should be removed");
+    }
 }

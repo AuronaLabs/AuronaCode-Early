@@ -37,7 +37,7 @@
 - [ ] 我已在难以理解的代码区块添加了详尽的注释
 - [ ] 我已对相关文档做出了相应的更新
 - [ ] 我的代码变更不会在控制台中产生新的警告或报错信息
-- [ ] 我已验证过 Rust 后端 (`cargo check`) 和 React 前端 (`npm run build`) 都能成功编译
+- [ ] 我已验证过 Rust 后端 (`cargo check`) 和 React 前端 (`pnpm run build`) 都能成功编译
 
 ---
 

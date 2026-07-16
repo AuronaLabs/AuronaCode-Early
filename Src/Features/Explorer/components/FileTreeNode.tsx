@@ -113,6 +113,7 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
       <ContextMenuRoot>
         <ContextMenuTrigger asChild>
           <div
+            data-file-path={node.path}
             role="treeitem"
             tabIndex={-1}
             aria-selected={isActive}
