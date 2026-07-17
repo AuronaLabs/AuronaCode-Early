@@ -1,7 +1,8 @@
-import { getVersion } from "@tauri-apps/api/app";
 import { useEffect, useState } from "react";
-import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
+import { desktopApp } from "../../Foundation/Desktop";
+import { GlassContainer } from "../../UI/Core/GlassManager";
 import { Icons } from "../../UI/Icons/IconManager";
+import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
 
 export function AboutTab() {
   const [osInfo, setOsInfo] = useState<string>("Detecting...");
@@ -9,7 +10,8 @@ export function AboutTab() {
   const [appVersion, setAppVersion] = useState<string>("Loading...");
 
   useEffect(() => {
-    getVersion()
+    desktopApp
+      .getVersion()
       .then((ver) => setAppVersion(ver))
       .catch(() => setAppVersion("0.2.0"));
 
@@ -61,16 +63,22 @@ export function AboutTab() {
 
         {/* System Info Cards */}
         <div className="grid grid-cols-2 gap-4 w-full max-w-2xl mt-4">
-          <div className="frosted-glass rounded-xl p-5 flex flex-col gap-1.5 border border-[var(--GlassBorder)]">
+          <GlassContainer
+            layer="elevated"
+            className="rounded-2xl p-5 flex flex-col gap-1.5 shadow-[0_12px_32px_rgba(15,23,42,0.08)]"
+          >
             <div className="flex items-center gap-2 text-[var(--TextMuted)] mb-2">
               <Icons.Monitor size={16} />
               <span className="text-[12px] font-medium uppercase tracking-wider">系统架构</span>
             </div>
             <span className="text-[15px] font-medium text-[var(--TextHighlight)]">{osInfo}</span>
             <span className="text-[12px] text-[var(--TextMuted)]">x64 (Cores: {cpuCores})</span>
-          </div>
+          </GlassContainer>
 
-          <div className="frosted-glass rounded-xl p-5 flex flex-col gap-1.5 border border-[var(--GlassBorder)]">
+          <GlassContainer
+            layer="elevated"
+            className="rounded-2xl p-5 flex flex-col gap-1.5 shadow-[0_12px_32px_rgba(15,23,42,0.08)]"
+          >
             <div className="flex items-center gap-2 text-[var(--TextMuted)] mb-2">
               <Icons.Sparkles size={16} />
               <span className="text-[12px] font-medium uppercase tracking-wider">技术栈</span>
@@ -81,7 +89,7 @@ export function AboutTab() {
             <span className="text-[12px] text-[var(--TextMuted)]">
               React 19 + Tailwind CSS + Radix UI
             </span>
-          </div>
+          </GlassContainer>
         </div>
 
         {/* Copyright */}

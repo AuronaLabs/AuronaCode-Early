@@ -4,6 +4,9 @@ export interface WorkspaceState {
   lastOpenedPath?: string;
   openTabs?: TabItem[];
   activeTabId?: string | null;
+  activeSidebar?: string | null;
+  isBottomPanelOpen?: boolean;
+  activeBottomPanel?: "problems" | "output" | "terminal";
 }
 
 export interface UserConfig {

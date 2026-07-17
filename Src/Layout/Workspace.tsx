@@ -1,31 +1,32 @@
 import { lazy, Suspense, useCallback, useEffect } from "react";
+import { TerminalManager } from "../Core/TerminalService";
+import { CommandRegistry } from "../Extension/CommandRegistry";
+import { EditorTabBar } from "../Features/Editor/EditorTabBar";
+import { RecoveryCoordinator } from "../Features/Editor/Model/RecoveryCoordinator";
 import { AboutTab } from "../Features/Settings/AboutTab";
-import { SettingsTab } from "../Features/Settings/SettingsTab";
 import { ChangelogTab } from "../Features/Settings/ChangelogTab";
 import { PerformanceBenchmarkPage } from "../Features/Settings/PerformanceBenchmarkPage";
-import { TerminalManager } from "../Core/TerminalService";
-import { EditorTabBar } from "../Features/Editor/EditorTabBar";
-import { EventBus } from "../Foundation/EventBus";
+import { SettingsTab } from "../Features/Settings/SettingsTab";
 import type { TabItem } from "../Foundation/Types/Tab";
 import {
   SIDEBAR_EXPLORER,
   SIDEBAR_NOTIFICATIONS,
+  SIDEBAR_PLUGINS,
   SIDEBAR_SEARCH,
   SIDEBAR_SOURCE_CONTROL,
-  SIDEBAR_PLUGINS,
 } from "../Shared/Constants/Sidebar";
 import { useEditorStore } from "../State/useEditorStore";
 import { useTerminalStore } from "../State/useTerminalStore";
-import { useWorkspaceStore } from "../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../State/useWorkspaceStore";
 import { Button } from "../UI/Components/Button";
 import { Card } from "../UI/Components/Card";
-import { Modal } from "../UI/Components/Modal";
 import {
-  DropdownMenuRoot,
-  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
 } from "../UI/Components/DropdownMenu";
+import { Modal } from "../UI/Components/Modal";
 import { Tooltip } from "../UI/Feedback/Tooltip";
 import { Icons } from "../UI/Icons/IconManager";
 
@@ -95,28 +96,27 @@ export function WorkspaceView() {
     tabs,
     activeTabId,
     activeSidebar,
+    isBottomPanelOpen,
+    activeBottomPanel,
     pendingCloseTab,
     setActiveTabId,
     setPendingCloseTab,
+    setBottomPanelOpen,
+    setActiveBottomPanel,
     openFile,
-    closeTab,
     closeTabById,
     pendingReveal,
     clearPendingReveal,
-  } = useWorkspaceStore();
+  } = useWorkbenchStore();
 
   const {
     terminals,
     activeTerminalId,
-    isTerminalOpen,
-    activeBottomTab,
     isTerminalListVisible,
     availableShells,
     isShellDropdownOpen,
     editingTerminalId,
     editingName,
-    setIsTerminalOpen,
-    setActiveBottomTab,
     setIsTerminalListVisible,
     setIsShellDropdownOpen,
     setEditingTerminalId,
@@ -132,7 +132,7 @@ export function WorkspaceView() {
 
   useEffect(() => {
     if (pendingCloseTab && activeTabId === pendingCloseTab.id) {
-      EventBus.emit("app:save-file");
+      void CommandRegistry.execute("workbench.action.files.save");
     }
   }, [pendingCloseTab, activeTabId]);
 
@@ -258,8 +258,8 @@ export function WorkspaceView() {
         <Card
           className="shrink-0 flex flex-col min-w-0 relative overflow-hidden group border-t-0"
           style={{
-            height: isTerminalOpen ? "300px" : 0,
-            display: isTerminalOpen ? "flex" : "none",
+            height: isBottomPanelOpen ? "300px" : 0,
+            display: isBottomPanelOpen ? "flex" : "none",
           }}
         >
           {}
@@ -267,15 +267,16 @@ export function WorkspaceView() {
             <div className="flex items-center gap-0.5">
               {(["problems", "output", "terminal"] as const).map((tabId) => {
                 const labels = { problems: "问题", output: "输出", terminal: "终端" };
-                const isActive = activeBottomTab === tabId;
+                const isActive = activeBottomPanel === tabId;
                 const count =
                   tabId === "problems" && editorStatus.markers?.length
                     ? editorStatus.markers.length
                     : null;
                 return (
                   <button
+                    type="button"
                     key={tabId}
-                    onClick={() => setActiveBottomTab(tabId)}
+                    onClick={() => setActiveBottomPanel(tabId)}
                     className={`relative h-[26px] px-2.5 text-[12px] transition-colors duration-150 flex items-center gap-1.5 rounded-lg ${
                       isActive
                         ? "bg-[var(--GlassSurface-Elevated)] text-[var(--TextHighlight)]"
@@ -302,10 +303,11 @@ export function WorkspaceView() {
             <div className="flex-1" />
 
             <div className="flex items-center gap-0.5">
-              {activeBottomTab === "terminal" && (
+              {activeBottomPanel === "terminal" && (
                 <div className="flex items-center gap-0.5 mr-2 pr-2 relative after:content-[''] after:absolute after:right-0 after:top-1/2 after:-translate-y-1/2 after:w-px after:h-[14px] after:bg-[var(--GlassBorder)]">
                   <Tooltip content="列表" delay={300} placement="top">
                     <button
+                      type="button"
                       className={`flex h-[26px] w-[26px] items-center justify-center rounded-lg transition-colors ${
                         isTerminalListVisible
                           ? "bg-[var(--GlassSurface-Elevated)] text-[var(--TextHighlight)]"
@@ -319,6 +321,7 @@ export function WorkspaceView() {
                   <div className="relative">
                     <Tooltip content="清空终端" delay={300} placement="top">
                       <button
+                        type="button"
                         className="flex h-[26px] w-[26px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] rounded-lg transition-colors"
                         onClick={() => {
                           if (activeTerminalId) TerminalManager.clearTerminal(activeTerminalId);
@@ -329,6 +332,7 @@ export function WorkspaceView() {
                     </Tooltip>
                     <Tooltip content="新建终端" delay={300} placement="top">
                       <button
+                        type="button"
                         className="flex h-[26px] w-[26px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] rounded-lg transition-colors"
                         onClick={() => TerminalManager.createTerminal()}
                       >
@@ -340,7 +344,10 @@ export function WorkspaceView() {
                       onOpenChange={setIsShellDropdownOpen}
                     >
                       <DropdownMenuTrigger asChild>
-                        <button className="flex h-[26px] w-[16px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] rounded-lg transition-colors absolute -right-4 top-0">
+                        <button
+                          type="button"
+                          className="flex h-[26px] w-[16px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] rounded-lg transition-colors absolute -right-4 top-0"
+                        >
                           <Icons.ChevronDown size={10} />
                         </button>
                       </DropdownMenuTrigger>
@@ -363,8 +370,9 @@ export function WorkspaceView() {
 
               <Tooltip content="最小化面板" delay={300} placement="top">
                 <button
+                  type="button"
                   className="flex h-[26px] w-[26px] items-center justify-center text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] rounded-lg transition-colors"
-                  onClick={() => setIsTerminalOpen(false)}
+                  onClick={() => setBottomPanelOpen(false)}
                 >
                   <Icons.Minimize size={14} />
                 </button>
@@ -376,7 +384,7 @@ export function WorkspaceView() {
           <div className="flex-1 relative overflow-hidden bg-transparent border-t border-[var(--GlassBorder)] flex">
             <div
               className="flex-1 relative"
-              style={{ display: activeBottomTab === "terminal" ? "block" : "none" }}
+              style={{ display: activeBottomPanel === "terminal" ? "block" : "none" }}
             >
               {terminals.map((term) => (
                 <div
@@ -396,7 +404,7 @@ export function WorkspaceView() {
                   >
                     <TerminalView
                       id={term.id}
-                      isActive={activeBottomTab === "terminal" && activeTerminalId === term.id}
+                      isActive={activeBottomPanel === "terminal" && activeTerminalId === term.id}
                       shellProfile={term.shell}
                       cwd={term.cwd}
                     />
@@ -405,12 +413,21 @@ export function WorkspaceView() {
               ))}
             </div>
 
-            {activeBottomTab === "terminal" && isTerminalListVisible && (
+            {activeBottomPanel === "terminal" && isTerminalListVisible && (
               <div className="w-48 shrink-0 bg-transparent border-l border-[var(--GlassBorder)] flex flex-col p-1 gap-0.5 overflow-y-auto no-scrollbar relative z-20">
                 {terminals.map((term) => (
                   <div
                     key={term.id}
+                    role="option"
+                    aria-selected={activeTerminalId === term.id}
+                    tabIndex={0}
                     onClick={() => TerminalManager.setActiveTerminal(term.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        TerminalManager.setActiveTerminal(term.id);
+                      }
+                    }}
                     onDoubleClick={() => {
                       setEditingTerminalId(term.id);
                       setEditingName(term.name);
@@ -446,6 +463,7 @@ export function WorkspaceView() {
                       )}
                     </div>
                     <button
+                      type="button"
                       className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-[var(--GlassHover)] rounded transition-all shrink-0 ml-1"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -459,12 +477,12 @@ export function WorkspaceView() {
               </div>
             )}
 
-            {activeBottomTab === "problems" && (
+            {activeBottomPanel === "problems" && (
               <div className="absolute inset-0 p-3 flex flex-col items-start gap-1 overflow-y-auto no-scrollbar">
                 {editorStatus.markers && editorStatus.markers.length > 0 ? (
-                  editorStatus.markers.map((marker, i) => (
+                  editorStatus.markers.map((marker) => (
                     <div
-                      key={i}
+                      key={`${marker.source ?? "aurona"}-${marker.line}-${marker.column}-${marker.message}`}
                       className="flex gap-2 items-start text-left hover:bg-[var(--GlassHover)] w-full p-2 rounded-lg cursor-pointer selectable transition-colors"
                     >
                       <div
@@ -495,7 +513,7 @@ export function WorkspaceView() {
               </div>
             )}
 
-            {activeBottomTab === "output" && (
+            {activeBottomPanel === "output" && (
               <div className="absolute inset-0 p-3 font-mono text-[13px] text-[var(--TextMuted)] overflow-y-auto no-scrollbar">
                 {}
               </div>
@@ -521,7 +539,10 @@ export function WorkspaceView() {
             <Button
               variant="danger"
               onClick={() => {
-                if (pendingCloseTab) closeTabById(pendingCloseTab.id);
+                if (pendingCloseTab) {
+                  if (pendingCloseTab.path) void RecoveryCoordinator.discard(pendingCloseTab.path);
+                  closeTabById(pendingCloseTab.id);
+                }
                 setPendingCloseTab(null);
               }}
             >

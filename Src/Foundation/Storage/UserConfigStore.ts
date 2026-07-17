@@ -1,9 +1,10 @@
-import { BaseDirectory, exists, mkdir, readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
-import type { UserConfig } from "../Types/Config";
+import { BaseDirectory, desktopFileSystem } from "../Desktop";
 import { Logger } from "../Logger";
+import type { UserConfig } from "../Types/Config";
 
 const FILE = "user-config.json";
 const BASE = BaseDirectory.AppLocalData;
+const { exists, mkdir, readTextFile, writeTextFile } = desktopFileSystem;
 
 let isWriting = false;
 let pendingWrite = false;

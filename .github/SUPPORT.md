@@ -1,28 +1,28 @@
 # 支持与帮助
 
-如果您在使用 Aurona Code 时遇到问题或有任何疑问，可以通过以下方式寻求帮助
+## 使用问题和缺陷
 
-## 1 提交工单
+请先搜索 [现有 Issues](https://github.com/AuronaLabs/AuronaCode-Early/issues)，确认问题尚未被报告，再使用对应模板创建 Issue。
 
-我们推荐您在项目仓库提交报告
+提交缺陷时请附上：
 
-请在提交前：
+- Aurona Code 版本和 Debug/Release 构建类型。
+- 操作系统、架构和显示缩放比例。
+- 可重复的操作步骤、期望行为和实际行为。
+- 日志、截图或短视频；请先移除代码、路径和凭据中的敏感内容。
 
-- 搜索是否已有类似的问题
-- 选择对应的模板并尽量填写完整的信息
+## 文档
 
-## 2 查阅文档
+- [README](../README.md)
+- [架构说明](../Docs/Architecture.md)
+- [文件树](../Docs/FileTree.md)
+- [设计原则](../Docs/DesignPrinciples.md)
+- [0.3.0 技术说明](../Docs/0.3.0-TechnicalNotes.md)
 
-您可以在项目的 Docs 目录中找到相关的架构与设计说明，这些文档可能已经解答了您的疑惑
+## 其他联系
 
-## 3 邮件联系
+常规问题可发送邮件至 `ecospace@qq.com`。公开可讨论的问题仍优先使用 GitHub Issue，方便其他用户检索。
 
-您也可以通过邮件与我们取得联系：ecospace@qq.com
+## 安全漏洞
 
-## 4 安全漏洞报告
-
-如果您发现严重的安全漏洞，请**不要**公开发布报告
-
-请参阅我们的安全策略进行私密报告
-
-感谢您对项目的支持
+请不要公开披露安全漏洞。使用 [GitHub Private Vulnerability Reporting](https://github.com/AuronaLabs/AuronaCode-Early/security/advisories/new) 或按照 [SECURITY.md](SECURITY.md) 中的方式私密报告。

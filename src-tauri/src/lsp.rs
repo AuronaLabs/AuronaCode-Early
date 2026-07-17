@@ -8,19 +8,27 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot, Mutex};
 
+use crate::process_tree::ManagedChild;
+
 pub struct LspClient {
     id_counter: AtomicU64,
     writer_tx: mpsc::Sender<String>,
     response_waiters: Arc<Mutex<HashMap<u64, oneshot::Sender<Value>>>>,
-    // 任务 E：存储子进程句柄，Drop 时自动 kill
-    child: Option<tokio::process::Child>,
+    child: std::sync::Mutex<Option<ManagedChild>>,
+    tasks: std::sync::Mutex<Vec<tokio::task::JoinHandle<()>>>,
 }
 
-// 任务 E：实现 Drop，进程退出时自动清理
 impl Drop for LspClient {
     fn drop(&mut self) {
-        if let Some(mut c) = self.child.take() {
-            let _ = c.start_kill();
+        if let Ok(tasks) = self.tasks.get_mut() {
+            for task in tasks.drain(..) {
+                task.abort();
+            }
+        }
+        if let Ok(child) = self.child.get_mut() {
+            if let Some(child) = child.as_mut() {
+                child.terminate_now();
+            }
         }
     }
 }
@@ -48,6 +56,7 @@ impl LspClient {
 
         let mut stdin = child.stdin.take().ok_or("Failed to capture stdin")?;
         let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+        let managed_child = ManagedChild::attach(child)?;
 
         let (writer_tx, mut writer_rx) = mpsc::channel::<String>(32);
         let response_waiters: Arc<Mutex<HashMap<u64, oneshot::Sender<Value>>>> =
@@ -55,7 +64,7 @@ impl LspClient {
         let waiters_clone = Arc::clone(&response_waiters);
 
         // 写入任务
-        tokio::spawn(async move {
+        let writer_task = tokio::spawn(async move {
             while let Some(msg) = writer_rx.recv().await {
                 let header = format!("Content-Length: {}\r\n\r\n", msg.len());
                 if stdin.write_all(header.as_bytes()).await.is_err() {
@@ -69,7 +78,7 @@ impl LspClient {
         });
 
         // 读取任务
-        tokio::spawn(async move {
+        let reader_task = tokio::spawn(async move {
             let mut reader = BufReader::new(stdout);
 
             loop {
@@ -133,12 +142,12 @@ impl LspClient {
             }
         });
 
-        // 任务 E：将 child 移入结构体
         Ok(Self {
             id_counter: AtomicU64::new(1),
             writer_tx,
             response_waiters,
-            child: Some(child),
+            child: std::sync::Mutex::new(Some(managed_child)),
+            tasks: std::sync::Mutex::new(vec![writer_task, reader_task]),
         })
     }
 
@@ -211,5 +220,27 @@ impl LspClient {
             .send(msg.to_string())
             .await
             .map_err(|_| "Writer channel closed".to_string())
+    }
+
+    pub async fn shutdown(&self) {
+        let _ = tokio::time::timeout(
+            Duration::from_secs(2),
+            self.call("shutdown", serde_json::Value::Null),
+        )
+        .await;
+        let _ = self.notify("exit", serde_json::Value::Null).await;
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        if let Ok(mut tasks) = self.tasks.lock() {
+            for task in tasks.drain(..) {
+                task.abort();
+            }
+        }
+        self.response_waiters.lock().await.clear();
+
+        let child = self.child.lock().ok().and_then(|mut child| child.take());
+        if let Some(mut child) = child {
+            child.wait_or_terminate(Duration::from_secs(1)).await;
+        }
     }
 }

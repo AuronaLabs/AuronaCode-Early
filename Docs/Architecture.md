@@ -1,46 +1,155 @@
-# 架构指南 (Architecture Guidelines)
+# Aurona Code 架构
 
-Aurona Code 现已步入 **Corona+ 架构** 时代。该架构的首要目标是：**安全隔离、极致渲染、开放兼容**。在保持 Tauri V2 与 Rust 底层的高性能的同时，通过 React 19 和 Radix UI 实现了极致的无头无障碍 UI 交互，并为即将到来的 APE (Aurona Plugin Engine) 插件生态做好沙盒准备。
+本文档描述 0.3.0 当前仓库已经实现的边界、状态所有权和关键数据流。标为“尚未完成”的内容不是已交付能力。
 
-## 核心架构原则 (Corona+ 原则)
+## 1. 运行时分层
 
-1. **IPC 绝对隔离与权限守卫**：前端业务组件（React）**严禁**直接调用全局 `invoke`。所有的后端交互必须通过 `Foundation/IPC` 模块的强类型包装。未来 APE 插件的通信将完全由 APE 代理拦截，保障沙盒隔离。
-2. **事件总线驱动**：跨模块通信统一使用全局 `EventBus`，避免深层 Props 透传和模块硬耦合。
-3. **单向依赖流**：`Features`（业务模块）可以依赖 `Core`（核心服务）与 `UI`（基础组件），但底层服务严禁逆向依赖业务层。
-4. **Rust 后端内存安全与跨平台映射**：Rust 层负责核心守护（LSP、PTY），严格管理 `Drop` 生命周期。引入了原生的跨平台特性支持，如 macOS 的系统顶部菜单栏原生映射。
+```text
+App / Layout / Features
+        │
+        ├── useWorkbenchStore / editorStore / terminalStore
+        ├── CommandRegistry
+        ├── Core domain services
+        └── EditorIPC projection queue
+        │
+Foundation/Desktop + Foundation/IPC
+        │
+        ├── typed commands
+        ├── typed events
+        └── DesktopError
+        │
+Tauri 2 / Rust
+        ├── editor / Rope / persistence
+        ├── filesystem / search / Git
+        ├── PTY / LSP
+        └── updater / performance
+```
 
-## 前端模块分层 (Src/)
+总体原则是：React 负责界面组合和短期交互，Zustand 负责长期前端状态，Core 负责用例协调，Foundation 负责桌面传输，Rust 负责本地资源和持久文档权威。
 
-### 1. Foundation 层 (基建层)
-处于整个系统最底层，提供基石级服务。
-- `IPC/`：封装所有与 Tauri 通信的端点（`get_app_data_size`, `open_devtools` 等）。
-- `Types/`：存放全项目复用的核心数据结构（如 `Config.ts`）。
-- `EventBus/`：Pub-Sub 事件引擎，支撑多插件与组件间的消息流动。
+## 2. 应用启动与生命周期
 
-### 2. Core 层 (核心服务层)
-负责承载单例状态、系统级业务封装。
-- `StorageManager.ts`：负责跨环境存储与读取。
-- `NotificationService.ts`：全局系统事件的消费。
-- `GitService.ts`：抽象异步 Git 操作和内存缓存。
+1. `Src/App/Main.tsx` 挂载 React 主入口。
+2. `AppBootstrapper` 在 React 生命周期中调用 `AppServices.start()`。
+3. `AppServices` 启动工作台、编辑器与终端 store 的持久化和桌面监听。
+4. 应用卸载时调用 `dispose()`，注销窗口、Tauri、EventBus 监听和后台资源。
+5. Splash 使用独立入口与最小 CSS；主窗口可交互后关闭启动窗口。
 
-### 3. Features 层 (功能业务层)
-基于 Corona+ 原则开发的业务拼图，可随时插拔。
-- `Editor/`：包含 AuronaEditor 代码编辑器引擎与 LSP 客户端抽象。
-- `Explorer/`：文件树渲染引擎。
-- `Settings/`：支持动态存储读取的全局设置面板。
-- `Terminal/`：Xterm.js 终端视图控制器。
+模块加载本身不应静默启动 shell 探测、更新器、终端或 LSP。需要本地资源的服务应在生命周期或首次使用时显式启动。
 
-### 4. Layout 层 (骨架布局层)
-- `AppShell.tsx`：统管导航侧边栏、状态栏和全局上下文。
-- `Workspace.tsx`：中央舞台区域的视图分发。
+## 3. 状态所有权
 
-### 5. UI 层 (基础表现层)
-- `Components/`：全面整合 Radix UI 无头组件库打造，提供键盘无障碍与极致交互的原子组件。
-- `Icons/`：基于 Tabler Icons 统一管理的纯净 SVG 资源。
+| 状态 | 唯一可写源 | 读取方 |
+| --- | --- | --- |
+| 标签页、活动标签、侧边栏、底部面板、待关闭项、文件定位请求 | `useWorkbenchStore` | AppShell、Workspace、TitleBar、Explorer |
+| Rust 文档文本、revision、saved revision、磁盘指纹 | Rust `EditorState` / Rope session | EditorIPC |
+| 前端文本投影、选择、输入与操作历史 | 活动 AuronaEngine + EditorIPC 队列 | 编辑器 DOM、状态栏 |
+| 终端展示元数据 | `useTerminalStore` | TerminalView、Workspace |
+| PTY/LSP 子进程 | Rust 进程管理器 | 类型化事件适配器 |
+| 用户配置与工作区持久化 | `UserConfigStore` / `WorkspaceStore` | Settings、AppServices |
+| Toast、导航意图等短暂事件 | EventBus | 对应 UI 订阅者 |
 
-## Tauri 后端架构 (src-tauri)
+React 本地 state 只适合输入框、弹层开关、hover 和单次请求等短生命周期数据。EventBus 不保存标签、文档或终端业务事实。
 
-后端职责被精简为：**系统接口桥接**、**系统资源探测** 与 **高并发守护**。
-- `pty.rs` / `lsp.rs`：异步终端与语言服务进程管理。
-- `ipc.rs`：扩展系统级能力，如递归获取文件目录大小等原生高效率操作。
-- `main.rs` / `lib.rs`：配置跨平台特性与无状态 Tauri Commands 统一导出。
+## 4. 桌面边界与 IPC
+
+`Src/Foundation/Desktop` 是前端唯一允许导入 `@tauri-apps/*` 的目录。`scripts/check-desktop-boundaries.mjs` 在本地和 CI 中静态阻止业务模块绕过该边界。
+
+边界职责包括：
+
+- 将 `invoke`、`listen` 和插件对象转换为类型化函数与普通 DTO。
+- 统一返回 `DesktopError { domain, code, message, recoverable, cause }`。
+- 只负责传输和错误归一化，不自动决定 Toast、弹窗或局部错误 UI。
+- 为窗口、对话框、文件系统、macOS 菜单和更新器提供领域适配。
+- PTY 高频事件仍走直连事件通道，但必须通过可注销的类型化监听器。
+
+Tauri capability 分为 `main.json` 和 `splash.json`。这降低了启动窗口权限，但不等于已经实现工作区文件系统沙箱。
+
+## 5. 编辑器数据流
+
+### 打开
+
+1. `EditorTab` 调用 `EditorIPC.open(path)`。
+2. Rust 创建或复用 Rope 会话并返回包含 revision、语言、行尾和磁盘指纹的快照。
+3. AuronaEngine 建立前端投影、选择和历史状态。
+
+### 编辑
+
+```text
+keyboard / IME / paste
+        │
+optimistic frontend projection
+        │
+operation history + one in-flight batch per document
+        │
+apply_editor_edits(baseRevision, clientBatchId, edits)
+        │
+clone Rope -> sequential edits -> atomic session commit
+        │
+revision acknowledgement or conflict
+```
+
+一批编辑只增加一次 revision。Rust 在克隆 Rope 上完成整批操作，任何编辑失败都不会提交半批状态。前端冲突时保留本地投影并停止覆盖式保存。
+
+### 保存与恢复
+
+- 保存同时校验前端 base revision 和磁盘指纹。
+- Rust 写入临时文件、同步落盘、保留权限，再替换目标文件。
+- 脏文档每次内容变化都会重新 debounce 本地恢复快照；同一文档串行写入，窗口关闭前由 AppServices 强制刷新。
+- 保存以发起时的前端文本 checkpoint 为准；保存期间出现新输入时仍保持 dirty 并保留最新恢复快照。
+- 当前具备保存前外部变化保护，但尚未实现覆盖所有文档的实时文件监听和完整冲突 UI。
+
+### 渲染与异步结果
+
+- 普通文档使用 highlight.js Worker；大文件保留 Rust 高亮与分段行读取路径。
+- 编辑器使用虚拟视口，不为统一架构退回整文件 DOM 渲染。
+- 文档打开与前端文本投影仍为全量协议，因此 0.3.0 在创建 Rope 前执行 32 MiB 安全上限检查；真正的分页可编辑会话尚未实现。
+- 搜索和部分异步路径使用 request ID 丢弃过期结果。
+- LSP、Worker、诊断和全部搜索结果尚未完全统一到同一 revision 协议。
+
+## 6. 命令与用户操作
+
+`Extension/CommandRegistry.ts` 定义命令 ID、标题、上下文、快捷键与执行器。标题栏菜单、macOS 菜单、命令面板和编辑快捷键应调用相同命令，而不是各自复制业务逻辑。
+
+`Extension` 目录当前不是插件运行时。仓库没有插件沙箱、市场、扩展 API 或 VS Code 兼容层。
+
+## 7. Rust 模块职责
+
+| 模块 | 职责 |
+| --- | --- |
+| `editor.rs` | Rope 会话、UTF-16、revision、原子批量编辑、高亮与持久化 |
+| `commands/fs.rs` | 工作区文件系统 commands |
+| `search.rs` | 工作区搜索、request ID、取消标记与资源清理 |
+| `commands/git.rs` | Git 输入校验与 `spawn_blocking` 调度 |
+| `pty.rs` | PTY 创建、输入、尺寸、退出与回收 |
+| `lsp.rs` / `lsp_cmds.rs` | 统一文件 URI、LSP 请求与事件 |
+| `process_tree.rs` | Windows Job Object 与 LSP 子进程树回收 |
+| `performance.rs` | 本地性能工作负载、样本与取消 |
+| `lib.rs` | Tauri 插件、窗口生命周期和 command 注册 |
+
+## 8. UI 与 Material 系统
+
+- `Theme.css` 定义 Canvas、Chrome、Panel、Surface、Overlay、Modal、Interactive 语义材质。
+- `GlassManager` 管理深浅主题独立的 light/medium/heavy 拟物档位。
+- `UI/Components` 提供 Button、Input、Switch、Select、菜单、Modal 和 GlassList 等复用组件。
+- 业务状态颜色（Git addition/deletion、错误、警告）不替代容器材质层级。
+- 键盘焦点必须可见；输入框由外层玻璃组件呈现焦点，避免双层蓝框。
+
+## 9. 质量门禁
+
+- TypeScript：`pnpm run typecheck`
+- Biome：`pnpm run check`
+- 桌面边界：`pnpm run check:boundaries`
+- 发布元数据：`pnpm run smoke`
+- 前端测试：Vitest + React Testing Library
+- Rust：fmt、clippy、check、test
+- CI：前端 Ubuntu job + Windows/macOS/Linux Rust matrix
+
+## 10. 尚未完成的架构事项
+
+- AuronaEngine 仍是较大的组合与 DOM 渲染层，尚未完成全部渐进拆分。
+- 仅活动编辑器完整挂载与最多 6 个干净投影的 LRU 尚未实现。
+- 完整外部文件监听、统一冲突处理和全量异步 revision 失效尚未完成。
+- 插件运行时、AI Command Center、云服务和遥测不属于 0.3.0。
+
+这些事项应在真实测试和数据安全门禁下渐进演进，不应通过全仓重写一次性处理。

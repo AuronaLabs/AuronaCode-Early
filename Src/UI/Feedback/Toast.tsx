@@ -54,6 +54,7 @@ export function ToastContainer() {
             {toast.message}
           </span>
           <button
+            type="button"
             onClick={() => dismissToast(toast.id)}
             className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-all cursor-pointer"
           >

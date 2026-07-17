@@ -1,4 +1,5 @@
 export type {
+  EditorAction,
   EditorMarker,
   EditorStatus,
   EditorStatusListener,

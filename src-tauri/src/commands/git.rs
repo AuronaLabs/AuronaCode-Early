@@ -31,8 +31,7 @@ pub struct GitFullStatus {
     pub branch: String,
 }
 
-#[tauri::command]
-pub fn git_check_is_repo(path: String) -> Result<bool, String> {
+fn git_check_is_repo_internal(path: String) -> Result<bool, String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(["rev-parse", "--is-inside-work-tree"])
@@ -42,8 +41,7 @@ pub fn git_check_is_repo(path: String) -> Result<bool, String> {
     Ok(output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true")
 }
 
-#[tauri::command]
-pub fn git_init(path: String) -> Result<(), String> {
+fn git_init_internal(path: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
         .arg("init")
@@ -56,8 +54,7 @@ pub fn git_init(path: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn git_status(path: String) -> Result<Vec<GitFile>, String> {
+fn git_status_internal(path: String) -> Result<Vec<GitFile>, String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(["status", "--porcelain=v1", "-z", "-uall"])
@@ -125,8 +122,7 @@ pub fn git_status(path: String) -> Result<Vec<GitFile>, String> {
     Ok(files)
 }
 
-#[tauri::command]
-pub fn git_add(path: String, file: String) -> Result<(), String> {
+fn git_add_internal(path: String, file: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(["add", "--", &file])
@@ -139,8 +135,7 @@ pub fn git_add(path: String, file: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn git_unstage(path: String, file: String) -> Result<(), String> {
+fn git_unstage_internal(path: String, file: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(["reset", "HEAD", "--", &file])
@@ -153,8 +148,7 @@ pub fn git_unstage(path: String, file: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn git_commit(path: String, message: String) -> Result<(), String> {
+fn git_commit_internal(path: String, message: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(["commit", "-m", &message])
@@ -167,8 +161,7 @@ pub fn git_commit(path: String, message: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn git_current_branch(path: String) -> Result<String, String> {
+fn git_current_branch_internal(path: String) -> Result<String, String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
@@ -217,8 +210,7 @@ pub async fn git_pull(path: String) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
-#[tauri::command]
-pub fn git_discard_all(path: String) -> Result<(), String> {
+fn git_discard_all_internal(path: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(["reset", "--hard", "HEAD"])
@@ -242,8 +234,7 @@ pub fn git_discard_all(path: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn git_unstage_all(path: String) -> Result<(), String> {
+fn git_unstage_all_internal(path: String) -> Result<(), String> {
     let output = create_command("git")
         .current_dir(&path)
         .arg("reset")
@@ -256,8 +247,7 @@ pub fn git_unstage_all(path: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn git_get_remote(path: String) -> Result<String, String> {
+fn git_get_remote_internal(path: String) -> Result<String, String> {
     let output = create_command("git")
         .current_dir(&path)
         .args(["remote", "get-url", "origin"])
@@ -271,8 +261,7 @@ pub fn git_get_remote(path: String) -> Result<String, String> {
     }
 }
 
-#[tauri::command]
-pub fn git_set_remote(path: String, url: String) -> Result<(), String> {
+fn git_set_remote_internal(path: String, url: String) -> Result<(), String> {
     let has_remote = create_command("git")
         .current_dir(&path)
         .args(["remote", "get-url", "origin"])
@@ -300,8 +289,7 @@ pub fn git_set_remote(path: String, url: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn git_diff_commit(path: String, hash: String) -> Result<String, String> {
+fn git_diff_commit_internal(path: String, hash: String) -> Result<String, String> {
     if !hash.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err("Invalid commit hash".to_string());
     }
@@ -318,8 +306,7 @@ pub fn git_diff_commit(path: String, hash: String) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
-#[tauri::command]
-pub fn git_log(path: String) -> Result<Vec<GitCommit>, String> {
+fn git_log_internal(path: String) -> Result<Vec<GitCommit>, String> {
     let output = create_command("git")
         .current_dir(&path)
         .args([
@@ -360,12 +347,87 @@ pub fn git_log(path: String) -> Result<Vec<GitCommit>, String> {
     Ok(commits)
 }
 
+async fn run_blocking<T, F>(work: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    tokio::task::spawn_blocking(work)
+        .await
+        .map_err(|error| format!("Git worker failed: {error}"))?
+}
+
+#[tauri::command]
+pub async fn git_check_is_repo(path: String) -> Result<bool, String> {
+    run_blocking(move || git_check_is_repo_internal(path)).await
+}
+
+#[tauri::command]
+pub async fn git_init(path: String) -> Result<(), String> {
+    run_blocking(move || git_init_internal(path)).await
+}
+
+#[tauri::command]
+pub async fn git_status(path: String) -> Result<Vec<GitFile>, String> {
+    run_blocking(move || git_status_internal(path)).await
+}
+
+#[tauri::command]
+pub async fn git_add(path: String, file: String) -> Result<(), String> {
+    run_blocking(move || git_add_internal(path, file)).await
+}
+
+#[tauri::command]
+pub async fn git_unstage(path: String, file: String) -> Result<(), String> {
+    run_blocking(move || git_unstage_internal(path, file)).await
+}
+
+#[tauri::command]
+pub async fn git_commit(path: String, message: String) -> Result<(), String> {
+    run_blocking(move || git_commit_internal(path, message)).await
+}
+
+#[tauri::command]
+pub async fn git_current_branch(path: String) -> Result<String, String> {
+    run_blocking(move || git_current_branch_internal(path)).await
+}
+
+#[tauri::command]
+pub async fn git_discard_all(path: String) -> Result<(), String> {
+    run_blocking(move || git_discard_all_internal(path)).await
+}
+
+#[tauri::command]
+pub async fn git_unstage_all(path: String) -> Result<(), String> {
+    run_blocking(move || git_unstage_all_internal(path)).await
+}
+
+#[tauri::command]
+pub async fn git_get_remote(path: String) -> Result<String, String> {
+    run_blocking(move || git_get_remote_internal(path)).await
+}
+
+#[tauri::command]
+pub async fn git_set_remote(path: String, url: String) -> Result<(), String> {
+    run_blocking(move || git_set_remote_internal(path, url)).await
+}
+
+#[tauri::command]
+pub async fn git_diff_commit(path: String, hash: String) -> Result<String, String> {
+    run_blocking(move || git_diff_commit_internal(path, hash)).await
+}
+
+#[tauri::command]
+pub async fn git_log(path: String) -> Result<Vec<GitCommit>, String> {
+    run_blocking(move || git_log_internal(path)).await
+}
+
 #[tauri::command]
 pub async fn git_get_full_status(path: String) -> Result<GitFullStatus, String> {
     tokio::time::timeout(
         std::time::Duration::from_secs(5),
         tokio::task::spawn_blocking(move || {
-            let is_repo = git_check_is_repo(path.clone())?;
+            let is_repo = git_check_is_repo_internal(path.clone())?;
             if !is_repo {
                 return Ok(GitFullStatus {
                     repo_path: path.clone(),
@@ -376,9 +438,9 @@ pub async fn git_get_full_status(path: String) -> Result<GitFullStatus, String> 
                 });
             }
 
-            let files = git_status(path.clone())?;
-            let branch = git_current_branch(path.clone())?;
-            let commits = git_log(path.clone())?;
+            let files = git_status_internal(path.clone())?;
+            let branch = git_current_branch_internal(path.clone())?;
+            let commits = git_log_internal(path.clone())?;
 
             Ok::<GitFullStatus, String>(GitFullStatus {
                 repo_path: path,

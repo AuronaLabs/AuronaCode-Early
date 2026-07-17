@@ -1,4 +1,5 @@
 import {
+  type EditorAction,
   type EditorStatus,
   type EditorStatusListener,
   EMPTY_EDITOR_STATUS,
@@ -51,6 +52,10 @@ class GlobalEditorAdapter {
 
   public replaceRange(startLine: number, endLine: number, newText: string): void {
     this.activeEngine?.replaceRange(startLine, endLine, newText);
+  }
+
+  public executeAction(action: EditorAction): void | Promise<void> {
+    return this.activeEngine?.executeAction(action);
   }
 
   private emitStatus(status: EditorStatus) {

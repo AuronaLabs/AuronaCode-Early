@@ -1,5 +1,17 @@
 use crate::lsp;
+use std::path::Path;
 use tauri::State;
+
+fn file_path_to_uri(path: &str) -> Result<String, String> {
+    url::Url::from_file_path(Path::new(path))
+        .map(|uri| uri.to_string())
+        .map_err(|_| format!("Unable to convert file path to LSP URI: {path}"))
+}
+
+#[tauri::command]
+pub fn lsp_file_uri(path: String) -> Result<String, String> {
+    file_path_to_uri(&path)
+}
 
 pub struct LspState {
     pub clients:
@@ -100,6 +112,21 @@ pub async fn lsp_start(
 }
 
 #[tauri::command]
+pub async fn lsp_stop_all(state: State<'_, LspState>) -> Result<(), String> {
+    let clients = {
+        let mut clients = state.clients.lock().await;
+        clients
+            .drain()
+            .map(|(_, client)| client)
+            .collect::<Vec<_>>()
+    };
+    for client in clients {
+        client.shutdown().await;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn lsp_did_open(
     language: String,
     path: String,
@@ -108,7 +135,7 @@ pub async fn lsp_did_open(
     state: State<'_, LspState>,
 ) -> Result<(), String> {
     if let Some(client) = get_client(&state, &language).await {
-        let uri = format!("file:///{}", path.replace('\\', "/"));
+        let uri = file_path_to_uri(&path)?;
         let params = serde_json::json!({
             "textDocument": {
                 "uri": uri,
@@ -131,7 +158,7 @@ pub async fn lsp_did_change(
     state: State<'_, LspState>,
 ) -> Result<(), String> {
     if let Some(client) = get_client(&state, &language).await {
-        let uri = format!("file:///{}", path.replace('\\', "/"));
+        let uri = file_path_to_uri(&path)?;
         let params = serde_json::json!({
             "textDocument": {
                 "uri": uri,
@@ -153,7 +180,7 @@ pub async fn lsp_did_close(
     state: State<'_, LspState>,
 ) -> Result<(), String> {
     if let Some(client) = get_client(&state, &language).await {
-        let uri = format!("file:///{}", path.replace('\\', "/"));
+        let uri = file_path_to_uri(&path)?;
         let params = serde_json::json!({
             "textDocument": {
                 "uri": uri,
@@ -205,5 +232,29 @@ pub async fn lsp_cancel(
         client.cancel(id).await
     } else {
         Err(format!("LSP server for {} not running", language))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::file_path_to_uri;
+
+    #[cfg(unix)]
+    #[test]
+    fn unix_file_uri_encodes_reserved_and_unicode_characters() {
+        let uri = file_path_to_uri("/tmp/Aurona 中文 #%.ts").expect("file URI");
+        assert_eq!(uri, "file:///tmp/Aurona%20%E4%B8%AD%E6%96%87%20%23%25.ts");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_file_uri_supports_drive_and_unc_paths() {
+        let drive = file_path_to_uri(r"C:\Aurona Code\中文 #%.ts").expect("drive URI");
+        assert_eq!(
+            drive,
+            "file:///C:/Aurona%20Code/%E4%B8%AD%E6%96%87%20%23%25.ts"
+        );
+        let unc = file_path_to_uri(r"\\server\share\Aurona Code\main.ts").expect("UNC URI");
+        assert_eq!(unc, "file://server/share/Aurona%20Code/main.ts");
     }
 }

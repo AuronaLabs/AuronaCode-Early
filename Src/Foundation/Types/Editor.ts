@@ -23,6 +23,7 @@ export interface EditorStatus {
 }
 
 export type EditorStatusListener = (status: EditorStatus) => void;
+export type EditorAction = "undo" | "redo" | "cut" | "copy" | "paste" | "selectAll";
 
 export const EMPTY_EDITOR_STATUS: EditorStatus = {
   hasEditor: false,
@@ -46,4 +47,5 @@ export interface IEditorEngine {
   replaceRange(startLine: number, endLine: number, newText: string): void;
   getStatus(): EditorStatus;
   onStatusChange(listener: EditorStatusListener): () => void;
+  executeAction(action: EditorAction): void | Promise<void>;
 }

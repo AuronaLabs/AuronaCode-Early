@@ -1,12 +1,12 @@
 import React, { useCallback } from "react";
-import { FileSystemService, type FileNode } from "../../../Core/FileSystemService";
+import { type FileNode, FileSystemService } from "../../../Core/FileSystemService";
 import { EventBus } from "../../../Foundation/EventBus";
 import {
+  ContextMenuContent,
+  ContextMenuDivider,
+  ContextMenuItem,
   ContextMenuRoot,
   ContextMenuTrigger,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuDivider,
 } from "../../../UI/Components/ContextMenu";
 import { Icons } from "../../../UI/Icons/IconManager";
 import { useExplorerContext } from "../ExplorerContext";
@@ -85,7 +85,7 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
     inlineCreation?.parentPath === node.path && node.isDirectory && node.isOpen;
   const isEditingThis = inlineEditing === node.path;
 
-  React.useEffect(() => clearAutoExpandTimer, []);
+  React.useEffect(() => clearAutoExpandTimer, [clearAutoExpandTimer]);
 
   if (isEditingThis) {
     return (
@@ -102,11 +102,11 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
   return (
     <div className="flex flex-col relative">
       {depth > 0 &&
-        Array.from({ length: depth }).map((_, index) => (
+        Array.from({ length: depth }, (_, index) => index + 1).map((guide) => (
           <div
-            key={`${node.path}-guide-${index}`}
+            key={`${node.path}-guide-${guide}`}
             className="absolute top-0 bottom-0 border-l border-[var(--GlassBorder)]/50 pointer-events-none"
-            style={{ left: `calc(${index} * var(--TreeIndent) + 14px)` }}
+            style={{ left: `calc(${guide - 1} * var(--TreeIndent) + 14px)` }}
           />
         ))}
 

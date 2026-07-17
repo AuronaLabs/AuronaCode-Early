@@ -42,3 +42,4 @@ venv/
 # Build & CI Artifacts
 RELEASE_BODY.md
 publish.py
+.aurona-local/

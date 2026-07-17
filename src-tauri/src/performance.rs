@@ -3,8 +3,9 @@ use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use sysinfo::System;
 use tauri::{AppHandle, Manager, State};
 
@@ -15,15 +16,37 @@ const SEARCH_FILE_COUNT: usize = 256;
 
 pub struct PerformanceState {
     started_at: Instant,
+    splash_shown_at: Mutex<Option<Instant>>,
     latest_startup: Mutex<Option<StartupMetrics>>,
+    current_cancel: Mutex<Option<(String, Arc<AtomicBool>)>>,
 }
 
 impl PerformanceState {
     pub fn new() -> Self {
         Self {
             started_at: Instant::now(),
+            splash_shown_at: Mutex::new(None),
             latest_startup: Mutex::new(None),
+            current_cancel: Mutex::new(None),
         }
+    }
+
+    pub fn mark_splash_shown(&self) -> Result<(), String> {
+        let mut shown_at = self
+            .splash_shown_at
+            .lock()
+            .map_err(|_| "Splash timing state is unavailable".to_string())?;
+        shown_at.get_or_insert_with(Instant::now);
+        Ok(())
+    }
+
+    pub fn splash_remaining(&self, minimum: Duration) -> Result<Duration, String> {
+        let shown_at = self
+            .splash_shown_at
+            .lock()
+            .map_err(|_| "Splash timing state is unavailable".to_string())?;
+        let elapsed = shown_at.unwrap_or(self.started_at).elapsed();
+        Ok(minimum.saturating_sub(elapsed))
     }
 }
 
@@ -59,6 +82,8 @@ pub struct PerformanceEnvironment {
     pub operating_system: String,
     pub architecture: String,
     pub logical_cpu_cores: usize,
+    pub physical_cpu_cores: Option<usize>,
+    pub cpu_model: String,
     pub available_memory_bytes: u64,
     pub run_mode: String,
     pub backend_status: String,
@@ -112,6 +137,14 @@ fn benchmark_result(
     }
 }
 
+fn ensure_not_cancelled(cancelled: &AtomicBool) -> Result<(), String> {
+    if cancelled.load(Ordering::Acquire) {
+        Err("Performance benchmark cancelled".to_string())
+    } else {
+        Ok(())
+    }
+}
+
 fn with_temporary_directory<T>(
     label: &str,
     work: impl FnOnce(&Path) -> Result<T, String>,
@@ -130,13 +163,16 @@ fn with_temporary_directory<T>(
     }
 }
 
-fn run_filesystem_benchmark() -> Result<Vec<PerformanceBenchmarkResult>, String> {
+fn run_filesystem_benchmark(
+    cancelled: &AtomicBool,
+) -> Result<Vec<PerformanceBenchmarkResult>, String> {
     with_temporary_directory("filesystem", |directory| {
         let content = "x".repeat(SAMPLE_FILE_BYTES);
         let mut results = Vec::new();
 
         let started = Instant::now();
         for index in 0..SAMPLE_FILE_COUNT {
+            ensure_not_cancelled(cancelled)?;
             fs::write(directory.join(format!("sample-{index:03}.txt")), &content)
                 .map_err(|error| format!("Unable to create benchmark file: {error}"))?;
         }
@@ -151,6 +187,7 @@ fn run_filesystem_benchmark() -> Result<Vec<PerformanceBenchmarkResult>, String>
         let started = Instant::now();
         let mut total_bytes = 0_u64;
         for index in 0..SAMPLE_FILE_COUNT {
+            ensure_not_cancelled(cancelled)?;
             let metadata = fs::metadata(directory.join(format!("sample-{index:03}.txt")))
                 .map_err(|error| format!("Unable to read benchmark metadata: {error}"))?;
             total_bytes += metadata.len();
@@ -165,6 +202,7 @@ fn run_filesystem_benchmark() -> Result<Vec<PerformanceBenchmarkResult>, String>
 
         let started = Instant::now();
         for index in 0..SAMPLE_FILE_COUNT {
+            ensure_not_cancelled(cancelled)?;
             let _ = fs::read_to_string(directory.join(format!("sample-{index:03}.txt")))
                 .map_err(|error| format!("Unable to read benchmark file: {error}"))?;
         }
@@ -178,6 +216,7 @@ fn run_filesystem_benchmark() -> Result<Vec<PerformanceBenchmarkResult>, String>
 
         let started = Instant::now();
         for index in 0..SAMPLE_FILE_COUNT {
+            ensure_not_cancelled(cancelled)?;
             fs::write(
                 directory.join(format!("sample-{index:03}.txt")),
                 format!("{content}{index}"),
@@ -206,6 +245,7 @@ fn run_filesystem_benchmark() -> Result<Vec<PerformanceBenchmarkResult>, String>
 
         let started = Instant::now();
         for index in 0..SAMPLE_FILE_COUNT {
+            ensure_not_cancelled(cancelled)?;
             fs::remove_file(directory.join(format!("sample-{index:03}.txt")))
                 .map_err(|error| format!("Unable to delete benchmark file: {error}"))?;
         }
@@ -221,7 +261,8 @@ fn run_filesystem_benchmark() -> Result<Vec<PerformanceBenchmarkResult>, String>
     })
 }
 
-fn run_editor_benchmark() -> Vec<PerformanceBenchmarkResult> {
+fn run_editor_benchmark(cancelled: &AtomicBool) -> Result<Vec<PerformanceBenchmarkResult>, String> {
+    ensure_not_cancelled(cancelled)?;
     let source = (0..12_000)
         .map(|index| format!("let value_{index} = {index};\n"))
         .collect::<String>();
@@ -271,6 +312,7 @@ fn run_editor_benchmark() -> Vec<PerformanceBenchmarkResult> {
     let started = Instant::now();
     let mut offsets = Vec::with_capacity(500);
     for line_index in (100..600).rev() {
+        ensure_not_cancelled(cancelled)?;
         offsets.push(rope.line_to_char(line_index));
     }
     for offset in offsets {
@@ -307,16 +349,20 @@ fn run_editor_benchmark() -> Vec<PerformanceBenchmarkResult> {
         "释放性能测试 Rope 文档",
     ));
 
-    results
+    ensure_not_cancelled(cancelled)?;
+    Ok(results)
 }
 
-async fn run_search_benchmark() -> Result<Vec<PerformanceBenchmarkResult>, String> {
+async fn run_search_benchmark(
+    cancelled: Arc<AtomicBool>,
+) -> Result<Vec<PerformanceBenchmarkResult>, String> {
     let directory = temp_directory("search");
     fs::create_dir_all(&directory)
         .map_err(|error| format!("Unable to create search benchmark directory: {error}"))?;
 
     let result = async {
         for index in 0..SEARCH_FILE_COUNT {
+            ensure_not_cancelled(&cancelled)?;
             fs::write(
                 directory.join(format!("aurona-search-{index:03}.txt")),
                 format!(
@@ -327,13 +373,16 @@ async fn run_search_benchmark() -> Result<Vec<PerformanceBenchmarkResult>, Strin
         }
 
         let started = Instant::now();
-        let response = search::search_workspace(
+        ensure_not_cancelled(&cancelled)?;
+        let response = search::search_workspace_internal(
             directory.to_string_lossy().to_string(),
             "Aurona benchmark marker".to_string(),
             false,
             false,
+            cancelled.clone(),
         )
         .await?;
+        ensure_not_cancelled(&cancelled)?;
         let duration = started.elapsed();
         Ok(vec![PerformanceBenchmarkResult {
             id: "search-content".to_string(),
@@ -367,8 +416,7 @@ pub async fn get_performance_environment(
 ) -> Result<PerformanceEnvironment, String> {
     let app_version = app.package_info().version.to_string();
     tokio::task::spawn_blocking(move || {
-        let mut system = System::new();
-        system.refresh_memory();
+        let system = System::new_all();
         let workspace = workspace_path
             .as_deref()
             .map(PathBuf::from)
@@ -392,6 +440,13 @@ pub async fn get_performance_environment(
             logical_cpu_cores: std::thread::available_parallelism()
                 .map(|count| count.get())
                 .unwrap_or(1),
+            physical_cpu_cores: system.physical_core_count(),
+            cpu_model: system
+                .cpus()
+                .first()
+                .map(|cpu| cpu.brand().trim().to_string())
+                .filter(|brand| !brand.is_empty())
+                .unwrap_or_else(|| "unknown".to_string()),
             available_memory_bytes: system.available_memory(),
             run_mode: if cfg!(debug_assertions) {
                 "development"
@@ -410,17 +465,64 @@ pub async fn get_performance_environment(
 #[tauri::command]
 pub async fn run_performance_benchmark(
     kind: String,
+    request_id: String,
+    state: State<'_, PerformanceState>,
 ) -> Result<Vec<PerformanceBenchmarkResult>, String> {
-    match kind.as_str() {
-        "filesystem" => tokio::task::spawn_blocking(run_filesystem_benchmark)
-            .await
-            .map_err(|error| format!("Filesystem benchmark task failed: {error}"))?,
-        "editor" => tokio::task::spawn_blocking(|| Ok(run_editor_benchmark()))
-            .await
-            .map_err(|error| format!("Editor benchmark task failed: {error}"))?,
-        "search" => run_search_benchmark().await,
-        _ => Err(format!("Unknown performance benchmark: {kind}")),
+    let cancelled = Arc::new(AtomicBool::new(false));
+    {
+        let mut current = state
+            .current_cancel
+            .lock()
+            .map_err(|_| "Performance cancellation state is unavailable".to_string())?;
+        if let Some((_, previous)) = current.replace((request_id.clone(), cancelled.clone())) {
+            previous.store(true, Ordering::Release);
+        }
     }
+
+    let result = match kind.as_str() {
+        "filesystem" => {
+            let cancelled = cancelled.clone();
+            tokio::task::spawn_blocking(move || run_filesystem_benchmark(&cancelled))
+                .await
+                .map_err(|error| format!("Filesystem benchmark task failed: {error}"))?
+        }
+        "editor" => {
+            let cancelled = cancelled.clone();
+            tokio::task::spawn_blocking(move || run_editor_benchmark(&cancelled))
+                .await
+                .map_err(|error| format!("Editor benchmark task failed: {error}"))?
+        }
+        "search" => run_search_benchmark(cancelled.clone()).await,
+        _ => Err(format!("Unknown performance benchmark: {kind}")),
+    };
+
+    if let Ok(mut current) = state.current_cancel.lock() {
+        if current
+            .as_ref()
+            .is_some_and(|(active_id, _)| active_id == &request_id)
+        {
+            *current = None;
+        }
+    }
+    result
+}
+
+#[tauri::command]
+pub fn cancel_performance_benchmark(
+    request_id: String,
+    state: State<'_, PerformanceState>,
+) -> Result<bool, String> {
+    let current = state
+        .current_cancel
+        .lock()
+        .map_err(|_| "Performance cancellation state is unavailable".to_string())?;
+    if let Some((active_id, cancelled)) = current.as_ref() {
+        if active_id == &request_id {
+            cancelled.store(true, Ordering::Release);
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 #[tauri::command]
@@ -513,24 +615,30 @@ mod tests {
     use super::{
         run_editor_benchmark, run_filesystem_benchmark, run_search_benchmark, SEARCH_FILE_COUNT,
     };
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
 
     #[test]
     fn filesystem_benchmark_is_bounded_and_returns_all_operations() {
-        let results = run_filesystem_benchmark().expect("filesystem benchmark should complete");
+        let cancelled = AtomicBool::new(false);
+        let results =
+            run_filesystem_benchmark(&cancelled).expect("filesystem benchmark should complete");
         assert_eq!(results.len(), 6);
         assert!(results.iter().all(|result| result.status == "ok"));
     }
 
     #[test]
     fn editor_benchmark_exercises_all_rope_operations() {
-        let results = run_editor_benchmark();
+        let cancelled = AtomicBool::new(false);
+        let results = run_editor_benchmark(&cancelled).expect("editor benchmark should complete");
         assert_eq!(results.len(), 7);
         assert!(results.iter().all(|result| result.duration_ns > 0));
     }
 
     #[tokio::test]
     async fn search_benchmark_uses_the_real_search_command() {
-        let results = run_search_benchmark()
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let results = run_search_benchmark(cancelled)
             .await
             .expect("search benchmark should complete");
         assert_eq!(results.len(), 1);

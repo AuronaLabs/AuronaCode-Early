@@ -7,7 +7,8 @@ body:
     attributes:
       value: |
         感谢您为 Aurona Code 提出新功能建议
-        我们会优先考虑契合项目核心理念的功能
+        我们会优先考虑能够改善现有编辑、文件、Git、终端、搜索、更新和桌面体验的建议
+        插件市场、AI Command Center 和云服务等大范围方向请先说明依赖、风险与最小可行范围
   - type: textarea
     id: problem
     attributes:
@@ -34,3 +35,10 @@ body:
     attributes:
       label: 附加背景上下文
       description: 请在此处补充与该功能请求相关的任何其他上下文或截图
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 最小可验收结果
+      description: 请描述最小版本应该解决什么，以及如何判断它确实有效
+    validations:
+      required: true

@@ -11,11 +11,12 @@ export const ActivitySquare = React.forwardRef<HTMLButtonElement, ActivitySquare
   ({ icon, active = false, badge = false, className = "", title, ...props }, ref) => {
     const buttonElement = (
       <button
+        type="button"
         ref={ref}
-        className={`relative flex h-[calc(var(--ActivityBarWidth)-16px)] w-[calc(var(--ActivityBarWidth)-16px)] min-h-8 min-w-8 items-center justify-center rounded-xl transition-all duration-150 focus:outline-none ${
+        className={`relative flex h-[calc(var(--ActivityBarWidth)-16px)] w-[calc(var(--ActivityBarWidth)-16px)] min-h-8 min-w-8 items-center justify-center rounded-xl transition-[background-color,color,transform] duration-150 focus-visible:ring-2 focus-visible:ring-[var(--AccentPrimary)]/60 ${
           active
-            ? "bg-[var(--GlassSurface-Elevated)] dark:bg-white/20 text-[var(--TextHighlight)] shadow-sm"
-            : "text-[var(--TextMuted)] hover:bg-[var(--GlassHover)] dark:hover:bg-white/12 hover:text-[var(--TextHighlight)]"
+            ? "bg-[var(--GlassActive)] backdrop-blur-[var(--glass-blur-elevated)] text-[var(--TextHighlight)] shadow-sm ring-1 ring-inset ring-[var(--GlassBorder)]"
+            : "text-[var(--TextMuted)] hover:bg-[var(--GlassHover)] hover:backdrop-blur-[var(--glass-blur-base)] hover:text-[var(--TextHighlight)]"
         } ${className}`}
         {...props}
       >

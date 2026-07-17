@@ -1,10 +1,10 @@
-import { listen } from "@tauri-apps/api/event";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { memo, useEffect, useRef, useState } from "react";
 import { type ShellProfile, TerminalManager } from "../../Core/TerminalService";
+import { listenDesktop } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
 import { PtyIPC } from "../../Foundation/IPC/PtyCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
@@ -35,7 +35,7 @@ interface PtyExitPayload {
 }
 
 const terminalTheme = (isDark: boolean) => ({
-  background: "#00000000",
+  background: "rgba(0, 0, 0, 0)",
   foreground: isDark ? "#E6EDF3" : "#1F2937",
   cursor: isDark ? "#A78BFA" : "#4F46E5",
   cursorAccent: isDark ? "#111827" : "#FFFFFF",
@@ -116,6 +116,16 @@ export const TerminalView = memo(function TerminalView({
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
+    const syncTransparentSurface = () => {
+      for (const element of host.querySelectorAll<HTMLElement>(
+        ".xterm, .xterm-viewport, .xterm-screen",
+      )) {
+        element.style.background = "transparent";
+        element.style.backgroundColor = "transparent";
+      }
+    };
+    syncTransparentSurface();
+
     const fit = () => {
       try {
         fitAddon.fit();
@@ -152,6 +162,7 @@ export const TerminalView = memo(function TerminalView({
 
     const themeObserver = new MutationObserver(() => {
       terminal.options.theme = terminalTheme(document.documentElement.classList.contains("dark"));
+      syncTransparentSurface();
     });
     themeObserver.observe(document.documentElement, {
       attributes: true,
@@ -195,7 +206,7 @@ export const TerminalView = memo(function TerminalView({
 
     const start = async () => {
       try {
-        unlistenOutput = await listen<PtyOutputPayload>("pty-output", ({ payload }) => {
+        unlistenOutput = await listenDesktop<PtyOutputPayload>("pty-output", (payload) => {
           if (payload.id !== id || disposed) return;
           try {
             terminalRef.current?.write(decodeBase64(payload.data));
@@ -208,7 +219,7 @@ export const TerminalView = memo(function TerminalView({
         // 已被卸载但仍继续执行到 spawn 导致双进程
         if (disposed) return;
 
-        unlistenExit = await listen<PtyExitPayload>("pty-exit", ({ payload }) => {
+        unlistenExit = await listenDesktop<PtyExitPayload>("pty-exit", (payload) => {
           if (payload.id !== id || disposed) return;
           // 守卫：只处理真正已启动的会话退出，忽略旧会话清理产生的幽灵 exit 事件
           if (!spawnedRef.current) return;

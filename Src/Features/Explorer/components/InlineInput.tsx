@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Icons } from "../../../UI/Icons/IconManager";
 import { Input } from "../../../UI/Components/Input";
+import { Icons } from "../../../UI/Icons/IconManager";
 
 interface InlineInputProps {
   type: "file" | "folder";
@@ -27,11 +27,11 @@ export function InlineInput({
   return (
     <div className="flex flex-col relative">
       {depth > 0 &&
-        Array.from({ length: depth }).map((_, index) => (
+        Array.from({ length: depth }, (_, index) => index + 1).map((guide) => (
           <div
-            key={index}
+            key={`inline-guide-${guide}`}
             className="absolute top-0 bottom-0 border-l border-[var(--GlassBorder)]/60 pointer-events-none"
-            style={{ left: `calc(${index} * var(--TreeIndent) + 14px)` }}
+            style={{ left: `calc(${guide - 1} * var(--TreeIndent) + 14px)` }}
           />
         ))}
       <div

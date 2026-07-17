@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef, } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { EditorStatus, EditorStatusListener } from "../../../Foundation/Types/Editor";
 
 export function useEditorSelection(content: string, path?: string, language?: string) {
@@ -51,7 +51,9 @@ export function useEditorSelection(content: string, path?: string, language?: st
 
   const emitStatus = useCallback((status: EditorStatus) => {
     statusRef.current = status;
-    statusListenersRef.current.forEach((listener) => listener(status));
+    statusListenersRef.current.forEach((listener) => {
+      listener(status);
+    });
   }, []);
 
   const updateStatus = useCallback(

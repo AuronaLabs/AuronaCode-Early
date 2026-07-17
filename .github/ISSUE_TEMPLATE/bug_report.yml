@@ -39,8 +39,8 @@ body:
     id: version
     attributes:
       label: Aurona Code 版本号
-      description: 您正在使用哪个版本（例如 0.0.5）
-      placeholder: 0.0.x
+      description: 您正在使用哪个版本（例如 0.3.0）
+      placeholder: 0.3.0
     validations:
       required: true
   - type: dropdown
@@ -54,8 +54,37 @@ body:
         - Linux
     validations:
       required: true
+  - type: dropdown
+    id: profile
+    attributes:
+      label: 构建类型
+      description: 问题发生在正式安装包还是本地开发环境
+      options:
+        - Release 安装包
+        - tauri:dev 开发环境
+        - 前端浏览器预览
+        - 不确定
+    validations:
+      required: true
+  - type: input
+    id: scale
+    attributes:
+      label: 系统架构与显示缩放
+      description: 例如 x64、125% DPI；非视觉问题也请填写架构
+      placeholder: x64 / 125%
+    validations:
+      required: true
   - type: textarea
     id: logs
     attributes:
       label: 相关的日志或截图 (可选)
       description: 请添加截图或控制台日志来帮助说明该问题
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索现有 Issue，并确认没有相同问题
+          required: true
+        - label: 我已移除日志和截图中的密钥、私人路径与敏感代码
+          required: true

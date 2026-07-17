@@ -1,9 +1,11 @@
 use ignore::WalkBuilder;
 use regex::RegexBuilder;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
+use tauri::State;
 use ts_rs::TS;
 
 #[derive(Serialize, Deserialize, Clone, TS)]
@@ -21,12 +23,24 @@ pub struct SearchResponse {
     pub limit_reached: bool,
 }
 
-#[tauri::command]
-pub async fn search_workspace(
+pub struct SearchState {
+    requests: Mutex<HashMap<String, Arc<AtomicBool>>>,
+}
+
+impl SearchState {
+    pub fn new() -> Self {
+        Self {
+            requests: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
+pub async fn search_workspace_internal(
     path: String,
     query: String,
     is_case_sensitive: bool,
     is_regex: bool,
+    cancelled: Arc<AtomicBool>,
 ) -> Result<SearchResponse, String> {
     let root = PathBuf::from(&path)
         .canonicalize()
@@ -73,8 +87,12 @@ pub async fn search_workspace(
             let result_count = Arc::clone(&result_count);
             let limit_reached = Arc::clone(&limit_reached);
             let results = Arc::clone(&results);
+            let cancelled = Arc::clone(&cancelled);
 
             Box::new(move |result| {
+                if cancelled.load(Ordering::Acquire) {
+                    return ignore::WalkState::Quit;
+                }
                 if result_count.load(Ordering::Relaxed) >= MAX_RESULTS {
                     limit_reached.store(true, Ordering::Relaxed);
                     return ignore::WalkState::Quit;
@@ -99,6 +117,9 @@ pub async fn search_workspace(
                         let reader = std::io::BufReader::new(file);
                         use std::io::BufRead;
                         for (line_idx, line_res) in reader.lines().enumerate() {
+                            if cancelled.load(Ordering::Acquire) {
+                                return ignore::WalkState::Quit;
+                            }
                             let line = match line_res {
                                 Ok(l) => l,
                                 Err(_) => break, // 遇到非 UTF-8 字符直接跳出
@@ -162,10 +183,50 @@ pub async fn search_workspace(
     .map_err(|error| format!("Search task failed: {error}"))?
 }
 
+#[tauri::command]
+pub async fn search_workspace(
+    path: String,
+    query: String,
+    is_case_sensitive: bool,
+    is_regex: bool,
+    request_id: String,
+    state: State<'_, SearchState>,
+) -> Result<SearchResponse, String> {
+    let cancelled = Arc::new(AtomicBool::new(false));
+    {
+        let mut requests = state
+            .requests
+            .lock()
+            .map_err(|_| "Search cancellation state is unavailable".to_string())?;
+        requests.insert(request_id.clone(), cancelled.clone());
+    }
+    let result =
+        search_workspace_internal(path, query, is_case_sensitive, is_regex, cancelled).await;
+    if let Ok(mut requests) = state.requests.lock() {
+        requests.remove(&request_id);
+    }
+    result
+}
+
+#[tauri::command]
+pub fn cancel_search(request_id: String, state: State<'_, SearchState>) -> Result<bool, String> {
+    let requests = state
+        .requests
+        .lock()
+        .map_err(|_| "Search cancellation state is unavailable".to_string())?;
+    if let Some(cancelled) = requests.get(&request_id) {
+        cancelled.store(true, Ordering::Release);
+        return Ok(true);
+    }
+    Ok(false)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::search_workspace;
+    use super::search_workspace_internal;
     use std::fs;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_workspace() -> std::path::PathBuf {
@@ -188,11 +249,12 @@ mod tests {
         )
         .expect("test file should be written");
 
-        let response = search_workspace(
+        let response = search_workspace_internal(
             workspace.to_string_lossy().to_string(),
             "needle".to_string(),
             false,
             false,
+            Arc::new(AtomicBool::new(false)),
         )
         .await
         .expect("search should succeed");

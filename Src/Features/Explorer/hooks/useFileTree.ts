@@ -1,11 +1,10 @@
-import { open } from "@tauri-apps/plugin-dialog";
-import { watch } from "@tauri-apps/plugin-fs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type FileNode, FileSystemService } from "../../../Core/FileSystemService";
+import { desktopDialog, desktopFileSystem } from "../../../Foundation/Desktop";
 import { EventBus } from "../../../Foundation/EventBus";
 import { WorkspaceStore } from "../../../Foundation/Storage/WorkspaceStore";
-import { useWorkspaceStore } from "../../../State/useWorkspaceStore";
 import { SIDEBAR_EXPLORER } from "../../../Shared/Constants/Sidebar";
+import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
 import { showToast } from "../../../UI/Feedback/Toast";
 import type { InlineCreation } from "../FileExplorer";
 import { collectOpenPaths, isDescendant, mergeOpenState, updateTree } from "../utils/treeUtils";
@@ -58,9 +57,11 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
   }, [rootNode]);
 
   const hasDirtyOpenTabAtOrBelow = useCallback((path: string) => {
-    return useWorkspaceStore
+    return useWorkbenchStore
       .getState()
-      .tabs.some((tab) => tab.isDirty && tab.path && (tab.path === path || isDescendant(tab.path, path)));
+      .tabs.some(
+        (tab) => tab.isDirty && tab.path && (tab.path === path || isDescendant(tab.path, path)),
+      );
   }, []);
 
   const updateActivePathAfterMove = useCallback((oldPath: string, newPath: string) => {
@@ -140,20 +141,21 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
     let timer: number | null = null;
 
     if (rootNode?.path) {
-      watch(
-        rootNode.path,
-        () => {
-          if (timer) window.clearTimeout(timer);
-          timer = window.setTimeout(() => {
-            const currentRoot = rootNodeRef.current;
-            if (!currentRoot) return;
-            refreshOpenDirectories(currentRoot).catch((error) => {
-              console.warn("Failed to refresh watched directories:", error);
-            });
-          }, 300);
-        },
-        { recursive: true },
-      )
+      desktopFileSystem
+        .watch(
+          rootNode.path,
+          () => {
+            if (timer) window.clearTimeout(timer);
+            timer = window.setTimeout(() => {
+              const currentRoot = rootNodeRef.current;
+              if (!currentRoot) return;
+              refreshOpenDirectories(currentRoot).catch((error) => {
+                console.warn("Failed to refresh watched directories:", error);
+              });
+            }, 300);
+          },
+          { recursive: true },
+        )
         .then((fn) => {
           unwatch = fn;
         })
@@ -170,8 +172,8 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
 
   const handleOpenFolder = useCallback(async () => {
     try {
-      const selectedPath = await open({ directory: true, multiple: false });
-      if (selectedPath && typeof selectedPath === "string") {
+      const selectedPath = await desktopDialog.openFolder();
+      if (selectedPath) {
         await loadFolderDirectly(selectedPath);
       }
     } catch (error) {
@@ -225,7 +227,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         showToast(`读取目录失败：${FileSystemService.toMessage(error)}`, "error");
       }
     },
-    [onFileSelect, selectNode],
+    [selectNode],
   );
 
   const collapseAll = useCallback(() => {
@@ -251,11 +253,14 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
 
       const normalizedRoot = root.path.replace(/\\/g, "/").replace(/\/+$/, "");
       const normalizedTarget = targetPath.replace(/\\/g, "/");
-      if (normalizedTarget !== normalizedRoot && !normalizedTarget.startsWith(`${normalizedRoot}/`)) {
+      if (
+        normalizedTarget !== normalizedRoot &&
+        !normalizedTarget.startsWith(`${normalizedRoot}/`)
+      ) {
         return;
       }
 
-      useWorkspaceStore.getState().setActiveSidebar(SIDEBAR_EXPLORER);
+      useWorkbenchStore.getState().setActiveSidebar(SIDEBAR_EXPLORER);
       const relativePath = normalizedTarget.slice(normalizedRoot.length).replace(/^\/+/, "");
       const parentSegments = relativePath.split("/").filter(Boolean).slice(0, -1);
 

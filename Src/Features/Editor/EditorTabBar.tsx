@@ -1,6 +1,6 @@
 import React from "react";
 import { EventBus } from "../../Foundation/EventBus";
-import { useWorkspaceStore } from "../../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import {
   ContextMenuContent,
   ContextMenuDivider,
@@ -11,7 +11,7 @@ import {
 import { Icons } from "../../UI/Icons/IconManager";
 
 export const EditorTabBar = React.memo(function EditorTabBar() {
-  const { tabs, activeTabId, setActiveTabId, closeTab, closeTabById } = useWorkspaceStore();
+  const { tabs, activeTabId, setActiveTabId, closeTab, closeTabById } = useWorkbenchStore();
 
   const handleCloseToRight = (id: string) => {
     const idx = tabs.findIndex((t) => t.id === id);
@@ -120,6 +120,7 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
                   </span>
                 </div>
                 <button
+                  type="button"
                   className={`ml-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] transition-all z-10 relative ${
                     isActive || tab.isDirty ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                   } ${isActive ? "text-[var(--TextHighlight)]" : "text-[var(--TextMuted)]"}`}
@@ -128,7 +129,6 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
                     closeTab(tab);
                   }}
                   aria-label={tab.isDirty ? "未保存，关闭标签" : "关闭标签"}
-                  type="button"
                 >
                   {tab.isDirty ? (
                     <>

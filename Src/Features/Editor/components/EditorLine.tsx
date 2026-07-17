@@ -16,7 +16,7 @@ interface EditorLineProps {
   isDragging: boolean;
   setHoverTooltip: (val: { x: number; y: number; text: string } | null) => void;
   hoverTooltip: { x: number; y: number; text: string } | null;
-  onMouseDown: (idx: number, e: React.MouseEvent<HTMLDivElement>) => void;
+  onMouseDown: (idx: number, e: React.MouseEvent<HTMLButtonElement>) => void;
   onMouseLeave: () => void;
   minTextLengthIndex: (text: string, x: number) => number;
   isComposing: boolean;
@@ -96,7 +96,7 @@ export const EditorLine = React.memo(function EditorLine({
   }, [selection, idx, lineText]);
 
   // 3. 处理鼠标事件与诊断提示
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!isDragging) {
       const rect = e.currentTarget.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
@@ -113,14 +113,15 @@ export const EditorLine = React.memo(function EditorLine({
   };
 
   return (
-    <div
+    <button
+      type="button"
       data-line={idx}
-      role="textbox"
       tabIndex={-1}
+      aria-hidden="true"
       onMouseDown={(e) => onMouseDown(idx, e)}
       onMouseMove={handleMouseMove}
       onMouseLeave={onMouseLeave}
-      className={`editor-line relative select-none cursor-text px-4 font-mono text-[14px] h-[22px] leading-[22px] text-[var(--TextPrimary)] whitespace-pre transition-colors duration-150 ${
+      className={`editor-line relative block w-full border-0 bg-transparent text-left select-none cursor-text px-4 font-mono text-[14px] h-[22px] leading-[22px] text-[var(--TextPrimary)] whitespace-pre transition-colors duration-150 ${
         isCurrent
           ? "bg-[var(--EditorActiveLineBg)] shadow-[inset_0_1px_0_var(--EditorActiveLineBorder),_inset_0_-1px_0_var(--EditorActiveLineBorder)]"
           : ""
@@ -146,6 +147,6 @@ export const EditorLine = React.memo(function EditorLine({
           {compositionText}
         </span>
       )}
-    </div>
+    </button>
   );
 });

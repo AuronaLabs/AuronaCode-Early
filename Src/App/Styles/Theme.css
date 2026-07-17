@@ -14,14 +14,12 @@
   --color-accent-text: var(--AccentText);
 }
 
-
-
 .aurona-tab {
   position: relative;
   height: var(--TabActiveHeight);
   background: transparent;
   color: var(--TextPrimary);
-  border-radius: 12px; 
+  border-radius: 12px;
   transition:
     background var(--duration-fast) var(--ease-smooth),
     color var(--duration-fast) ease,
@@ -45,6 +43,14 @@
   background-color: var(--GlassHover);
 }
 
+.glass-inner-card {
+  background: var(--material-surface);
+  border: 1px solid var(--GlassBorder);
+  box-shadow: var(--shadow-surface);
+  backdrop-filter: blur(var(--glass-blur-elevated));
+  -webkit-backdrop-filter: blur(var(--glass-blur-elevated));
+}
+
 :root {
   --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -52,24 +58,52 @@
   --duration-normal: 250ms;
   --duration-slow: 400ms;
 
-  --RGB-Bg: 248, 250, 252; 
-  --RGB-Fg: 15, 23, 42; 
-  --RGB-Accent: 37, 99, 235; 
+  /* Aurona Material System */
+  --material-canvas: var(--AppBg);
+  --material-chrome: var(--GlassSurface-Base);
+  --material-panel: var(--GlassSurface-Base);
+  --material-surface: var(--GlassSurface-Elevated);
+  --material-overlay: var(--GlassSurface-Floating);
+  --material-modal: var(--GlassSurface-Floating);
+  --material-interactive: transparent;
+  --material-interactive-hover: var(--GlassHover);
+  --material-interactive-active: var(--GlassActive);
+  --border-subtle: var(--GlassBorder);
+  --border-overlay: color-mix(in srgb, var(--TextMuted) 24%, transparent);
+  --shadow-surface: 0 1px 2px rgb(0 0 0 / 6%);
+  --shadow-overlay: 0 18px 48px rgb(0 0 0 / 20%);
+  --radius-control: 8px;
+  --radius-surface: 12px;
+  --radius-overlay: 16px;
+  --control-height-sm: 28px;
+  --control-height-md: 32px;
+  --focus-ring: 0 0 0 2px color-mix(in srgb, var(--AccentPrimary) 55%, transparent);
+  --switch-on-surface: color-mix(in srgb, var(--AccentPrimary) 24%, var(--GlassSurface-Elevated));
+  --switch-on-border: color-mix(in srgb, var(--AccentPrimary) 42%, var(--GlassBorder));
+  --switch-on-indicator: color-mix(in srgb, var(--AccentPrimary) 82%, white);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+
+  --RGB-Bg: 225, 233, 244;
+  --RGB-Fg: 15, 23, 42;
+  --RGB-Accent: 37, 99, 235;
 
   /* Glassmorphism Layers */
   --NoiseTexture: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
-  --GlassSurface: rgba(255, 255, 255, 0.4); 
-  --GlassOpacity-Multiplier: 1.0;
+  --GlassSurface: rgba(255, 255, 255, 0.4);
+  --GlassOpacity-Multiplier: 1;
   --GlassSurface-Base: rgba(255, 255, 255, calc(0.15 * var(--GlassOpacity-Multiplier)));
   --GlassSurface-Elevated: rgba(255, 255, 255, calc(0.25 * var(--GlassOpacity-Multiplier)));
   --GlassSurface-Floating: rgba(255, 255, 255, calc(0.4 * var(--GlassOpacity-Multiplier)));
-  --GlassHover: rgba(var(--RGB-Fg), 0.08); 
-  --GlassActive: rgba(255, 255, 255, 0.7);
-  --GlassBorder: rgba(var(--RGB-Fg), 0.04); 
-  
+  --GlassHover: rgba(var(--RGB-Fg), calc(0.07 * var(--GlassOpacity-Multiplier)));
+  --GlassActive: rgba(255, 255, 255, calc(0.58 * var(--GlassOpacity-Multiplier)));
+  --GlassBorder: rgba(var(--RGB-Fg), calc(0.045 * var(--GlassOpacity-Multiplier)));
+
   /* Editor Active Line Highlight variables */
   --EditorActiveLineBg: rgba(0, 0, 0, 0.015);
-  --EditorActiveLineBorder: rgba(0, 0, 0, 0.03); 
+  --EditorActiveLineBorder: rgba(0, 0, 0, 0.03);
 
   /* Semantic Colors */
   --AppBg: rgb(var(--RGB-Bg));
@@ -91,10 +125,10 @@
 
   /* A vibrant mesh gradient background so the glassmorphism pops */
   --AppBackground:
-    radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 40%),
-    radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.1) 0%, transparent 60%),
-    linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    radial-gradient(circle at 12% 14%, rgba(96, 165, 250, 0.28) 0%, transparent 38%),
+    radial-gradient(circle at 88% 18%, rgba(167, 139, 250, 0.22) 0%, transparent 40%),
+    radial-gradient(circle at 54% 96%, rgba(56, 189, 248, 0.2) 0%, transparent 46%),
+    linear-gradient(145deg, #dce7f4 0%, #e8e4f2 52%, #d7e4ef 100%);
 
   --FontSizeBase: 13px;
   --TitleBarHeight: 44px;
@@ -147,19 +181,18 @@
 }
 
 .dark {
-
-  --RGB-Bg: 9, 9, 11; 
-  --RGB-Fg: 255, 255, 255; 
-  --RGB-Accent: 59, 130, 246; 
+  --RGB-Bg: 9, 9, 11;
+  --RGB-Fg: 255, 255, 255;
+  --RGB-Accent: 59, 130, 246;
 
   --GlassSurface: rgba(18, 18, 28, 0.55);
   --GlassSurface-Base: rgba(255, 255, 255, calc(0.05 * var(--GlassOpacity-Multiplier)));
   --GlassSurface-Elevated: rgba(255, 255, 255, calc(0.08 * var(--GlassOpacity-Multiplier)));
   --GlassSurface-Floating: rgba(255, 255, 255, calc(0.12 * var(--GlassOpacity-Multiplier)));
-  --GlassHover: rgba(255, 255, 255, 0.12);
-  --GlassActive: rgba(255, 255, 255, 0.18);
-  --GlassBorder: rgba(255, 255, 255, 0.07);
-  
+  --GlassHover: rgba(255, 255, 255, calc(0.11 * var(--GlassOpacity-Multiplier)));
+  --GlassActive: rgba(255, 255, 255, calc(0.17 * var(--GlassOpacity-Multiplier)));
+  --GlassBorder: rgba(255, 255, 255, calc(0.07 * var(--GlassOpacity-Multiplier)));
+
   /* Editor Active Line Highlight variables */
   --EditorActiveLineBg: rgba(255, 255, 255, 0.015);
   --EditorActiveLineBorder: rgba(255, 255, 255, 0.03);
@@ -231,13 +264,15 @@ body,
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden; 
+  overflow: hidden;
 }
 
 body {
   background-color: var(--AppBg);
   color: var(--TextPrimary);
-  font-family: "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+  font-family:
+    "Segoe UI Variable", "PingFang SC", "Microsoft YaHei UI", "Noto Sans CJK SC", system-ui,
+    sans-serif;
   font-size: var(--FontSizeBase);
   user-select: none;
   -webkit-user-select: none;
@@ -256,7 +291,6 @@ input,
 textarea,
 select {
   font: inherit;
-  outline: none;
 }
 
 *:focus:not(:focus-visible) {
@@ -264,18 +298,20 @@ select {
 }
 
 *:focus-visible {
-  outline: 2px solid var(--TextHighlight);
-  border-radius: 4px; 
+  outline: 2px solid color-mix(in srgb, var(--AccentPrimary) 72%, transparent);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
 }
 
-input:focus,
-textarea:focus,
-select:focus,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
+/* Aurona inputs render their focus state on the glass shell instead of the
+   browser's inner blue outline. Other keyboard-focusable controls keep the
+   global accessible focus ring above. */
+[data-aurona-input]:focus-visible {
   outline: none;
-  box-shadow: none;
+}
+
+[data-aurona-component-focus]:focus-visible {
+  outline: none;
 }
 
 button {
@@ -307,29 +343,29 @@ button {
   background: transparent;
 }
 
-.theme-transitioning,
-.theme-transitioning * {
-  transition: background-color 300ms cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 300ms cubic-bezier(0.4, 0, 0.2, 1),
-              color 300ms cubic-bezier(0.4, 0, 0.2, 1),
-              opacity 300ms cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1),
-              backdrop-filter 300ms cubic-bezier(0.4, 0, 0.2, 1);
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+  }
 }
-* { outline: none; }
 
 /* xterm's canvas is transparent; the host must remain transparent in both themes. */
 .terminal-host .xterm,
 .terminal-host .xterm-viewport,
 .terminal-host .xterm-screen,
 .terminal-host .xterm-helper-textarea {
-  background: transparent !important;
+  background: transparent;
+  background-color: transparent;
 }
 
-
-
 /* Highlight.js Theme (Migrated from AuronaEngine.tsx) */
-.hljs, code {
+.hljs,
+code {
   color: var(--TextHighlight);
   text-shadow: none;
   font-family: var(--EditorFontFamily);
@@ -359,10 +395,43 @@ button {
 .aurona-scroll::-webkit-scrollbar-thumb:hover {
   background-color: var(--TextMuted);
 }
-.hljs-comment, .hljs-quote { color: var(--SyntaxComment); }
-.hljs-keyword, .hljs-selector-tag { color: var(--SyntaxKeyword); }
-.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute, .hljs-meta .hljs-string { color: var(--SyntaxString); }
-.hljs-number, .hljs-built_in, .hljs-literal, .hljs-type, .hljs-params, .hljs-meta, .hljs-link { color: var(--SyntaxNumber); }
-.hljs-title, .hljs-title.function_, .hljs-section, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: var(--SyntaxFunction); }
-.hljs-variable, .hljs-template-variable { color: var(--SyntaxVariable); }
-.hljs-operator, .hljs-punctuation { color: var(--SyntaxOperator); }
+.hljs-comment,
+.hljs-quote {
+  color: var(--SyntaxComment);
+}
+.hljs-keyword,
+.hljs-selector-tag {
+  color: var(--SyntaxKeyword);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string {
+  color: var(--SyntaxString);
+}
+.hljs-number,
+.hljs-built_in,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+  color: var(--SyntaxNumber);
+}
+.hljs-title,
+.hljs-title.function_,
+.hljs-section,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: var(--SyntaxFunction);
+}
+.hljs-variable,
+.hljs-template-variable {
+  color: var(--SyntaxVariable);
+}
+.hljs-operator,
+.hljs-punctuation {
+  color: var(--SyntaxOperator);
+}

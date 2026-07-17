@@ -6,10 +6,10 @@ import { CHANGELOG_DATA } from "./ChangelogData";
 const parseMarkdownBold = (text: string) => {
   if (!text) return null;
   const parts = text.split(/(\*\*.*?\*\*)/g);
-  return parts.map((part, index) => {
+  return parts.map((part) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return (
-        <strong key={index} className="font-bold text-[var(--TextHighlight)]">
+        <strong key={`strong-${part}`} className="font-bold text-[var(--TextHighlight)]">
           {part.slice(2, -2)}
         </strong>
       );
@@ -90,8 +90,8 @@ export function ChangelogTab() {
                   )}
                   {section.items && section.items.length > 0 && (
                     <ul className="flex flex-col gap-3 text-[13px] text-[var(--TextPrimary)] leading-relaxed mt-2">
-                      {section.items.map((item, idx) => (
-                        <li key={idx} className="flex gap-3 items-start">
+                      {section.items.map((item) => (
+                        <li key={item} className="flex gap-3 items-start">
                           <span className="text-[var(--AccentPrimary)] mt-0.5 opacity-80">
                             <Icons.Check size={14} stroke={3} />
                           </span>

@@ -1,28 +1,38 @@
-import { BaseDirectory, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
+import { BaseDirectory, desktopFileSystem } from "../Desktop";
+
+const { mkdir, writeTextFile } = desktopFileSystem;
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 const MAX_QUEUED_LOG_ENTRIES = 1_000;
 const LOG_RETRY_DELAY_MS = 1_000;
 
-function serializeError(obj: any, seen = new WeakSet()): any {
+function serializeError(obj: unknown, seen = new WeakSet<object>()): unknown {
   if (obj === null || typeof obj !== "object") return obj;
   if (seen.has(obj)) return "[Circular]";
   seen.add(obj);
 
   if (obj instanceof Error) {
-    const err: any = { name: obj.name, message: obj.message, stack: obj.stack };
+    const err: Record<string, unknown> = {
+      name: obj.name,
+      message: obj.message,
+      stack: obj.stack,
+    };
     for (const key of Object.getOwnPropertyNames(obj)) {
       if (!["name", "message", "stack"].includes(key)) {
-        err[key] = serializeError(obj[key as keyof typeof obj], seen);
+        err[key] = serializeError(Reflect.get(obj, key), seen);
       }
     }
     return err;
   }
 
-  const serialized: any = Array.isArray(obj) ? [] : {};
+  if (Array.isArray(obj)) {
+    return obj.map((value) => serializeError(value, seen));
+  }
+
+  const serialized: Record<string, unknown> = {};
   for (const key of Object.getOwnPropertyNames(obj)) {
-    serialized[key] = serializeError(obj[key as keyof typeof obj], seen);
+    serialized[key] = serializeError(Reflect.get(obj, key), seen);
   }
   return serialized;
 }

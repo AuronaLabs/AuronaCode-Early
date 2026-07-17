@@ -1,15 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
-import {
-  exists,
-  mkdir,
-  readDir,
-  readTextFile,
-  remove,
-  rename,
-  writeTextFile,
-  watch,
-} from "@tauri-apps/plugin-fs";
+import { desktopFileSystem, invokeDesktop } from "../Foundation/Desktop";
 import { EventBus } from "../Foundation/EventBus";
+
+const { exists, mkdir, readDir, readTextFile, remove, rename, watch, writeTextFile } =
+  desktopFileSystem;
 
 export type FileNode = {
   name: string;
@@ -116,11 +109,11 @@ export const FileSystemService = {
   },
 
   async revealInOs(path: string) {
-    await invoke("reveal_in_os", { path });
+    await invokeDesktop("reveal_in_os", { path });
   },
 
   async copyOrMove(source: string, destination: string, isMove: boolean) {
-    await invoke("fs_copy_or_move", { source, destination, isMove });
+    await invokeDesktop("fs_copy_or_move", { source, destination, isMove });
   },
 
   _unwatch: undefined as (() => void) | undefined,

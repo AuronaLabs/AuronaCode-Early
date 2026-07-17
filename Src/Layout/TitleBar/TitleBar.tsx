@@ -1,28 +1,31 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { invoke } from "@tauri-apps/api/core";
-import { relaunch } from "@tauri-apps/plugin-process";
 import { useEffect, useState } from "react";
+import { CommandRegistry } from "../../Extension/CommandRegistry";
+import { desktopApp, desktopWindow } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
-import { handleSmartRun, isRunnable } from "../../Shared/Constants/RunConfig";
+import { isRunnable } from "../../Shared/Constants/RunConfig";
+import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import {
+  MenubarContent,
+  MenubarDivider,
+  MenubarItem,
+  MenubarMenu,
+  MenubarRoot,
+  MenubarTrigger,
+} from "../../UI/Components/Menubar";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
-import {
-  MenubarRoot,
-  MenubarMenu,
-  MenubarTrigger,
-  MenubarContent,
-  MenubarItem,
-  MenubarDivider,
-} from "../../UI/Components/Menubar";
 
-const appWindow = getCurrentWindow();
+const appWindow = desktopWindow;
+const runCommand = (id: string) => void CommandRegistry.execute(id);
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
-  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
-  const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
   const [hasUpdate, setHasUpdate] = useState(false);
+  const isTerminalOpen = useWorkbenchStore((state) => state.isBottomPanelOpen);
+  const activeFilePath = useWorkbenchStore((state) => {
+    const tab = state.tabs.find((item) => item.id === state.activeTabId);
+    return tab?.type === "file" ? (tab.path ?? null) : null;
+  });
 
   useEffect(() => {
     appWindow.isMaximized().then(setIsMaximized);
@@ -31,20 +34,12 @@ export function TitleBar() {
       setIsMaximized(await appWindow.isMaximized());
     });
 
-    const unsubTerminal = EventBus.on("app:terminal-state-changed", (isOpen: boolean) =>
-      setIsTerminalOpen(isOpen),
-    );
-    const unsubFile = EventBus.on("app:active-file-changed", (path: string | null) =>
-      setActiveFilePath(path),
-    );
     const unsubUpdate = EventBus.on("app:update-available", () => {
       setHasUpdate(true);
     });
 
     return () => {
       unlisten.then((dispose) => dispose());
-      unsubTerminal();
-      unsubFile();
       unsubUpdate();
     };
   }, []);
@@ -74,22 +69,25 @@ export function TitleBar() {
               <MenubarItem
                 label="新建文件"
                 rightElement="Ctrl+N"
-                onSelect={() => EventBus.emit("app:create-file-prompt")}
+                onSelect={() => runCommand("workbench.action.files.newFile")}
               />
               <MenubarItem
                 label="新建文件夹"
-                onSelect={() => EventBus.emit("app:create-folder-prompt")}
+                onSelect={() => runCommand("workbench.action.files.newFolder")}
               />
               <MenubarDivider />
-              <MenubarItem label="打开文件..." onSelect={() => EventBus.emit("app:open-file")} />
+              <MenubarItem
+                label="打开文件..."
+                onSelect={() => runCommand("workbench.action.files.openFile")}
+              />
               <MenubarItem
                 label="打开文件夹..."
-                onSelect={() => EventBus.emit("app:open-folder")}
+                onSelect={() => runCommand("workbench.action.files.openFolder")}
               />
               <MenubarItem
                 label="保存"
                 rightElement="Ctrl+S"
-                onSelect={() => EventBus.emit("app:save-file")}
+                onSelect={() => runCommand("workbench.action.files.save")}
               />
               <MenubarDivider />
               <MenubarItem label="退出" variant="danger" onSelect={() => appWindow.close()} />
@@ -99,17 +97,14 @@ export function TitleBar() {
           <MenubarMenu>
             <MenubarTrigger>编辑</MenubarTrigger>
             <MenubarContent>
-              <MenubarItem label="撤销" onSelect={() => EventBus.emit("editor:action", "undo")} />
-              <MenubarItem label="重做" onSelect={() => EventBus.emit("editor:action", "redo")} />
+              <MenubarItem label="撤销" onSelect={() => runCommand("editor.action.undo")} />
+              <MenubarItem label="重做" onSelect={() => runCommand("editor.action.redo")} />
               <MenubarDivider />
-              <MenubarItem label="剪切" onSelect={() => EventBus.emit("editor:action", "cut")} />
-              <MenubarItem label="复制" onSelect={() => EventBus.emit("editor:action", "copy")} />
-              <MenubarItem label="粘贴" onSelect={() => EventBus.emit("editor:action", "paste")} />
+              <MenubarItem label="剪切" onSelect={() => runCommand("editor.action.cut")} />
+              <MenubarItem label="复制" onSelect={() => runCommand("editor.action.copy")} />
+              <MenubarItem label="粘贴" onSelect={() => runCommand("editor.action.paste")} />
               <MenubarDivider />
-              <MenubarItem
-                label="全选"
-                onSelect={() => EventBus.emit("editor:action", "selectAll")}
-              />
+              <MenubarItem label="全选" onSelect={() => runCommand("editor.action.selectAll")} />
             </MenubarContent>
           </MenubarMenu>
 
@@ -118,16 +113,7 @@ export function TitleBar() {
             <MenubarContent>
               <MenubarItem
                 label="运行"
-                onSelect={() => {
-                  if (activeFilePath && isRunnable(activeFilePath)) {
-                    if (!isTerminalOpen) {
-                      EventBus.emit("app:toggle-terminal", true);
-                    }
-                    setTimeout(() => {
-                      handleSmartRun(activeFilePath);
-                    }, 50);
-                  }
-                }}
+                onSelect={() => runCommand("workbench.action.runActiveFile")}
               />
             </MenubarContent>
           </MenubarMenu>
@@ -139,29 +125,17 @@ export function TitleBar() {
                 label="强制重启"
                 onSelect={async () => {
                   try {
-                    // @ts-expect-error
-                    if (import.meta.env?.DEV || (import.meta as any).env?.DEV) {
+                    if (import.meta.env.DEV) {
                       // Hide current main window
-                      await getCurrentWindow().hide();
+                      await desktopWindow.hide();
                       // Re-create splashscreen window
-                      new WebviewWindow("splashscreen", {
-                        url: "/splash.html",
-                        title: "Aurona Code Initializing",
-                        width: 500,
-                        height: 300,
-                        decorations: false,
-                        transparent: true,
-                        resizable: false,
-                        alwaysOnTop: true,
-                        center: true,
-                        skipTaskbar: true,
-                      });
+                      desktopWindow.createSplash();
                       // Wait a fraction of a second for the IPC command to reach Rust before destroying the JS context
                       setTimeout(() => {
                         window.location.reload();
                       }, 100);
                     } else {
-                      await relaunch();
+                      await desktopApp.relaunch();
                     }
                   } catch (e) {
                     console.error("重启失败", e);
@@ -170,42 +144,29 @@ export function TitleBar() {
               />
               <MenubarItem
                 label="性能测试"
-                onSelect={() =>
-                  EventBus.emit("app:open-tab", {
-                    id: "performance",
-                    type: "performance",
-                    title: "性能测试",
-                  })
-                }
+                onSelect={() => runCommand("workbench.action.openPerformance")}
               />
               <MenubarItem
                 label="开发者工具"
                 onSelect={() => {
-                  invoke("open_devtools").catch((err) => {
-                    EventBus.emit("app:toast", { type: "warning", message: err });
+                  void CommandRegistry.execute("workbench.action.openDevtools").then((result) => {
+                    if (result.error) {
+                      EventBus.emit("app:toast", {
+                        type: "warning",
+                        message: result.error.message,
+                      });
+                    }
                   });
                 }}
               />
               <MenubarDivider />
               <MenubarItem
                 label="版本更新记录"
-                onSelect={() =>
-                  EventBus.emit("app:open-tab", {
-                    id: "changelog",
-                    type: "changelog",
-                    title: "更新记录",
-                  })
-                }
+                onSelect={() => runCommand("workbench.action.openChangelog")}
               />
               <MenubarItem
                 label="关于 Aurona Code"
-                onSelect={() =>
-                  EventBus.emit("app:open-tab", {
-                    id: "about",
-                    type: "about",
-                    title: "关于 Aurona Code",
-                  })
-                }
+                onSelect={() => runCommand("workbench.action.openAbout")}
               />
             </MenubarContent>
           </MenubarMenu>
@@ -216,8 +177,9 @@ export function TitleBar() {
         {activeFilePath && isRunnable(activeFilePath) && (
           <Tooltip content="运行当前文件" delay={300} placement="bottom">
             <button
+              type="button"
               className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] text-[var(--TextHighlight)] transition-colors mr-2"
-              onClick={() => handleSmartRun(activeFilePath)}
+              onClick={() => runCommand("workbench.action.runActiveFile")}
             >
               <Icons.Play size={16} stroke={2} />
             </button>
@@ -227,6 +189,7 @@ export function TitleBar() {
         {hasUpdate && (
           <Tooltip content="发现新版本" delay={300} placement="bottom">
             <button
+              type="button"
               className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] text-blue-500 hover:text-blue-400 transition-colors mr-1 relative"
               onClick={() => EventBus.emit("app:show-update-modal")}
             >
@@ -238,8 +201,9 @@ export function TitleBar() {
 
         <Tooltip content="切换底侧面板" delay={500} placement="bottom">
           <button
+            type="button"
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] transition-colors"
-            onClick={() => EventBus.emit("app:toggle-terminal")}
+            onClick={() => runCommand("workbench.action.togglePanel")}
           >
             {isTerminalOpen ? (
               <Icons.BottomPanelFilled size={16} stroke={2} />
@@ -251,6 +215,7 @@ export function TitleBar() {
         <div className="w-px h-[14px] bg-[var(--GlassBorder)] mx-0.5" />
         <Tooltip content="最小化" delay={500} placement="bottom">
           <button
+            type="button"
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] transition-colors"
             onClick={() => appWindow.minimize()}
           >
@@ -259,6 +224,7 @@ export function TitleBar() {
         </Tooltip>
         <Tooltip content={isMaximized ? "向下还原" : "最大化"} delay={500} placement="bottom">
           <button
+            type="button"
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] transition-colors"
             onClick={toggleMaximize}
           >
@@ -271,6 +237,7 @@ export function TitleBar() {
         </Tooltip>
         <Tooltip content="关闭" delay={500} placement="bottom">
           <button
+            type="button"
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-red-500 hover:text-white transition-colors"
             onClick={() => appWindow.close()}
           >

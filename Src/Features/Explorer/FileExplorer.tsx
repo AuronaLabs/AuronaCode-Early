@@ -63,7 +63,10 @@ export const FileExplorer = React.memo(function FileExplorer({
 
   const handleTreeKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!rootNode || visibleNodes.length === 0) return;
-    const activeIndex = Math.max(0, visibleNodes.findIndex(({ node }) => node.path === activePath));
+    const activeIndex = Math.max(
+      0,
+      visibleNodes.findIndex(({ node }) => node.path === activePath),
+    );
     const active = visibleNodes[activeIndex]?.node;
     if (!active) return;
 
@@ -163,7 +166,7 @@ export const FileExplorer = React.memo(function FileExplorer({
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [activePath, rootNode]);
+  }, [activePath]);
 
   return (
     <ExplorerContext.Provider value={contextValue}>

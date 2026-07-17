@@ -1,5 +1,5 @@
-import * as React from "react";
 import * as ContextMenuPrimitive from "@radix-ui/react-context-menu";
+import * as React from "react";
 import { cn } from "../../Shared/Utils/cn";
 import { glassVariants } from "../Core/GlassManager/variants";
 
@@ -56,9 +56,7 @@ export const ContextMenuItem = React.forwardRef<
           "flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-[13px] transition-colors text-left w-full outline-none cursor-pointer select-none",
           disabled && "opacity-50 cursor-not-allowed text-[var(--TextMuted)]",
           !disabled && isDanger && "text-red-500 focus:bg-red-500/10",
-          !disabled &&
-            !isDanger &&
-            "text-[var(--TextHighlight)] focus:bg-[var(--GlassHover)]",
+          !disabled && !isDanger && "text-[var(--TextHighlight)] focus:bg-[var(--GlassHover)]",
           className,
         )}
         {...props}

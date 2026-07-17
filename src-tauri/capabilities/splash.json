@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "splash-window",
+  "description": "Minimum capabilities required by the startup window.",
+  "windows": ["splashscreen"],
+  "permissions": [
+    "core:app:allow-version",
+    "core:window:allow-show",
+    "core:window:allow-start-dragging",
+    "fs:allow-applocaldata-read",
+    "fs:allow-applocaldata-meta"
+  ]
+}

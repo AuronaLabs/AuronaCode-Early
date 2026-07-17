@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
-import { Modal } from "../Components/Modal";
-import { Button } from "../Components/Button";
-import { Icons } from "../Icons/IconManager";
-import { EventBus } from "../../Foundation/EventBus";
 import { UpdaterService } from "../../Core/UpdaterService";
-import type { Update } from "@tauri-apps/plugin-updater";
+import type { UpdateInfo } from "../../Foundation/Desktop";
+import { EventBus } from "../../Foundation/EventBus";
+import { Button } from "../Components/Button";
+import { Modal } from "../Components/Modal";
+import { Icons } from "../Icons/IconManager";
 
 export function UpdateModal() {
   const [isOpen, setIsOpen] = useState(false);
-  const [updateInfo, setUpdateInfo] = useState<Update | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [progressText, setProgressText] = useState("");
 
   useEffect(() => {
-    const unsubAvailable = EventBus.on("app:update-available", (update: Update) => {
+    const unsubAvailable = EventBus.on("app:update-available", (update) => {
       setUpdateInfo(update);
       setIsOpen(true);
     });
@@ -26,7 +26,7 @@ export function UpdateModal() {
       }
     });
 
-    const unsubProgress = EventBus.on("app:update-progress", (data: any) => {
+    const unsubProgress = EventBus.on("app:update-progress", (data) => {
       if (data.status === "started") {
         setIsUpdating(true);
         setProgressText("正在连接更新服务器...");

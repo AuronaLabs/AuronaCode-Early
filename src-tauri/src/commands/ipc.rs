@@ -1,4 +1,8 @@
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
+use tauri::{Manager, State};
+
+use crate::performance::PerformanceState;
 
 #[derive(Deserialize)]
 pub struct IpcRequest {
@@ -102,7 +106,6 @@ pub fn open_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
 
 use std::fs;
 use std::path::Path;
-use tauri::Manager;
 
 fn get_dir_size(path: &Path) -> Result<u64, String> {
     let mut total = 0_u64;
@@ -218,13 +221,28 @@ fn clear_directory_contents(path: &Path, preserved_names: &[&str]) -> Result<(),
 }
 
 #[tauri::command]
-pub fn close_splashscreen(app: tauri::AppHandle) {
+pub fn mark_splashscreen_shown(state: State<PerformanceState>) -> Result<(), String> {
+    state.mark_splash_shown()
+}
+
+#[tauri::command]
+pub async fn close_splashscreen(
+    app: tauri::AppHandle,
+    state: State<'_, PerformanceState>,
+) -> Result<(), String> {
+    let remaining = state.splash_remaining(Duration::from_secs(2))?;
+    if !remaining.is_zero() {
+        tokio::time::sleep(remaining).await;
+    }
+
+    if let Some(main_window) = app.get_webview_window("main") {
+        main_window
+            .show()
+            .map_err(|error| format!("Unable to show main window: {error}"))?;
+        let _ = main_window.set_focus();
+    }
     if let Some(splashscreen) = app.get_webview_window("splashscreen") {
         let _ = splashscreen.close();
     }
-    if let Some(main_window) = app.get_webview_window("main") {
-        let _ = main_window.show();
-        let _ = main_window.maximize();
-        let _ = main_window.set_focus();
-    }
+    Ok(())
 }

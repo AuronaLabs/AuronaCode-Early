@@ -73,7 +73,10 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
 
   return (
     <div
-      className={cn(glassVariants({ layer: "floating" }), "fixed z-50 rounded-xl overflow-hidden flex font-sans shadow-2xl")}
+      className={cn(
+        glassVariants({ layer: "floating" }),
+        "fixed z-50 rounded-xl overflow-hidden flex font-sans shadow-2xl",
+      )}
       style={{ left: x, top: y, maxHeight: "300px" }}
     >
       {}
@@ -82,8 +85,9 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
           const isSelected = index === selectedIndex;
           const kindText = item.kind ? kindIconMap[item.kind] || "•" : "•";
           return (
-            <div
-              key={index}
+            <button
+              type="button"
+              key={`${item.label}-${item.kind ?? "unknown"}-${item.insertText ?? item.detail ?? ""}`}
               onClick={() => onSelect(index)}
               className={`flex items-center px-3 py-1 cursor-pointer select-none text-[13px] transition-colors ${
                 isSelected
@@ -100,7 +104,7 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
                   {item.detail}
                 </span>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
@@ -115,7 +119,7 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
             <div className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap break-all">
               {typeof items[selectedIndex].documentation === "string"
                 ? items[selectedIndex].documentation
-                : (items[selectedIndex].documentation as any)?.value}
+                : items[selectedIndex].documentation?.value}
             </div>
           </div>
         )}

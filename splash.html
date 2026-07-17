@@ -3,25 +3,47 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="preload" href="/splash.webp" as="image" fetchpriority="high" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Aurona Code Initializing</title>
     <style>
-      body, html {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        background: transparent;
-      }
+      :root { font-family: "Segoe UI Variable", "PingFang SC", "Microsoft YaHei UI", "Noto Sans CJK SC", system-ui, sans-serif; color-scheme: dark; background: #050507; }
+      * { box-sizing: border-box; }
+      html, body, #SplashRoot { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+      .splash { position: relative; width: 100vw; height: 100vh; overflow: hidden; user-select: none; background: #000; color: #fff; }
+      .splash__art, .splash__overlay { position: absolute; inset: 0; pointer-events: none; }
+      .splash__art { background: url("/splash.webp") center / cover no-repeat; }
+      .splash__overlay { background: linear-gradient(to bottom, rgb(0 0 0 / 5%), rgb(0 0 0 / 60%)); }
+      .splash__title, .splash__version, .splash__loading { position: absolute; z-index: 1; pointer-events: none; filter: drop-shadow(0 2px 5px rgb(0 0 0 / 55%)); }
+      .splash__title { top: 2rem; left: 2rem; }
+      .splash__title h1 { margin: 0; font-size: 2rem; font-weight: 700; letter-spacing: 0.05em; }
+      .splash__version { bottom: 2rem; left: 2rem; font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace; font-size: 0.875rem; font-weight: 500; letter-spacing: 0.08em; opacity: 0.9; }
+      .splash__loading { right: 2rem; bottom: 2rem; display: flex; align-items: center; gap: 0.75rem; font-size: 0.875rem; font-weight: 500; letter-spacing: 0.025em; }
+      .splash__spinner { width: 1.25rem; height: 1.25rem; animation: splash-spin 1s linear infinite; }
+      @keyframes splash-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { .splash__spinner { animation: none; } }
     </style>
   </head>
   <body>
-    <!-- Disable context menu in splash screen -->
-    <script>
-      document.addEventListener('contextmenu', e => e.preventDefault());
-    </script>
-    <div id="SplashRoot"></div>
+    <div id="SplashRoot">
+      <div class="splash" data-tauri-drag-region="true">
+        <div class="splash__art"></div>
+        <div class="splash__overlay" data-tauri-drag-region="true"></div>
+        <div class="splash__title"><h1>Aurona Code</h1></div>
+        <div class="splash__version"><span>v0.3.0</span></div>
+        <div class="splash__loading">
+          <span>准备进入创造模式</span>
+          <svg aria-hidden="true" class="splash__spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/Src/App/Splash.tsx"></script>
+    <script type="module">
+      import { Window } from '@tauri-apps/api/window';
+      const appWindow = new Window('splashscreen');
+      appWindow.show();
+    </script>
   </body>
 </html>

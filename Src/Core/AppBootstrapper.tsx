@@ -1,7 +1,8 @@
 import type React from "react";
 import { useEffect, useState } from "react";
+import { invokeDesktop } from "../Foundation/Desktop";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
-import { WorkspaceStore } from "../Foundation/Storage/WorkspaceStore";
+import { AppServices } from "./AppServices";
 
 interface Props {
   children: React.ReactNode;
@@ -57,44 +58,27 @@ export function AppBootstrapper({ children }: Props) {
         document.documentElement.style.setProperty("--EditorFontSize", `${savedEditorFont}px`);
         document.documentElement.style.setProperty("--TerminalFontSize", `${savedTerminalFont}px`);
 
-        // Load workspace in parallel
-        await WorkspaceStore.init();
+        await AppServices.start();
 
         if (!mounted) return;
 
-        // Force a minimum load time of 2000ms from initialization start.
-        // Because React takes ~500ms to mount before the splash window shows,
-        // this guarantees the splash window is VISIBLE for at least ~1.5s!
         const elapsed = performance.now() - startTime;
-        const waitTime = Math.max(0, 2000 - elapsed);
-
-        setTimeout(() => {
-          if (!mounted) return;
-
-          setReady(true);
-
-          // Capture a real main-content paint after the intentional Splash presentation
-          // window. The two animation frames are not part of the fixed two-second delay.
+        setReady(true);
+        requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              if (!mounted) return;
-              import("@tauri-apps/api/core").then(({ invoke }) => {
-                const mainInteractiveMs = performance.now() - startTime;
-                invoke("record_startup_metrics", {
-                  input: {
-                    frontendBootstrapMs: elapsed,
-                    mainInteractiveMs,
-                    splashMinimumMs: 2_000,
-                  },
-                })
-                  .catch(console.error)
-                  .finally(() => {
-                    invoke("close_splashscreen").catch(console.error);
-                  });
-              });
-            });
+            if (!mounted) return;
+            const mainInteractiveMs = performance.now() - startTime;
+            void invokeDesktop("record_startup_metrics", {
+              input: {
+                frontendBootstrapMs: elapsed,
+                mainInteractiveMs,
+                splashMinimumMs: 2_000,
+              },
+            })
+              .catch(console.error)
+              .finally(() => invokeDesktop("close_splashscreen").catch(console.error));
           });
-        }, waitTime);
+        });
       } catch (error) {
         if (mounted) {
           setInitError(error instanceof Error ? error : new Error(String(error)));
@@ -125,6 +109,7 @@ export function AppBootstrapper({ children }: Props) {
     mediaQuery.addEventListener("change", handleSystemThemeChange);
     return () => {
       mounted = false;
+      AppServices.dispose();
       window.removeEventListener("resize", handleResize);
       mediaQuery.removeEventListener("change", handleSystemThemeChange);
       if (resizeTimer) clearTimeout(resizeTimer);

@@ -1,28 +1,37 @@
-# 设计规范 (Design Specifications)
+# Aurona Material 设计原则
 
-Aurona Code 的设计语言以**“极客功能美学”**和**“原生动态交互”**为核心，致力于打造超越传统的现代操作系统级开发体验。
+Aurona Code 的界面需要在高信息密度下保持清晰、现代与桌面应用质感。材质用于表达层级，不是为每个区域添加模糊和卡片。
 
-## 核心视觉规范 (Corona+ 玻璃态时代)
+## 语义材质
 
-1. **极致玻璃态与光影 (Frosted Glass & Lighting)**
-   全面引入新时代的 `frosted-glass` 玻璃态材质。摒弃死板的纯色块，广泛运用半透明背景、磨砂模糊（backdrop-blur）与内阴影/高光（shadow-inner）制造空间透视感。
-   深色模式下的背景使用微渐变折射光，提升应用的高级质感。所有弹出层、上下文菜单、浮层 UI 必须严格继承该材质。
+- **Canvas**：应用和编辑器的最底层背景。
+- **Chrome**：标题栏、活动栏和状态栏等桌面框架。
+- **Panel**：侧边栏和底部面板。
+- **Surface**：需要与 Panel 区分的局部内容面。
+- **Overlay**：菜单、命令面板和浮层。
+- **Modal**：需要阻断当前操作的对话框。
+- **Interactive**：按钮、列表项和可选项的 hover/active/focus 状态。
 
-2. **和谐的色彩收敛系统**
-   严禁在业务组件中硬编码高饱和度的通用色（如纯红、纯蓝）。所有的状态色、指示色都必须经过 Tailwind CSS 主题变量（如 `--TextHighlight`、`--GlassBorder`）来读取。
-   确保系统在浅色与深色模式下都能优雅地自适应，并且完全无视操作系统的反色配置带来困扰。
+相应 token 定义在 `Src/App/Styles/Theme.css`，新组件优先使用 `--material-*`、`--space-*`、`--radius-*`、`--control-height-*` 和统一焦点环。旧 `--Glass*` 变量仍作为迁移别名，不应继续扩展新变体。
 
-3. **微交互与动效 (Micro-animations)**
-   应用必须具备生命力。对于按钮点击、悬浮、菜单弹出，均通过 Tailwind 提供的 `transition` 和 `animate-in`（如 `zoom-in` / `fade-in`）实现丝滑过渡。
-   特别是复杂的弹出组件，需借助 Radix UI 提供的动画支持能力，让动效不仅好看，而且在性能瓶颈期也能优雅掩盖加载耗时。
+## 拟物强度
 
-## 技术实现规范
+`light`、`medium` 和 `heavy` 表达的是材质分离强度，不是简单的透明度开关。深浅主题分别校准：浅色需要保留背景色彩和边界，深色需要更高模糊来形成相同的视觉纵深。新增档位时应修改 `UI/Core/GlassManager/glassConfig.ts` 并补充测试，禁止依靠业务页面硬编码 blur。
 
-1. **原子化 CSS 框架 (Tailwind CSS v4)**
-   全面升级为无配置文件的 Tailwind CSS v4，严禁编写大量内联 `style` 或分离的 `.css` 类。唯一特例是将关键且易被 Purge 剔除的混合类（如 `.frosted-glass`）提至全局 CSS。
+## 交互原则
 
-2. **无头组件库 (Radix UI)**
-   全面整合 Radix UI 无头组件库，对 Select、Switch、Modal、ContextMenu 进行深度定制。所有的基础组件库提取至 `Src/UI/Components`，严禁在业务视图重复造轮子。Radix UI 同时也保障了我们对键盘导航的完美支持（如使用上下左右键穿梭于上下文菜单）。
+1. 选中态同时使用形状、层级或标识，不只靠大面积主题色。
+2. 键盘焦点必须可见；禁止全局 `outline: none`。Radix 组件需保留正确的语义和导航。
+3. 动画只用于说明状态变化，使用具体属性，遵守 `prefers-reduced-motion`。动画不用于掩盖加载耗时。
+4. blur 仅用于 Chrome、Overlay 和 Modal；大面积 Panel 默认使用稳定材质。
+5. 必须验证 800×600、100/125/150/200% DPI、深浅主题和文字溢出。
 
-3. **图标标准化 (Tabler Icons)**
-   项目内所有的图形图标统一收敛至 `Src/UI/Icons/IconManager.tsx`，使用 Tabler Icons SVG，并以 `<Icons.Name />` 的形式统一管理和渲染，确保风格统一与体积压缩。
+## 组件原则
+
+- 优先复用 `UI/Components` 中的 Button、Input、Select、Modal、IconButton 和菜单组件。
+- 图标统一通过 `UI/Icons/IconManager.tsx`，避免业务页各自选择线宽和尺寸。
+- 中文 UI 使用系统字体栈；编辑区保留 JetBrains Mono；品牌字体仅在必要位置使用。
+- 少量动态尺寸可使用 inline style，长期视觉规则应进入 token 或共享组件。
+- 输入框的焦点反馈应由玻璃外壳承担，避免 WebView 默认蓝色内框与容器焦点形成双层结构。
+- 开关开启态至少通过位置和一个额外信号共同表达，不能只依赖低对比透明度变化。
+- Diff、诊断和 Git 状态等语义颜色只用于内容含义；容器层级仍使用 Material token。

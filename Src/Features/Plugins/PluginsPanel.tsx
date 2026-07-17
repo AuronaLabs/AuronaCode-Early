@@ -8,7 +8,7 @@ export const PluginsPanel = React.memo(function PluginsPanel() {
         <h2 className="text-[14px] font-bold text-[var(--TextHighlight)] tracking-tight flex items-center gap-2">
           插件系统
           <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-500 uppercase tracking-wider">
-            内测
+            规划中
           </span>
         </h2>
       </div>
@@ -24,15 +24,17 @@ export const PluginsPanel = React.memo(function PluginsPanel() {
         </div>
 
         <div className="flex flex-col gap-2 relative z-10 max-w-[200px]">
-          <h3 className="text-[14px] font-bold text-[var(--TextHighlight)]">闭源内测中</h3>
+          <h3 className="text-[14px] font-bold text-[var(--TextHighlight)]">插件功能尚未实现</h3>
           <p className="text-[12px] text-[var(--TextMuted)] leading-relaxed">
-            插件系统与扩展 API 正在进行内部封闭测试，当前仅面向核心开发成员开放，其他用户暂不可用。
+            当前版本没有插件运行功能
+            <br />
+            本页面仅作为页面保留
           </p>
         </div>
 
         <div className="flex items-center gap-2 text-[11px] text-amber-500 font-medium bg-amber-500/5 px-3 py-1 rounded-full border border-amber-500/10 relative z-10">
           <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-          <span>暂未对外开放</span>
+          <span>当前版本不提供插件功能</span>
         </div>
       </div>
     </div>

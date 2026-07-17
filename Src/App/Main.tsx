@@ -1,12 +1,11 @@
-
 import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./Styles/Theme.css";
 import "@fontsource/righteous";
 import "@fontsource/jetbrains-mono";
-import "harmonyos-sans-sc-webfont-splitted";
 import { AppBootstrapper } from "../Core/AppBootstrapper";
+import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EventBus } from "../Foundation/EventBus";
 import { Logger } from "../Foundation/Logger";
 import { ErrorBoundary } from "../Layout/ErrorBoundary";
@@ -27,12 +26,17 @@ function RootApp() {
 
     const onKeyDown = (e: KeyboardEvent) => {
       const isDevtoolsShortcut =
-        e.key === "F12" ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "i");
+        e.key === "F12" || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "i");
 
       if (isDevtoolsShortcut) {
         e.preventDefault();
         e.stopImmediatePropagation();
+        return;
+      }
+
+      if (CommandRegistry.handleKeyDown(e)) {
+        e.preventDefault();
+        e.stopPropagation();
         return;
       }
 

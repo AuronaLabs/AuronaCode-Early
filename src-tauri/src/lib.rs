@@ -2,6 +2,7 @@ mod commands;
 mod editor;
 mod lsp;
 mod performance;
+mod process_tree;
 mod pty;
 mod search;
 
@@ -17,6 +18,7 @@ pub fn run() {
         .manage(pty::PtyState::new())
         .manage(editor::EditorState::new())
         .manage(performance::PerformanceState::new())
+        .manage(search::SearchState::new())
         .manage(LspState {
             clients: tokio::sync::Mutex::new(std::collections::HashMap::new()),
         })
@@ -43,13 +45,17 @@ pub fn run() {
             pty::resize_pty,
             pty::get_available_shells,
             search::search_workspace,
+            search::cancel_search,
             performance::get_performance_environment,
             performance::run_performance_benchmark,
+            performance::cancel_performance_benchmark,
             performance::record_startup_metrics,
             performance::get_startup_metrics,
             performance::load_performance_baseline,
             performance::save_performance_baseline,
             commands::lsp_cmds::lsp_start,
+            commands::lsp_cmds::lsp_file_uri,
+            commands::lsp_cmds::lsp_stop_all,
             commands::lsp_cmds::lsp_did_open,
             commands::lsp_cmds::lsp_did_change,
             commands::lsp_cmds::lsp_did_close,
@@ -64,9 +70,10 @@ pub fn run() {
             commands::ipc::get_app_log_size,
             commands::ipc::clear_app_logs,
             commands::ipc::clear_other_app_data,
+            commands::ipc::mark_splashscreen_shown,
             commands::ipc::close_splashscreen,
             editor::open_editor_file,
-            editor::apply_editor_edit,
+            editor::apply_editor_edits,
             editor::get_editor_lines,
             editor::save_editor_file,
             editor::close_editor_file,

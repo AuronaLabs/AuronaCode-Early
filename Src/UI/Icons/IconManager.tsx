@@ -8,17 +8,20 @@ import IconBrandHtml5 from "@tabler/icons-react/dist/esm/icons/IconBrandHtml5.mj
 import IconBrandJavascript from "@tabler/icons-react/dist/esm/icons/IconBrandJavascript.mjs";
 import IconBrandPython from "@tabler/icons-react/dist/esm/icons/IconBrandPython.mjs";
 import IconBrandTypescript from "@tabler/icons-react/dist/esm/icons/IconBrandTypescript.mjs";
+import IconCheck from "@tabler/icons-react/dist/esm/icons/IconCheck.mjs";
 import IconChecks from "@tabler/icons-react/dist/esm/icons/IconChecks.mjs";
 import IconChevronDown from "@tabler/icons-react/dist/esm/icons/IconChevronDown.mjs";
-import IconChevronUp from "@tabler/icons-react/dist/esm/icons/IconChevronUp.mjs";
 import IconChevronRight from "@tabler/icons-react/dist/esm/icons/IconChevronRight.mjs";
-import IconCheck from "@tabler/icons-react/dist/esm/icons/IconCheck.mjs";
+import IconChevronUp from "@tabler/icons-react/dist/esm/icons/IconChevronUp.mjs";
+import IconClearAll from "@tabler/icons-react/dist/esm/icons/IconClearAll.mjs";
 import IconCloudDownload from "@tabler/icons-react/dist/esm/icons/IconCloudDownload.mjs";
 import IconCloudUpload from "@tabler/icons-react/dist/esm/icons/IconCloudUpload.mjs";
+import IconCopy from "@tabler/icons-react/dist/esm/icons/IconCopy.mjs";
 import IconCrop11 from "@tabler/icons-react/dist/esm/icons/IconCrop11.mjs";
+import IconDatabase from "@tabler/icons-react/dist/esm/icons/IconDatabase.mjs";
 import IconDeviceDesktop from "@tabler/icons-react/dist/esm/icons/IconDeviceDesktop.mjs";
 import IconDeviceFloppy from "@tabler/icons-react/dist/esm/icons/IconDeviceFloppy.mjs";
-import IconDatabase from "@tabler/icons-react/dist/esm/icons/IconDatabase.mjs";
+import IconDownload from "@tabler/icons-react/dist/esm/icons/IconDownload.mjs";
 import IconEraser from "@tabler/icons-react/dist/esm/icons/IconEraser.mjs";
 import IconFile from "@tabler/icons-react/dist/esm/icons/IconFile.mjs";
 import IconFileCode from "@tabler/icons-react/dist/esm/icons/IconFileCode.mjs";
@@ -56,9 +59,6 @@ import IconTerminal2 from "@tabler/icons-react/dist/esm/icons/IconTerminal2.mjs"
 import IconTrash from "@tabler/icons-react/dist/esm/icons/IconTrash.mjs";
 import IconTypography from "@tabler/icons-react/dist/esm/icons/IconTypography.mjs";
 import IconX from "@tabler/icons-react/dist/esm/icons/IconX.mjs";
-import IconCopy from "@tabler/icons-react/dist/esm/icons/IconCopy.mjs";
-import IconClearAll from "@tabler/icons-react/dist/esm/icons/IconClearAll.mjs";
-import IconDownload from "@tabler/icons-react/dist/esm/icons/IconDownload.mjs";
 
 export const Icons = {
   CloseAll: IconClearAll,

@@ -10,6 +10,7 @@ class TerminalServiceImpl {
   private cachedShells: ShellProfile[] | null = null;
   private nextIndex = 1;
   private nextId = 1;
+  private implicitTerminalCreation: Promise<TerminalInstance> | null = null;
   private readiness = new Map<
     string,
     { promise: Promise<void>; resolve: () => void; ready: boolean; failure?: Error }
@@ -122,7 +123,12 @@ class TerminalServiceImpl {
   async executeCommand(id: string | null, command: string): Promise<void> {
     let targetId = id ?? this.activeTerminalId;
     if (!targetId) {
-      const instance = await this.createTerminal();
+      if (!this.implicitTerminalCreation) {
+        this.implicitTerminalCreation = this.createTerminal().finally(() => {
+          this.implicitTerminalCreation = null;
+        });
+      }
+      const instance = await this.implicitTerminalCreation;
       targetId = instance.id;
     }
     EventBus.emit("app:toggle-terminal", true);
@@ -133,6 +139,21 @@ class TerminalServiceImpl {
 
   async clearTerminal(id: string): Promise<void> {
     await PtyIPC.write(id, "\x1b[2J\x1b[H");
+  }
+
+  dispose(): void {
+    const terminalIds = this.terminals.map((terminal) => terminal.id);
+    for (const readiness of this.readiness.values()) {
+      readiness.failure = new Error("Terminal service was disposed");
+      readiness.resolve();
+    }
+    this.terminals = [];
+    this.activeTerminalId = null;
+    this.cachedShells = null;
+    this.readiness.clear();
+    this.nextIndex = 1;
+    this.implicitTerminalCreation = null;
+    void Promise.allSettled(terminalIds.map((id) => PtyIPC.close(id)));
   }
 }
 

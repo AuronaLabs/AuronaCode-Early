@@ -1,6 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
-import { BaseDirectory, remove, stat } from "@tauri-apps/plugin-fs";
 import { useCallback, useEffect, useState } from "react";
+import { UpdaterService } from "../../Core/UpdaterService";
+import { BaseDirectory, desktopFileSystem, invokeDesktop } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
 import { GitIPC } from "../../Foundation/IPC/GitCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
@@ -9,18 +9,18 @@ import { Button } from "../../UI/Components/Button";
 import { Input } from "../../UI/Components/Input";
 import { Select } from "../../UI/Components/Select";
 import { Switch } from "../../UI/Components/Switch";
+import { GlassContainer, type GlassIntensity, useGlassStore } from "../../UI/Core/GlassManager";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
-import { useGlassStore, type GlassIntensity } from "../../UI/Core/GlassManager";
-import { UpdaterService } from "../../Core/UpdaterService";
 
 export type SettingsSection = "appearance" | "editor" | "terminal" | "git" | "storage" | "advanced";
 
 export function SettingsTab() {
   const [activeSection, setActiveSection] = useState<SettingsSection>("appearance");
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-  const { intensity, setIntensity } = useGlassStore();
+  const intensity = useGlassStore((state) => state.intensity);
+  const setIntensity = useGlassStore((state) => state.setIntensity);
 
   useEffect(() => {
     const unsub = EventBus.on("settings:nav", (section: SettingsSection) => {
@@ -57,20 +57,12 @@ export function SettingsTab() {
 
   const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
     setTheme(newTheme);
-    UserConfigStore.set({ theme: newTheme });
     const isDark =
       newTheme === "dark" ||
       (newTheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
-    document.documentElement.classList.add("theme-transitioning");
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-    setTimeout(() => {
-      document.documentElement.classList.remove("theme-transitioning");
-    }, 300);
+    document.documentElement.classList.toggle("dark", isDark);
+    UserConfigStore.set({ theme: newTheme });
   };
 
   const [repoPath, setRepoPath] = useState<string | null>(
@@ -104,21 +96,25 @@ export function SettingsTab() {
     let cSize = 0;
     let wSize = 0;
     try {
-      const configStat = await stat("user-config.json", { baseDir: BaseDirectory.AppLocalData });
+      const configStat = await desktopFileSystem.stat("user-config.json", {
+        baseDir: BaseDirectory.AppLocalData,
+      });
       cSize = configStat.size;
     } catch {}
     setConfigSize(formatBytes(cSize));
     setRawConfigSize(cSize);
 
     try {
-      const workspaceStat = await stat("workspace.json", { baseDir: BaseDirectory.AppLocalData });
+      const workspaceStat = await desktopFileSystem.stat("workspace.json", {
+        baseDir: BaseDirectory.AppLocalData,
+      });
       wSize = workspaceStat.size;
     } catch {}
     setWorkspaceSize(formatBytes(wSize));
     setRawWorkspaceSize(wSize);
 
     try {
-      const dataSize: number = await invoke("get_app_data_size");
+      const dataSize = await invokeDesktop<number>("get_app_data_size");
       setAppDataSize(formatBytes(dataSize));
       setRawAppDataSize(dataSize);
 
@@ -132,7 +128,7 @@ export function SettingsTab() {
       setRawOtherDataSize(0);
     }
     try {
-      const lSize: number = await invoke("get_app_log_size");
+      const lSize = await invokeDesktop<number>("get_app_log_size");
       setLogSize(formatBytes(lSize));
       setRawLogSize(lSize);
     } catch {
@@ -150,7 +146,7 @@ export function SettingsTab() {
   const handleClearConfig = async () => {
     setIsClearing("config");
     try {
-      await remove("user-config.json", { baseDir: BaseDirectory.AppLocalData });
+      await desktopFileSystem.remove("user-config.json", { baseDir: BaseDirectory.AppLocalData });
       UserConfigStore.resetCache();
       showToast("用户配置文件已清除，重启后恢复默认", "success");
       loadStorageSizes();
@@ -164,7 +160,7 @@ export function SettingsTab() {
   const handleClearWorkspace = async () => {
     setIsClearing("workspace");
     try {
-      await remove("workspace.json", { baseDir: BaseDirectory.AppLocalData });
+      await desktopFileSystem.remove("workspace.json", { baseDir: BaseDirectory.AppLocalData });
       WorkspaceStore.resetCache();
       localStorage.clear();
       showToast("工作区缓存已清理，重启后将重置界面布局", "success");
@@ -179,7 +175,7 @@ export function SettingsTab() {
   const handleClearOtherAppData = async () => {
     setIsClearing("other");
     try {
-      await invoke("clear_other_app_data");
+      await invokeDesktop("clear_other_app_data");
       showToast("已清理其他缓存数据与碎片，部分可能需重启后释放", "success");
       loadStorageSizes();
     } catch (e) {
@@ -193,7 +189,7 @@ export function SettingsTab() {
   const handleClearLogs = async () => {
     setIsClearing("logs");
     try {
-      await invoke("clear_app_logs");
+      await invokeDesktop("clear_app_logs");
       await loadStorageSizes();
       showToast("运行日志已清理完毕", "success");
     } catch (_e) {
@@ -257,8 +253,9 @@ export function SettingsTab() {
       }
       await GitIPC.setRemote(repoPath, finalUrl);
       showToast("远程仓库地址已成功更新", "success");
-    } catch (e: any) {
-      showToast(`保存失败: ${e}`, "error");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(`保存失败: ${message}`, "error");
     } finally {
       setIsSavingGit(false);
     }
@@ -274,20 +271,23 @@ export function SettingsTab() {
       </div>
 
       <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm">
-        <div className="flex items-center justify-between p-5">
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--TextHighlight)]">外观模式</span>
             <span className="text-[12px] text-[var(--TextMuted)]">更改编辑器的整体色彩倾向</span>
           </div>
-          <div className="flex bg-[var(--GlassSurface-Elevated)] p-1.5 rounded-xl gap-1">
+          <fieldset className="grid w-full grid-cols-3 gap-1 rounded-2xl border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] p-1.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.12)] backdrop-blur-[var(--glass-blur-base)] sm:w-auto">
+            <legend className="sr-only">外观模式</legend>
             {(["system", "light", "dark"] as const).map((t) => (
               <button
+                type="button"
+                aria-pressed={theme === t}
                 key={t}
                 onClick={() => handleThemeChange(t)}
-                className={`flex items-center gap-2 px-5 py-2 rounded-lg text-[13px] font-medium transition-all duration-200 ${
+                className={`flex min-w-0 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-[background-color,border-color,color,box-shadow] duration-150 sm:min-w-[104px] ${
                   theme === t
-                    ? "bg-white/20 bg-[var(--GlassSurface-Elevated)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] shadow-sm scale-105"
-                    : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"
+                    ? "border-[var(--GlassBorder)] bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-[0_4px_14px_rgba(15,23,42,0.08)] backdrop-blur-[var(--glass-blur-elevated)]"
+                    : "border-transparent text-[var(--TextMuted)] hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)]"
                 }`}
               >
                 {t === "system" && (
@@ -307,7 +307,7 @@ export function SettingsTab() {
                 )}
               </button>
             ))}
-          </div>
+          </fieldset>
         </div>
       </div>
 
@@ -328,12 +328,12 @@ export function SettingsTab() {
           </div>
           <Select
             value={intensity}
-            onChange={(val: any) => setIntensity(val as GlassIntensity)}
+            onChange={(value) => setIntensity(value as GlassIntensity)}
             className="w-[140px] shrink-0"
             options={[
-              { value: "light", label: "Light (轻微)" },
-              { value: "medium", label: "Medium (默认)" },
-              { value: "heavy", label: "Heavy (强烈)" },
+              { value: "light", label: "Light" },
+              { value: "medium", label: "Medium" },
+              { value: "heavy", label: "Heavy" },
             ]}
           />
         </div>
@@ -454,7 +454,7 @@ export function SettingsTab() {
   );
 
   const renderGit = () => (
-    <div className="flex flex-col gap-6 w-full max-w-3xl">
+    <div className="flex w-full max-w-3xl flex-col gap-6">
       <div className="flex flex-col gap-2">
         <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">远程仓库配置</h3>
         <p className="text-[13px] text-[var(--TextMuted)]">
@@ -463,58 +463,91 @@ export function SettingsTab() {
       </div>
 
       {!repoPath ? (
-        <div className="glass-inner-card rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-4 max-w-md mt-2">
-          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
+        <GlassContainer
+          layer="elevated"
+          className="mt-2 flex max-w-md flex-col items-center justify-center gap-4 rounded-2xl p-6 text-center"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--GlassBorder)] bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-sm">
             <Icons.Git size={22} />
           </div>
           <div className="flex flex-col gap-1.5">
             <h4 className="text-[14px] font-bold text-[var(--TextHighlight)]">
               未检测到 Git 工作区
             </h4>
-            <p className="text-[12px] text-[var(--TextMuted)] leading-relaxed">
+            <p className="text-[12px] leading-relaxed text-[var(--TextMuted)]">
               当前未在工作区打开任何有效的目录。请先在资源管理器中打开包含 Git
               仓库的文件夹，然后在此处配置凭据。
             </p>
           </div>
-        </div>
+        </GlassContainer>
       ) : (
-        <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col max-w-3xl mt-2">
-          <div className="flex flex-col p-5 border-b border-[var(--GlassBorder)] gap-2">
-            <div className="flex flex-col gap-1">
-              <span className="text-[14px] font-medium text-[var(--TextHighlight)]">
-                Remote URL
-              </span>
-              <span className="text-[12px] text-[var(--TextMuted)]">
-                当前工作区 Git 仓库的远程推送和拉取地址
+        <GlassContainer
+          layer="elevated"
+          className="mt-2 flex max-w-3xl flex-col overflow-hidden rounded-2xl shadow-[0_14px_38px_rgba(15,23,42,0.08)]"
+        >
+          <div className="flex items-center gap-3 border-b border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] px-5 py-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--GlassBorder)] bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-sm">
+              <Icons.Git size={18} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold text-[var(--TextHighlight)]">
+                当前工作区仓库
+              </div>
+              <div className="truncate text-[11px] text-[var(--TextMuted)]">{repoPath}</div>
+            </div>
+            <span className="rounded-full border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] px-2.5 py-1 text-[10px] font-medium text-[var(--TextMuted)]">
+              本地配置
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-4 p-5">
+            <div className="flex flex-col gap-2 rounded-2xl border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] p-4 backdrop-blur-[var(--glass-blur-base)]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[13px] font-semibold text-[var(--TextHighlight)]">
+                    远程仓库地址
+                  </span>
+                  <span className="text-[11px] text-[var(--TextMuted)]">
+                    用于当前仓库的拉取与推送
+                  </span>
+                </div>
+                <Icons.Github size={18} className="shrink-0 text-[var(--TextMuted)]" />
+              </div>
+              <div className="rounded-xl border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] p-1 backdrop-blur-[var(--glass-blur-elevated)] focus-within:border-[var(--TextMuted)]/25 focus-within:ring-2 focus-within:ring-[var(--TextMuted)]/20">
+                <Input
+                  value={remoteUrl}
+                  onChange={(e) => setRemoteUrl(e.target.value)}
+                  placeholder="https://github.com/..."
+                  fullWidth
+                  surface="embedded"
+                  inputSize="lg"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-2xl border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] p-4 text-[11.5px] leading-relaxed text-[var(--TextMuted)] backdrop-blur-[var(--glass-blur-base)]">
+              <Icons.Info size={16} className="mt-0.5 shrink-0" />
+              <span>
+                凭据由 Git Credential Manager、系统钥匙串或 SSH 密钥管理。Aurona Code
+                不会将用户名、密码或 Token 写入远程地址。
               </span>
             </div>
-            <Input
-              value={remoteUrl}
-              onChange={(e) => setRemoteUrl(e.target.value)}
-              placeholder="https://github.com/..."
-              fullWidth
-              className="mt-1"
-            />
           </div>
 
-          <div className="border-b border-[var(--GlassBorder)] p-5 text-[12px] leading-relaxed text-[var(--TextMuted)]">
-            凭据由 Git Credential Manager、系统钥匙串或 SSH 密钥管理。Aurona Code
-            不会将用户名、密码或 Token 写入 Git remote URL。
-          </div>
-
-          <div className="flex items-center justify-between p-5 bg-[var(--GlassSurface-Elevated)] dark:bg-white/2">
+          <div className="flex items-center justify-between gap-4 border-t border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] px-5 py-4">
             <span className="text-[12px] text-[var(--TextMuted)]">
-              设置仅保存在本地工作区配置中，不会向任何外部传送
+              仅修改当前仓库的 Git remote 配置
             </span>
             <Button
-              variant="primary"
+              variant="glass"
               onClick={handleSaveGit}
               disabled={isSavingGit || !remoteUrl.trim()}
             >
+              <Icons.Save size={14} />
               {isSavingGit ? "正在应用..." : "应用更改"}
             </Button>
           </div>
-        </div>
+        </GlassContainer>
       )}
     </div>
   );
@@ -748,13 +781,15 @@ export function SettingsTab() {
             disabled={isCheckingUpdate}
             onClick={() => {
               setIsCheckingUpdate(true);
-              void UpdaterService.checkForUpdates().then((result) => {
-                if (result.status === "up-to-date") {
-                  showToast("当前已是最新版本", "success");
-                } else if (result.status === "error") {
-                  showToast(`检查更新失败：${result.error}`, "error");
-                }
-              }).finally(() => setIsCheckingUpdate(false));
+              void UpdaterService.checkForUpdates()
+                .then((result) => {
+                  if (result.status === "up-to-date") {
+                    showToast("当前已是最新版本", "success");
+                  } else if (result.status === "error") {
+                    showToast(`检查更新失败：${result.error}`, "error");
+                  }
+                })
+                .finally(() => setIsCheckingUpdate(false));
             }}
           >
             {isCheckingUpdate ? "正在检查..." : "检查更新"}
@@ -771,8 +806,12 @@ export function SettingsTab() {
             variant="danger"
             className="h-8 text-[12px] px-3.5"
             onClick={() => {
-              remove("user-config.json", { baseDir: BaseDirectory.AppLocalData }).catch(() => {});
-              remove("workspace.json", { baseDir: BaseDirectory.AppLocalData }).catch(() => {});
+              desktopFileSystem
+                .remove("user-config.json", { baseDir: BaseDirectory.AppLocalData })
+                .catch(() => {});
+              desktopFileSystem
+                .remove("workspace.json", { baseDir: BaseDirectory.AppLocalData })
+                .catch(() => {});
               localStorage.clear();
               showToast("缓存与配置已清理，请重启应用");
             }}
@@ -791,6 +830,7 @@ export function SettingsTab() {
       </h2>
 
       <button
+        type="button"
         onClick={() => setActiveSection("appearance")}
         className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "appearance" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
@@ -798,6 +838,7 @@ export function SettingsTab() {
       </button>
 
       <button
+        type="button"
         onClick={() => setActiveSection("editor")}
         className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "editor" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
@@ -805,6 +846,7 @@ export function SettingsTab() {
       </button>
 
       <button
+        type="button"
         onClick={() => setActiveSection("terminal")}
         className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "terminal" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
@@ -812,6 +854,7 @@ export function SettingsTab() {
       </button>
 
       <button
+        type="button"
         onClick={() => setActiveSection("git")}
         className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "git" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
@@ -819,6 +862,7 @@ export function SettingsTab() {
       </button>
 
       <button
+        type="button"
         onClick={() => setActiveSection("storage")}
         className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "storage" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
@@ -826,6 +870,7 @@ export function SettingsTab() {
       </button>
 
       <button
+        type="button"
         onClick={() => setActiveSection("advanced")}
         className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "advanced" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >

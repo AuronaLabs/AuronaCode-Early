@@ -1,7 +1,7 @@
 {
   "name": "aurona-code",
   "private": true,
-  "version": "0.2.10",
+  "version": "0.3.0",
   "packageManager": "pnpm@11.13.0",
   "type": "module",
   "scripts": {
@@ -9,7 +9,9 @@
     "build": "pnpm run typecheck && vite build",
     "typecheck": "tsc --noEmit",
     "check": "biome ci Src",
+    "check:boundaries": "node scripts/check-desktop-boundaries.mjs",
     "smoke": "node scripts/smoke.mjs",
+    "test:frontend": "vitest run",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "preview": "vite preview --host 127.0.0.1 --port 1420",
     "tauri": "tauri",
@@ -42,7 +44,6 @@
     "@xterm/xterm": "^6.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "harmonyos-sans-sc-webfont-splitted": "^1.1.0",
     "highlight.js": "^11.9.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
@@ -56,10 +57,15 @@
     "@types/highlight.js": "^10.1.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "jsdom": "^26.1.0",
     "@vitejs/plugin-react": "^5.1.2",
     "strip-comments": "^2.0.1",
     "tailwindcss": "^4.3.1",
     "typescript": "^5.9.3",
-    "vite": "^7.2.7"
+    "vite": "^7.2.7",
+    "vite-node": "^3.2.4",
+    "vitest": "^3.2.4"
   }
 }

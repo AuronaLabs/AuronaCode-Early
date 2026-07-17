@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { type GlassIntensity, GLASS_PRESETS } from './glassConfig';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { type GlassIntensity, getGlassPreset } from "./glassConfig";
 
 interface GlassStore {
   intensity: GlassIntensity;
@@ -11,7 +11,7 @@ interface GlassStore {
 export const useGlassStore = create<GlassStore>()(
   persist(
     (set, get) => ({
-      intensity: 'medium',
+      intensity: "medium",
       setIntensity: (val) => {
         set({ intensity: val });
         get().applyToDOM();
@@ -19,15 +19,15 @@ export const useGlassStore = create<GlassStore>()(
       applyToDOM: () => {
         const { intensity } = get();
         const root = document.documentElement;
-        
-        const preset = GLASS_PRESETS[intensity] || GLASS_PRESETS.medium;
-        
-        root.style.setProperty('--glass-blur-base', preset.base);
-        root.style.setProperty('--glass-blur-elevated', preset.elevated);
-        root.style.setProperty('--glass-blur-floating', preset.floating);
-        root.style.setProperty('--GlassOpacity-Multiplier', preset.opacityMultiplier);
-      }
+
+        const preset = getGlassPreset(intensity, root.classList.contains("dark"));
+
+        root.style.setProperty("--glass-blur-base", preset.base);
+        root.style.setProperty("--glass-blur-elevated", preset.elevated);
+        root.style.setProperty("--glass-blur-floating", preset.floating);
+        root.style.setProperty("--GlassOpacity-Multiplier", preset.opacityMultiplier);
+      },
     }),
-    { name: 'aurona-glass-settings' }
-  )
+    { name: "aurona-glass-settings" },
+  ),
 );

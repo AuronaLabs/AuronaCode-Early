@@ -1,6 +1,6 @@
 [package]
 name = "aurona_code"
-version = "0.2.10"
+version = "0.3.0"
 description = "Aurona Code Beta"
 authors = ["Aurona Team"]
 edition = "2021"
@@ -38,6 +38,14 @@ ts-rs = "8.1"
 ropey = "1.6"
 "arc-swap" = "1.7"
 sysinfo = "0.32"
+url = "2.5"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_System_JobObjects",
+  "Win32_System_Threading",
+] }
 
 [features]
 devtools = []

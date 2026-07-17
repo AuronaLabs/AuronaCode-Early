@@ -1,17 +1,29 @@
-import { BaseDirectory, exists, mkdir, readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
-import type { WorkspaceState } from "../Types/Config";
+import { BaseDirectory, desktopFileSystem } from "../Desktop";
 import { Logger } from "../Logger";
+import type { WorkspaceState } from "../Types/Config";
 
 const FILE = "workspace.json";
 const BASE = BaseDirectory.AppLocalData;
+const { exists, mkdir, readTextFile, writeTextFile } = desktopFileSystem;
 
 let memoryCache: WorkspaceState | null = null;
-let isWriting = false;
-let pendingWrite = false;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+let writeChain = Promise.resolve();
+
+async function persistSnapshot(snapshot: WorkspaceState): Promise<void> {
+  await writeTextFile(FILE, JSON.stringify(snapshot, null, 2), { baseDir: BASE });
+}
+
+function queuePersist(): void {
+  if (!memoryCache) return;
+  const snapshot = structuredClone(memoryCache);
+  writeChain = writeChain
+    .catch(() => undefined)
+    .then(() => persistSnapshot(snapshot))
+    .catch((error) => Logger.error("Unable to persist workspace state", error));
+}
 
 export const WorkspaceStore = {
-  _debounceTimer: null as ReturnType<typeof setTimeout> | null,
-
   async init(): Promise<void> {
     try {
       await mkdir("", { baseDir: BASE, recursive: true });
@@ -23,18 +35,16 @@ export const WorkspaceStore = {
   async get(): Promise<WorkspaceState> {
     try {
       if (memoryCache !== null) return memoryCache;
-
-      const fileExists = await exists(FILE, { baseDir: BASE });
-      if (!fileExists) {
+      if (!(await exists(FILE, { baseDir: BASE }))) {
         memoryCache = {};
         return memoryCache;
       }
-      const content = await readTextFile(FILE, { baseDir: BASE });
-      memoryCache = JSON.parse(content) as WorkspaceState;
+      memoryCache = JSON.parse(await readTextFile(FILE, { baseDir: BASE })) as WorkspaceState;
       return memoryCache;
     } catch (error) {
       Logger.error("Unable to read workspace state; using in-memory defaults", error);
-      return {};
+      memoryCache = {};
+      return memoryCache;
     }
   },
 
@@ -43,44 +53,27 @@ export const WorkspaceStore = {
   },
 
   async set(state: Partial<WorkspaceState>): Promise<void> {
-    const current = await this.get();
-    memoryCache = { ...current, ...state };
-
-    if (this._debounceTimer) {
-      clearTimeout(this._debounceTimer);
-    }
-
-    this._debounceTimer = setTimeout(() => {
-      if (isWriting) {
-        pendingWrite = true;
-        return;
-      }
-
-      const flush = async () => {
-        isWriting = true;
-        pendingWrite = false;
-        try {
-          await writeTextFile(FILE, JSON.stringify(memoryCache, null, 2), {
-            baseDir: BASE,
-          });
-        } catch (error) {
-          Logger.error("Unable to persist workspace state", error);
-        }
-        isWriting = false;
-        if (pendingWrite) {
-          flush();
-        }
-      };
-
-      flush();
+    memoryCache = { ...(await this.get()), ...state };
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      queuePersist();
     }, 500);
   },
 
+  async flush(): Promise<void> {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+      queuePersist();
+    }
+    await writeChain;
+  },
+
   resetCache(): void {
-    if (this._debounceTimer) clearTimeout(this._debounceTimer);
-    this._debounceTimer = null;
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = null;
     memoryCache = null;
-    isWriting = false;
-    pendingWrite = false;
+    writeChain = Promise.resolve();
   },
 };

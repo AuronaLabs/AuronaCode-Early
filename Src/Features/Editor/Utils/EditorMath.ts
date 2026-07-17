@@ -5,12 +5,17 @@ export interface DiagnosticItem {
   };
   severity: number; // 1: Error, 2: Warning
   message: string;
+  source?: string;
 }
 
 export interface TextSegment {
   start: number;
   end: number;
   classes: string[];
+}
+
+export function normalizeEditorText(text: string): string {
+  return text.replace(/\r\n?/g, "\n");
 }
 
 export function sortSelection(sel: {

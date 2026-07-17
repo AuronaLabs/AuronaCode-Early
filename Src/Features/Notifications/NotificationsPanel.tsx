@@ -30,6 +30,7 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
         {notifications.length > 0 && (
           <Tooltip content="清除所有通知" delay={300}>
             <button
+              type="button"
               onClick={handleClear}
               className="p-1.5 hover:bg-[var(--GlassHover)] rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-colors"
             >

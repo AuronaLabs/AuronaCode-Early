@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
-import { EditorAdapter } from "../Features/Editor/EditorAdapter";
-import { type EditorStatus, EMPTY_EDITOR_STATUS } from "../Features/Editor/IEditorEngine";
+import { useEditorStore } from "../State/useEditorStore";
 
 const formatLanguage = (language: string) => {
   const labels: Record<string, string> = {
@@ -28,11 +26,7 @@ const formatLanguage = (language: string) => {
 };
 
 export function StatusBar() {
-  const [editorStatus, setEditorStatus] = useState<EditorStatus>(EMPTY_EDITOR_STATUS);
-
-  useEffect(() => {
-    return EditorAdapter.onStatusChange(setEditorStatus);
-  }, []);
+  const editorStatus = useEditorStore((state) => state.editorStatus);
 
   return (
     <footer className="flex h-[var(--StatusBarHeight)] shrink-0 items-center bg-transparent px-4 text-xs text-[var(--TextMuted)] font-medium overflow-hidden">

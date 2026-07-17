@@ -1,15 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
-import { Icons } from "../../UI/Icons/IconManager";
-import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
-import { Tooltip } from "../../UI/Feedback/Tooltip";
-import { EventBus } from "../../Foundation/EventBus";
-import { showToast } from "../../UI/Feedback/Toast";
-import { GitIPC, type GitFile, type GitCommit } from "../../Foundation/IPC/GitCommands";
+import React, { useCallback, useEffect, useState } from "react";
 import { GitService, type SourceControlCache } from "../../Core/GitService";
+import { EventBus } from "../../Foundation/EventBus";
+import { type GitCommit, type GitFile, GitIPC } from "../../Foundation/IPC/GitCommands";
+import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { cn } from "../../Shared/Utils/cn";
+import { glassListHeaderStyles, glassListRowStyles } from "../../UI/Components/GlassList";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
-
-import React from "react";
+import { showToast } from "../../UI/Feedback/Toast";
+import { Tooltip } from "../../UI/Feedback/Tooltip";
+import { Icons } from "../../UI/Icons/IconManager";
 
 export const SourceControl = React.memo(function SourceControl() {
   const [repoPath, setRepoPath] = useState<string | null>(null);
@@ -226,7 +225,7 @@ export const SourceControl = React.memo(function SourceControl() {
     return (
       <div
         key={`${file.path}-${index}`}
-        className="group relative flex items-center justify-between py-2 px-3 mx-1 my-0.5 rounded-lg border border-transparent hover:border-[var(--GlassBorder)] hover:bg-[var(--GlassHover)] transition-all cursor-pointer"
+        className={cn(glassListRowStyles, "mx-1 my-0.5 cursor-pointer justify-between")}
       >
         <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2 min-w-0">
           <Icons.FileCode size={14} stroke={1.5} className="text-[var(--TextMuted)] shrink-0" />
@@ -248,11 +247,12 @@ export const SourceControl = React.memo(function SourceControl() {
             {file.is_staged ? (
               <Tooltip content="取消暂存" delay={300}>
                 <button
+                  type="button"
                   onClick={(event) => {
                     event.stopPropagation();
                     toggleStage(file);
                   }}
-                  className="w-5 h-5 rounded-full bg-[var(--GlassSurface-Elevated)] border border-[var(--GlassBorder)] hover:bg-red-500/10 hover:text-red-500 text-[var(--TextPrimary)] flex items-center justify-center transition-all ml-1.5 shadow-sm"
+                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] text-[var(--TextPrimary)] shadow-sm transition-colors hover:bg-[var(--GlassActive)] hover:text-red-500"
                 >
                   <Icons.Minus size={11} stroke={3} />
                 </button>
@@ -260,11 +260,12 @@ export const SourceControl = React.memo(function SourceControl() {
             ) : (
               <Tooltip content="暂存更改" delay={300}>
                 <button
+                  type="button"
                   onClick={(event) => {
                     event.stopPropagation();
                     toggleStage(file);
                   }}
-                  className="w-5 h-5 rounded-full bg-[var(--GlassSurface-Elevated)] border border-[var(--GlassBorder)] hover:bg-[var(--AccentPrimary)]/10 hover:text-[var(--AccentHover)] text-[var(--TextPrimary)] flex items-center justify-center transition-all ml-1.5 shadow-sm"
+                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] text-[var(--TextPrimary)] shadow-sm transition-colors hover:bg-[var(--GlassActive)] hover:text-[var(--TextHighlight)]"
                 >
                   <Icons.Plus size={11} stroke={3} />
                 </button>
@@ -316,6 +317,7 @@ export const SourceControl = React.memo(function SourceControl() {
             </p>
           </div>
           <button
+            type="button"
             onClick={handleInit}
             className="px-6 py-2.5 bg-[var(--AccentPrimary)] hover:opacity-90 text-white text-[13px] font-bold rounded-xl transition-all shadow-sm flex items-center gap-2"
           >
@@ -342,6 +344,7 @@ export const SourceControl = React.memo(function SourceControl() {
 
         <Tooltip content="刷新" delay={300}>
           <button
+            type="button"
             onClick={() => repoPath && fetchStatus(repoPath, true)}
             disabled={isRefreshing}
             className="p-1.5 hover:bg-[var(--GlassHover)] rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-colors disabled:opacity-50"
@@ -362,13 +365,15 @@ export const SourceControl = React.memo(function SourceControl() {
 
       <div className="flex items-center gap-1 mx-[var(--PanelPaddingX)] mb-3 shrink-0">
         <button
-          className={`relative h-[26px] px-3 text-[12px] font-medium transition-colors duration-150 flex items-center justify-center gap-1.5 rounded-lg ${activeTab === "changes" ? "bg-[var(--GlassHover)] text-[var(--TextHighlight)]" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)]"}`}
+          type="button"
+          className={`relative flex h-[28px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 ${activeTab === "changes" ? "border-[var(--GlassBorder)] bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-sm" : "border-transparent text-[var(--TextMuted)] hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)]"}`}
           onClick={() => setActiveTab("changes")}
         >
           <Icons.GitBranch size={13} /> 更改
         </button>
         <button
-          className={`relative h-[26px] px-3 text-[12px] font-medium transition-colors duration-150 flex items-center justify-center gap-1.5 rounded-lg ${activeTab === "history" ? "bg-[var(--GlassHover)] text-[var(--TextHighlight)]" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)]"}`}
+          type="button"
+          className={`relative flex h-[28px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 ${activeTab === "history" ? "border-[var(--GlassBorder)] bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-sm" : "border-transparent text-[var(--TextMuted)] hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)]"}`}
           onClick={() => setActiveTab("history")}
         >
           <Icons.History size={13} /> 历史
@@ -378,8 +383,14 @@ export const SourceControl = React.memo(function SourceControl() {
       {activeTab === "changes" ? (
         <>
           <div className="px-3 pb-4 shrink-0 mt-2">
-            <div className={cn(glassVariants({ layer: "elevated" }), "flex flex-col p-3 rounded-2xl gap-3 relative transition-all")}>
+            <div
+              className={cn(
+                glassVariants({ layer: "elevated" }),
+                "relative flex flex-col gap-3 rounded-2xl p-3 transition-[border-color,box-shadow] focus-within:border-[var(--TextMuted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--TextMuted)_14%,transparent)]",
+              )}
+            >
               <textarea
+                data-aurona-input="embedded"
                 className="w-full bg-transparent text-[13px] text-[var(--TextHighlight)] outline-none resize-none placeholder-[var(--TextMuted)] leading-relaxed"
                 placeholder="描述你的代码变更..."
                 rows={2}
@@ -388,9 +399,10 @@ export const SourceControl = React.memo(function SourceControl() {
               />
               <div className="flex">
                 <button
+                  type="button"
                   onClick={handleCommit}
                   disabled={commitMsg.trim() === ""}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[var(--GlassSurface)] hover:bg-[var(--GlassHover)] border border-[var(--GlassBorder)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--TextHighlight)] text-[13px] font-medium rounded-lg transition-all"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] px-4 py-2 text-[13px] font-medium text-[var(--TextHighlight)] shadow-sm transition-colors hover:bg-[var(--GlassActive)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Icons.Checks size={16} stroke={2} />
                   提交
@@ -402,17 +414,21 @@ export const SourceControl = React.memo(function SourceControl() {
           <div className="flex-1 flex flex-col gap-3 overflow-hidden px-[var(--PanelPaddingX)] pb-4 min-h-0">
             {stagedFiles.length > 0 && (
               <div
-                className={cn(glassVariants({ layer: "base" }), `flex flex-col min-h-0 ${stagedExpanded ? "flex-1" : "flex-initial"} rounded-2xl overflow-hidden shadow-sm`)}
+                className={cn(
+                  glassVariants({ layer: "base" }),
+                  `flex flex-col min-h-0 ${stagedExpanded ? "flex-1" : "flex-initial"} rounded-2xl overflow-hidden shadow-sm`,
+                )}
               >
-                <div
-                  className="flex items-center justify-between px-4 py-3 cursor-pointer select-none border-b border-[var(--GlassBorder)] bg-[var(--GlassHover)]/20 group"
-                  onClick={() => {
-                    const next = !stagedExpanded;
-                    setStagedExpanded(next);
-                    if (next) setUnstagedExpanded(false);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
+                <div className={cn(glassListHeaderStyles, "group justify-between")}>
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    onClick={() => {
+                      const next = !stagedExpanded;
+                      setStagedExpanded(next);
+                      if (next) setUnstagedExpanded(false);
+                    }}
+                  >
                     <Icons.ChevronDown
                       size={15}
                       className={`text-[var(--TextMuted)] transition-transform ${!stagedExpanded ? "-rotate-90" : ""}`}
@@ -420,9 +436,10 @@ export const SourceControl = React.memo(function SourceControl() {
                     <span className="text-[12.5px] font-bold text-[var(--TextHighlight)] uppercase tracking-wider">
                       已暂存 ({stagedFiles.length})
                     </span>
-                  </div>
+                  </button>
                   <Tooltip content="全部取消暂存" delay={300}>
                     <button
+                      type="button"
                       onClick={(event) => {
                         event.stopPropagation();
                         unstageAll();
@@ -444,17 +461,21 @@ export const SourceControl = React.memo(function SourceControl() {
             {(unstagedFiles.length > 0 ||
               (stagedFiles.length === 0 && unstagedFiles.length === 0)) && (
               <div
-                className={cn(glassVariants({ layer: "base" }), `flex flex-col min-h-0 ${unstagedExpanded && unstagedFiles.length > 0 ? "flex-1" : "flex-initial"} rounded-2xl overflow-hidden shadow-sm`)}
+                className={cn(
+                  glassVariants({ layer: "base" }),
+                  `flex flex-col min-h-0 ${unstagedExpanded && unstagedFiles.length > 0 ? "flex-1" : "flex-initial"} rounded-2xl overflow-hidden shadow-sm`,
+                )}
               >
-                <div
-                  className="flex items-center justify-between px-4 py-3 cursor-pointer select-none border-b border-[var(--GlassBorder)] bg-[var(--GlassHover)]/20 group"
-                  onClick={() => {
-                    const next = !unstagedExpanded;
-                    setUnstagedExpanded(next);
-                    if (next) setStagedExpanded(false);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
+                <div className={cn(glassListHeaderStyles, "group justify-between")}>
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    onClick={() => {
+                      const next = !unstagedExpanded;
+                      setUnstagedExpanded(next);
+                      if (next) setStagedExpanded(false);
+                    }}
+                  >
                     <Icons.ChevronDown
                       size={15}
                       className={`text-[var(--TextMuted)] transition-transform ${!unstagedExpanded ? "-rotate-90" : ""}`}
@@ -462,10 +483,11 @@ export const SourceControl = React.memo(function SourceControl() {
                     <span className="text-[12.5px] font-bold text-[var(--TextHighlight)] uppercase tracking-wider">
                       更改 ({unstagedFiles.length})
                     </span>
-                  </div>
+                  </button>
                   {unstagedFiles.length > 0 && (
                     <Tooltip content="全部暂存" delay={300}>
                       <button
+                        type="button"
                         onClick={(event) => {
                           event.stopPropagation();
                           stageAll();
@@ -494,15 +516,24 @@ export const SourceControl = React.memo(function SourceControl() {
       ) : (
         <div className="flex-1 overflow-y-auto aurona-scroll px-3 pb-4">
           {commits.length === 0 ? (
-            <div className={cn(glassVariants({ layer: "elevated" }), "p-4 text-center text-[12px] text-[var(--TextMuted)] rounded-2xl z-10 mt-2 shadow-sm")}>
+            <div
+              className={cn(
+                glassVariants({ layer: "elevated" }),
+                "p-4 text-center text-[12px] text-[var(--TextMuted)] rounded-2xl z-10 mt-2 shadow-sm",
+              )}
+            >
               尚未找到提交记录
             </div>
           ) : (
             <div className="flex flex-col gap-3 mt-2 relative z-10">
-              {commits.map((commit, index) => (
-                <div
-                  key={`${commit.hash}-${index}`}
-                  className={cn(glassVariants({ layer: "base", interactive: true }), "flex flex-col shadow-sm rounded-xl p-4 cursor-pointer hover:border-black/20 dark:hover:border-white/30 group active:scale-[0.98]")}
+              {commits.map((commit) => (
+                <button
+                  type="button"
+                  key={commit.hash}
+                  className={cn(
+                    glassVariants({ layer: "base", interactive: true }),
+                    "flex flex-col shadow-sm rounded-xl p-4 cursor-pointer hover:border-black/20 dark:hover:border-white/30 group active:scale-[0.98]",
+                  )}
                   onClick={() => {
                     EventBus.emit("app:open-tab", {
                       id: `diff-${commit.hash}`,
@@ -531,7 +562,7 @@ export const SourceControl = React.memo(function SourceControl() {
                     </div>
                     <span className="truncate">{commit.author}</span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}

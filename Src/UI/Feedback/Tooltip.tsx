@@ -1,4 +1,13 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  cloneElement,
+  type HTMLAttributes,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 
 export type TooltipProps = {
@@ -13,7 +22,7 @@ export function Tooltip({ content, children, delay = 300, placement = "top" }: T
   const [coords, setCoords] = useState({ x: 0, y: 0 });
   const [actualPlacement, setActualPlacement] = useState(placement);
   const [actualAlign, setActualAlign] = useState("center");
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLSpanElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMouseEnter = () => {
@@ -112,16 +121,32 @@ export function Tooltip({ content, children, delay = 300, placement = "top" }: T
     }
   };
 
+  const trigger = isValidElement(children)
+    ? cloneElement(children as ReactElement<HTMLAttributes<HTMLElement>>, {
+        onMouseEnter: (event) => {
+          (children.props as HTMLAttributes<HTMLElement>).onMouseEnter?.(event);
+          handleMouseEnter();
+        },
+        onMouseLeave: (event) => {
+          (children.props as HTMLAttributes<HTMLElement>).onMouseLeave?.(event);
+          handleMouseLeave();
+        },
+        onFocus: (event) => {
+          (children.props as HTMLAttributes<HTMLElement>).onFocus?.(event);
+          handleMouseEnter();
+        },
+        onBlur: (event) => {
+          (children.props as HTMLAttributes<HTMLElement>).onBlur?.(event);
+          handleMouseLeave();
+        },
+      })
+    : children;
+
   return (
     <>
-      <div
-        ref={containerRef}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        className="inline-flex items-center justify-center"
-      >
-        {children}
-      </div>
+      <span ref={containerRef} className="inline-flex items-center justify-center">
+        {trigger}
+      </span>
       {isVisible &&
         createPortal(
           <div
