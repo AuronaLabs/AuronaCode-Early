@@ -1,5 +1,6 @@
 use std::process::Command;
 
+#[allow(unused_mut)]
 pub fn create_command(program: &str) -> Command {
     let mut cmd = Command::new(program);
     #[cfg(target_os = "windows")]

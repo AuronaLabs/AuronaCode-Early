@@ -8,6 +8,7 @@ pub struct ManagedChild {
 }
 
 impl ManagedChild {
+    #[allow(unused_mut)]
     pub fn attach(mut child: Child) -> Result<Self, String> {
         #[cfg(windows)]
         {
