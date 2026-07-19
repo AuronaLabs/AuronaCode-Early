@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { TerminalManager } from "../Core/TerminalService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EditorTabBar } from "../Features/Editor/EditorTabBar";
@@ -124,6 +124,22 @@ export function WorkspaceView() {
   } = useTerminalStore();
 
   const { editorStatus } = useEditorStore();
+  const [terminalStartupError, setTerminalStartupError] = useState<string | null>(null);
+
+  const ensureTerminal = useCallback(async () => {
+    setTerminalStartupError(null);
+    try {
+      await TerminalManager.ensureDefaultTerminal();
+    } catch (error) {
+      setTerminalStartupError(error instanceof Error ? error.message : String(error));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isBottomPanelOpen && activeBottomPanel === "terminal" && terminals.length === 0) {
+      void ensureTerminal();
+    }
+  }, [activeBottomPanel, ensureTerminal, isBottomPanelOpen, terminals.length]);
 
   const handleSaveAndClose = useCallback(() => {
     if (!pendingCloseTab) return;
@@ -209,7 +225,7 @@ export function WorkspaceView() {
               <EditorTabBar />
 
               {}
-              <div className="flex-1 min-h-0 overflow-hidden relative">
+              <div className="relative flex-1 overflow-hidden">
                 {tabs.map((tab) => (
                   <div
                     key={tab.id}
@@ -233,7 +249,7 @@ export function WorkspaceView() {
                 {[
                   { label: "快速打开文件", keys: ["Ctrl", "P"] },
                   { label: "全局搜索", keys: ["Ctrl", "Shift", "F"] },
-                  { label: "命令面板", keys: ["Ctrl", "Shift", "P"] },
+                  { label: "Fliuno 全局搜索", keys: ["Ctrl", "Shift", "P"] },
                 ].map(({ label, keys }) => (
                   <div key={label} className="flex items-center justify-between gap-12">
                     <span>{label}</span>
@@ -386,6 +402,22 @@ export function WorkspaceView() {
               className="flex-1 relative"
               style={{ display: activeBottomPanel === "terminal" ? "block" : "none" }}
             >
+              {terminalStartupError && terminals.length === 0 && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center p-4">
+                  <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)] p-5 text-center shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)]">
+                    <Icons.AlertTriangle size={20} className="text-amber-500" />
+                    <div className="text-[13px] font-medium text-[var(--TextHighlight)]">
+                      终端启动失败
+                    </div>
+                    <div className="text-[11px] text-[var(--TextMuted)]">
+                      {terminalStartupError}
+                    </div>
+                    <Button variant="glass" onClick={() => void ensureTerminal()}>
+                      重试
+                    </Button>
+                  </div>
+                </div>
+              )}
               {terminals.map((term) => (
                 <div
                   key={term.id}

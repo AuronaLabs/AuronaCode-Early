@@ -12,7 +12,7 @@ import {
 } from "../Shared/Constants/Sidebar";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
 import { ActivitySquare } from "../UI/Components/ActivitySquare";
-import { CommandPalette } from "../UI/Components/CommandPalette";
+import { Fliuno } from "../UI/Components/Fliuno";
 import { ToastContainer } from "../UI/Feedback/Toast";
 import { UpdateModal } from "../UI/Feedback/UpdateModal";
 import { Icons } from "../UI/Icons/IconManager";
@@ -26,14 +26,14 @@ type AppShellProps = {
 export function AppShell({ Children }: AppShellProps) {
   const activeSidebar = useWorkbenchStore((state) => state.activeSidebar);
   const setActiveSidebar = useWorkbenchStore((state) => state.setActiveSidebar);
-  const [hasGitBadge, setHasGitBadge] = useState(false);
+  const [gitChangeCount, setGitChangeCount] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(
     NotificationService.getUnreadCount(),
   );
 
   useEffect(() => {
     const unsubGit = EventBus.on("git:changes-count", (count: number) => {
-      setHasGitBadge(count > 0);
+      setGitChangeCount(count);
     });
     const unsubNotif = EventBus.on("notifications:updated", () => {
       setUnreadNotifications(NotificationService.getUnreadCount());
@@ -47,7 +47,7 @@ export function AppShell({ Children }: AppShellProps) {
   const activityItems = [
     { label: SIDEBAR_EXPLORER, Icon: Icons.Files, badge: false },
     { label: SIDEBAR_SEARCH, Icon: Icons.Search, badge: false },
-    { label: SIDEBAR_SOURCE_CONTROL, Icon: Icons.Git, badge: hasGitBadge },
+    { label: SIDEBAR_SOURCE_CONTROL, Icon: Icons.Git, badge: gitChangeCount > 0 },
     { label: SIDEBAR_PLUGINS, Icon: Icons.Extensions, badge: false },
   ];
 
@@ -105,7 +105,7 @@ export function AppShell({ Children }: AppShellProps) {
 
       <ToastContainer />
       <UpdateModal />
-      <CommandPalette />
+      <Fliuno />
     </div>
   );
 }

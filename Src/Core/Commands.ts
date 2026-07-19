@@ -32,11 +32,11 @@ export function registerWorkbenchCommands(): () => void {
   const disposers = [
     CommandRegistry.setContextProvider(context),
     CommandRegistry.register({
-      id: "workbench.action.showCommands",
-      title: "显示命令面板",
+      id: "workbench.action.openFliuno",
+      title: "打开 Fliuno",
       category: "工作台",
       keybindings: [{ key: "p", primary: true, shift: true, allowInInput: true }],
-      handler: () => EventBus.emit("app:show-command-palette"),
+      handler: () => EventBus.emit("app:show-fliuno"),
     }),
     CommandRegistry.register({
       id: "workbench.action.files.openFile",

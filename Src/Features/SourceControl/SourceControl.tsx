@@ -214,7 +214,7 @@ export const SourceControl = React.memo(function SourceControl() {
       case "D":
         return "text-red-500 bg-red-500/10 border border-red-500/20";
       case "U":
-        return "text-blue-500 bg-blue-500/10 border border-blue-500/20";
+        return "border border-[color-mix(in_srgb,var(--AccentPrimary)_20%,transparent)] bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]";
       default:
         return "text-[var(--TextMuted)] bg-[var(--GlassSurface-Elevated)] border border-transparent";
     }
@@ -304,7 +304,7 @@ export const SourceControl = React.memo(function SourceControl() {
         <div className="flex items-center justify-between px-[var(--PanelPaddingX)] pt-4 pb-2 shrink-0">
           <h2 className="text-[14px] font-bold text-[var(--TextHighlight)] tracking-tight flex items-center gap-2">
             源代码管理
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-500 uppercase tracking-wider">
+            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]">
               Beta
             </span>
           </h2>
@@ -337,7 +337,7 @@ export const SourceControl = React.memo(function SourceControl() {
       <div className="flex items-center justify-between px-[var(--PanelPaddingX)] pt-4 pb-2 shrink-0">
         <h2 className="text-[14px] font-bold text-[var(--TextHighlight)] tracking-tight flex items-center gap-2">
           源代码管理
-          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-500 uppercase tracking-wider">
+          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]">
             Beta
           </span>
         </h2>
@@ -382,7 +382,7 @@ export const SourceControl = React.memo(function SourceControl() {
 
       {activeTab === "changes" ? (
         <>
-          <div className="px-3 pb-4 shrink-0 mt-2">
+          <div className="mt-2 shrink-0 px-[var(--PanelPaddingX)] pb-4">
             <div
               className={cn(
                 glassVariants({ layer: "elevated" }),
@@ -557,7 +557,7 @@ export const SourceControl = React.memo(function SourceControl() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--GlassBorder)] text-[12px] text-[var(--TextMuted)] font-medium">
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[var(--AccentPrimary)] to-blue-600 text-white flex items-center justify-center text-[10px] font-bold shadow-sm">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--AccentPrimary)] text-[10px] font-bold text-white shadow-[0_2px_8px_color-mix(in_srgb,var(--AccentPrimary)_32%,transparent)]">
                       {commit.author.charAt(0).toUpperCase()}
                     </div>
                     <span className="truncate">{commit.author}</span>

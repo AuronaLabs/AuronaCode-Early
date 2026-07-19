@@ -80,15 +80,21 @@ mod tests {
         fs::create_dir_all(&nested).expect("test directories should be created");
         fs::write(root.join("user-config.json"), "config").expect("config should be written");
         fs::write(root.join("workspace.json"), "workspace").expect("workspace should be written");
+        fs::write(root.join("editor-recovery.json"), "recovery")
+            .expect("recovery marker should be written");
         fs::write(nested.join("payload.bin"), "payload").expect("cache payload should be written");
 
-        assert_eq!(get_dir_size(&root).expect("size should be calculated"), 22);
+        assert_eq!(get_dir_size(&root).expect("size should be calculated"), 30);
 
-        clear_directory_contents(&root, &["user-config.json", "workspace.json"])
-            .expect("cleanup should succeed");
+        clear_directory_contents(
+            &root,
+            &["user-config.json", "workspace.json", "editor-recovery.json"],
+        )
+        .expect("cleanup should succeed");
 
         assert!(root.join("user-config.json").exists());
         assert!(root.join("workspace.json").exists());
+        assert!(root.join("editor-recovery.json").exists());
         assert!(!root.join("cache").exists());
 
         fs::remove_dir_all(root).expect("test directory should be removed");
@@ -143,6 +149,59 @@ fn get_dir_size(path: &Path) -> Result<u64, String> {
     Ok(total)
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageBreakdown {
+    pub app_data_bytes: u64,
+    pub log_bytes: u64,
+    pub config_bytes: u64,
+    pub workspace_bytes: u64,
+    pub recovery_bytes: u64,
+    pub other_app_data_bytes: u64,
+}
+
+fn file_size(path: &Path) -> Result<u64, String> {
+    if !path.exists() {
+        return Ok(0);
+    }
+    path.metadata()
+        .map(|metadata| metadata.len())
+        .map_err(|error| format!("Unable to inspect {}: {error}", path.display()))
+}
+
+#[tauri::command]
+pub async fn get_storage_breakdown(app: tauri::AppHandle) -> Result<StorageBreakdown, String> {
+    let app_dir = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("Failed to get app local data dir: {error}"))?;
+    let log_dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|error| format!("Failed to get app log dir: {error}"))?;
+
+    tokio::task::spawn_blocking(move || {
+        let app_data_bytes = get_dir_size(&app_dir)?;
+        let config_bytes = file_size(&app_dir.join("user-config.json"))?;
+        let workspace_bytes = file_size(&app_dir.join("workspace.json"))?;
+        let recovery_bytes = get_dir_size(&app_dir.join("editor-recovery")).unwrap_or(0);
+        let other_app_data_bytes = app_data_bytes
+            .saturating_sub(config_bytes)
+            .saturating_sub(workspace_bytes)
+            .saturating_sub(recovery_bytes);
+        Ok(StorageBreakdown {
+            app_data_bytes,
+            log_bytes: get_dir_size(&log_dir).unwrap_or(0),
+            config_bytes,
+            workspace_bytes,
+            recovery_bytes,
+            other_app_data_bytes,
+        })
+    })
+    .await
+    .map_err(|error| format!("Storage breakdown task failed: {error}"))?
+}
+
 #[tauri::command]
 pub async fn get_app_data_size(app: tauri::AppHandle) -> Result<u64, String> {
     let path = app
@@ -184,10 +243,26 @@ pub async fn clear_other_app_data(app: tauri::AppHandle) -> Result<(), String> {
         .app_local_data_dir()
         .map_err(|error| format!("Failed to get app local data dir: {error}"))?;
     tokio::task::spawn_blocking(move || {
-        clear_directory_contents(&app_dir, &["user-config.json", "workspace.json"])
+        clear_directory_contents(
+            &app_dir,
+            &["user-config.json", "workspace.json", "editor-recovery"],
+        )
     })
     .await
     .map_err(|error| format!("App data cleanup task failed: {error}"))?
+}
+
+#[tauri::command]
+pub async fn clear_editor_recovery(app: tauri::AppHandle) -> Result<(), String> {
+    let app_dir = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("Failed to get app local data dir: {error}"))?;
+    tokio::task::spawn_blocking(move || {
+        clear_directory_contents(&app_dir.join("editor-recovery"), &[])
+    })
+    .await
+    .map_err(|error| format!("Editor recovery cleanup task failed: {error}"))?
 }
 
 fn clear_directory_contents(path: &Path, preserved_names: &[&str]) -> Result<(), String> {

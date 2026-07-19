@@ -23,13 +23,13 @@ export function InternalPageLayout({
     <div className="flex h-full w-full bg-transparent select-none text-[var(--TextPrimary)] overflow-hidden">
       {}
       {sidebar && (
-        <div className="w-64 flex-shrink-0 bg-transparent py-10 px-6 overflow-y-auto">
+        <div className="w-64 flex-shrink-0 bg-transparent px-6 pb-10 pt-10 overflow-y-auto">
           {sidebar}
         </div>
       )}
 
       {}
-      <div className="flex-1 flex flex-col p-10 overflow-y-auto aurona-scroll relative">
+      <div className="flex-1 flex flex-col px-10 pb-10 pt-10 overflow-y-auto aurona-scroll relative">
         <div className={`flex flex-col w-full ${maxWidth || "max-w-3xl"} mx-auto z-10 relative`}>
           {}
           {}

@@ -277,7 +277,11 @@ export const SearchPanel = React.memo(function SearchPanel() {
                       size={15}
                       className={`text-[var(--TextMuted)] transition-transform ${isCollapsed ? "-rotate-90" : ""}`}
                     />
-                    <Icons.FileCode size={16} className="text-blue-500 shrink-0" stroke={2} />
+                    <Icons.FileCode
+                      size={16}
+                      className="shrink-0 text-[var(--AccentPrimary)]"
+                      stroke={2}
+                    />
                     <span className="truncate">{grouped[file].name}</span>
                     <span className="truncate text-[10px] text-[var(--TextMuted)] opacity-60 ml-1 font-normal">
                       {grouped[file].dir}

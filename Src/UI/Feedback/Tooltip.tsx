@@ -9,6 +9,8 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { cn } from "../../Shared/Utils/cn";
+import { glassVariants } from "../Core/GlassManager/variants";
 
 export type TooltipProps = {
   content: ReactNode;
@@ -26,6 +28,7 @@ export function Tooltip({ content, children, delay = 300, placement = "top" }: T
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
@@ -96,12 +99,20 @@ export function Tooltip({ content, children, delay = 300, placement = "top" }: T
     };
 
     window.addEventListener("blur", handleGlobalHide);
+    window.addEventListener("focus", handleGlobalHide);
+    window.addEventListener("resize", handleGlobalHide);
+    window.addEventListener("pagehide", handleGlobalHide);
     window.addEventListener("scroll", handleGlobalHide, true); // true for capturing scroll events from any scrollable element
+    document.addEventListener("visibilitychange", handleGlobalHide);
 
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       window.removeEventListener("blur", handleGlobalHide);
+      window.removeEventListener("focus", handleGlobalHide);
+      window.removeEventListener("resize", handleGlobalHide);
+      window.removeEventListener("pagehide", handleGlobalHide);
       window.removeEventListener("scroll", handleGlobalHide, true);
+      document.removeEventListener("visibilitychange", handleGlobalHide);
     };
   }, []);
 
@@ -150,7 +161,11 @@ export function Tooltip({ content, children, delay = 300, placement = "top" }: T
       {isVisible &&
         createPortal(
           <div
-            className="fixed z-[9999] pointer-events-none px-2.5 py-1.5 text-[12px] font-medium text-[var(--TextHighlight)] bg-[var(--GlassSurface)] backdrop-blur-[var(--glass-blur-floating)] border border-[var(--GlassBorder)] rounded-lg animate-in fade-in duration-200 whitespace-nowrap shadow-xl shadow-black/10"
+            role="tooltip"
+            className={cn(
+              glassVariants({ layer: "floating" }),
+              "fixed z-[9999] pointer-events-none max-w-72 rounded-xl px-3 py-2 text-[12px] font-medium leading-relaxed text-[var(--TextHighlight)] shadow-[var(--shadow-overlay)] animate-in fade-in zoom-in-95 duration-150",
+            )}
             style={{
               left: coords.x,
               top: coords.y,

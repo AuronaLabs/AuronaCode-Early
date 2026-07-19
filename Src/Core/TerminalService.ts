@@ -91,6 +91,22 @@ class TerminalServiceImpl {
     return this.activeTerminalId;
   }
 
+  async ensureDefaultTerminal(): Promise<TerminalInstance> {
+    const existing = this.terminals.find((terminal) => terminal.id === this.activeTerminalId);
+    if (existing) return existing;
+    if (this.terminals.length > 0) {
+      const terminal = this.terminals[this.terminals.length - 1];
+      this.setActiveTerminal(terminal.id);
+      return terminal;
+    }
+    if (!this.implicitTerminalCreation) {
+      this.implicitTerminalCreation = this.createTerminal().finally(() => {
+        this.implicitTerminalCreation = null;
+      });
+    }
+    return this.implicitTerminalCreation;
+  }
+
   markTerminalReady(id: string): void {
     const readiness = this.readiness.get(id);
     if (!readiness) return;
@@ -123,12 +139,7 @@ class TerminalServiceImpl {
   async executeCommand(id: string | null, command: string): Promise<void> {
     let targetId = id ?? this.activeTerminalId;
     if (!targetId) {
-      if (!this.implicitTerminalCreation) {
-        this.implicitTerminalCreation = this.createTerminal().finally(() => {
-          this.implicitTerminalCreation = null;
-        });
-      }
-      const instance = await this.implicitTerminalCreation;
+      const instance = await this.ensureDefaultTerminal();
       targetId = instance.id;
     }
     EventBus.emit("app:toggle-terminal", true);

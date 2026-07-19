@@ -1,5 +1,6 @@
 import type React from "react";
 import { useEffect, useState } from "react";
+import { applyAccentTheme } from "../App/ThemeAccent";
 import { invokeDesktop } from "../Foundation/Desktop";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 import { AppServices } from "./AppServices";
@@ -51,11 +52,20 @@ export function AppBootstrapper({ children }: Props) {
           document.documentElement.classList.remove("dark");
         }
 
+        applyAccentTheme(userConfig.accentTheme, userConfig.accentInBackground);
+
         applyResponsiveDensity(userConfig.density);
 
         const savedEditorFont = userConfig.editorFontSize?.toString() || "14";
+        const savedEditorLineHeight = userConfig.editorLineHeight?.toString() || "24";
+        const savedEditorTabSize = userConfig.editorTabSize?.toString() || "2";
         const savedTerminalFont = userConfig.terminalFontSize?.toString() || "13";
         document.documentElement.style.setProperty("--EditorFontSize", `${savedEditorFont}px`);
+        document.documentElement.style.setProperty(
+          "--EditorLineHeight",
+          `${savedEditorLineHeight}px`,
+        );
+        document.documentElement.style.setProperty("--EditorTabSize", savedEditorTabSize);
         document.documentElement.style.setProperty("--TerminalFontSize", `${savedTerminalFont}px`);
 
         await AppServices.start();

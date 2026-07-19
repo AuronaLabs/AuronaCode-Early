@@ -109,7 +109,7 @@ revision acknowledgement or conflict
 
 ## 6. 命令与用户操作
 
-`Extension/CommandRegistry.ts` 定义命令 ID、标题、上下文、快捷键与执行器。标题栏菜单、macOS 菜单、命令面板和编辑快捷键应调用相同命令，而不是各自复制业务逻辑。
+`Extension/CommandRegistry.ts` 定义命令 ID、标题、上下文、快捷键与执行器。标题栏菜单、macOS 菜单、Fliuno 和编辑快捷键调用相同命令，而不是各自复制业务逻辑。Fliuno 是全局搜索界面，当前首先接入命令数据源。
 
 `Extension` 目录当前不是插件运行时。仓库没有插件沙箱、市场、扩展 API 或 VS Code 兼容层。
 
@@ -140,6 +140,7 @@ revision acknowledgement or conflict
 - TypeScript：`pnpm run typecheck`
 - Biome：`pnpm run check`
 - 桌面边界：`pnpm run check:boundaries`
+- Material 边界：`pnpm run check:materials`
 - 发布元数据：`pnpm run smoke`
 - 前端测试：Vitest + React Testing Library
 - Rust：fmt、clippy、check、test

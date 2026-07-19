@@ -16,8 +16,18 @@ import { SearchWidget } from "./components/SearchWidget";
 import { EditorAdapter } from "./EditorAdapter";
 import { useEditorHistory } from "./Hooks/useEditorHistory";
 import type { IEditorEngine } from "./IEditorEngine";
+import {
+  DEFAULT_EDITOR_LAYOUT,
+  editorTextIndexAtX,
+  editorTextIndexFromPoint,
+  measureEditorText,
+  measureRenderedEditorRange,
+  nextGraphemeBoundary,
+  previousGraphemeBoundary,
+  readEditorLayoutMetrics,
+  sameEditorLayout,
+} from "./Utils/EditorLayoutMetrics";
 import { type DiagnosticItem, normalizeEditorText, sortSelection } from "./Utils/EditorMath";
-import { measureTextWidthFast } from "./Utils/TextMeasurement";
 
 export type AuronaEngineProps = {
   value: string;
@@ -30,7 +40,6 @@ export type AuronaEngineProps = {
   onSyncError?: (error: Error) => void;
 };
 
-const LINE_HEIGHT = 22;
 const LARGE_FILE_BYTES = 2 * 1024 * 1024;
 const LARGE_FILE_LINES = 20_000;
 const LARGE_FILE_OVERSCAN = 120;
@@ -88,6 +97,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 }: AuronaEngineProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lineElementsRef = useRef(new Map<number, HTMLButtonElement>());
 
   // 文档数据源
   const [documentLines, setDocumentLines] = useState<string[]>([""]);
@@ -107,15 +117,28 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const [isComposing, setIsComposing] = useState(false);
   const [compositionText, setCompositionText] = useState("");
 
-  // 光标重置计数器（打字移动光标时重置闪烁周期）
-  const [caretBlinkReset, setCaretBlinkReset] = useState(0);
-
   // 拖动选中标记
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<{ line: number; char: number } | null>(null);
 
   // 光标物理坐标
-  const [caretPos, setCaretPos] = useState({ x: 16, y: 0 });
+  const [layout, setLayout] = useState(DEFAULT_EDITOR_LAYOUT);
+  const [caretPos, setCaretPos] = useState({ x: DEFAULT_EDITOR_LAYOUT.contentInsetX, y: 0 });
+  const [, setRenderedLineEpoch] = useState(0);
+
+  const registerLineElement = useCallback(
+    (lineIndex: number, element: HTMLButtonElement | null) => {
+      const current = lineElementsRef.current.get(lineIndex);
+      if (element && current !== element) {
+        lineElementsRef.current.set(lineIndex, element);
+        setRenderedLineEpoch((epoch) => epoch + 1);
+      } else if (!element && current) {
+        lineElementsRef.current.delete(lineIndex);
+        setRenderedLineEpoch((epoch) => epoch + 1);
+      }
+    },
+    [],
+  );
 
   // 搜索相关
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -134,10 +157,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     null,
   );
 
-  // ==========================================
-  // 【双字节等宽字体 DOM 临时元素字宽测量引擎】
-  // ==========================================
-  const [charWidth, setCharWidth] = useState(8.4);
   const { pushHistory, resetHistory, undo, redo } = useEditorHistory("");
   const documentLoadedRef = useRef(false);
   const lastHistoryContentRef = useRef("");
@@ -147,25 +166,28 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     return EditorIPC.onSyncError(path, onSyncError);
   }, [onSyncError, path]);
 
-  useEffect(() => {
-    const measure = () => {
-      const parent = containerRef.current || document.body;
-      const temp = document.createElement("span");
-      temp.style.fontFamily = "var(--EditorFontFamily, ui-monospace, monospace)";
-      temp.style.fontSize = "14px";
-      temp.style.position = "absolute";
-      temp.style.visibility = "hidden";
-      temp.style.whiteSpace = "pre";
-      temp.textContent = "a";
-      parent.appendChild(temp);
-      const width = temp.getBoundingClientRect().width;
-      parent.removeChild(temp);
-      if (width > 0) {
-        setCharWidth(width);
-      }
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const refresh = () => {
+      const next = readEditorLayoutMetrics(container);
+      setLayout((current) => (sameEditorLayout(current, next) ? current : next));
     };
-    measure();
-    document.fonts.ready.then(measure);
+    refresh();
+    void document.fonts.ready.then(refresh);
+    const resizeObserver = new ResizeObserver(refresh);
+    resizeObserver.observe(container);
+    const mutationObserver = new MutationObserver(refresh);
+    mutationObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "style", "data-density"],
+    });
+    window.addEventListener("resize", refresh);
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+      window.removeEventListener("resize", refresh);
+    };
   }, []);
 
   // ==========================================
@@ -174,6 +196,25 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const getCaretPixelPosition = useCallback(
     (lineIndex: number, charIndex: number) => {
       const lineText = documentLines[lineIndex] || "";
+      const lineElement = lineElementsRef.current.get(lineIndex);
+      const rendered = lineElement
+        ? measureRenderedEditorRange(lineElement, charIndex, charIndex)
+        : null;
+      if (rendered && lineElement) {
+        const compositionElement =
+          isComposing &&
+          compositionText &&
+          lineIndex === cursor.line &&
+          charIndex === lineText.length
+            ? lineElement.querySelector<HTMLElement>("[data-editor-composition]")
+            : null;
+        const compositionRect = compositionElement?.getBoundingClientRect();
+        const lineRect = lineElement.getBoundingClientRect();
+        return {
+          x: compositionRect ? compositionRect.right - lineRect.left : rendered.left,
+          y: layout.contentInsetTop + lineIndex * layout.lineHeight,
+        };
+      }
       let textToMeasure = lineText.substring(0, charIndex);
       if (
         isComposing &&
@@ -183,17 +224,18 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       ) {
         textToMeasure += compositionText;
       }
-      const textWidth = measureTextWidthFast(textToMeasure);
-      return { x: textWidth + 16, y: lineIndex * LINE_HEIGHT };
+      return {
+        x: measureEditorText(textToMeasure, layout) + layout.contentInsetX,
+        y: layout.contentInsetTop + lineIndex * layout.lineHeight,
+      };
     },
-    [documentLines, isComposing, compositionText, cursor.line],
+    [documentLines, isComposing, compositionText, cursor.line, layout],
   );
 
   useLayoutEffect(() => {
     const pos = getCaretPixelPosition(cursor.line, cursor.char);
-    setCaretPos(pos);
-    setCaretBlinkReset((prev) => prev + 1); // 触发 blink 重置
-  }, [cursor, getCaretPixelPosition]);
+    setCaretPos((current) => (current.x === pos.x && current.y === pos.y ? current : pos));
+  });
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -216,10 +258,13 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const maxLineLengthTimerRef = useRef<number | null>(null);
   const latestHighlightIdRef = useRef<string>("");
   const latestLargeHighlightRequestRef = useRef<string>("");
-  const visibleStartIndex = Math.max(0, Math.floor(scrollTop / LINE_HEIGHT));
+  const visibleStartIndex = Math.max(
+    0,
+    Math.floor(Math.max(0, scrollTop - layout.contentInsetTop) / layout.lineHeight),
+  );
   const visibleEndIndex = Math.min(
     totalLines,
-    Math.ceil((scrollTop + viewportHeight) / LINE_HEIGHT),
+    Math.ceil(Math.max(0, scrollTop - layout.contentInsetTop + viewportHeight) / layout.lineHeight),
   );
   const isLargeFileMode = totalLines > LARGE_FILE_LINES || value.length > LARGE_FILE_BYTES;
 
@@ -409,12 +454,20 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
     if (containerRef.current) {
       containerRef.current.scrollTo({
-        top: Math.max(0, lineIndex * LINE_HEIGHT - 100),
+        top: Math.max(0, layout.contentInsetTop + lineIndex * layout.lineHeight - 100),
         behavior: "smooth",
       });
     }
     onRevealHandled?.(path, revealLine);
-  }, [isActive, path, revealLine, onRevealHandled, documentLines.length]);
+  }, [
+    isActive,
+    path,
+    revealLine,
+    onRevealHandled,
+    documentLines.length,
+    layout.contentInsetTop,
+    layout.lineHeight,
+  ]);
 
   // 搜索
   useEffect(() => {
@@ -451,7 +504,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const scrollToMatch = (match: { line: number; char: number }) => {
     if (containerRef.current) {
       containerRef.current.scrollTo({
-        top: Math.max(0, match.line * LINE_HEIGHT - 100),
+        top: Math.max(0, layout.contentInsetTop + match.line * layout.lineHeight - 100),
         behavior: "smooth",
       });
       setCursor(match);
@@ -475,7 +528,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           else if (res?.items) items = res.items;
 
           if (items.length > 0 && prefix.length > 0) {
-            const y = (lineIndex + 1) * LINE_HEIGHT - scrollTop + 10;
+            const y = layout.contentInsetTop + (lineIndex + 1) * layout.lineHeight - scrollTop + 10;
             const scrollLeft = containerRef.current?.scrollLeft || 0;
             const x = caretPos.x - scrollLeft;
             setCompletionPos({ x, y });
@@ -487,7 +540,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         })
         .catch(() => setCompletions([]));
     },
-    [caretPos.x, language, path, scrollTop],
+    [caretPos.x, language, layout, path, scrollTop],
   );
 
   const handleAutocompleteSelect = (index: number) => {
@@ -857,10 +910,10 @@ export const AuronaEngine = React.memo(function AuronaEngine({
               startIdx--;
             }
           } else {
-            startIdx--;
+            startIdx = previousGraphemeBoundary(lineText, startIdx);
           }
         } else {
-          startIdx = char - 1;
+          startIdx = previousGraphemeBoundary(lineText, char);
         }
 
         const deleteLen = char - startIdx;
@@ -934,10 +987,10 @@ export const AuronaEngine = React.memo(function AuronaEngine({
               endIdx++;
             }
           } else {
-            endIdx++;
+            endIdx = nextGraphemeBoundary(lineText, endIdx);
           }
         } else {
-          endIdx = char + 1;
+          endIdx = nextGraphemeBoundary(lineText, char);
         }
 
         const deleteLen = endIdx - char;
@@ -1007,7 +1060,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     if (e.key === "ArrowLeft") {
       e.preventDefault();
       if (char > 0) {
-        moveCursor(line, char - 1, e.shiftKey);
+        moveCursor(line, previousGraphemeBoundary(lineText, char), e.shiftKey);
       } else if (line > 0) {
         moveCursor(line - 1, lines[line - 1].length, e.shiftKey);
       }
@@ -1016,7 +1069,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     if (e.key === "ArrowRight") {
       e.preventDefault();
       if (char < lineText.length) {
-        moveCursor(line, char + 1, e.shiftKey);
+        moveCursor(line, nextGraphemeBoundary(lineText, char), e.shiftKey);
       } else if (line < lines.length - 1) {
         moveCursor(line + 1, 0, e.shiftKey);
       }
@@ -1182,30 +1235,32 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   );
 
   // 9. 鼠标双击/三击选择单词/整行 + 拖拽逻辑
-  const minTextLengthIndex = useCallback((text: string, relativeX: number): number => {
-    if (relativeX <= 0) return 0;
-    const textForMeasure = text.replace(/\t/g, "  ");
-    const totalWidth = measureTextWidthFast(textForMeasure);
-    if (relativeX >= totalWidth) return text.length;
+  const minTextLengthIndex = useCallback(
+    (text: string, relativeX: number): number => editorTextIndexAtX(text, relativeX, layout),
+    [layout],
+  );
 
-    for (let i = 0; i < text.length; i++) {
-      const prefix = text.substring(0, i).replace(/\t/g, "  ");
-      const nextPrefix = text.substring(0, i + 1).replace(/\t/g, "  ");
-      const w1 = measureTextWidthFast(prefix);
-      const w2 = measureTextWidthFast(nextPrefix);
-      if (relativeX < (w1 + w2) / 2) {
-        return i;
-      }
-    }
-    return text.length;
-  }, []);
+  const textIndexAtPoint = useCallback(
+    (
+      lineIndex: number,
+      lineElement: HTMLButtonElement,
+      clientX: number,
+      clientY: number,
+    ): number => {
+      const lineText = documentLines[lineIndex] || "";
+      const renderedIndex = editorTextIndexFromPoint(lineElement, clientX, clientY, lineText);
+      if (renderedIndex !== null) return renderedIndex;
+
+      const rect = lineElement.getBoundingClientRect();
+      return minTextLengthIndex(lineText, clientX - rect.left - layout.contentInsetX);
+    },
+    [documentLines, layout.contentInsetX, minTextLengthIndex],
+  );
 
   const handleLineMouseDown = useCallback(
     (lineIndex: number, e: React.MouseEvent<HTMLButtonElement>) => {
       const lineEl = e.currentTarget;
-      const rect = lineEl.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const charIndex = minTextLengthIndex(documentLines[lineIndex] || "", clickX - 16);
+      const charIndex = textIndexAtPoint(lineIndex, lineEl, e.clientX, e.clientY);
 
       const pos = { line: lineIndex, char: charIndex };
 
@@ -1243,7 +1298,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       textareaRef.current?.focus();
       e.preventDefault();
     },
-    [documentLines, findWordBoundaries, minTextLengthIndex],
+    [documentLines, findWordBoundaries, textIndexAtPoint],
   );
 
   // 全局 mousemove：支持鼠标拖出视口和拖出编辑行时，自动更新选区，并触发自动滚动（Auto-Scroll）
@@ -1269,11 +1324,22 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       const currentScrollLeft = container.scrollLeft;
 
       const y = relativeY + currentScrollTop;
-      const lineIndex = Math.max(0, Math.min(totalLines - 1, Math.floor(y / LINE_HEIGHT)));
+      const lineIndex = Math.max(
+        0,
+        Math.min(
+          totalLines - 1,
+          Math.floor(Math.max(0, y - layout.contentInsetTop) / layout.lineHeight),
+        ),
+      );
 
       // 注意：containerRef 已经是纯文本区域，不包含行号槽，所以不需要再减去 48px
-      const x = relativeX + currentScrollLeft;
-      const charIndex = minTextLengthIndex(documentLines[lineIndex] || "", x - 16);
+      const lineElement = lineElementsRef.current.get(lineIndex);
+      const charIndex = lineElement
+        ? textIndexAtPoint(lineIndex, lineElement, e.clientX, e.clientY)
+        : minTextLengthIndex(
+            documentLines[lineIndex] || "",
+            relativeX + currentScrollLeft - layout.contentInsetX,
+          );
 
       const pos = { line: lineIndex, char: charIndex };
       setSelection({
@@ -1285,7 +1351,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
     window.addEventListener("mousemove", handleGlobalMouseMove);
     return () => window.removeEventListener("mousemove", handleGlobalMouseMove);
-  }, [totalLines, documentLines, minTextLengthIndex]);
+  }, [totalLines, documentLines, layout, minTextLengthIndex, textIndexAtPoint]);
 
   useEffect(() => {
     const handleGlobalMouseUp = () => {
@@ -1403,9 +1469,11 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           hoverTooltip={hoverTooltip}
           onMouseDown={handleLineMouseDown}
           onMouseLeave={handleLineMouseLeave}
-          minTextLengthIndex={minTextLengthIndex}
+          textIndexAtPoint={textIndexAtPoint}
+          registerLineElement={registerLineElement}
           isComposing={isComposing}
           compositionText={compositionText}
+          layout={layout}
         />,
       );
     }
@@ -1427,7 +1495,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     compositionText,
     hoverTooltip,
     handleLineMouseLeave,
-    minTextLengthIndex,
+    layout,
+    textIndexAtPoint,
+    registerLineElement,
     handleLineMouseDown,
   ]);
 
@@ -1439,29 +1509,37 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       list.push(
         <div
           key={idx}
-          className={`h-[22px] leading-[22px] text-right pr-3 font-mono text-[13px] select-none ${
+          className={`text-right pr-3 font-mono text-[13px] select-none ${
             isCurrent
               ? "text-[var(--TextHighlight)] font-bold opacity-100"
               : "text-[var(--TextMuted)] opacity-60"
           }`}
+          style={{ height: layout.lineHeight, lineHeight: `${layout.lineHeight}px` }}
         >
           {idx + 1}
         </div>,
       );
     }
     return list;
-  }, [visibleStartIndex, visibleEndIndex, cursor.line]);
+  }, [visibleStartIndex, visibleEndIndex, cursor.line, layout.lineHeight]);
 
   const caretStyle = useMemo(() => {
     return {
       top: `${caretPos.y}px`,
       left: `${caretPos.x}px`,
-      height: `${LINE_HEIGHT}px`,
+      height: `${layout.lineHeight}px`,
     };
-  }, [caretPos]);
+  }, [caretPos, layout.lineHeight]);
 
   return (
-    <div className="relative w-full h-full flex bg-transparent overflow-hidden">
+    <div
+      className="relative w-full h-full flex bg-transparent overflow-hidden"
+      data-editor-font={layout.fontFamily}
+      data-editor-font-size={layout.fontSize}
+      data-editor-line-height={layout.lineHeight}
+      data-editor-inset={layout.contentInsetX}
+      data-editor-top-inset={layout.contentInsetTop}
+    >
       {/* 嵌入跨平台 Span 词法与编辑高亮 CSS */}
       <style>{`
         .hl-token-1 { color: var(--SyntaxKeyword); font-weight: bold; }
@@ -1472,7 +1550,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         .hl-token-6 { color: var(--SyntaxComment); font-style: italic; }
         .hl-token-7 { color: var(--SyntaxOperator); }
         .hl-token-8 { color: var(--SyntaxBuiltin); }
-        .hl-token-9 { color: var(--SyntaxTypeHint, #3b82f6); }
+        .hl-token-9 { color: var(--SyntaxTypeHint, var(--AccentPrimary)); }
 
         .hl-search { background-color: rgba(234, 179, 8, 0.25); border-bottom: 1px solid rgba(234, 179, 8, 0.6); }
         .hl-search-active { background-color: rgba(249, 115, 22, 0.45); border-bottom: 2px solid rgba(249, 115, 22, 0.9); }
@@ -1512,7 +1590,11 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       <div
         className="w-[48px] shrink-0 border-r border-black/5 dark:border-white/5 py-0 flex flex-col overflow-hidden select-none"
         style={{
-          transform: `translateY(-${scrollTop % LINE_HEIGHT}px)`,
+          paddingTop: `${Math.max(0, layout.contentInsetTop - scrollTop)}px`,
+          transform:
+            scrollTop < layout.contentInsetTop
+              ? undefined
+              : `translateY(-${(scrollTop - layout.contentInsetTop) % layout.lineHeight}px)`,
         }}
       >
         {lineNumbersDOM}
@@ -1530,15 +1612,15 @@ export const AuronaEngine = React.memo(function AuronaEngine({
             <div
               className="relative"
               style={{
-                height: `${totalLines * LINE_HEIGHT + 100}px`,
-                width: `${maxLineLength * charWidth + 200}px`,
+                height: `${layout.contentInsetTop + totalLines * layout.lineHeight + 100}px`,
+                width: `${maxLineLength * measureEditorText("0", layout) + 200}px`,
                 minWidth: "100%",
               }}
             >
               <div
                 className="absolute left-0 w-full"
                 style={{
-                  transform: `translateY(${Math.max(0, visibleStartIndex * LINE_HEIGHT)}px)`,
+                  transform: `translateY(${layout.contentInsetTop + Math.max(0, visibleStartIndex * layout.lineHeight)}px)`,
                 }}
               >
                 {visibleLinesDOM}
@@ -1547,7 +1629,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
               {/* 逻辑绝对定位光标（重置 blink 帧） */}
               {isActive && (
                 <div
-                  key={`caret-${caretBlinkReset}`}
+                  key={`caret-${cursor.line}-${cursor.char}`}
                   className="absolute w-[2px] bg-[var(--AccentPrimary)] editor-caret pointer-events-none z-20"
                   style={caretStyle}
                 />
@@ -1623,6 +1705,14 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           {hoverTooltip.text}
         </div>
       )}
+      {import.meta.env.DEV &&
+        new URLSearchParams(window.location.search).has("editorLayoutDebug") && (
+          <div className="pointer-events-none absolute bottom-2 right-2 z-50 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--TextMuted)] shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)]">
+            {layout.fontSize}px / {layout.lineHeight}px · inset {layout.contentInsetX}px · DPR{" "}
+            {layout.devicePixelRatio.toFixed(2)} · caret {caretPos.x.toFixed(1)},{" "}
+            {caretPos.y.toFixed(1)}
+          </div>
+        )}
     </div>
   );
 });

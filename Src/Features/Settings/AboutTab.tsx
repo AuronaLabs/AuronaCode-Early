@@ -95,8 +95,9 @@ export function AboutTab() {
         {/* Copyright */}
         <div className="flex flex-col items-center gap-2 text-[12px] text-[var(--TextMuted)]/60 mt-8 text-center max-w-lg">
           <p>
-            Aurona Code 的诞生离不开开源社区的伟大力量。特别感谢 Tauri
-            团队提供的高效跨平台能力，以及所有参与本项目的开源作者们。
+            Aurona Code 的诞生离不开开源社区的伟大力量
+            <br />
+            特别感谢 Tauri 团队提供的高效跨平台能力，以及所有参与本项目的开源作者们
           </p>
           <p className="mt-2">Copyright © 2026 Aurona Labs. All rights reserved.</p>
         </div>

@@ -58,6 +58,7 @@ python manager.py
 pnpm run typecheck
 pnpm run check
 pnpm run check:boundaries
+pnpm run check:materials
 pnpm run smoke
 pnpm run test:frontend
 pnpm run build

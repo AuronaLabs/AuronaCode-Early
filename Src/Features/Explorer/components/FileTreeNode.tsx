@@ -10,6 +10,7 @@ import {
 } from "../../../UI/Components/ContextMenu";
 import { Icons } from "../../../UI/Icons/IconManager";
 import { useExplorerContext } from "../ExplorerContext";
+import { ExplorerDragSession } from "../ExplorerDragSession";
 import { InlineInput } from "./InlineInput";
 
 function getFileIcon(filename: string, isActive: boolean) {
@@ -135,9 +136,16 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
             }}
             onDragStart={(e) => {
               e.stopPropagation();
+              ExplorerDragSession.begin(node.path);
               e.dataTransfer.setData("application/x-aurona-file-node", node.path);
               e.dataTransfer.setData("text/plain", node.path);
               e.dataTransfer.effectAllowed = "copyMove";
+            }}
+            onDragEnd={() => {
+              ExplorerDragSession.end();
+              setIsDragHover(false);
+              dragEnterDepth.current = 0;
+              clearAutoExpandTimer();
             }}
             onDragOver={(e) => {
               if (node.isDirectory) {
@@ -173,11 +181,12 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
               dragEnterDepth.current = 0;
               clearAutoExpandTimer();
               if (node.isDirectory) {
-                const src = e.dataTransfer.getData("application/x-aurona-file-node");
+                const src = ExplorerDragSession.read(e.dataTransfer);
                 if (src) {
-                  onDrop(src, node.path, e.ctrlKey || e.metaKey);
+                  void onDrop(src, node.path, e.ctrlKey || e.metaKey);
                 }
               }
+              ExplorerDragSession.end();
             }}
           >
             <div className="w-4 h-4 flex items-center justify-center shrink-0">

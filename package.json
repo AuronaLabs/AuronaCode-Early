@@ -1,7 +1,7 @@
 {
   "name": "aurona-code",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "packageManager": "pnpm@11.13.0",
   "type": "module",
   "scripts": {
@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "check": "biome ci Src",
     "check:boundaries": "node scripts/check-desktop-boundaries.mjs",
+    "check:materials": "node scripts/check-material-boundaries.mjs",
     "smoke": "node scripts/smoke.mjs",
     "test:frontend": "vitest run",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",

@@ -50,14 +50,16 @@ export class ErrorBoundary extends Component<Props, State> {
           className="flex flex-col items-center justify-center w-screen h-screen text-[var(--TextHighlight)] select-none overflow-hidden px-6"
           style={{ background: "var(--AppBackground)" }}
         >
-          <div className="flex flex-col items-center text-center gap-4 max-w-[520px] bg-[var(--GlassSurface-Elevated)] backdrop-blur-md p-10 rounded-2xl border border-[var(--GlassBorder)] shadow-2xl">
+          <div className="flex max-w-[520px] flex-col items-center gap-4 text-center">
             <div className="text-[var(--AccentPrimary)] mb-2">
               <Icons.AlertTriangle size={64} stroke={1.5} />
             </div>
 
             <h1 className="text-3xl font-bold tracking-tight">Aurona Code 出现异常</h1>
             <p className="text-sm text-[var(--TextMuted)] leading-relaxed">
-              工作区遇到了未处理错误你可以重启前端引擎，或复制日志地址继续排查
+              工作区遇到了未处理错误
+              <br />
+              你可以重启前端引擎，或复制日志地址继续排查
             </p>
             <p className="text-sm text-[var(--TextMuted)] font-mono">
               CrashID: {Logger.getLogId()}

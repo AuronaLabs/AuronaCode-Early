@@ -91,6 +91,14 @@ class CommandRegistryImpl {
       );
   }
 
+  canExecute(command: CommandDefinition<unknown>): boolean {
+    const context = this.contextProvider();
+    return (
+      (!command.when || command.when(context)) &&
+      (!command.canExecute || command.canExecute(context))
+    );
+  }
+
   handleKeyDown(event: KeyboardEvent): boolean {
     const editable = isEditableTarget(event.target);
     for (const command of this.getCommands()) {

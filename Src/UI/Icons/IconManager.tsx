@@ -16,6 +16,7 @@ import IconChevronUp from "@tabler/icons-react/dist/esm/icons/IconChevronUp.mjs"
 import IconClearAll from "@tabler/icons-react/dist/esm/icons/IconClearAll.mjs";
 import IconCloudDownload from "@tabler/icons-react/dist/esm/icons/IconCloudDownload.mjs";
 import IconCloudUpload from "@tabler/icons-react/dist/esm/icons/IconCloudUpload.mjs";
+import IconCommand from "@tabler/icons-react/dist/esm/icons/IconCommand.mjs";
 import IconCopy from "@tabler/icons-react/dist/esm/icons/IconCopy.mjs";
 import IconCrop11 from "@tabler/icons-react/dist/esm/icons/IconCrop11.mjs";
 import IconDatabase from "@tabler/icons-react/dist/esm/icons/IconDatabase.mjs";
@@ -63,6 +64,7 @@ import IconX from "@tabler/icons-react/dist/esm/icons/IconX.mjs";
 export const Icons = {
   CloseAll: IconClearAll,
   Copy: IconCopy,
+  Command: IconCommand,
 
   Menu: IconMenu2,
   Search: IconSearch,

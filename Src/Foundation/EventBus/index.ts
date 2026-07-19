@@ -30,7 +30,7 @@ export interface EventMap {
   "app:save-file": undefined;
   "app:open-tab": TabItem;
   "app:toast": { message: string; type: "info" | "success" | "error" | "warning" };
-  "app:show-command-palette": undefined;
+  "app:show-fliuno": undefined;
 
   "app:toggle-terminal": boolean | undefined;
   "app:open-terminal-at": string;

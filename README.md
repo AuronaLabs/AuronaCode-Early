@@ -4,7 +4,7 @@
   <p><strong>面向现代桌面开发体验的自研代码编辑器</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.3.0-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.3.1-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
   </p>
@@ -13,18 +13,18 @@
 Aurona Code 不是 VS Code 的换皮项目。它以 Tauri 2、React 19 和 Rust 为基础，围绕自研的 **AuronaEngine**、Rust Rope 文档会话和桌面原生能力，探索一套更统一、更可控的现代代码编辑器架构。
 
 > [!IMPORTANT]
-> Aurona Code 仍处于早期快速迭代阶段。0.3.0 已具备可运行的编辑、文件、搜索、Git、终端和更新基础，但尚不适合替代成熟编辑器承担无法容忍数据风险的生产工作。请为重要项目保留版本控制和备份。
+> Aurona Code 仍处于早期快速迭代阶段。0.3.1 已具备可运行的编辑、文件、搜索、Git、终端和更新基础，但尚不适合替代成熟编辑器承担无法容忍数据风险的生产工作。请为重要项目保留版本控制和备份。
 
 ## 项目方向
 
 - **自研编辑体验**：不依赖 Monaco、CodeMirror 或 VS Code 编辑器内核。
 - **桌面优先**：文件系统、PTY、Git、窗口和更新器是核心能力，不是 Web 页面附加层。
 - **可靠性优先**：revision、原子批量编辑、磁盘指纹和恢复快照共同保护文档状态。
-- **统一操作模型**：菜单、快捷键和命令面板复用同一套命令注册与执行路径。
+- **统一操作模型**：菜单、快捷键和 Fliuno 复用同一套命令注册与执行路径。
 - **Aurona Material**：以玻璃材质、清晰层级和高信息密度塑造独立的桌面视觉语言。
 - **可演进边界**：业务代码通过类型化桌面接口访问 Tauri，降低 UI 与本地实现的耦合。
 
-## 0.3.0 当前能力
+## 0.3.1 当前能力
 
 | 领域 | 状态 | 当前实现 |
 | --- | --- | --- |
@@ -34,7 +34,7 @@ Aurona Code 不是 VS Code 的换皮项目。它以 Tauri 2、React 19 和 Rust 
 | 全局搜索 | 已实现 | 工作区搜索、结果分组、跳转、请求 ID 与后端取消 |
 | Git | 已实现常用流程 | 状态、暂存/取消暂存、提交、历史和提交 Diff 查看 |
 | 终端 | 已实现 | 基于 `portable-pty` 与 xterm.js 的本地 PTY 终端 |
-| 命令系统 | 已实现 | 标题栏菜单、快捷键、macOS 菜单和紧凑命令面板共享命令 ID |
+| Fliuno 与命令系统 | 已实现命令范围 | Fliuno 提供全局搜索入口，当前接入真实命令；标题栏菜单、快捷键和 macOS 菜单共享命令 ID |
 | 桌面更新 | 已实现代码路径 | 自动检查、手动检查、下载与安装；仍需随每次真实 Release 验证签名和更新链 |
 | 主题与界面 | 已实现 | 深色/浅色主题、拟物强度、界面密度、Aurona Material 组件和 reduced motion |
 | 性能测试 | 已实现 | 多轮样本、统计摘要、环境可比性与按语义版本排序的本地排行 |
@@ -48,7 +48,7 @@ Aurona Code 不是 VS Code 的换皮项目。它以 Tauri 2、React 19 和 Rust 
 - 完整的多编辑器分栏、自定义编辑器运行时和全量文档投影 LRU。
 - 覆盖全部 LSP、Worker 和异步请求的统一 revision 失效协议。
 
-这些内容属于未来候选，不应被视为 0.3.0 已交付功能。
+这些内容属于未来候选，不应被视为 0.3.1 已交付功能。
 
 ## 架构概览
 
@@ -126,6 +126,7 @@ python manager.py
 | `pnpm run typecheck` | TypeScript 类型检查 |
 | `pnpm run check` | Biome 代码质量检查 |
 | `pnpm run check:boundaries` | 检查业务层是否绕过桌面边界 |
+| `pnpm run check:materials` | 检查业务组件是否绕过 Material 边界 |
 | `pnpm run smoke` | 校验版本、更新历史与发布元数据 |
 | `pnpm run test:frontend` | 运行前端单元与组件测试 |
 | `pnpm run test:rust` | 运行 Rust 测试 |
@@ -137,6 +138,7 @@ pnpm install --frozen-lockfile
 pnpm run typecheck
 pnpm run check
 pnpm run check:boundaries
+pnpm run check:materials
 pnpm run smoke
 pnpm run test:frontend
 pnpm run build
@@ -174,6 +176,7 @@ Aurona Code/
 - [0.3.0 执行记录](Docs/0.3.0-Execution-Plan.md)
 - [0.3.0 性能报告](Docs/0.3.0-Performance-Report.md)
 - [0.3.0 Release Notes](Docs/0.3.0-Release-Notes.md)
+- [0.3.1 Release Notes](Docs/0.3.1-Release-Notes.md)
 
 ## 参与贡献
 

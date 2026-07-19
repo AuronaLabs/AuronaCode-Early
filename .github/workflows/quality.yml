@@ -32,6 +32,7 @@ jobs:
       - run: pnpm run typecheck
       - run: pnpm run check
       - run: pnpm run check:boundaries
+      - run: pnpm run check:materials
       - run: pnpm run smoke
       - run: pnpm run test:frontend
       - run: pnpm run build

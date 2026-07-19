@@ -341,7 +341,7 @@ export const EditorTab = React.memo(function EditorTab({
             </div>
           )}
           {isSaving && (
-            <div className="absolute right-3 bottom-3 rounded-lg border border-[var(--GlassBorder)] bg-[var(--GlassSurface)] backdrop-blur-[var(--glass-blur-floating)] px-3 py-1.5 text-[12px] text-[var(--TextMuted)] shadow-lg">
+            <div className="absolute right-3 bottom-3 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-1.5 text-[12px] text-[var(--TextMuted)] shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)]">
               正在保存...
             </div>
           )}

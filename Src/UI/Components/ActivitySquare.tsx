@@ -23,7 +23,10 @@ export const ActivitySquare = React.forwardRef<HTMLButtonElement, ActivitySquare
         <div className="flex items-center justify-center relative">
           {icon}
           {badge && (
-            <span className="absolute -top-0.5 -right-0.5 w-[7px] h-[7px] rounded-full bg-[var(--AccentPrimary)] shadow-sm"></span>
+            <span
+              aria-hidden="true"
+              className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-[var(--AccentPrimary)] shadow-[0_1px_5px_color-mix(in_srgb,var(--AccentPrimary)_80%,transparent),0_0_9px_color-mix(in_srgb,var(--AccentPrimary)_42%,transparent)]"
+            />
           )}
         </div>
       </button>

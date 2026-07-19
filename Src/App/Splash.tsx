@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
+import "@fontsource/righteous/400.css";
 import "./Styles/Splash.css";
 import { desktopApp, invokeDesktop } from "../Foundation/Desktop";
 

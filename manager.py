@@ -42,8 +42,31 @@ SPLASH_HTML = ROOT / "splash.html"
 PACKAGE_MANAGER = "pnpm"
 PACKAGE_MANAGER_VERSION = "11.13.0"
 SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
+TARGET_WARNING_BYTES = 8 * 1024**3
 
 console = Console(highlight=False)
+
+
+def directory_size(path: Path) -> int:
+    if not path.exists():
+        return 0
+    total = 0
+    for entry in path.rglob("*"):
+        try:
+            if entry.is_file():
+                total += entry.stat().st_size
+        except OSError:
+            continue
+    return total
+
+
+def human_size(size: int) -> str:
+    value = float(size)
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if value < 1024 or unit == "TiB":
+            return f"{value:.1f} {unit}"
+        value /= 1024
+    return f"{value:.1f} TiB"
 
 
 def resolve_command(command: str) -> str:
@@ -320,6 +343,7 @@ def show_menu() -> None:
     versions = version_snapshot()
     branch, working_tree = git_snapshot()
     aligned = len(set(versions.values())) == 1
+    target_size = directory_size(ROOT / "src-tauri" / "target")
 
     title = Text("AURONA MANAGER", style="bold bright_cyan")
     title.append("  ·  desktop workspace", style="dim")
@@ -337,6 +361,10 @@ def show_menu() -> None:
         f"{branch} · {working_tree}",
     )
     status.add_row("工作区", str(ROOT), "包管理器", f"pnpm {PACKAGE_MANAGER_VERSION}")
+    target_label = human_size(target_size)
+    if target_size >= TARGET_WARNING_BYTES:
+        target_label += "  [bold yellow]体积过大[/bold yellow]"
+    status.add_row("Rust target", target_label, "警告阈值", human_size(TARGET_WARNING_BYTES))
     console.print(Panel(status, border_style="grey35", padding=(0, 1)))
 
     menu = Table(box=box.SIMPLE, show_header=True, header_style="bold bright_blue", expand=True)
@@ -409,6 +437,7 @@ QUALITY_STEPS: list[tuple[list[str], str]] = [
     ([PACKAGE_MANAGER, "run", "typecheck"], "TypeScript 类型检查"),
     ([PACKAGE_MANAGER, "run", "check"], "Biome 代码质量检查"),
     ([PACKAGE_MANAGER, "run", "check:boundaries"], "桌面边界检查"),
+    ([PACKAGE_MANAGER, "run", "check:materials"], "Material 边界检查"),
     ([PACKAGE_MANAGER, "run", "smoke"], "发布元数据 smoke"),
     ([PACKAGE_MANAGER, "run", "test:frontend"], "前端测试"),
     ([PACKAGE_MANAGER, "run", "build"], "前端生产构建"),
@@ -550,6 +579,14 @@ def clean_build_outputs() -> None:
         console.print("[dim]没有可清理的构建目录。[/dim]")
         return
     console.print("将删除：")
+    target = ROOT / "src-tauri" / "target"
+    target_size = directory_size(target)
+    if target in existing and target_size >= TARGET_WARNING_BYTES:
+        if not Confirm.ask(
+            f"src-tauri/target 当前占用 {human_size(target_size)}，删除后需要重新编译依赖。再次确认清理？",
+            default=False,
+        ):
+            return
     for path in existing:
         console.print(f"  [yellow]{path.relative_to(ROOT)}[/yellow]")
     if not Confirm.ask("确认清理这些构建产物？", default=False):

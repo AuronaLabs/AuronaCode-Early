@@ -1,6 +1,7 @@
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { cn } from "../../Shared/Utils/cn";
 import { glassVariants } from "../Core/GlassManager/variants";
+import { Tooltip } from "../Feedback/Tooltip";
 import { Icons } from "../Icons/IconManager";
 
 export interface SelectOption {
@@ -46,13 +47,13 @@ export function Select({ options, value, onChange, className }: SelectProps) {
           <SelectPrimitive.ScrollUpButton className="flex items-center justify-center h-[25px] bg-transparent text-[var(--TextPrimary)] cursor-default">
             <Icons.ChevronUp size={14} />
           </SelectPrimitive.ScrollUpButton>
-          <SelectPrimitive.Viewport className="p-1">
+          <SelectPrimitive.Viewport className="flex flex-col gap-1 p-1">
             {options.map((opt) => (
               <SelectPrimitive.Item
                 key={opt.value}
                 value={opt.value}
                 className={cn(
-                  "relative flex w-full cursor-pointer select-none items-center rounded-lg border border-transparent py-1.5 pl-8 pr-2 text-[13px] text-[var(--TextPrimary)] outline-none transition-[background-color,border-color,color,box-shadow] data-[highlighted]:bg-[var(--GlassHover)] data-[highlighted]:text-[var(--TextHighlight)] data-[state=checked]:border-[var(--GlassBorder)] data-[state=checked]:bg-[var(--GlassActive)] data-[state=checked]:text-[var(--TextHighlight)] data-[state=checked]:shadow-sm data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                  "relative flex min-h-8 w-full cursor-pointer select-none items-center rounded-lg border border-transparent py-1.5 pl-8 pr-2 text-[13px] text-[var(--TextPrimary)] outline-none transition-[background-color,border-color,color,box-shadow] data-[highlighted]:border-[var(--border-subtle)] data-[highlighted]:bg-[var(--material-interactive-hover)] data-[highlighted]:text-[var(--TextHighlight)] data-[state=checked]:border-[var(--GlassBorder)] data-[state=checked]:bg-[var(--material-surface)] data-[state=checked]:text-[var(--TextHighlight)] data-[state=checked]:shadow-sm data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
                 )}
               >
                 <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
@@ -60,7 +61,11 @@ export function Select({ options, value, onChange, className }: SelectProps) {
                     <Icons.Check size={14} className="text-[var(--TextHighlight)]" />
                   </SelectPrimitive.ItemIndicator>
                 </span>
-                <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
+                <Tooltip content={opt.label} placement="right" delay={500}>
+                  <span className="min-w-0 flex-1 truncate">
+                    <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
+                  </span>
+                </Tooltip>
               </SelectPrimitive.Item>
             ))}
           </SelectPrimitive.Viewport>

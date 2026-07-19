@@ -1,5 +1,15 @@
 import type { TabItem } from "./Tab";
 
+export type AccentThemeId =
+  | "aurora"
+  | "violet"
+  | "rose"
+  | "coral"
+  | "amber"
+  | "jade"
+  | "mint"
+  | "slate";
+
 export interface WorkspaceState {
   lastOpenedPath?: string;
   openTabs?: TabItem[];
@@ -11,11 +21,15 @@ export interface WorkspaceState {
 
 export interface UserConfig {
   theme?: "light" | "dark" | "system";
+  accentTheme?: AccentThemeId;
+  accentInBackground?: boolean;
   fontSize?: number;
   lineHeight?: number;
   density?: "compact" | "default" | "comfortable";
 
   editorFontSize?: number;
+  editorLineHeight?: number;
+  editorTabSize?: number;
   editorWordWrap?: "on" | "off" | "wordWrapColumn" | "bounded";
   editorMinimap?: boolean;
 

@@ -113,7 +113,7 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
       {items[selectedIndex] &&
         (items[selectedIndex].detail || items[selectedIndex].documentation) && (
           <div className="w-[240px] border-l border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-900/50 p-3 overflow-y-auto aurona-scroll">
-            <div className="text-[12px] font-mono text-blue-600 dark:text-blue-400 mb-2 whitespace-pre-wrap break-all">
+            <div className="mb-2 whitespace-pre-wrap break-all font-mono text-[12px] text-[var(--AccentPrimary)]">
               {items[selectedIndex].detail}
             </div>
             <div className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap break-all">

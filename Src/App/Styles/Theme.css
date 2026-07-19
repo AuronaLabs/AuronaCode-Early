@@ -30,13 +30,23 @@
 }
 
 .aurona-tab-active {
-  background-color: var(--GlassSurface-Base);
-  backdrop-filter: blur(var(--glass-blur-base));
-  -webkit-backdrop-filter: blur(var(--glass-blur-base));
-  border-color: var(--GlassBorder);
+  background: var(--material-surface);
+  border-color: var(--border-subtle);
   color: var(--TextHighlight);
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-surface);
   z-index: 10;
+}
+
+.aurona-tabbar {
+  overflow: hidden;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+  pointer-events: auto;
+}
+
+.aurona-tabbar-scroll {
+  position: relative;
+  z-index: 1;
 }
 
 .aurona-tab:not(.aurona-tab-active):hover {
@@ -78,9 +88,10 @@
   --control-height-sm: 28px;
   --control-height-md: 32px;
   --focus-ring: 0 0 0 2px color-mix(in srgb, var(--AccentPrimary) 55%, transparent);
-  --switch-on-surface: color-mix(in srgb, var(--AccentPrimary) 24%, var(--GlassSurface-Elevated));
-  --switch-on-border: color-mix(in srgb, var(--AccentPrimary) 42%, var(--GlassBorder));
-  --switch-on-indicator: color-mix(in srgb, var(--AccentPrimary) 82%, white);
+  --switch-track-off: color-mix(in srgb, var(--material-panel) 88%, transparent);
+  --switch-track-on: color-mix(in srgb, var(--AccentPrimary) 9%, var(--material-surface));
+  --switch-thumb-surface: var(--material-overlay);
+  --switch-indicator: color-mix(in srgb, var(--TextHighlight) 74%, transparent);
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -111,7 +122,7 @@
   --TextHighlight: rgb(var(--RGB-Fg));
   --TextMuted: rgba(var(--RGB-Fg), 0.45);
   --AccentPrimary: rgb(var(--RGB-Accent));
-  --AccentHover: #3b82f6;
+  --AccentHover: color-mix(in srgb, var(--AccentPrimary) 84%, white);
   --AccentText: #ffffff;
 
   /* Light Mode Syntax Highlighting (High Contrast) */
@@ -123,12 +134,36 @@
   --SyntaxComment: #a0aec0;
   --SyntaxOperator: #4a5568;
 
-  /* A vibrant mesh gradient background so the glassmorphism pops */
+  /* The default workspace atmosphere is deliberately Aurora blue. Accent
+     palettes only replace it after the user explicitly enables background sync. */
+  --RGB-BackgroundGlow-Primary: 83, 143, 222;
+  --RGB-BackgroundGlow-Secondary: 125, 178, 234;
+  --RGB-BackgroundGlow-Tertiary: 117, 126, 220;
+  --BackgroundBase-Start: #e8f1fa;
+  --BackgroundBase-Middle: #e4ebf5;
+  --BackgroundBase-End: #dce8f2;
   --AppBackground:
-    radial-gradient(circle at 12% 14%, rgba(96, 165, 250, 0.28) 0%, transparent 38%),
-    radial-gradient(circle at 88% 18%, rgba(167, 139, 250, 0.22) 0%, transparent 40%),
-    radial-gradient(circle at 54% 96%, rgba(56, 189, 248, 0.2) 0%, transparent 46%),
-    linear-gradient(145deg, #dce7f4 0%, #e8e4f2 52%, #d7e4ef 100%);
+    radial-gradient(
+      circle at 8% 8%,
+      rgba(var(--RGB-BackgroundGlow-Primary), 0.2) 0%,
+      transparent 39%
+    ),
+    radial-gradient(
+      circle at 92% 14%,
+      rgba(var(--RGB-BackgroundGlow-Secondary), 0.14) 0%,
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(var(--RGB-BackgroundGlow-Tertiary), 0.1) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      145deg,
+      var(--BackgroundBase-Start) 0%,
+      var(--BackgroundBase-Middle) 54%,
+      var(--BackgroundBase-End) 100%
+    );
 
   --FontSizeBase: 13px;
   --TitleBarHeight: 44px;
@@ -143,6 +178,9 @@
   --TabBarHeight: calc(var(--TabActiveHeight) + 8px);
   --EditorFontSize: 14px;
   --EditorLineHeight: 24px;
+  --EditorContentInset: 8px;
+  --EditorContentInsetTop: 0px;
+  --EditorTabSize: 2;
   --EditorFontFamily: "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
 
   color-scheme: light;
@@ -192,6 +230,10 @@
   --GlassHover: rgba(255, 255, 255, calc(0.11 * var(--GlassOpacity-Multiplier)));
   --GlassActive: rgba(255, 255, 255, calc(0.17 * var(--GlassOpacity-Multiplier)));
   --GlassBorder: rgba(255, 255, 255, calc(0.07 * var(--GlassOpacity-Multiplier)));
+  --switch-track-off: color-mix(in srgb, black 28%, var(--material-panel));
+  --switch-track-on: color-mix(in srgb, var(--AccentPrimary) 11%, var(--material-surface));
+  --switch-thumb-surface: color-mix(in srgb, white 16%, var(--material-overlay));
+  --switch-indicator: rgba(255, 255, 255, 0.82);
 
   /* Editor Active Line Highlight variables */
   --EditorActiveLineBg: rgba(255, 255, 255, 0.015);
@@ -202,7 +244,7 @@
   --TextHighlight: rgb(var(--RGB-Fg));
   --TextMuted: rgba(var(--RGB-Fg), 0.4);
   --AccentPrimary: rgb(var(--RGB-Accent));
-  --AccentHover: #60a5fa;
+  --AccentHover: color-mix(in srgb, var(--AccentPrimary) 82%, white);
   --AccentText: #ffffff;
 
   --SyntaxKeyword: #f97316;
@@ -213,13 +255,209 @@
   --SyntaxComment: #64748b;
   --SyntaxOperator: #cbd5e1;
 
+  --RGB-BackgroundGlow-Primary: 42, 104, 180;
+  --RGB-BackgroundGlow-Secondary: 69, 112, 180;
+  --RGB-BackgroundGlow-Tertiary: 26, 125, 167;
+  --BackgroundBase-Start: #111a2a;
+  --BackgroundBase-Middle: #101725;
+  --BackgroundBase-End: #0d1721;
   --AppBackground:
-    radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.25) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.25) 0%, transparent 40%),
-    radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.15) 0%, transparent 60%),
-    linear-gradient(135deg, #09090b 0%, #000000 100%);
+    radial-gradient(
+      circle at 8% 8%,
+      rgba(var(--RGB-BackgroundGlow-Primary), 0.23) 0%,
+      transparent 41%
+    ),
+    radial-gradient(
+      circle at 92% 14%,
+      rgba(var(--RGB-BackgroundGlow-Secondary), 0.14) 0%,
+      transparent 44%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(var(--RGB-BackgroundGlow-Tertiary), 0.1) 0%,
+      transparent 52%
+    ),
+    linear-gradient(
+      145deg,
+      var(--BackgroundBase-Start) 0%,
+      var(--BackgroundBase-Middle) 54%,
+      var(--BackgroundBase-End) 100%
+    );
 
   color-scheme: dark;
+}
+
+/* User-selectable accent palettes. Components consume AccentPrimary instead of
+   encoding a product-wide blue, so every palette remains coherent. */
+:root[data-accent="aurora"] {
+  --RGB-Accent: 37, 99, 235;
+}
+:root[data-accent="violet"] {
+  --RGB-Accent: 124, 58, 237;
+}
+:root[data-accent="rose"] {
+  --RGB-Accent: 225, 29, 72;
+}
+:root[data-accent="coral"] {
+  --RGB-Accent: 234, 88, 12;
+}
+:root[data-accent="amber"] {
+  --RGB-Accent: 202, 138, 4;
+}
+:root[data-accent="jade"] {
+  --RGB-Accent: 5, 150, 105;
+}
+:root[data-accent="mint"] {
+  --RGB-Accent: 13, 148, 136;
+}
+:root[data-accent="slate"] {
+  --RGB-Accent: 71, 85, 105;
+}
+
+/* Background sync is opt-in. It changes the atmosphere variables rather than
+   painting a flat accent over the workbench, so each palette stays legible. */
+:root[data-accent-background="true"][data-accent="aurora"] {
+  --RGB-BackgroundGlow-Primary: 76, 137, 224;
+  --RGB-BackgroundGlow-Secondary: 118, 183, 235;
+  --RGB-BackgroundGlow-Tertiary: 110, 127, 223;
+  --BackgroundBase-Start: #e7f1fc;
+  --BackgroundBase-Middle: #e3ebf7;
+  --BackgroundBase-End: #dbe8f3;
+}
+
+:root[data-accent-background="true"][data-accent="violet"] {
+  --RGB-BackgroundGlow-Primary: 137, 104, 220;
+  --RGB-BackgroundGlow-Secondary: 183, 145, 232;
+  --RGB-BackgroundGlow-Tertiary: 112, 112, 207;
+  --BackgroundBase-Start: #f0ebfa;
+  --BackgroundBase-Middle: #ece7f5;
+  --BackgroundBase-End: #e4e3f1;
+}
+
+:root[data-accent-background="true"][data-accent="rose"] {
+  --RGB-BackgroundGlow-Primary: 226, 101, 131;
+  --RGB-BackgroundGlow-Secondary: 236, 151, 172;
+  --RGB-BackgroundGlow-Tertiary: 204, 113, 159;
+  --BackgroundBase-Start: #faecef;
+  --BackgroundBase-Middle: #f6e8ed;
+  --BackgroundBase-End: #f0e4e9;
+}
+
+:root[data-accent-background="true"][data-accent="coral"] {
+  --RGB-BackgroundGlow-Primary: 224, 126, 82;
+  --RGB-BackgroundGlow-Secondary: 239, 170, 120;
+  --RGB-BackgroundGlow-Tertiary: 215, 117, 96;
+  --BackgroundBase-Start: #fbefe9;
+  --BackgroundBase-Middle: #f7ebe5;
+  --BackgroundBase-End: #f1e6e1;
+}
+
+:root[data-accent-background="true"][data-accent="amber"] {
+  --RGB-BackgroundGlow-Primary: 212, 162, 62;
+  --RGB-BackgroundGlow-Secondary: 232, 195, 112;
+  --RGB-BackgroundGlow-Tertiary: 190, 151, 80;
+  --BackgroundBase-Start: #f9f1e4;
+  --BackgroundBase-Middle: #f4ecdf;
+  --BackgroundBase-End: #eee6da;
+}
+
+:root[data-accent-background="true"][data-accent="jade"] {
+  --RGB-BackgroundGlow-Primary: 62, 159, 122;
+  --RGB-BackgroundGlow-Secondary: 115, 188, 153;
+  --RGB-BackgroundGlow-Tertiary: 74, 144, 144;
+  --BackgroundBase-Start: #e7f3ec;
+  --BackgroundBase-Middle: #e3eee9;
+  --BackgroundBase-End: #dce9e4;
+}
+
+:root[data-accent-background="true"][data-accent="mint"] {
+  --RGB-BackgroundGlow-Primary: 52, 161, 154;
+  --RGB-BackgroundGlow-Secondary: 104, 191, 181;
+  --RGB-BackgroundGlow-Tertiary: 68, 145, 175;
+  --BackgroundBase-Start: #e4f3f1;
+  --BackgroundBase-Middle: #e1eeed;
+  --BackgroundBase-End: #d9e8e9;
+}
+
+:root[data-accent-background="true"][data-accent="slate"] {
+  --RGB-BackgroundGlow-Primary: 104, 125, 153;
+  --RGB-BackgroundGlow-Secondary: 148, 164, 183;
+  --RGB-BackgroundGlow-Tertiary: 108, 139, 164;
+  --BackgroundBase-Start: #edf0f4;
+  --BackgroundBase-Middle: #e8ecef;
+  --BackgroundBase-End: #e0e6eb;
+}
+
+.dark[data-accent-background="true"][data-accent="aurora"] {
+  --RGB-BackgroundGlow-Primary: 44, 105, 193;
+  --RGB-BackgroundGlow-Secondary: 74, 128, 199;
+  --RGB-BackgroundGlow-Tertiary: 35, 118, 161;
+  --BackgroundBase-Start: #111b2c;
+  --BackgroundBase-Middle: #101827;
+  --BackgroundBase-End: #0d1722;
+}
+
+.dark[data-accent-background="true"][data-accent="violet"] {
+  --RGB-BackgroundGlow-Primary: 112, 75, 190;
+  --RGB-BackgroundGlow-Secondary: 142, 101, 199;
+  --RGB-BackgroundGlow-Tertiary: 91, 82, 169;
+  --BackgroundBase-Start: #1b162d;
+  --BackgroundBase-Middle: #191527;
+  --BackgroundBase-End: #151322;
+}
+
+.dark[data-accent-background="true"][data-accent="rose"] {
+  --RGB-BackgroundGlow-Primary: 185, 65, 96;
+  --RGB-BackgroundGlow-Secondary: 202, 91, 116;
+  --RGB-BackgroundGlow-Tertiary: 160, 72, 119;
+  --BackgroundBase-Start: #2a151e;
+  --BackgroundBase-Middle: #25131b;
+  --BackgroundBase-End: #201117;
+}
+
+.dark[data-accent-background="true"][data-accent="coral"] {
+  --RGB-BackgroundGlow-Primary: 184, 82, 38;
+  --RGB-BackgroundGlow-Secondary: 199, 111, 60;
+  --RGB-BackgroundGlow-Tertiary: 165, 79, 57;
+  --BackgroundBase-Start: #2a1914;
+  --BackgroundBase-Middle: #251613;
+  --BackgroundBase-End: #20130f;
+}
+
+.dark[data-accent-background="true"][data-accent="amber"] {
+  --RGB-BackgroundGlow-Primary: 173, 123, 27;
+  --RGB-BackgroundGlow-Secondary: 191, 151, 53;
+  --RGB-BackgroundGlow-Tertiary: 149, 117, 47;
+  --BackgroundBase-Start: #282113;
+  --BackgroundBase-Middle: #231d11;
+  --BackgroundBase-End: #1e190f;
+}
+
+.dark[data-accent-background="true"][data-accent="jade"] {
+  --RGB-BackgroundGlow-Primary: 36, 133, 94;
+  --RGB-BackgroundGlow-Secondary: 62, 158, 117;
+  --RGB-BackgroundGlow-Tertiary: 41, 122, 123;
+  --BackgroundBase-Start: #12231d;
+  --BackgroundBase-Middle: #10201b;
+  --BackgroundBase-End: #0d1a17;
+}
+
+.dark[data-accent-background="true"][data-accent="mint"] {
+  --RGB-BackgroundGlow-Primary: 28, 133, 128;
+  --RGB-BackgroundGlow-Secondary: 51, 157, 151;
+  --RGB-BackgroundGlow-Tertiary: 35, 119, 146;
+  --BackgroundBase-Start: #112422;
+  --BackgroundBase-Middle: #0f201f;
+  --BackgroundBase-End: #0d1b1c;
+}
+
+.dark[data-accent-background="true"][data-accent="slate"] {
+  --RGB-BackgroundGlow-Primary: 79, 101, 132;
+  --RGB-BackgroundGlow-Secondary: 105, 126, 153;
+  --RGB-BackgroundGlow-Tertiary: 75, 108, 139;
+  --BackgroundBase-Start: #19212c;
+  --BackgroundBase-Middle: #161e29;
+  --BackgroundBase-End: #121923;
 }
 
 :root {

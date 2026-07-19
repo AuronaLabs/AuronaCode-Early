@@ -4,6 +4,7 @@ import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { Button } from "../../UI/Components/Button";
 import { Card } from "../../UI/Components/Card";
 import { showToast } from "../../UI/Feedback/Toast";
+import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
 import {
@@ -31,24 +32,24 @@ const BENCHMARKS: { id: BenchmarkKind; label: string; description: string }[] = 
   {
     id: "ipc",
     label: "IPC 往返",
-    description: "24 次预热后采样 120 次真实 Tauri 请求，包含 WebView 调度。",
+    description: "24 次预热后采样 120 次真实 Tauri 请求，包含 WebView 调度",
   },
   {
     id: "ui",
     label: "主线程帧调度",
-    description: "连续采样 90 帧的 requestAnimationFrame 间隔，反映当前 UI 响应压力。",
+    description: "连续采样 90 帧的 requestAnimationFrame 间隔，反映当前 UI 响应压力",
   },
   {
     id: "filesystem",
     label: "文件系统",
-    description: "临时目录内创建、读取、覆写、元数据读取、遍历与删除 320 个文件。",
+    description: "临时目录内创建、读取、覆写、元数据读取、遍历与删除 320 个文件",
   },
   {
     id: "editor",
     label: "编辑器内核",
-    description: "使用 Rust Rope 执行文档创建、快照、局部读写和批量编辑。",
+    description: "使用 Rust Rope 执行文档创建、快照、局部读写和批量编辑",
   },
-  { id: "search", label: "搜索能力", description: "对 256 个临时源码样本调用真实工作区搜索引擎。" },
+  { id: "search", label: "搜索能力", description: "对 256 个临时源码样本调用真实工作区搜索引擎" },
 ];
 const formatDuration = (nanoseconds: number) =>
   nanoseconds < 1_000
@@ -287,7 +288,7 @@ export function PerformanceBenchmarkPage() {
     if (requestId) void invokeDesktop("cancel_performance_benchmark", { requestId });
     setRunningKind(null);
     setIsRunningAll(false);
-    showToast("已停止后续采样；当前原子测试会安全结束并清理临时文件。", "info");
+    showToast("已停止后续采样；当前原子测试会安全结束并清理临时文件", "info");
   };
 
   const snapshot = useMemo<BenchmarkSnapshot>(
@@ -378,7 +379,7 @@ export function PerformanceBenchmarkPage() {
       await invokeDesktop("save_performance_baseline", { baseline: payload });
       setHistory(nextHistory);
       setBaseline(snapshot);
-      showToast("已保存本次性能记录，并加入本地版本排行榜。", "success");
+      showToast("已保存本次性能记录，并加入本地版本排行榜", "success");
     } catch (error) {
       showToast(`保存性能记录失败：${String(error)}`, "error");
     }
@@ -437,7 +438,7 @@ export function PerformanceBenchmarkPage() {
           测试仅使用本地 Rust、IPC 与临时数据路径，不访问网络、不修改工作区。后端套件预热{" "}
           {WARMUP_RUNS} 轮后采样 {SAMPLE_RUNS} 轮，并以去除最高、最低值后的平均结果作为本次记录；IPC
           与帧调度使用独立的密集采样。运行期间
-          CPU、内存、磁盘缓存和后台任务都会影响结果，因此排行榜仅比较同一硬件轮廓下保存的本地记录。
+          CPU、内存、磁盘缓存和后台任务都会影响结果，因此排行榜仅比较同一硬件轮廓下保存的本地记录
         </p>
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card className="flex flex-col gap-4 p-5">
@@ -463,9 +464,11 @@ export function PerformanceBenchmarkPage() {
                 ].map(([label, value]) => (
                   <div key={label} className="flex flex-col gap-0.5">
                     <span className="text-[var(--TextMuted)]">{label}</span>
-                    <span className="truncate font-medium text-[var(--TextPrimary)]" title={value}>
-                      {value}
-                    </span>
+                    <Tooltip content={value} placement="bottom">
+                      <span className="truncate font-medium text-[var(--TextPrimary)]">
+                        {value}
+                      </span>
+                    </Tooltip>
                   </div>
                 ))}
               </div>
@@ -497,7 +500,7 @@ export function PerformanceBenchmarkPage() {
                 </div>
               </div>
             ) : (
-              <span className="text-[12px] text-[var(--TextMuted)]">本次启动尚未记录指标。</span>
+              <span className="text-[12px] text-[var(--TextMuted)]">本次启动尚未记录指标</span>
             )}
           </Card>
         </div>
@@ -505,7 +508,7 @@ export function PerformanceBenchmarkPage() {
           <div>
             <h2 className="text-[14px] font-semibold text-[var(--TextHighlight)]">版本排行榜</h2>
             <p className="mt-1 text-[12px] text-[var(--TextMuted)]">
-              按版本号从新到旧排列。得分只反映当前设备上的相对趋势，不用于跨设备比较。
+              按版本号从新到旧排列。得分只反映当前设备上的相对趋势，不用于跨设备比较
             </p>
           </div>
           {leaderboard.length ? (
@@ -533,7 +536,7 @@ export function PerformanceBenchmarkPage() {
             </div>
           ) : (
             <span className="text-[12px] text-[var(--TextMuted)]">
-              保存一次测试结果后会出现在这里；升级到新版本后再次保存，即可形成版本对比。
+              保存一次测试结果后会出现在这里；升级到新版本后再次保存，即可形成版本对比
             </span>
           )}
         </Card>
@@ -655,7 +658,7 @@ export function PerformanceBenchmarkPage() {
                   </div>
                 ) : (
                   <div className="flex min-h-24 flex-1 items-center text-[12px] text-[var(--TextMuted)]">
-                    等待运行。结果会保留在当前页面，直到重新测试或关闭标签页。
+                    等待运行。结果会保留在当前页面，直到重新测试或关闭标签页
                   </div>
                 )}
               </Card>

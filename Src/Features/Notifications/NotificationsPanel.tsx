@@ -43,17 +43,27 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
       {}
       <div className="flex flex-col flex-1 overflow-y-auto aurona-scroll px-3 pb-4">
         {notifications.length === 0 ? (
-          <div className="flex flex-col flex-1 items-center justify-center text-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--GlassSurface-Elevated)] text-[var(--TextMuted)]">
-              <Icons.Bell size={32} stroke={1} />
+          <div className="relative flex flex-1 flex-col items-center justify-center gap-5 overflow-hidden px-5 text-center">
+            <div className="pointer-events-none absolute h-44 w-44 rounded-full bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] blur-3xl" />
+            <div className="relative">
+              <div className="absolute inset-0 scale-125 rounded-full bg-[color-mix(in_srgb,var(--AccentPrimary)_16%,transparent)] blur-xl" />
+              <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--AccentPrimary)_22%,var(--GlassBorder))] bg-[var(--GlassSurface-Elevated)] text-[var(--AccentPrimary)] shadow-[var(--shadow-surface)]">
+                <Icons.Bell size={27} stroke={1.45} />
+              </div>
             </div>
-            <div className="space-y-1">
-              <h3 className="text-[13px] font-semibold text-[var(--TextHighlight)]">暂无新通知</h3>
-              <p className="text-[11px] text-[var(--TextMuted)] leading-relaxed">
-                我们会在后台静默处理大部分任务
+            <div className="relative z-10 space-y-2">
+              <h3 className="text-[14px] font-semibold text-[var(--TextHighlight)]">
+                通知中心很安静
+              </h3>
+              <p className="text-[12px] leading-relaxed text-[var(--TextMuted)]">
+                Aurona Code 会在需要你处理时通知你
                 <br />
-                仅在必要时通知你
+                其余工作将在后台安静完成
               </p>
+            </div>
+            <div className="relative z-10 flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--AccentPrimary)_16%,var(--GlassBorder))] bg-[var(--GlassSurface-Base)] px-3 py-1 text-[11px] font-medium text-[var(--TextMuted)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--AccentPrimary)] shadow-[0_0_7px_color-mix(in_srgb,var(--AccentPrimary)_65%,transparent)]" />
+              所有通知均已查看
             </div>
           </div>
         ) : (
@@ -75,7 +85,7 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
                     ? "bg-red-500/10 text-red-500"
                     : item.type === "warning"
                       ? "bg-yellow-500/10 text-yellow-500"
-                      : "bg-blue-500/10 text-blue-500";
+                      : "bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]";
 
               return (
                 <div

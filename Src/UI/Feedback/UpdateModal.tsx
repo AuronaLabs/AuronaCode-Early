@@ -5,6 +5,7 @@ import { EventBus } from "../../Foundation/EventBus";
 import { Button } from "../Components/Button";
 import { Modal } from "../Components/Modal";
 import { Icons } from "../Icons/IconManager";
+import { MarkdownContent } from "./MarkdownContent";
 
 export function UpdateModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -63,7 +64,7 @@ export function UpdateModal() {
         if (!isUpdating) setIsOpen(false);
       }}
       title={`发现新版本 v${updateInfo.version}`}
-      icon={<Icons.Download className="text-blue-400" size={18} stroke={2} />}
+      icon={<Icons.Download className="text-[var(--AccentPrimary)]" size={18} stroke={2} />}
       footer={
         <div className="flex w-full items-center justify-between">
           <div className="text-[12px] text-[var(--TextMuted)]">
@@ -98,13 +99,8 @@ export function UpdateModal() {
         <div className="text-[13px] text-[var(--TextMuted)]">
           发布日期: {updateInfo.date ? new Date(updateInfo.date).toLocaleDateString() : "未知"}
         </div>
-        <div className="bg-[var(--GlassSurface-Elevated)] p-3 rounded-lg border border-[var(--GlassBorder)]">
-          <pre
-            className="whitespace-pre-wrap font-sans text-[13.5px] leading-relaxed text-[var(--TextPrimary)]"
-            style={{ fontFamily: "inherit" }}
-          >
-            {updateInfo.body || "本次更新包含了性能改进与错误修复。"}
-          </pre>
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] p-4 shadow-[var(--shadow-surface)]">
+          <MarkdownContent source={updateInfo.body || "本次更新包含了性能改进与错误修复。"} />
         </div>
       </div>
     </Modal>

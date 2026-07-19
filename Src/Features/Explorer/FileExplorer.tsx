@@ -9,6 +9,7 @@ import { Icons } from "../../UI/Icons/IconManager";
 import { FileTreeNode } from "./components/FileTreeNode";
 import { InlineInput } from "./components/InlineInput";
 import { ExplorerContext } from "./ExplorerContext";
+import { ExplorerDragSession } from "./ExplorerDragSession";
 import { useFileTree } from "./hooks/useFileTree";
 export type InlineCreation = {
   type: "file" | "folder";
@@ -176,12 +177,11 @@ export const FileExplorer = React.memo(function FileExplorer({
       >
         {}
         <div className="flex items-center justify-between px-[var(--PanelPaddingX)] pt-4 pb-2 shrink-0 group">
-          <h2
-            className="text-[14px] font-bold text-[var(--TextHighlight)] tracking-tight truncate mr-2 select-none"
-            title={title}
-          >
-            {title}
-          </h2>
+          <Tooltip content={title} placement="bottom">
+            <h2 className="mr-2 truncate text-[14px] font-bold tracking-tight text-[var(--TextHighlight)] select-none">
+              {title}
+            </h2>
+          </Tooltip>
           {rootNode && (
             <div className="flex items-center gap-0.5 transition-opacity">
               <Tooltip content="新建文件" placement="bottom">
@@ -258,10 +258,11 @@ export const FileExplorer = React.memo(function FileExplorer({
             }}
             onDrop={(e) => {
               e.preventDefault();
-              const src = e.dataTransfer.getData("application/x-aurona-file-node");
+              const src = ExplorerDragSession.read(e.dataTransfer);
               if (src && rootNode) {
-                handleDrop(src, rootNode.path, e.ctrlKey || e.metaKey);
+                void handleDrop(src, rootNode.path, e.ctrlKey || e.metaKey);
               }
+              ExplorerDragSession.end();
             }}
           >
             {isRootTargetForInline && inlineCreation && (

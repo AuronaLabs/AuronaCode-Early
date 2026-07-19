@@ -32,7 +32,7 @@ export function ToastContainer() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="pointer-events-auto flex items-center gap-3 bg-[var(--GlassSurface)] backdrop-blur-[var(--glass-blur-floating)] border border-[var(--GlassBorder)] rounded-xl p-3 pr-8 shadow-xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group relative max-w-sm"
+          className="pointer-events-auto relative flex max-w-sm items-center gap-3 rounded-xl border border-[var(--border-overlay)] bg-[var(--material-overlay)] p-3 pr-8 shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)] animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group"
         >
           <div
             className={`flex items-center justify-center h-8 w-8 rounded-full shrink-0 ${
@@ -42,7 +42,7 @@ export function ToastContainer() {
                   ? "bg-red-500/10 text-red-500"
                   : toast.type === "warning"
                     ? "bg-amber-500/10 text-amber-500"
-                    : "bg-blue-500/10 text-blue-500"
+                    : "bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]"
             }`}
           >
             {toast.type === "success" && <Icons.Checks size={16} />}

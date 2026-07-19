@@ -190,7 +190,7 @@ export function TitleBar() {
           <Tooltip content="发现新版本" delay={300} placement="bottom">
             <button
               type="button"
-              className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] text-blue-500 hover:text-blue-400 transition-colors mr-1 relative"
+              className="relative mr-1 flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg text-[var(--AccentPrimary)] transition-colors hover:bg-[var(--GlassHover)] hover:text-[var(--AccentHover)]"
               onClick={() => EventBus.emit("app:show-update-modal")}
             >
               <Icons.Download size={16} stroke={2} />

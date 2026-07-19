@@ -36,4 +36,14 @@ describe("TerminalService", () => {
     expect(mocks.write).toHaveBeenCalledTimes(2);
     expect(mocks.write.mock.calls.every(([id]) => id === terminal.id)).toBe(true);
   });
+
+  it("creates one default terminal for concurrent panel opens", async () => {
+    const [first, second] = await Promise.all([
+      TerminalManager.ensureDefaultTerminal(),
+      TerminalManager.ensureDefaultTerminal(),
+    ]);
+
+    expect(first.id).toBe(second.id);
+    expect(TerminalManager.getTerminals()).toHaveLength(1);
+  });
 });

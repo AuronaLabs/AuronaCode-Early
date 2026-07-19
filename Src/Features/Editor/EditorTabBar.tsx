@@ -41,133 +41,127 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
   if (tabs.length === 0) return null;
 
   return (
-    <div className="flex h-[var(--TabBarHeight)] shrink-0 overflow-x-auto overflow-y-hidden no-scrollbar items-center px-1 py-1 gap-1.5 z-20 bg-transparent">
-      {tabs.map((tab) => {
-        const isActive = activeTabId === tab.id;
-        return (
-          <ContextMenuRoot key={tab.id}>
-            <ContextMenuTrigger asChild>
-              <div
-                role="tab"
-                tabIndex={0}
-                aria-selected={isActive}
-                onClick={() => setActiveTabId(tab.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActiveTabId(tab.id);
-                  }
-                }}
-                onMouseDown={(e) => {
-                  if (e.button === 1) {
-                    e.preventDefault();
-                    closeTab(tab);
-                  }
-                }}
-                className={`aurona-tab flex items-center px-3.5 text-[13px] select-none min-w-[112px] max-w-[220px] justify-between group cursor-pointer shrink-0 ${
-                  isActive ? "aurona-tab-active" : ""
-                }`}
-              >
-                <div className="flex items-center gap-2.5 overflow-hidden min-w-0 z-10 relative">
-                  {tab.type === "file" && (
-                    <Icons.FileCode
-                      size={16}
-                      stroke={1.5}
-                      className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
-                    />
-                  )}
-                  {tab.type === "about" && (
-                    <Icons.Info
-                      size={16}
-                      stroke={1.5}
-                      className={`shrink-0 ${isActive ? "text-blue-500" : ""}`}
-                    />
-                  )}
-                  {tab.type === "settings" && (
-                    <Icons.Settings
-                      size={16}
-                      stroke={1.5}
-                      className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
-                    />
-                  )}
-                  {tab.type === "changelog" && (
-                    <Icons.FileText
-                      size={16}
-                      stroke={1.5}
-                      className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
-                    />
-                  )}
-                  {tab.type === "performance" && (
-                    <Icons.History
-                      size={16}
-                      stroke={1.5}
-                      className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
-                    />
-                  )}
-                  {tab.type === "diff" && (
-                    <Icons.GitBranch
-                      size={16}
-                      stroke={1.5}
-                      className={`shrink-0 ${isActive ? "text-purple-400" : ""}`}
-                    />
-                  )}
-                  <span
-                    className={`truncate tracking-wide pt-0.5 ${
-                      tab.isDirty ? "italic font-medium" : ""
-                    } ${isActive ? "text-[var(--TextHighlight)] font-medium" : "text-[var(--TextMuted)] group-hover:text-[var(--TextNormal)]"}`}
-                  >
-                    {tab.title}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className={`ml-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] transition-all z-10 relative ${
-                    isActive || tab.isDirty ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                  } ${isActive ? "text-[var(--TextHighlight)]" : "text-[var(--TextMuted)]"}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    closeTab(tab);
+    <div className="aurona-tabbar h-[var(--TabBarHeight)] shrink-0">
+      <div className="aurona-tabbar-scroll flex h-[var(--TabBarHeight)] items-center gap-1.5 overflow-x-auto overflow-y-hidden px-1 py-1 no-scrollbar">
+        {tabs.map((tab) => {
+          const isActive = activeTabId === tab.id;
+          return (
+            <ContextMenuRoot key={tab.id}>
+              <ContextMenuTrigger asChild>
+                <div
+                  role="tab"
+                  tabIndex={0}
+                  aria-selected={isActive}
+                  onClick={() => setActiveTabId(tab.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setActiveTabId(tab.id);
+                    }
                   }}
-                  aria-label={tab.isDirty ? "未保存，关闭标签" : "关闭标签"}
+                  onMouseDown={(e) => {
+                    if (e.button === 1) {
+                      e.preventDefault();
+                      closeTab(tab);
+                    }
+                  }}
+                  className={`aurona-tab flex items-center px-3.5 text-[13px] select-none min-w-[112px] max-w-[220px] justify-between group cursor-pointer shrink-0 ${
+                    isActive ? "aurona-tab-active" : ""
+                  }`}
                 >
-                  {tab.isDirty ? (
-                    <>
-                      <span className="h-2 w-2 rounded-full bg-[var(--TextHighlight)] group-hover:hidden" />
-                      <Icons.Close size={14} stroke={2} className="hidden group-hover:block" />
-                    </>
-                  ) : (
-                    <Icons.Close size={14} stroke={2} />
-                  )}
-                </button>
-              </div>
-            </ContextMenuTrigger>
+                  <div className="flex items-center gap-2.5 overflow-hidden min-w-0 z-10 relative">
+                    {tab.type === "file" && (
+                      <Icons.FileCode
+                        size={16}
+                        stroke={1.5}
+                        className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
+                      />
+                    )}
+                    {tab.type === "about" && (
+                      <Icons.Info size={16} stroke={1.5} className="shrink-0" />
+                    )}
+                    {tab.type === "settings" && (
+                      <Icons.Settings
+                        size={16}
+                        stroke={1.5}
+                        className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
+                      />
+                    )}
+                    {tab.type === "changelog" && (
+                      <Icons.FileText
+                        size={16}
+                        stroke={1.5}
+                        className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
+                      />
+                    )}
+                    {tab.type === "performance" && (
+                      <Icons.History
+                        size={16}
+                        stroke={1.5}
+                        className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
+                      />
+                    )}
+                    {tab.type === "diff" && (
+                      <Icons.GitBranch size={16} stroke={1.5} className="shrink-0" />
+                    )}
+                    <span
+                      className={`truncate tracking-wide pt-0.5 ${
+                        tab.isDirty ? "italic font-medium" : ""
+                      } ${isActive ? "text-[var(--TextHighlight)] font-medium" : "text-[var(--TextMuted)] group-hover:text-[var(--TextPrimary)]"}`}
+                    >
+                      {tab.title}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className={`ml-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] transition-all z-10 relative ${
+                      isActive || tab.isDirty ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                    } ${isActive ? "text-[var(--TextHighlight)]" : "text-[var(--TextMuted)]"}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeTab(tab);
+                    }}
+                    aria-label={tab.isDirty ? "未保存，关闭标签" : "关闭标签"}
+                  >
+                    {tab.isDirty ? (
+                      <>
+                        <span className="h-2 w-2 rounded-full bg-[var(--TextHighlight)] group-hover:hidden" />
+                        <Icons.Close size={14} stroke={2} className="hidden group-hover:block" />
+                      </>
+                    ) : (
+                      <Icons.Close size={14} stroke={2} />
+                    )}
+                  </button>
+                </div>
+              </ContextMenuTrigger>
 
-            <ContextMenuContent>
-              <ContextMenuItem label="关闭当前" onSelect={() => handleCloseCurrent(tab.id)} />
-              <ContextMenuItem label="关闭右侧" onSelect={() => handleCloseToRight(tab.id)} />
-              <ContextMenuDivider />
-              <ContextMenuItem label="关闭全部" variant="danger" onSelect={handleCloseAll} />
-              {tab.type === "file" && tab.path && (
-                <>
-                  <ContextMenuDivider />
-                  <ContextMenuItem
-                    label="复制路径"
-                    onSelect={() => {
-                      navigator.clipboard.writeText(tab.path as string);
-                    }}
-                  />
-                  <ContextMenuItem
-                    label="在资源管理器中显示"
-                    onSelect={() => {
-                      EventBus.emit("app:reveal-in-explorer", tab.path as string);
-                    }}
-                  />
-                </>
-              )}
-            </ContextMenuContent>
-          </ContextMenuRoot>
-        );
-      })}
+              <ContextMenuContent>
+                <ContextMenuItem label="关闭当前" onSelect={() => handleCloseCurrent(tab.id)} />
+                <ContextMenuItem label="关闭右侧" onSelect={() => handleCloseToRight(tab.id)} />
+                <ContextMenuDivider />
+                <ContextMenuItem label="关闭全部" variant="danger" onSelect={handleCloseAll} />
+                {tab.type === "file" && tab.path && (
+                  <>
+                    <ContextMenuDivider />
+                    <ContextMenuItem
+                      label="复制路径"
+                      onSelect={() => {
+                        navigator.clipboard.writeText(tab.path as string);
+                      }}
+                    />
+                    <ContextMenuItem
+                      label="在资源管理器中显示"
+                      onSelect={() => {
+                        EventBus.emit("app:reveal-in-explorer", tab.path as string);
+                      }}
+                    />
+                  </>
+                )}
+              </ContextMenuContent>
+            </ContextMenuRoot>
+          );
+        })}
+      </div>
     </div>
   );
 });

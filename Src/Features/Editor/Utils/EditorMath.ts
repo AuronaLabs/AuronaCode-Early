@@ -1,3 +1,5 @@
+import { snapToGraphemeBoundary } from "./EditorLayoutMetrics";
+
 export interface DiagnosticItem {
   range: {
     start: { line: number; character: number };
@@ -97,7 +99,12 @@ export function segmentLine(
     }
   });
 
-  const breakpoints = Array.from(breakpointsSet).sort((a, b) => a - b);
+  // Highlight, search and diagnostic protocols use UTF-16 offsets. Normalize
+  // every visual split so a token never tears an emoji or a combining cluster
+  // into separately measured DOM spans.
+  const breakpoints = Array.from(
+    new Set(Array.from(breakpointsSet, (point) => snapToGraphemeBoundary(lineText, point))),
+  ).sort((a, b) => a - b);
 
   // 2. 线性扫描拆分
   const segments: TextSegment[] = [];
