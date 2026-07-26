@@ -20,6 +20,7 @@ async function collect(directory) {
 }
 
 const violations = [];
+const languageServerViolations = [];
 for (const file of await collect(sourceRoot)) {
   const path = relative(sourceRoot, file).split(sep).join("/");
   if (allowedPrefixes.some((prefix) => path.startsWith(prefix))) continue;
@@ -27,11 +28,19 @@ for (const file of await collect(sourceRoot)) {
   if (content.includes('from "@tauri-apps/') || content.includes("from '@tauri-apps/")) {
     violations.push(path);
   }
+  if (!path.startsWith("Foundation/IPC/") && /\b(?:invokeDesktop|listenDesktop)\b[\s\S]*?["']lsp(?:_|:\/\/)/.test(content)) {
+    languageServerViolations.push(path);
+  }
 }
 
 assert.deepEqual(
   violations,
   [],
   `Direct Tauri imports must stay inside Src/Foundation/Desktop:\n${violations.join("\n")}`,
+);
+assert.deepEqual(
+  languageServerViolations,
+  [],
+  `LSP desktop commands must stay inside typed Foundation/IPC clients:\n${languageServerViolations.join("\n")}`,
 );
 console.log(`Desktop boundary check passed for ${relative(root, sourceRoot)}.`);

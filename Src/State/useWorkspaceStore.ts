@@ -192,6 +192,11 @@ export async function initializeWorkbenchStore(): Promise<() => void> {
         store.setPendingCloseTab(null);
       }
     }),
+    EventBus.on("editor:reveal-location", ({ path, line }) => {
+      const store = useWorkbenchStore.getState();
+      store.openFile(path);
+      store.requestReveal(path, line);
+    }),
   ];
   return () => {
     for (const unsubscribe of subscriptions) unsubscribe();

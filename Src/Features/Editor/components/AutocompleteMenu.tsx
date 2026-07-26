@@ -6,6 +6,25 @@ export interface CompletionItem {
   detail?: string;
   documentation?: string | { value: string };
   insertText?: string;
+  insertTextFormat?: number;
+  sortText?: string;
+  filterText?: string;
+  commitCharacters?: string[];
+  textEdit?: {
+    range: {
+      start: { line: number; character: number };
+      end: { line: number; character: number };
+    };
+    newText: string;
+  };
+  additionalTextEdits?: Array<{
+    range: {
+      start: { line: number; character: number };
+      end: { line: number; character: number };
+    };
+    newText: string;
+  }>;
+  data?: unknown;
 }
 
 import { cn } from "../../../Shared/Utils/cn";

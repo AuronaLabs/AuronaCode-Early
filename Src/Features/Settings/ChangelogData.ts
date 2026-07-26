@@ -12,9 +12,54 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.3.2",
+    date: "2026-07-26",
+    isLatest: true,
+    summary:
+      "0.3.2 收紧编辑器、文档与语言服务的职责边界，建立可观察、可测试的 LSP 主链路；本版本不引入插件系统，也不把未通过真实运行验收的能力标记为完成。",
+    sections: [
+      {
+        title: "核心服务边界",
+        description: "让文档、工作区与命令从组件状态中独立出来。",
+        items: [
+          "**统一文档模型**：打开、编辑、保存、关闭与语言服务同步共享同一 revision 和文档记录。",
+          "**运行时工作区模型**：单文件与工作区模式使用 roots 模型，为后续多根工作区保留清晰接口。",
+          "**统一命令入口**：语言功能、快捷键和 Fliuno 复用同一命令 ID，并展示禁用原因。",
+        ],
+      },
+      {
+        title: "语言服务底层",
+        description: "重建进程、协议与生命周期边界。",
+        items: [
+          "**可靠消息解码**：Content-Length 支持分包、粘包、大小限制和非法输入错误。",
+          "**完整 JSON-RPC 路由**：处理响应、错误、通知、服务器请求、超时和取消。",
+          "**可观察生命周期**：记录状态、能力、PID、stderr、最近错误，并支持停止与重启。",
+        ],
+      },
+      {
+        title: "P0 语言体验",
+        description: "把语言能力接入真实编辑流程，而不是提供占位按钮。",
+        items: [
+          "**编辑器语言功能**：接入 diagnostics、completion、hover、definition、references、symbols、rename、formatting 与 code actions。",
+          "**过期结果保护**：补全与悬浮请求支持 debounce、取消和文档上下文校验。",
+          "**变更安全**：格式化和 WorkspaceEdit 检测重叠编辑，重命名在提交前展示文件与修改数量。",
+        ],
+      },
+      {
+        title: "状态、日志与质量",
+        description: "让失败可见、可定位，并明确尚未完成的验收。",
+        items: [
+          "**Problems 与 Output**：诊断按文件呈现，日志按 channel 切换并限制内存历史、脱敏敏感字段。",
+          "**语言服务状态**：状态栏展示启动、运行、停止、失败和重启状态，提供日志与管理命令。",
+          "**真实完成度**：DAP 继续受 P1 gate 约束；Rust/Tauri 与真实语言服务器流程必须在 MSVC 环境恢复后验收。",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.3.1",
     date: "2026-07-19",
-    isLatest: true,
+    isLatest: false,
     summary:
       "0.3.1 将发布后的高频反馈收敛为更准确的编辑、更完整的工作流与更统一的桌面质感：不扩张大型功能，而是让每天都会触达的细节真正可靠、清晰且一致。",
     sections: [

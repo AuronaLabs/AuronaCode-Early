@@ -38,7 +38,7 @@ const currentEntry = changelog
   ?.split(/\n\s*\{\n\s*version: "V/)[0];
 assert.ok(currentEntry, "Current changelog entry must be readable");
 const currentSectionCount = [...currentEntry.matchAll(/^\s{8}title:/gm)].length;
-assert.equal(currentSectionCount, 4, "0.3.1 changelog must contain exactly four sections");
+assert.equal(currentSectionCount, 4, "current changelog must contain exactly four sections");
 assert.equal(
   currentSectionCount % 2,
   0,

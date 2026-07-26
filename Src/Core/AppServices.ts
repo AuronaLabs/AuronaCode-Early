@@ -1,3 +1,4 @@
+import { LspClient } from "../Features/Editor/LspClient";
 import { RecoveryCoordinator } from "../Features/Editor/Model/RecoveryCoordinator";
 import { desktopWindow } from "../Foundation/Desktop";
 import { WorkspaceStore } from "../Foundation/Storage/WorkspaceStore";
@@ -5,6 +6,9 @@ import { initializeEditorStore } from "../State/useEditorStore";
 import { initializeTerminalStore } from "../State/useTerminalStore";
 import { initializeWorkbenchStore } from "../State/useWorkspaceStore";
 import { registerWorkbenchCommands } from "./Commands";
+import { DocumentService } from "./DocumentService";
+import { OutputService } from "./OutputService";
+import { WorkspaceService } from "./WorkspaceService";
 
 let startPromise: Promise<void> | null = null;
 let disposers: (() => void)[] = [];
@@ -16,6 +20,8 @@ async function initializeCloseProtection(): Promise<() => void> {
     if (destroying) return;
     event.preventDefault();
     await RecoveryCoordinator.flushAll();
+    await DocumentService.closeAll(true);
+    await LspClient.shutdownCurrent();
     destroying = true;
     await desktopWindow.destroy();
   });
@@ -29,6 +35,8 @@ export const AppServices = {
     if (startPromise) return startPromise;
     startPromise = (async () => {
       const disposeWorkbench = await initializeWorkbenchStore();
+      await WorkspaceService.initialize();
+      OutputService.append("core", "Application services initialized");
       if (!shouldBeStarted || disposers.length > 0) {
         disposeWorkbench();
         return;

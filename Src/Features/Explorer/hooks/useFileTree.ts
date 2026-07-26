@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type FileNode, FileSystemService } from "../../../Core/FileSystemService";
+import { WorkspaceService } from "../../../Core/WorkspaceService";
 import { desktopDialog, desktopFileSystem } from "../../../Foundation/Desktop";
 import { EventBus } from "../../../Foundation/EventBus";
 import { WorkspaceStore } from "../../../Foundation/Storage/WorkspaceStore";
@@ -85,7 +86,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         isOpen: true,
         children,
       });
-      WorkspaceStore.set({ lastOpenedPath: selectedPath });
+      await WorkspaceService.openRoot(selectedPath);
       EventBus.emit("workspace:root-changed", selectedPath);
     } catch (error) {
       showToast(`打开文件夹失败：${FileSystemService.toMessage(error)}`, "error");

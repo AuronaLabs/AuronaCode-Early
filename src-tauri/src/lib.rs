@@ -1,4 +1,5 @@
 mod commands;
+mod content_length;
 mod editor;
 mod lsp;
 mod performance;
@@ -19,9 +20,7 @@ pub fn run() {
         .manage(editor::EditorState::new())
         .manage(performance::PerformanceState::new())
         .manage(search::SearchState::new())
-        .manage(LspState {
-            clients: tokio::sync::Mutex::new(std::collections::HashMap::new()),
-        })
+        .manage(LspState::new())
         .invoke_handler(tauri::generate_handler![
             commands::git::git_check_is_repo,
             commands::git::git_init,
@@ -55,9 +54,13 @@ pub fn run() {
             performance::save_performance_baseline,
             commands::lsp_cmds::lsp_start,
             commands::lsp_cmds::lsp_file_uri,
+            commands::lsp_cmds::lsp_status,
+            commands::lsp_cmds::lsp_stop,
+            commands::lsp_cmds::lsp_restart,
             commands::lsp_cmds::lsp_stop_all,
             commands::lsp_cmds::lsp_did_open,
             commands::lsp_cmds::lsp_did_change,
+            commands::lsp_cmds::lsp_did_save,
             commands::lsp_cmds::lsp_did_close,
             commands::lsp_cmds::lsp_call,
             commands::lsp_cmds::lsp_call_with_id,

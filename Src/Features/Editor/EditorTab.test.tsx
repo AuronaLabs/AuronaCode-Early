@@ -19,6 +19,8 @@ vi.mock("../../Foundation/Desktop", () => ({
   DesktopError: class DesktopError extends Error {
     code = "desktop_error";
   },
+  invokeDesktop: vi.fn(async () => undefined),
+  listenDesktop: vi.fn(async () => () => undefined),
 }));
 vi.mock("../../Core/FileSystemService", () => ({
   FileSystemService: {

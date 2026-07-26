@@ -22,8 +22,10 @@ export interface CommandDefinition<Args = undefined> {
   id: string;
   title: string;
   category: string;
+  source?: "core" | "user";
   handler: (args: Args, context: CommandContext) => void | Promise<void>;
   canExecute?: ContextPredicate;
+  disabledReason?: (context: CommandContext) => string | undefined;
   when?: ContextPredicate;
   keybindings?: Keybinding[];
   placements?: CommandPlacement[];
@@ -96,6 +98,15 @@ class CommandRegistryImpl {
     return (
       (!command.when || command.when(context)) &&
       (!command.canExecute || command.canExecute(context))
+    );
+  }
+
+  getDisabledReason(command: CommandDefinition<unknown>): string | undefined {
+    const context = this.contextProvider();
+    if (command.when && !command.when(context)) return "当前上下文不适用";
+    return (
+      command.disabledReason?.(context) ??
+      (command.canExecute && !command.canExecute(context) ? "当前不可用" : undefined)
     );
   }
 

@@ -1,12 +1,23 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { DiagnosticsService } from "../Core/DiagnosticsService";
+import { LanguageConfigurationService } from "../Core/LanguageConfigurationService";
+import {
+  type LanguageCodeAction,
+  LanguageFeatureService,
+  type WorkspaceEdit,
+  type WorkspaceEditPreview,
+} from "../Core/LanguageFeatureService";
+import { type OutputChannelId, OutputService } from "../Core/OutputService";
 import { TerminalManager } from "../Core/TerminalService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EditorTabBar } from "../Features/Editor/EditorTabBar";
+import { LspClient } from "../Features/Editor/LspClient";
 import { RecoveryCoordinator } from "../Features/Editor/Model/RecoveryCoordinator";
 import { AboutTab } from "../Features/Settings/AboutTab";
 import { ChangelogTab } from "../Features/Settings/ChangelogTab";
 import { PerformanceBenchmarkPage } from "../Features/Settings/PerformanceBenchmarkPage";
 import { SettingsTab } from "../Features/Settings/SettingsTab";
+import { EventBus } from "../Foundation/EventBus";
 import type { TabItem } from "../Foundation/Types/Tab";
 import {
   SIDEBAR_EXPLORER,
@@ -15,7 +26,6 @@ import {
   SIDEBAR_SEARCH,
   SIDEBAR_SOURCE_CONTROL,
 } from "../Shared/Constants/Sidebar";
-import { useEditorStore } from "../State/useEditorStore";
 import { useTerminalStore } from "../State/useTerminalStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
 import { Button } from "../UI/Components/Button";
@@ -27,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "../UI/Components/DropdownMenu";
 import { Modal } from "../UI/Components/Modal";
+import { Select } from "../UI/Components/Select";
 import { Tooltip } from "../UI/Feedback/Tooltip";
 import { Icons } from "../UI/Icons/IconManager";
 
@@ -106,6 +117,7 @@ export function WorkspaceView() {
     openFile,
     closeTabById,
     pendingReveal,
+    requestReveal,
     clearPendingReveal,
   } = useWorkbenchStore();
 
@@ -123,8 +135,76 @@ export function WorkspaceView() {
     setEditingName,
   } = useTerminalStore();
 
-  const { editorStatus } = useEditorStore();
   const [terminalStartupError, setTerminalStartupError] = useState<string | null>(null);
+  const [diagnosticsRevision, setDiagnosticsRevision] = useState(DiagnosticsService.getRevision());
+  const [outputRevision, setOutputRevision] = useState(0);
+  const [activeOutputChannel, setActiveOutputChannel] =
+    useState<OutputChannelId>("language-server");
+  const [renameRequest, setRenameRequest] = useState<{
+    path: string;
+    language: string;
+    line: number;
+    character: number;
+  } | null>(null);
+  const [renameName, setRenameName] = useState("");
+  const [renamePreview, setRenamePreview] = useState<WorkspaceEditPreview | null>(null);
+  const [renameEdit, setRenameEdit] = useState<WorkspaceEdit | null>(null);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [renameBusy, setRenameBusy] = useState(false);
+  const [codeActionLanguage, setCodeActionLanguage] = useState<string | null>(null);
+  const [codeActions, setCodeActions] = useState<LanguageCodeAction[] | null>(null);
+  const [codeActionError, setCodeActionError] = useState<string | null>(null);
+  const [trustRequest, setTrustRequest] = useState<{ root: string; language: string } | null>(null);
+
+  useEffect(
+    () =>
+      DiagnosticsService.subscribe(() => setDiagnosticsRevision(DiagnosticsService.getRevision())),
+    [],
+  );
+  useEffect(() => EventBus.on("workspace:trust-request", setTrustRequest), []);
+  useEffect(
+    () =>
+      EventBus.on("language:code-actions-request", (request) => {
+        setCodeActionLanguage(request.language);
+        setCodeActions([]);
+        setCodeActionError(null);
+        void LanguageFeatureService.getCodeActions(
+          request.path,
+          request.language,
+          request.line,
+          request.character,
+        )
+          .then(setCodeActions)
+          .catch((error) => {
+            setCodeActions(null);
+            setCodeActionError(error instanceof Error ? error.message : String(error));
+          });
+      }),
+    [],
+  );
+  useEffect(() => OutputService.subscribe(() => setOutputRevision((value) => value + 1)), []);
+  useEffect(
+    () =>
+      EventBus.on("language:rename-request", (request) => {
+        setRenameRequest(request);
+        setRenameName("");
+        setRenamePreview(null);
+        setRenameEdit(null);
+        setRenameError(null);
+      }),
+    [],
+  );
+
+  const problems = DiagnosticsService.getAll().flatMap((document) =>
+    document.diagnostics.map((diagnostic, index) => ({
+      ...diagnostic,
+      uri: document.uri,
+      key: `${document.uri}-${diagnostic.source ?? "aurona"}-${diagnostic.range.start.line}-${diagnostic.range.start.character}-${index}`,
+    })),
+  );
+  const outputChannel = OutputService.getChannel(activeOutputChannel);
+  void diagnosticsRevision;
+  void outputRevision;
 
   const ensureTerminal = useCallback(async () => {
     setTerminalStartupError(null);
@@ -284,10 +364,7 @@ export function WorkspaceView() {
               {(["problems", "output", "terminal"] as const).map((tabId) => {
                 const labels = { problems: "问题", output: "输出", terminal: "终端" };
                 const isActive = activeBottomPanel === tabId;
-                const count =
-                  tabId === "problems" && editorStatus.markers?.length
-                    ? editorStatus.markers.length
-                    : null;
+                const count = tabId === "problems" && problems.length ? problems.length : null;
                 return (
                   <button
                     type="button"
@@ -511,31 +588,41 @@ export function WorkspaceView() {
 
             {activeBottomPanel === "problems" && (
               <div className="absolute inset-0 p-3 flex flex-col items-start gap-1 overflow-y-auto no-scrollbar">
-                {editorStatus.markers && editorStatus.markers.length > 0 ? (
-                  editorStatus.markers.map((marker) => (
-                    <div
-                      key={`${marker.source ?? "aurona"}-${marker.line}-${marker.column}-${marker.message}`}
-                      className="flex gap-2 items-start text-left hover:bg-[var(--GlassHover)] w-full p-2 rounded-lg cursor-pointer selectable transition-colors"
-                    >
-                      <div
-                        className={`mt-0.5 shrink-0 flex items-center justify-center p-0.5 rounded ${
-                          marker.severity === "error"
-                            ? "bg-red-500/10 text-red-500"
-                            : "bg-orange-500/10 text-orange-500"
-                        }`}
+                {problems.length > 0 ? (
+                  problems.map((problem) => {
+                    const path = fileUriToPath(problem.uri);
+                    return (
+                      <button
+                        type="button"
+                        key={problem.key}
+                        onClick={() => {
+                          if (!path) return;
+                          openFile(path);
+                          requestReveal(path, problem.range.start.line + 1);
+                        }}
+                        className="flex gap-2 items-start text-left hover:bg-[var(--GlassHover)] w-full p-2 rounded-lg cursor-pointer selectable transition-colors"
                       >
-                        <Icons.AlertTriangle size={14} stroke={2} />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-[13px] font-medium text-[var(--TextHighlight)] whitespace-pre-wrap">
-                          {marker.message}
-                        </span>
-                        <span className="text-[11px] text-[var(--TextMuted)] mt-0.5 font-mono">
-                          [{marker.source || "aurona"}] Ln {marker.line}, Col {marker.column}
-                        </span>
-                      </div>
-                    </div>
-                  ))
+                        <div
+                          className={`mt-0.5 shrink-0 flex items-center justify-center p-0.5 rounded ${
+                            problem.severity === 1
+                              ? "bg-red-500/10 text-red-500"
+                              : "bg-orange-500/10 text-orange-500"
+                          }`}
+                        >
+                          <Icons.AlertTriangle size={14} stroke={2} />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[13px] font-medium text-[var(--TextHighlight)] whitespace-pre-wrap">
+                            {problem.message}
+                          </span>
+                          <span className="text-[11px] text-[var(--TextMuted)] mt-0.5 font-mono">
+                            {path ?? problem.uri} · [{problem.source || "aurona"}] Ln{" "}
+                            {problem.range.start.line + 1}, Col {problem.range.start.character + 1}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })
                 ) : (
                   <div className="flex flex-col items-center justify-center w-full h-full gap-2 opacity-50">
                     <Icons.Checks size={32} stroke={1} />
@@ -546,8 +633,54 @@ export function WorkspaceView() {
             )}
 
             {activeBottomPanel === "output" && (
-              <div className="absolute inset-0 p-3 font-mono text-[13px] text-[var(--TextMuted)] overflow-y-auto no-scrollbar">
-                {}
+              <div className="absolute inset-0 flex flex-col font-mono text-[12px] text-[var(--TextMuted)]">
+                <div className="flex shrink-0 items-center gap-2 border-b border-[var(--GlassBorder)] px-3 py-1.5">
+                  <Select
+                    ariaLabel="输出来源"
+                    value={activeOutputChannel}
+                    onChange={(value) => setActiveOutputChannel(value as OutputChannelId)}
+                    options={OutputService.getChannels().map((channel) => ({
+                      value: channel.id,
+                      label: channel.label,
+                    }))}
+                    className="h-7 min-w-[150px] rounded-lg font-sans text-[12px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => OutputService.clear(activeOutputChannel)}
+                    className="rounded-lg px-2 py-1 hover:bg-[var(--GlassHover)]"
+                  >
+                    清空
+                  </button>
+                  <span className="ml-auto text-[10px] opacity-70">
+                    {outputChannel.entries.length} 条 · {(outputChannel.bytes / 1024).toFixed(1)}{" "}
+                    KiB
+                  </span>
+                </div>
+                <div className="flex-1 overflow-y-auto p-3 no-scrollbar">
+                  {outputChannel.entries.length ? (
+                    outputChannel.entries.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className={
+                          entry.level === "error"
+                            ? "text-red-500"
+                            : entry.level === "warn"
+                              ? "text-amber-500"
+                              : ""
+                        }
+                      >
+                        <span className="opacity-60">{entry.timestamp}</span>{" "}
+                        <span className="uppercase opacity-80">[{entry.level}]</span>{" "}
+                        <span className="whitespace-pre-wrap">{entry.message}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex h-full items-center justify-center opacity-50">
+                      此输出通道暂无内容
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -585,6 +718,181 @@ export function WorkspaceView() {
       >
         <strong>{pendingCloseTab?.title}</strong> 还有未保存的更改关闭后，这些更改会丢失
       </Modal>
+      <Modal
+        isOpen={renameRequest !== null}
+        onClose={() => setRenameRequest(null)}
+        title="重命名符号"
+        icon={<Icons.Typography size={18} />}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setRenameRequest(null)}>
+              取消
+            </Button>
+            {renamePreview && renameEdit ? (
+              <Button
+                variant="primary"
+                disabled={renameBusy}
+                onClick={async () => {
+                  setRenameBusy(true);
+                  setRenameError(null);
+                  try {
+                    await LanguageFeatureService.applyWorkspaceEdit(renameEdit);
+                    setRenameRequest(null);
+                  } catch (error) {
+                    setRenameError(error instanceof Error ? error.message : String(error));
+                  } finally {
+                    setRenameBusy(false);
+                  }
+                }}
+              >
+                {renameBusy ? "正在应用..." : `确认修改 ${renamePreview.totalEdits} 处`}
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                disabled={!renameName.trim() || renameBusy}
+                onClick={async () => {
+                  if (!renameRequest) return;
+                  setRenameBusy(true);
+                  setRenameError(null);
+                  try {
+                    const result = await LanguageFeatureService.previewRename(
+                      renameRequest.path,
+                      renameRequest.language,
+                      renameRequest.line,
+                      renameRequest.character,
+                      renameName.trim(),
+                    );
+                    setRenameEdit(result.edit);
+                    setRenamePreview(result.preview);
+                  } catch (error) {
+                    setRenameError(error instanceof Error ? error.message : String(error));
+                  } finally {
+                    setRenameBusy(false);
+                  }
+                }}
+              >
+                {renameBusy ? "正在检查..." : "预览修改"}
+              </Button>
+            )}
+          </>
+        }
+      >
+        <div className="space-y-3">
+          {!renamePreview && (
+            <input
+              value={renameName}
+              onChange={(event) => setRenameName(event.target.value)}
+              placeholder="输入新名称"
+              className="h-9 w-full rounded-lg border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] px-3 text-[13px] text-[var(--TextPrimary)] outline-none focus:border-[var(--AccentPrimary)]"
+            />
+          )}
+          {renamePreview && (
+            <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl bg-[var(--GlassSurface-Elevated)] p-2">
+              {renamePreview.files.map((file) => (
+                <div
+                  key={file.uri}
+                  className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-[12px]"
+                >
+                  <span className="min-w-0 truncate font-mono">{fileUriToPath(file.uri)}</span>
+                  <span className="shrink-0 text-[var(--TextMuted)]">{file.editCount} 处修改</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {renameError && <div className="text-[12px] text-red-500">{renameError}</div>}
+        </div>
+      </Modal>
+      <Modal
+        isOpen={codeActionLanguage !== null}
+        onClose={() => setCodeActionLanguage(null)}
+        title="代码操作"
+        icon={<Icons.Sparkles size={18} />}
+      >
+        <div className="max-h-72 space-y-1 overflow-y-auto">
+          {codeActionError && <div className="p-3 text-[12px] text-red-500">{codeActionError}</div>}
+          {codeActions?.length === 0 && !codeActionError && (
+            <div className="p-6 text-center text-[12px] text-[var(--TextMuted)]">
+              当前光标位置没有可用操作
+            </div>
+          )}
+          {codeActions?.map((action) => (
+            <button
+              type="button"
+              key={`${action.title}-${action.kind ?? ""}-${action.command?.command ?? JSON.stringify(action.edit ?? {})}`}
+              disabled={Boolean(action.disabled)}
+              aria-label={
+                action.disabled ? `${action.title}：${action.disabled.reason}` : action.title
+              }
+              onClick={async () => {
+                if (!codeActionLanguage) return;
+                try {
+                  await LanguageFeatureService.applyCodeAction(codeActionLanguage, action);
+                  setCodeActionLanguage(null);
+                } catch (error) {
+                  setCodeActionError(error instanceof Error ? error.message : String(error));
+                }
+              }}
+              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[13px] hover:bg-[var(--GlassHover)] disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              <span>{action.title}</span>
+              <span className="text-[10px] text-[var(--TextMuted)]">
+                {action.disabled?.reason ?? action.kind ?? "action"}
+              </span>
+            </button>
+          ))}
+        </div>
+      </Modal>
+      <Modal
+        isOpen={trustRequest !== null}
+        onClose={() => setTrustRequest(null)}
+        title="信任工作区语言服务器"
+        icon={<Icons.AlertTriangle size={18} className="text-amber-500" />}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setTrustRequest(null)}>
+              不信任
+            </Button>
+            <Button
+              variant="primary"
+              onClick={async () => {
+                if (!trustRequest) return;
+                const request = trustRequest;
+                await LanguageConfigurationService.trust(request.root);
+                setTrustRequest(null);
+                await LspClient.getInstance()
+                  .startServer(request.language)
+                  .catch(() => undefined);
+              }}
+            >
+              信任并启动
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-2 text-[13px] leading-relaxed text-[var(--TextPrimary)]">
+          <p>此工作区包含自定义语言服务器配置，启动后会执行本机程序。</p>
+          <p className="rounded-lg bg-[var(--GlassSurface-Elevated)] p-2 font-mono text-[11px]">
+            {trustRequest?.root}
+          </p>
+          <p className="text-[12px] text-[var(--TextMuted)]">
+            仅在你信任此项目来源时继续。环境变量值不会写入输出日志。
+          </p>
+        </div>
+      </Modal>
     </div>
   );
+}
+
+function fileUriToPath(uri: string): string | null {
+  if (!uri.startsWith("file:")) return null;
+  try {
+    const url = new URL(uri);
+    let path = decodeURIComponent(url.pathname);
+    if (/^\/[A-Za-z]:\//.test(path)) path = path.slice(1);
+    if (url.host) path = `//${url.host}${path}`;
+    return path.replace(/\//g, "\\");
+  } catch {
+    return null;
+  }
 }

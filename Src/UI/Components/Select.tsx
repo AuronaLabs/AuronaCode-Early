@@ -14,12 +14,14 @@ interface SelectProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  ariaLabel?: string;
 }
 
-export function Select({ options, value, onChange, className }: SelectProps) {
+export function Select({ options, value, onChange, className, ariaLabel }: SelectProps) {
   return (
     <SelectPrimitive.Root value={value} onValueChange={onChange}>
       <SelectPrimitive.Trigger
+        aria-label={ariaLabel}
         data-aurona-component-focus="true"
         className={cn(
           glassVariants({ layer: "elevated" }),

@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { DocumentService } from "../../Core/DocumentService";
 import { FileSystemService } from "../../Core/FileSystemService";
 import { DesktopError } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
-import { EditorIPC } from "../../Foundation/IPC/EditorCommands";
 import { isBinaryExtension } from "../../Shared/Constants/FileTypes";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
 import { showToast } from "../../UI/Feedback/Toast";
@@ -62,11 +62,11 @@ export const EditorTab = React.memo(function EditorTab({
       setIsBinaryWarning(false);
       setLoadError(null);
       setSyncError(null);
-      EditorIPC.clearSyncError(filePath);
+      DocumentService.clearSyncError(filePath);
       setIsEditorReady(false);
-      const snapshot = await EditorIPC.open(filePath);
-      const content = snapshot.text;
-      setDiskFingerprint(snapshot.diskFingerprint);
+      const document = await DocumentService.open(filePath);
+      const content = document.content;
+      setDiskFingerprint(document.diskFingerprint);
       setPendingRecovery(await RecoveryStore.load(filePath));
       setFileContent(content);
       setSavedContent(content);
@@ -104,7 +104,7 @@ export const EditorTab = React.memo(function EditorTab({
     const saving = (async () => {
       try {
         setIsSaving(true);
-        const response = await EditorIPC.save(path);
+        const response = await DocumentService.save(path);
         setDiskFingerprint(response.diskFingerprint);
         savedContentRef.current = contentCheckpoint;
         setSavedContent(contentCheckpoint);
@@ -141,7 +141,13 @@ export const EditorTab = React.memo(function EditorTab({
   const handleRestoreRecovery = useCallback(async () => {
     if (!pendingRecovery) return;
     try {
-      await EditorIPC.applyEdit(path, 0, contentRef.current.length, pendingRecovery.text);
+      await DocumentService.applyEdit(
+        path,
+        0,
+        contentRef.current.length,
+        pendingRecovery.text,
+        pendingRecovery.text,
+      );
       contentRef.current = pendingRecovery.text;
       setFileContent(pendingRecovery.text);
       setPendingRecovery(null);
@@ -161,8 +167,8 @@ export const EditorTab = React.memo(function EditorTab({
       RecoveryCoordinator.update(path, contentRef.current, diskFingerprint, true);
       await RecoveryCoordinator.flush(path);
       setIsEditorReady(false);
-      await EditorIPC.close(path, true);
-      EditorIPC.clearSyncError(path);
+      await DocumentService.close(path, true);
+      DocumentService.clearSyncError(path);
       setSyncError(null);
       await loadContent(path, true);
       setEditorKey((key) => key + 1);
@@ -194,7 +200,7 @@ export const EditorTab = React.memo(function EditorTab({
   useEffect(() => {
     return () => {
       RecoveryCoordinator.unregister(path);
-      void EditorIPC.close(path, true).catch(console.error);
+      void DocumentService.close(path, true).catch(console.error);
     };
   }, [path]);
 

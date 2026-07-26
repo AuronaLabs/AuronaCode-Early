@@ -39,6 +39,20 @@ export interface EventMap {
   "editor:dirty-set": { path: string };
   "editor:dirty-cleared": { path: string };
   "editor:file-saved": { path: string };
+  "editor:reveal-location": { path: string; line: number };
+  "language:rename-request": {
+    path: string;
+    language: string;
+    line: number;
+    character: number;
+  };
+  "language:code-actions-request": {
+    path: string;
+    language: string;
+    line: number;
+    character: number;
+  };
+  "workspace:trust-request": { root: string; language: string };
 
   "file:renamed": { oldPath: string; newPath: string };
   "file:deleted": { path: string; isDirectory: boolean };

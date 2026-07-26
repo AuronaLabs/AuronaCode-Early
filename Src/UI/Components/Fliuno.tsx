@@ -217,7 +217,9 @@ export function Fliuno() {
                     </span>
                   </span>
                   {!enabled && (
-                    <span className="text-[9px] text-[var(--TextMuted)]">当前不可用</span>
+                    <span className="max-w-40 truncate text-[9px] text-[var(--TextMuted)]">
+                      {CommandRegistry.getDisabledReason(command) ?? "当前不可用"}
+                    </span>
                   )}
                   {formatKeybinding(command) && (
                     <kbd className="rounded-md border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--TextMuted)]">

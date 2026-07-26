@@ -23,7 +23,11 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("../Foundation/Storage/WorkspaceStore", () => ({
-  WorkspaceStore: { flush: mocks.flush },
+  WorkspaceStore: {
+    get: vi.fn(async () => ({})),
+    set: vi.fn(async () => undefined),
+    flush: mocks.flush,
+  },
 }));
 vi.mock("../State/useWorkspaceStore", () => ({
   initializeWorkbenchStore: mocks.initializeWorkbenchStore,

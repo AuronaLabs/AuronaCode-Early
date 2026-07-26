@@ -19,9 +19,9 @@ interface EditorLineProps {
   selection: { start: { line: number; char: number }; end: { line: number; char: number } } | null;
   isDragging: boolean;
   setHoverTooltip: (val: { x: number; y: number; text: string } | null) => void;
-  hoverTooltip: { x: number; y: number; text: string } | null;
   onMouseDown: (idx: number, e: React.MouseEvent<HTMLButtonElement>) => void;
   onMouseLeave: () => void;
+  onLanguageHover: (line: number, character: number, x: number, y: number) => void;
   textIndexAtPoint: (
     idx: number,
     element: HTMLButtonElement,
@@ -47,9 +47,9 @@ export const EditorLine = React.memo(function EditorLine({
   selection,
   isDragging,
   setHoverTooltip,
-  hoverTooltip,
   onMouseDown,
   onMouseLeave,
+  onLanguageHover,
   textIndexAtPoint,
   registerLineElement,
   isComposing,
@@ -152,8 +152,8 @@ export const EditorLine = React.memo(function EditorLine({
       );
       if (diag) {
         setHoverTooltip({ x: e.clientX, y: e.clientY + 20, text: diag.message });
-      } else if (hoverTooltip) {
-        setHoverTooltip(null);
+      } else {
+        onLanguageHover(idx, charIndex, e.clientX, e.clientY + 20);
       }
     }
   };

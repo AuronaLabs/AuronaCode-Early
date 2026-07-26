@@ -8,7 +8,7 @@ interface RecoveryDocumentState {
   diskFingerprint: string;
   generation: number;
   persistedGeneration: number;
-  timer: ReturnType<typeof window.setTimeout> | null;
+  timer: number | null;
 }
 
 const documents = new Map<string, RecoveryDocumentState>();

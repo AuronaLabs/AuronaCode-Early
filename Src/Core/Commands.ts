@@ -1,9 +1,13 @@
 import { type CommandContext, CommandRegistry } from "../Extension/CommandRegistry";
 import { EditorAdapter } from "../Features/Editor/EditorAdapter";
+import { LspClient, type LspFeature } from "../Features/Editor/LspClient";
 import { invokeDesktop } from "../Foundation/Desktop";
 import { EventBus } from "../Foundation/EventBus";
 import { handleSmartRun } from "../Shared/Constants/RunConfig";
+import { useEditorStore } from "../State/useEditorStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
+import { LanguageFeatureService } from "./LanguageFeatureService";
+import { OutputService } from "./OutputService";
 
 const context = (): CommandContext => {
   const state = useWorkbenchStore.getState();
@@ -29,6 +33,33 @@ const context = (): CommandContext => {
 };
 
 export function registerWorkbenchCommands(): () => void {
+  const languageFeatureAvailable = (feature: LspFeature) => (current: CommandContext) => {
+    if (!current.hasActiveEditor) return false;
+    return LspClient.getInstance().supports(
+      useEditorStore.getState().editorStatus.language,
+      feature,
+    );
+  };
+  const languageFeatureReason = (feature: LspFeature) => (current: CommandContext) => {
+    if (!current.hasActiveEditor) return "没有活动编辑器";
+    const status = useEditorStore.getState().editorStatus;
+    const server = LspClient.getInstance().getState(status.language);
+    if (!server) return "当前语言未配置服务器";
+    if (server.status !== "running") return `语言服务器状态：${server.status}`;
+    return LspClient.getInstance().supports(status.language, feature)
+      ? undefined
+      : "当前服务器不支持此能力";
+  };
+  const activeLanguageLocation = (current: CommandContext) => {
+    const status = useEditorStore.getState().editorStatus;
+    if (!current.activeFilePath) throw new Error("没有活动文件");
+    return {
+      path: current.activeFilePath,
+      language: status.language,
+      line: Math.max(0, status.line - 1),
+      character: Math.max(0, status.column - 1),
+    };
+  };
   const disposers = [
     CommandRegistry.setContextProvider(context),
     CommandRegistry.register({
@@ -88,6 +119,130 @@ export function registerWorkbenchCommands(): () => void {
         handler: () => EditorAdapter.executeAction(action),
       }),
     ),
+    CommandRegistry.register({
+      id: "editor.action.goToDefinition",
+      title: "转到定义",
+      category: "语言服务",
+      source: "core",
+      keybindings: [{ key: "F12" }],
+      canExecute: languageFeatureAvailable("definition"),
+      disabledReason: languageFeatureReason("definition"),
+      handler: async (_args, current) => {
+        const location = activeLanguageLocation(current);
+        await LanguageFeatureService.goToDefinition(
+          location.path,
+          location.language,
+          location.line,
+          location.character,
+        );
+      },
+    }),
+    CommandRegistry.register({
+      id: "editor.action.findReferences",
+      title: "查找所有引用",
+      category: "语言服务",
+      source: "core",
+      keybindings: [{ key: "F12", shift: true }],
+      canExecute: languageFeatureAvailable("references"),
+      disabledReason: languageFeatureReason("references"),
+      handler: async (_args, current) => {
+        const location = activeLanguageLocation(current);
+        await LanguageFeatureService.findReferences(
+          location.path,
+          location.language,
+          location.line,
+          location.character,
+        );
+        useWorkbenchStore.getState().setActiveBottomPanel("output");
+      },
+    }),
+    CommandRegistry.register({
+      id: "editor.action.formatDocument",
+      title: "格式化文档",
+      category: "语言服务",
+      source: "core",
+      keybindings: [{ key: "f", primary: true, shift: true }],
+      canExecute: languageFeatureAvailable("formatting"),
+      disabledReason: languageFeatureReason("formatting"),
+      handler: async (_args, current) => {
+        const location = activeLanguageLocation(current);
+        await LanguageFeatureService.formatDocument(location.path, location.language);
+      },
+    }),
+    CommandRegistry.register({
+      id: "editor.action.rename",
+      title: "重命名符号",
+      category: "语言服务",
+      source: "core",
+      keybindings: [{ key: "F2" }],
+      canExecute: languageFeatureAvailable("rename"),
+      disabledReason: languageFeatureReason("rename"),
+      handler: (_args, current) => {
+        const location = activeLanguageLocation(current);
+        EventBus.emit("language:rename-request", location);
+      },
+    }),
+    CommandRegistry.register({
+      id: "editor.action.codeAction",
+      title: "显示代码操作",
+      category: "语言服务",
+      source: "core",
+      keybindings: [{ key: ".", primary: true }],
+      canExecute: languageFeatureAvailable("codeAction"),
+      disabledReason: languageFeatureReason("codeAction"),
+      handler: (_args, current) => {
+        EventBus.emit("language:code-actions-request", activeLanguageLocation(current));
+      },
+    }),
+    CommandRegistry.register({
+      id: "editor.action.documentSymbols",
+      title: "显示文档符号",
+      category: "语言服务",
+      source: "core",
+      canExecute: languageFeatureAvailable("documentSymbols"),
+      disabledReason: languageFeatureReason("documentSymbols"),
+      handler: async (_args, current) => {
+        const location = activeLanguageLocation(current);
+        const symbols = await LspClient.getInstance().getDocumentSymbols(
+          location.language,
+          location.path,
+        );
+        OutputService.append(
+          "language-server",
+          `Document symbols for ${location.path}\n${JSON.stringify(symbols, null, 2)}`,
+        );
+        useWorkbenchStore.getState().setActiveBottomPanel("output");
+      },
+    }),
+    CommandRegistry.register({
+      id: "workbench.action.languageServer.restart",
+      title: "重启当前语言服务器",
+      category: "语言服务",
+      source: "core",
+      canExecute: (current) => current.hasActiveEditor,
+      handler: async () => {
+        await LspClient.getInstance().restartServer(
+          useEditorStore.getState().editorStatus.language,
+        );
+      },
+    }),
+    CommandRegistry.register({
+      id: "workbench.action.languageServer.stop",
+      title: "停止当前语言服务器",
+      category: "语言服务",
+      source: "core",
+      canExecute: (current) => current.hasActiveEditor,
+      handler: async () => {
+        await LspClient.getInstance().stopServer(useEditorStore.getState().editorStatus.language);
+      },
+    }),
+    CommandRegistry.register({
+      id: "workbench.action.languageServer.openLog",
+      title: "打开语言服务器输出",
+      category: "语言服务",
+      source: "core",
+      handler: () => useWorkbenchStore.getState().setActiveBottomPanel("output"),
+    }),
     CommandRegistry.register({
       id: "workbench.action.togglePanel",
       title: "切换底部面板",

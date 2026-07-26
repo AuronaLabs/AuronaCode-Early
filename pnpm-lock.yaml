@@ -92,7 +92,7 @@ importers:
         version: 2.5.4
       '@tailwindcss/vite':
         specifier: ^4.3.1
-        version: 4.3.2(vite@7.3.6(jiti@2.7.0)(lightningcss@1.32.0))
+        version: 4.3.2(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0))
       '@tauri-apps/cli':
         specifier: ^2.9.3
         version: 2.11.4
@@ -113,10 +113,13 @@ importers:
         version: 19.2.3(@types/react@19.2.17)
       '@vitejs/plugin-react':
         specifier: ^5.1.2
-        version: 5.2.0(vite@7.3.6(jiti@2.7.0)(lightningcss@1.32.0))
+        version: 5.2.0(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0))
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
+      pyright:
+        specifier: ^1.1.411
+        version: 1.1.411
       strip-comments:
         specifier: ^2.0.1
         version: 2.0.1
@@ -126,15 +129,18 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      typescript-language-server:
+        specifier: ^4.4.1
+        version: 4.4.1
       vite:
         specifier: ^7.2.7
-        version: 7.3.6(jiti@2.7.0)(lightningcss@1.32.0)
+        version: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)
       vite-node:
         specifier: ^3.2.4
-        version: 3.2.4(jiti@2.7.0)(lightningcss@1.32.0)
+        version: 3.2.4(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)
       vitest:
         specifier: ^3.2.4
-        version: 3.2.7(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
+        version: 3.2.7(@types/node@24.13.3)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
 packages:
 
@@ -1250,6 +1256,9 @@ packages:
     resolution: {integrity: sha512-77hF2dGBsOgnvZll1vymYiNUtqJ8cJfXPD6GG/2M0aLRc29PkvB7Au6sIDjIEFcSICBhCh2+Pyq6WSRS7LUm6A==}
     deprecated: This is a stub types definition. highlight.js provides its own type definitions, so you do not need this installed.
 
+  '@types/node@24.13.3':
+    resolution: {integrity: sha512-Dh8vAsV36ig5wa9OX4pXvMc9D3Veibfw2wix0CUwYODLD8nkj9UsLjASr49nPg+2eKzxhBV+v7L8pXvT4e639Q==}
+
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
     peerDependencies:
@@ -1663,6 +1672,11 @@ packages:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
 
+  pyright@1.1.411:
+    resolution: {integrity: sha512-03S/vmS5lF1S/tVbKc2WNXCMq8JWCwta/qIYjj1jvqbQhoy+N3NgBzHTSmUlbYD6DJwqQ5XHf108QujoqeURvw==}
+    engines: {node: '>=14.0.0'}
+    hasBin: true
+
   react-dom@19.2.7:
     resolution: {integrity: sha512-t0BRVXvbiE/o20Hfw669rLbMCDWtYZLvmJigy2f0MxsXF+71pxhR3xOkspmsO8h3ZlNzyibAmtCa3l4lYKk6gQ==}
     peerDependencies:
@@ -1812,10 +1826,18 @@ packages:
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
+  typescript-language-server@4.4.1:
+    resolution: {integrity: sha512-vEvDw+cjY75afMN2rhx0z8sQtFDAUHoBniksBmB6NUZlDt0rEIwQq01VMiqyXFm9uZwcED2475cmDeXxoDHleg==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
     engines: {node: '>=14.17'}
     hasBin: true
+
+  undici-types@7.18.2:
+    resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
   update-browserslist-db@1.2.3:
     resolution: {integrity: sha512-Js0m9cx+qOgDxo0eMiFGEueWztz+d4+M3rGlmKPT+T4IS/jP4ylw3Nwpu6cpTTP8R1MAC1kF4VbdLt3ARf209w==}
@@ -1915,6 +1937,20 @@ packages:
         optional: true
       jsdom:
         optional: true
+
+  vscode-jsonrpc@5.0.1:
+    resolution: {integrity: sha512-JvONPptw3GAQGXlVV2utDcHx0BiY34FupW/kI6mZ5x06ER5DdPG/tXWMVHjTNULF5uKPOUUD0SaXg5QaubJL0A==}
+    engines: {node: '>=8.0.0 || >=10.0.0'}
+
+  vscode-jsonrpc@9.0.1:
+    resolution: {integrity: sha512-rfuA6T75H6m5EkbhtEPzre9pT0HPcDI2MMy4+nPFIBks5J8JBAUHD4tRYSgaBOijIEC7SRkC1kKyXTLqbmh9jw==}
+    engines: {node: '>=14.0.0'}
+
+  vscode-languageserver-protocol@3.18.2:
+    resolution: {integrity: sha512-XRyDbT0Pp3sSNti3JmxVEUMySWCSi1hhM+/KUlCy1hV1zmrqpM1OwO12EAki8blhmLuIMpaJrYbo0OzGVfK2Qg==}
+
+  vscode-languageserver-types@3.18.0:
+    resolution: {integrity: sha512-8TsGPNMIMiiBdkORgRSvLjuiEIiAFtO+KssmYWxQ+uSVvlf7RjK8YKCOjPzZ+YA04jXEV7+7LvkSmHkhpNS99g==}
 
   w3c-xmlserializer@5.0.0:
     resolution: {integrity: sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA==}
@@ -2781,12 +2817,12 @@ snapshots:
       '@tailwindcss/oxide-win32-arm64-msvc': 4.3.2
       '@tailwindcss/oxide-win32-x64-msvc': 4.3.2
 
-  '@tailwindcss/vite@4.3.2(vite@7.3.6(jiti@2.7.0)(lightningcss@1.32.0))':
+  '@tailwindcss/vite@4.3.2(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0))':
     dependencies:
       '@tailwindcss/node': 4.3.2
       '@tailwindcss/oxide': 4.3.2
       tailwindcss: 4.3.2
-      vite: 7.3.6(jiti@2.7.0)(lightningcss@1.32.0)
+      vite: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)
 
   '@tauri-apps/api@2.11.1': {}
 
@@ -2919,6 +2955,11 @@ snapshots:
     dependencies:
       highlight.js: 11.11.1
 
+  '@types/node@24.13.3':
+    dependencies:
+      undici-types: 7.18.2
+    optional: true
+
   '@types/react-dom@19.2.3(@types/react@19.2.17)':
     dependencies:
       '@types/react': 19.2.17
@@ -2927,7 +2968,7 @@ snapshots:
     dependencies:
       csstype: 3.2.3
 
-  '@vitejs/plugin-react@5.2.0(vite@7.3.6(jiti@2.7.0)(lightningcss@1.32.0))':
+  '@vitejs/plugin-react@5.2.0(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0))':
     dependencies:
       '@babel/core': 7.29.7
       '@babel/plugin-transform-react-jsx-self': 7.29.7(@babel/core@7.29.7)
@@ -2935,7 +2976,7 @@ snapshots:
       '@rolldown/pluginutils': 1.0.0-rc.3
       '@types/babel__core': 7.20.5
       react-refresh: 0.18.0
-      vite: 7.3.6(jiti@2.7.0)(lightningcss@1.32.0)
+      vite: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -2947,13 +2988,13 @@ snapshots:
       chai: 5.3.3
       tinyrainbow: 2.0.0
 
-  '@vitest/mocker@3.2.7(vite@7.3.6(jiti@2.7.0)(lightningcss@1.32.0))':
+  '@vitest/mocker@3.2.7(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0))':
     dependencies:
       '@vitest/spy': 3.2.7
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 7.3.6(jiti@2.7.0)(lightningcss@1.32.0)
+      vite: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)
 
   '@vitest/pretty-format@3.2.7':
     dependencies:
@@ -3296,6 +3337,10 @@ snapshots:
 
   punycode@2.3.1: {}
 
+  pyright@1.1.411:
+    optionalDependencies:
+      fsevents: 2.3.3
+
   react-dom@19.2.7(react@19.2.7):
     dependencies:
       react: 19.2.7
@@ -3439,7 +3484,15 @@ snapshots:
 
   tslib@2.8.1: {}
 
+  typescript-language-server@4.4.1:
+    dependencies:
+      vscode-jsonrpc: 5.0.1
+      vscode-languageserver-protocol: 3.18.2
+
   typescript@5.9.3: {}
+
+  undici-types@7.18.2:
+    optional: true
 
   update-browserslist-db@1.2.3(browserslist@4.28.6):
     dependencies:
@@ -3462,13 +3515,13 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.17
 
-  vite-node@3.2.4(jiti@2.7.0)(lightningcss@1.32.0):
+  vite-node@3.2.4(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0):
     dependencies:
       cac: 6.7.14
       debug: 4.4.3
       es-module-lexer: 1.7.0
       pathe: 2.0.3
-      vite: 7.3.6(jiti@2.7.0)(lightningcss@1.32.0)
+      vite: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)
     transitivePeerDependencies:
       - '@types/node'
       - jiti
@@ -3483,7 +3536,7 @@ snapshots:
       - tsx
       - yaml
 
-  vite@7.3.6(jiti@2.7.0)(lightningcss@1.32.0):
+  vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0):
     dependencies:
       esbuild: 0.28.1
       fdir: 6.5.0(picomatch@4.0.5)
@@ -3492,15 +3545,16 @@ snapshots:
       rollup: 4.62.2
       tinyglobby: 0.2.17
     optionalDependencies:
+      '@types/node': 24.13.3
       fsevents: 2.3.3
       jiti: 2.7.0
       lightningcss: 1.32.0
 
-  vitest@3.2.7(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0):
+  vitest@3.2.7(@types/node@24.13.3)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.7
-      '@vitest/mocker': 3.2.7(vite@7.3.6(jiti@2.7.0)(lightningcss@1.32.0))
+      '@vitest/mocker': 3.2.7(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0))
       '@vitest/pretty-format': 3.2.7
       '@vitest/runner': 3.2.7
       '@vitest/snapshot': 3.2.7
@@ -3518,10 +3572,11 @@ snapshots:
       tinyglobby: 0.2.17
       tinypool: 1.1.1
       tinyrainbow: 2.0.0
-      vite: 7.3.6(jiti@2.7.0)(lightningcss@1.32.0)
-      vite-node: 3.2.4(jiti@2.7.0)(lightningcss@1.32.0)
+      vite: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)
+      vite-node: 3.2.4(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
+      '@types/node': 24.13.3
       jsdom: 26.1.0
     transitivePeerDependencies:
       - jiti
@@ -3536,6 +3591,17 @@ snapshots:
       - terser
       - tsx
       - yaml
+
+  vscode-jsonrpc@5.0.1: {}
+
+  vscode-jsonrpc@9.0.1: {}
+
+  vscode-languageserver-protocol@3.18.2:
+    dependencies:
+      vscode-jsonrpc: 9.0.1
+      vscode-languageserver-types: 3.18.0
+
+  vscode-languageserver-types@3.18.0: {}
 
   w3c-xmlserializer@5.0.0:
     dependencies:

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { DocumentService } from "../../Core/DocumentService";
+import { applyLspTextEdits } from "../../Core/Language/TextEdits";
 import { EventBus } from "../../Foundation/EventBus";
-import { EditorIPC } from "../../Foundation/IPC/EditorCommands";
 import type { EditorAction } from "../../Foundation/Types/Editor";
 import {
   ContextMenuContent,
@@ -150,12 +151,17 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const [completions, setCompletions] = useState<CompletionItem[]>([]);
   const [completionIndex, setCompletionIndex] = useState(0);
   const [completionPos, setCompletionPos] = useState({ x: 0, y: 0 });
+  const completionTimerRef = useRef<number | null>(null);
+  const completionRequestRef = useRef<number | null>(null);
+  const completionSequenceRef = useRef(1);
 
   // 诊断与 tooltip
   const [diagnostics, setDiagnostics] = useState<DiagnosticItem[]>([]);
   const [hoverTooltip, setHoverTooltip] = useState<{ x: number; y: number; text: string } | null>(
     null,
   );
+  const hoverTimerRef = useRef<number | null>(null);
+  const hoverGenerationRef = useRef(0);
 
   const { pushHistory, resetHistory, undo, redo } = useEditorHistory("");
   const documentLoadedRef = useRef(false);
@@ -163,8 +169,20 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
   useEffect(() => {
     if (!path || !onSyncError) return;
-    return EditorIPC.onSyncError(path, onSyncError);
+    return DocumentService.onSyncError(path, onSyncError);
   }, [onSyncError, path]);
+
+  useEffect(
+    () => () => {
+      if (completionTimerRef.current !== null) {
+        window.clearTimeout(completionTimerRef.current);
+      }
+      if (completionRequestRef.current !== null) {
+        void LspClient.getInstance().cancelRequest(language, completionRequestRef.current);
+      }
+    },
+    [language],
+  );
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -338,7 +356,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     const requestId = `${path}:${startLine}:${endLine}:${Date.now()}`;
     latestLargeHighlightRequestRef.current = requestId;
     const timer = window.setTimeout(() => {
-      EditorIPC.getLines(path, startLine, endLine)
+      DocumentService.getLines(path, startLine, endLine)
         .then((response) => {
           if (latestLargeHighlightRequestRef.current !== requestId) return;
           const lines = response.lines;
@@ -374,7 +392,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   }, []);
 
   // ==========================================
-  // 【LSP 与文档加载生命周期】
+  // 【文档投影加载生命周期】
   // ==========================================
   useEffect(() => {
     if (path) return;
@@ -393,7 +411,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
   useEffect(() => {
     if (!path) return;
-    let isMounted = true;
     const content = value.replace(/\r\n/g, "\n");
     const lines = content.split("\n");
     setDocumentLines(lines);
@@ -403,21 +420,10 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     lastHistoryContentRef.current = content;
     documentLoadedRef.current = true;
 
-    const lsp = LspClient.getInstance();
-    lsp
-      .startServer(language)
-      .then(() => {
-        if (!isMounted) return;
-        lsp.didOpen(language, path, content).catch(console.error);
-      })
-      .catch(console.error);
-
     return () => {
-      isMounted = false;
       documentLoadedRef.current = false;
-      LspClient.getInstance().didClose(language, path).catch(console.error);
     };
-  }, [path, language, resetHistory, updateMaxLineLength, value.replace]);
+  }, [path, resetHistory, updateMaxLineLength, value]);
 
   useEffect(() => {
     if (!documentLoadedRef.current) return;
@@ -518,61 +524,95 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       const lineText = lines[lineIndex] || "";
       const prefixMatch = lineText.substring(0, charIndex).match(/[a-zA-Z0-9_]*$/);
       const prefix = prefixMatch ? prefixMatch[0] : "";
-
-      const reqId = Date.now();
-      LspClient.getInstance()
-        .getCompletions(language, path, lineIndex, charIndex, reqId)
-        .then((res) => {
-          let items: CompletionItem[] = [];
-          if (Array.isArray(res)) items = res;
-          else if (res?.items) items = res.items;
-
-          if (items.length > 0 && prefix.length > 0) {
+      const expectedContent = lines.join("\n");
+      if (completionTimerRef.current !== null) {
+        window.clearTimeout(completionTimerRef.current);
+      }
+      if (completionRequestRef.current !== null) {
+        void LspClient.getInstance().cancelRequest(language, completionRequestRef.current);
+      }
+      completionTimerRef.current = window.setTimeout(() => {
+        completionTimerRef.current = null;
+        const requestId = completionSequenceRef.current++;
+        completionRequestRef.current = requestId;
+        void DocumentService.flush(path)
+          .then(() =>
+            LspClient.getInstance().getCompletions(language, path, lineIndex, charIndex, requestId),
+          )
+          .then((response) => {
+            if (
+              completionRequestRef.current !== requestId ||
+              DocumentService.get(path)?.content !== expectedContent
+            ) {
+              return;
+            }
+            const rawItems = Array.isArray(response) ? response : (response?.items ?? []);
+            const items = rawItems
+              .filter((item) => {
+                const candidate = item.filterText ?? item.label;
+                return !prefix || candidate.toLowerCase().startsWith(prefix.toLowerCase());
+              })
+              .sort((left, right) =>
+                (left.sortText ?? left.label).localeCompare(right.sortText ?? right.label),
+              )
+              .slice(0, 100);
+            if (!items.length) {
+              setCompletions([]);
+              return;
+            }
             const y = layout.contentInsetTop + (lineIndex + 1) * layout.lineHeight - scrollTop + 10;
             const scrollLeft = containerRef.current?.scrollLeft || 0;
-            const x = caretPos.x - scrollLeft;
-            setCompletionPos({ x, y });
-            setCompletions(items.slice(0, 30));
+            setCompletionPos({ x: caretPos.x - scrollLeft, y });
+            setCompletions(items);
             setCompletionIndex(0);
-          } else {
-            setCompletions([]);
-          }
-        })
-        .catch(() => setCompletions([]));
+          })
+          .catch(() => {
+            if (completionRequestRef.current === requestId) setCompletions([]);
+          })
+          .finally(() => {
+            if (completionRequestRef.current === requestId) {
+              completionRequestRef.current = null;
+            }
+          });
+      }, 120);
     },
     [caretPos.x, language, layout, path, scrollTop],
   );
 
   const handleAutocompleteSelect = (index: number) => {
     const item = completions[index];
-    if (!item) return;
-
-    const lines = [...documentLines];
+    if (!item || !path) return;
+    const content = documentLines.join("\n");
     const { line, char } = cursor;
-    const lineText = lines[line];
-
-    const prefixMatch = lineText.substring(0, char).match(/[a-zA-Z0-9_]*$/);
-    const prefix = prefixMatch ? prefixMatch[0] : "";
-
-    const insertText = item.insertText || item.label;
-    const startUtf16 = getLineStartUtf16(lines, line) + char - prefix.length;
-    const endUtf16 = getLineStartUtf16(lines, line) + char;
-
-    const nextText =
-      lineText.substring(0, char - prefix.length) + insertText + lineText.substring(char);
-    lines[line] = nextText;
-
-    setDocumentLines(lines);
-    setCursor({ line, char: char - prefix.length + insertText.length });
-    setCompletions([]);
-
-    if (path) {
-      EditorIPC.applyEdit(path, startUtf16, endUtf16, insertText).catch(console.error);
-      LspClient.getInstance().didChange(language, path, lines.join("\n"));
+    const lineText = documentLines[line] ?? "";
+    const prefix = lineText.substring(0, char).match(/[a-zA-Z0-9_]*$/)?.[0] ?? "";
+    const rawText = item.textEdit?.newText ?? item.insertText ?? item.label;
+    const insertText = item.insertTextFormat === 2 ? expandSnippet(rawText) : rawText;
+    const mainEdit = item.textEdit
+      ? { ...item.textEdit, newText: insertText }
+      : {
+          range: {
+            start: { line, character: char - prefix.length },
+            end: { line, character: char },
+          },
+          newText: insertText,
+        };
+    try {
+      const applied = applyLspTextEdits(content, [mainEdit, ...(item.additionalTextEdits ?? [])]);
+      const lines = applied.content.split("\n");
+      setDocumentLines(lines);
+      setTotalLines(lines.length);
+      setCursor({
+        line: mainEdit.range.start.line,
+        char: mainEdit.range.start.character + insertText.length,
+      });
+      setCompletions([]);
+      DocumentService.applyEdits(path, applied.documentEdits, applied.content).catch(console.error);
+      updateMaxLineLength(lines);
+      onChange?.(applied.content);
+    } catch {
+      setCompletions([]);
     }
-
-    updateMaxLineLength(lines);
-    onChange?.(lines.join("\n"));
   };
 
   // 6. 编辑行为与文本处理
@@ -611,8 +651,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
     setDocumentLines(lines);
     if (path) {
-      EditorIPC.applyEdit(path, startUtf16, endUtf16, "").catch(console.error);
-      LspClient.getInstance().didChange(language, path, lines.join("\n"));
+      DocumentService.applyEdit(path, startUtf16, endUtf16, "", lines.join("\n")).catch(
+        console.error,
+      );
     }
 
     setSelection(null);
@@ -637,12 +678,13 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       setCompletions([]);
 
       if (path) {
-        EditorIPC.applyEdit(path, 0, previousContent.length, content).catch(console.error);
-        LspClient.getInstance().didChange(language, path, content);
+        DocumentService.applyEdit(path, 0, previousContent.length, content, content).catch(
+          console.error,
+        );
       }
       onChange?.(content);
     },
-    [documentLines, language, onChange, path, updateMaxLineLength],
+    [documentLines, onChange, path, updateMaxLineLength],
   );
 
   const handleUndo = useCallback(() => {
@@ -699,8 +741,13 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         setCursor(targetCursor);
 
         if (path) {
-          EditorIPC.applyEdit(path, editStartUtf16, editEndUtf16, text).catch(console.error);
-          LspClient.getInstance().didChange(language, path, lines.join("\n"));
+          DocumentService.applyEdit(
+            path,
+            editStartUtf16,
+            editEndUtf16,
+            text,
+            lines.join("\n"),
+          ).catch(console.error);
           triggerAutocomplete(lines, targetCursor.line, targetCursor.char);
         }
       } else {
@@ -730,8 +777,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         setCursor(targetCursor);
 
         if (path) {
-          EditorIPC.applyEdit(path, startUtf16, startUtf16, text).catch(console.error);
-          LspClient.getInstance().didChange(language, path, lines.join("\n"));
+          DocumentService.applyEdit(path, startUtf16, startUtf16, text, lines.join("\n")).catch(
+            console.error,
+          );
           triggerAutocomplete(lines, targetCursor.line, targetCursor.char);
         }
       }
@@ -740,16 +788,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       setTotalLines(lines.length);
       onChange?.(lines.join("\n"));
     },
-    [
-      cursor,
-      documentLines,
-      language,
-      onChange,
-      path,
-      selection,
-      triggerAutocomplete,
-      updateMaxLineLength,
-    ],
+    [cursor, documentLines, onChange, path, selection, triggerAutocomplete, updateMaxLineLength],
   );
 
   // 支持选区删除
@@ -766,13 +805,14 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setSelection(null);
 
     if (path) {
-      EditorIPC.applyEdit(path, startUtf16, endUtf16, "").catch(console.error);
-      LspClient.getInstance().didChange(language, path, deletion.lines.join("\n"));
+      DocumentService.applyEdit(path, startUtf16, endUtf16, "", deletion.lines.join("\n")).catch(
+        console.error,
+      );
     }
     updateMaxLineLength(deletion.lines);
     setTotalLines(deletion.lines.length);
     onChange?.(deletion.lines.join("\n"));
-  }, [documentLines, language, onChange, path, selection, updateMaxLineLength]);
+  }, [documentLines, onChange, path, selection, updateMaxLineLength]);
 
   // 双击时自动向外扫描，确定当前单词的完整物理范围
   const findWordBoundaries = useCallback((text: string, index: number) => {
@@ -891,8 +931,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           setDocumentLines(lines);
           setCursor({ line: line - 1, char: prevLineText.length });
           if (path) {
-            EditorIPC.applyEdit(path, startUtf16, startUtf16 + 1, "").catch(console.error);
-            LspClient.getInstance().didChange(language, path, lines.join("\n"));
+            DocumentService.applyEdit(path, startUtf16, startUtf16 + 1, "", lines.join("\n")).catch(
+              console.error,
+            );
           }
           setTotalLines(lines.length);
           onChange?.(lines.join("\n"));
@@ -941,10 +982,13 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         setDocumentLines(lines);
         setCursor({ line, char: startIdx });
         if (path) {
-          EditorIPC.applyEdit(path, startUtf16, startUtf16 + actualDeleteLen, "").catch(
-            console.error,
-          );
-          LspClient.getInstance().didChange(language, path, lines.join("\n"));
+          DocumentService.applyEdit(
+            path,
+            startUtf16,
+            startUtf16 + actualDeleteLen,
+            "",
+            lines.join("\n"),
+          ).catch(console.error);
         }
         onChange?.(lines.join("\n"));
       }
@@ -968,8 +1012,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
           setDocumentLines(lines);
           if (path) {
-            EditorIPC.applyEdit(path, startUtf16, startUtf16 + 1, "").catch(console.error);
-            LspClient.getInstance().didChange(language, path, lines.join("\n"));
+            DocumentService.applyEdit(path, startUtf16, startUtf16 + 1, "", lines.join("\n")).catch(
+              console.error,
+            );
           }
           setTotalLines(lines.length);
           onChange?.(lines.join("\n"));
@@ -1000,8 +1045,13 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
         setDocumentLines(lines);
         if (path) {
-          EditorIPC.applyEdit(path, startUtf16, startUtf16 + deleteLen, "").catch(console.error);
-          LspClient.getInstance().didChange(language, path, lines.join("\n"));
+          DocumentService.applyEdit(
+            path,
+            startUtf16,
+            startUtf16 + deleteLen,
+            "",
+            lines.join("\n"),
+          ).catch(console.error);
         }
         onChange?.(lines.join("\n"));
       }
@@ -1034,8 +1084,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           setDocumentLines(lines);
           setCursor({ line, char: Math.max(0, char - 2) });
           if (path) {
-            EditorIPC.applyEdit(path, startUtf16, startUtf16 + 2, "").catch(console.error);
-            LspClient.getInstance().didChange(language, path, lines.join("\n"));
+            DocumentService.applyEdit(path, startUtf16, startUtf16 + 2, "", lines.join("\n")).catch(
+              console.error,
+            );
           }
           onChange?.(lines.join("\n"));
         } else if (lineText.startsWith(" ")) {
@@ -1045,8 +1096,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           setDocumentLines(lines);
           setCursor({ line, char: Math.max(0, char - 1) });
           if (path) {
-            EditorIPC.applyEdit(path, startUtf16, startUtf16 + 1, "").catch(console.error);
-            LspClient.getInstance().didChange(language, path, lines.join("\n"));
+            DocumentService.applyEdit(path, startUtf16, startUtf16 + 1, "", lines.join("\n")).catch(
+              console.error,
+            );
           }
           onChange?.(lines.join("\n"));
         }
@@ -1152,8 +1204,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         if (path) {
           const startUtf16 = getLineStartUtf16(documentLines, cursor.line);
           const endUtf16 = startUtf16 + currentLineText.length + 1;
-          EditorIPC.applyEdit(path, startUtf16, endUtf16, "").catch(console.error);
-          LspClient.getInstance().didChange(language, path, lines.join("\n"));
+          DocumentService.applyEdit(path, startUtf16, endUtf16, "", lines.join("\n")).catch(
+            console.error,
+          );
         }
         setTotalLines(lines.length);
         onChange?.(lines.join("\n"));
@@ -1164,8 +1217,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         if (path) {
           const startUtf16 = 0;
           const endUtf16 = currentLineText.length;
-          EditorIPC.applyEdit(path, startUtf16, endUtf16, "").catch(console.error);
-          LspClient.getInstance().didChange(language, path, "");
+          DocumentService.applyEdit(path, startUtf16, endUtf16, "", "").catch(console.error);
         }
         onChange?.("");
       }
@@ -1413,7 +1465,11 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         next.splice(firstLine, lastLine - firstLine + 1, ...newText.split("\n"));
         setDocumentLines(next);
         setTotalLines(next.length);
-        if (path) EditorIPC.applyEdit(path, startUtf16, endUtf16, newText).catch(console.error);
+        if (path) {
+          DocumentService.applyEdit(path, startUtf16, endUtf16, newText, next.join("\n")).catch(
+            console.error,
+          );
+        }
         onChange?.(next.join("\n"));
       },
       getStatus: () => status,
@@ -1438,7 +1494,34 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     path,
   ]);
 
-  const handleLineMouseLeave = useCallback(() => setHoverTooltip(null), []);
+  const handleLanguageHover = useCallback(
+    (line: number, character: number, x: number, y: number) => {
+      if (!path || !LspClient.getInstance().supports(language, "hover")) return;
+      if (hoverTimerRef.current !== null) window.clearTimeout(hoverTimerRef.current);
+      const generation = ++hoverGenerationRef.current;
+      hoverTimerRef.current = window.setTimeout(() => {
+        hoverTimerRef.current = null;
+        void LspClient.getInstance()
+          .getHoverInfo(language, path, line, character)
+          .then((hover) => {
+            if (generation !== hoverGenerationRef.current || !hover) return;
+            const text = hoverText(hover.contents);
+            if (text) setHoverTooltip({ x, y, text });
+          })
+          .catch(() => undefined);
+      }, 250);
+    },
+    [language, path],
+  );
+
+  const handleLineMouseLeave = useCallback(() => {
+    hoverGenerationRef.current++;
+    if (hoverTimerRef.current !== null) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setHoverTooltip(null);
+  }, []);
 
   // 10. DOM 渲染结构 (切分段 Span 渲染替代 ::highlight)
   const visibleLinesDOM = useMemo(() => {
@@ -1466,9 +1549,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           selection={selection}
           isDragging={isDraggingRef.current}
           setHoverTooltip={setHoverTooltip}
-          hoverTooltip={hoverTooltip}
           onMouseDown={handleLineMouseDown}
           onMouseLeave={handleLineMouseLeave}
+          onLanguageHover={handleLanguageHover}
           textIndexAtPoint={textIndexAtPoint}
           registerLineElement={registerLineElement}
           isComposing={isComposing}
@@ -1493,8 +1576,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     diagnostics,
     isComposing,
     compositionText,
-    hoverTooltip,
     handleLineMouseLeave,
+    handleLanguageHover,
     layout,
     textIndexAtPoint,
     registerLineElement,
@@ -1716,3 +1799,23 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     </div>
   );
 });
+
+function hoverText(
+  contents:
+    | string
+    | { kind?: string; value: string }
+    | Array<string | { language?: string; value: string }>,
+): string {
+  const values = Array.isArray(contents) ? contents : [contents];
+  return values
+    .map((value) => (typeof value === "string" ? value : value.value))
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function expandSnippet(snippet: string): string {
+  return snippet
+    .replace(/\$\{\d+:([^}]*)\}/g, "$1")
+    .replace(/\$\{\d+\}/g, "")
+    .replace(/\$\d+/g, "");
+}

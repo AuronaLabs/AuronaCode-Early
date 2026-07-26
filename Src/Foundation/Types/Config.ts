@@ -1,5 +1,16 @@
 import type { TabItem } from "./Tab";
 
+export interface LanguageServerConfiguration {
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  initializationOptions?: unknown;
+  settings?: unknown;
+  startupTimeout?: number;
+  requestTimeout?: number;
+  restartLimit?: number;
+}
+
 export type AccentThemeId =
   | "aurora"
   | "violet"
@@ -35,4 +46,6 @@ export interface UserConfig {
 
   terminalFontSize?: number;
   terminalCursorBlink?: boolean;
+  trustedWorkspaceRoots?: string[];
+  languageServers?: Record<string, LanguageServerConfiguration>;
 }
