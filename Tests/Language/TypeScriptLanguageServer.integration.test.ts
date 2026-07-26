@@ -205,12 +205,25 @@ describe("real TypeScript Language Server", () => {
       if (!exitedGracefully) child.kill();
       expect(exitedGracefully).toBe(true);
     }
-    if (workspace.startsWith(tmpdir())) await rm(workspace, { recursive: true, force: true });
+    if (workspace.startsWith(tmpdir())) {
+      await rm(workspace, {
+        recursive: true,
+        force: true,
+        maxRetries: 8,
+        retryDelay: 100,
+      });
+    }
   });
 
   it("publishes diagnostics for the opened document", async () => {
-    const notification = await rpc.waitForNotification("textDocument/publishDiagnostics");
-    const params = notification.params as { uri: string; diagnostics: unknown[] };
+    let params: { uri: string; diagnostics: unknown[] };
+    do {
+      const notification = await rpc.waitForNotification("textDocument/publishDiagnostics");
+      params = notification.params as { uri: string; diagnostics: unknown[] };
+    } while (
+      normalizeFileUri(params.uri) !== normalizeFileUri(mainUri) ||
+      params.diagnostics.length === 0
+    );
     expect(normalizeFileUri(params.uri)).toBe(normalizeFileUri(mainUri));
     expect(params.diagnostics.length).toBeGreaterThan(0);
   });

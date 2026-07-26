@@ -4,8 +4,12 @@ import { LspClient, type LspFeature } from "../Features/Editor/LspClient";
 import { invokeDesktop } from "../Foundation/Desktop";
 import { EventBus } from "../Foundation/EventBus";
 import { handleSmartRun } from "../Shared/Constants/RunConfig";
+import { SIDEBAR_DEBUG } from "../Shared/Constants/Sidebar";
+import { useDebugStore } from "../State/useDebugStore";
 import { useEditorStore } from "../State/useEditorStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
+import { DebugConfigurationService } from "./DebugConfigurationService";
+import { DebugService } from "./DebugService";
 import { LanguageFeatureService } from "./LanguageFeatureService";
 import { OutputService } from "./OutputService";
 
@@ -33,6 +37,18 @@ const context = (): CommandContext => {
 };
 
 export function registerWorkbenchCommands(): () => void {
+  const canDebugActiveFile = (current: CommandContext) => {
+    if (!current.activeFilePath) return false;
+    const configurations = useDebugStore.getState().configurations;
+    if (configurations.length === 0) return /\.pyw?$/i.test(current.activeFilePath);
+    return configurations.some(
+      (configuration) =>
+        DebugConfigurationService.getApplicability(
+          configuration,
+          current.activeFilePath ?? undefined,
+        ).supported,
+    );
+  };
   const languageFeatureAvailable = (feature: LspFeature) => (current: CommandContext) => {
     if (!current.hasActiveEditor) return false;
     return LspClient.getInstance().supports(
@@ -102,6 +118,44 @@ export function registerWorkbenchCommands(): () => void {
       keybindings: [{ key: "s", primary: true }],
       canExecute: (current) => current.hasActiveEditor,
       handler: () => EventBus.emit("app:save-file"),
+    }),
+    CommandRegistry.register({
+      id: "workbench.action.debug.start",
+      title: "开始调试",
+      category: "运行和调试",
+      source: "core",
+      keybindings: [{ key: "F5" }],
+      canExecute: canDebugActiveFile,
+      disabledReason: (current) =>
+        current.hasActiveEditor ? "当前文件没有可用的调试配置" : "没有活动代码文件",
+      handler: async (_args, current) => {
+        const workbench = useWorkbenchStore.getState();
+        workbench.setActiveSidebar(SIDEBAR_DEBUG);
+        const debug = useDebugStore.getState();
+        if (debug.state === "paused") {
+          await DebugService.request("continue");
+          return;
+        }
+        if (["starting", "running", "stopping"].includes(debug.state)) return;
+        await DebugService.initialize(current.activeFilePath ?? undefined);
+        const latest = useDebugStore.getState();
+        const configuration = latest.configurations.find(
+          (item) => item.name === latest.selectedConfiguration,
+        );
+        if (!configuration) throw new Error("未检测到适用于当前文件的调试配置");
+        await DebugService.start(configuration, current.activeFilePath ?? undefined);
+      },
+    }),
+    CommandRegistry.register({
+      id: "workbench.action.debug.stop",
+      title: "停止调试",
+      category: "运行和调试",
+      source: "core",
+      keybindings: [{ key: "F5", shift: true }],
+      canExecute: () => useDebugStore.getState().sessionId !== null,
+      disabledReason: () =>
+        useDebugStore.getState().sessionId === null ? "当前没有正在运行的调试会话" : undefined,
+      handler: () => DebugService.stop(),
     }),
     ...(["undo", "redo", "cut", "copy", "paste", "selectAll"] as const).map((action) =>
       CommandRegistry.register({

@@ -1,18 +1,22 @@
 import IconAlertTriangle from "@tabler/icons-react/dist/esm/icons/IconAlertTriangle.mjs";
 import IconArrowRight from "@tabler/icons-react/dist/esm/icons/IconArrowRight.mjs";
+import IconArrowRightBar from "@tabler/icons-react/dist/esm/icons/IconArrowRightBar.mjs";
 import IconAsterisk from "@tabler/icons-react/dist/esm/icons/IconAsterisk.mjs";
 import IconBell from "@tabler/icons-react/dist/esm/icons/IconBell.mjs";
+import IconBraces from "@tabler/icons-react/dist/esm/icons/IconBraces.mjs";
 import IconBrandCss3 from "@tabler/icons-react/dist/esm/icons/IconBrandCss3.mjs";
 import IconBrandGithub from "@tabler/icons-react/dist/esm/icons/IconBrandGithub.mjs";
 import IconBrandHtml5 from "@tabler/icons-react/dist/esm/icons/IconBrandHtml5.mjs";
 import IconBrandJavascript from "@tabler/icons-react/dist/esm/icons/IconBrandJavascript.mjs";
 import IconBrandPython from "@tabler/icons-react/dist/esm/icons/IconBrandPython.mjs";
 import IconBrandTypescript from "@tabler/icons-react/dist/esm/icons/IconBrandTypescript.mjs";
+import IconBug from "@tabler/icons-react/dist/esm/icons/IconBug.mjs";
 import IconCheck from "@tabler/icons-react/dist/esm/icons/IconCheck.mjs";
 import IconChecks from "@tabler/icons-react/dist/esm/icons/IconChecks.mjs";
 import IconChevronDown from "@tabler/icons-react/dist/esm/icons/IconChevronDown.mjs";
 import IconChevronRight from "@tabler/icons-react/dist/esm/icons/IconChevronRight.mjs";
 import IconChevronUp from "@tabler/icons-react/dist/esm/icons/IconChevronUp.mjs";
+import IconCircleDot from "@tabler/icons-react/dist/esm/icons/IconCircleDot.mjs";
 import IconClearAll from "@tabler/icons-react/dist/esm/icons/IconClearAll.mjs";
 import IconCloudDownload from "@tabler/icons-react/dist/esm/icons/IconCloudDownload.mjs";
 import IconCloudUpload from "@tabler/icons-react/dist/esm/icons/IconCloudUpload.mjs";
@@ -47,7 +51,9 @@ import IconMinus from "@tabler/icons-react/dist/esm/icons/IconMinus.mjs";
 import IconMoon from "@tabler/icons-react/dist/esm/icons/IconMoon.mjs";
 import IconPalette from "@tabler/icons-react/dist/esm/icons/IconPalette.mjs";
 import IconPhoto from "@tabler/icons-react/dist/esm/icons/IconPhoto.mjs";
+import IconPlayerPause from "@tabler/icons-react/dist/esm/icons/IconPlayerPause.mjs";
 import IconPlayerPlayFilled from "@tabler/icons-react/dist/esm/icons/IconPlayerPlayFilled.mjs";
+import IconPlayerStop from "@tabler/icons-react/dist/esm/icons/IconPlayerStop.mjs";
 import IconPlus from "@tabler/icons-react/dist/esm/icons/IconPlus.mjs";
 import IconPuzzle from "@tabler/icons-react/dist/esm/icons/IconPuzzle.mjs";
 import IconRefresh from "@tabler/icons-react/dist/esm/icons/IconRefresh.mjs";
@@ -55,6 +61,9 @@ import IconSearch from "@tabler/icons-react/dist/esm/icons/IconSearch.mjs";
 import IconSettings from "@tabler/icons-react/dist/esm/icons/IconSettings.mjs";
 import IconSparkles from "@tabler/icons-react/dist/esm/icons/IconSparkles.mjs";
 import IconSquares from "@tabler/icons-react/dist/esm/icons/IconSquares.mjs";
+import IconStack2 from "@tabler/icons-react/dist/esm/icons/IconStack2.mjs";
+import IconStepIn from "@tabler/icons-react/dist/esm/icons/IconStepInto.mjs";
+import IconStepOut from "@tabler/icons-react/dist/esm/icons/IconStepOut.mjs";
 import IconSun from "@tabler/icons-react/dist/esm/icons/IconSun.mjs";
 import IconTerminal2 from "@tabler/icons-react/dist/esm/icons/IconTerminal2.mjs";
 import IconTrash from "@tabler/icons-react/dist/esm/icons/IconTrash.mjs";
@@ -131,6 +140,15 @@ export const Icons = {
   BottomPanelFilled: IconLayoutBottombarFilled,
   List: IconList,
   Play: IconPlayerPlayFilled,
+  Pause: IconPlayerPause,
+  Stop: IconPlayerStop,
+  Debug: IconBug,
+  Stack: IconStack2,
+  Variables: IconBraces,
+  Breakpoint: IconCircleDot,
+  StepOver: IconArrowRightBar,
+  StepIn: IconStepIn,
+  StepOut: IconStepOut,
   Eraser: IconEraser,
   Typography: IconTypography,
   Asterisk: IconAsterisk,

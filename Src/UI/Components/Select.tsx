@@ -7,6 +7,8 @@ import { Icons } from "../Icons/IconManager";
 export interface SelectOption {
   value: string;
   label: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 interface SelectProps {
@@ -54,8 +56,9 @@ export function Select({ options, value, onChange, className, ariaLabel }: Selec
               <SelectPrimitive.Item
                 key={opt.value}
                 value={opt.value}
+                disabled={opt.disabled}
                 className={cn(
-                  "relative flex min-h-8 w-full cursor-pointer select-none items-center rounded-lg border border-transparent py-1.5 pl-8 pr-2 text-[13px] text-[var(--TextPrimary)] outline-none transition-[background-color,border-color,color,box-shadow] data-[highlighted]:border-[var(--border-subtle)] data-[highlighted]:bg-[var(--material-interactive-hover)] data-[highlighted]:text-[var(--TextHighlight)] data-[state=checked]:border-[var(--GlassBorder)] data-[state=checked]:bg-[var(--material-surface)] data-[state=checked]:text-[var(--TextHighlight)] data-[state=checked]:shadow-sm data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                  "relative flex min-h-8 w-full cursor-pointer select-none items-center rounded-lg border border-transparent py-1.5 pl-8 pr-2 text-[13px] text-[var(--TextPrimary)] outline-none transition-[background-color,border-color,color,box-shadow] data-[highlighted]:border-[var(--border-subtle)] data-[highlighted]:bg-[var(--material-interactive-hover)] data-[highlighted]:text-[var(--TextHighlight)] data-[state=checked]:border-[var(--GlassBorder)] data-[state=checked]:bg-[var(--material-surface)] data-[state=checked]:text-[var(--TextHighlight)] data-[state=checked]:shadow-sm data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
                 )}
               >
                 <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
@@ -63,7 +66,11 @@ export function Select({ options, value, onChange, className, ariaLabel }: Selec
                     <Icons.Check size={14} className="text-[var(--TextHighlight)]" />
                   </SelectPrimitive.ItemIndicator>
                 </span>
-                <Tooltip content={opt.label} placement="right" delay={500}>
+                <Tooltip
+                  content={opt.disabledReason ? `${opt.label}：${opt.disabledReason}` : opt.label}
+                  placement="right"
+                  delay={500}
+                >
                   <span className="min-w-0 flex-1 truncate">
                     <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
                   </span>

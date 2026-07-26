@@ -61,6 +61,39 @@
   -webkit-backdrop-filter: blur(var(--glass-blur-elevated));
 }
 
+.aurona-panel-resizer::after {
+  position: absolute;
+  content: "";
+  pointer-events: none;
+  border-radius: 9999px;
+  background: transparent;
+  transition:
+    background-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+}
+
+.aurona-panel-resizer[data-orientation="vertical"]::after {
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+}
+
+.aurona-panel-resizer[data-orientation="horizontal"]::after {
+  top: 50%;
+  right: 8px;
+  left: 8px;
+  height: 1px;
+  transform: translateY(-50%);
+}
+
+.aurona-panel-resizer:hover::after,
+.aurona-panel-resizer:focus-visible::after {
+  background: var(--AccentPrimary);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--AccentPrimary) 45%, transparent);
+}
+
 :root {
   --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);

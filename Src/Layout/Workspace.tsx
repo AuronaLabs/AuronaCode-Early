@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { DiagnosticsService } from "../Core/DiagnosticsService";
 import { LanguageConfigurationService } from "../Core/LanguageConfigurationService";
 import {
@@ -20,14 +20,18 @@ import { SettingsTab } from "../Features/Settings/SettingsTab";
 import { EventBus } from "../Foundation/EventBus";
 import type { TabItem } from "../Foundation/Types/Tab";
 import {
+  SIDEBAR_DEBUG,
   SIDEBAR_EXPLORER,
   SIDEBAR_NOTIFICATIONS,
-  SIDEBAR_PLUGINS,
   SIDEBAR_SEARCH,
   SIDEBAR_SOURCE_CONTROL,
 } from "../Shared/Constants/Sidebar";
 import { useTerminalStore } from "../State/useTerminalStore";
-import { useWorkbenchStore } from "../State/useWorkspaceStore";
+import {
+  DEFAULT_BOTTOM_PANEL_HEIGHT,
+  DEFAULT_SIDEBAR_WIDTH,
+  useWorkbenchStore,
+} from "../State/useWorkspaceStore";
 import { Button } from "../UI/Components/Button";
 import { Card } from "../UI/Components/Card";
 import {
@@ -37,7 +41,9 @@ import {
   DropdownMenuTrigger,
 } from "../UI/Components/DropdownMenu";
 import { Modal } from "../UI/Components/Modal";
+import { PanelResizeHandle } from "../UI/Components/PanelResizeHandle";
 import { Select } from "../UI/Components/Select";
+import { showToast } from "../UI/Feedback/Toast";
 import { Tooltip } from "../UI/Feedback/Tooltip";
 import { Icons } from "../UI/Icons/IconManager";
 
@@ -62,8 +68,8 @@ const TerminalView = lazy(() =>
 const SearchPanel = lazy(() =>
   import("../Features/Search/SearchPanel").then((m) => ({ default: m.SearchPanel })),
 );
-const PluginsPanel = lazy(() =>
-  import("../Features/Plugins/PluginsPanel").then((m) => ({ default: m.PluginsPanel })),
+const DebugPanel = lazy(() =>
+  import("../Features/Debug/DebugPanel").then((m) => ({ default: m.DebugPanel })),
 );
 
 const DiffViewer = lazy(() =>
@@ -107,13 +113,17 @@ export function WorkspaceView() {
     tabs,
     activeTabId,
     activeSidebar,
+    sidebarWidth,
     isBottomPanelOpen,
     activeBottomPanel,
+    bottomPanelHeight,
     pendingCloseTab,
     setActiveTabId,
     setPendingCloseTab,
+    setSidebarWidth,
     setBottomPanelOpen,
     setActiveBottomPanel,
+    setBottomPanelHeight,
     openFile,
     closeTabById,
     pendingReveal,
@@ -135,11 +145,14 @@ export function WorkspaceView() {
     setEditingName,
   } = useTerminalStore();
 
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const editorColumnRef = useRef<HTMLDivElement>(null);
   const [terminalStartupError, setTerminalStartupError] = useState<string | null>(null);
   const [diagnosticsRevision, setDiagnosticsRevision] = useState(DiagnosticsService.getRevision());
   const [outputRevision, setOutputRevision] = useState(0);
-  const [activeOutputChannel, setActiveOutputChannel] =
-    useState<OutputChannelId>("language-server");
+  const [activeOutputChannel, setActiveOutputChannel] = useState<OutputChannelId | "all">(
+    "language-server",
+  );
   const [renameRequest, setRenameRequest] = useState<{
     path: string;
     language: string;
@@ -155,6 +168,7 @@ export function WorkspaceView() {
   const [codeActions, setCodeActions] = useState<LanguageCodeAction[] | null>(null);
   const [codeActionError, setCodeActionError] = useState<string | null>(null);
   const [trustRequest, setTrustRequest] = useState<{ root: string; language: string } | null>(null);
+  const activeFilePath = tabs.find((tab) => tab.id === activeTabId && tab.type === "file")?.path;
 
   useEffect(
     () =>
@@ -195,14 +209,29 @@ export function WorkspaceView() {
     [],
   );
 
-  const problems = DiagnosticsService.getAll().flatMap((document) =>
-    document.diagnostics.map((diagnostic, index) => ({
-      ...diagnostic,
-      uri: document.uri,
-      key: `${document.uri}-${diagnostic.source ?? "aurona"}-${diagnostic.range.start.line}-${diagnostic.range.start.character}-${index}`,
-    })),
-  );
-  const outputChannel = OutputService.getChannel(activeOutputChannel);
+  const problems = activeFilePath
+    ? DiagnosticsService.getAll()
+        .filter((document) => sameFilePath(fileUriToPath(document.uri), activeFilePath))
+        .flatMap((document) =>
+          document.diagnostics.map((diagnostic, index) => ({
+            ...diagnostic,
+            uri: document.uri,
+            key: `${document.uri}-${diagnostic.source ?? "aurona"}-${diagnostic.range.start.line}-${diagnostic.range.start.character}-${index}`,
+          })),
+        )
+    : [];
+  const outputChannel =
+    activeOutputChannel === "all"
+      ? {
+          id: "all",
+          label: "全部 Aurona 日志",
+          entries: OutputService.getChannels()
+            .flatMap((channel) => channel.entries)
+            .sort((left, right) => left.id - right.id),
+          bytes: OutputService.getChannels().reduce((total, channel) => total + channel.bytes, 0),
+          revision: outputRevision,
+        }
+      : OutputService.getChannel(activeOutputChannel);
   void diagnosticsRevision;
   void outputRevision;
 
@@ -232,12 +261,33 @@ export function WorkspaceView() {
     }
   }, [pendingCloseTab, activeTabId]);
 
+  const clampSidebarWidth = useCallback((width: number) => {
+    const workspaceWidth = workspaceRef.current?.getBoundingClientRect().width ?? window.innerWidth;
+    const available = Math.max(200, workspaceWidth - 360);
+    return Math.min(Math.max(Math.round(width), 200), Math.min(520, available));
+  }, []);
+
+  const clampBottomPanelHeight = useCallback((height: number) => {
+    const columnHeight =
+      editorColumnRef.current?.getBoundingClientRect().height ?? window.innerHeight;
+    const available = Math.max(140, columnHeight - 160);
+    return Math.min(Math.max(Math.round(height), 140), Math.min(600, available));
+  }, []);
+
   return (
-    <div className="flex h-full w-full overflow-hidden text-[13px] bg-transparent pr-[var(--WorkspaceGap)] pb-1 pl-0 gap-[var(--WorkspaceGap)]">
+    <div
+      ref={workspaceRef}
+      className="flex h-full w-full overflow-hidden bg-transparent pb-1 pl-0 pr-[var(--WorkspaceGap)] text-[13px]"
+    >
       {}
       <Card
-        className="flex w-[var(--SidebarWidth)] flex-col shrink-0 z-10"
-        style={{ display: activeSidebar ? "flex" : "none" }}
+        className="z-10 flex shrink-0 flex-col"
+        style={{
+          display: activeSidebar ? "flex" : "none",
+          width: `${sidebarWidth}px`,
+          minWidth: "200px",
+          maxWidth: "min(520px, calc(100% - 360px))",
+        }}
       >
         <div
           className="flex flex-1 flex-col min-h-0"
@@ -285,18 +335,31 @@ export function WorkspaceView() {
         </div>
         <div
           className="flex flex-1 flex-col min-h-0"
-          style={{ display: activeSidebar === SIDEBAR_PLUGINS ? "flex" : "none" }}
+          style={{ display: activeSidebar === SIDEBAR_DEBUG ? "flex" : "none" }}
         >
           <Suspense
-            fallback={<div className="p-4 text-[var(--TextMuted)] text-xs">Loading Plugins...</div>}
+            fallback={<div className="p-4 text-[var(--TextMuted)] text-xs">Loading Debug...</div>}
           >
-            <PluginsPanel />
+            <DebugPanel />
           </Suspense>
         </div>
       </Card>
 
+      {activeSidebar && (
+        <PanelResizeHandle
+          orientation="vertical"
+          value={sidebarWidth}
+          min={200}
+          max={520}
+          defaultValue={DEFAULT_SIDEBAR_WIDTH}
+          label="调整侧边栏宽度"
+          onChange={(width) => setSidebarWidth(clampSidebarWidth(width), false)}
+          onCommit={(width) => setSidebarWidth(clampSidebarWidth(width))}
+        />
+      )}
+
       {}
-      <div className="flex flex-1 flex-col min-w-0 gap-[var(--WorkspaceGap)] relative">
+      <div ref={editorColumnRef} className="relative flex min-w-0 flex-1 flex-col">
         {}
         <Card className="flex flex-1 flex-col min-w-0 relative overflow-hidden">
           {tabs.length > 0 ? (
@@ -350,19 +413,39 @@ export function WorkspaceView() {
           )}
         </Card>
 
+        {isBottomPanelOpen && (
+          <PanelResizeHandle
+            orientation="horizontal"
+            value={bottomPanelHeight}
+            min={140}
+            max={600}
+            defaultValue={DEFAULT_BOTTOM_PANEL_HEIGHT}
+            label="调整底部面板高度"
+            onChange={(height) => setBottomPanelHeight(clampBottomPanelHeight(height), false)}
+            onCommit={(height) => setBottomPanelHeight(clampBottomPanelHeight(height))}
+          />
+        )}
+
         {}
         <Card
           className="shrink-0 flex flex-col min-w-0 relative overflow-hidden group border-t-0"
           style={{
-            height: isBottomPanelOpen ? "300px" : 0,
+            height: isBottomPanelOpen ? `${bottomPanelHeight}px` : 0,
+            minHeight: isBottomPanelOpen ? "140px" : 0,
+            maxHeight: isBottomPanelOpen ? "min(600px, calc(100% - 160px))" : 0,
             display: isBottomPanelOpen ? "flex" : "none",
           }}
         >
           {}
           <div className="flex items-center px-3 py-1.5 bg-transparent relative z-10 select-none border-t border-[var(--GlassBorder)]">
             <div className="flex items-center gap-0.5">
-              {(["problems", "output", "terminal"] as const).map((tabId) => {
-                const labels = { problems: "问题", output: "输出", terminal: "终端" };
+              {(["problems", "output", "terminal", "debug-console"] as const).map((tabId) => {
+                const labels = {
+                  problems: "问题",
+                  output: "输出",
+                  terminal: "终端",
+                  "debug-console": "调试控制台",
+                };
                 const isActive = activeBottomPanel === tabId;
                 const count = tabId === "problems" && problems.length ? problems.length : null;
                 return (
@@ -626,7 +709,9 @@ export function WorkspaceView() {
                 ) : (
                   <div className="flex flex-col items-center justify-center w-full h-full gap-2 opacity-50">
                     <Icons.Checks size={32} stroke={1} />
-                    <span className="text-[13px]">没有在工作区中检测到任何问题</span>
+                    <span className="text-[13px]">
+                      {activeFilePath ? "当前文件没有检测到问题" : "打开代码文件以查看问题"}
+                    </span>
                   </div>
                 )}
               </div>
@@ -638,26 +723,64 @@ export function WorkspaceView() {
                   <Select
                     ariaLabel="输出来源"
                     value={activeOutputChannel}
-                    onChange={(value) => setActiveOutputChannel(value as OutputChannelId)}
-                    options={OutputService.getChannels().map((channel) => ({
-                      value: channel.id,
-                      label: channel.label,
-                    }))}
+                    onChange={(value) => setActiveOutputChannel(value as OutputChannelId | "all")}
+                    options={[
+                      { value: "all", label: "全部 Aurona 日志" },
+                      ...OutputService.getChannels().map((channel) => ({
+                        value: channel.id,
+                        label: channel.label,
+                      })),
+                    ]}
                     className="h-7 min-w-[150px] rounded-lg font-sans text-[12px]"
                   />
                   <button
                     type="button"
-                    onClick={() => OutputService.clear(activeOutputChannel)}
+                    onClick={() => {
+                      if (activeOutputChannel === "all") {
+                        for (const channel of OutputService.getChannels()) {
+                          OutputService.clear(channel.id);
+                        }
+                      } else {
+                        OutputService.clear(activeOutputChannel);
+                      }
+                    }}
                     className="rounded-lg px-2 py-1 hover:bg-[var(--GlassHover)]"
                   >
                     清空
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const selectedText = window.getSelection()?.toString().trim();
+                      const text =
+                        selectedText ||
+                        outputChannel.entries
+                          .map(
+                            (entry) =>
+                              `${entry.timestamp} [${entry.level.toUpperCase()}] ${entry.message}`,
+                          )
+                          .join("\n");
+                      void navigator.clipboard
+                        .writeText(text)
+                        .then(() => showToast("输出内容已复制", "success"))
+                        .catch((error) =>
+                          showToast(
+                            `复制失败：${error instanceof Error ? error.message : String(error)}`,
+                            "error",
+                          ),
+                        );
+                    }}
+                    className="flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-[var(--GlassHover)]"
+                  >
+                    <Icons.Copy size={12} />
+                    复制
                   </button>
                   <span className="ml-auto text-[10px] opacity-70">
                     {outputChannel.entries.length} 条 · {(outputChannel.bytes / 1024).toFixed(1)}{" "}
                     KiB
                   </span>
                 </div>
-                <div className="flex-1 overflow-y-auto p-3 no-scrollbar">
+                <div className="flex-1 overflow-y-auto p-3 no-scrollbar select-text cursor-text">
                   {outputChannel.entries.length ? (
                     outputChannel.entries.map((entry) => (
                       <div
@@ -678,6 +801,69 @@ export function WorkspaceView() {
                   ) : (
                     <div className="flex h-full items-center justify-center opacity-50">
                       此输出通道暂无内容
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {activeBottomPanel === "debug-console" && (
+              <div className="absolute inset-0 flex flex-col font-mono text-[12px]">
+                <div className="flex shrink-0 items-center gap-2 border-b border-[var(--GlassBorder)] px-3 py-1.5 text-[var(--TextMuted)]">
+                  <button
+                    type="button"
+                    onClick={() => OutputService.clear("debug-adapter")}
+                    className="rounded-lg px-2 py-1 hover:bg-[var(--GlassHover)]"
+                  >
+                    清空
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const selectedText = window.getSelection()?.toString().trim();
+                      const text =
+                        selectedText ||
+                        OutputService.getChannel("debug-adapter")
+                          .entries.map((entry) => entry.message)
+                          .join("\n");
+                      if (!text) return;
+                      void navigator.clipboard
+                        .writeText(text)
+                        .then(() => showToast("调试控制台内容已复制", "success"))
+                        .catch((error) =>
+                          showToast(
+                            `复制失败：${error instanceof Error ? error.message : String(error)}`,
+                            "error",
+                          ),
+                        );
+                    }}
+                    className="flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-[var(--GlassHover)]"
+                  >
+                    <Icons.Copy size={12} />
+                    复制
+                  </button>
+                  <span className="ml-auto text-[10px] opacity-70">
+                    {OutputService.getChannel("debug-adapter").entries.length} 条
+                  </span>
+                </div>
+                <div className="selectable min-h-0 flex-1 cursor-text overflow-y-auto p-3 no-scrollbar">
+                  {OutputService.getChannel("debug-adapter").entries.length ? (
+                    OutputService.getChannel("debug-adapter").entries.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className={
+                          entry.level === "error"
+                            ? "whitespace-pre-wrap text-red-500"
+                            : entry.level === "warn"
+                              ? "whitespace-pre-wrap text-amber-500"
+                              : "whitespace-pre-wrap text-[var(--TextMuted)]"
+                        }
+                      >
+                        {entry.message}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex h-full select-none items-center justify-center text-[var(--TextMuted)] opacity-60">
+                      启动调试会话后，Adapter 和程序输出会显示在这里
                     </div>
                   )}
                 </div>
@@ -895,4 +1081,15 @@ function fileUriToPath(uri: string): string | null {
   } catch {
     return null;
   }
+}
+
+function sameFilePath(left: string | null, right: string): boolean {
+  if (!left) return false;
+  const normalize = (value: string) => {
+    const slashed = value.replace(/\\/g, "/");
+    return /^[A-Za-z]:\//.test(slashed) || slashed.startsWith("//")
+      ? slashed.toLowerCase()
+      : slashed;
+  };
+  return normalize(left) === normalize(right);
 }

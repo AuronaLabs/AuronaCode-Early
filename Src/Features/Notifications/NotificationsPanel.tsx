@@ -3,6 +3,7 @@ import { type NotificationItem, NotificationService } from "../../Core/Notificat
 import { EventBus } from "../../Foundation/EventBus";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
+import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 
 export const NotificationsPanel = React.memo(function NotificationsPanel() {
   const [notifications, setNotifications] = useState<NotificationItem[]>(
@@ -25,20 +26,22 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
   return (
     <div className="flex flex-col h-full w-full bg-transparent">
       {}
-      <div className="flex items-center justify-between px-[var(--PanelPaddingX)] pt-4 pb-2 shrink-0">
-        <h2 className="text-[14px] font-bold text-[var(--TextHighlight)] tracking-tight">通知</h2>
-        {notifications.length > 0 && (
-          <Tooltip content="清除所有通知" delay={300}>
-            <button
-              type="button"
-              onClick={handleClear}
-              className="p-1.5 hover:bg-[var(--GlassHover)] rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-colors"
-            >
-              <Icons.Checks size={14} />
-            </button>
-          </Tooltip>
-        )}
-      </div>
+      <SidebarPageHeader
+        title="通知"
+        actions={
+          notifications.length > 0 ? (
+            <Tooltip content="清除所有通知" delay={300}>
+              <button
+                type="button"
+                onClick={handleClear}
+                className="p-1.5 hover:bg-[var(--GlassHover)] rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-colors"
+              >
+                <Icons.Checks size={14} />
+              </button>
+            </Tooltip>
+          ) : undefined
+        }
+      />
 
       {}
       <div className="flex flex-col flex-1 overflow-y-auto aurona-scroll px-3 pb-4">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { type LanguageServerInfo, LspClient } from "../Features/Editor/LspClient";
+import { GetLanguageFromPath } from "../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../State/useEditorStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
 
@@ -31,16 +32,21 @@ const formatLanguage = (language: string) => {
 export function StatusBar() {
   const editorStatus = useEditorStore((state) => state.editorStatus);
   const setActiveBottomPanel = useWorkbenchStore((state) => state.setActiveBottomPanel);
+  const activeFilePath = useWorkbenchStore((state) => {
+    const tab = state.tabs.find((item) => item.id === state.activeTabId);
+    return tab?.type === "file" ? tab.path : undefined;
+  });
+  const activeLanguage = GetLanguageFromPath(activeFilePath ?? null);
   const [languageServer, setLanguageServer] = useState<LanguageServerInfo | undefined>(() =>
-    LspClient.getInstance().getState(editorStatus.language),
+    LspClient.getInstance().getState(activeLanguage),
   );
 
   useEffect(() => {
     const client = LspClient.getInstance();
-    const update = () => setLanguageServer(client.getState(editorStatus.language));
+    const update = () => setLanguageServer(client.getState(activeLanguage));
     update();
     return client.subscribe(update);
-  }, [editorStatus.language]);
+  }, [activeLanguage]);
 
   return (
     <footer className="flex h-[var(--StatusBarHeight)] shrink-0 items-center bg-transparent px-4 text-xs text-[var(--TextMuted)] font-medium overflow-hidden">
@@ -48,7 +54,7 @@ export function StatusBar() {
         <span className="cursor-default truncate">
           {editorStatus.errors} 错误, {editorStatus.warnings} 警告
         </span>
-        {editorStatus.hasEditor && (
+        {activeFilePath && editorStatus.hasEditor && (
           <span className="cursor-default truncate">
             行 {editorStatus.line}, 列 {editorStatus.column}
             {editorStatus.selectionLength > 0 ? ` (${editorStatus.selectionLength} 已选)` : ""}
@@ -56,14 +62,14 @@ export function StatusBar() {
         )}
       </div>
       <div className="ml-auto hidden sm:flex items-center gap-4 min-w-0">
-        {editorStatus.hasEditor && (
+        {activeFilePath && (
           <>
             <span className="cursor-default">{editorStatus.encoding}</span>
             <span className="cursor-default">{editorStatus.lineEnding}</span>
             <span className="cursor-default">
               {editorStatus.insertSpaces ? "空格" : "Tab"}: {editorStatus.tabSize}
             </span>
-            <span className="cursor-default truncate">{formatLanguage(editorStatus.language)}</span>
+            <span className="cursor-default truncate">{formatLanguage(activeLanguage)}</span>
             <button
               type="button"
               onClick={() => setActiveBottomPanel("output")}

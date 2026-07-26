@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
-use tauri::State;
+use tauri::{Manager, State};
 
 fn file_path_to_uri(path: &str) -> Result<String, String> {
     url::Url::from_file_path(Path::new(path))
@@ -80,6 +80,12 @@ impl LspState {
     }
 }
 
+impl Default for LspState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn canonical_language(language: &str) -> &str {
     match language {
         "javascript" => "typescript",
@@ -87,38 +93,66 @@ fn canonical_language(language: &str) -> &str {
     }
 }
 
-fn resolve_node_package_entry(
+fn resolve_workspace_node_package_entry(
     workspace_root: Option<&str>,
     relative_entry: &[&str],
-    server_name: &str,
-) -> Result<PathBuf, String> {
-    let mut roots = Vec::new();
-    if let Some(root) = workspace_root {
-        roots.push(PathBuf::from(root));
+) -> Option<PathBuf> {
+    let root = workspace_root.map(PathBuf::from)?;
+    let mut entry = root.join("node_modules");
+    for segment in relative_entry {
+        entry.push(segment);
     }
-    if let Ok(current_dir) = std::env::current_dir() {
-        if !roots.contains(&current_dir) {
-            roots.push(current_dir);
-        }
-    }
+    entry.is_file().then_some(entry)
+}
 
-    for root in &roots {
-        let mut entry = root.join("node_modules");
+fn node_compatible_path(path: &Path) -> PathBuf {
+    let value = path.to_string_lossy();
+    if let Some(unc) = value.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{unc}"));
+    }
+    if let Some(absolute) = value.strip_prefix(r"\\?\") {
+        return PathBuf::from(absolute);
+    }
+    path.to_path_buf()
+}
+
+fn resolve_bundled_node_server(
+    app_handle: &tauri::AppHandle,
+    relative_entry: &[&str],
+    server_name: &str,
+) -> Result<(String, PathBuf), String> {
+    let runtime_name = if cfg!(windows) { "node.exe" } else { "node" };
+    let mut toolchain_roots = Vec::new();
+    if let Ok(resource_dir) = app_handle.path().resource_dir() {
+        toolchain_roots.push(resource_dir.join("toolchains"));
+    }
+    toolchain_roots.push(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources")
+            .join("toolchains"),
+    );
+
+    for root in &toolchain_roots {
+        let runtime = root.join("runtime").join(runtime_name);
+        let mut entry = root.clone();
         for segment in relative_entry {
             entry.push(segment);
         }
-        if entry.is_file() {
-            return Ok(entry);
+        if runtime.is_file() && entry.is_file() {
+            return Ok((
+                node_compatible_path(&runtime).to_string_lossy().to_string(),
+                node_compatible_path(&entry),
+            ));
         }
     }
 
-    let searched = roots
+    let searched = toolchain_roots
         .iter()
-        .map(|root| root.join("node_modules").display().to_string())
+        .map(|root| root.display().to_string())
         .collect::<Vec<_>>()
         .join(", ");
     Err(format!(
-        "{server_name} is not installed. Searched: {searched}. Install the dependency or configure an explicit language server command."
+        "Built-in {server_name} resources are unavailable. Searched: {searched}. Reinstall Aurona Code or configure an explicit language server command."
     ))
 }
 
@@ -134,34 +168,77 @@ async fn get_client(state: &State<'_, LspState>, language: &str) -> Option<Arc<l
 fn resolve_builtin_launch(
     language: &str,
     options: LanguageServerStartOptions,
+    app_handle: &tauri::AppHandle,
 ) -> Result<LanguageServerLaunch, String> {
     let canonical = canonical_language(language).to_string();
+    let mut environment = options.env.clone();
     let (command, args) = if let Some(command) = options.command {
         (command, options.args)
     } else {
         match canonical.as_str() {
             "typescript" => {
-                let cli = resolve_node_package_entry(
+                if let Some(cli) = resolve_workspace_node_package_entry(
                     options.workspace_root.as_deref(),
                     &["typescript-language-server", "lib", "cli.mjs"],
-                    "TypeScript Language Server",
-                )?;
-                (
-                    "node".to_string(),
-                    vec![cli.to_string_lossy().to_string(), "--stdio".to_string()],
-                )
+                ) {
+                    (
+                        "node".to_string(),
+                        vec![cli.to_string_lossy().to_string(), "--stdio".to_string()],
+                    )
+                } else {
+                    let (runtime, cli) = resolve_bundled_node_server(
+                        app_handle,
+                        &["typescript-language-server", "cli.mjs"],
+                        "TypeScript Language Server",
+                    )?;
+                    environment.insert(
+                        "AURONA_LSP_ENTRY".to_string(),
+                        cli.to_string_lossy().to_string(),
+                    );
+                    (
+                        runtime,
+                        vec![
+                            "--input-type=module".to_string(),
+                            "-e".to_string(),
+                            "import('node:url').then(({pathToFileURL})=>import(pathToFileURL(process.env.AURONA_LSP_ENTRY).href))".to_string(),
+                            "--".to_string(),
+                            "aurona-lsp-entry".to_string(),
+                            "--stdio".to_string(),
+                        ],
+                    )
+                }
             }
             "rust" => ("rust-analyzer".to_string(), Vec::new()),
             "python" => {
-                let cli = resolve_node_package_entry(
+                if let Some(cli) = resolve_workspace_node_package_entry(
                     options.workspace_root.as_deref(),
                     &["pyright", "langserver.index.js"],
-                    "Pyright Language Server",
-                )?;
-                (
-                    "node".to_string(),
-                    vec![cli.to_string_lossy().to_string(), "--stdio".to_string()],
-                )
+                ) {
+                    (
+                        "node".to_string(),
+                        vec![cli.to_string_lossy().to_string(), "--stdio".to_string()],
+                    )
+                } else {
+                    let (runtime, cli) = resolve_bundled_node_server(
+                        app_handle,
+                        &["pyright", "langserver.index.cjs"],
+                        "Pyright Language Server",
+                    )?;
+                    environment.insert(
+                        "AURONA_LSP_ENTRY".to_string(),
+                        cli.to_string_lossy().to_string(),
+                    );
+                    (
+                        runtime,
+                        vec![
+                            "-e".to_string(),
+                            "require(process.env.AURONA_LSP_ENTRY)".to_string(),
+                            "--".to_string(),
+                            "aurona-lsp-entry".to_string(),
+                            "--stdio".to_string(),
+                        ],
+                    )
+                }
             }
             _ => return Err(format!("No language server is configured for {language}")),
         }
@@ -175,7 +252,7 @@ fn resolve_builtin_launch(
         command,
         args,
         workspace_root: options.workspace_root,
-        env: options.env,
+        env: environment,
         initialization_options: options.initialization_options,
         settings: options.settings,
         request_timeout_ms: options.request_timeout_ms.clamp(1_000, 120_000),
@@ -328,7 +405,7 @@ pub async fn lsp_start(
     app_handle: tauri::AppHandle,
     state: State<'_, LspState>,
 ) -> Result<(), String> {
-    let launch = resolve_builtin_launch(&language, options.unwrap_or_default())?;
+    let launch = resolve_builtin_launch(&language, options.unwrap_or_default(), &app_handle)?;
     start_launch(launch, app_handle, &state).await
 }
 
@@ -526,12 +603,26 @@ pub async fn lsp_cancel(
 
 #[cfg(test)]
 mod tests {
-    use super::{canonical_language, file_path_to_uri};
+    use super::{canonical_language, file_path_to_uri, node_compatible_path};
+    use std::path::Path;
 
     #[test]
     fn javascript_and_typescript_share_a_server() {
         assert_eq!(canonical_language("javascript"), "typescript");
         assert_eq!(canonical_language("typescript"), "typescript");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn node_paths_drop_windows_verbatim_prefixes() {
+        assert_eq!(
+            node_compatible_path(Path::new(r"\\?\E:\Aurona Code\pyright\server.cjs")),
+            Path::new(r"E:\Aurona Code\pyright\server.cjs")
+        );
+        assert_eq!(
+            node_compatible_path(Path::new(r"\\?\UNC\server\share\server.cjs")),
+            Path::new(r"\\server\share\server.cjs")
+        );
     }
 
     #[cfg(unix)]

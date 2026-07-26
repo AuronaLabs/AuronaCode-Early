@@ -9,6 +9,7 @@ import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
+import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 
 export const SourceControl = React.memo(function SourceControl() {
   const [repoPath, setRepoPath] = useState<string | null>(null);
@@ -301,14 +302,16 @@ export const SourceControl = React.memo(function SourceControl() {
   if (!isRepo) {
     return (
       <div className="flex flex-col h-full w-full bg-transparent">
-        <div className="flex items-center justify-between px-[var(--PanelPaddingX)] pt-4 pb-2 shrink-0">
-          <h2 className="text-[14px] font-bold text-[var(--TextHighlight)] tracking-tight flex items-center gap-2">
-            源代码管理
-            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]">
-              Beta
-            </span>
-          </h2>
-        </div>
+        <SidebarPageHeader
+          title={
+            <>
+              源代码管理
+              <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]">
+                Beta
+              </span>
+            </>
+          }
+        />
         <div className="flex flex-col flex-1 items-center justify-center p-6 text-center gap-6">
           <div className="flex flex-col items-center gap-2">
             <Icons.GitBranch size={48} stroke={1} className="text-[var(--TextMuted)] opacity-50" />
@@ -334,28 +337,31 @@ export const SourceControl = React.memo(function SourceControl() {
 
   return (
     <div className="flex flex-col h-full w-full select-none bg-transparent">
-      <div className="flex items-center justify-between px-[var(--PanelPaddingX)] pt-4 pb-2 shrink-0">
-        <h2 className="text-[14px] font-bold text-[var(--TextHighlight)] tracking-tight flex items-center gap-2">
-          源代码管理
-          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]">
-            Beta
-          </span>
-        </h2>
-
-        <Tooltip content="刷新" delay={300}>
-          <button
-            type="button"
-            onClick={() => repoPath && fetchStatus(repoPath, true)}
-            disabled={isRefreshing}
-            className="p-1.5 hover:bg-[var(--GlassHover)] rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-colors disabled:opacity-50"
-          >
-            <Icons.Refresh
-              size={16}
-              className={isRefreshing ? "animate-spin text-[var(--TextHighlight)]" : ""}
-            />
-          </button>
-        </Tooltip>
-      </div>
+      <SidebarPageHeader
+        title={
+          <>
+            源代码管理
+            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]">
+              Beta
+            </span>
+          </>
+        }
+        actions={
+          <Tooltip content="刷新" delay={300}>
+            <button
+              type="button"
+              onClick={() => repoPath && fetchStatus(repoPath, true)}
+              disabled={isRefreshing}
+              className="p-1.5 hover:bg-[var(--GlassHover)] rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-colors disabled:opacity-50"
+            >
+              <Icons.Refresh
+                size={16}
+                className={isRefreshing ? "animate-spin text-[var(--TextHighlight)]" : ""}
+              />
+            </button>
+          </Tooltip>
+        }
+      />
 
       {statusError && (
         <div className="mx-[var(--PanelPaddingX)] mb-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-500">

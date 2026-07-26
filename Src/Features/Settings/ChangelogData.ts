@@ -12,9 +12,60 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-    version: "V0.3.2",
+    version: "V0.3.3",
     date: "2026-07-26",
     isLatest: true,
+    summary:
+      "0.3.3 让 Python 与 TypeScript 语言服务真正进入日常编辑体验，并建立独立 DAP 会话、运行和调试侧栏与可配置的调试流程。",
+    sections: [
+      {
+        title: "可见的语言智能",
+        description: "语言服务不再只是后台日志，而是直接反馈到编辑器。",
+        items: [
+          "**交互式 Hover**：支持代码块、多段内容、延迟设置、取消和明确错误状态。",
+          "**稳定补全入口**：自动补全与 Ctrl+Space 手动补全共享过期请求保护。",
+          "**随包语言工具链**：Pyright 与 TypeScript Language Server 使用固定的内置 Node Runtime，不依赖全局 PATH。",
+          "**Windows 路径兼容**：启动内置 Node 工具前移除系统扩展路径前缀，包含中文和空格的安装目录可正常加载 Pyright。",
+          "**活动文件诊断**：切换代码标签时语言状态与 Problems 自动跟随当前文件，错误、警告和提示直接显示为编辑器波浪下划线。",
+        ],
+      },
+      {
+        title: "独立 DAP 架构",
+        description: "调试协议与 LSP 严格分离，只共享安全的进程和消息 framing 基础。",
+        items: [
+          "**真实 Adapter 会话**：支持 request、response、event、超时、stderr、异常退出和进程树清理。",
+          "**最小调试流程**：接入 initialize、launch/attach、breakpoints、threads、stackTrace、scopes、variables、Continue 与 Step。",
+          "**自动安全配置**：识别受支持的工作区并生成可编辑的 `.aurona/launch.json`，直接 spawn Adapter，不使用 Shell 或任意模板表达式。",
+          "**Python 依赖引导**：启动前检查所选 Python 环境；缺少 debugpy 时在调试侧栏提供显式的一键安装并继续入口。",
+        ],
+      },
+      {
+        title: "运行和调试工作区",
+        description: "调试能力融入侧栏、编辑器和底部面板。",
+        items: [
+          "**运行和调试侧栏**：使用统一侧栏 Page 和原生列表组件，清晰展示会话状态、调用栈、变量和可管理的断点。",
+          "**编辑器断点**：点击行号区切换断点，暂停位置可从调用栈跳回源码。",
+          "**调试控制台**：Adapter 与程序输出进入有上限的 Debug Adapter Channel。",
+          "**可靠终端恢复**：终端面板重新显示时重算尺寸并刷新缓冲区，减少切换面板后文字偶发消失。",
+          "**上下文空状态**：非代码页面使用安静的引导界面，调试配置按当前语言自动启用或禁用。",
+          "**自由面板布局**：侧边栏与底部面板支持直接拖动分隔线调整尺寸，键盘微调、双击复位并自动记忆布局。",
+        ],
+      },
+      {
+        title: "设置与范围",
+        description: "新增可持久化的语言与调试设置，同时保持版本边界清晰。",
+        items: [
+          "**语言服务设置**：控制 Hover、延迟和自动补全，并管理内置服务器。",
+          "**统一调试设置**：沿用其他设置页面的静态卡片与行布局，配置 Python/Node 路径、暂停行为、控制台和日志级别。",
+          "**插件继续延期**：0.3.3 不引入插件系统，活动栏不展示不可用的插件入口。",
+        ],
+      },
+    ],
+  },
+  {
+    version: "V0.3.2",
+    date: "2026-07-26",
+    isLatest: false,
     summary:
       "0.3.2 收紧编辑器、文档与语言服务的职责边界，建立可观察、可测试的 LSP 主链路；本版本不引入插件系统，也不把未通过真实运行验收的能力标记为完成。",
     sections: [

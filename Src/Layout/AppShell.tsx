@@ -4,9 +4,9 @@ import { NotificationService } from "../Core/NotificationService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EventBus } from "../Foundation/EventBus";
 import {
+  SIDEBAR_DEBUG,
   SIDEBAR_EXPLORER,
   SIDEBAR_NOTIFICATIONS,
-  SIDEBAR_PLUGINS,
   SIDEBAR_SEARCH,
   SIDEBAR_SOURCE_CONTROL,
 } from "../Shared/Constants/Sidebar";
@@ -48,7 +48,7 @@ export function AppShell({ Children }: AppShellProps) {
     { label: SIDEBAR_EXPLORER, Icon: Icons.Files, badge: false },
     { label: SIDEBAR_SEARCH, Icon: Icons.Search, badge: false },
     { label: SIDEBAR_SOURCE_CONTROL, Icon: Icons.Git, badge: gitChangeCount > 0 },
-    { label: SIDEBAR_PLUGINS, Icon: Icons.Extensions, badge: false },
+    { label: SIDEBAR_DEBUG, Icon: Icons.Debug, badge: false },
   ];
 
   const toggleActivity = (label: string) => {

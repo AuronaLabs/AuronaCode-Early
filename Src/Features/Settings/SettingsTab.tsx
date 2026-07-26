@@ -15,8 +15,18 @@ import { GlassContainer, type GlassIntensity, useGlassStore } from "../../UI/Cor
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
+import { DebugSettings } from "./DebugSettings";
+import { LanguageServiceSettings } from "./LanguageServiceSettings";
 
-export type SettingsSection = "appearance" | "editor" | "terminal" | "git" | "storage" | "advanced";
+export type SettingsSection =
+  | "appearance"
+  | "editor"
+  | "language"
+  | "debug"
+  | "terminal"
+  | "git"
+  | "storage"
+  | "advanced";
 
 interface StorageBreakdown {
   appDataBytes: number;
@@ -1066,6 +1076,22 @@ export function SettingsTab() {
 
       <button
         type="button"
+        onClick={() => setActiveSection("language")}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "language" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+      >
+        <Icons.Sparkles size={16} /> 语言服务
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setActiveSection("debug")}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "debug" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+      >
+        <Icons.Debug size={16} /> 运行和调试
+      </button>
+
+      <button
+        type="button"
         onClick={() => setActiveSection("terminal")}
         className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "terminal" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
@@ -1104,6 +1130,10 @@ export function SettingsTab() {
         return "外观";
       case "editor":
         return "编辑器";
+      case "language":
+        return "语言服务";
+      case "debug":
+        return "运行和调试";
       case "terminal":
         return "终端";
       case "git":
@@ -1121,6 +1151,8 @@ export function SettingsTab() {
     <InternalPageLayout title={getTitle()} sidebar={sidebarMenu} maxWidth="max-w-4xl">
       {activeSection === "appearance" && renderAppearance()}
       {activeSection === "editor" && renderEditor()}
+      {activeSection === "language" && <LanguageServiceSettings />}
+      {activeSection === "debug" && <DebugSettings />}
       {activeSection === "terminal" && renderTerminal()}
       {activeSection === "git" && renderGit()}
       {activeSection === "storage" && renderStorage()}

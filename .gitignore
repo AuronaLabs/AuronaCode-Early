@@ -28,6 +28,7 @@ dist-ssr
 # Tauri
 src-tauri/target
 src-tauri/gen
+src-tauri/resources/toolchains
 
 # Python (manager.py artifacts)
 __pycache__/

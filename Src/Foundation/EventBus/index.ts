@@ -1,4 +1,5 @@
 import type { UpdateInfo, UpdateProgress } from "../Desktop";
+import type { DebugPreferences } from "../Types/Config";
 import type { TabItem } from "../Types/Tab";
 import type { TerminalInstance } from "../Types/Terminal";
 
@@ -66,8 +67,18 @@ export interface EventMap {
 
   "git:changes-count": number;
 
-  "settings:nav": "appearance" | "editor" | "terminal" | "git" | "advanced";
+  "settings:nav":
+    | "appearance"
+    | "editor"
+    | "language"
+    | "debug"
+    | "terminal"
+    | "git"
+    | "storage"
+    | "advanced";
   "settings:editor-changed": undefined;
+  "settings:language-changed": undefined;
+  "settings:debug-changed": DebugPreferences;
   "settings:terminal-changed": undefined;
   "lsp:diagnostics": LspDiagnosticsPayload;
   "app:update-available": UpdateInfo;

@@ -16,6 +16,38 @@ export interface TextSegment {
   classes: string[];
 }
 
+export function diagnosticsForLine(
+  diagnostics: DiagnosticItem[],
+  lineIndex: number,
+  lineLength: number,
+): DiagnosticItem[] {
+  return diagnostics
+    .filter(
+      (diagnostic) =>
+        diagnostic.range.start.line <= lineIndex && diagnostic.range.end.line >= lineIndex,
+    )
+    .map((diagnostic) => {
+      let start = lineIndex === diagnostic.range.start.line ? diagnostic.range.start.character : 0;
+      let end =
+        lineIndex === diagnostic.range.end.line ? diagnostic.range.end.character : lineLength;
+      start = Math.min(Math.max(start, 0), lineLength);
+      end = Math.min(Math.max(end, start), lineLength);
+
+      if (end === start && lineLength > 0) {
+        if (start === lineLength) start = Math.max(0, start - 1);
+        end = Math.min(lineLength, start + 1);
+      }
+
+      return {
+        ...diagnostic,
+        range: {
+          start: { line: lineIndex, character: start },
+          end: { line: lineIndex, character: end },
+        },
+      };
+    });
+}
+
 export function normalizeEditorText(text: string): string {
   return text.replace(/\r\n?/g, "\n");
 }
@@ -86,15 +118,26 @@ export function segmentLine(
   // LSP 诊断画线区间
   const diagRanges: { start: number; end: number; className: string }[] = [];
   diagnostics.forEach((diag) => {
-    const start = diag.range.start.character;
-    const end = Math.min(diag.range.end.character, lineLength);
-    if (start < lineLength) {
+    let start = Math.min(Math.max(diag.range.start.character, 0), lineLength);
+    let end = Math.min(Math.max(diag.range.end.character, start), lineLength);
+    if (end === start && lineLength > 0) {
+      if (start === lineLength) start = Math.max(0, start - 1);
+      end = Math.min(lineLength, start + 1);
+    }
+    if (start < lineLength && end > start) {
       breakpointsSet.add(start);
       breakpointsSet.add(end);
       diagRanges.push({
         start,
         end,
-        className: diag.severity === 1 ? "hl-diag-error" : "hl-diag-warning",
+        className:
+          diag.severity === 1
+            ? "hl-diag-error"
+            : diag.severity === 2
+              ? "hl-diag-warning"
+              : diag.severity === 3
+                ? "hl-diag-info"
+                : "hl-diag-hint",
       });
     }
   });

@@ -163,6 +163,7 @@ export const TerminalView = memo(function TerminalView({
     const themeObserver = new MutationObserver(() => {
       terminal.options.theme = terminalTheme(document.documentElement.classList.contains("dark"));
       syncTransparentSurface();
+      terminal.refresh(0, Math.max(0, terminal.rows - 1));
     });
     themeObserver.observe(document.documentElement, {
       attributes: true,
@@ -273,9 +274,28 @@ export const TerminalView = memo(function TerminalView({
 
   useEffect(() => {
     if (!isActive) return;
-    const timer = window.setTimeout(() => fitAddonRef.current?.fit(), 0);
-    return () => window.clearTimeout(timer);
-  }, [isActive]);
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        const terminal = terminalRef.current;
+        const fitAddon = fitAddonRef.current;
+        if (!terminal || !fitAddon) return;
+        try {
+          fitAddon.fit();
+          terminal.refresh(0, Math.max(0, terminal.rows - 1));
+          if (terminal.cols > 0 && terminal.rows > 0) {
+            void PtyIPC.resize(id, terminal.rows, terminal.cols).catch(console.error);
+          }
+        } catch (error) {
+          console.warn("Unable to restore terminal viewport", error);
+        }
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [id, isActive]);
 
   return (
     <ContextMenuRoot>

@@ -31,12 +31,12 @@ const SECRET_PATTERN =
   /((?:api[_-]?key|access[_-]?token|authorization|password|secret)\s*[:=]\s*)([^\s,;]+)/gi;
 
 const LABELS: Record<OutputChannelId, string> = {
-  core: "Core",
-  filesystem: "File System",
-  "language-server": "Language Server",
-  "debug-adapter": "Debug Adapter",
-  "terminal-task": "Terminal / Task",
-  "rust-backend": "Rust Backend",
+  core: "Aurona Code · Core",
+  filesystem: "Aurona Code · File System",
+  "language-server": "Language Services",
+  "debug-adapter": "Debug Adapters",
+  "terminal-task": "Project · Tasks",
+  "rust-backend": "Aurona Code · Rust Backend",
 };
 
 const redact = (message: string) => message.replace(SECRET_PATTERN, "$1[REDACTED]");

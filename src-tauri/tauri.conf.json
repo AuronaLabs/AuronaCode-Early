@@ -2,11 +2,11 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Aurona Code",
   "mainBinaryName": "Aurona Code",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "identifier": "com.aurona.code",
   "build": {
-    "beforeDevCommand": "pnpm run dev",
-    "beforeBuildCommand": "pnpm run build",
+    "beforeDevCommand": "pnpm run prepare:toolchains && pnpm run dev",
+    "beforeBuildCommand": "pnpm run prepare:toolchains && pnpm run build",
     "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../Dist"
   },
@@ -69,6 +69,9 @@
       "icons/icon.ico"
     ],
     "license": "../LICENSE",
+    "resources": {
+      "resources/toolchains/": "toolchains/"
+    },
     "windows": {
       "wix": {
         "language": "zh-CN"

@@ -97,6 +97,15 @@ impl LspClient {
             last_error: None,
         }));
         emit_state(&app_handle, &info).await;
+        let _ = app_handle.emit(
+            "lsp://log",
+            json!({
+                "language": language,
+                "level": "info",
+                "source": "process",
+                "message": format!("Starting executable `{command}` with argument vector {args:?}")
+            }),
+        );
 
         let mut process = Command::new(&command);
         process

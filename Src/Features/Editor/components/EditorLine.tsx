@@ -5,6 +5,7 @@ import {
   measureRenderedEditorRange,
 } from "../Utils/EditorLayoutMetrics";
 import { type DiagnosticItem, segmentLine, sortSelection } from "../Utils/EditorMath";
+import type { EditorHoverState } from "./HoverCard";
 
 interface EditorLineProps {
   idx: number;
@@ -18,7 +19,7 @@ interface EditorLineProps {
   lineDiags: DiagnosticItem[];
   selection: { start: { line: number; char: number }; end: { line: number; char: number } } | null;
   isDragging: boolean;
-  setHoverTooltip: (val: { x: number; y: number; text: string } | null) => void;
+  setHoverTooltip: (val: EditorHoverState | null) => void;
   onMouseDown: (idx: number, e: React.MouseEvent<HTMLButtonElement>) => void;
   onMouseLeave: () => void;
   onLanguageHover: (line: number, character: number, x: number, y: number) => void;
@@ -147,13 +148,45 @@ export const EditorLine = React.memo(function EditorLine({
   const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!isDragging) {
       const charIndex = textIndexAtPoint(idx, e.currentTarget, e.clientX, e.clientY);
+      const lineRect = e.currentTarget.getBoundingClientRect();
       const diag = lineDiags.find(
         (d) => charIndex >= d.range.start.character && charIndex <= d.range.end.character,
       );
       if (diag) {
-        setHoverTooltip({ x: e.clientX, y: e.clientY + 20, text: diag.message });
+        const measured = measureRenderedEditorRange(
+          e.currentTarget,
+          diag.range.start.character,
+          diag.range.start.character,
+        );
+        const anchorX =
+          lineRect.left +
+          (measured?.left ??
+            layout.contentInsetX +
+              measureEditorText(lineText.slice(0, diag.range.start.character), layout));
+        setHoverTooltip({
+          x: anchorX,
+          y: lineRect.bottom + 4,
+          title: "诊断",
+          source: diag.source,
+          text: diag.message,
+          tone: diag.severity === 1 ? "error" : "warning",
+        });
       } else {
-        onLanguageHover(idx, charIndex, e.clientX, e.clientY + 20);
+        const character = lineText[charIndex];
+        if (!character || /\s/.test(character)) {
+          setHoverTooltip(null);
+          return;
+        }
+        let symbolStart = charIndex;
+        while (symbolStart > 0 && /[\p{L}\p{N}_$]/u.test(lineText[symbolStart - 1])) {
+          symbolStart--;
+        }
+        const measured = measureRenderedEditorRange(e.currentTarget, symbolStart, symbolStart);
+        const anchorX =
+          lineRect.left +
+          (measured?.left ??
+            layout.contentInsetX + measureEditorText(lineText.slice(0, symbolStart), layout));
+        onLanguageHover(idx, symbolStart, anchorX, lineRect.bottom + 4);
       }
     }
   };

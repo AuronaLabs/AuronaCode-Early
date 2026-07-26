@@ -61,7 +61,6 @@ export function TitleBar() {
         >
           Aurona Code
         </div>
-
         <MenubarRoot className="flex h-full items-center space-x-0.5 min-w-0">
           <MenubarMenu>
             <MenubarTrigger>文件</MenubarTrigger>

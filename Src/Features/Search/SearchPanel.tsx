@@ -14,6 +14,7 @@ import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
+import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 
 export interface SearchResult {
   file_path: string;
@@ -147,11 +148,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
 
   return (
     <div className="flex flex-col h-full w-full select-none bg-transparent">
-      <div className="flex items-center justify-between px-[var(--PanelPaddingX)] pt-4 pb-2 shrink-0">
-        <h2 className="text-[14px] font-bold text-[var(--TextHighlight)] tracking-tight flex items-center gap-2">
-          全局搜索
-        </h2>
-      </div>
+      <SidebarPageHeader title="全局搜索" />
 
       <div className="px-[var(--PanelPaddingX)] pb-4 shrink-0 mt-2 flex flex-col gap-3">
         <div

@@ -11,6 +11,21 @@ export interface LanguageServerConfiguration {
   restartLimit?: number;
 }
 
+export interface LanguageFeaturePreferences {
+  hoverEnabled?: boolean;
+  hoverDelayMs?: number;
+  automaticCompletion?: boolean;
+}
+
+export interface DebugPreferences {
+  openSidebarOnStart?: boolean;
+  consoleMode?: "integrated" | "terminal" | "none";
+  stopOnEntry?: boolean;
+  adapterLogLevel?: "error" | "warn" | "info" | "debug";
+  pythonPath?: string;
+  nodePath?: string;
+}
+
 export type AccentThemeId =
   | "aurora"
   | "violet"
@@ -26,8 +41,10 @@ export interface WorkspaceState {
   openTabs?: TabItem[];
   activeTabId?: string | null;
   activeSidebar?: string | null;
+  sidebarWidth?: number;
   isBottomPanelOpen?: boolean;
-  activeBottomPanel?: "problems" | "output" | "terminal";
+  activeBottomPanel?: "problems" | "output" | "terminal" | "debug-console";
+  bottomPanelHeight?: number;
 }
 
 export interface UserConfig {
@@ -48,4 +65,6 @@ export interface UserConfig {
   terminalCursorBlink?: boolean;
   trustedWorkspaceRoots?: string[];
   languageServers?: Record<string, LanguageServerConfiguration>;
+  languageFeatures?: LanguageFeaturePreferences;
+  debug?: DebugPreferences;
 }

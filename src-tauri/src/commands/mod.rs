@@ -1,3 +1,4 @@
+pub mod dap_cmds;
 pub mod fs;
 pub mod git;
 pub mod ipc;

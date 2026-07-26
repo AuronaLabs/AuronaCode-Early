@@ -1,5 +1,6 @@
 mod commands;
 mod content_length;
+mod dap;
 mod editor;
 mod lsp;
 mod performance;
@@ -7,6 +8,7 @@ mod process_tree;
 mod pty;
 mod search;
 
+use commands::dap_cmds::DapState;
 pub use commands::lsp_cmds::LspState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -21,6 +23,7 @@ pub fn run() {
         .manage(performance::PerformanceState::new())
         .manage(search::SearchState::new())
         .manage(LspState::new())
+        .manage(DapState::new())
         .invoke_handler(tauri::generate_handler![
             commands::git::git_check_is_repo,
             commands::git::git_init,
@@ -65,6 +68,13 @@ pub fn run() {
             commands::lsp_cmds::lsp_call,
             commands::lsp_cmds::lsp_call_with_id,
             commands::lsp_cmds::lsp_cancel,
+            commands::dap_cmds::dap_start,
+            commands::dap_cmds::dap_request,
+            commands::dap_cmds::dap_status,
+            commands::dap_cmds::dap_stop,
+            commands::dap_cmds::dap_stop_all,
+            commands::dap_cmds::dap_python_debugpy_status,
+            commands::dap_cmds::dap_install_python_debugpy,
             commands::fs::reveal_in_os,
             commands::fs::fs_copy_or_move,
             commands::ipc::aurona_bridge,

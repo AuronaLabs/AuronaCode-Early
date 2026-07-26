@@ -1,8 +1,14 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { DebugService } from "../../Core/DebugService";
+import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { DocumentService } from "../../Core/DocumentService";
 import { applyLspTextEdits } from "../../Core/Language/TextEdits";
+import { OutputService } from "../../Core/OutputService";
 import { EventBus } from "../../Foundation/EventBus";
+import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
+import type { LanguageFeaturePreferences } from "../../Foundation/Types/Config";
 import type { EditorAction } from "../../Foundation/Types/Editor";
+import { useDebugStore } from "../../State/useDebugStore";
 import {
   ContextMenuContent,
   ContextMenuDivider,
@@ -13,6 +19,7 @@ import {
 import { LspClient } from "../Editor/LspClient";
 import { AutocompleteMenu, type CompletionItem } from "./components/AutocompleteMenu";
 import { EditorLine } from "./components/EditorLine";
+import { type EditorHoverState, HoverCard } from "./components/HoverCard";
 import { SearchWidget } from "./components/SearchWidget";
 import { EditorAdapter } from "./EditorAdapter";
 import { useEditorHistory } from "./Hooks/useEditorHistory";
@@ -28,7 +35,12 @@ import {
   readEditorLayoutMetrics,
   sameEditorLayout,
 } from "./Utils/EditorLayoutMetrics";
-import { type DiagnosticItem, normalizeEditorText, sortSelection } from "./Utils/EditorMath";
+import {
+  type DiagnosticItem,
+  diagnosticsForLine,
+  normalizeEditorText,
+  sortSelection,
+} from "./Utils/EditorMath";
 
 export type AuronaEngineProps = {
   value: string;
@@ -44,6 +56,11 @@ export type AuronaEngineProps = {
 const LARGE_FILE_BYTES = 2 * 1024 * 1024;
 const LARGE_FILE_LINES = 20_000;
 const LARGE_FILE_OVERSCAN = 120;
+const DEFAULT_LANGUAGE_PREFERENCES: Required<LanguageFeaturePreferences> = {
+  hoverEnabled: true,
+  hoverDelayMs: 350,
+  automaticCompletion: true,
+};
 
 function getLineStartUtf16(lines: string[], lineIndex: number): number {
   let offset = 0;
@@ -96,6 +113,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   onRevealHandled,
   onSyncError,
 }: AuronaEngineProps) {
+  const breakpoints = useDebugStore((state) => state.breakpoints);
+  const toggleBreakpoint = useDebugStore((state) => state.toggleBreakpoint);
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineElementsRef = useRef(new Map<number, HTMLButtonElement>());
@@ -157,11 +176,12 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
   // 诊断与 tooltip
   const [diagnostics, setDiagnostics] = useState<DiagnosticItem[]>([]);
-  const [hoverTooltip, setHoverTooltip] = useState<{ x: number; y: number; text: string } | null>(
-    null,
-  );
+  const [hoverTooltip, setHoverTooltip] = useState<EditorHoverState | null>(null);
   const hoverTimerRef = useRef<number | null>(null);
+  const hoverCloseTimerRef = useRef<number | null>(null);
   const hoverGenerationRef = useRef(0);
+  const hoverTargetRef = useRef<{ line: number; character: number } | null>(null);
+  const [languagePreferences, setLanguagePreferences] = useState(DEFAULT_LANGUAGE_PREFERENCES);
 
   const { pushHistory, resetHistory, undo, redo } = useEditorHistory("");
   const documentLoadedRef = useRef(false);
@@ -171,6 +191,19 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     if (!path || !onSyncError) return;
     return DocumentService.onSyncError(path, onSyncError);
   }, [onSyncError, path]);
+
+  useEffect(() => {
+    const refresh = () => {
+      void UserConfigStore.get().then((config) => {
+        setLanguagePreferences({
+          ...DEFAULT_LANGUAGE_PREFERENCES,
+          ...config.languageFeatures,
+        });
+      });
+    };
+    refresh();
+    return EventBus.on("settings:language-changed", refresh);
+  }, []);
 
   useEffect(
     () => () => {
@@ -434,20 +467,22 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   }, [cursor, documentLines, pushHistory]);
 
   useEffect(() => {
-    setDiagnostics([]);
-    if (!path) return;
-    const unsub = EventBus.on("lsp:diagnostics", (payload) => {
-      const formattedPath = LspClient.getInstance().getKnownFileUri(path);
-      if (payload.uri === formattedPath) {
-        setDiagnostics(
-          payload.diagnostics.map((diagnostic) => ({
-            ...diagnostic,
-            severity: diagnostic.severity ?? 3,
-          })),
-        );
-      }
-    });
-    return () => unsub();
+    if (!path) {
+      setDiagnostics([]);
+      return;
+    }
+    const refresh = () => {
+      const uri = LspClient.getInstance().getKnownFileUri(path) ?? DocumentService.get(path)?.uri;
+      const document = DiagnosticsService.get(uri);
+      setDiagnostics(
+        (document?.diagnostics ?? []).map((diagnostic) => ({
+          ...diagnostic,
+          severity: diagnostic.severity ?? 3,
+        })),
+      );
+    };
+    refresh();
+    return DiagnosticsService.subscribe(refresh);
   }, [path]);
 
   useEffect(() => {
@@ -519,8 +554,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
   // Autocomplete LSP
   const triggerAutocomplete = useCallback(
-    (lines: string[], lineIndex: number, charIndex: number) => {
+    (lines: string[], lineIndex: number, charIndex: number, manual = false) => {
       if (!path) return;
+      if (!manual && !languagePreferences.automaticCompletion) return;
       const lineText = lines[lineIndex] || "";
       const prefixMatch = lineText.substring(0, charIndex).match(/[a-zA-Z0-9_]*$/);
       const prefix = prefixMatch ? prefixMatch[0] : "";
@@ -531,52 +567,76 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       if (completionRequestRef.current !== null) {
         void LspClient.getInstance().cancelRequest(language, completionRequestRef.current);
       }
-      completionTimerRef.current = window.setTimeout(() => {
-        completionTimerRef.current = null;
-        const requestId = completionSequenceRef.current++;
-        completionRequestRef.current = requestId;
-        void DocumentService.flush(path)
-          .then(() =>
-            LspClient.getInstance().getCompletions(language, path, lineIndex, charIndex, requestId),
-          )
-          .then((response) => {
-            if (
-              completionRequestRef.current !== requestId ||
-              DocumentService.get(path)?.content !== expectedContent
-            ) {
-              return;
-            }
-            const rawItems = Array.isArray(response) ? response : (response?.items ?? []);
-            const items = rawItems
-              .filter((item) => {
-                const candidate = item.filterText ?? item.label;
-                return !prefix || candidate.toLowerCase().startsWith(prefix.toLowerCase());
-              })
-              .sort((left, right) =>
-                (left.sortText ?? left.label).localeCompare(right.sortText ?? right.label),
-              )
-              .slice(0, 100);
-            if (!items.length) {
-              setCompletions([]);
-              return;
-            }
-            const y = layout.contentInsetTop + (lineIndex + 1) * layout.lineHeight - scrollTop + 10;
-            const scrollLeft = containerRef.current?.scrollLeft || 0;
-            setCompletionPos({ x: caretPos.x - scrollLeft, y });
-            setCompletions(items);
-            setCompletionIndex(0);
-          })
-          .catch(() => {
-            if (completionRequestRef.current === requestId) setCompletions([]);
-          })
-          .finally(() => {
-            if (completionRequestRef.current === requestId) {
-              completionRequestRef.current = null;
-            }
-          });
-      }, 120);
+      completionTimerRef.current = window.setTimeout(
+        () => {
+          completionTimerRef.current = null;
+          const requestId = completionSequenceRef.current++;
+          completionRequestRef.current = requestId;
+          void DocumentService.flush(path)
+            .then(() =>
+              LspClient.getInstance().getCompletions(
+                language,
+                path,
+                lineIndex,
+                charIndex,
+                requestId,
+              ),
+            )
+            .then((response) => {
+              if (
+                completionRequestRef.current !== requestId ||
+                DocumentService.get(path)?.content !== expectedContent
+              ) {
+                return;
+              }
+              const rawItems = Array.isArray(response) ? response : (response?.items ?? []);
+              const items = rawItems
+                .filter((item) => {
+                  const candidate = item.filterText ?? item.label;
+                  return !prefix || candidate.toLowerCase().startsWith(prefix.toLowerCase());
+                })
+                .sort((left, right) =>
+                  (left.sortText ?? left.label).localeCompare(right.sortText ?? right.label),
+                )
+                .slice(0, 100);
+              if (!items.length) {
+                setCompletions([]);
+                return;
+              }
+              const y =
+                layout.contentInsetTop + (lineIndex + 1) * layout.lineHeight - scrollTop + 10;
+              const scrollLeft = containerRef.current?.scrollLeft || 0;
+              setCompletionPos({ x: caretPos.x - scrollLeft, y });
+              setCompletions(items);
+              setCompletionIndex(0);
+            })
+            .catch((error) => {
+              if (completionRequestRef.current === requestId) setCompletions([]);
+              if (manual) {
+                const bounds = containerRef.current?.getBoundingClientRect();
+                setHoverTooltip({
+                  x: (bounds?.left ?? 0) + caretPos.x,
+                  y:
+                    (bounds?.top ?? 0) +
+                    layout.contentInsetTop +
+                    (lineIndex + 1) * layout.lineHeight -
+                    scrollTop,
+                  title: "无法获取补全",
+                  text: error instanceof Error ? error.message : String(error),
+                  tone: "warning",
+                });
+              }
+            })
+            .finally(() => {
+              if (completionRequestRef.current === requestId) {
+                completionRequestRef.current = null;
+              }
+            });
+        },
+        manual ? 0 : 120,
+      );
     },
-    [caretPos.x, language, layout, path, scrollTop],
+    [caretPos.x, language, languagePreferences.automaticCompletion, layout, path, scrollTop],
   );
 
   const handleAutocompleteSelect = (index: number) => {
@@ -881,6 +941,12 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     const lines = [...documentLines];
     const { line, char } = cursor;
     const lineText = lines[line] || "";
+
+    if (e.key === " " && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      triggerAutocomplete(lines, line, char, true);
+      return;
+    }
 
     // 撤销 / 重做
     if (e.key === "z" && (e.ctrlKey || e.metaKey)) {
@@ -1496,30 +1562,92 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
   const handleLanguageHover = useCallback(
     (line: number, character: number, x: number, y: number) => {
-      if (!path || !LspClient.getInstance().supports(language, "hover")) return;
+      if (!path) return;
+      if (!languagePreferences.hoverEnabled) return;
+      if (hoverTargetRef.current?.line === line && hoverTargetRef.current.character === character) {
+        return;
+      }
+      hoverTargetRef.current = { line, character };
+      const client = LspClient.getInstance();
+      const server = client.getState(language);
+      if (server?.status !== "running") {
+        setHoverTooltip({
+          x,
+          y,
+          title: "语言服务未运行",
+          text: server?.lastError ?? `${language} 语言服务器尚未启动`,
+          tone: server?.status === "failed" ? "error" : "warning",
+        });
+        return;
+      }
+      if (!client.supports(language, "hover")) {
+        setHoverTooltip({
+          x,
+          y,
+          title: "当前服务器不支持 Hover",
+          text: `${language} 语言服务器没有声明 hoverProvider 能力`,
+          tone: "warning",
+        });
+        return;
+      }
       if (hoverTimerRef.current !== null) window.clearTimeout(hoverTimerRef.current);
       const generation = ++hoverGenerationRef.current;
       hoverTimerRef.current = window.setTimeout(() => {
         hoverTimerRef.current = null;
-        void LspClient.getInstance()
-          .getHoverInfo(language, path, line, character)
+        void DocumentService.flush(path)
+          .then(() => client.getHoverInfo(language, path, line, character))
           .then((hover) => {
             if (generation !== hoverGenerationRef.current || !hover) return;
             const text = hoverText(hover.contents);
-            if (text) setHoverTooltip({ x, y, text });
+            if (text) {
+              setHoverTooltip({
+                x,
+                y,
+                title: "语言信息",
+                source: language,
+                text,
+              });
+            }
           })
-          .catch(() => undefined);
-      }, 250);
+          .catch((error) => {
+            if (generation !== hoverGenerationRef.current) return;
+            const message = error instanceof Error ? error.message : String(error);
+            OutputService.append("language-server", `Hover failed: ${message}`, "warn");
+            setHoverTooltip({
+              x,
+              y,
+              title: "Hover 请求失败",
+              text: message,
+              tone: "warning",
+            });
+          });
+      }, languagePreferences.hoverDelayMs);
     },
-    [language, path],
+    [language, languagePreferences.hoverDelayMs, languagePreferences.hoverEnabled, path],
   );
 
   const handleLineMouseLeave = useCallback(() => {
-    hoverGenerationRef.current++;
-    if (hoverTimerRef.current !== null) {
-      window.clearTimeout(hoverTimerRef.current);
-      hoverTimerRef.current = null;
+    if (hoverCloseTimerRef.current !== null) window.clearTimeout(hoverCloseTimerRef.current);
+    hoverCloseTimerRef.current = window.setTimeout(() => {
+      hoverGenerationRef.current++;
+      hoverTargetRef.current = null;
+      if (hoverTimerRef.current !== null) {
+        window.clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = null;
+      }
+      setHoverTooltip(null);
+    }, 140);
+  }, []);
+
+  const handleHoverEnter = useCallback(() => {
+    if (hoverCloseTimerRef.current !== null) {
+      window.clearTimeout(hoverCloseTimerRef.current);
+      hoverCloseTimerRef.current = null;
     }
+  }, []);
+
+  const handleHoverLeave = useCallback(() => {
+    hoverTargetRef.current = null;
     setHoverTooltip(null);
   }, []);
 
@@ -1531,7 +1659,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       const isCurrent = idx === cursor.line;
       const tokens = isLargeFileMode ? largeLineTokens.get(idx) || [] : linesTokens[idx] || [];
 
-      const lineDiags = diagnostics.filter((d) => d.range.start.line === idx);
+      const lineDiags = diagnosticsForLine(diagnostics, idx, lineText.length);
       const searchLineMatches = searchMatches.filter((m) => m.line === idx);
 
       list.push(
@@ -1590,21 +1718,38 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     for (let idx = visibleStartIndex; idx < visibleEndIndex; idx++) {
       const isCurrent = idx === cursor.line;
       list.push(
-        <div
+        <button
+          type="button"
           key={idx}
-          className={`text-right pr-3 font-mono text-[13px] select-none ${
+          onClick={() => {
+            if (!path) return;
+            toggleBreakpoint(path, idx + 1);
+            queueMicrotask(() => void DebugService.syncBreakpoints());
+          }}
+          className={`relative w-full text-right pr-3 font-mono text-[13px] select-none ${
             isCurrent
               ? "text-[var(--TextHighlight)] font-bold opacity-100"
               : "text-[var(--TextMuted)] opacity-60"
           }`}
           style={{ height: layout.lineHeight, lineHeight: `${layout.lineHeight}px` }}
         >
+          {path && breakpoints.some((item) => item.path === path && item.line === idx + 1) && (
+            <span className="absolute left-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-red-500 shadow-sm" />
+          )}
           {idx + 1}
-        </div>,
+        </button>,
       );
     }
     return list;
-  }, [visibleStartIndex, visibleEndIndex, cursor.line, layout.lineHeight]);
+  }, [
+    visibleStartIndex,
+    visibleEndIndex,
+    cursor.line,
+    layout.lineHeight,
+    path,
+    breakpoints,
+    toggleBreakpoint,
+  ]);
 
   const caretStyle = useMemo(() => {
     return {
@@ -1637,8 +1782,23 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
         .hl-search { background-color: rgba(234, 179, 8, 0.25); border-bottom: 1px solid rgba(234, 179, 8, 0.6); }
         .hl-search-active { background-color: rgba(249, 115, 22, 0.45); border-bottom: 2px solid rgba(249, 115, 22, 0.9); }
-        .hl-diag-error { text-decoration: underline wavy #ef4444 2px; }
-        .hl-diag-warning { text-decoration: underline wavy #eab308 2px; }
+        .hl-diag-error,
+        .hl-diag-warning,
+        .hl-diag-info,
+        .hl-diag-hint {
+          text-decoration-line: underline;
+          text-decoration-style: wavy;
+          text-decoration-thickness: 1.5px;
+          text-underline-offset: 3px;
+          text-decoration-skip-ink: none;
+        }
+        .hl-diag-error { text-decoration-color: #ef4444; }
+        .hl-diag-warning { text-decoration-color: #f59e0b; }
+        .hl-diag-info { text-decoration-color: #3b82f6; }
+        .hl-diag-hint {
+          text-decoration-style: dotted;
+          text-decoration-color: var(--TextMuted);
+        }
 
         /* 选中高亮段样式 */
         .hl-selection { background-color: rgba(59, 130, 246, 0.3) !important; }
@@ -1687,7 +1847,11 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       <div
         ref={containerRef}
         className="relative flex-1 overflow-auto aurona-scroll select-none p-0"
-        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+        onScroll={(e) => {
+          setScrollTop(e.currentTarget.scrollTop);
+          setHoverTooltip(null);
+          hoverTargetRef.current = null;
+        }}
       >
         <ContextMenuRoot>
           <ContextMenuTrigger asChild>
@@ -1778,15 +1942,11 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
       {/* 诊断 hover 提示层 */}
       {hoverTooltip && (
-        <div
-          className="fixed z-50 p-2 text-[12px] rounded-lg shadow-lg border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Floating)] backdrop-blur-[var(--glass-blur-floating)] text-[var(--TextHighlight)] pointer-events-none"
-          style={{
-            top: `${hoverTooltip.y}px`,
-            left: `${hoverTooltip.x}px`,
-          }}
-        >
-          {hoverTooltip.text}
-        </div>
+        <HoverCard
+          hover={hoverTooltip}
+          onMouseEnter={handleHoverEnter}
+          onMouseLeave={handleHoverLeave}
+        />
       )}
       {import.meta.env.DEV &&
         new URLSearchParams(window.location.search).has("editorLayoutDebug") && (

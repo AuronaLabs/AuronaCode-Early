@@ -6,6 +6,7 @@ import { Modal } from "../../UI/Components/Modal";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
+import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 import { FileTreeNode } from "./components/FileTreeNode";
 import { InlineInput } from "./components/InlineInput";
 import { ExplorerContext } from "./ExplorerContext";
@@ -176,58 +177,61 @@ export const FileExplorer = React.memo(function FileExplorer({
         tabIndex={-1}
       >
         {}
-        <div className="flex items-center justify-between px-[var(--PanelPaddingX)] pt-4 pb-2 shrink-0 group">
-          <Tooltip content={title} placement="bottom">
-            <h2 className="mr-2 truncate text-[14px] font-bold tracking-tight text-[var(--TextHighlight)] select-none">
-              {title}
-            </h2>
-          </Tooltip>
-          {rootNode && (
-            <div className="flex items-center gap-0.5 transition-opacity">
-              <Tooltip content="新建文件" placement="bottom">
-                <button
-                  type="button"
-                  className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
-                  onClick={() => startInlineCreate("file")}
-                >
-                  <Icons.FilePlus size={16} />
-                </button>
-              </Tooltip>
-              <Tooltip content="新建文件夹" placement="bottom">
-                <button
-                  type="button"
-                  className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
-                  onClick={() => startInlineCreate("folder")}
-                >
-                  <Icons.FolderPlus size={16} />
-                </button>
-              </Tooltip>
-              <div className="w-px h-3 bg-[var(--GlassBorder)] mx-1" />
-              <Tooltip content="折叠全部" placement="bottom">
-                <button
-                  type="button"
-                  className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
-                  onClick={collapseAll}
-                >
-                  <Icons.Minus size={16} />
-                </button>
-              </Tooltip>
-              <Tooltip content="刷新" placement="bottom">
-                <button
-                  type="button"
-                  className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
-                  onClick={() =>
-                    refreshDirectory(rootNode.path).catch((error) =>
-                      showToast(`刷新失败：${FileSystemService.toMessage(error)}`, "error"),
-                    )
-                  }
-                >
-                  <Icons.Refresh size={16} />
-                </button>
-              </Tooltip>
-            </div>
-          )}
-        </div>
+        <SidebarPageHeader
+          className="group"
+          title={
+            <Tooltip content={title} placement="bottom">
+              <span className="mr-2 truncate select-none">{title}</span>
+            </Tooltip>
+          }
+          actions={
+            rootNode ? (
+              <>
+                <Tooltip content="新建文件" placement="bottom">
+                  <button
+                    type="button"
+                    className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
+                    onClick={() => startInlineCreate("file")}
+                  >
+                    <Icons.FilePlus size={16} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="新建文件夹" placement="bottom">
+                  <button
+                    type="button"
+                    className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
+                    onClick={() => startInlineCreate("folder")}
+                  >
+                    <Icons.FolderPlus size={16} />
+                  </button>
+                </Tooltip>
+                <div className="w-px h-3 bg-[var(--GlassBorder)] mx-1" />
+                <Tooltip content="折叠全部" placement="bottom">
+                  <button
+                    type="button"
+                    className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
+                    onClick={collapseAll}
+                  >
+                    <Icons.Minus size={16} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="刷新" placement="bottom">
+                  <button
+                    type="button"
+                    className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
+                    onClick={() =>
+                      refreshDirectory(rootNode.path).catch((error) =>
+                        showToast(`刷新失败：${FileSystemService.toMessage(error)}`, "error"),
+                      )
+                    }
+                  >
+                    <Icons.Refresh size={16} />
+                  </button>
+                </Tooltip>
+              </>
+            ) : undefined
+          }
+        />
 
         {}
         {!rootNode ? (

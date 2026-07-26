@@ -7,22 +7,29 @@ import type { TabItem } from "../Foundation/Types/Tab";
 import { SIDEBAR_EXPLORER } from "../Shared/Constants/Sidebar";
 import { showToast } from "../UI/Feedback/Toast";
 
-export type BottomPanel = "problems" | "output" | "terminal";
+export type BottomPanel = "problems" | "output" | "terminal" | "debug-console";
+
+export const DEFAULT_SIDEBAR_WIDTH = 260;
+export const DEFAULT_BOTTOM_PANEL_HEIGHT = 300;
 
 export interface WorkbenchState {
   tabs: TabItem[];
   activeTabId: string | null;
   activeSidebar: string | null;
+  sidebarWidth: number;
   isBottomPanelOpen: boolean;
   activeBottomPanel: BottomPanel;
+  bottomPanelHeight: number;
   pendingCloseTab: TabItem | null;
   pendingReveal: { path: string; line: number } | null;
 
   setActiveTabId(id: string | null): void;
   setActiveSidebar(id: string | null): void;
+  setSidebarWidth(width: number, persist?: boolean): void;
   setBottomPanelOpen(open: boolean): void;
   toggleBottomPanel(force?: boolean): void;
   setActiveBottomPanel(panel: BottomPanel): void;
+  setBottomPanelHeight(height: number, persist?: boolean): void;
   setPendingCloseTab(tab: TabItem | null): void;
   requestReveal(path: string, line: number): void;
   clearPendingReveal(path: string, line: number): void;
@@ -41,17 +48,26 @@ const persistWorkbench = (state: WorkbenchState) => {
     openTabs: state.tabs,
     activeTabId: state.activeTabId,
     activeSidebar: state.activeSidebar,
+    sidebarWidth: state.sidebarWidth,
     isBottomPanelOpen: state.isBottomPanelOpen,
     activeBottomPanel: state.activeBottomPanel,
+    bottomPanelHeight: state.bottomPanelHeight,
   });
 };
+
+const normalizeSize = (value: number | undefined, fallback: number, min: number, max: number) =>
+  typeof value === "number" && Number.isFinite(value)
+    ? Math.min(Math.max(Math.round(value), min), max)
+    : fallback;
 
 export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   tabs: [],
   activeTabId: null,
   activeSidebar: SIDEBAR_EXPLORER,
+  sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   isBottomPanelOpen: false,
   activeBottomPanel: "problems",
+  bottomPanelHeight: DEFAULT_BOTTOM_PANEL_HEIGHT,
   pendingCloseTab: null,
   pendingReveal: null,
 
@@ -62,6 +78,10 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   setActiveSidebar: (id) => {
     set({ activeSidebar: id });
     persistWorkbench(get());
+  },
+  setSidebarWidth: (width, persist = true) => {
+    set({ sidebarWidth: normalizeSize(width, DEFAULT_SIDEBAR_WIDTH, 180, 640) });
+    if (persist) persistWorkbench(get());
   },
   setBottomPanelOpen: (open) => {
     set({ isBottomPanelOpen: open });
@@ -77,6 +97,12 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   setActiveBottomPanel: (panel) => {
     set({ activeBottomPanel: panel, isBottomPanelOpen: true });
     persistWorkbench(get());
+  },
+  setBottomPanelHeight: (height, persist = true) => {
+    set({
+      bottomPanelHeight: normalizeSize(height, DEFAULT_BOTTOM_PANEL_HEIGHT, 120, 720),
+    });
+    if (persist) persistWorkbench(get());
   },
   setPendingCloseTab: (tab) => set({ pendingCloseTab: tab }),
   requestReveal: (path, line) => set({ pendingReveal: { path, line } }),
@@ -132,8 +158,15 @@ export async function initializeWorkbenchStore(): Promise<() => void> {
     tabs: saved.openTabs ?? [],
     activeTabId: saved.activeTabId ?? null,
     activeSidebar: saved.activeSidebar ?? SIDEBAR_EXPLORER,
+    sidebarWidth: normalizeSize(saved.sidebarWidth, DEFAULT_SIDEBAR_WIDTH, 180, 640),
     isBottomPanelOpen: saved.isBottomPanelOpen ?? false,
     activeBottomPanel: saved.activeBottomPanel ?? "problems",
+    bottomPanelHeight: normalizeSize(
+      saved.bottomPanelHeight,
+      DEFAULT_BOTTOM_PANEL_HEIGHT,
+      120,
+      720,
+    ),
   });
 
   const subscriptions = [
