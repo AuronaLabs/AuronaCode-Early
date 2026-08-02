@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { DebugConfigurationService } from "../../Core/DebugConfigurationService";
 import { DebugService } from "../../Core/DebugService";
-import { useDebugStore } from "../../State/useDebugStore";
+import { type DebugVariable, useDebugStore } from "../../State/useDebugStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Button } from "../../UI/Components/Button";
 import {
@@ -154,20 +154,21 @@ export function DebugPanel() {
                 count={debug.stackFrames.length}
                 empty="程序暂停后，这里会显示当前执行位置和调用链。"
               >
-                {debug.stackFrames.map((frame, index) => (
+                {debug.stackFrames.map((frame) => (
                   <button
                     type="button"
                     key={frame.id}
                     className={`${glassListRowStyles} w-full min-w-0 flex-col items-start text-left ${
-                      index === 0 ? "bg-[var(--GlassSurface-Base)]" : ""
+                      frame.id === debug.selectedFrameId ? "bg-[var(--GlassSurface-Base)]" : ""
                     }`}
                     onClick={() => {
+                      void DebugService.selectFrame(frame.id);
                       if (!frame.source?.path) return;
                       useWorkbenchStore.getState().openFile(frame.source.path);
                       useWorkbenchStore.getState().requestReveal(frame.source.path, frame.line);
                     }}
                   >
-                    {index === 0 && (
+                    {frame.id === debug.selectedFrameId && (
                       <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-[var(--AccentPrimary)]" />
                     )}
                     <span className="truncate text-[12px] font-medium text-[var(--TextPrimary)]">
@@ -183,28 +184,21 @@ export function DebugPanel() {
               <DebugSection
                 title="变量"
                 icon={<Icons.Variables size={14} />}
-                count={debug.variables.length}
+                count={debug.scopes.reduce(
+                  (count, scope) =>
+                    count + (debug.variablesByReference[scope.variablesReference]?.length ?? 0),
+                  0,
+                )}
                 empty="选择暂停的栈帧后，这里会显示当前作用域变量。"
               >
-                {debug.variables.map((variable) => (
-                  <div
-                    key={`${variable.name}-${variable.value}-${variable.variablesReference}`}
-                    className={`${glassListRowStyles} grid grid-cols-[minmax(70px,0.8fr)_minmax(0,1.2fr)] items-baseline gap-2`}
-                  >
-                    <span className="truncate font-medium text-[var(--TextPrimary)]">
-                      {variable.name}
-                    </span>
-                    <span className="flex min-w-0 items-baseline gap-1.5">
-                      <span className="truncate font-mono text-[var(--TextMuted)]">
-                        {variable.value}
-                      </span>
-                      {variable.type && (
-                        <span className="shrink-0 text-[9px] text-[var(--TextMuted)]/70">
-                          {variable.type}
-                        </span>
-                      )}
-                    </span>
-                  </div>
+                {debug.scopes.map((scope) => (
+                  <VariableScope
+                    key={scope.variablesReference}
+                    name={scope.name}
+                    variables={debug.variablesByReference[scope.variablesReference] ?? []}
+                    variablesByReference={debug.variablesByReference}
+                    loadingReferences={debug.loadingVariableReferences}
+                  />
                 ))}
               </DebugSection>
 
@@ -350,6 +344,117 @@ function DebugToolbar({ paused }: { paused: boolean }) {
         </button>
       </Tooltip>
     </div>
+  );
+}
+
+function VariableScope({
+  name,
+  variables,
+  variablesByReference,
+  loadingReferences,
+}: {
+  name: string;
+  variables: DebugVariable[];
+  variablesByReference: Record<number, DebugVariable[]>;
+  loadingReferences: number[];
+}) {
+  const [expandedReferences, setExpandedReferences] = useState<Set<number>>(() => new Set());
+  const toggleReference = (reference: number) => {
+    setExpandedReferences((current) => {
+      const next = new Set(current);
+      if (next.has(reference)) next.delete(reference);
+      else next.add(reference);
+      return next;
+    });
+    void DebugService.loadVariables(reference);
+  };
+
+  return (
+    <div className="overflow-hidden rounded-lg bg-[var(--GlassSurface-Base)]">
+      <div className="flex h-7 items-center gap-2 px-2.5 text-[10px] font-semibold text-[var(--TextMuted)]">
+        <Icons.ChevronRight size={11} className="rotate-90" />
+        <span className="truncate">{name}</span>
+        <span className="ml-auto font-normal">{variables.length}</span>
+      </div>
+      <div className="pb-1">
+        {variables.map((variable) => (
+          <VariableRow
+            key={`${variable.evaluateName ?? variable.name}-${variable.value}-${variable.variablesReference}`}
+            variable={variable}
+            depth={0}
+            variablesByReference={variablesByReference}
+            loadingReferences={loadingReferences}
+            expandedReferences={expandedReferences}
+            onToggle={toggleReference}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function VariableRow({
+  variable,
+  depth,
+  variablesByReference,
+  loadingReferences,
+  expandedReferences,
+  onToggle,
+}: {
+  variable: DebugVariable;
+  depth: number;
+  variablesByReference: Record<number, DebugVariable[]>;
+  loadingReferences: number[];
+  expandedReferences: Set<number>;
+  onToggle: (reference: number) => void;
+}) {
+  const expandable = variable.variablesReference > 0;
+  const expanded = expandable && expandedReferences.has(variable.variablesReference);
+  const loading = loadingReferences.includes(variable.variablesReference);
+  const children = variablesByReference[variable.variablesReference] ?? [];
+  return (
+    <>
+      <button
+        type="button"
+        className="grid h-7 w-full min-w-0 grid-cols-[minmax(70px,0.8fr)_minmax(0,1.2fr)] items-center gap-2 rounded-md pr-2 text-left text-[10px] hover:bg-[var(--GlassHover)] disabled:cursor-default"
+        style={{ paddingLeft: `${8 + depth * 14}px` }}
+        disabled={!expandable}
+        onClick={() => expandable && onToggle(variable.variablesReference)}
+        title={variable.evaluateName ?? `${variable.name}: ${variable.value}`}
+      >
+        <span className="flex min-w-0 items-center gap-1">
+          <span className="flex h-3 w-3 shrink-0 items-center justify-center text-[var(--TextMuted)]">
+            {expandable && (
+              <Icons.ChevronRight
+                size={10}
+                className={`transition-transform ${expanded ? "rotate-90" : ""}`}
+              />
+            )}
+          </span>
+          <span className="truncate font-medium text-[var(--TextPrimary)]">{variable.name}</span>
+        </span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate font-mono text-[var(--TextMuted)]">
+            {loading && expanded ? "正在读取…" : variable.value}
+          </span>
+          {variable.type && (
+            <span className="shrink-0 text-[9px] text-[var(--TextMuted)]/70">{variable.type}</span>
+          )}
+        </span>
+      </button>
+      {expanded &&
+        children.map((child) => (
+          <VariableRow
+            key={`${variable.variablesReference}-${child.evaluateName ?? child.name}-${child.value}-${child.variablesReference}`}
+            variable={child}
+            depth={depth + 1}
+            variablesByReference={variablesByReference}
+            loadingReferences={loadingReferences}
+            expandedReferences={expandedReferences}
+            onToggle={onToggle}
+          />
+        ))}
+    </>
   );
 }
 

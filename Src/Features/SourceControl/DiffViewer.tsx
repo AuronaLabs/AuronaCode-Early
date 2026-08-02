@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { invokeDesktop } from "../../Foundation/Desktop";
+import { GitIPC } from "../../Foundation/IPC/GitCommands";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 
 import { cn } from "../../Shared/Utils/cn";
@@ -7,7 +7,7 @@ import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { Icons } from "../../UI/Icons/IconManager";
 
 interface DiffViewerProps {
-  commitHash: string;
+  diffTarget: string;
 }
 
 interface ParsedDiffFile {
@@ -28,11 +28,14 @@ interface DiffLine {
   rightLineNum: number | null;
 }
 
-export function DiffViewer({ commitHash }: DiffViewerProps) {
+export function DiffViewer({ diffTarget }: DiffViewerProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [commitMessage, setCommitMessage] = useState("");
   const [files, setFiles] = useState<ParsedDiffFile[]>([]);
+  const workingTarget = diffTarget.match(/^working:(staged|unstaged):(.*)$/);
+  const workingFile = workingTarget ? decodeURIComponent(workingTarget[2]) : null;
+  const isStaged = workingTarget?.[1] === "staged";
 
   const parseGitDiff = useCallback((rawText: string) => {
     const lines = rawText.split("\n");
@@ -118,10 +121,9 @@ export function DiffViewer({ commitHash }: DiffViewerProps) {
         const config = await WorkspaceStore.get();
         const repoPath = config.lastOpenedPath || ".";
 
-        const rawDiff = await invokeDesktop<string>("git_diff_commit", {
-          path: repoPath,
-          hash: commitHash,
-        });
+        const rawDiff = workingFile
+          ? await GitIPC.getWorktreeDiff(repoPath, workingFile, isStaged)
+          : await GitIPC.getCommitDiff(repoPath, diffTarget);
         parseGitDiff(rawDiff);
       } catch (err) {
         setError(String(err));
@@ -130,7 +132,7 @@ export function DiffViewer({ commitHash }: DiffViewerProps) {
       }
     }
     loadDiff();
-  }, [commitHash, parseGitDiff]);
+  }, [diffTarget, isStaged, parseGitDiff, workingFile]);
 
   const summary = files.reduce(
     (totals, file) => {
@@ -195,14 +197,18 @@ export function DiffViewer({ commitHash }: DiffViewerProps) {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-[13px] font-semibold text-[var(--TextHighlight)]">
-                  提交差异
+                  {workingFile ? "工作区差异" : "提交差异"}
                 </span>
                 <code className="rounded-md border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] px-1.5 py-0.5 text-[10px] text-[var(--TextMuted)]">
-                  {commitHash.slice(0, 8)}
+                  {workingFile ?? diffTarget.slice(0, 8)}
                 </code>
               </div>
               <p className="mt-0.5 truncate text-[11.5px] text-[var(--TextMuted)]">
-                {commitMessage || "此提交没有提供说明"}
+                {workingFile
+                  ? isStaged
+                    ? "已暂存的更改"
+                    : "尚未暂存的更改"
+                  : commitMessage || "此提交没有提供说明"}
               </p>
             </div>
           </div>

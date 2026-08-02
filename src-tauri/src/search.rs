@@ -23,6 +23,14 @@ pub struct SearchResponse {
     pub limit_reached: bool,
 }
 
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceFileEntry {
+    pub path: String,
+    pub relative_path: String,
+    pub name: String,
+}
+
 pub struct SearchState {
     requests: Mutex<HashMap<String, Arc<AtomicBool>>>,
 }
@@ -73,7 +81,10 @@ pub async fn search_workspace_internal(
         const MAX_RESULTS: usize = 500;
 
         let mut builder = WalkBuilder::new(&root);
-        builder.hidden(false);
+        builder
+            .hidden(false)
+            .require_git(false)
+            .filter_entry(|entry| entry.file_name() != ".git");
 
         let walker = builder.build_parallel();
         let base_path = root;
@@ -183,6 +194,49 @@ pub async fn search_workspace_internal(
     .map_err(|error| format!("Search task failed: {error}"))?
 }
 
+pub async fn list_workspace_files_internal(
+    path: String,
+) -> Result<Vec<WorkspaceFileEntry>, String> {
+    tokio::task::spawn_blocking(move || {
+        const MAX_FILES: usize = 5_000;
+        let root = PathBuf::from(&path)
+            .canonicalize()
+            .map_err(|error| format!("Unable to resolve workspace file index: {error}"))?;
+        if !root.is_dir() {
+            return Err("Workspace file index root must be a directory".to_string());
+        }
+
+        let mut builder = WalkBuilder::new(&root);
+        builder
+            .hidden(false)
+            .require_git(false)
+            .filter_entry(|entry| entry.file_name() != ".git");
+        let mut files = builder
+            .build()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_type().is_some_and(|kind| kind.is_file()))
+            .take(MAX_FILES)
+            .map(|entry| {
+                let path = entry.path();
+                let relative_path = path
+                    .strip_prefix(&root)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                WorkspaceFileEntry {
+                    path: path.to_string_lossy().to_string(),
+                    name: entry.file_name().to_string_lossy().to_string(),
+                    relative_path,
+                }
+            })
+            .collect::<Vec<_>>();
+        files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+        Ok(files)
+    })
+    .await
+    .map_err(|error| format!("Workspace file index task failed: {error}"))?
+}
+
 #[tauri::command]
 pub async fn search_workspace(
     path: String,
@@ -209,6 +263,11 @@ pub async fn search_workspace(
 }
 
 #[tauri::command]
+pub async fn list_workspace_files(path: String) -> Result<Vec<WorkspaceFileEntry>, String> {
+    list_workspace_files_internal(path).await
+}
+
+#[tauri::command]
 pub fn cancel_search(request_id: String, state: State<'_, SearchState>) -> Result<bool, String> {
     let requests = state
         .requests
@@ -223,7 +282,7 @@ pub fn cancel_search(request_id: String, state: State<'_, SearchState>) -> Resul
 
 #[cfg(test)]
 mod tests {
-    use super::search_workspace_internal;
+    use super::{list_workspace_files_internal, search_workspace_internal};
     use std::fs;
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
@@ -266,6 +325,39 @@ mod tests {
             .windows(2)
             .all(|pair| pair[0].file_path <= pair[1].file_path));
 
+        fs::remove_dir_all(workspace).expect("test workspace should be removed");
+    }
+
+    #[tokio::test]
+    async fn workspace_file_index_respects_ignore_rules_and_returns_relative_paths() {
+        let workspace = temp_workspace();
+        fs::create_dir_all(workspace.join("src")).expect("source directory should be created");
+        fs::create_dir_all(workspace.join("ignored")).expect("ignored directory should be created");
+        fs::create_dir_all(workspace.join(".git").join("objects"))
+            .expect("git metadata directory should be created");
+        fs::write(workspace.join(".gitignore"), "ignored/\n")
+            .expect("ignore file should be written");
+        fs::write(workspace.join("src").join("main.ts"), "export {};\n")
+            .expect("source file should be written");
+        fs::write(workspace.join("ignored").join("secret.txt"), "ignored\n")
+            .expect("ignored file should be written");
+        fs::write(
+            workspace.join(".git").join("objects").join("object"),
+            "metadata\n",
+        )
+        .expect("git metadata file should be written");
+
+        let files = list_workspace_files_internal(workspace.to_string_lossy().to_string())
+            .await
+            .expect("file index should succeed");
+
+        assert!(files.iter().any(|file| file.relative_path == "src/main.ts"));
+        assert!(!files
+            .iter()
+            .any(|file| file.relative_path.contains("secret.txt")));
+        assert!(!files
+            .iter()
+            .any(|file| file.relative_path.starts_with(".git/")));
         fs::remove_dir_all(workspace).expect("test workspace should be removed");
     }
 }

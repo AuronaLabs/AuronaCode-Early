@@ -1,10 +1,10 @@
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../../../Shared/Utils/cn";
 import { glassVariants } from "../../../UI/Core/GlassManager/variants";
+import { type EditorOverlayAnchor, positionEditorOverlay } from "../Utils/EditorOverlay";
 
 export interface EditorHoverState {
-  x: number;
-  y: number;
+  anchor: EditorOverlayAnchor;
   title?: string;
   text: string;
   source?: string;
@@ -47,11 +47,34 @@ const parseHoverBlocks = (value: string): HoverBlock[] => {
 
 export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps) {
   const blocks = useMemo(() => parseHoverBlocks(hover.text), [hover.text]);
-  const left = Math.max(8, Math.min(hover.x, window.innerWidth - 428));
-  const top = Math.max(8, Math.min(hover.y, window.innerHeight - 288));
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState(() =>
+    positionEditorOverlay(
+      hover.anchor,
+      { width: 420, height: 280 },
+      { width: window.innerWidth, height: window.innerHeight },
+    ),
+  );
+
+  useLayoutEffect(() => {
+    const update = () => {
+      const card = cardRef.current;
+      setPosition(
+        positionEditorOverlay(
+          hover.anchor,
+          { width: card?.offsetWidth ?? 420, height: card?.offsetHeight ?? 280 },
+          { width: window.innerWidth, height: window.innerHeight },
+        ),
+      );
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [hover.anchor]);
 
   return (
     <div
+      ref={cardRef}
       role="tooltip"
       aria-live="polite"
       onMouseEnter={onMouseEnter}
@@ -62,7 +85,8 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
         hover.tone === "warning" && "border-amber-500/30",
         hover.tone === "error" && "border-red-500/30",
       )}
-      style={{ top, left }}
+      data-placement={position.placement}
+      style={{ top: position.top, left: position.left }}
     >
       {(hover.title || hover.source) && (
         <div className="mb-2 flex items-center justify-between gap-4 border-b border-[var(--GlassBorder)] pb-2">

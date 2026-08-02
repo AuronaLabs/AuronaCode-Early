@@ -240,6 +240,32 @@ export function measureRenderedEditorRange(
   return { left: rect.left - lineRect.left, width: rect.width };
 }
 
+export function measureRenderedEditorAnchor(
+  lineElement: HTMLElement,
+  startUtf16: number,
+  endUtf16: number,
+): { left: number; top: number; right: number; bottom: number } | null {
+  if (typeof document === "undefined") return null;
+  const textRoot = lineElement.querySelector<HTMLElement>("[data-editor-text-content]");
+  if (!textRoot) return null;
+  const start = textNodeAtOffset(textRoot, startUtf16);
+  const end = textNodeAtOffset(textRoot, Math.max(startUtf16, endUtf16));
+  if (!start || !end) return null;
+
+  const range = document.createRange();
+  range.setStart(start.node, start.offset);
+  range.setEnd(end.node, end.offset);
+  const rect = range.getBoundingClientRect();
+  if (rect.width > 0 || rect.height > 0) {
+    return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+  }
+
+  const lineRect = lineElement.getBoundingClientRect();
+  const measured = measureRenderedEditorRange(lineElement, startUtf16, startUtf16);
+  const left = lineRect.left + (measured?.left ?? 0);
+  return { left, top: lineRect.top, right: left, bottom: lineRect.bottom };
+}
+
 /** Resolves a pointer to the same UTF-16 coordinate system as the document model. */
 export function editorTextIndexFromPoint(
   lineElement: HTMLElement,

@@ -2,9 +2,11 @@ import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "
 import {
   type EditorLayoutMetrics,
   measureEditorText,
+  measureRenderedEditorAnchor,
   measureRenderedEditorRange,
 } from "../Utils/EditorLayoutMetrics";
 import { type DiagnosticItem, segmentLine, sortSelection } from "../Utils/EditorMath";
+import type { EditorOverlayAnchor } from "../Utils/EditorOverlay";
 import type { EditorHoverState } from "./HoverCard";
 
 interface EditorLineProps {
@@ -22,7 +24,7 @@ interface EditorLineProps {
   setHoverTooltip: (val: EditorHoverState | null) => void;
   onMouseDown: (idx: number, e: React.MouseEvent<HTMLButtonElement>) => void;
   onMouseLeave: () => void;
-  onLanguageHover: (line: number, character: number, x: number, y: number) => void;
+  onLanguageHover: (line: number, character: number, anchor: EditorOverlayAnchor) => void;
   textIndexAtPoint: (
     idx: number,
     element: HTMLButtonElement,
@@ -153,19 +155,22 @@ export const EditorLine = React.memo(function EditorLine({
         (d) => charIndex >= d.range.start.character && charIndex <= d.range.end.character,
       );
       if (diag) {
-        const measured = measureRenderedEditorRange(
+        const anchor = measureRenderedEditorAnchor(
           e.currentTarget,
           diag.range.start.character,
-          diag.range.start.character,
+          Math.max(diag.range.start.character + 1, diag.range.end.character),
         );
-        const anchorX =
+        const fallbackLeft =
           lineRect.left +
-          (measured?.left ??
-            layout.contentInsetX +
-              measureEditorText(lineText.slice(0, diag.range.start.character), layout));
+          layout.contentInsetX +
+          measureEditorText(lineText.slice(0, diag.range.start.character), layout);
         setHoverTooltip({
-          x: anchorX,
-          y: lineRect.bottom + 4,
+          anchor: anchor ?? {
+            left: fallbackLeft,
+            right: fallbackLeft,
+            top: lineRect.top,
+            bottom: lineRect.bottom,
+          },
           title: "诊断",
           source: diag.source,
           text: diag.message,
@@ -181,12 +186,24 @@ export const EditorLine = React.memo(function EditorLine({
         while (symbolStart > 0 && /[\p{L}\p{N}_$]/u.test(lineText[symbolStart - 1])) {
           symbolStart--;
         }
-        const measured = measureRenderedEditorRange(e.currentTarget, symbolStart, symbolStart);
-        const anchorX =
+        let symbolEnd = charIndex + 1;
+        while (symbolEnd < lineText.length && /[\p{L}\p{N}_$]/u.test(lineText[symbolEnd])) {
+          symbolEnd++;
+        }
+        const fallbackLeft =
           lineRect.left +
-          (measured?.left ??
-            layout.contentInsetX + measureEditorText(lineText.slice(0, symbolStart), layout));
-        onLanguageHover(idx, symbolStart, anchorX, lineRect.bottom + 4);
+          layout.contentInsetX +
+          measureEditorText(lineText.slice(0, symbolStart), layout);
+        onLanguageHover(
+          idx,
+          symbolStart,
+          measureRenderedEditorAnchor(e.currentTarget, symbolStart, symbolEnd) ?? {
+            left: fallbackLeft,
+            right: fallbackLeft,
+            top: lineRect.top,
+            bottom: lineRect.bottom,
+          },
+        );
       }
     }
   };

@@ -102,8 +102,7 @@ function renderTabContent(
   } else if (tab.type === "performance") {
     content = isActive ? <PerformanceBenchmarkPage /> : null;
   } else if (tab.type === "diff" && tab.path) {
-    // For diff, tab.path stores the commit hash
-    content = isActive ? <DiffViewer commitHash={tab.path} /> : null;
+    content = isActive ? <DiffViewer diffTarget={tab.path} /> : null;
   }
   return <Suspense fallback={<div className="w-full h-full bg-transparent" />}>{content}</Suspense>;
 }

@@ -10,6 +10,8 @@ pub struct GitFile {
     pub name: String,
     pub status: String,
     pub is_staged: bool,
+    pub is_conflict: bool,
+    pub is_untracked: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, TS)]
@@ -21,6 +23,13 @@ pub struct GitCommit {
     pub date: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
+pub struct GitBranch {
+    pub name: String,
+    pub is_current: bool,
+}
+
 #[derive(Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct GitFullStatus {
@@ -29,6 +38,35 @@ pub struct GitFullStatus {
     pub files: Vec<GitFile>,
     pub commits: Vec<GitCommit>,
     pub branch: String,
+    pub branches: Vec<GitBranch>,
+    pub has_remote: bool,
+    pub ahead: u32,
+    pub behind: u32,
+}
+
+fn command_error(output: &std::process::Output) -> String {
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if stderr.is_empty() {
+        "Git command failed without an error message".to_string()
+    } else {
+        stderr
+    }
+}
+
+fn validate_branch_name(path: &str, branch: &str) -> Result<(), String> {
+    if branch.trim() != branch || branch.is_empty() {
+        return Err("Branch name cannot be empty or contain surrounding whitespace".to_string());
+    }
+    let output = create_command("git")
+        .current_dir(path)
+        .args(["check-ref-format", "--branch", branch])
+        .output()
+        .map_err(|error| error.to_string())?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(command_error(&output))
+    }
 }
 
 fn git_check_is_repo_internal(path: String) -> Result<bool, String> {
@@ -81,6 +119,17 @@ fn git_status_internal(path: String) -> Result<Vec<GitFile>, String> {
 
         let index_status = record[0] as char;
         let work_tree_status = record[1] as char;
+        let conflict = matches!(
+            (index_status, work_tree_status),
+            ('D', 'D')
+                | ('A', 'U')
+                | ('U', 'D')
+                | ('U', 'A')
+                | ('D', 'U')
+                | ('A', 'A')
+                | ('U', 'U')
+        );
+        let untracked = index_status == '?' && work_tree_status == '?';
         let file_path = String::from_utf8_lossy(&record[3..]).to_string();
         let name = Path::new(&file_path)
             .file_name()
@@ -88,27 +137,38 @@ fn git_status_internal(path: String) -> Result<Vec<GitFile>, String> {
             .to_string_lossy()
             .to_string();
 
-        if index_status != ' ' && index_status != '?' {
+        if conflict {
+            files.push(GitFile {
+                path: file_path.clone(),
+                name: name.clone(),
+                status: "!".to_string(),
+                is_staged: false,
+                is_conflict: true,
+                is_untracked: false,
+            });
+        } else if index_status != ' ' && index_status != '?' {
             files.push(GitFile {
                 path: file_path.clone(),
                 name: name.clone(),
                 status: index_status.to_string(),
                 is_staged: true,
+                is_conflict: false,
+                is_untracked: false,
             });
         }
 
-        if work_tree_status != ' ' {
-            let status = if index_status == '?' && work_tree_status == '?' {
-                "U".to_string()
-            } else {
-                work_tree_status.to_string()
-            };
-
+        if !conflict && work_tree_status != ' ' {
             files.push(GitFile {
                 path: file_path.clone(),
                 name: name.clone(),
-                status,
+                status: if untracked {
+                    "?".to_string()
+                } else {
+                    work_tree_status.to_string()
+                },
                 is_staged: false,
+                is_conflict: false,
+                is_untracked: untracked,
             });
         }
 
@@ -174,6 +234,146 @@ fn git_current_branch_internal(path: String) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
+fn git_branches_internal(path: String) -> Result<Vec<GitBranch>, String> {
+    let output = create_command("git")
+        .current_dir(&path)
+        .args([
+            "for-each-ref",
+            "--format=%(refname:short)%00%(HEAD)",
+            "refs/heads",
+        ])
+        .output()
+        .map_err(|error| error.to_string())?;
+    if !output.status.success() {
+        return Err(command_error(&output));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| {
+            let (name, marker) = line.split_once('\0')?;
+            Some(GitBranch {
+                name: name.to_string(),
+                is_current: marker.trim() == "*",
+            })
+        })
+        .collect())
+}
+
+fn git_tracking_status_internal(path: String) -> Result<(u32, u32), String> {
+    let output = create_command("git")
+        .current_dir(&path)
+        .args(["rev-list", "--left-right", "--count", "HEAD...@{upstream}"])
+        .output()
+        .map_err(|error| error.to_string())?;
+    if !output.status.success() {
+        return Ok((0, 0));
+    }
+    let counts = String::from_utf8_lossy(&output.stdout)
+        .split_whitespace()
+        .filter_map(|value| value.parse::<u32>().ok())
+        .collect::<Vec<_>>();
+    Ok((
+        counts.first().copied().unwrap_or(0),
+        counts.get(1).copied().unwrap_or(0),
+    ))
+}
+
+fn git_switch_branch_internal(path: String, branch: String) -> Result<(), String> {
+    validate_branch_name(&path, &branch)?;
+    let output = create_command("git")
+        .current_dir(&path)
+        .args(["switch", &branch])
+        .output()
+        .map_err(|error| error.to_string())?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(command_error(&output))
+    }
+}
+
+fn git_create_branch_internal(path: String, branch: String) -> Result<(), String> {
+    validate_branch_name(&path, &branch)?;
+    let output = create_command("git")
+        .current_dir(&path)
+        .args(["switch", "-c", &branch])
+        .output()
+        .map_err(|error| error.to_string())?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(command_error(&output))
+    }
+}
+
+fn git_worktree_diff_internal(path: String, file: String, staged: bool) -> Result<String, String> {
+    let tracked = create_command("git")
+        .current_dir(&path)
+        .args(["ls-files", "--error-unmatch", "--", &file])
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false);
+    if !tracked && !staged {
+        let output = create_command("git")
+            .current_dir(&path)
+            .args([
+                "diff",
+                "--no-index",
+                "--color=never",
+                "--",
+                "/dev/null",
+                &file,
+            ])
+            .output()
+            .map_err(|error| error.to_string())?;
+        if output.status.success() || output.status.code() == Some(1) {
+            return Ok(String::from_utf8_lossy(&output.stdout).to_string());
+        }
+        return Err(command_error(&output));
+    }
+    let mut command = create_command("git");
+    command.current_dir(&path).arg("diff");
+    if staged {
+        command.arg("--cached");
+    }
+    let output = command
+        .args(["--color=never", "--", &file])
+        .output()
+        .map_err(|error| error.to_string())?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err(command_error(&output))
+    }
+}
+
+fn git_discard_file_internal(path: String, file: String) -> Result<(), String> {
+    let tracked = create_command("git")
+        .current_dir(&path)
+        .args(["ls-files", "--error-unmatch", "--", &file])
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false);
+    let output = if tracked {
+        create_command("git")
+            .current_dir(&path)
+            .args(["restore", "--worktree", "--", &file])
+            .output()
+            .map_err(|error| error.to_string())?
+    } else {
+        create_command("git")
+            .current_dir(&path)
+            .args(["clean", "-f", "--", &file])
+            .output()
+            .map_err(|error| error.to_string())?
+    };
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(command_error(&output))
+    }
+}
+
 #[tauri::command]
 pub async fn git_push(path: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
@@ -208,6 +408,23 @@ pub async fn git_pull(path: String) -> Result<(), String> {
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn git_fetch(path: String) -> Result<(), String> {
+    run_blocking(move || {
+        let output = create_command("git")
+            .current_dir(&path)
+            .args(["fetch", "--prune"])
+            .output()
+            .map_err(|error| error.to_string())?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(command_error(&output))
+        }
+    })
+    .await
 }
 
 fn git_discard_all_internal(path: String) -> Result<(), String> {
@@ -393,6 +610,26 @@ pub async fn git_current_branch(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+pub async fn git_switch_branch(path: String, branch: String) -> Result<(), String> {
+    run_blocking(move || git_switch_branch_internal(path, branch)).await
+}
+
+#[tauri::command]
+pub async fn git_create_branch(path: String, branch: String) -> Result<(), String> {
+    run_blocking(move || git_create_branch_internal(path, branch)).await
+}
+
+#[tauri::command]
+pub async fn git_worktree_diff(path: String, file: String, staged: bool) -> Result<String, String> {
+    run_blocking(move || git_worktree_diff_internal(path, file, staged)).await
+}
+
+#[tauri::command]
+pub async fn git_discard_file(path: String, file: String) -> Result<(), String> {
+    run_blocking(move || git_discard_file_internal(path, file)).await
+}
+
+#[tauri::command]
 pub async fn git_discard_all(path: String) -> Result<(), String> {
     run_blocking(move || git_discard_all_internal(path)).await
 }
@@ -435,12 +672,19 @@ pub async fn git_get_full_status(path: String) -> Result<GitFullStatus, String> 
                     files: vec![],
                     commits: vec![],
                     branch: "".to_string(),
+                    branches: vec![],
+                    has_remote: false,
+                    ahead: 0,
+                    behind: 0,
                 });
             }
 
             let files = git_status_internal(path.clone())?;
             let branch = git_current_branch_internal(path.clone())?;
             let commits = git_log_internal(path.clone())?;
+            let branches = git_branches_internal(path.clone())?;
+            let has_remote = !git_get_remote_internal(path.clone())?.is_empty();
+            let (ahead, behind) = git_tracking_status_internal(path.clone())?;
 
             Ok::<GitFullStatus, String>(GitFullStatus {
                 repo_path: path,
@@ -448,10 +692,107 @@ pub async fn git_get_full_status(path: String) -> Result<GitFullStatus, String> 
                 files,
                 commits,
                 branch,
+                branches,
+                has_remote,
+                ahead,
+                behind,
             })
         }),
     )
     .await
     .map_err(|_| "git_get_full_status timed out after 5 seconds".to_string())?
     .map_err(|e| e.to_string())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct TestRepository(PathBuf);
+
+    impl Drop for TestRepository {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn run_git(path: &Path, args: &[&str]) {
+        let output = create_command("git")
+            .current_dir(path)
+            .args(args)
+            .output()
+            .expect("git should start");
+        assert!(output.status.success(), "{}", command_error(&output));
+    }
+
+    fn create_test_repository() -> TestRepository {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock should be valid")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("aurona-git-test-{suffix}"));
+        fs::create_dir_all(&path).expect("temporary repository should be created");
+        run_git(&path, &["init"]);
+        run_git(&path, &["config", "user.email", "tests@aurona.local"]);
+        run_git(&path, &["config", "user.name", "Aurona Tests"]);
+        fs::write(path.join("main.txt"), "first\n").expect("fixture should be written");
+        run_git(&path, &["add", "--", "main.txt"]);
+        run_git(&path, &["commit", "-m", "initial"]);
+        TestRepository(path)
+    }
+
+    #[test]
+    fn creates_switches_and_lists_branches() {
+        let repository = create_test_repository();
+        let path = repository.0.to_string_lossy().to_string();
+        git_create_branch_internal(path.clone(), "feature/editor".to_string())
+            .expect("branch should be created");
+        let branches = git_branches_internal(path.clone()).expect("branches should be listed");
+        assert!(branches
+            .iter()
+            .any(|branch| branch.name == "feature/editor" && branch.is_current));
+        let original = branches
+            .iter()
+            .find(|branch| branch.name != "feature/editor")
+            .expect("original branch should exist")
+            .name
+            .clone();
+        git_switch_branch_internal(path, original).expect("original branch should be restored");
+    }
+
+    #[test]
+    fn reads_and_discards_a_worktree_diff() {
+        let repository = create_test_repository();
+        let path = repository.0.to_string_lossy().to_string();
+        fs::write(repository.0.join("main.txt"), "first\nsecond\n")
+            .expect("fixture should be updated");
+        let diff = git_worktree_diff_internal(path.clone(), "main.txt".to_string(), false)
+            .expect("diff should load");
+        assert!(diff.contains("+second"));
+        git_discard_file_internal(path, "main.txt".to_string())
+            .expect("change should be discarded");
+        assert_eq!(
+            fs::read_to_string(repository.0.join("main.txt"))
+                .expect("fixture should remain")
+                .replace("\r\n", "\n"),
+            "first\n"
+        );
+    }
+
+    #[test]
+    fn reads_and_discards_an_untracked_file() {
+        let repository = create_test_repository();
+        let path = repository.0.to_string_lossy().to_string();
+        fs::write(repository.0.join("new.txt"), "untracked\n")
+            .expect("untracked fixture should be written");
+        let diff = git_worktree_diff_internal(path.clone(), "new.txt".to_string(), false)
+            .expect("untracked diff should load");
+        assert!(diff.contains("+untracked"));
+        git_discard_file_internal(path, "new.txt".to_string())
+            .expect("untracked file should be discarded");
+        assert!(!repository.0.join("new.txt").exists());
+    }
 }

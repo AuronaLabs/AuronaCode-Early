@@ -1,4 +1,4 @@
-import type { GitCommit, GitFile } from "../Foundation/IPC/GitCommands";
+import type { GitBranch, GitCommit, GitFile } from "../Foundation/IPC/GitCommands";
 
 export type SourceControlCache = {
   repoPath: string | null;
@@ -6,6 +6,10 @@ export type SourceControlCache = {
   files: GitFile[];
   commits: GitCommit[];
   branch: string;
+  branches: GitBranch[];
+  hasRemote: boolean;
+  ahead: number;
+  behind: number;
   checkedAt: number;
 };
 

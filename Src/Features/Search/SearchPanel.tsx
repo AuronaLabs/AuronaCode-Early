@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { invokeDesktop } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
+import {
+  WorkspaceSearchIPC,
+  type WorkspaceTextSearchResult,
+} from "../../Foundation/IPC/WorkspaceSearchCommands";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { cn } from "../../Shared/Utils/cn";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
@@ -16,23 +19,11 @@ import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 
-export interface SearchResult {
-  file_path: string;
-  line_number: number;
-  match_text: string;
-  index: number;
-}
-
-interface SearchResponse {
-  results: SearchResult[];
-  limit_reached: boolean;
-}
-
 export const SearchPanel = React.memo(function SearchPanel() {
   const [query, setQuery] = useState("");
   const [isCaseSensitive, setIsCaseSensitive] = useState(false);
   const [isRegex, setIsRegex] = useState(false);
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<WorkspaceTextSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [limitReached, setLimitReached] = useState(false);
@@ -72,7 +63,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
   useEffect(() => {
     return () => {
       const requestId = activeRequestIdRef.current;
-      if (requestId) void invokeDesktop("cancel_search", { requestId });
+      if (requestId) void WorkspaceSearchIPC.cancel(requestId);
     };
   }, []);
 
@@ -81,7 +72,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
     const requestId = latestSearchRef.current + 1;
     latestSearchRef.current = requestId;
     if (activeRequestIdRef.current) {
-      void invokeDesktop("cancel_search", { requestId: activeRequestIdRef.current });
+      void WorkspaceSearchIPC.cancel(activeRequestIdRef.current);
     }
     const desktopRequestId = `search-${requestId}-${Date.now()}`;
     activeRequestIdRef.current = desktopRequestId;
@@ -93,13 +84,13 @@ export const SearchPanel = React.memo(function SearchPanel() {
     setSearchError(null);
 
     try {
-      const response = await invokeDesktop<SearchResponse>("search_workspace", {
-        path: repoPath,
+      const response = await WorkspaceSearchIPC.searchText(
+        repoPath,
         query,
         isCaseSensitive,
         isRegex,
-        requestId: desktopRequestId,
-      });
+        desktopRequestId,
+      );
       if (latestSearchRef.current !== requestId) return;
       setResults(response.results);
       setLimitReached(response.limit_reached);
@@ -121,7 +112,10 @@ export const SearchPanel = React.memo(function SearchPanel() {
   };
 
   const grouped = useMemo(() => {
-    const groups: Record<string, { name: string; dir: string; matches: SearchResult[] }> = {};
+    const groups: Record<
+      string,
+      { name: string; dir: string; matches: WorkspaceTextSearchResult[] }
+    > = {};
     for (const r of results) {
       if (!groups[r.file_path]) {
         const parts = r.file_path.split("/");

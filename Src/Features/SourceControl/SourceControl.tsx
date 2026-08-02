@@ -1,10 +1,20 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { GitService, type SourceControlCache } from "../../Core/GitService";
+import { OutputService } from "../../Core/OutputService";
 import { EventBus } from "../../Foundation/EventBus";
-import { type GitCommit, type GitFile, GitIPC } from "../../Foundation/IPC/GitCommands";
+import {
+  type GitBranch,
+  type GitCommit,
+  type GitFile,
+  GitIPC,
+} from "../../Foundation/IPC/GitCommands";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { cn } from "../../Shared/Utils/cn";
+import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { Button } from "../../UI/Components/Button";
 import { glassListHeaderStyles, glassListRowStyles } from "../../UI/Components/GlassList";
+import { Modal } from "../../UI/Components/Modal";
+import { Select } from "../../UI/Components/Select";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
@@ -20,7 +30,15 @@ export const SourceControl = React.memo(function SourceControl() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
-  const [_branch, setBranch] = useState("");
+  const [branch, setBranch] = useState("");
+  const [branches, setBranches] = useState<GitBranch[]>([]);
+  const [hasRemote, setHasRemote] = useState(false);
+  const [ahead, setAhead] = useState(0);
+  const [behind, setBehind] = useState(0);
+  const [gitAction, setGitAction] = useState<string | null>(null);
+  const [isCreateBranchOpen, setIsCreateBranchOpen] = useState(false);
+  const [newBranchName, setNewBranchName] = useState("");
+  const [discardTarget, setDiscardTarget] = useState<GitFile | null>(null);
   const [stagedExpanded, setStagedExpanded] = useState(true);
   const [unstagedExpanded, setUnstagedExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState<"changes" | "history">("changes");
@@ -31,6 +49,10 @@ export const SourceControl = React.memo(function SourceControl() {
     setFiles(cache.files);
     setCommits(cache.commits || []);
     setBranch(cache.branch);
+    setBranches(cache.branches);
+    setHasRemote(cache.hasRemote);
+    setAhead(cache.ahead);
+    setBehind(cache.behind);
     setIsLoading(false);
   }, []);
 
@@ -43,6 +65,10 @@ export const SourceControl = React.memo(function SourceControl() {
       setIsRepo(fullStatus.is_repo);
       setFiles(fullStatus.files);
       setBranch(fullStatus.branch);
+      setBranches(fullStatus.branches);
+      setHasRemote(fullStatus.has_remote);
+      setAhead(fullStatus.ahead);
+      setBehind(fullStatus.behind);
       setCommits(fullStatus.commits);
       GitService.setCache({
         repoPath: path,
@@ -50,6 +76,10 @@ export const SourceControl = React.memo(function SourceControl() {
         files: fullStatus.files,
         commits: fullStatus.commits,
         branch: fullStatus.branch,
+        branches: fullStatus.branches,
+        hasRemote: fullStatus.has_remote,
+        ahead: fullStatus.ahead,
+        behind: fullStatus.behind,
         checkedAt: Date.now(),
       });
 
@@ -80,12 +110,20 @@ export const SourceControl = React.memo(function SourceControl() {
           setFiles([]);
           setCommits([]);
           setBranch("");
+          setBranches([]);
+          setHasRemote(false);
+          setAhead(0);
+          setBehind(0);
           GitService.setCache({
             repoPath: path,
             isRepo: false,
             files: [],
             commits: [],
             branch: "",
+            branches: [],
+            hasRemote: false,
+            ahead: 0,
+            behind: 0,
             checkedAt: Date.now(),
           });
         }
@@ -206,6 +244,83 @@ export const SourceControl = React.memo(function SourceControl() {
       showToast(`提交失败：${error}`, "error");
     }
   };
+
+  const runRepositoryAction = async (action: "fetch" | "pull" | "push", label: string) => {
+    if (!repoPath || gitAction) return;
+    try {
+      setGitAction(action);
+      OutputService.append("source-control", `${label} started in ${repoPath}`);
+      await GitIPC[action](repoPath);
+      await fetchStatus(repoPath, true);
+      OutputService.append("source-control", `${label} completed`);
+      showToast(`${label}完成`, "success");
+    } catch (error) {
+      OutputService.append("source-control", `${label} failed: ${error}`, "error");
+      showToast(`${label}失败：${error}`, "error");
+    } finally {
+      setGitAction(null);
+    }
+  };
+
+  const handleSwitchBranch = async (nextBranch: string) => {
+    if (!repoPath || nextBranch === branch || gitAction) return;
+    try {
+      setGitAction("switch");
+      OutputService.append("source-control", `Switching branch from ${branch} to ${nextBranch}`);
+      await GitIPC.switchBranch(repoPath, nextBranch);
+      await fetchStatus(repoPath, true);
+      showToast(`已切换到 ${nextBranch}`, "success");
+    } catch (error) {
+      OutputService.append("source-control", `Branch switch failed: ${error}`, "error");
+      showToast(`分支切换失败：${error}`, "error");
+    } finally {
+      setGitAction(null);
+    }
+  };
+
+  const handleCreateBranch = async () => {
+    if (!repoPath || !newBranchName.trim() || gitAction) return;
+    const name = newBranchName.trim();
+    try {
+      setGitAction("create-branch");
+      OutputService.append("source-control", `Creating branch ${name}`);
+      await GitIPC.createBranch(repoPath, name);
+      setNewBranchName("");
+      setIsCreateBranchOpen(false);
+      await fetchStatus(repoPath, true);
+      showToast(`已创建并切换到 ${name}`, "success");
+    } catch (error) {
+      OutputService.append("source-control", `Branch creation failed: ${error}`, "error");
+      showToast(`创建分支失败：${error}`, "error");
+    } finally {
+      setGitAction(null);
+    }
+  };
+
+  const openWorkingDiff = (file: GitFile) => {
+    const target = `working:${file.is_staged ? "staged" : "unstaged"}:${encodeURIComponent(file.path)}`;
+    useWorkbenchStore.getState().openTab({
+      id: `diff-${target}`,
+      type: "diff",
+      title: `Diff: ${file.name}`,
+      path: target,
+    });
+  };
+
+  const confirmDiscardFile = async () => {
+    if (!repoPath || !discardTarget || gitAction) return;
+    try {
+      setGitAction("discard-file");
+      await GitIPC.discardFile(repoPath, discardTarget.path);
+      setDiscardTarget(null);
+      await fetchStatus(repoPath, true);
+    } catch (error) {
+      showToast(`放弃更改失败：${error}`, "error");
+    } finally {
+      setGitAction(null);
+    }
+  };
+
   const getStatusBadgeStyle = (status: string) => {
     switch (status) {
       case "M":
@@ -215,7 +330,10 @@ export const SourceControl = React.memo(function SourceControl() {
       case "D":
         return "text-red-500 bg-red-500/10 border border-red-500/20";
       case "U":
+      case "?":
         return "border border-[color-mix(in_srgb,var(--AccentPrimary)_20%,transparent)] bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]";
+      case "!":
+        return "border border-red-500/20 bg-red-500/10 text-red-500";
       default:
         return "text-[var(--TextMuted)] bg-[var(--GlassSurface-Elevated)] border border-transparent";
     }
@@ -228,7 +346,11 @@ export const SourceControl = React.memo(function SourceControl() {
         key={`${file.path}-${index}`}
         className={cn(glassListRowStyles, "mx-1 my-0.5 cursor-pointer justify-between")}
       >
-        <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2 min-w-0">
+        <button
+          type="button"
+          onClick={() => openWorkingDiff(file)}
+          className="mr-2 flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-left"
+        >
           <Icons.FileCode size={14} stroke={1.5} className="text-[var(--TextMuted)] shrink-0" />
           <span className="text-[12.5px] font-medium text-[var(--TextHighlight)] truncate min-w-0">
             {file.name}
@@ -236,7 +358,7 @@ export const SourceControl = React.memo(function SourceControl() {
           <span className="text-[10px] text-[var(--TextMuted)] truncate opacity-70 group-hover:opacity-100 transition-opacity min-w-0">
             {parentPath}
           </span>
-        </div>
+        </button>
 
         <div className="flex items-center gap-1.5 shrink-0">
           <span
@@ -245,6 +367,20 @@ export const SourceControl = React.memo(function SourceControl() {
             {file.status}
           </span>
           <div className="opacity-0 w-0 group-hover:w-auto group-hover:opacity-100 transition-all flex items-center shrink-0">
+            {!file.is_staged && (
+              <Tooltip content="放弃此文件的更改" delay={300}>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setDiscardTarget(file);
+                  }}
+                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] text-[var(--TextPrimary)] shadow-sm transition-colors hover:bg-red-500/10 hover:text-red-500"
+                >
+                  <Icons.Trash size={11} stroke={2.2} />
+                </button>
+              </Tooltip>
+            )}
             {file.is_staged ? (
               <Tooltip content="取消暂存" delay={300}>
                 <button
@@ -307,7 +443,7 @@ export const SourceControl = React.memo(function SourceControl() {
             <>
               源代码管理
               <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]">
-                Beta
+                Preview
               </span>
             </>
           }
@@ -332,8 +468,9 @@ export const SourceControl = React.memo(function SourceControl() {
     );
   }
 
-  const stagedFiles = files.filter((file) => file.is_staged);
-  const unstagedFiles = files.filter((file) => !file.is_staged);
+  const conflictedFiles = files.filter((file) => file.is_conflict);
+  const stagedFiles = files.filter((file) => file.is_staged && !file.is_conflict);
+  const unstagedFiles = files.filter((file) => !file.is_staged && !file.is_conflict);
 
   return (
     <div className="flex flex-col h-full w-full select-none bg-transparent">
@@ -342,7 +479,7 @@ export const SourceControl = React.memo(function SourceControl() {
           <>
             源代码管理
             <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]">
-              Beta
+              Preview
             </span>
           </>
         }
@@ -386,6 +523,81 @@ export const SourceControl = React.memo(function SourceControl() {
         </button>
       </div>
 
+      <div className="mx-[var(--PanelPaddingX)] mb-3 flex shrink-0 items-center gap-1.5">
+        {branch && branches.length > 0 ? (
+          <Select
+            ariaLabel="当前 Git 分支"
+            value={branch}
+            onChange={(value) => void handleSwitchBranch(value)}
+            options={branches.map((item) => ({
+              value: item.name,
+              label: item.name,
+              disabled: Boolean(gitAction),
+              disabledReason: gitAction ? "Git 操作正在进行" : undefined,
+            }))}
+            className="h-7 min-w-0 flex-1 rounded-lg px-2.5 text-[11.5px]"
+          />
+        ) : (
+          <div className="flex h-7 min-w-0 flex-1 items-center rounded-lg border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] px-2.5 text-[11.5px] text-[var(--TextMuted)]">
+            尚无提交分支
+          </div>
+        )}
+        <Tooltip content="创建分支" delay={300}>
+          <button
+            type="button"
+            onClick={() => setIsCreateBranchOpen(true)}
+            disabled={Boolean(gitAction)}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--TextMuted)] transition-colors hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] disabled:opacity-40"
+          >
+            <Icons.Plus size={14} />
+          </button>
+        </Tooltip>
+        {hasRemote && (
+          <>
+            <Tooltip content="获取远程更新" delay={300}>
+              <button
+                type="button"
+                onClick={() => void runRepositoryAction("fetch", "Fetch")}
+                disabled={Boolean(gitAction)}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--TextMuted)] transition-colors hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] disabled:opacity-40"
+              >
+                <Icons.Refresh size={13} className={gitAction === "fetch" ? "animate-spin" : ""} />
+              </button>
+            </Tooltip>
+            <Tooltip content={behind > 0 ? `拉取 ${behind} 个提交` : "拉取"} delay={300}>
+              <button
+                type="button"
+                onClick={() => void runRepositoryAction("pull", "Pull")}
+                disabled={Boolean(gitAction)}
+                className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--TextMuted)] transition-colors hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] disabled:opacity-40"
+              >
+                <Icons.Pull size={13} />
+                {behind > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--AccentPrimary)] px-0.5 text-center text-[8px] leading-3 text-white">
+                    {behind}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
+            <Tooltip content={ahead > 0 ? `推送 ${ahead} 个提交` : "推送"} delay={300}>
+              <button
+                type="button"
+                onClick={() => void runRepositoryAction("push", "Push")}
+                disabled={Boolean(gitAction)}
+                className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--TextMuted)] transition-colors hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] disabled:opacity-40"
+              >
+                <Icons.Push size={13} />
+                {ahead > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--AccentPrimary)] px-0.5 text-center text-[8px] leading-3 text-white">
+                    {ahead}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
+          </>
+        )}
+      </div>
+
       {activeTab === "changes" ? (
         <>
           <div className="mt-2 shrink-0 px-[var(--PanelPaddingX)] pb-4">
@@ -418,6 +630,24 @@ export const SourceControl = React.memo(function SourceControl() {
           </div>
 
           <div className="flex-1 flex flex-col gap-3 overflow-hidden px-[var(--PanelPaddingX)] pb-4 min-h-0">
+            {conflictedFiles.length > 0 && (
+              <div
+                className={cn(
+                  glassVariants({ layer: "base" }),
+                  "flex max-h-[34%] min-h-0 flex-col overflow-hidden rounded-2xl border-red-500/20 shadow-sm",
+                )}
+              >
+                <div className={cn(glassListHeaderStyles, "justify-between")}>
+                  <span className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-wider text-red-500">
+                    <Icons.AlertTriangle size={14} /> 冲突 ({conflictedFiles.length})
+                  </span>
+                  <span className="text-[10px] text-[var(--TextMuted)]">解决后暂存文件</span>
+                </div>
+                <div className="aurona-scroll min-h-0 overflow-y-auto overflow-x-hidden p-2">
+                  {conflictedFiles.map(renderFileCard)}
+                </div>
+              </div>
+            )}
             {stagedFiles.length > 0 && (
               <div
                 className={cn(
@@ -574,6 +804,57 @@ export const SourceControl = React.memo(function SourceControl() {
           )}
         </div>
       )}
+      <Modal
+        isOpen={isCreateBranchOpen}
+        onClose={() => setIsCreateBranchOpen(false)}
+        title="创建分支"
+        icon={<Icons.GitBranch size={18} />}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setIsCreateBranchOpen(false)}>
+              取消
+            </Button>
+            <Button
+              onClick={() => void handleCreateBranch()}
+              disabled={!newBranchName.trim() || Boolean(gitAction)}
+            >
+              创建并切换
+            </Button>
+          </>
+        }
+      >
+        <label className="flex flex-col gap-2">
+          <span className="text-[12px] text-[var(--TextMuted)]">新分支名称</span>
+          <input
+            data-aurona-input="embedded"
+            value={newBranchName}
+            onChange={(event) => setNewBranchName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void handleCreateBranch();
+            }}
+            placeholder="例如 feature/editor-overlays"
+            className="h-9 rounded-xl border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] px-3 text-[13px] text-[var(--TextHighlight)] outline-none focus:border-[var(--AccentPrimary)]"
+          />
+        </label>
+      </Modal>
+      <Modal
+        isOpen={Boolean(discardTarget)}
+        onClose={() => setDiscardTarget(null)}
+        title="放弃文件更改"
+        icon={<Icons.AlertTriangle className="text-red-500" size={18} />}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDiscardTarget(null)}>
+              取消
+            </Button>
+            <Button variant="danger" onClick={() => void confirmDiscardFile()}>
+              放弃更改
+            </Button>
+          </>
+        }
+      >
+        将永久放弃 <strong>{discardTarget?.path}</strong> 的未暂存更改。这个操作无法撤销。
+      </Modal>
     </div>
   );
 });

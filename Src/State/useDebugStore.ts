@@ -17,6 +17,30 @@ export interface DebugBreakpoint {
   message?: string;
 }
 
+export interface DebugStackFrame {
+  id: number;
+  name: string;
+  line: number;
+  column: number;
+  source?: { path?: string };
+}
+
+export interface DebugVariable {
+  name: string;
+  value: string;
+  type?: string;
+  evaluateName?: string;
+  variablesReference: number;
+  namedVariables?: number;
+  indexedVariables?: number;
+}
+
+export interface DebugScope {
+  name: string;
+  variablesReference: number;
+  expensive?: boolean;
+}
+
 interface DebugStore {
   state: DebugState;
   sessionId: string | null;
@@ -24,14 +48,11 @@ interface DebugStore {
   configurations: DebugConfiguration[];
   selectedConfiguration: string | null;
   threads: Array<{ id: number; name: string }>;
-  stackFrames: Array<{
-    id: number;
-    name: string;
-    line: number;
-    column: number;
-    source?: { path?: string };
-  }>;
-  variables: Array<{ name: string; value: string; type?: string; variablesReference: number }>;
+  stackFrames: DebugStackFrame[];
+  selectedFrameId: number | null;
+  scopes: DebugScope[];
+  variablesByReference: Record<number, DebugVariable[]>;
+  loadingVariableReferences: number[];
   breakpoints: DebugBreakpoint[];
   error: string | null;
   dependencyState: DebugDependencyState;
@@ -50,7 +71,10 @@ const initial = {
   selectedConfiguration: null,
   threads: [],
   stackFrames: [],
-  variables: [],
+  selectedFrameId: null,
+  scopes: [],
+  variablesByReference: {},
+  loadingVariableReferences: [],
   breakpoints: [],
   error: null,
   dependencyState: "unknown" as DebugDependencyState,

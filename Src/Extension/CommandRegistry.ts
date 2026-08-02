@@ -51,7 +51,23 @@ const isEditableTarget = (target: EventTarget | null): boolean => {
 
 class CommandRegistryImpl {
   private readonly commands = new Map<string, CommandDefinition<unknown>>();
+  private readonly listeners = new Set<() => void>();
+  private revision = 0;
   private contextProvider = () => EMPTY_CONTEXT;
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  getRevision(): number {
+    return this.revision;
+  }
+
+  private emitChange(): void {
+    this.revision += 1;
+    for (const listener of this.listeners) listener();
+  }
 
   setContextProvider(provider: () => CommandContext): () => void {
     this.contextProvider = provider;
@@ -62,11 +78,12 @@ class CommandRegistryImpl {
 
   register<Args>(command: CommandDefinition<Args>): () => void {
     this.commands.set(command.id, command as CommandDefinition<unknown>);
+    this.emitChange();
     return () => this.unregister(command.id);
   }
 
   unregister(id: string): void {
-    this.commands.delete(id);
+    if (this.commands.delete(id)) this.emitChange();
   }
 
   async execute<Args = undefined>(id: string, args?: Args): Promise<CommandExecutionResult> {

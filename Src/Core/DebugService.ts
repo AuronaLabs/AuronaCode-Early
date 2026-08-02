@@ -1,6 +1,11 @@
 import { type DapEvent, DebugAdapterIPC } from "../Foundation/IPC/DebugAdapterCommands";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
-import { useDebugStore } from "../State/useDebugStore";
+import {
+  type DebugScope,
+  type DebugStackFrame,
+  type DebugVariable,
+  useDebugStore,
+} from "../State/useDebugStore";
 import { type DebugConfiguration, DebugConfigurationService } from "./DebugConfigurationService";
 import { OutputService } from "./OutputService";
 
@@ -115,7 +120,10 @@ class DebugServiceImpl {
       error: null,
       threads: [],
       stackFrames: [],
-      variables: [],
+      selectedFrameId: null,
+      scopes: [],
+      variablesByReference: {},
+      loadingVariableReferences: [],
     });
     try {
       await DebugAdapterIPC.start({
@@ -229,7 +237,10 @@ class DebugServiceImpl {
       error: null,
       threads: [],
       stackFrames: [],
-      variables: [],
+      selectedFrameId: null,
+      scopes: [],
+      variablesByReference: {},
+      loadingVariableReferences: [],
     });
   }
 
@@ -284,36 +295,27 @@ class DebugServiceImpl {
       store.set({ state: "paused", threads });
       const threadId = Number(body.threadId ?? threads[0]?.id);
       if (threadId) {
-        const result = await DebugAdapterIPC.request<{ stackFrames?: DebugStoreFrame[] }>(
+        const result = await DebugAdapterIPC.request<{ stackFrames?: DebugStackFrame[] }>(
           event.sessionId,
           "stackTrace",
           { threadId, startFrame: 0, levels: 50 },
         );
         const stackFrames = result.stackFrames ?? [];
-        store.set({ stackFrames });
+        store.set({ stackFrames, selectedFrameId: stackFrames[0]?.id ?? null });
         const firstFrame = stackFrames[0];
         if (firstFrame) {
-          const scopeResult = await DebugAdapterIPC.request<{
-            scopes?: Array<{ variablesReference: number }>;
-          }>(event.sessionId, "scopes", { frameId: firstFrame.id });
-          const scope = scopeResult.scopes?.[0];
-          if (scope?.variablesReference) {
-            const variableResult = await DebugAdapterIPC.request<{
-              variables?: Array<{
-                name: string;
-                value: string;
-                type?: string;
-                variablesReference: number;
-              }>;
-            }>(event.sessionId, "variables", {
-              variablesReference: scope.variablesReference,
-            });
-            store.set({ variables: variableResult.variables ?? [] });
-          }
+          await this.selectFrame(firstFrame.id);
         }
       }
     } else if (event.event === "continued") {
-      store.set({ state: "running", stackFrames: [], variables: [] });
+      store.set({
+        state: "running",
+        stackFrames: [],
+        selectedFrameId: null,
+        scopes: [],
+        variablesByReference: {},
+        loadingVariableReferences: [],
+      });
     } else if (event.event === "terminated" || event.event === "exited") {
       await this.finishSession(event.sessionId);
     } else if (event.event === "output") {
@@ -322,6 +324,80 @@ class DebugServiceImpl {
         String(body.output ?? ""),
         body.category === "stderr" ? "error" : "info",
       );
+    }
+  }
+
+  async selectFrame(frameId: number): Promise<void> {
+    const { sessionId, state } = useDebugStore.getState();
+    if (!sessionId || state !== "paused") return;
+    useDebugStore.getState().set({
+      selectedFrameId: frameId,
+      scopes: [],
+      variablesByReference: {},
+      loadingVariableReferences: [],
+    });
+    try {
+      const result = await DebugAdapterIPC.request<{ scopes?: DebugScope[] }>(sessionId, "scopes", {
+        frameId,
+      });
+      if (
+        useDebugStore.getState().sessionId !== sessionId ||
+        useDebugStore.getState().selectedFrameId !== frameId
+      ) {
+        return;
+      }
+      const scopes = (result.scopes ?? []).filter((scope) => scope.variablesReference > 0);
+      useDebugStore.getState().set({ scopes });
+      await Promise.all(scopes.map((scope) => this.loadVariables(scope.variablesReference)));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      OutputService.append("debug-adapter", `无法读取栈帧变量：${message}`, "error");
+    }
+  }
+
+  async loadVariables(variablesReference: number): Promise<void> {
+    if (variablesReference <= 0) return;
+    const current = useDebugStore.getState();
+    if (
+      !current.sessionId ||
+      current.variablesByReference[variablesReference] ||
+      current.loadingVariableReferences.includes(variablesReference)
+    ) {
+      return;
+    }
+    const sessionId = current.sessionId;
+    const selectedFrameId = current.selectedFrameId;
+    current.set({
+      loadingVariableReferences: [...current.loadingVariableReferences, variablesReference],
+    });
+    try {
+      const result = await DebugAdapterIPC.request<{ variables?: DebugVariable[] }>(
+        sessionId,
+        "variables",
+        { variablesReference },
+      );
+      const latest = useDebugStore.getState();
+      if (latest.sessionId !== sessionId || latest.selectedFrameId !== selectedFrameId) {
+        return;
+      }
+      latest.set({
+        variablesByReference: {
+          ...latest.variablesByReference,
+          [variablesReference]: result.variables ?? [],
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      OutputService.append("debug-adapter", `无法展开变量：${message}`, "error");
+    } finally {
+      const latest = useDebugStore.getState();
+      if (latest.sessionId === sessionId && latest.selectedFrameId === selectedFrameId) {
+        latest.set({
+          loadingVariableReferences: latest.loadingVariableReferences.filter(
+            (reference) => reference !== variablesReference,
+          ),
+        });
+      }
     }
   }
 
@@ -340,14 +416,6 @@ class DebugServiceImpl {
     }
   }
 }
-
-type DebugStoreFrame = {
-  id: number;
-  name: string;
-  line: number;
-  column: number;
-  source?: { path?: string };
-};
 
 export const DebugService = new DebugServiceImpl();
 

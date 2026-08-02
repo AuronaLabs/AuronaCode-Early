@@ -18,7 +18,7 @@ await Promise.all([
 ]);
 await writeFile(
   join(outputRoot, "package.json"),
-  '{"name":"aurona-code-builtin-toolchains","private":true,"type":"module","version":"0.3.3"}\n',
+  '{"name":"aurona-code-builtin-toolchains","private":true,"type":"module","version":"0.3.4"}\n',
 );
 await writeFile(join(outputRoot, "pyright", "package.json"), '{"type":"commonjs"}\n');
 

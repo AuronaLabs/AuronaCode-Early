@@ -3,6 +3,7 @@ export type OutputChannelId =
   | "filesystem"
   | "language-server"
   | "debug-adapter"
+  | "source-control"
   | "terminal-task"
   | "rust-backend";
 
@@ -35,6 +36,7 @@ const LABELS: Record<OutputChannelId, string> = {
   filesystem: "Aurona Code · File System",
   "language-server": "Language Services",
   "debug-adapter": "Debug Adapters",
+  "source-control": "Project · Git",
   "terminal-task": "Project · Tasks",
   "rust-backend": "Aurona Code · Rust Backend",
 };

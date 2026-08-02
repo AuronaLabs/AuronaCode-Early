@@ -16,6 +16,22 @@ afterEach(() => {
 });
 
 describe("CommandRegistry", () => {
+  it("notifies search views when commands are registered or removed", () => {
+    const listener = vi.fn();
+    const unsubscribe = CommandRegistry.subscribe(listener);
+    const disposeCommand = CommandRegistry.register({
+      id: "test.subscription",
+      title: "Subscription",
+      category: "Test",
+      handler: vi.fn(),
+    });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    disposeCommand();
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
+  });
+
   it("uses the same handler for direct execution and keybindings", async () => {
     const handler = vi.fn();
     disposers.push(CommandRegistry.setContextProvider(() => context));

@@ -95,11 +95,16 @@ export function UpdateModal() {
         </div>
       }
     >
-      <div className="max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-3">
-        <div className="text-[13px] text-[var(--TextMuted)]">
-          发布日期: {updateInfo.date ? new Date(updateInfo.date).toLocaleDateString() : "未知"}
+      <div className="flex max-h-[52vh] flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar">
+        <div className="flex items-center gap-2 text-[11px] text-[var(--TextMuted)]">
+          <span className="flex items-center gap-1.5">
+            <Icons.History size={13} stroke={1.7} />
+            {updateInfo.date ? new Date(updateInfo.date).toLocaleDateString() : "发布日期未知"}
+          </span>
+          <span className="h-1 w-1 rounded-full bg-[var(--TextMuted)] opacity-45" />
+          <span>来自 Aurona Code 官方更新通道</span>
         </div>
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] p-4 shadow-[var(--shadow-surface)]">
+        <div className="pb-1">
           <MarkdownContent source={updateInfo.body || "本次更新包含了性能改进与错误修复。"} />
         </div>
       </div>

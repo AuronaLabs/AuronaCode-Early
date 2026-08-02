@@ -3,7 +3,6 @@ import { DebugService } from "../../Core/DebugService";
 import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { DocumentService } from "../../Core/DocumentService";
 import { applyLspTextEdits } from "../../Core/Language/TextEdits";
-import { OutputService } from "../../Core/OutputService";
 import { EventBus } from "../../Foundation/EventBus";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { LanguageFeaturePreferences } from "../../Foundation/Types/Config";
@@ -19,11 +18,13 @@ import {
 import { LspClient } from "../Editor/LspClient";
 import { AutocompleteMenu, type CompletionItem } from "./components/AutocompleteMenu";
 import { EditorLine } from "./components/EditorLine";
-import { type EditorHoverState, HoverCard } from "./components/HoverCard";
+import { HoverCard } from "./components/HoverCard";
 import { SearchWidget } from "./components/SearchWidget";
 import { EditorAdapter } from "./EditorAdapter";
 import { useEditorHistory } from "./Hooks/useEditorHistory";
+import { useEditorHover } from "./Hooks/useEditorHover";
 import type { IEditorEngine } from "./IEditorEngine";
+import { pointerSelectionDecision } from "./Utils/EditorInteraction";
 import {
   DEFAULT_EDITOR_LAYOUT,
   editorTextIndexAtX,
@@ -35,6 +36,14 @@ import {
   readEditorLayoutMetrics,
   sameEditorLayout,
 } from "./Utils/EditorLayoutMetrics";
+import {
+  affectedLineRange,
+  duplicateLineRange,
+  indentLineRange,
+  moveLineRange,
+  outdentLineRange,
+  toggleLineComment,
+} from "./Utils/EditorLineOperations";
 import {
   type DiagnosticItem,
   diagnosticsForLine,
@@ -176,12 +185,39 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
   // 诊断与 tooltip
   const [diagnostics, setDiagnostics] = useState<DiagnosticItem[]>([]);
-  const [hoverTooltip, setHoverTooltip] = useState<EditorHoverState | null>(null);
-  const hoverTimerRef = useRef<number | null>(null);
-  const hoverCloseTimerRef = useRef<number | null>(null);
-  const hoverGenerationRef = useRef(0);
-  const hoverTargetRef = useRef<{ line: number; character: number } | null>(null);
   const [languagePreferences, setLanguagePreferences] = useState(DEFAULT_LANGUAGE_PREFERENCES);
+  const isHoverInteractionBlocked = useCallback(
+    () => isDraggingRef.current || isComposing,
+    [isComposing],
+  );
+  const {
+    tooltip: hoverTooltip,
+    isContextMenuOpen,
+    dismiss: dismissHover,
+    setVisibleTooltip: setVisibleHover,
+    setContextMenuOpen: setHoverContextMenuOpen,
+    requestLanguageHover: handleLanguageHover,
+    handleLineMouseLeave,
+    handleTooltipMouseEnter: handleHoverEnter,
+    handleTooltipMouseLeave: handleHoverLeave,
+  } = useEditorHover({
+    path,
+    language,
+    preferences: languagePreferences,
+    interactionBlocked: isHoverInteractionBlocked,
+  });
+
+  const handleContextMenuOpenChange = useCallback(
+    (open: boolean) => {
+      setHoverContextMenuOpen(open);
+      if (open) {
+        setCompletions([]);
+        return;
+      }
+      window.requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+    [setHoverContextMenuOpen],
+  );
 
   const { pushHistory, resetHistory, undo, redo } = useEditorHistory("");
   const documentLoadedRef = useRef(false);
@@ -614,13 +650,19 @@ export const AuronaEngine = React.memo(function AuronaEngine({
               if (completionRequestRef.current === requestId) setCompletions([]);
               if (manual) {
                 const bounds = containerRef.current?.getBoundingClientRect();
-                setHoverTooltip({
-                  x: (bounds?.left ?? 0) + caretPos.x,
-                  y:
-                    (bounds?.top ?? 0) +
-                    layout.contentInsetTop +
-                    (lineIndex + 1) * layout.lineHeight -
-                    scrollTop,
+                const left = (bounds?.left ?? 0) + caretPos.x;
+                const top =
+                  (bounds?.top ?? 0) +
+                  layout.contentInsetTop +
+                  lineIndex * layout.lineHeight -
+                  scrollTop;
+                setVisibleHover({
+                  anchor: {
+                    left,
+                    right: left,
+                    top,
+                    bottom: top + layout.lineHeight,
+                  },
                   title: "无法获取补全",
                   text: error instanceof Error ? error.message : String(error),
                   tone: "warning",
@@ -636,7 +678,15 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         manual ? 0 : 120,
       );
     },
-    [caretPos.x, language, languagePreferences.automaticCompletion, layout, path, scrollTop],
+    [
+      caretPos.x,
+      language,
+      languagePreferences.automaticCompletion,
+      layout,
+      path,
+      scrollTop,
+      setVisibleHover,
+    ],
   );
 
   const handleAutocompleteSelect = (index: number) => {
@@ -756,6 +806,32 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     const entry = redo();
     if (entry) applyHistoryEntry(entry.content, entry.selectionStart);
   }, [applyHistoryEntry, redo]);
+
+  const replaceDocumentLines = useCallback(
+    (
+      lines: string[],
+      nextCursor: { line: number; char: number },
+      nextSelection: typeof selection = null,
+    ) => {
+      const previousContent = documentLines.join("\n");
+      const content = lines.join("\n");
+      if (content === previousContent) return;
+      setDocumentLines(lines);
+      setTotalLines(lines.length);
+      updateMaxLineLength(lines);
+      setCursor(nextCursor);
+      setSelection(nextSelection);
+      setCompletions([]);
+      dismissHover();
+      if (path) {
+        DocumentService.applyEdit(path, 0, previousContent.length, content, content).catch(
+          console.error,
+        );
+      }
+      onChange?.(content);
+    },
+    [dismissHover, documentLines, onChange, path, updateMaxLineLength],
+  );
 
   // 支持选区覆盖写入与合并
   const insertTextAtCursor = useCallback(
@@ -979,6 +1055,84 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       return;
     }
 
+    if (e.code === "Slash" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      const marker = ["python", "shellscript", "yaml", "toml", "powershell"].includes(language)
+        ? "#"
+        : ["html", "css", "scss", "markdown", "plaintext"].includes(language)
+          ? null
+          : "//";
+      if (marker) {
+        const range = affectedLineRange(line, selection);
+        const result = toggleLineComment(lines, range, marker);
+        const delta = marker.length + 1;
+        const adjust = (position: { line: number; char: number }) => ({
+          line: position.line,
+          char:
+            position.line >= range.startLine && position.line <= range.endLine
+              ? Math.max(0, position.char + (result.uncommented ? -delta : delta))
+              : position.char,
+        });
+        const nextSelection = selection
+          ? { start: adjust(selection.start), end: adjust(selection.end) }
+          : null;
+        replaceDocumentLines(result.lines, adjust(cursor), nextSelection);
+      }
+      return;
+    }
+
+    if (e.altKey && e.shiftKey && e.key === "ArrowDown") {
+      e.preventDefault();
+      const range = affectedLineRange(line, selection);
+      const result = duplicateLineRange(lines, range);
+      const lineDelta = result.range.startLine - range.startLine;
+      const nextSelection = selection
+        ? {
+            start: { ...selection.start, line: selection.start.line + lineDelta },
+            end: { ...selection.end, line: selection.end.line + lineDelta },
+          }
+        : null;
+      replaceDocumentLines(
+        result.lines,
+        { ...cursor, line: cursor.line + lineDelta },
+        nextSelection,
+      );
+      return;
+    }
+
+    if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      e.preventDefault();
+      const range = affectedLineRange(line, selection);
+      const direction = e.key === "ArrowUp" ? -1 : 1;
+      const result = moveLineRange(lines, range, direction);
+      const lineDelta = result.range.startLine - range.startLine;
+      if (lineDelta !== 0) {
+        const nextSelection = selection
+          ? {
+              start: { ...selection.start, line: selection.start.line + lineDelta },
+              end: { ...selection.end, line: selection.end.line + lineDelta },
+            }
+          : null;
+        replaceDocumentLines(
+          result.lines,
+          { ...cursor, line: cursor.line + lineDelta },
+          nextSelection,
+        );
+      }
+      return;
+    }
+
+    if (e.key.toLowerCase() === "k" && e.shiftKey && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      const range = affectedLineRange(line, selection);
+      const nextLines = [...lines];
+      nextLines.splice(range.startLine, range.endLine - range.startLine + 1);
+      if (nextLines.length === 0) nextLines.push("");
+      const nextLine = Math.min(range.startLine, nextLines.length - 1);
+      replaceDocumentLines(nextLines, { line: nextLine, char: 0 });
+      return;
+    }
+
     // 退格键 Backspace
     if (e.key === "Backspace") {
       e.preventDefault();
@@ -1142,6 +1296,35 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     // 制表符 Tab
     if (e.key === "Tab") {
       e.preventDefault();
+      if (selection) {
+        const range = affectedLineRange(line, selection);
+        if (e.shiftKey) {
+          const result = outdentLineRange(lines, range, layout.tabSize);
+          const adjust = (position: { line: number; char: number }) => ({
+            line: position.line,
+            char: Math.max(0, position.char - (result.removed[position.line] ?? 0)),
+          });
+          replaceDocumentLines(result.lines, adjust(cursor), {
+            start: adjust(selection.start),
+            end: adjust(selection.end),
+          });
+        } else {
+          const indent = " ".repeat(layout.tabSize);
+          const nextLines = indentLineRange(lines, range, indent);
+          const adjust = (position: { line: number; char: number }) => ({
+            line: position.line,
+            char:
+              position.line >= range.startLine && position.line <= range.endLine
+                ? position.char + indent.length
+                : position.char,
+          });
+          replaceDocumentLines(nextLines, adjust(cursor), {
+            start: adjust(selection.start),
+            end: adjust(selection.end),
+          });
+        }
+        return;
+      }
       if (e.shiftKey) {
         if (lineText.startsWith("  ")) {
           const startUtf16 = getLineStartUtf16(lines, line);
@@ -1171,6 +1354,19 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       } else {
         insertTextAtCursor("  ");
       }
+      return;
+    }
+
+    if (e.key === "Home") {
+      e.preventDefault();
+      const firstContent = lineText.search(/\S|$/);
+      const target = char === firstContent ? 0 : firstContent;
+      moveCursor(line, target, e.shiftKey);
+      return;
+    }
+    if (e.key === "End") {
+      e.preventDefault();
+      moveCursor(line, lineText.length, e.shiftKey);
       return;
     }
 
@@ -1382,8 +1578,17 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
       const pos = { line: lineIndex, char: charIndex };
 
+      const pointerDecision = pointerSelectionDecision(e.button, pos, selection);
+      if (pointerDecision.kind === "preserve-selection") {
+        isDraggingRef.current = false;
+        dragStartRef.current = null;
+        setCompletions([]);
+        dismissHover();
+        return;
+      }
+
       // 支持三击选中整行
-      if (e.detail === 3) {
+      if (e.button === 0 && e.detail === 3) {
         const lineLen = (documentLines[lineIndex] || "").length;
         setSelection({
           start: { line: lineIndex, char: 0 },
@@ -1395,7 +1600,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       }
 
       // 支持双击选中当前单词
-      if (e.detail === 2) {
+      if (e.button === 0 && e.detail === 2) {
         const lineText = documentLines[lineIndex] || "";
         const { start: wordStart, end: wordEnd } = findWordBoundaries(lineText, charIndex);
         const selStart = { line: lineIndex, char: wordStart };
@@ -1407,16 +1612,23 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       }
 
       // 常规点击/开启拖拽选中
-      setCursor(pos);
-      isDraggingRef.current = true;
-      dragStartRef.current = pos;
-      setSelection({ start: pos, end: pos });
+      setCursor(pointerDecision.position);
+      isDraggingRef.current = pointerDecision.beginDrag;
+      dragStartRef.current = pointerDecision.beginDrag ? pointerDecision.position : null;
+      setSelection(
+        pointerDecision.beginDrag
+          ? { start: pointerDecision.position, end: pointerDecision.position }
+          : null,
+      );
 
       setCompletions([]);
-      textareaRef.current?.focus();
-      e.preventDefault();
+      dismissHover();
+      if (e.button === 0) {
+        textareaRef.current?.focus();
+        e.preventDefault();
+      }
     },
-    [documentLines, findWordBoundaries, textIndexAtPoint],
+    [dismissHover, documentLines, findWordBoundaries, selection, textIndexAtPoint],
   );
 
   // 全局 mousemove：支持鼠标拖出视口和拖出编辑行时，自动更新选区，并触发自动滚动（Auto-Scroll）
@@ -1560,97 +1772,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     path,
   ]);
 
-  const handleLanguageHover = useCallback(
-    (line: number, character: number, x: number, y: number) => {
-      if (!path) return;
-      if (!languagePreferences.hoverEnabled) return;
-      if (hoverTargetRef.current?.line === line && hoverTargetRef.current.character === character) {
-        return;
-      }
-      hoverTargetRef.current = { line, character };
-      const client = LspClient.getInstance();
-      const server = client.getState(language);
-      if (server?.status !== "running") {
-        setHoverTooltip({
-          x,
-          y,
-          title: "语言服务未运行",
-          text: server?.lastError ?? `${language} 语言服务器尚未启动`,
-          tone: server?.status === "failed" ? "error" : "warning",
-        });
-        return;
-      }
-      if (!client.supports(language, "hover")) {
-        setHoverTooltip({
-          x,
-          y,
-          title: "当前服务器不支持 Hover",
-          text: `${language} 语言服务器没有声明 hoverProvider 能力`,
-          tone: "warning",
-        });
-        return;
-      }
-      if (hoverTimerRef.current !== null) window.clearTimeout(hoverTimerRef.current);
-      const generation = ++hoverGenerationRef.current;
-      hoverTimerRef.current = window.setTimeout(() => {
-        hoverTimerRef.current = null;
-        void DocumentService.flush(path)
-          .then(() => client.getHoverInfo(language, path, line, character))
-          .then((hover) => {
-            if (generation !== hoverGenerationRef.current || !hover) return;
-            const text = hoverText(hover.contents);
-            if (text) {
-              setHoverTooltip({
-                x,
-                y,
-                title: "语言信息",
-                source: language,
-                text,
-              });
-            }
-          })
-          .catch((error) => {
-            if (generation !== hoverGenerationRef.current) return;
-            const message = error instanceof Error ? error.message : String(error);
-            OutputService.append("language-server", `Hover failed: ${message}`, "warn");
-            setHoverTooltip({
-              x,
-              y,
-              title: "Hover 请求失败",
-              text: message,
-              tone: "warning",
-            });
-          });
-      }, languagePreferences.hoverDelayMs);
-    },
-    [language, languagePreferences.hoverDelayMs, languagePreferences.hoverEnabled, path],
-  );
-
-  const handleLineMouseLeave = useCallback(() => {
-    if (hoverCloseTimerRef.current !== null) window.clearTimeout(hoverCloseTimerRef.current);
-    hoverCloseTimerRef.current = window.setTimeout(() => {
-      hoverGenerationRef.current++;
-      hoverTargetRef.current = null;
-      if (hoverTimerRef.current !== null) {
-        window.clearTimeout(hoverTimerRef.current);
-        hoverTimerRef.current = null;
-      }
-      setHoverTooltip(null);
-    }, 140);
-  }, []);
-
-  const handleHoverEnter = useCallback(() => {
-    if (hoverCloseTimerRef.current !== null) {
-      window.clearTimeout(hoverCloseTimerRef.current);
-      hoverCloseTimerRef.current = null;
-    }
-  }, []);
-
-  const handleHoverLeave = useCallback(() => {
-    hoverTargetRef.current = null;
-    setHoverTooltip(null);
-  }, []);
-
   // 10. DOM 渲染结构 (切分段 Span 渲染替代 ::highlight)
   const visibleLinesDOM = useMemo(() => {
     const list = [];
@@ -1676,7 +1797,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           lineDiags={lineDiags}
           selection={selection}
           isDragging={isDraggingRef.current}
-          setHoverTooltip={setHoverTooltip}
+          setHoverTooltip={setVisibleHover}
           onMouseDown={handleLineMouseDown}
           onMouseLeave={handleLineMouseLeave}
           onLanguageHover={handleLanguageHover}
@@ -1710,6 +1831,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     textIndexAtPoint,
     registerLineElement,
     handleLineMouseDown,
+    setVisibleHover,
   ]);
 
   // 行号渲染
@@ -1849,11 +1971,10 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         className="relative flex-1 overflow-auto aurona-scroll select-none p-0"
         onScroll={(e) => {
           setScrollTop(e.currentTarget.scrollTop);
-          setHoverTooltip(null);
-          hoverTargetRef.current = null;
+          dismissHover();
         }}
       >
-        <ContextMenuRoot>
+        <ContextMenuRoot onOpenChange={handleContextMenuOpenChange}>
           <ContextMenuTrigger asChild>
             {/* 修复：使用 minWidth: 100% 确保短文本行的高亮背景能拉满至编辑器最右侧宽度 */}
             <div
@@ -1941,7 +2062,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       )}
 
       {/* 诊断 hover 提示层 */}
-      {hoverTooltip && (
+      {hoverTooltip && !isContextMenuOpen && (
         <HoverCard
           hover={hoverTooltip}
           onMouseEnter={handleHoverEnter}
@@ -1959,19 +2080,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     </div>
   );
 });
-
-function hoverText(
-  contents:
-    | string
-    | { kind?: string; value: string }
-    | Array<string | { language?: string; value: string }>,
-): string {
-  const values = Array.isArray(contents) ? contents : [contents];
-  return values
-    .map((value) => (typeof value === "string" ? value : value.value))
-    .filter(Boolean)
-    .join("\n\n");
-}
 
 function expandSnippet(snippet: string): string {
   return snippet

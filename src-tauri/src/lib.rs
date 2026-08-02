@@ -1,3 +1,4 @@
+mod account_auth;
 mod commands;
 mod content_length;
 mod dap;
@@ -17,6 +18,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(pty::PtyState::new())
         .manage(editor::EditorState::new())
@@ -24,7 +26,15 @@ pub fn run() {
         .manage(search::SearchState::new())
         .manage(LspState::new())
         .manage(DapState::new())
+        .manage(account_auth::AccountAuthState::default())
         .invoke_handler(tauri::generate_handler![
+            account_auth::account_auth_status,
+            account_auth::account_auth_start,
+            account_auth::account_auth_cancel,
+            account_auth::account_auth_refresh,
+            account_auth::account_auth_restore,
+            account_auth::account_auth_logout,
+            account_auth::account_auth_shutdown,
             commands::git::git_check_is_repo,
             commands::git::git_init,
             commands::git::git_status,
@@ -34,6 +44,11 @@ pub fn run() {
             commands::git::git_current_branch,
             commands::git::git_push,
             commands::git::git_pull,
+            commands::git::git_fetch,
+            commands::git::git_switch_branch,
+            commands::git::git_create_branch,
+            commands::git::git_worktree_diff,
+            commands::git::git_discard_file,
             commands::git::git_discard_all,
             commands::git::git_unstage_all,
             commands::git::git_get_remote,
@@ -47,6 +62,7 @@ pub fn run() {
             pty::resize_pty,
             pty::get_available_shells,
             search::search_workspace,
+            search::list_workspace_files,
             search::cancel_search,
             performance::get_performance_environment,
             performance::run_performance_benchmark,
