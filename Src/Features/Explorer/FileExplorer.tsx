@@ -190,7 +190,7 @@ export const FileExplorer = React.memo(function FileExplorer({
                 <Tooltip content="新建文件" placement="bottom">
                   <button
                     type="button"
-                    className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
+                    className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
                     onClick={() => startInlineCreate("file")}
                   >
                     <Icons.FilePlus size={16} />
@@ -199,17 +199,17 @@ export const FileExplorer = React.memo(function FileExplorer({
                 <Tooltip content="新建文件夹" placement="bottom">
                   <button
                     type="button"
-                    className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
+                    className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
                     onClick={() => startInlineCreate("folder")}
                   >
                     <Icons.FolderPlus size={16} />
                   </button>
                 </Tooltip>
-                <div className="w-px h-3 bg-[var(--GlassBorder)] mx-1" />
+                <div className="w-px h-3 bg-[var(--border-subtle)] mx-1" />
                 <Tooltip content="折叠全部" placement="bottom">
                   <button
                     type="button"
-                    className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
+                    className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
                     onClick={collapseAll}
                   >
                     <Icons.Minus size={16} />
@@ -218,7 +218,7 @@ export const FileExplorer = React.memo(function FileExplorer({
                 <Tooltip content="刷新" placement="bottom">
                   <button
                     type="button"
-                    className="p-1.5 rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] transition-colors"
+                    className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
                     onClick={() =>
                       refreshDirectory(rootNode.path).catch((error) =>
                         showToast(`刷新失败：${FileSystemService.toMessage(error)}`, "error"),
@@ -240,7 +240,7 @@ export const FileExplorer = React.memo(function FileExplorer({
             className="flex flex-1 flex-col items-center justify-center gap-4 px-4 outline-none"
             tabIndex={-1}
           >
-            <p className="text-xs text-[var(--TextMuted)] text-center select-none">
+            <p className="text-xs text-[var(--color-text-muted)] text-center select-none">
               当前未打开任何文件夹
             </p>
             <Button onClick={handleOpenFolder} variant="primary">

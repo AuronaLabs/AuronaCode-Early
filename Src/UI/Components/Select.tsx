@@ -27,13 +27,13 @@ export function Select({ options, value, onChange, className, ariaLabel }: Selec
         data-aurona-component-focus="true"
         className={cn(
           glassVariants({ layer: "elevated" }),
-          "flex h-8 min-w-[120px] cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-1.5 text-[13px] text-[var(--TextHighlight)] outline-none transition-[background-color,border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-[var(--TextMuted)]/40",
+          "flex h-8 min-w-[120px] cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-1.5 text-[13px] text-[var(--color-text-highlight)] outline-none transition-[background-color,border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-[var(--color-text-muted)]/40",
           className,
         )}
       >
         <SelectPrimitive.Value placeholder="Select an option" />
         <SelectPrimitive.Icon asChild>
-          <Icons.ChevronDown size={14} className="text-[var(--TextMuted)] opacity-70" />
+          <Icons.ChevronDown size={14} className="text-[var(--color-text-muted)] opacity-70" />
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
 
@@ -48,7 +48,7 @@ export function Select({ options, value, onChange, className, ariaLabel }: Selec
           align="end"
           sideOffset={4}
         >
-          <SelectPrimitive.ScrollUpButton className="flex items-center justify-center h-[25px] bg-transparent text-[var(--TextPrimary)] cursor-default">
+          <SelectPrimitive.ScrollUpButton className="flex items-center justify-center h-[25px] bg-transparent text-[var(--color-text-primary)] cursor-default">
             <Icons.ChevronUp size={14} />
           </SelectPrimitive.ScrollUpButton>
           <SelectPrimitive.Viewport className="flex flex-col gap-1 p-1">
@@ -58,12 +58,12 @@ export function Select({ options, value, onChange, className, ariaLabel }: Selec
                 value={opt.value}
                 disabled={opt.disabled}
                 className={cn(
-                  "relative flex min-h-8 w-full cursor-pointer select-none items-center rounded-lg border border-transparent py-1.5 pl-8 pr-2 text-[13px] text-[var(--TextPrimary)] outline-none transition-[background-color,border-color,color,box-shadow] data-[highlighted]:border-[var(--border-subtle)] data-[highlighted]:bg-[var(--material-interactive-hover)] data-[highlighted]:text-[var(--TextHighlight)] data-[state=checked]:border-[var(--GlassBorder)] data-[state=checked]:bg-[var(--material-surface)] data-[state=checked]:text-[var(--TextHighlight)] data-[state=checked]:shadow-sm data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
+                  "relative flex min-h-8 w-full cursor-pointer select-none items-center rounded-lg border border-transparent py-1.5 pl-8 pr-2 text-[13px] text-[var(--color-text-primary)] outline-none transition-[background-color,border-color,color,box-shadow] data-[highlighted]:border-[var(--border-subtle)] data-[highlighted]:bg-[var(--material-interactive-hover)] data-[highlighted]:text-[var(--color-text-highlight)] data-[state=checked]:border-[var(--border-subtle)] data-[state=checked]:bg-[var(--material-surface)] data-[state=checked]:text-[var(--color-text-highlight)] data-[state=checked]:shadow-sm data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
                 )}
               >
                 <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
                   <SelectPrimitive.ItemIndicator>
-                    <Icons.Check size={14} className="text-[var(--TextHighlight)]" />
+                    <Icons.Check size={14} className="text-[var(--color-text-highlight)]" />
                   </SelectPrimitive.ItemIndicator>
                 </span>
                 <Tooltip
@@ -78,7 +78,7 @@ export function Select({ options, value, onChange, className, ariaLabel }: Selec
               </SelectPrimitive.Item>
             ))}
           </SelectPrimitive.Viewport>
-          <SelectPrimitive.ScrollDownButton className="flex items-center justify-center h-[25px] bg-transparent text-[var(--TextPrimary)] cursor-default">
+          <SelectPrimitive.ScrollDownButton className="flex items-center justify-center h-[25px] bg-transparent text-[var(--color-text-primary)] cursor-default">
             <Icons.ChevronDown size={14} />
           </SelectPrimitive.ScrollDownButton>
         </SelectPrimitive.Content>

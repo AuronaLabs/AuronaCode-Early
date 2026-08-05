@@ -1,10 +1,6 @@
-import { desktopFileSystem } from "../Foundation/Desktop/FileSystem";
 import { EventBus } from "../Foundation/EventBus";
 import { FileSystemCommands } from "../Foundation/IPC/FileSystemCommands";
 import { WorkspaceService } from "./WorkspaceService";
-
-const { exists, mkdir, readDir, readTextFile, remove, rename, watch, writeTextFile } =
-  desktopFileSystem;
 
 export type FileNode = {
   name: string;
@@ -15,6 +11,9 @@ export type FileNode = {
 };
 
 const PATH_SEPARATOR_PATTERN = /[/\\]+/;
+
+let activeWatchId: string | null = null;
+let changedUnlistenPromise: Promise<() => void> | null = null;
 
 export const FileSystemService = {
   joinPath(parentPath: string, childName: string) {
@@ -55,11 +54,15 @@ export const FileSystemService = {
     return message || "未知文件系统错误";
   },
 
+  async setWorkspaceRoot(root: string | null): Promise<void> {
+    await FileSystemCommands.setWorkspaceRoot(root);
+  },
+
   async readDirectory(dirPath: string): Promise<FileNode[]> {
-    const entries = await readDir(dirPath);
+    const entries = await FileSystemCommands.readDirectory(dirPath);
     const nodes = entries.map((entry) => ({
-      name: entry.name || "Unknown",
-      path: this.joinPath(dirPath, entry.name || "Unknown"),
+      name: entry.name,
+      path: this.joinPath(dirPath, entry.name),
       isDirectory: entry.isDirectory,
     }));
 
@@ -71,14 +74,22 @@ export const FileSystemService = {
     });
   },
 
+  async exists(path: string): Promise<boolean> {
+    return FileSystemCommands.exists(path);
+  },
+
+  async mkdir(path: string, recursive: boolean): Promise<void> {
+    await FileSystemCommands.mkdir(path, recursive);
+  },
+
   async createFile(parentPath: string, name: string) {
     const validation = this.validateName(name);
     if (validation) throw new Error(validation);
 
     const targetPath = this.joinPath(parentPath, name.trim());
-    if (await exists(targetPath)) throw new Error("目标已存在");
+    if (await this.exists(targetPath)) throw new Error("目标已存在");
 
-    await writeTextFile(targetPath, "");
+    await this.writeTextFile(targetPath, "");
     return targetPath;
   },
 
@@ -87,9 +98,9 @@ export const FileSystemService = {
     if (validation) throw new Error(validation);
 
     const targetPath = this.joinPath(parentPath, name.trim());
-    if (await exists(targetPath)) throw new Error("目标已存在");
+    if (await this.exists(targetPath)) throw new Error("目标已存在");
 
-    await mkdir(targetPath);
+    await this.mkdir(targetPath, false);
     return targetPath;
   },
 
@@ -100,14 +111,14 @@ export const FileSystemService = {
     const parentPath = this.dirname(oldPath);
     const newPath = this.joinPath(parentPath, newName.trim());
     if (oldPath === newPath) return newPath;
-    if (await exists(newPath)) throw new Error("目标已存在");
+    if (await this.exists(newPath)) throw new Error("目标已存在");
 
-    await rename(oldPath, newPath);
+    await FileSystemCommands.rename(oldPath, newPath);
     return newPath;
   },
 
   async deleteEntry(path: string, isDirectory: boolean) {
-    await remove(path, { recursive: isDirectory });
+    await FileSystemCommands.remove(path, isDirectory);
   },
 
   async revealInOs(path: string) {
@@ -120,58 +131,65 @@ export const FileSystemService = {
     await FileSystemCommands.copyOrMove(workspaceRoot, source, destination, isMove);
   },
 
-  _unwatch: undefined as (() => void) | undefined,
   async startWatch(dirPath: string) {
-    if (this._unwatch) {
-      this._unwatch();
-      this._unwatch = undefined;
-    }
+    await this.stopWatch();
     try {
-      this._unwatch = await watch(
-        dirPath,
-        (event) => {
-          EventBus.emit("fs:changed", event);
-        },
-        { recursive: true, delayMs: 500 },
-      );
-    } catch (e) {
-      console.warn("Failed to start file watcher:", e);
+      if (!changedUnlistenPromise) {
+        changedUnlistenPromise = FileSystemCommands.listenChanged((payload) => {
+          if (activeWatchId && payload.id === activeWatchId) {
+            EventBus.emit("fs:changed", {
+              type: payload.kind,
+              paths: payload.paths,
+            });
+          }
+        });
+      }
+      activeWatchId = await FileSystemCommands.startWatch(dirPath, true);
+    } catch (error) {
+      console.warn("Failed to start file watcher:", error);
     }
   },
 
-  stopWatch() {
-    if (this._unwatch) {
-      this._unwatch();
-      this._unwatch = undefined;
+  async stopWatch() {
+    if (activeWatchId) {
+      await FileSystemCommands.stopWatch(activeWatchId).catch(() => undefined);
+      activeWatchId = null;
     }
+    changedUnlistenPromise?.then((unlisten) => unlisten()).catch(() => undefined);
+    changedUnlistenPromise = null;
   },
 
-  readTextFile,
-  writeTextFile,
+  async readTextFile(path: string): Promise<string> {
+    return FileSystemCommands.readTextFile(path);
+  },
+
+  async writeTextFile(path: string, content: string): Promise<void> {
+    await FileSystemCommands.writeTextFile(path, content);
+  },
 
   async writeTextFileAtomic(path: string, content: string) {
     const tmpPath = `${path}.aurona.tmp`;
     const bakPath = `${path}.aurona.bak`;
     try {
-      await writeTextFile(tmpPath, content);
+      await FileSystemCommands.writeTextFile(tmpPath, content);
 
-      const fileExists = await exists(path);
+      const fileExists = await this.exists(path);
       if (fileExists) {
-        if (await exists(bakPath)) {
-          await remove(bakPath).catch(() => {});
+        if (await this.exists(bakPath)) {
+          await FileSystemCommands.remove(bakPath, false).catch(() => undefined);
         }
-        await rename(path, bakPath);
+        await FileSystemCommands.rename(path, bakPath);
       }
 
-      await rename(tmpPath, path);
+      await FileSystemCommands.rename(tmpPath, path);
 
       if (fileExists) {
-        await remove(bakPath).catch(() => {});
+        await FileSystemCommands.remove(bakPath, false).catch(() => undefined);
       }
     } catch (error) {
-      await remove(tmpPath).catch(() => {});
-      if (await exists(bakPath)) {
-        await rename(bakPath, path).catch(() => {});
+      await FileSystemCommands.remove(tmpPath, false).catch(() => undefined);
+      if (await this.exists(bakPath).catch(() => false)) {
+        await FileSystemCommands.rename(bakPath, path).catch(() => undefined);
       }
       throw error;
     }

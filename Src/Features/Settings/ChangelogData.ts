@@ -12,9 +12,64 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.3.6",
+    date: "2026-08-05",
+    isLatest: true,
+    summary:
+      "0.3.6 是一次以架构收口、审查驱动与美学统一为核心的优化版本：完成 Corona+ 分层修正、Rust 编辑器命令异步化与进程生命周期统一，并基于全量审查报告逐项修复前端耦合与 Material 一致性问题，为 Aurona Account 规模化与插件系统铺路。",
+    sections: [
+      {
+        title: "架构与代码结构（Corona+ 收口）",
+        description:
+          "消除层次倒置，让 Core/State 与 Features 的依赖方向回到架构文档定义的单一方向。",
+        items: [
+          "**LSP 与编辑器服务下沉**：`LspClient`、`EditorAdapter`、恢复协调器与恢复存储从 Features 迁入 Core，Core/State 不再反向依赖 Features。",
+          "**移除遗留双 IPC 通道**：删除 `AuronaChannel`/`aurona_bridge`，性能页 IPC 往返测量改用类型化 `performance_ping` 命令。",
+          "**统一进程生命周期**：新增 `ProcessService`，Git、工具探测与 LSP/DAP 共用受保护进程组与 Job Object，超时会终止整个进程树。",
+          "**编辑器命令异步化**：打开、取行、批量编辑与保存不再阻塞主线程，全部在阻塞线程池执行并保留原子保存语义。",
+          "**编辑器打开后端授权**：系统文件对话框移至 Rust 侧，只有对话框确认或工作区内的路径才能打开；搜索与文件定位命令同步纳入工作区授权校验。",
+          "**账户配置独立模块**：OAuth 客户端 ID 与 Provider 配置抽为 `account_auth/config` 子模块，职责更清晰。",
+        ],
+      },
+      {
+        title: "前端重构与代码质量",
+        description: "继续拆解超载组件，并把可测试的编辑逻辑收敛为纯函数。",
+        items: [
+          "**编辑器搜索独立成 Hook**：匹配计算与上下循环为纯函数并新增单元测试，AuronaEngine 继续瘦身。",
+          "**文本插入合并**：选区覆盖与普通插入共用 `insertTextIntoLines` 纯函数，消除重复分支并补齐测试。",
+          "**设置页导航组件化**：9 个重复长类名导航项收敛为共享 `SettingsNavItem`，使用 Material 语义 token。",
+          "**清理死代码与调试输出**：移除无引用的插件占位页与遗留 `console.log`。",
+        ],
+      },
+      {
+        title: "Material 美学统一",
+        description: "让同一视觉模式只有一条实现路径，样式走向共享组件与语义 token。",
+        items: [
+          "**卡片收敛**：设置页散装卡片类样式全部收敛为共享 `GlassContainer` 的 elevated 层，并删除旧 CSS 规则。",
+          "**语义 token 全量迁移**：12 类 legacy 颜色 token 全部收敛到 `--material-*`/`--color-*` 语义层，覆盖 49 个文件并清零。",
+          "**组件不再自带额外 CSS**：xterm 滚动条样式移入主题层，TerminalView 删除内联样式注入。",
+          "**诊断色语义化**：编辑器波浪线颜色从硬编码改为 `--DiagError/--DiagWarning/--DiagInfo` 主题 token。",
+          "**边界检查加强**：Material 静态检查新增 legacy 卡片类规则，防止散装样式回流。",
+        ],
+      },
+      {
+        title: "审查、安全与性能基线",
+        description: "以证据驱动的方式确认 0.3.6 基线，并记录后续优化方向。",
+        items: [
+          "**发布元数据修复**：补齐 0.3.6 changelog，`smoke` 门禁恢复通过。",
+          "**修复 macOS Universal 打包**：修正 `lipo -verify_arch` 参数顺序（输入文件须在前），release/quality 工作流与工具链校验脚本同步修复，三平台打包链路恢复。",
+          "**高亮 Worker 瘦身**：highlight.js 从全量语言打包改为按需注册 7 种编辑器支持语言，Worker 体积从 947 KB 降至约 57 KB。",
+          "**工作区文件边界**：文件操作继续由 Rust 授权会话与规范化路径校验，修复深层目录创建解析缺陷。",
+          "**审查报告**：新增 `Docs/0.3.6-Audit-Report.md`，覆盖 Corona+ 符合性、Rust/前端全量确认与组件盘点。",
+          "**性能基线**：新增 `Docs/0.3.6-Performance-Report.md`，记录构建产物体积与热路径清单，供后续版本对比。",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.3.5",
     date: "2026-08-03",
-    isLatest: true,
+    isLatest: false,
     summary:
       "0.3.5 是一次以跨平台可靠性、安全边界、编辑体验和架构收口为核心的改进版本。本次更新修复三平台 Quality 阻断，完善 macOS Universal 与 Linux 运行适配，并继续优化 Fliuno、侧栏和编辑器细节。",
     sections: [
@@ -540,7 +595,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
       {
         title: "极客拟物设计的无死角清扫",
         items: [
-          "**全局 Hover 质感统一**：全域扫除了工作区、标题栏、编辑器标签与搜索挂件中残留的硬编码纯色悬停背景（如 `bg-white/10` 或 `bg-black/5`），统一切换为具有光学折射感的 `var(--GlassHover)` 标准变量。",
+          "**全局 Hover 质感统一**：全域扫除了工作区、标题栏、编辑器标签与搜索挂件中残留的硬编码纯色悬停背景（如 `bg-white/10` 或 `bg-black/5`），统一切换为具有光学折射感的 `var(--material-interactive-hover)` 标准变量。",
           "**设置面板极致纯粹**：从引擎底层彻底去除了多余的 “Disabled (性能模式)” 玻璃强度选项，不再妥协于纯色备选；同时移除了深浅色模式下设置卡片多余的 Hover 高亮，使页面在任何操作下都保持纯净与通透。",
           "**Radix ContextMenu 升维**：废弃了过时且生硬的旧版右键菜单实现，全盘迁移至工业级无障碍组件 `@radix-ui/react-context-menu`。全新的上下文菜单不仅拥有丝滑的 `fade-in` 进出场动画，更应用了最高层级的 `floating` 漂浮玻璃材质，补全了拟物风格的最后一块拼图。",
         ],

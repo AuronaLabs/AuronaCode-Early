@@ -27,46 +27,17 @@
     "process:allow-restart",
     "updater:allow-check",
     "updater:allow-download-and-install",
-    "fs:allow-applocaldata-meta",
-    "fs:allow-applocaldata-read",
-    "fs:allow-applocaldata-write",
-    "fs:allow-applog-write",
-    {
-      "identifier": "fs:allow-exists",
-      "allow": [{ "path": "**" }, { "path": "**/*" }, { "path": "/*" }, { "path": "*/**" }]
-    },
-    {
-      "identifier": "fs:allow-read-text-file",
-      "allow": [{ "path": "**" }, { "path": "**/*" }, { "path": "/*" }, { "path": "*/**" }]
-    },
-    {
-      "identifier": "fs:allow-read-dir",
-      "allow": [{ "path": "**" }, { "path": "**/*" }, { "path": "/*" }, { "path": "*/**" }]
-    },
-    {
-      "identifier": "fs:allow-write-text-file",
-      "allow": [{ "path": "**" }, { "path": "**/*" }, { "path": "/*" }, { "path": "*/**" }]
-    },
-    {
-      "identifier": "fs:allow-mkdir",
-      "allow": [{ "path": "**" }, { "path": "**/*" }, { "path": "/*" }, { "path": "*/**" }]
-    },
-    {
-      "identifier": "fs:allow-rename",
-      "allow": [{ "path": "**" }, { "path": "**/*" }, { "path": "/*" }, { "path": "*/**" }]
-    },
+    "fs:allow-applocaldata-meta-recursive",
+    "fs:allow-applocaldata-read-recursive",
+    "fs:allow-applocaldata-write-recursive",
+    "fs:allow-applog-write-recursive",
     {
       "identifier": "fs:allow-remove",
-      "allow": [{ "path": "**" }, { "path": "**/*" }, { "path": "/*" }, { "path": "*/**" }]
-    },
-    {
-      "identifier": "fs:allow-stat",
-      "allow": [{ "path": "**" }, { "path": "**/*" }, { "path": "/*" }, { "path": "*/**" }]
-    },
-    {
-      "identifier": "fs:allow-watch",
-      "allow": [{ "path": "**" }, { "path": "**/*" }, { "path": "/*" }, { "path": "*/**" }]
-    },
-    "fs:allow-unwatch"
+      "allow": [
+        { "path": "$APPLOCALDATA" },
+        { "path": "$APPLOCALDATA/*" },
+        { "path": "$APPLOCALDATA/**" }
+      ]
+    }
   ]
 }

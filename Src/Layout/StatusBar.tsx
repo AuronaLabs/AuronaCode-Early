@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { type LanguageServerInfo, LspClient } from "../Features/Editor/LspClient";
+import { type LanguageServerInfo, LspClient } from "../Core/Language/LspClient";
 import { GetLanguageFromPath } from "../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../State/useEditorStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
@@ -49,7 +49,7 @@ export function StatusBar() {
   }, [activeLanguage]);
 
   return (
-    <footer className="flex h-[var(--StatusBarHeight)] shrink-0 items-center bg-transparent px-4 text-xs text-[var(--TextMuted)] font-medium overflow-hidden">
+    <footer className="flex h-[var(--StatusBarHeight)] shrink-0 items-center bg-transparent px-4 text-xs text-[var(--color-text-muted)] font-medium overflow-hidden">
       <div className="flex items-center gap-4 min-w-0">
         <span className="cursor-default truncate">
           {editorStatus.errors} 错误, {editorStatus.warnings} 警告
@@ -74,7 +74,7 @@ export function StatusBar() {
               type="button"
               onClick={() => setActiveBottomPanel("output")}
               aria-label={languageServer?.lastError ?? "打开语言服务器输出"}
-              className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 hover:bg-[var(--GlassHover)]"
+              className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 hover:bg-[var(--material-interactive-hover)]"
             >
               <span
                 className={`h-1.5 w-1.5 rounded-full ${languageServerStatusColor(languageServer?.status)}`}
@@ -107,5 +107,5 @@ function languageServerStatusColor(status?: LanguageServerInfo["status"]): strin
   if (status === "starting" || status === "initializing" || status === "restarting") {
     return "bg-amber-500 animate-pulse";
   }
-  return "bg-[var(--TextMuted)]";
+  return "bg-[var(--color-text-muted)]";
 }

@@ -42,7 +42,7 @@ export function ToastContainer() {
                   ? "bg-red-500/10 text-red-500"
                   : toast.type === "warning"
                     ? "bg-amber-500/10 text-amber-500"
-                    : "bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]"
+                    : "bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]"
             }`}
           >
             {toast.type === "success" && <Icons.Checks size={16} />}
@@ -50,13 +50,13 @@ export function ToastContainer() {
             {toast.type === "warning" && <Icons.AlertTriangle size={16} />}
             {toast.type === "info" && <Icons.Info size={16} />}
           </div>
-          <span className="text-[13px] text-[var(--TextHighlight)] font-medium select-none break-all leading-normal">
+          <span className="text-[13px] text-[var(--color-text-highlight)] font-medium select-none break-all leading-normal">
             {toast.message}
           </span>
           <button
             type="button"
             onClick={() => dismissToast(toast.id)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-all cursor-pointer"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-all cursor-pointer"
           >
             <Icons.Close size={12} />
           </button>

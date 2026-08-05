@@ -331,11 +331,11 @@ export const SourceControl = React.memo(function SourceControl() {
         return "text-red-500 bg-red-500/10 border border-red-500/20";
       case "U":
       case "?":
-        return "border border-[color-mix(in_srgb,var(--AccentPrimary)_20%,transparent)] bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]";
+        return "border border-[color-mix(in_srgb,var(--color-accent)_20%,transparent)] bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]";
       case "!":
         return "border border-red-500/20 bg-red-500/10 text-red-500";
       default:
-        return "text-[var(--TextMuted)] bg-[var(--GlassSurface-Elevated)] border border-transparent";
+        return "text-[var(--color-text-muted)] bg-[var(--material-surface)] border border-transparent";
     }
   };
 
@@ -351,11 +351,15 @@ export const SourceControl = React.memo(function SourceControl() {
           onClick={() => openWorkingDiff(file)}
           className="mr-2 flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-left"
         >
-          <Icons.FileCode size={14} stroke={1.5} className="text-[var(--TextMuted)] shrink-0" />
-          <span className="text-[12.5px] font-medium text-[var(--TextHighlight)] truncate min-w-0">
+          <Icons.FileCode
+            size={14}
+            stroke={1.5}
+            className="text-[var(--color-text-muted)] shrink-0"
+          />
+          <span className="text-[12.5px] font-medium text-[var(--color-text-highlight)] truncate min-w-0">
             {file.name}
           </span>
-          <span className="text-[10px] text-[var(--TextMuted)] truncate opacity-70 group-hover:opacity-100 transition-opacity min-w-0">
+          <span className="text-[10px] text-[var(--color-text-muted)] truncate opacity-70 group-hover:opacity-100 transition-opacity min-w-0">
             {parentPath}
           </span>
         </button>
@@ -375,7 +379,7 @@ export const SourceControl = React.memo(function SourceControl() {
                     event.stopPropagation();
                     setDiscardTarget(file);
                   }}
-                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] text-[var(--TextPrimary)] shadow-sm transition-colors hover:bg-red-500/10 hover:text-red-500"
+                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] shadow-sm transition-colors hover:bg-red-500/10 hover:text-red-500"
                 >
                   <Icons.Trash size={11} stroke={2.2} />
                 </button>
@@ -389,7 +393,7 @@ export const SourceControl = React.memo(function SourceControl() {
                     event.stopPropagation();
                     toggleStage(file);
                   }}
-                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] text-[var(--TextPrimary)] shadow-sm transition-colors hover:bg-[var(--GlassActive)] hover:text-red-500"
+                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] shadow-sm transition-colors hover:bg-[var(--material-interactive-active)] hover:text-red-500"
                 >
                   <Icons.Minus size={11} stroke={3} />
                 </button>
@@ -402,7 +406,7 @@ export const SourceControl = React.memo(function SourceControl() {
                     event.stopPropagation();
                     toggleStage(file);
                   }}
-                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] text-[var(--TextPrimary)] shadow-sm transition-colors hover:bg-[var(--GlassActive)] hover:text-[var(--TextHighlight)]"
+                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] shadow-sm transition-colors hover:bg-[var(--material-interactive-active)] hover:text-[var(--color-text-highlight)]"
                 >
                   <Icons.Plus size={11} stroke={3} />
                 </button>
@@ -416,7 +420,7 @@ export const SourceControl = React.memo(function SourceControl() {
 
   if (isLoading) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-transparent text-[var(--TextMuted)] text-sm">
+      <div className="flex h-full w-full items-center justify-center bg-transparent text-[var(--color-text-muted)] text-sm">
         正在加载 Git 状态...
       </div>
     );
@@ -425,8 +429,8 @@ export const SourceControl = React.memo(function SourceControl() {
   if (!repoPath) {
     return (
       <div className="flex flex-col h-full w-full items-center justify-center p-6 bg-transparent text-center gap-4">
-        <Icons.Folder size={48} stroke={1} className="text-[var(--TextMuted)] opacity-50" />
-        <p className="text-[13px] text-[var(--TextPrimary)] leading-relaxed">
+        <Icons.Folder size={48} stroke={1} className="text-[var(--color-text-muted)] opacity-50" />
+        <p className="text-[13px] text-[var(--color-text-primary)] leading-relaxed">
           尚未打开任何工作区
           <br />
           请先在资源管理器中打开一个文件夹
@@ -442,7 +446,7 @@ export const SourceControl = React.memo(function SourceControl() {
           title={
             <>
               源代码管理
-              <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]">
+              <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]">
                 Preview
               </span>
             </>
@@ -450,15 +454,19 @@ export const SourceControl = React.memo(function SourceControl() {
         />
         <div className="flex flex-col flex-1 items-center justify-center p-6 text-center gap-6">
           <div className="flex flex-col items-center gap-2">
-            <Icons.GitBranch size={48} stroke={1} className="text-[var(--TextMuted)] opacity-50" />
-            <p className="text-[13px] text-[var(--TextPrimary)] leading-relaxed mt-2">
+            <Icons.GitBranch
+              size={48}
+              stroke={1}
+              className="text-[var(--color-text-muted)] opacity-50"
+            />
+            <p className="text-[13px] text-[var(--color-text-primary)] leading-relaxed mt-2">
               当前文件夹尚未初始化 Git 仓库
             </p>
           </div>
           <button
             type="button"
             onClick={handleInit}
-            className="px-6 py-2.5 bg-[var(--AccentPrimary)] hover:opacity-90 text-white text-[13px] font-bold rounded-xl transition-all shadow-sm flex items-center gap-2"
+            className="px-6 py-2.5 bg-[var(--color-accent)] hover:opacity-90 text-white text-[13px] font-bold rounded-xl transition-all shadow-sm flex items-center gap-2"
           >
             <Icons.Plus size={16} stroke={2.5} />
             初始化 Git 仓库
@@ -478,7 +486,7 @@ export const SourceControl = React.memo(function SourceControl() {
         title={
           <>
             源代码管理
-            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]">
+            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]">
               Preview
             </span>
           </>
@@ -489,11 +497,11 @@ export const SourceControl = React.memo(function SourceControl() {
               type="button"
               onClick={() => repoPath && fetchStatus(repoPath, true)}
               disabled={isRefreshing}
-              className="p-1.5 hover:bg-[var(--GlassHover)] rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-colors disabled:opacity-50"
+              className="p-1.5 hover:bg-[var(--material-interactive-hover)] rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-colors disabled:opacity-50"
             >
               <Icons.Refresh
                 size={16}
-                className={isRefreshing ? "animate-spin text-[var(--TextHighlight)]" : ""}
+                className={isRefreshing ? "animate-spin text-[var(--color-text-highlight)]" : ""}
               />
             </button>
           </Tooltip>
@@ -509,14 +517,14 @@ export const SourceControl = React.memo(function SourceControl() {
       <div className="flex items-center gap-1 mx-[var(--PanelPaddingX)] mb-3 shrink-0">
         <button
           type="button"
-          className={`relative flex h-[28px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 ${activeTab === "changes" ? "border-[var(--GlassBorder)] bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-sm" : "border-transparent text-[var(--TextMuted)] hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)]"}`}
+          className={`relative flex h-[28px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 ${activeTab === "changes" ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
           onClick={() => setActiveTab("changes")}
         >
           <Icons.GitBranch size={13} /> 更改
         </button>
         <button
           type="button"
-          className={`relative flex h-[28px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 ${activeTab === "history" ? "border-[var(--GlassBorder)] bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-sm" : "border-transparent text-[var(--TextMuted)] hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)]"}`}
+          className={`relative flex h-[28px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 ${activeTab === "history" ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
           onClick={() => setActiveTab("history")}
         >
           <Icons.History size={13} /> 历史
@@ -538,7 +546,7 @@ export const SourceControl = React.memo(function SourceControl() {
             className="h-7 min-w-0 flex-1 rounded-lg px-2.5 text-[11.5px]"
           />
         ) : (
-          <div className="flex h-7 min-w-0 flex-1 items-center rounded-lg border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] px-2.5 text-[11.5px] text-[var(--TextMuted)]">
+          <div className="flex h-7 min-w-0 flex-1 items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 text-[11.5px] text-[var(--color-text-muted)]">
             尚无提交分支
           </div>
         )}
@@ -547,7 +555,7 @@ export const SourceControl = React.memo(function SourceControl() {
             type="button"
             onClick={() => setIsCreateBranchOpen(true)}
             disabled={Boolean(gitAction)}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--TextMuted)] transition-colors hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] disabled:opacity-40"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-40"
           >
             <Icons.Plus size={14} />
           </button>
@@ -559,7 +567,7 @@ export const SourceControl = React.memo(function SourceControl() {
                 type="button"
                 onClick={() => void runRepositoryAction("fetch", "Fetch")}
                 disabled={Boolean(gitAction)}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--TextMuted)] transition-colors hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] disabled:opacity-40"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-40"
               >
                 <Icons.Refresh size={13} className={gitAction === "fetch" ? "animate-spin" : ""} />
               </button>
@@ -569,11 +577,11 @@ export const SourceControl = React.memo(function SourceControl() {
                 type="button"
                 onClick={() => void runRepositoryAction("pull", "Pull")}
                 disabled={Boolean(gitAction)}
-                className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--TextMuted)] transition-colors hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] disabled:opacity-40"
+                className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-40"
               >
                 <Icons.Pull size={13} />
                 {behind > 0 && (
-                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--AccentPrimary)] px-0.5 text-center text-[8px] leading-3 text-white">
+                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--color-accent)] px-0.5 text-center text-[8px] leading-3 text-white">
                     {behind}
                   </span>
                 )}
@@ -584,11 +592,11 @@ export const SourceControl = React.memo(function SourceControl() {
                 type="button"
                 onClick={() => void runRepositoryAction("push", "Push")}
                 disabled={Boolean(gitAction)}
-                className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--TextMuted)] transition-colors hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] disabled:opacity-40"
+                className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-40"
               >
                 <Icons.Push size={13} />
                 {ahead > 0 && (
-                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--AccentPrimary)] px-0.5 text-center text-[8px] leading-3 text-white">
+                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--color-accent)] px-0.5 text-center text-[8px] leading-3 text-white">
                     {ahead}
                   </span>
                 )}
@@ -604,12 +612,12 @@ export const SourceControl = React.memo(function SourceControl() {
             <div
               className={cn(
                 glassVariants({ layer: "elevated" }),
-                "relative flex flex-col gap-3 rounded-2xl p-3 transition-[border-color,box-shadow] focus-within:border-[var(--TextMuted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--TextMuted)_14%,transparent)]",
+                "relative flex flex-col gap-3 rounded-2xl p-3 transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)]",
               )}
             >
               <textarea
                 data-aurona-input="embedded"
-                className="w-full bg-transparent text-[13px] text-[var(--TextHighlight)] outline-none resize-none placeholder-[var(--TextMuted)] leading-relaxed"
+                className="w-full bg-transparent text-[13px] text-[var(--color-text-highlight)] outline-none resize-none placeholder-[var(--color-text-muted)] leading-relaxed"
                 placeholder="描述你的代码变更..."
                 rows={2}
                 value={commitMsg}
@@ -620,7 +628,7 @@ export const SourceControl = React.memo(function SourceControl() {
                   type="button"
                   onClick={handleCommit}
                   disabled={commitMsg.trim() === ""}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] px-4 py-2 text-[13px] font-medium text-[var(--TextHighlight)] shadow-sm transition-colors hover:bg-[var(--GlassActive)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-4 py-2 text-[13px] font-medium text-[var(--color-text-highlight)] shadow-sm transition-colors hover:bg-[var(--material-interactive-active)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Icons.Checks size={16} stroke={2} />
                   提交
@@ -641,7 +649,7 @@ export const SourceControl = React.memo(function SourceControl() {
                   <span className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-wider text-red-500">
                     <Icons.AlertTriangle size={14} /> 冲突 ({conflictedFiles.length})
                   </span>
-                  <span className="text-[10px] text-[var(--TextMuted)]">解决后暂存文件</span>
+                  <span className="text-[10px] text-[var(--color-text-muted)]">解决后暂存文件</span>
                 </div>
                 <div className="aurona-scroll min-h-0 overflow-y-auto overflow-x-hidden p-2">
                   {conflictedFiles.map(renderFileCard)}
@@ -667,9 +675,9 @@ export const SourceControl = React.memo(function SourceControl() {
                   >
                     <Icons.ChevronDown
                       size={15}
-                      className={`text-[var(--TextMuted)] transition-transform ${!stagedExpanded ? "-rotate-90" : ""}`}
+                      className={`text-[var(--color-text-muted)] transition-transform ${!stagedExpanded ? "-rotate-90" : ""}`}
                     />
-                    <span className="text-[12.5px] font-bold text-[var(--TextHighlight)] uppercase tracking-wider">
+                    <span className="text-[12.5px] font-bold text-[var(--color-text-highlight)] uppercase tracking-wider">
                       已暂存 ({stagedFiles.length})
                     </span>
                   </button>
@@ -680,7 +688,7 @@ export const SourceControl = React.memo(function SourceControl() {
                         event.stopPropagation();
                         unstageAll();
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-[var(--TextMuted)] hover:text-white hover:bg-red-500/80 transition-all flex items-center justify-center"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-[var(--color-text-muted)] hover:text-white hover:bg-red-500/80 transition-all flex items-center justify-center"
                     >
                       <Icons.Minus size={14} />
                     </button>
@@ -714,9 +722,9 @@ export const SourceControl = React.memo(function SourceControl() {
                   >
                     <Icons.ChevronDown
                       size={15}
-                      className={`text-[var(--TextMuted)] transition-transform ${!unstagedExpanded ? "-rotate-90" : ""}`}
+                      className={`text-[var(--color-text-muted)] transition-transform ${!unstagedExpanded ? "-rotate-90" : ""}`}
                     />
-                    <span className="text-[12.5px] font-bold text-[var(--TextHighlight)] uppercase tracking-wider">
+                    <span className="text-[12.5px] font-bold text-[var(--color-text-highlight)] uppercase tracking-wider">
                       更改 ({unstagedFiles.length})
                     </span>
                   </button>
@@ -728,7 +736,7 @@ export const SourceControl = React.memo(function SourceControl() {
                           event.stopPropagation();
                           stageAll();
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-[var(--TextMuted)] hover:text-white hover:bg-[var(--AccentPrimary)] transition-all flex items-center justify-center"
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-accent)] transition-all flex items-center justify-center"
                       >
                         <Icons.Checks size={14} />
                       </button>
@@ -737,7 +745,7 @@ export const SourceControl = React.memo(function SourceControl() {
                 </div>
                 {unstagedExpanded &&
                   (unstagedFiles.length === 0 ? (
-                    <div className="p-4 text-center text-[12px] text-[var(--TextMuted)] bg-transparent">
+                    <div className="p-4 text-center text-[12px] text-[var(--color-text-muted)] bg-transparent">
                       目前没有任何更改
                     </div>
                   ) : (
@@ -755,7 +763,7 @@ export const SourceControl = React.memo(function SourceControl() {
             <div
               className={cn(
                 glassVariants({ layer: "elevated" }),
-                "p-4 text-center text-[12px] text-[var(--TextMuted)] rounded-2xl z-10 mt-2 shadow-sm",
+                "p-4 text-center text-[12px] text-[var(--color-text-muted)] rounded-2xl z-10 mt-2 shadow-sm",
               )}
             >
               尚未找到提交记录
@@ -781,19 +789,19 @@ export const SourceControl = React.memo(function SourceControl() {
                 >
                   <div className="flex flex-col gap-2 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="text-[10px] px-2 py-0.5 rounded-lg bg-[var(--GlassSurface-Elevated)] text-[var(--TextHighlight)] font-mono shrink-0 font-medium">
+                      <div className="text-[10px] px-2 py-0.5 rounded-lg bg-[var(--material-surface)] text-[var(--color-text-highlight)] font-mono shrink-0 font-medium">
                         {commit.hash.substring(0, 7)}
                       </div>
-                      <span className="text-[11px] text-[var(--TextMuted)] opacity-80 font-medium">
+                      <span className="text-[11px] text-[var(--color-text-muted)] opacity-80 font-medium">
                         {commit.date}
                       </span>
                     </div>
-                    <div className="font-bold text-[13px] text-[var(--TextHighlight)] leading-relaxed mt-1">
+                    <div className="font-bold text-[13px] text-[var(--color-text-highlight)] leading-relaxed mt-1">
                       {commit.message}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--GlassBorder)] text-[12px] text-[var(--TextMuted)] font-medium">
-                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--AccentPrimary)] text-[10px] font-bold text-white shadow-[0_2px_8px_color-mix(in_srgb,var(--AccentPrimary)_32%,transparent)]">
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border-subtle)] text-[12px] text-[var(--color-text-muted)] font-medium">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-accent)] text-[10px] font-bold text-white shadow-[0_2px_8px_color-mix(in_srgb,var(--color-accent)_32%,transparent)]">
                       {commit.author.charAt(0).toUpperCase()}
                     </div>
                     <span className="truncate">{commit.author}</span>
@@ -824,7 +832,7 @@ export const SourceControl = React.memo(function SourceControl() {
         }
       >
         <label className="flex flex-col gap-2">
-          <span className="text-[12px] text-[var(--TextMuted)]">新分支名称</span>
+          <span className="text-[12px] text-[var(--color-text-muted)]">新分支名称</span>
           <input
             data-aurona-input="embedded"
             value={newBranchName}
@@ -833,7 +841,7 @@ export const SourceControl = React.memo(function SourceControl() {
               if (event.key === "Enter") void handleCreateBranch();
             }}
             placeholder="例如 feature/editor-overlays"
-            className="h-9 rounded-xl border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] px-3 text-[13px] text-[var(--TextHighlight)] outline-none focus:border-[var(--AccentPrimary)]"
+            className="h-9 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 text-[13px] text-[var(--color-text-highlight)] outline-none focus:border-[var(--color-accent)]"
           />
         </label>
       </Modal>

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DocumentService } from "../../../Core/DocumentService";
+import { LspClient } from "../../../Core/Language/LspClient";
 import { OutputService } from "../../../Core/OutputService";
 import type { LanguageFeaturePreferences } from "../../../Foundation/Types/Config";
 import type { EditorHoverState } from "../components/HoverCard";
-import { LspClient } from "../LspClient";
 import type { EditorOverlayAnchor } from "../Utils/EditorOverlay";
 
 interface UseEditorHoverOptions {

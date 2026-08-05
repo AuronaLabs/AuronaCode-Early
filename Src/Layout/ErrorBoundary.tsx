@@ -47,21 +47,21 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div
-          className="flex flex-col items-center justify-center w-screen h-screen text-[var(--TextHighlight)] select-none overflow-hidden px-6"
+          className="flex flex-col items-center justify-center w-screen h-screen text-[var(--color-text-highlight)] select-none overflow-hidden px-6"
           style={{ background: "var(--AppBackground)" }}
         >
           <div className="flex max-w-[520px] flex-col items-center gap-4 text-center">
-            <div className="text-[var(--AccentPrimary)] mb-2">
+            <div className="text-[var(--color-accent)] mb-2">
               <Icons.AlertTriangle size={64} stroke={1.5} />
             </div>
 
             <h1 className="text-3xl font-bold tracking-tight">Aurona Code 出现异常</h1>
-            <p className="text-sm text-[var(--TextMuted)] leading-relaxed">
+            <p className="text-sm text-[var(--color-text-muted)] leading-relaxed">
               工作区遇到了未处理错误
               <br />
               你可以重启前端引擎，或复制日志地址继续排查
             </p>
-            <p className="text-sm text-[var(--TextMuted)] font-mono">
+            <p className="text-sm text-[var(--color-text-muted)] font-mono">
               CrashID: {Logger.getLogId()}
             </p>
 

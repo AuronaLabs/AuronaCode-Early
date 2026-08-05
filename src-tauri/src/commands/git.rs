@@ -1,4 +1,3 @@
-use super::utils::create_command;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use ts_rs::TS;
@@ -53,15 +52,15 @@ fn command_error(output: &std::process::Output) -> String {
     }
 }
 
+fn git_output(path: &str, args: &[&str]) -> Result<std::process::Output, String> {
+    crate::process_service::capture("git", args, Some(Path::new(path)))
+}
+
 fn validate_branch_name(path: &str, branch: &str) -> Result<(), String> {
     if branch.trim() != branch || branch.is_empty() {
         return Err("Branch name cannot be empty or contain surrounding whitespace".to_string());
     }
-    let output = create_command("git")
-        .current_dir(path)
-        .args(["check-ref-format", "--branch", branch])
-        .output()
-        .map_err(|error| error.to_string())?;
+    let output = git_output(path, &["check-ref-format", "--branch", branch])?;
     if output.status.success() {
         Ok(())
     } else {
@@ -70,21 +69,13 @@ fn validate_branch_name(path: &str, branch: &str) -> Result<(), String> {
 }
 
 fn git_check_is_repo_internal(path: String) -> Result<bool, String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .args(["rev-parse", "--is-inside-work-tree"])
-        .output()
-        .map_err(|e| e.to_string())?;
+    let output = git_output(&path, &["rev-parse", "--is-inside-work-tree"])?;
 
     Ok(output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true")
 }
 
 fn git_init_internal(path: String) -> Result<(), String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .arg("init")
-        .output()
-        .map_err(|e| e.to_string())?;
+    let output = git_output(&path, &["init"])?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
@@ -93,11 +84,7 @@ fn git_init_internal(path: String) -> Result<(), String> {
 }
 
 fn git_status_internal(path: String) -> Result<Vec<GitFile>, String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .args(["status", "--porcelain=v1", "-z", "-uall"])
-        .output()
-        .map_err(|e| e.to_string())?;
+    let output = git_output(&path, &["status", "--porcelain=v1", "-z", "-uall"])?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
@@ -183,11 +170,7 @@ fn git_status_internal(path: String) -> Result<Vec<GitFile>, String> {
 }
 
 fn git_add_internal(path: String, file: String) -> Result<(), String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .args(["add", "--", &file])
-        .output()
-        .map_err(|e| e.to_string())?;
+    let output = git_output(&path, &["add", "--", &file])?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
@@ -196,11 +179,7 @@ fn git_add_internal(path: String, file: String) -> Result<(), String> {
 }
 
 fn git_unstage_internal(path: String, file: String) -> Result<(), String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .args(["reset", "HEAD", "--", &file])
-        .output()
-        .map_err(|e| e.to_string())?;
+    let output = git_output(&path, &["reset", "HEAD", "--", &file])?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
@@ -209,11 +188,7 @@ fn git_unstage_internal(path: String, file: String) -> Result<(), String> {
 }
 
 fn git_commit_internal(path: String, message: String) -> Result<(), String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .args(["commit", "-m", &message])
-        .output()
-        .map_err(|e| e.to_string())?;
+    let output = git_output(&path, &["commit", "-m", &message])?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
@@ -222,11 +197,7 @@ fn git_commit_internal(path: String, message: String) -> Result<(), String> {
 }
 
 fn git_current_branch_internal(path: String) -> Result<String, String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .args(["rev-parse", "--abbrev-ref", "HEAD"])
-        .output()
-        .map_err(|e| e.to_string())?;
+    let output = git_output(&path, &["rev-parse", "--abbrev-ref", "HEAD"])?;
 
     if !output.status.success() {
         return Ok("".to_string());
@@ -235,15 +206,14 @@ fn git_current_branch_internal(path: String) -> Result<String, String> {
 }
 
 fn git_branches_internal(path: String) -> Result<Vec<GitBranch>, String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .args([
+    let output = git_output(
+        &path,
+        &[
             "for-each-ref",
             "--format=%(refname:short)%00%(HEAD)",
             "refs/heads",
-        ])
-        .output()
-        .map_err(|error| error.to_string())?;
+        ],
+    )?;
     if !output.status.success() {
         return Err(command_error(&output));
     }
@@ -260,11 +230,10 @@ fn git_branches_internal(path: String) -> Result<Vec<GitBranch>, String> {
 }
 
 fn git_tracking_status_internal(path: String) -> Result<(u32, u32), String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .args(["rev-list", "--left-right", "--count", "HEAD...@{upstream}"])
-        .output()
-        .map_err(|error| error.to_string())?;
+    let output = git_output(
+        &path,
+        &["rev-list", "--left-right", "--count", "HEAD...@{upstream}"],
+    )?;
     if !output.status.success() {
         return Ok((0, 0));
     }
@@ -280,11 +249,7 @@ fn git_tracking_status_internal(path: String) -> Result<(u32, u32), String> {
 
 fn git_switch_branch_internal(path: String, branch: String) -> Result<(), String> {
     validate_branch_name(&path, &branch)?;
-    let output = create_command("git")
-        .current_dir(&path)
-        .args(["switch", &branch])
-        .output()
-        .map_err(|error| error.to_string())?;
+    let output = git_output(&path, &["switch", &branch])?;
     if output.status.success() {
         Ok(())
     } else {
@@ -294,11 +259,7 @@ fn git_switch_branch_internal(path: String, branch: String) -> Result<(), String
 
 fn git_create_branch_internal(path: String, branch: String) -> Result<(), String> {
     validate_branch_name(&path, &branch)?;
-    let output = create_command("git")
-        .current_dir(&path)
-        .args(["switch", "-c", &branch])
-        .output()
-        .map_err(|error| error.to_string())?;
+    let output = git_output(&path, &["switch", "-c", &branch])?;
     if output.status.success() {
         Ok(())
     } else {
@@ -307,39 +268,32 @@ fn git_create_branch_internal(path: String, branch: String) -> Result<(), String
 }
 
 fn git_worktree_diff_internal(path: String, file: String, staged: bool) -> Result<String, String> {
-    let tracked = create_command("git")
-        .current_dir(&path)
-        .args(["ls-files", "--error-unmatch", "--", &file])
-        .output()
+    let tracked = git_output(&path, &["ls-files", "--error-unmatch", "--", &file])
         .map(|output| output.status.success())
         .unwrap_or(false);
     if !tracked && !staged {
-        let output = create_command("git")
-            .current_dir(&path)
-            .args([
+        let output = git_output(
+            &path,
+            &[
                 "diff",
                 "--no-index",
                 "--color=never",
                 "--",
                 "/dev/null",
                 &file,
-            ])
-            .output()
-            .map_err(|error| error.to_string())?;
+            ],
+        )?;
         if output.status.success() || output.status.code() == Some(1) {
             return Ok(String::from_utf8_lossy(&output.stdout).to_string());
         }
         return Err(command_error(&output));
     }
-    let mut command = create_command("git");
-    command.current_dir(&path).arg("diff");
+    let mut args = vec!["diff"];
     if staged {
-        command.arg("--cached");
+        args.push("--cached");
     }
-    let output = command
-        .args(["--color=never", "--", &file])
-        .output()
-        .map_err(|error| error.to_string())?;
+    args.extend(["--color=never", "--", &file]);
+    let output = git_output(&path, &args)?;
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
@@ -348,24 +302,13 @@ fn git_worktree_diff_internal(path: String, file: String, staged: bool) -> Resul
 }
 
 fn git_discard_file_internal(path: String, file: String) -> Result<(), String> {
-    let tracked = create_command("git")
-        .current_dir(&path)
-        .args(["ls-files", "--error-unmatch", "--", &file])
-        .output()
+    let tracked = git_output(&path, &["ls-files", "--error-unmatch", "--", &file])
         .map(|output| output.status.success())
         .unwrap_or(false);
     let output = if tracked {
-        create_command("git")
-            .current_dir(&path)
-            .args(["restore", "--worktree", "--", &file])
-            .output()
-            .map_err(|error| error.to_string())?
+        git_output(&path, &["restore", "--worktree", "--", &file])?
     } else {
-        create_command("git")
-            .current_dir(&path)
-            .args(["clean", "-f", "--", &file])
-            .output()
-            .map_err(|error| error.to_string())?
+        git_output(&path, &["clean", "-f", "--", &file])?
     };
     if output.status.success() {
         Ok(())
@@ -377,11 +320,7 @@ fn git_discard_file_internal(path: String, file: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn git_push(path: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let output = create_command("git")
-            .current_dir(&path)
-            .arg("push")
-            .output()
-            .map_err(|e| e.to_string())?;
+        let output = git_output(&path, &["push"])?;
 
         if !output.status.success() {
             return Err(String::from_utf8_lossy(&output.stderr).to_string());
@@ -395,11 +334,7 @@ pub async fn git_push(path: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn git_pull(path: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let output = create_command("git")
-            .current_dir(&path)
-            .arg("pull")
-            .output()
-            .map_err(|e| e.to_string())?;
+        let output = git_output(&path, &["pull"])?;
 
         if !output.status.success() {
             return Err(String::from_utf8_lossy(&output.stderr).to_string());
@@ -413,11 +348,7 @@ pub async fn git_pull(path: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn git_fetch(path: String) -> Result<(), String> {
     run_blocking(move || {
-        let output = create_command("git")
-            .current_dir(&path)
-            .args(["fetch", "--prune"])
-            .output()
-            .map_err(|error| error.to_string())?;
+        let output = git_output(&path, &["fetch", "--prune"])?;
         if output.status.success() {
             Ok(())
         } else {
@@ -428,21 +359,13 @@ pub async fn git_fetch(path: String) -> Result<(), String> {
 }
 
 fn git_discard_all_internal(path: String) -> Result<(), String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .args(["reset", "--hard", "HEAD"])
-        .output()
-        .map_err(|e| e.to_string())?;
+    let output = git_output(&path, &["reset", "--hard", "HEAD"])?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
     }
 
-    let output = create_command("git")
-        .current_dir(&path)
-        .args(["clean", "-fd"])
-        .output()
-        .map_err(|e| e.to_string())?;
+    let output = git_output(&path, &["clean", "-fd"])?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
@@ -452,11 +375,7 @@ fn git_discard_all_internal(path: String) -> Result<(), String> {
 }
 
 fn git_unstage_all_internal(path: String) -> Result<(), String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .arg("reset")
-        .output()
-        .map_err(|e| e.to_string())?;
+    let output = git_output(&path, &["reset"])?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
@@ -465,11 +384,7 @@ fn git_unstage_all_internal(path: String) -> Result<(), String> {
 }
 
 fn git_get_remote_internal(path: String) -> Result<String, String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .args(["remote", "get-url", "origin"])
-        .output()
-        .map_err(|e| e.to_string())?;
+    let output = git_output(&path, &["remote", "get-url", "origin"])?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -479,25 +394,14 @@ fn git_get_remote_internal(path: String) -> Result<String, String> {
 }
 
 fn git_set_remote_internal(path: String, url: String) -> Result<(), String> {
-    let has_remote = create_command("git")
-        .current_dir(&path)
-        .args(["remote", "get-url", "origin"])
-        .output()
-        .map(|o| o.status.success())
+    let has_remote = git_output(&path, &["remote", "get-url", "origin"])
+        .map(|output| output.status.success())
         .unwrap_or(false);
 
     let output = if has_remote {
-        create_command("git")
-            .current_dir(&path)
-            .args(["remote", "set-url", "origin", &url])
-            .output()
-            .map_err(|e| e.to_string())?
+        git_output(&path, &["remote", "set-url", "origin", &url])?
     } else {
-        create_command("git")
-            .current_dir(&path)
-            .args(["remote", "add", "origin", &url])
-            .output()
-            .map_err(|e| e.to_string())?
+        git_output(&path, &["remote", "add", "origin", &url])?
     };
 
     if !output.status.success() {
@@ -510,11 +414,7 @@ fn git_diff_commit_internal(path: String, hash: String) -> Result<String, String
     if !hash.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err("Invalid commit hash".to_string());
     }
-    let output = create_command("git")
-        .current_dir(&path)
-        .args(["show", &hash, "--pretty=format:", "--color=never"])
-        .output()
-        .map_err(|e| e.to_string())?;
+    let output = git_output(&path, &["show", &hash, "--pretty=format:", "--color=never"])?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
@@ -524,17 +424,16 @@ fn git_diff_commit_internal(path: String, hash: String) -> Result<String, String
 }
 
 fn git_log_internal(path: String) -> Result<Vec<GitCommit>, String> {
-    let output = create_command("git")
-        .current_dir(&path)
-        .args([
+    let output = git_output(
+        &path,
+        &[
             "log",
             "--pretty=format:%h\x1f%an\x1f%s\x1f%ad",
             "--date=short",
             "-n",
             "50",
-        ])
-        .output()
-        .map_err(|e| e.to_string())?;
+        ],
+    )?;
 
     if !output.status.success() {
         let error = String::from_utf8_lossy(&output.stderr).to_string();
@@ -720,11 +619,7 @@ mod tests {
     }
 
     fn run_git(path: &Path, args: &[&str]) {
-        let output = create_command("git")
-            .current_dir(path)
-            .args(args)
-            .output()
-            .expect("git should start");
+        let output = git_output(path.to_string_lossy().as_ref(), args).expect("git should start");
         assert!(output.status.success(), "{}", command_error(&output));
     }
 

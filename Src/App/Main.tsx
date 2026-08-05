@@ -60,10 +60,6 @@ function RootApp() {
 
       if (shouldPrevent) {
         e.preventDefault();
-
-        if (cmdKey && !e.shiftKey && e.key.toLowerCase() === "p") {
-          console.log("Ctrl+P intercepted for Command Palette");
-        }
       }
     };
 

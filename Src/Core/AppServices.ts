@@ -1,5 +1,3 @@
-import { LspClient } from "../Features/Editor/LspClient";
-import { RecoveryCoordinator } from "../Features/Editor/Model/RecoveryCoordinator";
 import { desktopWindow } from "../Foundation/Desktop";
 import { WorkspaceStore } from "../Foundation/Storage/WorkspaceStore";
 import { initializeEditorStore } from "../State/useEditorStore";
@@ -8,7 +6,9 @@ import { initializeWorkbenchStore } from "../State/useWorkspaceStore";
 import { AccountService } from "./AccountService";
 import { registerWorkbenchCommands } from "./Commands";
 import { DocumentService } from "./DocumentService";
+import { LspClient } from "./Language/LspClient";
 import { OutputService } from "./OutputService";
+import { RecoveryCoordinator } from "./Recovery/RecoveryCoordinator";
 import { WorkspaceService } from "./WorkspaceService";
 
 let startPromise: Promise<void> | null = null;

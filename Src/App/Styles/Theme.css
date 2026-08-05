@@ -53,14 +53,6 @@
   background-color: var(--GlassHover);
 }
 
-.glass-inner-card {
-  background: var(--material-surface);
-  border: 1px solid var(--GlassBorder);
-  box-shadow: var(--shadow-surface);
-  backdrop-filter: blur(var(--glass-blur-elevated));
-  -webkit-backdrop-filter: blur(var(--glass-blur-elevated));
-}
-
 .aurona-panel-resizer::after {
   position: absolute;
   content: "";
@@ -70,6 +62,23 @@
   transition:
     background-color var(--duration-fast) ease,
     box-shadow var(--duration-fast) ease;
+}
+
+/* xterm 自定义滚动条，与 Material 主题变量联动 */
+.xterm-viewport::-webkit-scrollbar {
+  width: 10px;
+}
+.xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+.xterm-viewport::-webkit-scrollbar-thumb {
+  background-color: var(--border-subtle);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background-color: var(--TextMuted);
 }
 
 .aurona-panel-resizer[data-orientation="vertical"]::after {
@@ -166,6 +175,9 @@
   --SyntaxVariable: #b7791f;
   --SyntaxComment: #a0aec0;
   --SyntaxOperator: #4a5568;
+  --DiagError: #ef4444;
+  --DiagWarning: #f59e0b;
+  --DiagInfo: #3b82f6;
 
   /* The default workspace atmosphere is deliberately Aurora blue. Accent
      palettes only replace it after the user explicitly enables background sync. */
@@ -286,6 +298,9 @@
   --SyntaxFunction: #c084fc;
   --SyntaxVariable: #fcd34d;
   --SyntaxComment: #64748b;
+  --DiagError: #f87171;
+  --DiagWarning: #fbbf24;
+  --DiagInfo: #60a5fa;
   --SyntaxOperator: #cbd5e1;
 
   --RGB-BackgroundGlow-Primary: 42, 104, 180;

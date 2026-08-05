@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type FileNode, FileSystemService } from "../../../Core/FileSystemService";
 import { WorkspaceService } from "../../../Core/WorkspaceService";
-import { desktopDialog, desktopFileSystem } from "../../../Foundation/Desktop";
+import { desktopDialog } from "../../../Foundation/Desktop";
 import { EventBus } from "../../../Foundation/EventBus";
 import { WorkspaceStore } from "../../../Foundation/Storage/WorkspaceStore";
 import { SIDEBAR_EXPLORER } from "../../../Shared/Constants/Sidebar";
@@ -77,6 +77,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
 
   const loadFolderDirectly = useCallback(async (selectedPath: string) => {
     try {
+      await WorkspaceService.openRoot(selectedPath);
       const folderName = FileSystemService.basename(selectedPath);
       const children = await FileSystemService.readDirectory(selectedPath);
       setRootNode({
@@ -86,7 +87,6 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         isOpen: true,
         children,
       });
-      await WorkspaceService.openRoot(selectedPath);
       EventBus.emit("workspace:root-changed", selectedPath);
     } catch (error) {
       showToast(`打开文件夹失败：${FileSystemService.toMessage(error)}`, "error");
@@ -138,36 +138,33 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
   );
 
   useEffect(() => {
-    let unwatch: (() => void) | null = null;
     let timer: number | null = null;
+    let active = true;
 
     if (rootNode?.path) {
-      desktopFileSystem
-        .watch(
-          rootNode.path,
-          () => {
-            if (timer) window.clearTimeout(timer);
-            timer = window.setTimeout(() => {
-              const currentRoot = rootNodeRef.current;
-              if (!currentRoot) return;
-              refreshOpenDirectories(currentRoot).catch((error) => {
-                console.warn("Failed to refresh watched directories:", error);
-              });
-            }, 300);
-          },
-          { recursive: true },
-        )
-        .then((fn) => {
-          unwatch = fn;
-        })
-        .catch((err) => {
-          console.error("FS Watcher failed:", err);
-        });
+      void FileSystemService.startWatch(rootNode.path);
+      const off = EventBus.on("fs:changed", () => {
+        if (!active) return;
+        if (timer) window.clearTimeout(timer);
+        timer = window.setTimeout(() => {
+          const currentRoot = rootNodeRef.current;
+          if (!currentRoot) return;
+          refreshOpenDirectories(currentRoot).catch((error) => {
+            console.warn("Failed to refresh watched directories:", error);
+          });
+        }, 300);
+      });
+      return () => {
+        active = false;
+        if (timer) window.clearTimeout(timer);
+        off();
+        void FileSystemService.stopWatch();
+      };
     }
 
     return () => {
       if (timer) window.clearTimeout(timer);
-      unwatch?.();
+      void FileSystemService.stopWatch();
     };
   }, [refreshOpenDirectories, rootNode?.path]);
 

@@ -158,6 +158,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AURONA_ACCOUNT_CLIENT_ID: ${{ secrets.AURONA_ACCOUNT_CLIENT_ID }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
@@ -175,7 +176,7 @@ jobs:
         run: |
           RUNTIME="$(find src-tauri/target -path '*/Aurona Code.app/Contents/Resources/toolchains/runtime/node' -print -quit)"
           test -n "$RUNTIME"
-          lipo -verify_arch arm64 x86_64 "$RUNTIME"
+          lipo "$RUNTIME" -verify_arch arm64 x86_64
           "$RUNTIME" --version
 
       - name: Validate Linux bundle and runtime

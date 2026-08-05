@@ -1,6 +1,4 @@
 import { type CommandContext, CommandRegistry } from "../Extension/CommandRegistry";
-import { EditorAdapter } from "../Features/Editor/EditorAdapter";
-import { LspClient, type LspFeature } from "../Features/Editor/LspClient";
 import { EventBus } from "../Foundation/EventBus";
 import { AppLifecycleIPC } from "../Foundation/IPC/AppLifecycleCommands";
 import { PlatformService } from "../Foundation/Platform";
@@ -11,6 +9,8 @@ import { useEditorStore } from "../State/useEditorStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
 import { DebugConfigurationService } from "./DebugConfigurationService";
 import { DebugService } from "./DebugService";
+import { EditorAdapter } from "./Editor/EditorAdapter";
+import { LspClient, type LspFeature } from "./Language/LspClient";
 import { LanguageFeatureService } from "./LanguageFeatureService";
 import { OutputService } from "./OutputService";
 

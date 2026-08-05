@@ -94,7 +94,7 @@ jobs:
       - name: Verify universal macOS Node
         if: runner.os == 'macOS'
         run: |
-          lipo -verify_arch arm64 x86_64 src-tauri/resources/toolchains/runtime/node
+          lipo src-tauri/resources/toolchains/runtime/node -verify_arch arm64 x86_64
           src-tauri/resources/toolchains/runtime/node --version
       - name: Verify Linux Node
         if: runner.os == 'Linux'

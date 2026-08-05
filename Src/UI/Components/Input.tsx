@@ -4,7 +4,7 @@ import { cn } from "../../Shared/Utils/cn";
 import { glassVariants } from "../Core/GlassManager/variants";
 
 const inputVariants = cva(
-  "flex w-full rounded-lg text-[12px] text-[var(--TextHighlight)] outline-none transition-[background-color,border-color,color,box-shadow,opacity] duration-150 placeholder:text-[var(--TextMuted)] disabled:cursor-not-allowed disabled:opacity-50",
+  "flex w-full rounded-lg text-[12px] text-[var(--color-text-highlight)] outline-none transition-[background-color,border-color,color,box-shadow,opacity] duration-150 placeholder:text-[var(--color-text-muted)] disabled:cursor-not-allowed disabled:opacity-50",
   {
     variants: {
       inputSize: {
@@ -37,7 +37,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className={cn("relative flex items-center", fullWidth ? "w-full" : "w-auto", className)}>
         {icon && (
-          <div className="absolute left-2.5 flex items-center justify-center text-[var(--TextMuted)] pointer-events-none">
+          <div className="absolute left-2.5 flex items-center justify-center text-[var(--color-text-muted)] pointer-events-none">
             {icon}
           </div>
         )}
@@ -47,7 +47,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             surface === "glass"
               ? cn(
                   glassVariants({ layer: "elevated" }),
-                  "focus-visible:border-[var(--TextMuted)]/25 focus-visible:ring-2 focus-visible:ring-[var(--TextMuted)]/25",
+                  "focus-visible:border-[var(--color-text-muted)]/25 focus-visible:ring-2 focus-visible:ring-[var(--color-text-muted)]/25",
                 )
               : "border border-transparent bg-transparent shadow-none backdrop-blur-none focus-visible:border-transparent focus-visible:ring-0",
             inputVariants({ inputSize, hasIcon: !!icon }),

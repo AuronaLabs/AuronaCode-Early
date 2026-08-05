@@ -1,4 +1,3 @@
-import { desktopFileSystem } from "../Foundation/Desktop";
 import { EventBus } from "../Foundation/EventBus";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 import type { LanguageServerConfiguration } from "../Foundation/Types/Config";
@@ -32,7 +31,7 @@ class LanguageConfigurationServiceImpl {
     if (!root) return userConfiguration ?? {};
 
     const configurationPath = FileSystemService.joinPath(root, ".aurona/language-services.json");
-    if (!(await desktopFileSystem.exists(configurationPath))) {
+    if (!(await FileSystemService.exists(configurationPath))) {
       return userConfiguration ?? {};
     }
     const trusted = (user.trustedWorkspaceRoots ?? []).some(
@@ -44,7 +43,7 @@ class LanguageConfigurationServiceImpl {
     }
     WorkspaceService.setTrusted(true);
     const parsed = JSON.parse(
-      await desktopFileSystem.readTextFile(configurationPath),
+      await FileSystemService.readTextFile(configurationPath),
     ) as WorkspaceLanguageConfiguration;
     return {
       ...userConfiguration,

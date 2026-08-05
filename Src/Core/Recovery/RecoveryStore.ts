@@ -1,5 +1,5 @@
-import { BaseDirectory, desktopFileSystem } from "../../../Foundation/Desktop";
-import { Logger } from "../../../Foundation/Logger";
+import { BaseDirectory, desktopFileSystem } from "../../Foundation/Desktop";
+import { Logger } from "../../Foundation/Logger";
 
 const DIRECTORY = "editor-recovery";
 const MAX_RECOVERY_BYTES = 8 * 1024 * 1024;

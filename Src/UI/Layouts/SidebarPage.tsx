@@ -17,7 +17,7 @@ export function SidebarPageHeader({
         className,
       )}
     >
-      <h2 className="flex min-w-0 items-center gap-2 truncate text-[14px] font-bold tracking-tight text-[var(--TextHighlight)]">
+      <h2 className="flex min-w-0 items-center gap-2 truncate text-[14px] font-bold tracking-tight text-[var(--color-text-highlight)]">
         {title}
       </h2>
       {actions && <div className="flex shrink-0 items-center gap-0.5">{actions}</div>}

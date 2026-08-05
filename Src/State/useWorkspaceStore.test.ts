@@ -10,8 +10,10 @@ vi.mock("../Foundation/Platform", () => ({
   PlatformService: { current: () => "windows" },
 }));
 
-vi.mock("../Foundation/Desktop/Dialog", () => ({
-  desktopDialog: { openFile: vi.fn(async () => null) },
+vi.mock("../Foundation/IPC/EditorCommands", () => ({
+  EditorIPC: {
+    openDialog: vi.fn(async () => null),
+  },
 }));
 
 vi.mock("../Foundation/Storage/WorkspaceStore", () => ({

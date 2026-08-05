@@ -1,3 +1,4 @@
+import { FileSystemCommands } from "../Foundation/IPC/FileSystemCommands";
 import { WorkspaceStore } from "../Foundation/Storage/WorkspaceStore";
 
 export type WorkspaceMode = "singleFile" | "workspace";
@@ -28,7 +29,11 @@ class WorkspaceServiceImpl {
 
   async initialize(): Promise<void> {
     const persisted = await WorkspaceStore.get();
-    if (persisted.lastOpenedPath) this.setRoot(persisted.lastOpenedPath, false);
+    if (persisted.lastOpenedPath) {
+      await this.openRoot(persisted.lastOpenedPath);
+    } else {
+      await this.clearBackendRoot();
+    }
   }
 
   getCurrent(): WorkspaceDescriptor {
@@ -42,14 +47,29 @@ class WorkspaceServiceImpl {
   }
 
   async openRoot(path: string): Promise<void> {
+    const root = normalize(path);
+    try {
+      await FileSystemCommands.setWorkspaceRoot(root);
+    } catch (error) {
+      console.warn("Failed to authorize workspace in the desktop session:", error);
+    }
     this.setRoot(path, false);
     await WorkspaceStore.set({ lastOpenedPath: this.current.primaryRoot ?? undefined });
   }
 
   async close(): Promise<void> {
+    await this.clearBackendRoot();
     this.current = EMPTY_WORKSPACE;
     await WorkspaceStore.set({ lastOpenedPath: undefined });
     this.emit();
+  }
+
+  private async clearBackendRoot(): Promise<void> {
+    try {
+      await FileSystemCommands.setWorkspaceRoot(null);
+    } catch (error) {
+      console.warn("Failed to clear the desktop workspace session:", error);
+    }
   }
 
   setTrusted(trusted: boolean): void {

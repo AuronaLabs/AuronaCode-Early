@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { EditorAdapter } from "../Features/Editor/EditorAdapter";
-import { LspClient } from "../Features/Editor/LspClient";
+import { EditorAdapter } from "../Core/Editor/EditorAdapter";
+import { LspClient } from "../Core/Language/LspClient";
 import type { EditorStatus } from "../Foundation/Types/Editor";
 import { EMPTY_EDITOR_STATUS } from "../Foundation/Types/Editor";
 

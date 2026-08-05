@@ -74,7 +74,7 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
                       <Icons.FileCode
                         size={16}
                         stroke={1.5}
-                        className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
+                        className={`shrink-0 ${isActive ? "text-[var(--color-text-highlight)]" : ""}`}
                       />
                     )}
                     {tab.type === "about" && (
@@ -84,21 +84,21 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
                       <Icons.Settings
                         size={16}
                         stroke={1.5}
-                        className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
+                        className={`shrink-0 ${isActive ? "text-[var(--color-text-highlight)]" : ""}`}
                       />
                     )}
                     {tab.type === "changelog" && (
                       <Icons.FileText
                         size={16}
                         stroke={1.5}
-                        className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
+                        className={`shrink-0 ${isActive ? "text-[var(--color-text-highlight)]" : ""}`}
                       />
                     )}
                     {tab.type === "performance" && (
                       <Icons.History
                         size={16}
                         stroke={1.5}
-                        className={`shrink-0 ${isActive ? "text-[var(--TextHighlight)]" : ""}`}
+                        className={`shrink-0 ${isActive ? "text-[var(--color-text-highlight)]" : ""}`}
                       />
                     )}
                     {tab.type === "diff" && (
@@ -107,16 +107,16 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
                     <span
                       className={`truncate tracking-wide pt-0.5 ${
                         tab.isDirty ? "italic font-medium" : ""
-                      } ${isActive ? "text-[var(--TextHighlight)] font-medium" : "text-[var(--TextMuted)] group-hover:text-[var(--TextPrimary)]"}`}
+                      } ${isActive ? "text-[var(--color-text-highlight)] font-medium" : "text-[var(--color-text-muted)] group-hover:text-[var(--color-text-primary)]"}`}
                     >
                       {tab.title}
                     </span>
                   </div>
                   <button
                     type="button"
-                    className={`ml-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] transition-all z-10 relative ${
+                    className={`ml-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] transition-all z-10 relative ${
                       isActive || tab.isDirty ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                    } ${isActive ? "text-[var(--TextHighlight)]" : "text-[var(--TextMuted)]"}`}
+                    } ${isActive ? "text-[var(--color-text-highlight)]" : "text-[var(--color-text-muted)]"}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       closeTab(tab);
@@ -125,7 +125,7 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
                   >
                     {tab.isDirty ? (
                       <>
-                        <span className="h-2 w-2 rounded-full bg-[var(--TextHighlight)] group-hover:hidden" />
+                        <span className="h-2 w-2 rounded-full bg-[var(--color-text-highlight)] group-hover:hidden" />
                         <Icons.Close size={14} stroke={2} className="hidden group-hover:block" />
                       </>
                     ) : (

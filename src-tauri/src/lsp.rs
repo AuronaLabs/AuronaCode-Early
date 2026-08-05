@@ -10,7 +10,7 @@ use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot, Mutex};
 
 use crate::content_length::{encode_message, ContentLengthDecoder};
-use crate::process_tree::ManagedChild;
+use crate::process_service::ManagedChild;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]

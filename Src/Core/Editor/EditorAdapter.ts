@@ -4,7 +4,7 @@ import {
   type EditorStatusListener,
   EMPTY_EDITOR_STATUS,
   type IEditorEngine,
-} from "./IEditorEngine";
+} from "../../Foundation/Types/Editor";
 
 class GlobalEditorAdapter {
   private activeEngine: IEditorEngine | null = null;

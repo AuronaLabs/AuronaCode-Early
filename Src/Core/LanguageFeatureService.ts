@@ -1,7 +1,7 @@
-import { LspClient, type LspLocation } from "../Features/Editor/LspClient";
 import { EventBus } from "../Foundation/EventBus";
 import { DiagnosticsService } from "./DiagnosticsService";
 import { DocumentService } from "./DocumentService";
+import { LspClient, type LspLocation } from "./Language/LspClient";
 import { applyLspTextEdits, type LspTextEdit } from "./Language/TextEdits";
 import { OutputService } from "./OutputService";
 

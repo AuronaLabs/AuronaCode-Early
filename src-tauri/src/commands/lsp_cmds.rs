@@ -603,8 +603,7 @@ pub async fn lsp_cancel(
 
 #[cfg(test)]
 mod tests {
-    use super::{canonical_language, file_path_to_uri, node_compatible_path};
-    use std::path::Path;
+    use super::{canonical_language, file_path_to_uri};
 
     #[test]
     fn javascript_and_typescript_share_a_server() {
@@ -615,6 +614,8 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn node_paths_drop_windows_verbatim_prefixes() {
+        use super::node_compatible_path;
+        use std::path::Path;
         assert_eq!(
             node_compatible_path(Path::new(r"\\?\E:\Aurona Code\pyright\server.cjs")),
             Path::new(r"E:\Aurona Code\pyright\server.cjs")

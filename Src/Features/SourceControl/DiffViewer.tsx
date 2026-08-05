@@ -151,7 +151,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
 
   if (loading) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-transparent p-6 text-[var(--TextMuted)]">
+      <div className="flex h-full w-full items-center justify-center bg-transparent p-6 text-[var(--color-text-muted)]">
         <div
           className={cn(
             glassVariants({ layer: "elevated" }),
@@ -191,19 +191,19 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
           )}
         >
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Floating)] text-[var(--TextHighlight)] shadow-sm">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--material-overlay)] text-[var(--color-text-highlight)] shadow-sm">
               <Icons.GitCommit size={18} />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-[13px] font-semibold text-[var(--TextHighlight)]">
+                <span className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
                   {workingFile ? "工作区差异" : "提交差异"}
                 </span>
-                <code className="rounded-md border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] px-1.5 py-0.5 text-[10px] text-[var(--TextMuted)]">
+                <code className="rounded-md border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-muted)]">
                   {workingFile ?? diffTarget.slice(0, 8)}
                 </code>
               </div>
-              <p className="mt-0.5 truncate text-[11.5px] text-[var(--TextMuted)]">
+              <p className="mt-0.5 truncate text-[11.5px] text-[var(--color-text-muted)]">
                 {workingFile
                   ? isStaged
                     ? "已暂存的更改"
@@ -213,7 +213,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 text-[11px]">
-            <span className="rounded-lg border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] px-2 py-1 text-[var(--TextMuted)]">
+            <span className="rounded-lg border border-[var(--border-subtle)] bg-[var(--material-panel)] px-2 py-1 text-[var(--color-text-muted)]">
               {files.length} 个文件
             </span>
             {summary.additions > 0 && (
@@ -235,7 +235,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
           <div
             className={cn(
               glassVariants({ layer: "base" }),
-              "flex flex-col items-center rounded-2xl py-12 text-center text-[var(--TextMuted)]",
+              "flex flex-col items-center rounded-2xl py-12 text-center text-[var(--color-text-muted)]",
             )}
           >
             <Icons.FileCode size={26} className="mb-2 opacity-55" />
@@ -261,12 +261,12 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                     "overflow-hidden rounded-2xl shadow-sm",
                   )}
                 >
-                  <div className="flex items-center justify-between border-b border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] px-3 py-2.5 backdrop-blur-[var(--glass-blur-base)]">
+                  <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--material-panel)] px-3 py-2.5 backdrop-blur-[var(--glass-blur-base)]">
                     <div className="flex min-w-0 items-center gap-2.5">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] text-[var(--TextMuted)]">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-muted)]">
                         <Icons.FileCode size={14} />
                       </div>
-                      <span className="truncate text-[12.5px] font-semibold text-[var(--TextHighlight)]">
+                      <span className="truncate text-[12.5px] font-semibold text-[var(--color-text-highlight)]">
                         {file.oldName === file.newName
                           ? file.newName
                           : `${file.oldName} -> ${file.newName}`}
@@ -286,18 +286,18 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                     </div>
                   </div>
 
-                  <div className="flex flex-col bg-[var(--GlassSurface-Base)] font-mono text-[12px] leading-[1.6]">
+                  <div className="flex flex-col bg-[var(--material-panel)] font-mono text-[12px] leading-[1.6]">
                     {file.hunks.map((hunk) => (
                       <div
                         key={hunk.header}
-                        className="flex flex-col border-b border-[var(--GlassBorder)] last:border-b-0"
+                        className="flex flex-col border-b border-[var(--border-subtle)] last:border-b-0"
                       >
-                        <div className="border-b border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] px-3 py-1.5 text-[10.5px] text-[var(--TextMuted)] backdrop-blur-[var(--glass-blur-elevated)]">
+                        <div className="border-b border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 py-1.5 text-[10.5px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-elevated)]">
                           {hunk.header}
                         </div>
                         <div className="flex w-full">
                           {/* Left Pane */}
-                          <div className="w-1/2 overflow-x-auto aurona-scroll border-r border-[var(--GlassBorder)]">
+                          <div className="w-1/2 overflow-x-auto aurona-scroll border-r border-[var(--border-subtle)]">
                             <div className="flex flex-col min-w-max">
                               {hunk.lines.map((line) => {
                                 const isContext = line.type === "context";
@@ -306,7 +306,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                                   ? "bg-transparent"
                                   : isDel
                                     ? "bg-red-500/10"
-                                    : "bg-[var(--GlassSurface-Elevated)]";
+                                    : "bg-[var(--material-surface)]";
                                 const leftText = isContext
                                   ? line.content
                                   : isDel
@@ -316,17 +316,17 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                                 return (
                                   <div
                                     key={`left-${line.type}-${line.leftLineNum ?? "none"}-${line.rightLineNum ?? "none"}-${line.content}`}
-                                    className="flex group hover:bg-[var(--GlassHover)] transition-colors h-[22px] items-stretch"
+                                    className="flex group hover:bg-[var(--material-interactive-hover)] transition-colors h-[22px] items-stretch"
                                     style={{
                                       contentVisibility: "auto",
                                       containIntrinsicSize: "22px",
                                     }}
                                   >
-                                    <div className="flex w-[45px] shrink-0 select-none items-center justify-end border-r border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] px-2 text-right text-[var(--TextMuted)] opacity-60">
+                                    <div className="flex w-[45px] shrink-0 select-none items-center justify-end border-r border-[var(--border-subtle)] bg-[var(--material-panel)] px-2 text-right text-[var(--color-text-muted)] opacity-60">
                                       {line.leftLineNum || ""}
                                     </div>
                                     <div
-                                      className={`px-4 flex-1 flex items-center whitespace-pre ${leftBg} ${isDel ? "text-red-600 dark:text-red-400" : "text-[var(--TextPrimary)]"}`}
+                                      className={`px-4 flex-1 flex items-center whitespace-pre ${leftBg} ${isDel ? "text-red-600 dark:text-red-400" : "text-[var(--color-text-primary)]"}`}
                                     >
                                       {leftText || " "}
                                     </div>
@@ -346,7 +346,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                                   ? "bg-transparent"
                                   : isAdd
                                     ? "bg-green-500/10"
-                                    : "bg-[var(--GlassSurface-Elevated)]";
+                                    : "bg-[var(--material-surface)]";
                                 const rightText = isContext
                                   ? line.content
                                   : isAdd
@@ -356,17 +356,17 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                                 return (
                                   <div
                                     key={`right-${line.type}-${line.leftLineNum ?? "none"}-${line.rightLineNum ?? "none"}-${line.content}`}
-                                    className="flex group hover:bg-[var(--GlassHover)] transition-colors h-[22px] items-stretch"
+                                    className="flex group hover:bg-[var(--material-interactive-hover)] transition-colors h-[22px] items-stretch"
                                     style={{
                                       contentVisibility: "auto",
                                       containIntrinsicSize: "22px",
                                     }}
                                   >
-                                    <div className="flex w-[45px] shrink-0 select-none items-center justify-end border-r border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] px-2 text-right text-[var(--TextMuted)] opacity-60">
+                                    <div className="flex w-[45px] shrink-0 select-none items-center justify-end border-r border-[var(--border-subtle)] bg-[var(--material-panel)] px-2 text-right text-[var(--color-text-muted)] opacity-60">
                                       {line.rightLineNum || ""}
                                     </div>
                                     <div
-                                      className={`px-4 flex-1 flex items-center whitespace-pre ${rightBg} ${isAdd ? "text-green-600 dark:text-green-400" : "text-[var(--TextPrimary)]"}`}
+                                      className={`px-4 flex-1 flex items-center whitespace-pre ${rightBg} ${isAdd ? "text-green-600 dark:text-green-400" : "text-[var(--color-text-primary)]"}`}
                                     >
                                       {rightText || " "}
                                     </div>

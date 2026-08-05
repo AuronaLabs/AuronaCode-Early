@@ -21,6 +21,11 @@ pub struct PerformanceState {
     current_cancel: Mutex<Option<(String, Arc<AtomicBool>)>>,
 }
 
+#[tauri::command]
+pub fn performance_ping() -> Result<String, String> {
+    Ok("pong".to_string())
+}
+
 impl PerformanceState {
     pub fn new() -> Self {
         Self {

@@ -1,4 +1,3 @@
-import { LspClient } from "../Features/Editor/LspClient";
 import {
   EditorIPC,
   type EditorSnapshot,
@@ -6,6 +5,7 @@ import {
   type TextEdit,
 } from "../Foundation/IPC/EditorCommands";
 import { GetLanguageFromPath } from "../Shared/Utils/LanguageUtils";
+import { LspClient } from "./Language/LspClient";
 import { OutputService } from "./OutputService";
 
 export type DocumentOpenState = "opening" | "open" | "closing" | "closed" | "error";

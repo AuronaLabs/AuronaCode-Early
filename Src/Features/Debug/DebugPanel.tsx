@@ -87,7 +87,7 @@ export function DebugPanel() {
                   onChange={(selectedConfiguration) => debug.set({ selectedConfiguration })}
                 />
               ) : (
-                <div className="flex h-8 min-w-0 flex-1 items-center px-1 text-[11px] text-[var(--TextMuted)]">
+                <div className="flex h-8 min-w-0 flex-1 items-center px-1 text-[11px] text-[var(--color-text-muted)]">
                   未检测到可调试项目
                 </div>
               )}
@@ -134,12 +134,14 @@ export function DebugPanel() {
               </div>
             )}
             {!debug.configurations.length && !debug.error && (
-              <div className="flex flex-col items-center gap-3 px-7 py-10 text-center text-[11px] leading-5 text-[var(--TextMuted)]">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--GlassSurface-Elevated)] text-[var(--TextMuted)]">
+              <div className="flex flex-col items-center gap-3 px-7 py-10 text-center text-[11px] leading-5 text-[var(--color-text-muted)]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--color-text-muted)]">
                   <Icons.Debug size={22} stroke={1.4} />
                 </div>
                 <div>
-                  <div className="font-medium text-[var(--TextPrimary)]">打开可调试的代码文件</div>
+                  <div className="font-medium text-[var(--color-text-primary)]">
+                    打开可调试的代码文件
+                  </div>
                   <p className="mt-1">
                     Aurona 会识别项目并生成可编辑的启动配置，无需手工创建基础配置。
                   </p>
@@ -159,7 +161,7 @@ export function DebugPanel() {
                     type="button"
                     key={frame.id}
                     className={`${glassListRowStyles} w-full min-w-0 flex-col items-start text-left ${
-                      frame.id === debug.selectedFrameId ? "bg-[var(--GlassSurface-Base)]" : ""
+                      frame.id === debug.selectedFrameId ? "bg-[var(--material-panel)]" : ""
                     }`}
                     onClick={() => {
                       void DebugService.selectFrame(frame.id);
@@ -169,12 +171,12 @@ export function DebugPanel() {
                     }}
                   >
                     {frame.id === debug.selectedFrameId && (
-                      <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-[var(--AccentPrimary)]" />
+                      <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-[var(--color-accent)]" />
                     )}
-                    <span className="truncate text-[12px] font-medium text-[var(--TextPrimary)]">
+                    <span className="truncate text-[12px] font-medium text-[var(--color-text-primary)]">
                       {frame.name}
                     </span>
-                    <span className="mt-0.5 truncate text-[10px] text-[var(--TextMuted)]">
+                    <span className="mt-0.5 truncate text-[10px] text-[var(--color-text-muted)]">
                       {fileName(frame.source?.path)} · {frame.line}:{frame.column}
                     </span>
                   </button>
@@ -230,17 +232,17 @@ export function DebugPanel() {
                           .requestReveal(breakpoint.path, breakpoint.line);
                       }}
                     >
-                      <div className="truncate text-[11px] font-medium text-[var(--TextPrimary)]">
+                      <div className="truncate text-[11px] font-medium text-[var(--color-text-primary)]">
                         {fileName(breakpoint.path)}
                       </div>
-                      <div className="truncate text-[9px] text-[var(--TextMuted)]">
+                      <div className="truncate text-[9px] text-[var(--color-text-muted)]">
                         第 {breakpoint.line} 行
                       </div>
                     </button>
                     <button
                       type="button"
                       aria-label={`移除 ${fileName(breakpoint.path)} 第 ${breakpoint.line} 行断点`}
-                      className="rounded-md p-1 text-[var(--TextMuted)] opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 focus-visible:opacity-100"
+                      className="rounded-md p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 focus-visible:opacity-100"
                       onClick={() => {
                         debug.toggleBreakpoint(breakpoint.path, breakpoint.line);
                         void DebugService.syncBreakpoints();
@@ -273,7 +275,7 @@ function HeaderAction({
       <button
         type="button"
         aria-label={label}
-        className="rounded-lg p-1.5 text-[var(--TextMuted)] transition-colors hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)]"
+        className="rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
         onClick={onClick}
       >
         {icon}
@@ -292,7 +294,7 @@ function SessionStatus({ state }: { state: ReturnType<typeof useDebugStore.getSt
     failed: "调试会话启动失败",
   };
   return (
-    <div className="mt-2 flex items-center gap-1.5 px-1 text-[10px] text-[var(--TextMuted)]">
+    <div className="mt-2 flex items-center gap-1.5 px-1 text-[10px] text-[var(--color-text-muted)]">
       <span
         className={`h-1.5 w-1.5 rounded-full ${
           state === "running"
@@ -301,7 +303,7 @@ function SessionStatus({ state }: { state: ReturnType<typeof useDebugStore.getSt
               ? "bg-amber-500"
               : state === "failed"
                 ? "bg-red-500"
-                : "bg-[var(--TextMuted)]/50"
+                : "bg-[var(--color-text-muted)]/50"
         }`}
       />
       {stateLabels[state]}
@@ -319,20 +321,20 @@ function DebugToolbar({ paused }: { paused: boolean }) {
       ]
     : [{ command: "pause" as const, label: "暂停", icon: <Icons.Pause size={15} /> }];
   return (
-    <div className="flex shrink-0 items-center gap-0.5 border-y border-[var(--GlassBorder)] px-[var(--PanelPaddingX)] py-1.5">
+    <div className="flex shrink-0 items-center gap-0.5 border-y border-[var(--border-subtle)] px-[var(--PanelPaddingX)] py-1.5">
       {actions.map((action) => (
         <Tooltip key={action.command} content={action.label} placement="bottom">
           <button
             type="button"
             aria-label={action.label}
             onClick={() => void DebugService.request(action.command)}
-            className="rounded-lg p-1.5 text-[var(--TextMuted)] transition-colors hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)]"
+            className="rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
           >
             {action.icon}
           </button>
         </Tooltip>
       ))}
-      <span className="mx-1 h-4 w-px bg-[var(--GlassBorder)]" />
+      <span className="mx-1 h-4 w-px bg-[var(--border-subtle)]" />
       <Tooltip content="停止调试" placement="bottom">
         <button
           type="button"
@@ -370,8 +372,8 @@ function VariableScope({
   };
 
   return (
-    <div className="overflow-hidden rounded-lg bg-[var(--GlassSurface-Base)]">
-      <div className="flex h-7 items-center gap-2 px-2.5 text-[10px] font-semibold text-[var(--TextMuted)]">
+    <div className="overflow-hidden rounded-lg bg-[var(--material-panel)]">
+      <div className="flex h-7 items-center gap-2 px-2.5 text-[10px] font-semibold text-[var(--color-text-muted)]">
         <Icons.ChevronRight size={11} className="rotate-90" />
         <span className="truncate">{name}</span>
         <span className="ml-auto font-normal">{variables.length}</span>
@@ -416,14 +418,14 @@ function VariableRow({
     <>
       <button
         type="button"
-        className="grid h-7 w-full min-w-0 grid-cols-[minmax(70px,0.8fr)_minmax(0,1.2fr)] items-center gap-2 rounded-md pr-2 text-left text-[10px] hover:bg-[var(--GlassHover)] disabled:cursor-default"
+        className="grid h-7 w-full min-w-0 grid-cols-[minmax(70px,0.8fr)_minmax(0,1.2fr)] items-center gap-2 rounded-md pr-2 text-left text-[10px] hover:bg-[var(--material-interactive-hover)] disabled:cursor-default"
         style={{ paddingLeft: `${8 + depth * 14}px` }}
         disabled={!expandable}
         onClick={() => expandable && onToggle(variable.variablesReference)}
         title={variable.evaluateName ?? `${variable.name}: ${variable.value}`}
       >
         <span className="flex min-w-0 items-center gap-1">
-          <span className="flex h-3 w-3 shrink-0 items-center justify-center text-[var(--TextMuted)]">
+          <span className="flex h-3 w-3 shrink-0 items-center justify-center text-[var(--color-text-muted)]">
             {expandable && (
               <Icons.ChevronRight
                 size={10}
@@ -431,14 +433,18 @@ function VariableRow({
               />
             )}
           </span>
-          <span className="truncate font-medium text-[var(--TextPrimary)]">{variable.name}</span>
+          <span className="truncate font-medium text-[var(--color-text-primary)]">
+            {variable.name}
+          </span>
         </span>
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate font-mono text-[var(--TextMuted)]">
+          <span className="truncate font-mono text-[var(--color-text-muted)]">
             {loading && expanded ? "正在读取…" : variable.value}
           </span>
           {variable.type && (
-            <span className="shrink-0 text-[9px] text-[var(--TextMuted)]/70">{variable.type}</span>
+            <span className="shrink-0 text-[9px] text-[var(--color-text-muted)]/70">
+              {variable.type}
+            </span>
           )}
         </span>
       </button>
@@ -472,10 +478,10 @@ function DependencyPrompt({
       <div className="flex items-start gap-2.5">
         <Icons.Download className="mt-0.5 shrink-0 text-amber-500" size={15} />
         <div className="min-w-0 flex-1">
-          <div className="text-[11px] font-semibold text-[var(--TextPrimary)]">
+          <div className="text-[11px] font-semibold text-[var(--color-text-primary)]">
             需要 Python 调试组件
           </div>
-          <p className="mt-1 break-words text-[10px] leading-4 text-[var(--TextMuted)]">
+          <p className="mt-1 break-words text-[10px] leading-4 text-[var(--color-text-muted)]">
             {message}
           </p>
           <Button className="mt-2" size="sm" disabled={busy} onClick={onInstall}>
@@ -502,7 +508,7 @@ function DebugSection({
 }) {
   const [expanded, setExpanded] = useState(true);
   return (
-    <section className="border-b border-[var(--GlassBorder)] last:border-b-0">
+    <section className="border-b border-[var(--border-subtle)] last:border-b-0">
       <button
         type="button"
         className={`${glassListHeaderStyles} w-full gap-2 text-left font-semibold`}
@@ -512,9 +518,9 @@ function DebugSection({
           size={12}
           className={`transition-transform ${expanded ? "rotate-90" : ""}`}
         />
-        <span className="text-[var(--TextMuted)]">{icon}</span>
+        <span className="text-[var(--color-text-muted)]">{icon}</span>
         <span>{title}</span>
-        <span className="ml-auto min-w-5 rounded-full bg-[var(--GlassSurface-Elevated)] px-1.5 py-0.5 text-center text-[9px] font-normal text-[var(--TextMuted)]">
+        <span className="ml-auto min-w-5 rounded-full bg-[var(--material-surface)] px-1.5 py-0.5 text-center text-[9px] font-normal text-[var(--color-text-muted)]">
           {count}
         </span>
       </button>
@@ -522,7 +528,9 @@ function DebugSection({
         (count > 0 ? (
           <div className="space-y-0.5 p-1.5">{children}</div>
         ) : (
-          <div className="px-4 py-3 text-[10px] leading-4 text-[var(--TextMuted)]">{empty}</div>
+          <div className="px-4 py-3 text-[10px] leading-4 text-[var(--color-text-muted)]">
+            {empty}
+          </div>
         ))}
     </section>
   );
@@ -531,18 +539,18 @@ function DebugSection({
 function DebugContextEmpty({ hasFile }: { hasFile: boolean }) {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-5 overflow-hidden px-6 text-center">
-      <div className="pointer-events-none absolute h-44 w-44 rounded-full bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] blur-3xl" />
+      <div className="pointer-events-none absolute h-44 w-44 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] blur-3xl" />
       <div className="relative">
-        <div className="absolute inset-0 scale-125 rounded-full bg-[color-mix(in_srgb,var(--AccentPrimary)_16%,transparent)] blur-xl" />
-        <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--AccentPrimary)_22%,var(--GlassBorder))] bg-[var(--GlassSurface-Elevated)] text-[var(--AccentPrimary)] shadow-[var(--shadow-surface)]">
+        <div className="absolute inset-0 scale-125 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] blur-xl" />
+        <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-accent)_22%,var(--border-subtle))] bg-[var(--material-surface)] text-[var(--color-accent)] shadow-[var(--shadow-surface)]">
           <Icons.Debug size={27} stroke={1.45} />
         </div>
       </div>
       <div className="relative z-10 space-y-2">
-        <h3 className="text-[14px] font-semibold text-[var(--TextHighlight)]">
+        <h3 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
           {hasFile ? "当前文件无需调试" : "准备好开始调试"}
         </h3>
-        <p className="text-[12px] leading-relaxed text-[var(--TextMuted)]">
+        <p className="text-[12px] leading-relaxed text-[var(--color-text-muted)]">
           {hasFile ? (
             <>
               切换到受支持的代码文件
@@ -558,8 +566,8 @@ function DebugContextEmpty({ hasFile }: { hasFile: boolean }) {
           )}
         </p>
       </div>
-      <div className="relative z-10 flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--AccentPrimary)_16%,var(--GlassBorder))] bg-[var(--GlassSurface-Base)] px-3 py-1 text-[11px] font-medium text-[var(--TextMuted)]">
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--AccentPrimary)] shadow-[0_0_7px_color-mix(in_srgb,var(--AccentPrimary)_65%,transparent)]" />
+      <div className="relative z-10 flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--color-accent)_16%,var(--border-subtle))] bg-[var(--material-panel)] px-3 py-1 text-[11px] font-medium text-[var(--color-text-muted)]">
+        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] shadow-[0_0_7px_color-mix(in_srgb,var(--color-accent)_65%,transparent)]" />
         等待代码上下文
       </div>
     </div>

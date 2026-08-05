@@ -16,27 +16,27 @@ export function Modal({ isOpen, onClose, title, children, footer, icon }: ModalP
     <DialogPrimitive.Root open={isOpen} onOpenChange={(open) => !open && onClose && onClose()}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[9998] bg-black/30 backdrop-blur-[var(--glass-blur-base)] animate-in fade-in duration-300" />
-        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-[9999] w-full max-w-md translate-x-[-50%] translate-y-[-50%] rounded-2xl border border-[var(--GlassBorder)] bg-[var(--material-modal)] shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out focus-visible:ring-2 focus-visible:ring-[var(--AccentPrimary)]/50">
+        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-[9999] w-full max-w-md translate-x-[-50%] translate-y-[-50%] rounded-2xl border border-[var(--border-subtle)] bg-[var(--material-modal)] shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/50">
           <div className="flex flex-col p-5 gap-3">
             {title && (
               <div className="flex items-center justify-between">
-                <DialogPrimitive.Title className="text-[16px] font-semibold text-[var(--TextHighlight)] flex items-center gap-2 m-0">
+                <DialogPrimitive.Title className="text-[16px] font-semibold text-[var(--color-text-highlight)] flex items-center gap-2 m-0">
                   {icon}
                   {title}
                 </DialogPrimitive.Title>
                 {onClose && (
-                  <DialogPrimitive.Close className="p-1 rounded-lg text-[var(--TextMuted)] hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] transition-colors focus-visible:ring-2 focus-visible:ring-[var(--AccentPrimary)]/50 cursor-pointer">
+                  <DialogPrimitive.Close className="p-1 rounded-lg text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/50 cursor-pointer">
                     <Icons.Close size={16} stroke={2} />
                   </DialogPrimitive.Close>
                 )}
               </div>
             )}
-            <div className="text-[13.5px] text-[var(--TextPrimary)] leading-relaxed">
+            <div className="text-[13.5px] text-[var(--color-text-primary)] leading-relaxed">
               {children}
             </div>
           </div>
           {footer && (
-            <div className="bg-[var(--GlassSurface-Elevated)] px-5 py-3 flex items-center justify-end gap-2 border-t border-[var(--GlassBorder)]">
+            <div className="bg-[var(--material-surface)] px-5 py-3 flex items-center justify-end gap-2 border-t border-[var(--border-subtle)]">
               {footer}
             </div>
           )}

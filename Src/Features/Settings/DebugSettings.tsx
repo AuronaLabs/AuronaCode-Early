@@ -6,6 +6,7 @@ import type { DebugPreferences } from "../../Foundation/Types/Config";
 import { Input } from "../../UI/Components/Input";
 import { Select } from "../../UI/Components/Select";
 import { Switch } from "../../UI/Components/Switch";
+import { GlassContainer } from "../../UI/Core/GlassManager";
 
 const defaults: Required<DebugPreferences> = {
   openSidebarOnStart: true,
@@ -96,17 +97,19 @@ export function DebugSettings() {
         {BuiltInToolRegistry.getByKind("debug-adapter").map((tool) => (
           <div
             key={tool.id}
-            className="flex min-h-14 items-center justify-between gap-6 border-b border-[var(--GlassBorder)] p-5 last:border-b-0"
+            className="flex min-h-14 items-center justify-between gap-6 border-b border-[var(--border-subtle)] p-5 last:border-b-0"
           >
             <div className="min-w-0">
-              <div className="text-[14px] font-medium text-[var(--TextHighlight)]">
+              <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                 {tool.label}
               </div>
-              <p className="mt-1 text-[12px] leading-5 text-[var(--TextMuted)]">
+              <p className="mt-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
                 {tool.description}
               </p>
             </div>
-            <span className="shrink-0 text-[10px] text-[var(--TextMuted)]">{tool.version}</span>
+            <span className="shrink-0 text-[10px] text-[var(--color-text-muted)]">
+              {tool.version}
+            </span>
           </div>
         ))}
       </Group>
@@ -126,18 +129,20 @@ function Group({
   return (
     <section className="flex flex-col gap-2">
       <div className="flex flex-col gap-1">
-        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">{title}</h3>
-        <p className="text-[13px] leading-relaxed text-[var(--TextMuted)]">{description}</p>
+        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">{title}</h3>
+        <p className="text-[13px] leading-relaxed text-[var(--color-text-muted)]">{description}</p>
       </div>
-      <div className="glass-inner-card mt-1 overflow-hidden rounded-2xl shadow-sm">{children}</div>
+      <GlassContainer layer="elevated" className=" mt-1 overflow-hidden rounded-2xl shadow-sm">
+        {children}
+      </GlassContainer>
     </section>
   );
 }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-14 items-center justify-between gap-6 border-b border-[var(--GlassBorder)] p-5 last:border-b-0">
-      <span className="text-[14px] font-medium text-[var(--TextHighlight)]">{label}</span>
+    <div className="flex min-h-14 items-center justify-between gap-6 border-b border-[var(--border-subtle)] p-5 last:border-b-0">
+      <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">{label}</span>
       {children}
     </div>
   );

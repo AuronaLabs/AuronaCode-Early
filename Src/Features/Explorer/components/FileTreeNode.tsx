@@ -15,7 +15,9 @@ import { InlineInput } from "./InlineInput";
 
 function getFileIcon(filename: string, isActive: boolean) {
   const ext = filename.split(".").pop()?.toLowerCase();
-  const baseColor = isActive ? "text-[var(--TextHighlight)]" : "text-[var(--TextMuted)]";
+  const baseColor = isActive
+    ? "text-[var(--color-text-highlight)]"
+    : "text-[var(--color-text-muted)]";
 
   switch (ext) {
     case "ts":
@@ -106,7 +108,7 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
         Array.from({ length: depth }, (_, index) => index + 1).map((guide) => (
           <div
             key={`${node.path}-guide-${guide}`}
-            className="absolute top-0 bottom-0 border-l border-[var(--GlassBorder)]/50 pointer-events-none"
+            className="absolute top-0 bottom-0 border-l border-[var(--border-subtle)]/50 pointer-events-none"
             style={{ left: `calc(${guide - 1} * var(--TreeIndent) + 14px)` }}
           />
         ))}
@@ -122,10 +124,10 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
             draggable={true}
             className={`group/tree flex items-center gap-1.5 py-[3px] mx-1 pr-2 rounded-lg text-[13px] cursor-pointer select-none transition-colors outline-none ${
               isDragHover
-                ? "bg-[var(--GlassSurface-Floating)] border border-[var(--GlassBorder)] shadow-md"
+                ? "bg-[var(--material-overlay)] border border-[var(--border-subtle)] shadow-md"
                 : isActive
-                  ? "bg-[var(--GlassSurface-Elevated)] text-[var(--TextHighlight)] font-medium shadow-sm border border-[var(--GlassBorder)]"
-                  : "text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)]"
+                  ? "bg-[var(--material-surface)] text-[var(--color-text-highlight)] font-medium shadow-sm border border-[var(--border-subtle)]"
+                  : "text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)]"
             }`}
             style={{
               paddingLeft: `calc(${depth} * var(--TreeIndent) + 4px)`,
@@ -194,8 +196,8 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
                 <div
                   className={`transition-transform duration-150 ${node.isOpen ? "rotate-90" : "rotate-0"} ${
                     isActive
-                      ? "text-[var(--AccentPrimary)]"
-                      : "text-[var(--TextMuted)] group-hover/tree:text-[var(--TextHighlight)]"
+                      ? "text-[var(--color-accent)]"
+                      : "text-[var(--color-text-muted)] group-hover/tree:text-[var(--color-text-highlight)]"
                   }`}
                 >
                   <Icons.ChevronRight size={14} stroke={2.5} />
@@ -206,13 +208,9 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
             <div className="shrink-0 flex items-center opacity-90 group-hover/tree:opacity-100 transition-opacity">
               {node.isDirectory ? (
                 node.isOpen ? (
-                  <Icons.FolderOpen
-                    size={16}
-                    stroke={1.5}
-                    className="text-[var(--AccentPrimary)]"
-                  />
+                  <Icons.FolderOpen size={16} stroke={1.5} className="text-[var(--color-accent)]" />
                 ) : (
-                  <Icons.Folder size={16} stroke={1.5} className="text-[var(--AccentPrimary)]" />
+                  <Icons.Folder size={16} stroke={1.5} className="text-[var(--color-accent)]" />
                 )
               ) : (
                 getFileIcon(node.name, isActive)

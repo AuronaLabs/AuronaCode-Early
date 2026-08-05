@@ -156,13 +156,13 @@ pub struct SaveEditorResponse {
 }
 
 pub struct EditorState {
-    pub sessions: DashMap<String, Arc<EditorSession>>,
+    pub sessions: Arc<DashMap<String, Arc<EditorSession>>>,
 }
 
 impl EditorState {
     pub fn new() -> Self {
         Self {
-            sessions: DashMap::new(),
+            sessions: Arc::new(DashMap::new()),
         }
     }
 }
@@ -698,14 +698,6 @@ pub fn get_lines_internal(
     })
 }
 
-#[tauri::command]
-pub fn open_editor_file(
-    path: String,
-    state: State<'_, EditorState>,
-) -> Result<EditorSnapshotResponse, DesktopError> {
-    open_file_internal(&path, &state)
-}
-
 fn apply_edits_internal(
     request: ApplyEditsRequest,
     session: &EditorSession,
@@ -806,45 +798,154 @@ fn apply_edits_internal(
     Ok(response)
 }
 
+/// Runs a blocking editor operation on the blocking thread pool so the main
+/// thread is never blocked by file I/O or Rope work.
+async fn spawn_blocking_editor<T, F>(work: F) -> Result<T, DesktopError>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, DesktopError> + Send + 'static,
+{
+    match tauri::async_runtime::spawn_blocking(work).await {
+        Ok(result) => result,
+        Err(error) => Err(DesktopError::editor(
+            "task_failed",
+            format!("编辑器任务执行失败: {error}"),
+            true,
+        )),
+    }
+}
+
 #[tauri::command]
-pub fn apply_editor_edits(
+pub async fn open_editor_file(
+    path: String,
+    state: State<'_, EditorState>,
+    workspace: State<'_, crate::commands::fs::WorkspaceState>,
+) -> Result<EditorSnapshotResponse, DesktopError> {
+    if !workspace.is_path_authorized(&path).map_err(|error| {
+        DesktopError::editor(
+            "authorization_failed",
+            format!("无法校验文件授权：{error}"),
+            true,
+        )
+    })? {
+        return Err(DesktopError::editor(
+            "path_not_authorized",
+            "该文件不在当前工作区，且未通过系统文件对话框授权",
+            false,
+        ));
+    }
+    let sessions = Arc::clone(&state.sessions);
+    spawn_blocking_editor(move || {
+        let editor_state = EditorState { sessions };
+        open_file_internal(&path, &editor_state)
+    })
+    .await
+}
+
+/// Opens a file chosen through the system dialog. The dialog runs inside Rust,
+/// so the returned path is the user's own selection and is authorized even
+/// when it lives outside the active workspace.
+#[tauri::command]
+pub async fn editor_open_dialog(
+    app: tauri::AppHandle,
+    state: State<'_, EditorState>,
+    workspace: State<'_, crate::commands::fs::WorkspaceState>,
+) -> Result<Option<EditorSnapshotResponse>, DesktopError> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let initial_directory = workspace.root().map_err(|error| {
+        DesktopError::editor(
+            "authorization_failed",
+            format!("无法读取工作区根目录：{error}"),
+            true,
+        )
+    })?;
+    let picked = tauri::async_runtime::spawn_blocking(move || {
+        let mut dialog = app.dialog().file();
+        if let Some(directory) = initial_directory {
+            dialog = dialog.set_directory(directory);
+        }
+        dialog.blocking_pick_file()
+    })
+    .await
+    .map_err(|error| {
+        DesktopError::editor(
+            "dialog_task_failed",
+            format!("文件对话框任务失败：{error}"),
+            true,
+        )
+    })?;
+
+    let Some(picked) = picked else {
+        return Ok(None);
+    };
+    let path = match picked {
+        tauri_plugin_dialog::FilePath::Path(path) => path,
+        tauri_plugin_dialog::FilePath::Url(_) => {
+            return Err(DesktopError::editor(
+                "dialog_url_unsupported",
+                "文件对话框返回了不支持的 URL",
+                false,
+            ));
+        }
+    };
+    let path_string = path.to_string_lossy().into_owned();
+    workspace.authorize_path(&path_string).map_err(|error| {
+        DesktopError::editor(
+            "authorization_failed",
+            format!("无法授权打开文件：{error}"),
+            true,
+        )
+    })?;
+    let sessions = Arc::clone(&state.sessions);
+    spawn_blocking_editor(move || {
+        let editor_state = EditorState { sessions };
+        open_file_internal(&path_string, &editor_state)
+    })
+    .await
+    .map(Some)
+}
+
+#[tauri::command]
+pub async fn apply_editor_edits(
     request: ApplyEditsRequest,
     state: State<'_, EditorState>,
 ) -> Result<ApplyEditsResponse, DesktopError> {
     let normalized_path = normalize_path(&request.path);
-    let session = state.sessions.get(&normalized_path).ok_or_else(|| {
-        DesktopError::editor(
-            "session_not_found",
-            format!("未找到该文件的编辑器会话: {normalized_path}"),
-            true,
-        )
-    })?;
-    apply_edits_internal(request, session.value())
+    let session = state
+        .sessions
+        .get(&normalized_path)
+        .map(|entry| Arc::clone(entry.value()))
+        .ok_or_else(|| {
+            DesktopError::editor(
+                "session_not_found",
+                format!("未找到该文件的编辑器会话: {normalized_path}"),
+                true,
+            )
+        })?;
+    spawn_blocking_editor(move || apply_edits_internal(request, &session)).await
 }
 
 #[tauri::command]
-pub fn get_editor_lines(
+pub async fn get_editor_lines(
     path: String,
     start_line: usize,
     end_line: usize,
     state: State<'_, EditorState>,
 ) -> Result<EditorLinesResponse, DesktopError> {
-    get_lines_internal(&path, start_line, end_line, &state)
+    let sessions = Arc::clone(&state.sessions);
+    spawn_blocking_editor(move || {
+        let editor_state = EditorState { sessions };
+        get_lines_internal(&path, start_line, end_line, &editor_state)
+    })
+    .await
 }
 
-#[tauri::command]
-pub fn save_editor_file(
+fn save_editor_file_internal(
     request: SaveEditorRequest,
-    state: State<'_, EditorState>,
+    session: &EditorSession,
 ) -> Result<SaveEditorResponse, DesktopError> {
     let normalized_path = normalize_path(&request.path);
-    let session = state.sessions.get(&normalized_path).ok_or_else(|| {
-        DesktopError::editor(
-            "session_not_found",
-            format!("未找到该文件的编辑器会话: {normalized_path}"),
-            true,
-        )
-    })?;
     let _guard = session
         .write_lock
         .lock()
@@ -949,6 +1050,26 @@ pub fn save_editor_file(
         revision: snapshot.version,
         disk_fingerprint: new_fingerprint,
     })
+}
+
+#[tauri::command]
+pub async fn save_editor_file(
+    request: SaveEditorRequest,
+    state: State<'_, EditorState>,
+) -> Result<SaveEditorResponse, DesktopError> {
+    let normalized_path = normalize_path(&request.path);
+    let session = state
+        .sessions
+        .get(&normalized_path)
+        .map(|entry| Arc::clone(entry.value()))
+        .ok_or_else(|| {
+            DesktopError::editor(
+                "session_not_found",
+                format!("未找到该文件的编辑器会话: {normalized_path}"),
+                true,
+            )
+        })?;
+    spawn_blocking_editor(move || save_editor_file_internal(request, &session)).await
 }
 
 #[tauri::command]

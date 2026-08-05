@@ -1,6 +1,7 @@
 import { invokeDesktop } from "../Desktop";
 
 export const PerformanceIPC = {
+  ping: () => invokeDesktop<string>("performance_ping"),
   getEnvironment: <T>(workspacePath: string | null) =>
     invokeDesktop<T>("get_performance_environment", { workspacePath }),
   getStartupMetrics: <T>() => invokeDesktop<T>("get_startup_metrics"),

@@ -57,19 +57,6 @@ function decodeBase64(data: string): Uint8Array {
   return arr;
 }
 
-// xterm 滚动条样式，与 GlassManager 主题变量联动
-const XTERM_SCROLLBAR_STYLE = `
-  .xterm-viewport::-webkit-scrollbar { width: 10px; }
-  .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
-  .xterm-viewport::-webkit-scrollbar-thumb {
-    background-color: var(--GlassBorder);
-    border-radius: 8px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
-  }
-  .xterm-viewport::-webkit-scrollbar-thumb:hover { background-color: var(--TextMuted); }
-`;
-
 export const TerminalView = memo(function TerminalView({
   id,
   isActive,
@@ -290,10 +277,8 @@ export const TerminalView = memo(function TerminalView({
     <ContextMenuRoot>
       <ContextMenuTrigger asChild>
         <div className="terminal-host relative h-full w-full overflow-hidden bg-transparent">
-          {/* xterm 自定义滚动条，与 GlassManager 主题变量联动 */}
-          <style>{XTERM_SCROLLBAR_STYLE}</style>
           {status !== "ready" && (
-            <span className="pointer-events-none absolute right-3 top-2 z-10 text-[11px] text-[var(--TextMuted)]">
+            <span className="pointer-events-none absolute right-3 top-2 z-10 text-[11px] text-[var(--color-text-muted)]">
               {status === "starting"
                 ? "正在启动终端…"
                 : status === "exited"

@@ -128,7 +128,7 @@ async function prepareUniversalMacNode(destination, version) {
     }
     await execFile("lipo", ["-create", ...binaries, "-output", destination]);
     await chmod(destination, 0o755);
-    await execFile("lipo", ["-verify_arch", "arm64", "x86_64", destination]);
+    await execFile("lipo", [destination, "-verify_arch", "arm64", "x86_64"]);
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }

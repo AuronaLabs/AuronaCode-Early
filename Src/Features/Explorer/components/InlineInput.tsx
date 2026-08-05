@@ -30,7 +30,7 @@ export function InlineInput({
         Array.from({ length: depth }, (_, index) => index + 1).map((guide) => (
           <div
             key={`inline-guide-${guide}`}
-            className="absolute top-0 bottom-0 border-l border-[var(--GlassBorder)]/60 pointer-events-none"
+            className="absolute top-0 bottom-0 border-l border-[var(--border-subtle)]/60 pointer-events-none"
             style={{ left: `calc(${guide - 1} * var(--TreeIndent) + 14px)` }}
           />
         ))}
@@ -41,9 +41,9 @@ export function InlineInput({
         <div className="w-4 h-4 flex items-center justify-center shrink-0" />
         <div className="shrink-0 flex items-center">
           {type === "folder" ? (
-            <Icons.Folder size={16} stroke={2} className="text-[var(--AccentPrimary)]" />
+            <Icons.Folder size={16} stroke={2} className="text-[var(--color-accent)]" />
           ) : (
-            <Icons.File size={16} stroke={1.5} className="text-[var(--TextHighlight)]" />
+            <Icons.File size={16} stroke={1.5} className="text-[var(--color-text-highlight)]" />
           )}
         </div>
         <Input

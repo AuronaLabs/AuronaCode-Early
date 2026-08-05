@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { FileSystemService } from "../Core/FileSystemService";
-import { desktopDialog } from "../Foundation/Desktop/Dialog";
 import { EventBus } from "../Foundation/EventBus";
+import { EditorIPC } from "../Foundation/IPC/EditorCommands";
 import { PlatformService } from "../Foundation/Platform";
 import { WorkspaceStore } from "../Foundation/Storage/WorkspaceStore";
 import type { TabItem } from "../Foundation/Types/Tab";
@@ -218,8 +218,8 @@ export async function initializeWorkbenchStore(): Promise<() => void> {
   const subscriptions = [
     EventBus.on("app:open-file", async () => {
       try {
-        const selected = await desktopDialog.openFile();
-        if (selected) useWorkbenchStore.getState().openFile(selected);
+        const snapshot = await EditorIPC.openDialog();
+        if (snapshot) useWorkbenchStore.getState().openFile(snapshot.path);
       } catch (error) {
         showToast(`打开文件失败：${FileSystemService.toMessage(error)}`, "error");
       }

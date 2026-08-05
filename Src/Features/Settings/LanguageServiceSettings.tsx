@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { BuiltInToolRegistry } from "../../Core/BuiltInToolRegistry";
+import { type LanguageServerInfo, LspClient } from "../../Core/Language/LspClient";
 import { OutputService } from "../../Core/OutputService";
 import { EventBus } from "../../Foundation/EventBus";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
@@ -10,7 +11,6 @@ import { Select } from "../../UI/Components/Select";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { Icons } from "../../UI/Icons/IconManager";
-import { type LanguageServerInfo, LspClient } from "../Editor/LspClient";
 
 const DEFAULTS: Required<LanguageFeaturePreferences> = {
   hoverEnabled: true,
@@ -71,14 +71,16 @@ export function LanguageServiceSettings() {
     <div className="flex w-full max-w-3xl flex-col gap-7">
       <section className="space-y-3">
         <div>
-          <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">编辑器语言体验</h3>
-          <p className="mt-1 text-[12px] leading-relaxed text-[var(--TextMuted)]">
+          <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
+            编辑器语言体验
+          </h3>
+          <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-text-muted)]">
             控制 Hover 与补全的实际触发行为。修改后立即应用到已打开的编辑器。
           </p>
         </div>
         <GlassContainer
           layer="elevated"
-          className="divide-y divide-[var(--GlassBorder)] rounded-2xl"
+          className="divide-y divide-[var(--border-subtle)] rounded-2xl"
         >
           <SettingRow
             title="悬浮信息"
@@ -124,8 +126,10 @@ export function LanguageServiceSettings() {
 
       <section className="space-y-3">
         <div>
-          <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">内置语言服务器</h3>
-          <p className="mt-1 text-[12px] leading-relaxed text-[var(--TextMuted)]">
+          <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
+            内置语言服务器
+          </h3>
+          <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-text-muted)]">
             内置服务器随 Aurona Code 分发，不依赖启动目录，也不会在运行时联网下载。
           </p>
         </div>
@@ -138,7 +142,7 @@ export function LanguageServiceSettings() {
             return (
               <GlassContainer key={tool.id} layer="elevated" className="rounded-2xl p-4">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--GlassActive)] text-[var(--TextHighlight)]">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
                     {language === "python" ? (
                       <Icons.FilePy size={20} />
                     ) : (
@@ -147,10 +151,10 @@ export function LanguageServiceSettings() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-[13px] text-[var(--TextHighlight)]">
+                      <span className="font-semibold text-[13px] text-[var(--color-text-highlight)]">
                         {tool.label}
                       </span>
-                      <span className="rounded-full border border-[var(--GlassBorder)] px-2 py-0.5 font-mono text-[9px] text-[var(--TextMuted)]">
+                      <span className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 font-mono text-[9px] text-[var(--color-text-muted)]">
                         v{tool.version} · 内置
                       </span>
                       <span
@@ -159,13 +163,13 @@ export function LanguageServiceSettings() {
                             ? "bg-emerald-500/10 text-emerald-500"
                             : state?.status === "failed"
                               ? "bg-red-500/10 text-red-500"
-                              : "bg-[var(--GlassHover)] text-[var(--TextMuted)]"
+                              : "bg-[var(--material-interactive-hover)] text-[var(--color-text-muted)]"
                         }`}
                       >
                         {statusLabel(state)}
                       </span>
                     </div>
-                    <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--TextMuted)]">
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
                       {tool.description}
                     </p>
                     {state?.lastError && (
@@ -243,8 +247,8 @@ function SettingRow({
   return (
     <div className="flex items-center justify-between gap-6 px-5 py-4">
       <div className="min-w-0">
-        <div className="text-[13px] font-semibold text-[var(--TextHighlight)]">{title}</div>
-        <div className="mt-1 text-[11px] leading-relaxed text-[var(--TextMuted)]">
+        <div className="text-[13px] font-semibold text-[var(--color-text-highlight)]">{title}</div>
+        <div className="mt-1 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
           {description}
         </div>
       </div>

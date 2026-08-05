@@ -1,53 +1,12 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::time::Duration;
 use tauri::{Manager, State};
 
 use crate::performance::PerformanceState;
 
-#[derive(Deserialize)]
-pub struct IpcRequest {
-    pub action: String,
-    #[serde(default)]
-    pub payload: Option<serde_json::Value>,
-}
-
-#[derive(Serialize)]
-pub struct IpcResponse {
-    pub success: bool,
-    pub data: Option<serde_json::Value>,
-    pub error: Option<String>,
-}
-
-#[tauri::command]
-pub async fn aurona_bridge(req: IpcRequest) -> IpcResponse {
-    let action = req.action.trim();
-    // Routes are migrated incrementally. Deserialize the payload now so the
-    // bridge contract remains stable even for actions that do not consume it yet.
-    let _payload = req.payload;
-    let result = match action {
-        "sys:ping" => Ok(serde_json::json!("pong")),
-        // Migrated IPC routes will go here
-        _ if action.is_empty() => Err("IPC action must not be empty".to_string()),
-        _ => Err(format!("Unknown IPC Action: {action}")),
-    };
-
-    match result {
-        Ok(data) => IpcResponse {
-            success: true,
-            data: Some(data),
-            error: None,
-        },
-        Err(err) => IpcResponse {
-            success: false,
-            data: None,
-            error: Some(err),
-        },
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{clear_directory_contents, get_dir_size, IpcRequest};
+    use super::{clear_directory_contents, get_dir_size};
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -57,20 +16,6 @@ mod tests {
             .expect("system time should be after the Unix epoch")
             .as_nanos();
         std::env::temp_dir().join(format!("aurona-ipc-test-{unique}"))
-    }
-
-    #[test]
-    fn request_deserializes_the_frontend_payload_field() {
-        let request: IpcRequest = serde_json::from_value(serde_json::json!({
-            "action": "sys:ping",
-            "payload": { "source": "test" }
-        }))
-        .expect("the frontend IPC request shape should deserialize");
-
-        assert_eq!(
-            request.payload,
-            Some(serde_json::json!({ "source": "test" }))
-        );
     }
 
     #[test]

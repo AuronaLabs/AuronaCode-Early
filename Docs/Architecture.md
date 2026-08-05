@@ -123,7 +123,7 @@ revision acknowledgement or conflict
 | `commands/git.rs` | Git 输入校验与 `spawn_blocking` 调度 |
 | `pty.rs` | PTY 创建、输入、尺寸、退出与回收 |
 | `lsp.rs` / `lsp_cmds.rs` | 统一文件 URI、LSP 请求与事件 |
-| `process_tree.rs` | Windows Job Object 与 LSP 子进程树回收 |
+| `process_service.rs` | 统一受保护进程组（Windows Job Object / Unix 进程组）与 Git、LSP、DAP、工具子进程生命周期 |
 | `performance.rs` | 本地性能工作负载、样本与取消 |
 | `lib.rs` | Tauri 插件、窗口生命周期和 command 注册 |
 

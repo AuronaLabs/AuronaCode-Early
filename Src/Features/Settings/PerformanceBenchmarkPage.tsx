@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { desktopDialog, desktopFileSystem } from "../../Foundation/Desktop";
-import { AuronaChannel } from "../../Foundation/IPC/IPCClient";
+import { FileSystemCommands } from "../../Foundation/IPC/FileSystemCommands";
 import { PerformanceIPC } from "../../Foundation/IPC/PerformanceCommands";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { Button } from "../../UI/Components/Button";
@@ -145,12 +144,11 @@ export function PerformanceBenchmarkPage() {
   }, [refreshContext]);
 
   const runIpcBenchmark = useCallback(async (): Promise<BenchmarkResult[]> => {
-    for (let index = 0; index < IPC_WARMUP_RUNS; index += 1)
-      await AuronaChannel.request("sys:ping");
+    for (let index = 0; index < IPC_WARMUP_RUNS; index += 1) await PerformanceIPC.ping();
     const samples: number[] = [];
     for (let index = 0; index < IPC_SAMPLE_RUNS; index += 1) {
       const started = performance.now();
-      await AuronaChannel.request("sys:ping");
+      await PerformanceIPC.ping();
       samples.push(performance.now() - started);
     }
     const mean = average(samples);
@@ -391,12 +389,11 @@ export function PerformanceBenchmarkPage() {
   };
   const exportSnapshot = async () => {
     try {
-      const target = await desktopDialog.saveFile({
-        defaultPath: `aurona-performance-${new Date().toISOString().slice(0, 10)}.json`,
-        filters: [{ name: "JSON", extensions: ["json"] }],
-      });
+      const target = await FileSystemCommands.exportDialogFile(
+        JSON.stringify(snapshot, null, 2),
+        `aurona-performance-${new Date().toISOString().slice(0, 10)}.json`,
+      );
       if (!target) return;
-      await desktopFileSystem.writeTextFile(target, JSON.stringify(snapshot, null, 2));
       showToast("性能结果已导出", "success");
     } catch (error) {
       showToast(`导出性能结果失败：${String(error)}`, "error");
@@ -431,7 +428,7 @@ export function PerformanceBenchmarkPage() {
       }
     >
       <div className="flex flex-col gap-6 pb-10">
-        <p className="max-w-3xl text-[13px] leading-relaxed text-[var(--TextMuted)]">
+        <p className="max-w-3xl text-[13px] leading-relaxed text-[var(--color-text-muted)]">
           测试仅使用本地 Rust、IPC 与临时数据路径，不访问网络、不修改工作区。后端套件预热{" "}
           {WARMUP_RUNS} 轮后采样 {SAMPLE_RUNS} 轮，并以去除最高、最低值后的平均结果作为本次记录；IPC
           与帧调度使用独立的密集采样。运行期间
@@ -439,7 +436,7 @@ export function PerformanceBenchmarkPage() {
         </p>
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card className="flex flex-col gap-4 p-5">
-            <div className="flex items-center gap-2 text-[14px] font-semibold text-[var(--TextHighlight)]">
+            <div className="flex items-center gap-2 text-[14px] font-semibold text-[var(--color-text-highlight)]">
               <Icons.Monitor size={17} /> 运行环境
             </div>
             {environment ? (
@@ -460,9 +457,9 @@ export function PerformanceBenchmarkPage() {
                   ],
                 ].map(([label, value]) => (
                   <div key={label} className="flex flex-col gap-0.5">
-                    <span className="text-[var(--TextMuted)]">{label}</span>
+                    <span className="text-[var(--color-text-muted)]">{label}</span>
                     <Tooltip content={value} placement="bottom">
-                      <span className="truncate font-medium text-[var(--TextPrimary)]">
+                      <span className="truncate font-medium text-[var(--color-text-primary)]">
                         {value}
                       </span>
                     </Tooltip>
@@ -470,69 +467,73 @@ export function PerformanceBenchmarkPage() {
                 ))}
               </div>
             ) : (
-              <span className="text-[12px] text-[var(--TextMuted)]">正在读取运行环境…</span>
+              <span className="text-[12px] text-[var(--color-text-muted)]">正在读取运行环境…</span>
             )}
           </Card>
           <Card className="flex flex-col gap-4 p-5">
-            <div className="flex items-center gap-2 text-[14px] font-semibold text-[var(--TextHighlight)]">
+            <div className="flex items-center gap-2 text-[14px] font-semibold text-[var(--color-text-highlight)]">
               <Icons.History size={17} /> 最近启动记录
             </div>
             {startup ? (
               <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-[12px]">
                 <div>
-                  <span className="block text-[var(--TextMuted)]">前端资源初始化</span>
+                  <span className="block text-[var(--color-text-muted)]">前端资源初始化</span>
                   <b>{startup.frontendBootstrapMs.toFixed(1)} ms</b>
                 </div>
                 <div>
-                  <span className="block text-[var(--TextMuted)]">主界面完成加载</span>
+                  <span className="block text-[var(--color-text-muted)]">主界面完成加载</span>
                   <b>{startup.mainInteractiveMs.toFixed(1)} ms</b>
                 </div>
                 <div>
-                  <span className="block text-[var(--TextMuted)]">后端至主界面</span>
+                  <span className="block text-[var(--color-text-muted)]">后端至主界面</span>
                   <b>{startup.backendToMainMs.toFixed(1)} ms</b>
                 </div>
                 <div>
-                  <span className="block text-[var(--TextMuted)]">Splash 展示策略</span>
+                  <span className="block text-[var(--color-text-muted)]">Splash 展示策略</span>
                   <b>{startup.splashMinimumMs.toFixed(0)} ms（不计入）</b>
                 </div>
               </div>
             ) : (
-              <span className="text-[12px] text-[var(--TextMuted)]">本次启动尚未记录指标</span>
+              <span className="text-[12px] text-[var(--color-text-muted)]">
+                本次启动尚未记录指标
+              </span>
             )}
           </Card>
         </div>
         <Card className="flex flex-col gap-4 p-5">
           <div>
-            <h2 className="text-[14px] font-semibold text-[var(--TextHighlight)]">版本排行榜</h2>
-            <p className="mt-1 text-[12px] text-[var(--TextMuted)]">
+            <h2 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
+              版本排行榜
+            </h2>
+            <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">
               按版本号从新到旧排列。得分只反映当前设备上的相对趋势，不用于跨设备比较
             </p>
           </div>
           {leaderboard.length ? (
-            <div className="overflow-hidden rounded-lg border border-[var(--GlassBorder)]">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 border-b border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] px-3 py-2 text-[11px] text-[var(--TextMuted)]">
+            <div className="overflow-hidden rounded-lg border border-[var(--border-subtle)]">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 border-b border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 py-2 text-[11px] text-[var(--color-text-muted)]">
                 <span>版本与测试时间</span>
                 <span>相对得分</span>
               </div>
               {leaderboard.map((entry) => (
                 <div
                   key={`${entry.version}-${entry.generatedAt}`}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-[var(--GlassBorder)] px-3 py-3 text-[12px] last:border-b-0"
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-[var(--border-subtle)] px-3 py-3 text-[12px] last:border-b-0"
                 >
                   <div className="min-w-0">
-                    <b className="text-[var(--TextPrimary)]">v{entry.version}</b>
-                    <span className="ml-2 text-[var(--TextMuted)]">
+                    <b className="text-[var(--color-text-primary)]">v{entry.version}</b>
+                    <span className="ml-2 text-[var(--color-text-muted)]">
                       {new Date(entry.generatedAt).toLocaleString()} · {entry.measuredMetrics} 项
                     </span>
                   </div>
-                  <b className="font-mono text-[var(--TextHighlight)]">
+                  <b className="font-mono text-[var(--color-text-highlight)]">
                     {entry.score === null ? "不可比" : entry.score.toFixed(1)}
                   </b>
                 </div>
               ))}
             </div>
           ) : (
-            <span className="text-[12px] text-[var(--TextMuted)]">
+            <span className="text-[12px] text-[var(--color-text-muted)]">
               保存一次测试结果后会出现在这里；升级到新版本后再次保存，即可形成版本对比
             </span>
           )}
@@ -540,8 +541,10 @@ export function PerformanceBenchmarkPage() {
         <Card className="p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-[14px] font-semibold text-[var(--TextHighlight)]">测试控制</h2>
-              <p className="mt-1 text-[12px] text-[var(--TextMuted)]">
+              <h2 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
+                测试控制
+              </h2>
+              <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">
                 {runningKind
                   ? `正在执行：${BENCHMARKS.find((item) => item.id === runningKind)?.label}`
                   : lastRunAt
@@ -584,10 +587,10 @@ export function PerformanceBenchmarkPage() {
               <Card key={benchmark.id} className="flex min-w-0 flex-col gap-4 p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <h2 className="text-[14px] font-semibold text-[var(--TextHighlight)]">
+                    <h2 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
                       {benchmark.label}
                     </h2>
-                    <p className="mt-1 text-[12px] leading-relaxed text-[var(--TextMuted)]">
+                    <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-text-muted)]">
                       {benchmark.description}
                     </p>
                   </div>
@@ -614,17 +617,17 @@ export function PerformanceBenchmarkPage() {
                       return (
                         <div
                           key={result.id}
-                          className={`rounded-lg border px-3 py-2.5 ${result.status === "error" ? "border-red-500/30 bg-red-500/10" : "border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)]"}`}
+                          className={`rounded-lg border px-3 py-2.5 ${result.status === "error" ? "border-red-500/30 bg-red-500/10" : "border-[var(--border-subtle)] bg-[var(--material-surface)]"}`}
                         >
                           <div className="flex items-center justify-between gap-3 text-[12px]">
-                            <span className="min-w-0 font-medium text-[var(--TextPrimary)]">
+                            <span className="min-w-0 font-medium text-[var(--color-text-primary)]">
                               {result.name}
                             </span>
                             <span
                               className={
                                 result.status === "error"
                                   ? "shrink-0 text-red-500"
-                                  : "shrink-0 font-mono text-[var(--TextHighlight)]"
+                                  : "shrink-0 font-mono text-[var(--color-text-highlight)]"
                               }
                             >
                               {result.status === "error"
@@ -632,7 +635,7 @@ export function PerformanceBenchmarkPage() {
                                 : formatDuration(result.durationNs)}
                             </span>
                           </div>
-                          <div className="mt-1.5 flex flex-col gap-1 text-[11px] leading-relaxed text-[var(--TextMuted)]">
+                          <div className="mt-1.5 flex flex-col gap-1 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
                             <span className="break-words">{result.details}</span>
                             {delta !== null && (
                               <span
@@ -654,7 +657,7 @@ export function PerformanceBenchmarkPage() {
                     })}
                   </div>
                 ) : (
-                  <div className="flex min-h-24 flex-1 items-center text-[12px] text-[var(--TextMuted)]">
+                  <div className="flex min-h-24 flex-1 items-center text-[12px] text-[var(--color-text-muted)]">
                     等待运行。结果会保留在当前页面，直到重新测试或关闭标签页
                   </div>
                 )}

@@ -14,69 +14,11 @@ use tokio::{
 };
 use url::Url;
 
-pub const REGISTERED_REDIRECT_URI: &str = "http://127.0.0.1/oauth/callback";
-const CALLBACK_PATH: &str = "/oauth/callback";
-// OAuth client identifiers are case-sensitive. Keep this identical to the
-// production registration in Aurona Account/XAdmin.
-const PRODUCTION_CLIENT_ID: &str = "aurona_Eqg8DBjkJxk2rbXHY6vloqzplfgbO024";
-const DEVELOPMENT_CLIENT_ID: &str = "aurona_code_local_dev";
-const KEYRING_SERVICE: &str = "cc.aurona.code.account";
-const KEYRING_REFRESH_TOKEN: &str = "aurona-account-refresh-token";
-const CALLBACK_TIMEOUT: Duration = Duration::from_secs(300);
-const MAX_CALLBACK_REQUEST_BYTES: usize = 16 * 1024;
-
-#[derive(Debug, Clone)]
-pub struct AccountProviderConfig {
-    pub enabled: bool,
-    pub client_id: Option<String>,
-    pub discovery_url: String,
-    pub expected_issuer: String,
-    pub scopes: Vec<String>,
-    pub allow_insecure_loopback_provider: bool,
-}
-
-impl Default for AccountProviderConfig {
-    fn default() -> Self {
-        let allow_insecure_loopback_provider = cfg!(debug_assertions)
-            && matches!(
-                option_env!("AURONA_ACCOUNT_ALLOW_INSECURE_LOOPBACK_PROVIDER"),
-                Some("1") | Some("true") | Some("TRUE")
-            );
-        let configured_client_id = option_env!("AURONA_ACCOUNT_CLIENT_ID")
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(str::to_owned);
-        let client_id = configured_client_id.or_else(|| {
-            Some(
-                if cfg!(debug_assertions) {
-                    DEVELOPMENT_CLIENT_ID
-                } else {
-                    PRODUCTION_CLIENT_ID
-                }
-                .to_owned(),
-            )
-        });
-        Self {
-            // Aurona Code is a public client. Production builds inject only the
-            // public client id; development uses the local mock registration.
-            enabled: cfg!(feature = "aurona-account"),
-            client_id,
-            discovery_url: option_env!("AURONA_ACCOUNT_DISCOVERY_URL")
-                .unwrap_or("https://auth.aurona.cc/.well-known/openid-configuration")
-                .to_owned(),
-            expected_issuer: option_env!("AURONA_ACCOUNT_EXPECTED_ISSUER")
-                .unwrap_or("https://auth.aurona.cc")
-                .to_owned(),
-            scopes: vec![
-                "openid".into(),
-                "profile".into(),
-                "email".into(),
-                "offline_access".into(),
-            ],
-            allow_insecure_loopback_provider,
-        }
-    }
-}
+mod config;
+use config::{
+    AccountProviderConfig, CALLBACK_PATH, CALLBACK_TIMEOUT, KEYRING_REFRESH_TOKEN, KEYRING_SERVICE,
+    MAX_CALLBACK_REQUEST_BYTES, REGISTERED_REDIRECT_URI,
+};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -1374,6 +1316,24 @@ mod tests {
     use serde::Serialize;
     use tokio::task::JoinHandle;
 
+    const REGISTERED_TEST_CLIENT_ID: &str = "aurona_Eqg8DBjkJxk2rbXHY6vloqzplfgbO024";
+
+    #[test]
+    fn client_id_is_normalized_from_the_build_environment() {
+        assert_eq!(super::config::sanitize_client_id(None), None);
+        assert_eq!(super::config::sanitize_client_id(Some("")), None);
+        assert_eq!(super::config::sanitize_client_id(Some("   ")), None);
+        assert_eq!(
+            super::config::sanitize_client_id(Some("  aurona_local_test  ")),
+            Some("aurona_local_test".to_owned())
+        );
+        // The build-time reader must stay consistent with the pure normalizer.
+        assert_eq!(
+            super::config::client_id_from_build_env(),
+            super::config::sanitize_client_id(option_env!("AURONA_ACCOUNT_CLIENT_ID"))
+        );
+    }
+
     #[derive(Serialize)]
     struct MockClaims<'a> {
         iss: &'a str,
@@ -1791,7 +1751,7 @@ mod tests {
     fn authorization_url_contains_the_complete_public_client_request() {
         let service = AccountAuthService::new(AccountProviderConfig {
             enabled: true,
-            client_id: Some(PRODUCTION_CLIENT_ID.into()),
+            client_id: Some(REGISTERED_TEST_CLIENT_ID.into()),
             ..AccountProviderConfig::default()
         });
         let discovery = DiscoveryDocument {
@@ -1819,7 +1779,7 @@ mod tests {
         let query: HashMap<String, String> = url.query_pairs().into_owned().collect();
         assert_eq!(
             query.get("client_id").map(String::as_str),
-            Some(PRODUCTION_CLIENT_ID)
+            Some(REGISTERED_TEST_CLIENT_ID)
         );
         assert_eq!(
             query.get("redirect_uri").map(String::as_str),

@@ -69,7 +69,7 @@ assert.match(
 );
 assert.match(
   releaseWorkflow,
-  /lipo -verify_arch arm64 x86_64/,
+  /lipo .* -verify_arch arm64 x86_64/,
   "Release must verify both embedded macOS runtime architectures",
 );
 

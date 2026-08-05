@@ -24,7 +24,7 @@ const inline = (text: string): ReactNode[] => {
           href={link[2]}
           target="_blank"
           rel="noreferrer"
-          className="underline decoration-[var(--TextMuted)] underline-offset-2 hover:text-[var(--TextHighlight)]"
+          className="underline decoration-[var(--color-text-muted)] underline-offset-2 hover:text-[var(--color-text-highlight)]"
         >
           {link[1]}
         </a>
@@ -85,7 +85,7 @@ export function MarkdownContent({ source }: { source: string }) {
       blocks.push(
         <h3
           key={`heading-${blocks.length}`}
-          className="pt-1 text-[14px] font-semibold text-[var(--TextHighlight)]"
+          className="pt-1 text-[14px] font-semibold text-[var(--color-text-highlight)]"
         >
           {inline(heading[2])}
         </h3>,
@@ -111,6 +111,8 @@ export function MarkdownContent({ source }: { source: string }) {
     );
 
   return (
-    <div className="flex flex-col gap-2.5 text-[13px] text-[var(--TextPrimary)]">{blocks}</div>
+    <div className="flex flex-col gap-2.5 text-[13px] text-[var(--color-text-primary)]">
+      {blocks}
+    </div>
   );
 }

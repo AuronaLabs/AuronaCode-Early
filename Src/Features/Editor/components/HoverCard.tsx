@@ -82,7 +82,7 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
       onMouseLeave={onMouseLeave}
       className={cn(
         glassVariants({ layer: "floating" }),
-        "fixed z-[80] max-h-[280px] w-max min-w-[220px] max-w-[420px] overflow-y-auto rounded-xl p-3 font-sans text-[12px] text-[var(--TextPrimary)] shadow-2xl aurona-scroll",
+        "fixed z-[80] max-h-[280px] w-max min-w-[220px] max-w-[420px] overflow-y-auto rounded-xl p-3 font-sans text-[12px] text-[var(--color-text-primary)] shadow-2xl aurona-scroll",
         hover.tone === "warning" && "border-amber-500/30",
         hover.tone === "error" && "border-red-500/30",
       )}
@@ -90,12 +90,14 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
       style={{ top: position.top, left: position.left }}
     >
       {(hover.title || hover.source) && (
-        <div className="mb-2 flex items-center justify-between gap-4 border-b border-[var(--GlassBorder)] pb-2">
-          <span className="font-semibold text-[var(--TextHighlight)]">
+        <div className="mb-2 flex items-center justify-between gap-4 border-b border-[var(--border-subtle)] pb-2">
+          <span className="font-semibold text-[var(--color-text-highlight)]">
             {hover.title ?? "语言服务"}
           </span>
           {hover.source && (
-            <span className="font-mono text-[10px] text-[var(--TextMuted)]">{hover.source}</span>
+            <span className="font-mono text-[10px] text-[var(--color-text-muted)]">
+              {hover.source}
+            </span>
           )}
         </div>
       )}
@@ -104,10 +106,10 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
           block.kind === "code" ? (
             <div
               key={block.id}
-              className="overflow-x-auto rounded-lg bg-[var(--material-surface)] p-2 font-mono text-[11px] leading-relaxed text-[var(--TextHighlight)]"
+              className="overflow-x-auto rounded-lg bg-[var(--material-surface)] p-2 font-mono text-[11px] leading-relaxed text-[var(--color-text-highlight)]"
             >
               {block.language && (
-                <div className="mb-1 text-[9px] uppercase tracking-wide text-[var(--TextMuted)]">
+                <div className="mb-1 text-[9px] uppercase tracking-wide text-[var(--color-text-muted)]">
                   {block.language}
                 </div>
               )}

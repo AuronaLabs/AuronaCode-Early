@@ -19,8 +19,11 @@ const violations = [];
 for (const file of files) {
   const source = await readFile(file, "utf8");
   const name = relative(root, file).replaceAll("\\", "/");
-  if (source.includes("bg-[var(--GlassSurface)]")) violations.push(`${name}: legacy GlassSurface background`);
+  if (source.includes("bg-[var(--GlassSurface)]"))
+    violations.push(`${name}: legacy GlassSurface background`);
   if (/<[a-z][^>]*\btitle\s*=/s.test(source)) violations.push(`${name}: native title attribute`);
+  if (source.includes("glass-inner-card"))
+    violations.push(`${name}: legacy glass-inner-card (use GlassContainer layer="elevated")`);
 }
 
 assert.equal(violations.length, 0, `Material boundary violations:\n${violations.join("\n")}`);

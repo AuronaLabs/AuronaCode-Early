@@ -245,7 +245,9 @@ pub async fn search_workspace(
     is_regex: bool,
     request_id: String,
     state: State<'_, SearchState>,
+    workspace: State<'_, crate::commands::fs::WorkspaceState>,
 ) -> Result<SearchResponse, String> {
+    validate_search_root(&workspace, &path)?;
     let cancelled = Arc::new(AtomicBool::new(false));
     {
         let mut requests = state
@@ -263,8 +265,22 @@ pub async fn search_workspace(
 }
 
 #[tauri::command]
-pub async fn list_workspace_files(path: String) -> Result<Vec<WorkspaceFileEntry>, String> {
+pub async fn list_workspace_files(
+    path: String,
+    workspace: State<'_, crate::commands::fs::WorkspaceState>,
+) -> Result<Vec<WorkspaceFileEntry>, String> {
+    validate_search_root(&workspace, &path)?;
     list_workspace_files_internal(path).await
+}
+
+fn validate_search_root(
+    workspace: &crate::commands::fs::WorkspaceState,
+    path: &str,
+) -> Result<(), String> {
+    if !workspace.contains(path)? {
+        return Err(format!("搜索路径位于活动工作区之外: {path}"));
+    }
+    Ok(())
 }
 
 #[tauri::command]

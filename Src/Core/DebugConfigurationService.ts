@@ -1,4 +1,3 @@
-import { desktopFileSystem } from "../Foundation/Desktop";
 import { FileSystemService } from "./FileSystemService";
 import { WorkspaceService } from "./WorkspaceService";
 
@@ -64,12 +63,12 @@ export const DebugConfigurationService = {
   async load(activeFile?: string): Promise<DebugConfiguration[]> {
     const path = this.getConfigurationPath();
     if (!path) return [];
-    if (!(await desktopFileSystem.exists(path))) {
+    if (!(await FileSystemService.exists(path))) {
       await this.createDetectedConfiguration(path, activeFile);
     }
-    if (!(await desktopFileSystem.exists(path))) return [];
+    if (!(await FileSystemService.exists(path))) return [];
     const parsed = JSON.parse(
-      await desktopFileSystem.readTextFile(path),
+      await FileSystemService.readTextFile(path),
     ) as Partial<DebugConfigurationFile>;
     if (parsed.version !== "0.1.0" || !Array.isArray(parsed.configurations)) {
       throw new Error("Invalid .aurona/launch.json: expected version 0.1.0 and configurations[]");
@@ -89,14 +88,14 @@ export const DebugConfigurationService = {
       (
         await Promise.all(
           pythonMarkers.map((name) =>
-            desktopFileSystem.exists(FileSystemService.joinPath(root, name)),
+            FileSystemService.exists(FileSystemService.joinPath(root, name)),
           ),
         )
       ).some(Boolean);
     if (!isPythonWorkspace) return;
 
     const directory = FileSystemService.dirname(path);
-    await desktopFileSystem.mkdir(directory, { recursive: true });
+    await FileSystemService.mkdir(directory, true);
     const configuration: DebugConfigurationFile = {
       version: "0.1.0",
       configurations: [
@@ -111,7 +110,7 @@ export const DebugConfigurationService = {
         },
       ],
     };
-    await desktopFileSystem.writeTextFile(path, `${JSON.stringify(configuration, null, 2)}\n`);
+    await FileSystemService.writeTextFile(path, `${JSON.stringify(configuration, null, 2)}\n`);
   },
 
   resolve(configuration: DebugConfiguration, activeFile?: string): DebugConfiguration {
@@ -200,7 +199,7 @@ export const DebugConfigurationService = {
       const program = /^[A-Za-z]:[\\/]|^[/\\]{2}|^\//.test(resolved.program)
         ? resolved.program
         : FileSystemService.joinPath(cwd, resolved.program);
-      if (!(await desktopFileSystem.exists(program))) {
+      if (!(await FileSystemService.exists(program))) {
         throw new Error(`调试目标文件不存在：${program}`);
       }
       resolved.program = program;

@@ -6,7 +6,7 @@ mod editor;
 mod lsp;
 mod performance;
 mod platform;
-mod process_tree;
+mod process_service;
 mod pty;
 mod search;
 
@@ -29,6 +29,7 @@ pub fn run() {
         .manage(LspState::new())
         .manage(DapState::new())
         .manage(account_auth::AccountAuthState::default())
+        .manage(commands::fs::WorkspaceState::new())
         .invoke_handler(tauri::generate_handler![
             account_auth::account_auth_status,
             account_auth::account_auth_start,
@@ -67,6 +68,7 @@ pub fn run() {
             search::list_workspace_files,
             search::cancel_search,
             performance::get_performance_environment,
+            performance::performance_ping,
             performance::run_performance_benchmark,
             performance::cancel_performance_benchmark,
             performance::record_startup_metrics,
@@ -96,7 +98,17 @@ pub fn run() {
             commands::dap_cmds::dap_install_python_debugpy,
             commands::fs::reveal_in_os,
             commands::fs::fs_copy_or_move,
-            commands::ipc::aurona_bridge,
+            commands::fs::workspace_set_root,
+            commands::fs::fs_read_dir,
+            commands::fs::fs_exists,
+            commands::fs::fs_read_text_file,
+            commands::fs::fs_write_text_file,
+            commands::fs::fs_mkdir,
+            commands::fs::fs_remove,
+            commands::fs::fs_rename,
+            commands::fs::fs_export_dialog_file,
+            commands::fs::fs_watch_start,
+            commands::fs::fs_watch_stop,
             commands::ipc::open_devtools,
             commands::ipc::get_app_data_size,
             commands::ipc::get_app_log_size,
@@ -107,6 +119,7 @@ pub fn run() {
             commands::ipc::mark_splashscreen_shown,
             commands::ipc::close_splashscreen,
             editor::open_editor_file,
+            editor::editor_open_dialog,
             editor::apply_editor_edits,
             editor::get_editor_lines,
             editor::save_editor_file,

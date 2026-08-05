@@ -18,7 +18,7 @@ vi.mock("../Foundation/IPC/EditorCommands", () => ({
   },
 }));
 
-vi.mock("../Features/Editor/LspClient", () => ({
+vi.mock("./Language/LspClient", () => ({
   LspClient: {
     getInstance: () => ({
       didOpen: mocks.didOpen,

@@ -91,6 +91,8 @@ export const EditorIPC = {
     return snapshot;
   },
 
+  openDialog: () => invokeDesktop<EditorSnapshot | null>("editor_open_dialog"),
+
   applyEdits: (path: string, edits: TextEdit[]) =>
     enqueueDocumentOperation(path, async () => {
       const baseRevision = documentRevisions.get(path);

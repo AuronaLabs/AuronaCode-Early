@@ -319,19 +319,23 @@ export function SettingsTab() {
   const renderAppearance = () => (
     <div className="flex flex-col gap-6 w-full max-w-3xl">
       <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">外观与色彩</h3>
-        <p className="text-[13px] text-[var(--TextMuted)]">
+        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">外观与色彩</h3>
+        <p className="text-[13px] text-[var(--color-text-muted)]">
           在同一处调整界面模式、工作台色彩与背景氛围
         </p>
       </div>
 
-      <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm">
+      <GlassContainer layer="elevated" className="rounded-2xl overflow-hidden shadow-sm">
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">外观模式</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">更改编辑器的整体色彩倾向</span>
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              外观模式
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
+              更改编辑器的整体色彩倾向
+            </span>
           </div>
-          <fieldset className="grid w-full grid-cols-3 gap-1 rounded-2xl border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] p-1.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.12)] backdrop-blur-[var(--glass-blur-base)] sm:w-auto">
+          <fieldset className="grid w-full grid-cols-3 gap-1 rounded-2xl border border-[var(--border-subtle)] bg-[var(--material-panel)] p-1.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.12)] backdrop-blur-[var(--glass-blur-base)] sm:w-auto">
             <legend className="sr-only">外观模式</legend>
             {(["system", "light", "dark"] as const).map((t) => (
               <button
@@ -341,8 +345,8 @@ export function SettingsTab() {
                 onClick={() => handleThemeChange(t)}
                 className={`flex min-w-0 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-[background-color,border-color,color,box-shadow] duration-150 sm:min-w-[104px] ${
                   theme === t
-                    ? "border-[var(--GlassBorder)] bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-[0_4px_14px_rgba(15,23,42,0.08)] backdrop-blur-[var(--glass-blur-elevated)]"
-                    : "border-transparent text-[var(--TextMuted)] hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)]"
+                    ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-[0_4px_14px_rgba(15,23,42,0.08)] backdrop-blur-[var(--glass-blur-elevated)]"
+                    : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
                 }`}
               >
                 {t === "system" && (
@@ -364,10 +368,12 @@ export function SettingsTab() {
             ))}
           </fieldset>
         </div>
-        <div className="border-t border-[var(--GlassBorder)] p-3 sm:p-4">
+        <div className="border-t border-[var(--border-subtle)] p-3 sm:p-4">
           <div className="mb-3 flex flex-col gap-1 px-1">
-            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">色彩主题</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              色彩主题
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
               统一影响交互强调、焦点、状态反馈与可选的背景氛围
             </span>
           </div>
@@ -382,8 +388,8 @@ export function SettingsTab() {
                   onClick={() => handleAccentThemeChange(accent.id)}
                   className={`group relative flex min-h-[68px] overflow-hidden rounded-xl border p-2.5 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 ${
                     selected
-                      ? "border-[color-mix(in_srgb,var(--AccentPrimary)_32%,var(--GlassBorder))] bg-[var(--GlassActive)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--AccentPrimary)_14%,transparent),var(--shadow-surface)]"
-                      : "border-transparent bg-[var(--GlassSurface-Base)] hover:border-[var(--GlassBorder)] hover:bg-[var(--GlassHover)] hover:-translate-y-px"
+                      ? "border-[color-mix(in_srgb,var(--color-accent)_32%,var(--border-subtle))] bg-[var(--material-interactive-active)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_14%,transparent),var(--shadow-surface)]"
+                      : "border-transparent bg-[var(--material-panel)] hover:border-[var(--border-subtle)] hover:bg-[var(--material-interactive-hover)] hover:-translate-y-px"
                   }`}
                 >
                   <span
@@ -391,13 +397,13 @@ export function SettingsTab() {
                     style={{ backgroundColor: `rgb(${accent.rgb})` }}
                   />
                   <span className="relative flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="h-1.5 w-8 rounded-full bg-[var(--TextHighlight)]/12" />
+                    <span className="h-1.5 w-8 rounded-full bg-[var(--color-text-highlight)]/12" />
                     <span className="flex min-w-0 items-center gap-1.5">
-                      <span className="truncate text-[12px] font-semibold text-[var(--TextHighlight)]">
+                      <span className="truncate text-[12px] font-semibold text-[var(--color-text-highlight)]">
                         {accent.label}
                       </span>
                       {accent.isDefault && (
-                        <span className="shrink-0 rounded-md bg-[color-mix(in_srgb,var(--AccentPrimary)_14%,transparent)] px-1 py-0.5 text-[9px] font-semibold leading-none text-[var(--AccentPrimary)]">
+                        <span className="shrink-0 rounded-md bg-[color-mix(in_srgb,var(--color-accent)_14%,transparent)] px-1 py-0.5 text-[9px] font-semibold leading-none text-[var(--color-accent)]">
                           默认
                         </span>
                       )}
@@ -405,7 +411,7 @@ export function SettingsTab() {
                   </span>
                   {selected && (
                     <Icons.Check
-                      className="relative shrink-0 text-[var(--TextHighlight)]"
+                      className="relative shrink-0 text-[var(--color-text-highlight)]"
                       size={15}
                       stroke={2.5}
                     />
@@ -414,12 +420,12 @@ export function SettingsTab() {
               );
             })}
           </div>
-          <div className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] px-3.5 py-3">
+          <div className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-panel)] px-3.5 py-3">
             <div className="min-w-0 pr-2">
-              <span className="text-[12px] font-medium text-[var(--TextHighlight)]">
+              <span className="text-[12px] font-medium text-[var(--color-text-highlight)]">
                 背景同步渲染
               </span>
-              <p className="mt-0.5 text-[11px] leading-4 text-[var(--TextMuted)]">
+              <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-text-muted)]">
                 让当前色彩主题轻柔融入工作台背景渐变
               </p>
             </div>
@@ -430,24 +436,24 @@ export function SettingsTab() {
             />
           </div>
         </div>
-      </div>
+      </GlassContainer>
 
       {/*
       <div
   className =
     "flex flex-col gap-2 mt-6" >
-    <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">视觉效果</h3> <
+    <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">视觉效果</h3> <
     p;
-  className = "text-[13px] text-[var(--TextMuted)]" > 调整界面元素的玻璃拟物;
+  className = "text-[13px] text-[var(--color-text-muted)]" > 调整界面元素的玻璃拟物;
   （毛玻璃）效果强度
         </p>
       </div>
 
-      <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm mt-2">
+      <GlassContainer layer="elevated" className="rounded-2xl overflow-hidden shadow-sm mt-2">
         <div className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">拟物强度</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">拟物强度</span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
               配置全局毛玻璃的模糊与透明度
             </span>
           </div>
@@ -468,17 +474,19 @@ export function SettingsTab() {
       */}
 
       <div className="mt-6 flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">视觉效果</h3>
-        <p className="text-[13px] text-[var(--TextMuted)]">
+        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">视觉效果</h3>
+        <p className="text-[13px] text-[var(--color-text-muted)]">
           调整界面元素的玻璃拟物（毛玻璃）效果强度
         </p>
       </div>
 
-      <div className="mt-2 overflow-hidden rounded-2xl shadow-sm glass-inner-card">
+      <GlassContainer layer="elevated" className="mt-2 overflow-hidden rounded-2xl shadow-sm">
         <div className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">拟物强度</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              拟物强度
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
               配置全局毛玻璃的模糊与透明度
             </span>
           </div>
@@ -493,22 +501,29 @@ export function SettingsTab() {
             ]}
           />
         </div>
-      </div>
+      </GlassContainer>
     </div>
   );
 
   const renderEditor = () => (
     <div className="flex flex-col gap-6 w-full max-w-3xl">
       <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">编辑器设置</h3>
-        <p className="text-[13px] text-[var(--TextMuted)]">配置代码编辑器的外观和行为</p>
+        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">编辑器设置</h3>
+        <p className="text-[13px] text-[var(--color-text-muted)]">配置代码编辑器的外观和行为</p>
       </div>
 
-      <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+      <GlassContainer
+        layer="elevated"
+        className="rounded-2xl overflow-hidden shadow-sm flex flex-col"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
           <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">字体大小</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">控制编辑器的主代码字体大小</span>
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              字体大小
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
+              控制编辑器的主代码字体大小
+            </span>
           </div>
           <Select
             value={editorFontSize}
@@ -526,10 +541,10 @@ export function SettingsTab() {
           />
         </div>
 
-        <div className="flex items-center justify-between border-b border-[var(--GlassBorder)] p-5">
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] p-5">
           <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">行高</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">行高</span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
               调整代码行间距，并同步光标与选择坐标
             </span>
           </div>
@@ -548,10 +563,12 @@ export function SettingsTab() {
           />
         </div>
 
-        <div className="flex items-center justify-between border-b border-[var(--GlassBorder)] p-5">
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] p-5">
           <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">Tab 宽度</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              Tab 宽度
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
               控制 Tab 字符的视觉宽度与点击定位
             </span>
           </div>
@@ -567,10 +584,12 @@ export function SettingsTab() {
           />
         </div>
 
-        <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+        <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
           <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">自动换行</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              自动换行
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
               当代码超出一行长度时自动折行显示
             </span>
           </div>
@@ -587,31 +606,40 @@ export function SettingsTab() {
 
         <div className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">代码缩略图</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              代码缩略图
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
               当前轻量编辑器内核暂不支持缩略图；该选项将在完整实现后再开放
             </span>
           </div>
-          <span className="rounded-lg border border-[var(--GlassBorder)] px-3 py-1.5 text-[12px] text-[var(--TextMuted)]">
+          <span className="rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-[12px] text-[var(--color-text-muted)]">
             暂不可用
           </span>
         </div>
-      </div>
+      </GlassContainer>
     </div>
   );
 
   const renderTerminal = () => (
     <div className="flex flex-col gap-6 w-full max-w-3xl">
       <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">终端设置</h3>
-        <p className="text-[13px] text-[var(--TextMuted)]">自定义集成终端的显示效果</p>
+        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">终端设置</h3>
+        <p className="text-[13px] text-[var(--color-text-muted)]">自定义集成终端的显示效果</p>
       </div>
 
-      <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+      <GlassContainer
+        layer="elevated"
+        className="rounded-2xl overflow-hidden shadow-sm flex flex-col"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
           <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">字体大小</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">控制终端控制台的字体大小</span>
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              字体大小
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
+              控制终端控制台的字体大小
+            </span>
           </div>
           <Select
             value={terminalFontSize}
@@ -631,8 +659,10 @@ export function SettingsTab() {
 
         <div className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">光标闪烁</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              光标闪烁
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
               是否开启终端光标的呼吸闪烁效果
             </span>
           </div>
@@ -646,15 +676,15 @@ export function SettingsTab() {
             }}
           />
         </div>
-      </div>
+      </GlassContainer>
     </div>
   );
 
   const renderGit = () => (
     <div className="flex w-full max-w-3xl flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">远程仓库配置</h3>
-        <p className="text-[13px] text-[var(--TextMuted)]">
+        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">远程仓库配置</h3>
+        <p className="text-[13px] text-[var(--color-text-muted)]">
           配置当前工作区 Git 仓库的远程拉取和推送地址及凭据
         </p>
       </div>
@@ -664,32 +694,35 @@ export function SettingsTab() {
           layer="elevated"
           className="mt-2 flex max-w-md flex-col items-center justify-center gap-4 rounded-2xl p-6 text-center"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--GlassBorder)] bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm">
             <Icons.Git size={22} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <h4 className="text-[14px] font-bold text-[var(--TextHighlight)]">
+            <h4 className="text-[14px] font-bold text-[var(--color-text-highlight)]">
               未检测到 Git 工作区
             </h4>
-            <p className="text-[12px] leading-relaxed text-[var(--TextMuted)]">
+            <p className="text-[12px] leading-relaxed text-[var(--color-text-muted)]">
               当前未在工作区打开任何有效的目录。请先在资源管理器中打开包含 Git
               仓库的文件夹，然后在此处配置凭据。
             </p>
           </div>
         </GlassContainer>
       ) : (
-        <div className="glass-inner-card mt-2 flex max-w-3xl flex-col overflow-hidden rounded-2xl">
-          <div className="flex items-center gap-3 border-b border-[var(--GlassBorder)] px-5 py-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--GlassBorder)] bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-sm">
+        <GlassContainer
+          layer="elevated"
+          className="mt-2 flex max-w-3xl flex-col overflow-hidden rounded-2xl"
+        >
+          <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm">
               <Icons.Git size={18} />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-semibold text-[var(--TextHighlight)]">
+              <div className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
                 当前工作区仓库
               </div>
-              <div className="truncate text-[11px] text-[var(--TextMuted)]">{repoPath}</div>
+              <div className="truncate text-[11px] text-[var(--color-text-muted)]">{repoPath}</div>
             </div>
-            <span className="rounded-full border border-[var(--GlassBorder)] bg-[var(--GlassHover)] px-2.5 py-1 text-[10px] font-medium text-[var(--TextMuted)]">
+            <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--material-interactive-hover)] px-2.5 py-1 text-[10px] font-medium text-[var(--color-text-muted)]">
               本地配置
             </span>
           </div>
@@ -698,16 +731,16 @@ export function SettingsTab() {
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex flex-col gap-1">
-                  <span className="text-[13px] font-semibold text-[var(--TextHighlight)]">
+                  <span className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
                     远程仓库地址
                   </span>
-                  <span className="text-[11px] text-[var(--TextMuted)]">
+                  <span className="text-[11px] text-[var(--color-text-muted)]">
                     用于当前仓库的拉取与推送
                   </span>
                 </div>
-                <Icons.Github size={18} className="shrink-0 text-[var(--TextMuted)]" />
+                <Icons.Github size={18} className="shrink-0 text-[var(--color-text-muted)]" />
               </div>
-              <div className="rounded-xl border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] p-1 focus-within:border-[var(--TextMuted)]/25 focus-within:ring-2 focus-within:ring-[var(--TextMuted)]/20">
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--material-panel)] p-1 focus-within:border-[var(--color-text-muted)]/25 focus-within:ring-2 focus-within:ring-[var(--color-text-muted)]/20">
                 <Input
                   value={remoteUrl}
                   onChange={(e) => setRemoteUrl(e.target.value)}
@@ -719,7 +752,7 @@ export function SettingsTab() {
               </div>
             </div>
 
-            <div className="flex items-start gap-3 px-3 py-1 text-[11.5px] leading-relaxed text-[var(--TextMuted)]">
+            <div className="flex items-start gap-3 px-3 py-1 text-[11.5px] leading-relaxed text-[var(--color-text-muted)]">
               <Icons.Info size={16} className="mt-0.5 shrink-0" />
               <span>
                 凭据由 Git Credential Manager、系统钥匙串或 SSH 密钥管理。Aurona Code
@@ -728,8 +761,8 @@ export function SettingsTab() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-4 border-t border-[var(--GlassBorder)] px-5 py-4">
-            <span className="text-[12px] text-[var(--TextMuted)]">
+          <div className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] px-5 py-4">
+            <span className="text-[12px] text-[var(--color-text-muted)]">
               仅修改当前仓库的 Git remote 配置
             </span>
             <Button
@@ -741,7 +774,7 @@ export function SettingsTab() {
               {isSavingGit ? "正在应用..." : "应用更改"}
             </Button>
           </div>
-        </div>
+        </GlassContainer>
       )}
     </div>
   );
@@ -760,30 +793,30 @@ export function SettingsTab() {
     return (
       <div className="flex flex-col gap-6 w-full max-w-3xl">
         <div className="flex flex-col gap-2">
-          <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">存储空间管理</h3>
-          <p className="text-[13px] text-[var(--TextMuted)]">
+          <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">存储空间管理</h3>
+          <p className="text-[13px] text-[var(--color-text-muted)]">
             监控并清理 Aurona Code 占用的磁盘存储空间
           </p>
         </div>
 
-        <div className="glass-inner-card flex flex-col gap-6 rounded-2xl p-6 shadow-sm">
+        <GlassContainer layer="elevated" className="flex flex-col gap-6 rounded-2xl p-6 shadow-sm">
           <div className="flex flex-col gap-2">
             <div className="flex justify-between items-end">
-              <span className="text-[20px] font-extrabold text-[var(--TextHighlight)] tracking-tight select-none">
+              <span className="text-[20px] font-extrabold text-[var(--color-text-highlight)] tracking-tight select-none">
                 {totalSizeFormatted}{" "}
-                <span className="text-[12px] font-normal text-[var(--TextMuted)] font-sans">
+                <span className="text-[12px] font-normal text-[var(--color-text-muted)] font-sans">
                   本地数据已使用
                 </span>
               </span>
-              <span className="text-[12px] text-[var(--TextMuted)] font-medium select-none">
+              <span className="text-[12px] text-[var(--color-text-muted)] font-medium select-none">
                 已统计应用数据与运行日志
               </span>
             </div>
 
-            <div className="flex h-3.5 w-full select-none overflow-hidden rounded-full border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Base)] p-px shadow-[inset_0_1px_2px_rgb(15_23_42_/_12%)]">
+            <div className="flex h-3.5 w-full select-none overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--material-panel)] p-px shadow-[inset_0_1px_2px_rgb(15_23_42_/_12%)]">
               {totalRawSize === 0 && (
                 <div
-                  className="h-full rounded-full bg-[var(--GlassSurface-Elevated)]"
+                  className="h-full rounded-full bg-[var(--material-surface)]"
                   style={{ width: "100%" }}
                 />
               )}
@@ -801,7 +834,7 @@ export function SettingsTab() {
               )}
               {rawOtherDataSize > 0 && (
                 <div
-                  className="h-full bg-[var(--AccentPrimary)] transition-opacity hover:opacity-80"
+                  className="h-full bg-[var(--color-accent)] transition-opacity hover:opacity-80"
                   style={{ width: `${otherPct}%` }}
                 />
               )}
@@ -820,52 +853,57 @@ export function SettingsTab() {
             </div>
 
             <div className="flex flex-wrap gap-x-4 gap-y-2 mt-1 select-none">
-              <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]">
                 <div className="w-2 h-2 rounded-full bg-emerald-500" />
                 <span>配置偏好 ({configSize})</span>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]">
                 <div className="w-2 h-2 rounded-full bg-amber-500" />
                 <span>工作区缓存 ({workspaceSize})</span>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
-                <div className="h-2 w-2 rounded-full bg-[var(--AccentPrimary)]" />
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]">
+                <div className="h-2 w-2 rounded-full bg-[var(--color-accent)]" />
                 <span>其他数据 ({otherDataSize})</span>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]">
                 <div className="h-2 w-2 rounded-full bg-violet-500/85" />
                 <span>恢复快照 ({recoverySize})</span>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-[var(--TextMuted)]">
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]">
                 <div className="h-2 w-2 rounded-full bg-fuchsia-500/85" />
                 <span>运行日志 ({logSize})</span>
               </div>
             </div>
-            <p className="mt-3 text-[11px] leading-5 text-[var(--TextMuted)]">
+            <p className="mt-3 text-[11px] leading-5 text-[var(--color-text-muted)]">
               统计范围为 Aurona 可安全管理的应用数据与运行日志；系统 WebView
               配置文件由操作系统管理，不会被这里的清理操作影响。
             </p>
           </div>
-        </div>
+        </GlassContainer>
 
         <div className="flex flex-col gap-4 mt-2">
-          <h4 className="text-[13px] font-bold text-[var(--TextHighlight)] px-1">存储细分与清理</h4>
+          <h4 className="text-[13px] font-bold text-[var(--color-text-highlight)] px-1">
+            存储细分与清理
+          </h4>
 
-          <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+          <GlassContainer
+            layer="elevated"
+            className="rounded-2xl overflow-hidden shadow-sm flex flex-col"
+          >
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
               <div className="flex flex-col gap-1">
-                <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
+                <span className="text-[14px] font-medium text-[var(--color-text-highlight)] flex items-center gap-2 select-none">
                   用户配置偏好
-                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-[var(--GlassSurface-Elevated)] px-2 py-0.5 rounded-lg">
+                  <span className="text-[11px] text-[var(--color-text-muted)] font-normal font-mono bg-[var(--material-surface)] px-2 py-0.5 rounded-lg">
                     user-config.json
                   </span>
                 </span>
-                <span className="text-[12px] text-[var(--TextMuted)]">
+                <span className="text-[12px] text-[var(--color-text-muted)]">
                   保存当前编辑器的全部个性化设置、字号大小与主题外观偏好
                 </span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">
+                <span className="text-[13px] font-mono text-[var(--color-text-highlight)] select-none">
                   {configSize}
                 </span>
                 <Button
@@ -879,20 +917,20 @@ export function SettingsTab() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between border-b border-[var(--GlassBorder)] p-5">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] p-5">
               <div className="flex flex-col gap-1">
-                <span className="flex items-center gap-2 text-[14px] font-medium text-[var(--TextHighlight)] select-none">
+                <span className="flex items-center gap-2 text-[14px] font-medium text-[var(--color-text-highlight)] select-none">
                   编辑器恢复快照
-                  <span className="rounded-lg bg-[var(--GlassSurface-Elevated)] px-2 py-0.5 font-mono text-[11px] font-normal text-[var(--TextMuted)]">
+                  <span className="rounded-lg bg-[var(--material-surface)] px-2 py-0.5 font-mono text-[11px] font-normal text-[var(--color-text-muted)]">
                     editor-recovery
                   </span>
                 </span>
-                <span className="text-[12px] text-[var(--TextMuted)]">
+                <span className="text-[12px] text-[var(--color-text-muted)]">
                   用于在异常关闭后恢复未保存的文档；仅在确认不需要恢复内容时清理。
                 </span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="select-none font-mono text-[13px] text-[var(--TextHighlight)]">
+                <span className="select-none font-mono text-[13px] text-[var(--color-text-highlight)]">
                   {recoverySize}
                 </span>
                 <Button
@@ -906,20 +944,20 @@ export function SettingsTab() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
               <div className="flex flex-col gap-1">
-                <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
+                <span className="text-[14px] font-medium text-[var(--color-text-highlight)] flex items-center gap-2 select-none">
                   最近工作区状态
-                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-[var(--GlassSurface-Elevated)] px-2 py-0.5 rounded-lg">
+                  <span className="text-[11px] text-[var(--color-text-muted)] font-normal font-mono bg-[var(--material-surface)] px-2 py-0.5 rounded-lg">
                     workspace.json
                   </span>
                 </span>
-                <span className="text-[12px] text-[var(--TextMuted)]">
+                <span className="text-[12px] text-[var(--color-text-muted)]">
                   记录最近打开的文件夹列表、当前打开的编辑标签页与界面布局缓存
                 </span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">
+                <span className="text-[13px] font-mono text-[var(--color-text-highlight)] select-none">
                   {workspaceSize}
                 </span>
                 <Button
@@ -933,20 +971,20 @@ export function SettingsTab() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
               <div className="flex flex-col gap-1">
-                <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
+                <span className="text-[14px] font-medium text-[var(--color-text-highlight)] flex items-center gap-2 select-none">
                   其他本地数据
-                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-[var(--GlassSurface-Elevated)] px-2 py-0.5 rounded-lg">
+                  <span className="text-[11px] text-[var(--color-text-muted)] font-normal font-mono bg-[var(--material-surface)] px-2 py-0.5 rounded-lg">
                     AppLocalData
                   </span>
                 </span>
-                <span className="text-[12px] text-[var(--TextMuted)]">
+                <span className="text-[12px] text-[var(--color-text-muted)]">
                   不属于配置、工作区与恢复快照的应用本地文件。不会触碰编辑器恢复数据。
                 </span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">
+                <span className="text-[13px] font-mono text-[var(--color-text-highlight)] select-none">
                   {otherDataSize}
                 </span>
                 <Button
@@ -962,18 +1000,18 @@ export function SettingsTab() {
 
             <div className="flex items-center justify-between p-5">
               <div className="flex flex-col gap-1">
-                <span className="text-[14px] font-medium text-[var(--TextHighlight)] flex items-center gap-2 select-none">
+                <span className="text-[14px] font-medium text-[var(--color-text-highlight)] flex items-center gap-2 select-none">
                   系统运行日志
-                  <span className="text-[11px] text-[var(--TextMuted)] font-normal font-mono bg-[var(--GlassSurface-Elevated)] px-2 py-0.5 rounded-lg">
+                  <span className="text-[11px] text-[var(--color-text-muted)] font-normal font-mono bg-[var(--material-surface)] px-2 py-0.5 rounded-lg">
                     *.log
                   </span>
                 </span>
-                <span className="text-[12px] text-[var(--TextMuted)]">
+                <span className="text-[12px] text-[var(--color-text-muted)]">
                   记录应用生命周期、Tauri 进程及终端控制台诊断的运行日志
                 </span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-[13px] font-mono text-[var(--TextHighlight)] select-none">
+                <span className="text-[13px] font-mono text-[var(--color-text-highlight)] select-none">
                   {logSize}
                 </span>
                 <Button
@@ -986,7 +1024,7 @@ export function SettingsTab() {
                 </Button>
               </div>
             </div>
-          </div>
+          </GlassContainer>
         </div>
       </div>
     );
@@ -995,15 +1033,20 @@ export function SettingsTab() {
   const renderAdvanced = () => (
     <div className="flex flex-col gap-6 w-full max-w-3xl">
       <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--TextHighlight)]">高级设置</h3>
-        <p className="text-[13px] text-[var(--TextMuted)]">进行系统偏好与出厂状态重置操作</p>
+        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">高级设置</h3>
+        <p className="text-[13px] text-[var(--color-text-muted)]">进行系统偏好与出厂状态重置操作</p>
       </div>
 
-      <div className="glass-inner-card rounded-2xl overflow-hidden shadow-sm flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-[var(--GlassBorder)]">
+      <GlassContainer
+        layer="elevated"
+        className="rounded-2xl overflow-hidden shadow-sm flex flex-col"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
           <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">检查更新</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              检查更新
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
               手动检查 GitHub Release 中是否有可安装的新版本
             </span>
           </div>
@@ -1029,8 +1072,10 @@ export function SettingsTab() {
         </div>
         <div className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--TextHighlight)]">初始化重置</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              初始化重置
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
               清除应用全部本地数据，使编辑器回到初始安装状态
             </span>
           </div>
@@ -1051,20 +1096,20 @@ export function SettingsTab() {
             重置应用程序
           </Button>
         </div>
-      </div>
+      </GlassContainer>
     </div>
   );
 
   const sidebarMenu = (
     <div className="flex flex-col gap-1.5 w-full pr-3 pl-1">
-      <h2 className="text-[11px] font-bold text-[var(--TextMuted)] uppercase tracking-widest mb-6 px-4 mt-2">
+      <h2 className="text-[11px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest mb-6 px-4 mt-2">
         设置中心
       </h2>
 
       <button
         type="button"
         onClick={() => setActiveSection("account")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "account" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "account" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
       >
         <Icons.User size={16} /> 账户
       </button>
@@ -1072,7 +1117,7 @@ export function SettingsTab() {
       <button
         type="button"
         onClick={() => setActiveSection("appearance")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "appearance" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "appearance" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
       >
         <Icons.Palette size={16} /> 外观
       </button>
@@ -1080,7 +1125,7 @@ export function SettingsTab() {
       <button
         type="button"
         onClick={() => setActiveSection("editor")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "editor" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "editor" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
       >
         <Icons.FileCode size={16} /> 编辑器
       </button>
@@ -1088,7 +1133,7 @@ export function SettingsTab() {
       <button
         type="button"
         onClick={() => setActiveSection("language")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "language" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "language" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
       >
         <Icons.Sparkles size={16} /> 语言服务
       </button>
@@ -1096,7 +1141,7 @@ export function SettingsTab() {
       <button
         type="button"
         onClick={() => setActiveSection("debug")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "debug" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "debug" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
       >
         <Icons.Debug size={16} /> 运行和调试
       </button>
@@ -1104,7 +1149,7 @@ export function SettingsTab() {
       <button
         type="button"
         onClick={() => setActiveSection("terminal")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "terminal" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "terminal" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
       >
         <Icons.Terminal size={16} /> 终端
       </button>
@@ -1112,7 +1157,7 @@ export function SettingsTab() {
       <button
         type="button"
         onClick={() => setActiveSection("git")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "git" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "git" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
       >
         <Icons.Git size={16} /> 版本控制
       </button>
@@ -1120,7 +1165,7 @@ export function SettingsTab() {
       <button
         type="button"
         onClick={() => setActiveSection("storage")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "storage" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "storage" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
       >
         <Icons.Database size={16} /> 存储管理
       </button>
@@ -1128,7 +1173,7 @@ export function SettingsTab() {
       <button
         type="button"
         onClick={() => setActiveSection("advanced")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "advanced" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "advanced" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
       >
         <Icons.Settings size={16} /> 高级
       </button>

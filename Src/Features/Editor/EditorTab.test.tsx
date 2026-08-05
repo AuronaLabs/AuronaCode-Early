@@ -54,13 +54,13 @@ vi.mock("../../Foundation/IPC/EditorCommands", () => ({
     applyEdit: vi.fn(async () => ({ revision: 1, lineCount: 1, dirty: true })),
   },
 }));
-vi.mock("./Model/RecoveryStore", () => ({
+vi.mock("../../Core/Recovery/RecoveryStore", () => ({
   RecoveryStore: {
     load: vi.fn(async () => null),
     remove: mocks.removeRecovery,
   },
 }));
-vi.mock("./Model/RecoveryCoordinator", () => ({
+vi.mock("../../Core/Recovery/RecoveryCoordinator", () => ({
   RecoveryCoordinator: {
     update: mocks.updateRecovery,
     flush: mocks.flushRecovery,

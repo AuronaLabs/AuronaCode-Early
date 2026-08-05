@@ -54,9 +54,11 @@ export const ContextMenuItem = React.forwardRef<
         disabled={disabled}
         className={cn(
           "flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-[13px] transition-colors text-left w-full outline-none cursor-pointer select-none",
-          disabled && "opacity-50 cursor-not-allowed text-[var(--TextMuted)]",
+          disabled && "opacity-50 cursor-not-allowed text-[var(--color-text-muted)]",
           !disabled && isDanger && "text-red-500 focus:bg-red-500/10",
-          !disabled && !isDanger && "text-[var(--TextHighlight)] focus:bg-[var(--GlassHover)]",
+          !disabled &&
+            !isDanger &&
+            "text-[var(--color-text-highlight)] focus:bg-[var(--material-interactive-hover)]",
           className,
         )}
         {...props}
@@ -65,7 +67,9 @@ export const ContextMenuItem = React.forwardRef<
           {icon}
           {label || children}
         </div>
-        {rightElement && <div className="text-[var(--TextMuted)] text-[11px]">{rightElement}</div>}
+        {rightElement && (
+          <div className="text-[var(--color-text-muted)] text-[11px]">{rightElement}</div>
+        )}
       </ContextMenuPrimitive.Item>
     );
   },
@@ -78,7 +82,7 @@ export const ContextMenuSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ContextMenuPrimitive.Separator
     ref={ref}
-    className={cn("h-px bg-[var(--GlassBorder)] my-0.5 mx-1", className)}
+    className={cn("h-px bg-[var(--border-subtle)] my-0.5 mx-1", className)}
     {...props}
   />
 ));

@@ -148,7 +148,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
         <div
           className={cn(
             glassVariants({ layer: "base" }),
-            "flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[11.5px] text-[var(--TextMuted)]",
+            "flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[11.5px] text-[var(--color-text-muted)]",
           )}
         >
           <Icons.Info size={14} className="opacity-60 shrink-0" />
@@ -183,7 +183,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
                 <button
                   type="button"
                   onClick={() => setIsCaseSensitive(!isCaseSensitive)}
-                  className={`rounded-lg border p-1.5 transition-colors ${isCaseSensitive ? "border-[var(--GlassBorder)] bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-sm" : "border-transparent text-[var(--TextMuted)] hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)]"}`}
+                  className={`rounded-lg border p-1.5 transition-colors ${isCaseSensitive ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
                 >
                   <Icons.Typography size={14} stroke={isCaseSensitive ? 2.5 : 2} />
                 </button>
@@ -193,7 +193,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
                 <button
                   type="button"
                   onClick={() => setIsRegex(!isRegex)}
-                  className={`rounded-lg border p-1.5 transition-colors ${isRegex ? "border-[var(--GlassBorder)] bg-[var(--GlassActive)] text-[var(--TextHighlight)] shadow-sm" : "border-transparent text-[var(--TextMuted)] hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)]"}`}
+                  className={`rounded-lg border p-1.5 transition-colors ${isRegex ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
                 >
                   <Icons.Asterisk size={14} stroke={isRegex ? 2.5 : 2} />
                 </button>
@@ -206,7 +206,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
                 disabled={!query.trim()}
                 className={cn(
                   glassVariants({ layer: "elevated", interactive: true }),
-                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium text-[var(--TextHighlight)] shadow-sm transition-[background-color,border-color,box-shadow,opacity] disabled:cursor-not-allowed disabled:opacity-45",
+                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-highlight)] shadow-sm transition-[background-color,border-color,box-shadow,opacity] disabled:cursor-not-allowed disabled:opacity-45",
                 )}
               >
                 <Icons.Search size={13} stroke={2} />
@@ -224,29 +224,29 @@ export const SearchPanel = React.memo(function SearchPanel() {
 
       <div className="flex-1 overflow-y-auto aurona-scroll flex flex-col relative">
         {isSearching && results.length === 0 ? (
-          <div className="absolute inset-0 flex items-center justify-center text-[var(--TextMuted)] text-[12px] gap-2">
+          <div className="absolute inset-0 flex items-center justify-center text-[var(--color-text-muted)] text-[12px] gap-2">
             <Icons.Refresh size={14} className="animate-spin" />
             搜索中...
           </div>
         ) : !repoPath ? (
-          <div className="p-4 text-center text-[12px] text-[var(--TextMuted)] mt-4">
+          <div className="p-4 text-center text-[12px] text-[var(--color-text-muted)] mt-4">
             未打开任何工作区
           </div>
         ) : hasSearched && results.length === 0 ? (
-          <div className="p-4 text-center text-[12px] text-[var(--TextMuted)] mt-4">
+          <div className="p-4 text-center text-[12px] text-[var(--color-text-muted)] mt-4">
             没有找到匹配项
           </div>
         ) : hasSearched ? (
           <div className="flex flex-col gap-0.5 py-2">
             <div className="px-[var(--PanelPaddingX)] mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-bold text-[var(--TextMuted)] uppercase tracking-widest">
+              <span className="text-[11px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">
                 找到 {results.length} 个结果 (在 {fileKeys.length} 个文件中)
               </span>
               {limitReached && (
                 <span className="text-[10px] font-medium text-amber-500">仅显示前 500 条结果</span>
               )}
               {isSearching && (
-                <Icons.Refresh size={12} className="animate-spin text-[var(--TextMuted)]" />
+                <Icons.Refresh size={12} className="animate-spin text-[var(--color-text-muted)]" />
               )}
             </div>
             {fileKeys.map((file) => {
@@ -261,23 +261,23 @@ export const SearchPanel = React.memo(function SearchPanel() {
                     onClick={() => toggleFileCollapse(file)}
                     className={cn(
                       glassListHeaderStyles,
-                      "w-full cursor-pointer select-none gap-2 text-left font-bold transition-colors hover:bg-[var(--GlassHover)]",
+                      "w-full cursor-pointer select-none gap-2 text-left font-bold transition-colors hover:bg-[var(--material-interactive-hover)]",
                     )}
                   >
                     <Icons.ChevronDown
                       size={15}
-                      className={`text-[var(--TextMuted)] transition-transform ${isCollapsed ? "-rotate-90" : ""}`}
+                      className={`text-[var(--color-text-muted)] transition-transform ${isCollapsed ? "-rotate-90" : ""}`}
                     />
                     <Icons.FileCode
                       size={16}
-                      className="shrink-0 text-[var(--AccentPrimary)]"
+                      className="shrink-0 text-[var(--color-accent)]"
                       stroke={2}
                     />
                     <span className="truncate">{grouped[file].name}</span>
-                    <span className="truncate text-[10px] text-[var(--TextMuted)] opacity-60 ml-1 font-normal">
+                    <span className="truncate text-[10px] text-[var(--color-text-muted)] opacity-60 ml-1 font-normal">
                       {grouped[file].dir}
                     </span>
-                    <span className="ml-auto rounded-full border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] px-2 py-0.5 text-[10px] font-medium text-[var(--TextMuted)]">
+                    <span className="ml-auto rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-muted)]">
                       {grouped[file].matches.length}
                     </span>
                   </button>
@@ -293,10 +293,10 @@ export const SearchPanel = React.memo(function SearchPanel() {
                             "mx-1 w-[calc(100%-8px)] cursor-pointer items-start gap-2 text-left font-mono",
                           )}
                         >
-                          <span className="text-[var(--TextMuted)] group-hover:text-[var(--TextHighlight)] w-7 text-right shrink-0 select-none font-mono text-[11.5px] font-medium transition-colors">
+                          <span className="text-[var(--color-text-muted)] group-hover:text-[var(--color-text-highlight)] w-7 text-right shrink-0 select-none font-mono text-[11.5px] font-medium transition-colors">
                             {match.line_number}
                           </span>
-                          <span className="truncate text-[var(--TextPrimary)] group-hover:text-[var(--TextHighlight)] font-mono opacity-90 leading-relaxed transition-colors">
+                          <span className="truncate text-[var(--color-text-primary)] group-hover:text-[var(--color-text-highlight)] font-mono opacity-90 leading-relaxed transition-colors">
                             {match.match_text.trim()}
                           </span>
                         </button>
@@ -308,7 +308,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
             })}
           </div>
         ) : (
-          <div className="p-4 text-center text-[12px] text-[var(--TextMuted)] mt-4 opacity-50">
+          <div className="p-4 text-center text-[12px] text-[var(--color-text-muted)] mt-4 opacity-50">
             <Icons.Search size={32} className="mx-auto mb-2 opacity-50" />
             输入内容并在全部文件中搜索
           </div>

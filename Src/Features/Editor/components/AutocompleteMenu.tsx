@@ -1,32 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-
-export interface CompletionItem {
-  label: string;
-  kind?: number;
-  detail?: string;
-  documentation?: string | { value: string };
-  insertText?: string;
-  insertTextFormat?: number;
-  sortText?: string;
-  filterText?: string;
-  commitCharacters?: string[];
-  textEdit?: {
-    range: {
-      start: { line: number; character: number };
-      end: { line: number; character: number };
-    };
-    newText: string;
-  };
-  additionalTextEdits?: Array<{
-    range: {
-      start: { line: number; character: number };
-      end: { line: number; character: number };
-    };
-    newText: string;
-  }>;
-  data?: unknown;
-}
+import type { CompletionItem } from "../../../Foundation/Types/Lsp";
 
 import { cn } from "../../../Shared/Utils/cn";
 import { glassVariants } from "../../../UI/Core/GlassManager/variants";
@@ -132,8 +106,8 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
               onClick={() => onSelect(index)}
               className={`flex items-center px-3 py-1 cursor-pointer select-none text-[13px] transition-colors ${
                 isSelected
-                  ? "bg-[var(--GlassSurface-Elevated)] text-[var(--TextHighlight)] shadow-sm"
-                  : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)]"
+                  ? "bg-[var(--material-surface)] text-[var(--color-text-highlight)] shadow-sm"
+                  : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)]"
               }`}
             >
               <span className="w-5 text-center text-[11px] font-mono opacity-50 mr-2 flex-shrink-0">
@@ -154,7 +128,7 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
       {items[selectedIndex] &&
         (items[selectedIndex].detail || items[selectedIndex].documentation) && (
           <div className="w-[240px] border-l border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-900/50 p-3 overflow-y-auto aurona-scroll">
-            <div className="mb-2 whitespace-pre-wrap break-all font-mono text-[12px] text-[var(--AccentPrimary)]">
+            <div className="mb-2 whitespace-pre-wrap break-all font-mono text-[12px] text-[var(--color-accent)]">
               {items[selectedIndex].detail}
             </div>
             <div className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap break-all">

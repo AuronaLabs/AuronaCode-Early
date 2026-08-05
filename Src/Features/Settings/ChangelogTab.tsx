@@ -9,7 +9,7 @@ const parseMarkdownBold = (text: string) => {
   return parts.map((part) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return (
-        <strong key={`strong-${part}`} className="font-bold text-[var(--TextHighlight)]">
+        <strong key={`strong-${part}`} className="font-bold text-[var(--color-text-highlight)]">
           {part.slice(2, -2)}
         </strong>
       );
@@ -50,25 +50,25 @@ export function ChangelogTab() {
             key={release.version}
             className={`flex flex-col gap-6 ${!release.isLatest ? "opacity-80" : ""}`}
           >
-            <div className="flex items-center gap-4 border-b border-black/10 dark:border-[var(--GlassBorder)] pb-4">
+            <div className="flex items-center gap-4 border-b border-black/10 dark:border-[var(--border-subtle)] pb-4">
               <span
-                className="text-[24px] font-bold text-[var(--TextHighlight)] tracking-tight"
+                className="text-[24px] font-bold text-[var(--color-text-highlight)] tracking-tight"
                 style={{ fontFamily: "'Righteous', sans-serif" }}
               >
                 {release.version}
               </span>
-              <span className="text-[13px] font-medium text-[var(--TextMuted)] bg-[var(--GlassSurface-Elevated)] px-3 py-1 rounded-lg border border-[var(--GlassBorder)]">
+              <span className="text-[13px] font-medium text-[var(--color-text-muted)] bg-[var(--material-surface)] px-3 py-1 rounded-lg border border-[var(--border-subtle)]">
                 {release.date}
               </span>
               {release.isLatest && (
-                <span className="px-3 py-1 rounded-lg bg-[var(--AccentPrimary)] text-white text-[11px] font-bold tracking-widest shadow-sm">
+                <span className="px-3 py-1 rounded-lg bg-[var(--color-accent)] text-white text-[11px] font-bold tracking-widest shadow-sm">
                   最新版本
                 </span>
               )}
             </div>
 
             {release.summary && (
-              <div className="text-[14px] text-[var(--TextPrimary)] leading-relaxed opacity-90 whitespace-pre-line px-1">
+              <div className="text-[14px] text-[var(--color-text-primary)] leading-relaxed opacity-90 whitespace-pre-line px-1">
                 {parseMarkdownBold(release.summary)}
               </div>
             )}
@@ -77,22 +77,22 @@ export function ChangelogTab() {
               {release.sections.map((section) => (
                 <div
                   key={section.title}
-                  className="bg-[var(--GlassSurface-Base)] backdrop-blur-[var(--glass-blur-base)] border border-[var(--GlassBorder)] p-6 rounded-2xl flex flex-col gap-4 shadow-sm"
+                  className="bg-[var(--material-panel)] backdrop-blur-[var(--glass-blur-base)] border border-[var(--border-subtle)] p-6 rounded-2xl flex flex-col gap-4 shadow-sm"
                 >
-                  <div className="flex items-center gap-2 text-[var(--TextHighlight)]">
+                  <div className="flex items-center gap-2 text-[var(--color-text-highlight)]">
                     <Icons.Sparkles size={18} />
                     <h3 className="text-[15px] font-bold tracking-wide">{section.title}</h3>
                   </div>
                   {section.description && (
-                    <div className="text-[13px] text-[var(--TextPrimary)] leading-relaxed opacity-90 whitespace-pre-line">
+                    <div className="text-[13px] text-[var(--color-text-primary)] leading-relaxed opacity-90 whitespace-pre-line">
                       {parseMarkdownBold(section.description)}
                     </div>
                   )}
                   {section.items && section.items.length > 0 && (
-                    <ul className="flex flex-col gap-3 text-[13px] text-[var(--TextPrimary)] leading-relaxed mt-2">
+                    <ul className="flex flex-col gap-3 text-[13px] text-[var(--color-text-primary)] leading-relaxed mt-2">
                       {section.items.map((item) => (
                         <li key={item} className="flex gap-3 items-start">
-                          <span className="text-[var(--AccentPrimary)] mt-0.5 opacity-80">
+                          <span className="text-[var(--color-accent)] mt-0.5 opacity-80">
                             <Icons.Check size={14} stroke={3} />
                           </span>
                           <span className="opacity-90 leading-relaxed">

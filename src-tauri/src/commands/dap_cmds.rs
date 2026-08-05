@@ -2,11 +2,9 @@ use crate::dap::{DapLaunch, DapSession, DapSessionInfo};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::process::Stdio;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
-use tokio::process::Command;
-use tokio::time::{timeout, Duration};
+use tokio::time::Duration;
 
 const DEBUGPY_VERSION: &str = "1.8.17";
 
@@ -38,21 +36,16 @@ impl Default for DapState {
 
 #[tauri::command]
 pub async fn dap_python_debugpy_status(python_path: String) -> Result<PythonDebugpyStatus, String> {
-    let output = timeout(
+    let output = crate::process_service::capture_with_timeout(
+        &python_path,
+        &[
+            "-c",
+            "import debugpy; print(getattr(debugpy, '__version__', 'unknown'))",
+        ],
+        None,
         Duration::from_secs(8),
-        Command::new(&python_path)
-            .args([
-                "-c",
-                "import debugpy; print(getattr(debugpy, '__version__', 'unknown'))",
-            ])
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output(),
     )
-    .await
-    .map_err(|_| format!("检查 debugpy 超时：{python_path}"))?
-    .map_err(|error| format!("无法启动 Python `{python_path}`：{error}"))?;
+    .map_err(|error| format!("无法检查 debugpy：{error}"))?;
 
     if output.status.success() {
         let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -78,18 +71,13 @@ pub async fn dap_install_python_debugpy(
     python_path: String,
 ) -> Result<PythonDebugpyStatus, String> {
     let package = format!("debugpy=={DEBUGPY_VERSION}");
-    let output = timeout(
+    let output = crate::process_service::capture_with_timeout(
+        &python_path,
+        &["-m", "pip", "install", &package],
+        None,
         Duration::from_secs(180),
-        Command::new(&python_path)
-            .args(["-m", "pip", "install", &package])
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output(),
     )
-    .await
-    .map_err(|_| "安装 debugpy 超时，请检查网络或 Python 环境".to_string())?
-    .map_err(|error| format!("无法启动 Python 包管理器：{error}"))?;
+    .map_err(|error| format!("安装 debugpy 失败：{error}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

@@ -34,7 +34,7 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
               <button
                 type="button"
                 onClick={handleClear}
-                className="p-1.5 hover:bg-[var(--GlassHover)] rounded-lg text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] transition-colors"
+                className="p-1.5 hover:bg-[var(--material-interactive-hover)] rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-colors"
               >
                 <Icons.Checks size={14} />
               </button>
@@ -47,25 +47,25 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
       <div className="flex flex-col flex-1 overflow-y-auto aurona-scroll px-3 pb-4">
         {notifications.length === 0 ? (
           <div className="relative flex flex-1 flex-col items-center justify-center gap-5 overflow-hidden px-5 text-center">
-            <div className="pointer-events-none absolute h-44 w-44 rounded-full bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] blur-3xl" />
+            <div className="pointer-events-none absolute h-44 w-44 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] blur-3xl" />
             <div className="relative">
-              <div className="absolute inset-0 scale-125 rounded-full bg-[color-mix(in_srgb,var(--AccentPrimary)_16%,transparent)] blur-xl" />
-              <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--AccentPrimary)_22%,var(--GlassBorder))] bg-[var(--GlassSurface-Elevated)] text-[var(--AccentPrimary)] shadow-[var(--shadow-surface)]">
+              <div className="absolute inset-0 scale-125 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] blur-xl" />
+              <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-accent)_22%,var(--border-subtle))] bg-[var(--material-surface)] text-[var(--color-accent)] shadow-[var(--shadow-surface)]">
                 <Icons.Bell size={27} stroke={1.45} />
               </div>
             </div>
             <div className="relative z-10 space-y-2">
-              <h3 className="text-[14px] font-semibold text-[var(--TextHighlight)]">
+              <h3 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
                 通知中心很安静
               </h3>
-              <p className="text-[12px] leading-relaxed text-[var(--TextMuted)]">
+              <p className="text-[12px] leading-relaxed text-[var(--color-text-muted)]">
                 Aurona Code 会在需要你处理时通知你
                 <br />
                 其余工作将在后台安静完成
               </p>
             </div>
-            <div className="relative z-10 flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--AccentPrimary)_16%,var(--GlassBorder))] bg-[var(--GlassSurface-Base)] px-3 py-1 text-[11px] font-medium text-[var(--TextMuted)]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--AccentPrimary)] shadow-[0_0_7px_color-mix(in_srgb,var(--AccentPrimary)_65%,transparent)]" />
+            <div className="relative z-10 flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--color-accent)_16%,var(--border-subtle))] bg-[var(--material-panel)] px-3 py-1 text-[11px] font-medium text-[var(--color-text-muted)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] shadow-[0_0_7px_color-mix(in_srgb,var(--color-accent)_65%,transparent)]" />
               所有通知均已查看
             </div>
           </div>
@@ -88,12 +88,12 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
                     ? "bg-red-500/10 text-red-500"
                     : item.type === "warning"
                       ? "bg-yellow-500/10 text-yellow-500"
-                      : "bg-[color-mix(in_srgb,var(--AccentPrimary)_10%,transparent)] text-[var(--AccentPrimary)]";
+                      : "bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]";
 
               return (
                 <div
                   key={item.id}
-                  className="flex gap-3 bg-white/5 bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] border border-black/5 dark:border-white/5 rounded-2xl p-3 z-10 hover:border-black/20 dark:hover:border-white/20 transition-all group relative"
+                  className="flex gap-3 bg-white/5 bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] border border-black/5 dark:border-white/5 rounded-2xl p-3 z-10 hover:border-black/20 dark:hover:border-white/20 transition-all group relative"
                 >
                   <div
                     className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full ${bgColor}`}
@@ -101,10 +101,10 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
                     <Icon size={14} />
                   </div>
                   <div className="flex flex-col justify-center gap-1 min-w-0">
-                    <span className="text-[12px] text-[var(--TextHighlight)] leading-relaxed break-words">
+                    <span className="text-[12px] text-[var(--color-text-highlight)] leading-relaxed break-words">
                       {item.message}
                     </span>
-                    <span className="text-[10px] text-[var(--TextMuted)]">
+                    <span className="text-[10px] text-[var(--color-text-muted)]">
                       {new Date(item.timestamp).toLocaleTimeString()}
                     </span>
                   </div>

@@ -20,7 +20,7 @@ export function InternalPageLayout({
   maxWidth,
 }: InternalPageLayoutProps) {
   return (
-    <div className="flex h-full w-full bg-transparent select-none text-[var(--TextPrimary)] overflow-hidden">
+    <div className="flex h-full w-full bg-transparent select-none text-[var(--color-text-primary)] overflow-hidden">
       {}
       {sidebar && (
         <div className="w-64 flex-shrink-0 bg-transparent px-6 pb-10 pt-10 overflow-y-auto">
@@ -37,9 +37,9 @@ export function InternalPageLayout({
             <div className="flex items-center justify-between mb-8 w-full gap-4 shrink-0">
               <div className="flex items-baseline gap-4">
                 <div className="flex items-center gap-3">
-                  {icon && <div className="text-[var(--TextHighlight)]">{icon}</div>}
+                  {icon && <div className="text-[var(--color-text-highlight)]">{icon}</div>}
                   {title && (
-                    <h1 className="text-2xl text-[var(--TextHighlight)] font-bold tracking-tight text-shadow-sm whitespace-nowrap">
+                    <h1 className="text-2xl text-[var(--color-text-highlight)] font-bold tracking-tight text-shadow-sm whitespace-nowrap">
                       {title}
                     </h1>
                   )}

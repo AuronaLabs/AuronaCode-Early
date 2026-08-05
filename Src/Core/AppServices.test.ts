@@ -41,7 +41,7 @@ vi.mock("../State/useEditorStore", () => ({
   initializeEditorStore: mocks.initializeEditorStore,
 }));
 vi.mock("./Commands", () => ({ registerWorkbenchCommands: mocks.registerWorkbenchCommands }));
-vi.mock("../Features/Editor/Model/RecoveryCoordinator", () => ({
+vi.mock("./Recovery/RecoveryCoordinator", () => ({
   RecoveryCoordinator: { flushAll: mocks.flushRecovery },
 }));
 vi.mock("../Foundation/IPC/AccountAuthCommands", () => ({
@@ -51,6 +51,8 @@ vi.mock("../Foundation/IPC/AccountAuthCommands", () => ({
   },
 }));
 vi.mock("../Foundation/Desktop", () => ({
+  invokeDesktop: vi.fn(async () => undefined),
+  listenDesktop: vi.fn(async () => () => undefined),
   desktopWindow: {
     onCloseRequested: vi.fn(async (handler) => {
       mocks.closeHandler = handler;

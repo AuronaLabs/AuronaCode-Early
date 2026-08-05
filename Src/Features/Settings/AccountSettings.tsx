@@ -2,6 +2,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import { AccountService } from "../../Core/AccountService";
 import type { AccountAuthPhase } from "../../Foundation/IPC/AccountAuthCommands";
 import { Button } from "../../UI/Components/Button";
+import { GlassContainer } from "../../UI/Core/GlassManager";
 import { Icons } from "../../UI/Icons/IconManager";
 
 const PENDING_PHASES: AccountAuthPhase[] = [
@@ -33,7 +34,7 @@ function profileInitial(name: string): string {
 function AccountAvatar({ name, picture }: { name: string; picture: string | null }) {
   const [failed, setFailed] = useState(false);
   return (
-    <div className="mb-7 grid size-28 place-items-center overflow-hidden rounded-full border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] text-4xl font-semibold text-[var(--AccentPrimary)] shadow-[var(--shadow-surface)]">
+    <div className="mb-7 grid size-28 place-items-center overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-4xl font-semibold text-[var(--color-accent)] shadow-[var(--shadow-surface)]">
       {picture && !failed ? (
         <img
           src={picture}
@@ -101,18 +102,21 @@ export function AccountSettings() {
   };
 
   return (
-    <div className="flex min-h-[520px] w-full max-w-3xl flex-col overflow-hidden rounded-2xl glass-inner-card shadow-sm">
+    <GlassContainer
+      layer="elevated"
+      className="flex min-h-[520px] w-full max-w-3xl flex-col overflow-hidden rounded-2xl  shadow-sm"
+    >
       <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center">
         {profile && status.phase === "signedIn" ? (
           <>
             <AccountAvatar key={profile.picture} name={displayName} picture={profile.picture} />
-            <h2 className="max-w-full break-words text-3xl font-bold tracking-tight text-[var(--TextHighlight)]">
+            <h2 className="max-w-full break-words text-3xl font-bold tracking-tight text-[var(--color-text-highlight)]">
               {displayName}
             </h2>
-            <p className="mt-2 max-w-lg break-all text-[11px] tracking-wide text-[var(--TextMuted)]">
+            <p className="mt-2 max-w-lg break-all text-[11px] tracking-wide text-[var(--color-text-muted)]">
               ID · {profile.subject}
             </p>
-            <p className="mt-7 max-w-full break-all text-xl font-medium text-[var(--TextPrimary)]">
+            <p className="mt-7 max-w-full break-all text-xl font-medium text-[var(--color-text-primary)]">
               {profile.email || "未向 Aurona Code 授权邮箱"}
             </p>
             {profile.emailVerified === false && profile.email && (
@@ -121,20 +125,20 @@ export function AccountSettings() {
           </>
         ) : (
           <>
-            <div className="mb-7 grid size-20 place-items-center rounded-3xl border border-[var(--GlassBorder)] bg-[var(--GlassSurface-Elevated)] text-[var(--AccentPrimary)] shadow-[var(--shadow-surface)]">
+            <div className="mb-7 grid size-20 place-items-center rounded-3xl border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-accent)] shadow-[var(--shadow-surface)]">
               <Icons.User size={36} stroke={1.5} />
             </div>
-            <h2 className="text-2xl font-bold tracking-tight text-[var(--TextHighlight)]">
+            <h2 className="text-2xl font-bold tracking-tight text-[var(--color-text-highlight)]">
               Aurona Account
             </h2>
-            <p className="mt-3 max-w-md text-[13px] leading-6 text-[var(--TextMuted)]">
+            <p className="mt-3 max-w-md text-[13px] leading-6 text-[var(--color-text-muted)]">
               使用 Aurona 官方账户连接 Aurona
               Code。授权会在系统浏览器中完成，应用不会读取或保存你的密码。
             </p>
             {status.enabled ? (
               pending ? (
                 <div className="mt-8 flex flex-col items-center gap-4">
-                  <span className="inline-flex items-center gap-2 text-[13px] font-medium text-[var(--TextPrimary)]">
+                  <span className="inline-flex items-center gap-2 text-[13px] font-medium text-[var(--color-text-primary)]">
                     <Icons.Refresh size={16} className="animate-spin" />
                     {phaseMessage(status.phase) || "正在准备登录…"}
                   </span>
@@ -149,7 +153,7 @@ export function AccountSettings() {
                 </Button>
               )
             ) : (
-              <p className="mt-8 rounded-xl bg-[var(--GlassSurface-Base)] px-4 py-3 text-[12px] text-[var(--TextMuted)]">
+              <p className="mt-8 rounded-xl bg-[var(--material-panel)] px-4 py-3 text-[12px] text-[var(--color-text-muted)]">
                 当前构建尚未配置 Aurona Account 客户端。
               </p>
             )}
@@ -168,14 +172,14 @@ export function AccountSettings() {
           !interactionError &&
           !status.lastError &&
           status.phase !== "signedIn" && (
-            <p className="mt-6 text-[12px] text-[var(--TextMuted)]" role="status">
+            <p className="mt-6 text-[12px] text-[var(--color-text-muted)]" role="status">
               {status.lastNotice}
             </p>
           )}
       </div>
 
       {profile && status.phase === "signedIn" && (
-        <div className="border-t border-[var(--GlassBorder)] p-5">
+        <div className="border-t border-[var(--border-subtle)] p-5">
           <Button
             variant="secondary"
             fullWidth
@@ -188,6 +192,6 @@ export function AccountSettings() {
           </Button>
         </div>
       )}
-    </div>
+    </GlassContainer>
   );
 }

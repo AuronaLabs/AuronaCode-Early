@@ -69,10 +69,10 @@ if (isMacUniversal) {
     throw new Error("Universal macOS runtime manifest must declare arm64 and x64");
   }
   await execFile("lipo", [
+    runtimePath,
     "-verify_arch",
     "arm64",
     "x86_64",
-    runtimePath,
   ]);
 }
 

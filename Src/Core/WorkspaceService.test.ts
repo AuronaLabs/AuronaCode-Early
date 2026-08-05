@@ -1,5 +1,11 @@
 import { WorkspaceService } from "./WorkspaceService";
 
+vi.mock("../Foundation/IPC/FileSystemCommands", () => ({
+  FileSystemCommands: {
+    setWorkspaceRoot: vi.fn(async () => undefined),
+  },
+}));
+
 vi.mock("../Foundation/Storage/WorkspaceStore", () => ({
   WorkspaceStore: {
     get: vi.fn(async () => ({})),

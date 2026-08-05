@@ -1,16 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { DocumentService } from "../../Core/DocumentService";
 import { FileSystemService } from "../../Core/FileSystemService";
+import { RecoveryCoordinator } from "../../Core/Recovery/RecoveryCoordinator";
+import { type RecoverySnapshot, RecoveryStore } from "../../Core/Recovery/RecoveryStore";
 import { DesktopError } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
 import { isBinaryExtension } from "../../Shared/Constants/FileTypes";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
-
 import { AuronaEngine } from "./AuronaEngine";
-import { RecoveryCoordinator } from "./Model/RecoveryCoordinator";
-import { type RecoverySnapshot, RecoveryStore } from "./Model/RecoveryStore";
 
 type EditorTabProps = {
   path: string;
@@ -243,35 +242,35 @@ export const EditorTab = React.memo(function EditorTab({
       {!isEditorReady && !isBinaryWarning && !loadError && (
         <div className="absolute inset-0 z-20 flex flex-col bg-transparent">
           <div className="flex-1 p-6 space-y-4">
-            <div className="h-3 w-1/3 bg-[var(--GlassSurface-Elevated)] rounded-full animate-pulse" />
-            <div className="h-3 w-1/2 bg-[var(--GlassSurface-Elevated)] rounded-full animate-pulse" />
-            <div className="h-3 w-1/4 bg-[var(--GlassSurface-Elevated)] rounded-full animate-pulse" />
-            <div className="h-3 w-2/3 bg-[var(--GlassSurface-Elevated)] rounded-full animate-pulse" />
+            <div className="h-3 w-1/3 bg-[var(--material-surface)] rounded-full animate-pulse" />
+            <div className="h-3 w-1/2 bg-[var(--material-surface)] rounded-full animate-pulse" />
+            <div className="h-3 w-1/4 bg-[var(--material-surface)] rounded-full animate-pulse" />
+            <div className="h-3 w-2/3 bg-[var(--material-surface)] rounded-full animate-pulse" />
           </div>
         </div>
       )}
 
       {loadError ? (
-        <div className="flex flex-1 flex-col items-center justify-center bg-transparent px-6 text-center text-[var(--TextPrimary)] select-none">
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--GlassSurface-Elevated)] text-[var(--TextMuted)]">
+        <div className="flex flex-1 flex-col items-center justify-center bg-transparent px-6 text-center text-[var(--color-text-primary)] select-none">
+          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--color-text-muted)]">
             <Icons.AlertTriangle size={38} stroke={1.2} />
           </div>
-          <h3 className="mb-2 text-[16px] font-semibold text-[var(--TextHighlight)]">
+          <h3 className="mb-2 text-[16px] font-semibold text-[var(--color-text-highlight)]">
             {loadError.code === "file_too_large" ? "文件超出安全编辑范围" : "无法打开文件"}
           </h3>
-          <p className="max-w-[520px] text-[13px] leading-relaxed text-[var(--TextMuted)]">
+          <p className="max-w-[520px] text-[13px] leading-relaxed text-[var(--color-text-muted)]">
             {loadError.message}
           </p>
         </div>
       ) : isBinaryWarning ? (
-        <div className="flex flex-1 flex-col items-center justify-center bg-transparent text-[var(--TextPrimary)] select-none px-6 text-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--GlassSurface-Elevated)] text-[var(--TextMuted)] mb-6">
+        <div className="flex flex-1 flex-col items-center justify-center bg-transparent text-[var(--color-text-primary)] select-none px-6 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--color-text-muted)] mb-6">
             <Icons.FileCode size={40} stroke={1} />
           </div>
-          <h3 className="text-[16px] font-semibold text-[var(--TextHighlight)] mb-2">
+          <h3 className="text-[16px] font-semibold text-[var(--color-text-highlight)] mb-2">
             无法显示此文件
           </h3>
-          <p className="text-[13px] text-[var(--TextMuted)] mb-8 max-w-[420px] leading-relaxed">
+          <p className="text-[13px] text-[var(--color-text-muted)] mb-8 max-w-[420px] leading-relaxed">
             该文件可能是二进制文件，或使用了暂不支持的文本编码强行在编辑器中打开可能会导致乱码或性能问题
           </p>
           <button
@@ -280,7 +279,7 @@ export const EditorTab = React.memo(function EditorTab({
               setIsBinaryWarning(false);
               loadContent(path, true);
             }}
-            className="px-6 py-2 bg-[var(--AccentPrimary)] hover:bg-[var(--AccentHover)] text-white rounded-lg font-medium transition-colors cursor-pointer"
+            className="px-6 py-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white rounded-lg font-medium transition-colors cursor-pointer"
           >
             仍然强制打开
           </button>
@@ -326,7 +325,7 @@ export const EditorTab = React.memo(function EditorTab({
             </div>
           )}
           {pendingRecovery && !syncError && (
-            <div className="absolute inset-x-3 top-3 z-30 flex items-center justify-between gap-3 rounded-xl border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-2 text-[12px] text-[var(--TextPrimary)] shadow-[var(--shadow-overlay)]">
+            <div className="absolute inset-x-3 top-3 z-30 flex items-center justify-between gap-3 rounded-xl border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-2 text-[12px] text-[var(--color-text-primary)] shadow-[var(--shadow-overlay)]">
               <span className="min-w-0 truncate">检测到未保存的本地恢复快照</span>
               <span className="flex shrink-0 items-center gap-1">
                 <button
@@ -339,7 +338,7 @@ export const EditorTab = React.memo(function EditorTab({
                 <button
                   type="button"
                   onClick={handleRestoreRecovery}
-                  className="rounded-lg bg-[var(--AccentPrimary)] px-2 py-1 font-medium text-white"
+                  className="rounded-lg bg-[var(--color-accent)] px-2 py-1 font-medium text-white"
                 >
                   恢复内容
                 </button>
@@ -347,7 +346,7 @@ export const EditorTab = React.memo(function EditorTab({
             </div>
           )}
           {isSaving && (
-            <div className="absolute right-3 bottom-3 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-1.5 text-[12px] text-[var(--TextMuted)] shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)]">
+            <div className="absolute right-3 bottom-3 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-1.5 text-[12px] text-[var(--color-text-muted)] shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)]">
               正在保存...
             </div>
           )}

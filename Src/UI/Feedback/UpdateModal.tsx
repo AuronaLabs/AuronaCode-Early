@@ -64,10 +64,10 @@ export function UpdateModal() {
         if (!isUpdating) setIsOpen(false);
       }}
       title={`发现新版本 v${updateInfo.version}`}
-      icon={<Icons.Download className="text-[var(--AccentPrimary)]" size={18} stroke={2} />}
+      icon={<Icons.Download className="text-[var(--color-accent)]" size={18} stroke={2} />}
       footer={
         <div className="flex w-full items-center justify-between">
-          <div className="text-[12px] text-[var(--TextMuted)]">
+          <div className="text-[12px] text-[var(--color-text-muted)]">
             {isUpdating ? progressText : "更新将自动重启应用。"}
           </div>
           <div className="flex gap-2">
@@ -96,12 +96,12 @@ export function UpdateModal() {
       }
     >
       <div className="flex max-h-[52vh] flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar">
-        <div className="flex items-center gap-2 text-[11px] text-[var(--TextMuted)]">
+        <div className="flex items-center gap-2 text-[11px] text-[var(--color-text-muted)]">
           <span className="flex items-center gap-1.5">
             <Icons.History size={13} stroke={1.7} />
             {updateInfo.date ? new Date(updateInfo.date).toLocaleDateString() : "发布日期未知"}
           </span>
-          <span className="h-1 w-1 rounded-full bg-[var(--TextMuted)] opacity-45" />
+          <span className="h-1 w-1 rounded-full bg-[var(--color-text-muted)] opacity-45" />
           <span>来自 Aurona Code 官方更新通道</span>
         </div>
         <div className="pb-1">

@@ -4,20 +4,20 @@ import * as React from "react";
 import { cn } from "../../Shared/Utils/cn";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-lg text-[13px] font-medium transition-[background-color,border-color,color,box-shadow,opacity,transform] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--AccentPrimary)]/50 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97] select-none",
+  "inline-flex items-center justify-center gap-2 rounded-lg text-[13px] font-medium transition-[background-color,border-color,color,box-shadow,opacity,transform] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/50 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97] select-none",
   {
     variants: {
       variant: {
         primary:
-          "bg-[var(--AccentPrimary)] text-white hover:bg-[var(--AccentHover)] shadow-sm border border-black/5 dark:border-white/10",
+          "bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] shadow-sm border border-black/5 dark:border-white/10",
         secondary:
-          "bg-[var(--GlassHover)] text-[var(--TextHighlight)] hover:bg-[var(--GlassBorder)] border border-[var(--GlassBorder)]",
+          "bg-[var(--material-interactive-hover)] text-[var(--color-text-highlight)] hover:bg-[var(--border-subtle)] border border-[var(--border-subtle)]",
         danger:
           "bg-red-500/90 text-white hover:bg-red-500 shadow-sm border border-red-400/20 focus-visible:ring-red-500/50",
         ghost:
-          "bg-transparent text-[var(--TextPrimary)] hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)]",
+          "bg-transparent text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]",
         glass:
-          "border border-[var(--GlassBorder)] bg-[var(--material-surface)] text-[var(--TextHighlight)] shadow-sm backdrop-blur-[var(--glass-blur-elevated)] hover:bg-[var(--GlassHover)]",
+          "border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-highlight)] shadow-sm backdrop-blur-[var(--glass-blur-elevated)] hover:bg-[var(--material-interactive-hover)]",
       },
       size: {
         default: "h-8 px-4 py-1.5",

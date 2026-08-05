@@ -4,7 +4,7 @@
   <p><strong>面向现代桌面开发体验的自研代码编辑器</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.3.5-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.3.6-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
   </p>
@@ -13,7 +13,7 @@
 Aurona Code 不是 VS Code 的换皮项目。它以 Tauri 2、React 19 和 Rust 为基础，围绕自研的 **AuronaEngine**、Rust Rope 文档会话和桌面原生能力，探索一套更统一、更可控的现代代码编辑器架构。
 
 > [!IMPORTANT]
-> Aurona Code 仍处于早期快速迭代阶段。0.3.5 聚焦质量、安全、性能和架构收口，已具备可运行的编辑、文件、搜索、Git、终端、语言服务和基础调试能力，但尚不适合替代成熟编辑器承担无法容忍数据风险的生产工作。请为重要项目保留版本控制和备份。
+> Aurona Code 仍处于早期快速迭代阶段。0.3.6 聚焦架构收口、审查驱动优化与 Material 美学统一，已具备可运行的编辑、文件、搜索、Git、终端、语言服务、基础调试和 Aurona Account 官方账户能力，但尚不适合替代成熟编辑器承担无法容忍数据风险的生产工作。请为重要项目保留版本控制和备份。
 
 ## 项目方向
 
@@ -24,19 +24,21 @@ Aurona Code 不是 VS Code 的换皮项目。它以 Tauri 2、React 19 和 Rust 
 - **Aurona Material**：以玻璃材质、清晰层级和高信息密度塑造独立的桌面视觉语言。
 - **可演进边界**：业务代码通过类型化桌面接口访问 Tauri，降低 UI 与本地实现的耦合。
 
-## 0.3.1 当前能力
+## 0.3.6 当前能力
 
 | 领域 | 状态 | 当前实现 |
 | --- | --- | --- |
-| 编辑器 | 已实现核心闭环 | AuronaEngine、Rust Rope、UTF-16 编辑、虚拟视口、Worker/Rust 高亮、撤销/重做、搜索与 LSP 基础能力 |
+| 编辑器 | 已实现核心闭环 | AuronaEngine、Rust Rope、UTF-16 编辑、虚拟视口、Worker/Rust 高亮、撤销/重做、搜索/补全/Hover/诊断与 LSP 基础能力 |
 | 文档可靠性 | 已实现基础保护 | revision、原子批次、磁盘指纹、临时文件替换、恢复快照和冲突拒绝覆盖 |
-| 工作区 | 已实现 | 文件树、标签页、打开/保存、新建/重命名/删除、布局持久化和文件定位 |
+| 工作区 | 已实现 | 文件树、标签页、打开/保存、新建/重命名/删除、布局持久化、文件定位；文件操作由 Rust 授权会话与规范化路径校验 |
 | 全局搜索 | 已实现 | 工作区搜索、结果分组、跳转、请求 ID 与后端取消 |
-| Git | 已实现常用流程 | 状态、暂存/取消暂存、提交、历史和提交 Diff 查看 |
+| Git | 已实现常用流程 | 状态、暂存/取消暂存、提交、历史、提交 Diff、分支管理、Fetch/Pull/Push；子进程纳入受保护进程组 |
 | 终端 | 已实现 | 基于 `portable-pty` 与 xterm.js 的本地 PTY 终端 |
 | Fliuno 与命令系统 | 已实现命令范围 | Fliuno 提供全局搜索入口，当前接入真实命令；标题栏菜单、快捷键和 macOS 菜单共享命令 ID |
+| 语言服务与调试 | 已实现基础闭环 | Python/TypeScript 语言服务、Hover/补全/诊断、DAP 会话、断点与变量查看 |
+| Aurona Account | 已启用官方账户 | OAuth 2.1/OIDC、PKCE S256、动态本机回调、系统凭据库；开发与正式使用同一公开客户端 |
 | 桌面更新 | 已实现代码路径 | 自动检查、手动检查、下载与安装；仍需随每次真实 Release 验证签名和更新链 |
-| 主题与界面 | 已实现 | 深色/浅色主题、拟物强度、界面密度、Aurona Material 组件和 reduced motion |
+| 主题与界面 | 已实现 | 深色/浅色主题、拟物强度、界面密度、Aurona Material 语义 token 和 reduced motion |
 | 性能测试 | 已实现 | 多轮样本、统计摘要、环境可比性与按语义版本排序的本地排行 |
 | 跨平台 | 构建已配置 | Windows、macOS、Linux CI；实际发布质量仍需逐平台和 DPI 手工验证 |
 
@@ -48,7 +50,7 @@ Aurona Code 不是 VS Code 的换皮项目。它以 Tauri 2、React 19 和 Rust 
 - 完整的多编辑器分栏、自定义编辑器运行时和全量文档投影 LRU。
 - 覆盖全部 LSP、Worker 和异步请求的统一 revision 失效协议。
 
-这些内容属于未来候选，不应被视为 0.3.1 已交付功能。
+这些内容属于未来候选，不应被视为 0.3.6 已交付功能。
 
 ## 架构概览
 
@@ -177,6 +179,15 @@ Aurona Code/
 - [0.3.0 性能报告](Docs/0.3.0-Performance-Report.md)
 - [0.3.0 Release Notes](Docs/0.3.0-Release-Notes.md)
 - [0.3.1 Release Notes](Docs/0.3.1-Release-Notes.md)
+- [0.3.2 Release Notes](Docs/0.3.2-Release-Notes.md)
+- [0.3.3 Release Notes](Docs/0.3.3-Release-Notes.md)
+- [0.3.4 Release Notes](Docs/0.3.4-Release-Notes.md)
+- [0.3.5 Release Notes](Docs/0.3.5-Release-Notes.md)
+- [0.3.4 编辑器与 Git 架构](Docs/architecture/0.3.4-editor-and-git.md)
+- [0.3.4 Aurona Account 基础](Docs/architecture/0.3.4-aurora-account-foundation.md)
+- [0.3.5 收口说明](Docs/architecture/0.3.5-hardening.md)
+- [0.3.6 审查报告](Docs/0.3.6-Audit-Report.md)
+- [0.3.6 性能报告](Docs/0.3.6-Performance-Report.md)
 
 ## 参与贡献
 

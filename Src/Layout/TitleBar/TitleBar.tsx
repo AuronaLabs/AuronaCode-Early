@@ -52,11 +52,11 @@ export function TitleBar() {
   return (
     <div
       data-tauri-drag-region
-      className="flex h-[var(--TitleBarHeight)] shrink-0 select-none items-center justify-between bg-transparent text-[var(--TextPrimary)] text-[13px] relative z-30"
+      className="flex h-[var(--TitleBarHeight)] shrink-0 select-none items-center justify-between bg-transparent text-[var(--color-text-primary)] text-[13px] relative z-30"
     >
       <div className="flex h-full items-center pl-4 gap-3 min-w-0">
         <div
-          className="pointer-events-none text-[15px] text-[var(--TextHighlight)] flex items-center shrink-0"
+          className="pointer-events-none text-[15px] text-[var(--color-text-highlight)] flex items-center shrink-0"
           style={{ fontFamily: "'Righteous', sans-serif", fontWeight: 400, letterSpacing: "0.8px" }}
         >
           Aurona Code
@@ -177,7 +177,7 @@ export function TitleBar() {
           <Tooltip content="运行当前文件" delay={300} placement="bottom">
             <button
               type="button"
-              className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] text-[var(--TextHighlight)] transition-colors mr-2"
+              className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-highlight)] transition-colors mr-2"
               onClick={() => runCommand("workbench.action.runActiveFile")}
             >
               <Icons.Play size={16} stroke={2} />
@@ -189,7 +189,7 @@ export function TitleBar() {
           <Tooltip content="发现新版本" delay={300} placement="bottom">
             <button
               type="button"
-              className="relative mr-1 flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg text-[var(--AccentPrimary)] transition-colors hover:bg-[var(--GlassHover)] hover:text-[var(--AccentHover)]"
+              className="relative mr-1 flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg text-[var(--color-accent)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-accent-hover)]"
               onClick={() => EventBus.emit("app:show-update-modal")}
             >
               <Icons.Download size={16} stroke={2} />
@@ -201,7 +201,7 @@ export function TitleBar() {
         <Tooltip content="切换底侧面板" delay={500} placement="bottom">
           <button
             type="button"
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] transition-colors"
+            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
             onClick={() => runCommand("workbench.action.togglePanel")}
           >
             {isTerminalOpen ? (
@@ -211,11 +211,11 @@ export function TitleBar() {
             )}
           </button>
         </Tooltip>
-        <div className="w-px h-[14px] bg-[var(--GlassBorder)] mx-0.5" />
+        <div className="w-px h-[14px] bg-[var(--border-subtle)] mx-0.5" />
         <Tooltip content="最小化" delay={500} placement="bottom">
           <button
             type="button"
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] transition-colors"
+            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
             onClick={() => appWindow.minimize()}
           >
             <Icons.Minimize size={15} stroke={2} />
@@ -224,7 +224,7 @@ export function TitleBar() {
         <Tooltip content={isMaximized ? "向下还原" : "最大化"} delay={500} placement="bottom">
           <button
             type="button"
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--GlassHover)] hover:text-[var(--TextHighlight)] transition-colors"
+            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
             onClick={toggleMaximize}
           >
             {isMaximized ? (

@@ -1,9 +1,9 @@
-import { type DiagnosticItem, DiagnosticsService } from "../../Core/DiagnosticsService";
-import { normalizePositionEncoding, positionForEncoding } from "../../Core/Language/Position";
-import { OutputService } from "../../Core/OutputService";
 import { EventBus } from "../../Foundation/EventBus";
 import { LanguageServerIPC } from "../../Foundation/IPC/LanguageServerCommands";
-import type { CompletionItem } from "./components/AutocompleteMenu";
+import type { CompletionItem } from "../../Foundation/Types/Lsp";
+import { type DiagnosticItem, DiagnosticsService } from "../DiagnosticsService";
+import { OutputService } from "../OutputService";
+import { normalizePositionEncoding, positionForEncoding } from "./Position";
 
 export type LanguageServerStatus =
   | "stopped"

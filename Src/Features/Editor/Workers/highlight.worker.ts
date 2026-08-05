@@ -1,4 +1,31 @@
-import hljs from "highlight.js";
+import hljs from "highlight.js/lib/core";
+import css from "highlight.js/lib/languages/css";
+import javascript from "highlight.js/lib/languages/javascript";
+import json from "highlight.js/lib/languages/json";
+import python from "highlight.js/lib/languages/python";
+import rust from "highlight.js/lib/languages/rust";
+import typescript from "highlight.js/lib/languages/typescript";
+import xml from "highlight.js/lib/languages/xml";
+
+// Aurona Code only registers the languages its editor can detect, keeping the
+// worker bundle small instead of shipping every highlight.js grammar.
+hljs.registerLanguage("rust", rust);
+hljs.registerLanguage("python", python);
+hljs.registerLanguage("javascript", javascript);
+hljs.registerLanguage("typescript", typescript);
+hljs.registerLanguage("css", css);
+hljs.registerLanguage("json", json);
+hljs.registerLanguage("html", xml);
+
+const SUPPORTED_HLJS_LANGUAGES = new Set([
+  "rust",
+  "python",
+  "javascript",
+  "typescript",
+  "css",
+  "json",
+  "html",
+]);
 
 const classToType: Record<string, number> = {
   "hljs-keyword": 1,
@@ -90,6 +117,12 @@ self.onmessage = (e: MessageEvent) => {
     if (language === "py") hljsLang = "python";
     if (language === "js") hljsLang = "javascript";
     if (language === "ts") hljsLang = "typescript";
+
+    if (!SUPPORTED_HLJS_LANGUAGES.has(hljsLang)) {
+      const emptyTokens = Array.from({ length: totalLines }, () => []);
+      self.postMessage({ id, tokens: emptyTokens });
+      return;
+    }
 
     const highlighted = hljs.highlight(fullText, { language: hljsLang });
     const tokens = parseHtmlFast(highlighted.value, totalLines);

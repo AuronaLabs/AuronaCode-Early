@@ -2,11 +2,14 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { DebugService } from "../../Core/DebugService";
 import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { DocumentService } from "../../Core/DocumentService";
+import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
+import { LspClient } from "../../Core/Language/LspClient";
 import { applyLspTextEdits } from "../../Core/Language/TextEdits";
 import { EventBus } from "../../Foundation/EventBus";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { LanguageFeaturePreferences } from "../../Foundation/Types/Config";
 import type { EditorAction } from "../../Foundation/Types/Editor";
+import type { CompletionItem } from "../../Foundation/Types/Lsp";
 import { useDebugStore } from "../../State/useDebugStore";
 import {
   ContextMenuContent,
@@ -15,16 +18,16 @@ import {
   ContextMenuRoot,
   ContextMenuTrigger,
 } from "../../UI/Components/ContextMenu";
-import { LspClient } from "../Editor/LspClient";
-import { AutocompleteMenu, type CompletionItem } from "./components/AutocompleteMenu";
+import { AutocompleteMenu } from "./components/AutocompleteMenu";
 import { EditorLine } from "./components/EditorLine";
 import { HoverCard } from "./components/HoverCard";
 import { SearchWidget } from "./components/SearchWidget";
-import { EditorAdapter } from "./EditorAdapter";
 import { useEditorHistory } from "./Hooks/useEditorHistory";
 import { useEditorHover } from "./Hooks/useEditorHover";
+import { useEditorSearch } from "./Hooks/useEditorSearch";
 import { useSyntaxHighlighting } from "./Hooks/useSyntaxHighlighting";
 import type { IEditorEngine } from "./IEditorEngine";
+import { rankCompletionItems } from "./Utils/EditorCompletion";
 import { pointerSelectionDecision } from "./Utils/EditorInteraction";
 import {
   DEFAULT_EDITOR_LAYOUT,
@@ -52,6 +55,7 @@ import {
   sortSelection,
 } from "./Utils/EditorMath";
 import { editorPointToViewport } from "./Utils/EditorOverlay";
+import { insertTextIntoLines } from "./Utils/EditorTextInsert";
 
 export type AuronaEngineProps = {
   value: string;
@@ -167,12 +171,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     },
     [],
   );
-
-  // 搜索相关
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchMatches, setSearchMatches] = useState<{ line: number; char: number }[]>([]);
-  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
 
   // Autocomplete
   const [completions, setCompletions] = useState<CompletionItem[]>([]);
@@ -457,47 +455,30 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     layout.lineHeight,
   ]);
 
-  // 搜索
-  useEffect(() => {
-    if (!searchQuery) {
-      setSearchMatches([]);
-      return;
-    }
-    const matches: { line: number; char: number }[] = [];
-    documentLines.forEach((lineText, lineIdx) => {
-      let idx = lineText.toLowerCase().indexOf(searchQuery.toLowerCase());
-      while (idx !== -1) {
-        matches.push({ line: lineIdx, char: idx });
-        idx = lineText.toLowerCase().indexOf(searchQuery.toLowerCase(), idx + searchQuery.length);
+  const scrollToMatch = useCallback(
+    (match: { line: number; char: number }) => {
+      if (containerRef.current) {
+        containerRef.current.scrollTo({
+          top: Math.max(0, layout.contentInsetTop + match.line * layout.lineHeight - 100),
+          behavior: "smooth",
+        });
+        setCursor(match);
       }
-    });
-    setSearchMatches(matches);
-    setCurrentMatchIndex(0);
-  }, [searchQuery, documentLines]);
+    },
+    [layout.contentInsetTop, layout.lineHeight],
+  );
 
-  const handleSearchNext = () => {
-    if (searchMatches.length === 0) return;
-    const nextIdx = (currentMatchIndex + 1) % searchMatches.length;
-    setCurrentMatchIndex(nextIdx);
-    scrollToMatch(searchMatches[nextIdx]);
-  };
-
-  const handleSearchPrev = () => {
-    if (searchMatches.length === 0) return;
-    const prevIdx = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
-    setCurrentMatchIndex(prevIdx);
-    scrollToMatch(searchMatches[prevIdx]);
-  };
-
-  const scrollToMatch = (match: { line: number; char: number }) => {
-    if (containerRef.current) {
-      containerRef.current.scrollTo({
-        top: Math.max(0, layout.contentInsetTop + match.line * layout.lineHeight - 100),
-        behavior: "smooth",
-      });
-      setCursor(match);
-    }
-  };
+  const {
+    isOpen: isSearchOpen,
+    setIsOpen: setIsSearchOpen,
+    query: searchQuery,
+    setQuery: setSearchQuery,
+    matches: searchMatches,
+    currentIndex: currentMatchIndex,
+    next: handleSearchNext,
+    prev: handleSearchPrev,
+    close: handleSearchClose,
+  } = useEditorSearch(documentLines, scrollToMatch);
 
   // Autocomplete LSP
   const triggerAutocomplete = useCallback(
@@ -537,15 +518,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
                 return;
               }
               const rawItems = Array.isArray(response) ? response : (response?.items ?? []);
-              const items = rawItems
-                .filter((item) => {
-                  const candidate = item.filterText ?? item.label;
-                  return !prefix || candidate.toLowerCase().startsWith(prefix.toLowerCase());
-                })
-                .sort((left, right) =>
-                  (left.sortText ?? left.label).localeCompare(right.sortText ?? right.label),
-                )
-                .slice(0, 100);
+              const items = rankCompletionItems(rawItems, prefix);
               if (!items.length) {
                 setCompletions([]);
                 return;
@@ -755,93 +728,42 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   // 支持选区覆盖写入与合并
   const insertTextAtCursor = useCallback(
     (text: string) => {
-      let lines = [...documentLines];
-      let activeCursor = { ...cursor };
+      let editStartUtf16: number;
+      let editEndUtf16: number;
+      let workingLines = [...documentLines];
+      let insertCursor = { ...cursor };
 
       if (selection) {
-        const editStartUtf16 =
-          getLineStartUtf16(documentLines, sortSelection(selection).start.line) +
-          sortSelection(selection).start.char;
-        const editEndUtf16 =
-          getLineStartUtf16(documentLines, sortSelection(selection).end.line) +
-          sortSelection(selection).end.char;
-
-        const deletion = getLinesAfterDeletion(lines, selection);
-        lines = deletion.lines;
-        activeCursor = deletion.cursor;
+        const sorted = sortSelection(selection);
+        editStartUtf16 = getLineStartUtf16(documentLines, sorted.start.line) + sorted.start.char;
+        editEndUtf16 = getLineStartUtf16(documentLines, sorted.end.line) + sorted.end.char;
+        const deletion = getLinesAfterDeletion(documentLines, selection);
+        workingLines = deletion.lines;
+        insertCursor = deletion.cursor;
         setSelection(null);
-
-        const { line, char } = activeCursor;
-        const lineText = lines[line] || "";
-        const newLines = text.split("\n");
-        let targetCursor = { line, char };
-
-        if (newLines.length === 1) {
-          lines[line] = lineText.substring(0, char) + text + lineText.substring(char);
-          targetCursor = { line, char: char + text.length };
-        } else {
-          const rest = lineText.substring(char);
-          lines[line] = lineText.substring(0, char) + newLines[0];
-          for (let i = 1; i < newLines.length - 1; i++) {
-            lines.splice(line + i, 0, newLines[i]);
-          }
-          lines.splice(line + newLines.length - 1, 0, newLines[newLines.length - 1] + rest);
-          targetCursor = {
-            line: line + newLines.length - 1,
-            char: newLines[newLines.length - 1].length,
-          };
-        }
-
-        setDocumentLines(lines);
-        setCursor(targetCursor);
-
-        if (path) {
-          DocumentService.applyEdit(
-            path,
-            editStartUtf16,
-            editEndUtf16,
-            text,
-            lines.join("\n"),
-          ).catch(console.error);
-          triggerAutocomplete(lines, targetCursor.line, targetCursor.char);
-        }
       } else {
-        const { line, char } = activeCursor;
-        const lineText = lines[line] || "";
-        const startUtf16 = getLineStartUtf16(lines, line) + char;
-        const newLines = text.split("\n");
-        let targetCursor = { line, char };
-
-        if (newLines.length === 1) {
-          lines[line] = lineText.substring(0, char) + text + lineText.substring(char);
-          targetCursor = { line, char: char + text.length };
-        } else {
-          const rest = lineText.substring(char);
-          lines[line] = lineText.substring(0, char) + newLines[0];
-          for (let i = 1; i < newLines.length - 1; i++) {
-            lines.splice(line + i, 0, newLines[i]);
-          }
-          lines.splice(line + newLines.length - 1, 0, newLines[newLines.length - 1] + rest);
-          targetCursor = {
-            line: line + newLines.length - 1,
-            char: newLines[newLines.length - 1].length,
-          };
-        }
-
-        setDocumentLines(lines);
-        setCursor(targetCursor);
-
-        if (path) {
-          DocumentService.applyEdit(path, startUtf16, startUtf16, text, lines.join("\n")).catch(
-            console.error,
-          );
-          triggerAutocomplete(lines, targetCursor.line, targetCursor.char);
-        }
+        editStartUtf16 = getLineStartUtf16(documentLines, cursor.line) + cursor.char;
+        editEndUtf16 = editStartUtf16;
       }
 
-      updateMaxLineLength(lines);
-      setTotalLines(lines.length);
-      onChange?.(lines.join("\n"));
+      const inserted = insertTextIntoLines(workingLines, insertCursor, text);
+      setDocumentLines(inserted.lines);
+      setCursor(inserted.cursor);
+
+      if (path) {
+        DocumentService.applyEdit(
+          path,
+          editStartUtf16,
+          editEndUtf16,
+          text,
+          inserted.lines.join("\n"),
+        ).catch(console.error);
+        triggerAutocomplete(inserted.lines, inserted.cursor.line, inserted.cursor.char);
+      }
+
+      updateMaxLineLength(inserted.lines);
+      setTotalLines(inserted.lines.length);
+      onChange?.(inserted.lines.join("\n"));
     },
     [cursor, documentLines, onChange, path, selection, triggerAutocomplete, updateMaxLineLength],
   );
@@ -1769,8 +1691,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           }}
           className={`relative w-full text-right pr-3 font-mono text-[13px] select-none ${
             isCurrent
-              ? "text-[var(--TextHighlight)] font-bold opacity-100"
-              : "text-[var(--TextMuted)] opacity-60"
+              ? "text-[var(--color-text-highlight)] font-bold opacity-100"
+              : "text-[var(--color-text-muted)] opacity-60"
           }`}
           style={{ height: layout.lineHeight, lineHeight: `${layout.lineHeight}px` }}
         >
@@ -1819,7 +1741,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         .hl-token-6 { color: var(--SyntaxComment); font-style: italic; }
         .hl-token-7 { color: var(--SyntaxOperator); }
         .hl-token-8 { color: var(--SyntaxBuiltin); }
-        .hl-token-9 { color: var(--SyntaxTypeHint, var(--AccentPrimary)); }
+        .hl-token-9 { color: var(--SyntaxTypeHint, var(--color-accent)); }
 
         .hl-search { background-color: rgba(234, 179, 8, 0.25); border-bottom: 1px solid rgba(234, 179, 8, 0.6); }
         .hl-search-active { background-color: rgba(249, 115, 22, 0.45); border-bottom: 2px solid rgba(249, 115, 22, 0.9); }
@@ -1833,12 +1755,12 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           text-underline-offset: 3px;
           text-decoration-skip-ink: none;
         }
-        .hl-diag-error { text-decoration-color: #ef4444; }
-        .hl-diag-warning { text-decoration-color: #f59e0b; }
-        .hl-diag-info { text-decoration-color: #3b82f6; }
+        .hl-diag-error { text-decoration-color: var(--DiagError); }
+        .hl-diag-warning { text-decoration-color: var(--DiagWarning); }
+        .hl-diag-info { text-decoration-color: var(--DiagInfo); }
         .hl-diag-hint {
           text-decoration-style: dotted;
-          text-decoration-color: var(--TextMuted);
+          text-decoration-color: var(--color-text-muted);
         }
 
         /* 选中高亮段样式 */
@@ -1858,9 +1780,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         <SearchWidget
           onSearch={setSearchQuery}
           onClose={() => {
-            setIsSearchOpen(false);
-            setSearchQuery("");
-            setSearchMatches([]);
+            handleSearchClose();
             textareaRef.current?.focus();
           }}
           onNext={handleSearchNext}
@@ -1918,7 +1838,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
               {isActive && (
                 <div
                   key={`caret-${cursor.line}-${cursor.char}`}
-                  className="absolute w-[2px] bg-[var(--AccentPrimary)] editor-caret pointer-events-none z-20"
+                  className="absolute w-[2px] bg-[var(--color-accent)] editor-caret pointer-events-none z-20"
                   style={caretStyle}
                 />
               )}
@@ -1991,7 +1911,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       )}
       {import.meta.env.DEV &&
         new URLSearchParams(window.location.search).has("editorLayoutDebug") && (
-          <div className="pointer-events-none absolute bottom-2 right-2 z-50 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--TextMuted)] shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)]">
+          <div className="pointer-events-none absolute bottom-2 right-2 z-50 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--color-text-muted)] shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)]">
             {layout.fontSize}px / {layout.lineHeight}px · inset {layout.contentInsetX}px · DPR{" "}
             {layout.devicePixelRatio.toFixed(2)} · caret {caretPos.x.toFixed(1)},{" "}
             {caretPos.y.toFixed(1)}
