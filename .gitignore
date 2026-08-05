@@ -26,9 +26,12 @@ dist-ssr
 *.sw?
 
 # Tauri
+target-quality/
 src-tauri/target
+src-tauri/target-*/
 src-tauri/gen
-src-tauri/resources/toolchains
+src-tauri/resources/toolchains/*
+!src-tauri/resources/toolchains/.gitkeep
 
 # Python (manager.py artifacts)
 __pycache__/

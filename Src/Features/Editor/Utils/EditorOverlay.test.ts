@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { positionEditorOverlay } from "./EditorOverlay";
+import { editorPointToViewport, positionEditorOverlay } from "./EditorOverlay";
 
 describe("positionEditorOverlay", () => {
   it("anchors below a token when space is available", () => {
@@ -20,5 +20,13 @@ describe("positionEditorOverlay", () => {
         { width: 800, height: 600 },
       ),
     ).toEqual({ left: 552, top: 334, placement: "above" });
+  });
+});
+
+describe("editorPointToViewport", () => {
+  it("converts editor content coordinates into viewport coordinates exactly once", () => {
+    expect(
+      editorPointToViewport({ left: 280, top: 92 }, { x: 164, y: 420 }, { left: 36, top: 240 }),
+    ).toEqual({ x: 408, y: 272 });
   });
 });

@@ -4,7 +4,7 @@
   <p><strong>面向现代桌面开发体验的自研代码编辑器</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.3.4-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.3.5-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
   </p>
@@ -13,7 +13,7 @@
 Aurona Code 不是 VS Code 的换皮项目。它以 Tauri 2、React 19 和 Rust 为基础，围绕自研的 **AuronaEngine**、Rust Rope 文档会话和桌面原生能力，探索一套更统一、更可控的现代代码编辑器架构。
 
 > [!IMPORTANT]
-> Aurona Code 仍处于早期快速迭代阶段。0.3.4 已具备可运行的编辑、文件、搜索、Git、终端、语言服务和基础调试能力，但尚不适合替代成熟编辑器承担无法容忍数据风险的生产工作。请为重要项目保留版本控制和备份。
+> Aurona Code 仍处于早期快速迭代阶段。0.3.5 聚焦质量、安全、性能和架构收口，已具备可运行的编辑、文件、搜索、Git、终端、语言服务和基础调试能力，但尚不适合替代成熟编辑器承担无法容忍数据风险的生产工作。请为重要项目保留版本控制和备份。
 
 ## 项目方向
 

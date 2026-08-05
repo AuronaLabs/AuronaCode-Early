@@ -1,4 +1,4 @@
-import { BaseDirectory, desktopFileSystem } from "../Desktop";
+import { BaseDirectory, desktopFileSystem } from "../Desktop/FileSystem";
 import { Logger } from "../Logger";
 import type { WorkspaceState } from "../Types/Config";
 

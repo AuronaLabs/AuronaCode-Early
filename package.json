@@ -1,13 +1,15 @@
 {
   "name": "aurona-code",
   "private": true,
-  "version": "0.3.4",
+  "version": "0.3.5",
   "packageManager": "pnpm@11.13.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420",
     "build": "pnpm run typecheck && vite build",
     "prepare:toolchains": "node scripts/prepare-builtin-toolchains.mjs",
+    "verify:toolchains": "node scripts/verify-builtin-toolchains.mjs",
+    "verify:toolchains:contract": "node scripts/verify-builtin-toolchains.mjs --contract",
     "typecheck": "tsc --noEmit",
     "check": "biome ci Src",
     "check:boundaries": "node scripts/check-desktop-boundaries.mjs",

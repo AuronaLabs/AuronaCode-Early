@@ -12,7 +12,17 @@ export interface MacMenuActions {
   openDevtools(): void;
 }
 
-export async function setupMacApplicationMenu(actions: MacMenuActions): Promise<void> {
+export interface MacMenuState {
+  canSave: boolean;
+  canRun: boolean;
+}
+
+export interface MacMenuController {
+  update(state: MacMenuState): Promise<void>;
+  dispose(): void;
+}
+
+export async function setupMacApplicationMenu(actions: MacMenuActions): Promise<MacMenuController> {
   const appMenu = await Submenu.new({
     text: "Aurona Code",
     items: [
@@ -27,6 +37,12 @@ export async function setupMacApplicationMenu(actions: MacMenuActions): Promise<
       await PredefinedMenuItem.new({ item: "Quit" }),
     ],
   });
+  const saveItem = await MenuItem.new({
+    text: "保存",
+    accelerator: "CmdOrControl+S",
+    action: actions.saveFile,
+    enabled: false,
+  });
   const fileMenu = await Submenu.new({
     text: "文件",
     items: [
@@ -39,7 +55,7 @@ export async function setupMacApplicationMenu(actions: MacMenuActions): Promise<
       await PredefinedMenuItem.new({ item: "Separator" }),
       await MenuItem.new({ text: "打开文件…", action: actions.openFile }),
       await MenuItem.new({ text: "打开文件夹…", action: actions.openFolder }),
-      await MenuItem.new({ text: "保存", accelerator: "CmdOrControl+S", action: actions.saveFile }),
+      saveItem,
     ],
   });
   const editMenu = await Submenu.new({
@@ -55,9 +71,14 @@ export async function setupMacApplicationMenu(actions: MacMenuActions): Promise<
       await PredefinedMenuItem.new({ item: "SelectAll" }),
     ],
   });
+  const runItem = await MenuItem.new({
+    text: "运行当前文件",
+    action: actions.runActiveFile,
+    enabled: false,
+  });
   const runMenu = await Submenu.new({
     text: "运行",
-    items: [await MenuItem.new({ text: "运行当前文件", action: actions.runActiveFile })],
+    items: [runItem],
   });
   const helpMenu = await Submenu.new({
     text: "帮助",
@@ -70,4 +91,12 @@ export async function setupMacApplicationMenu(actions: MacMenuActions): Promise<
   });
   const menu = await Menu.new({ items: [appMenu, fileMenu, editMenu, runMenu, helpMenu] });
   await menu.setAsAppMenu();
+  return {
+    async update(state) {
+      await Promise.all([saveItem.setEnabled(state.canSave), runItem.setEnabled(state.canRun)]);
+    },
+    dispose() {
+      menu.close();
+    },
+  };
 }

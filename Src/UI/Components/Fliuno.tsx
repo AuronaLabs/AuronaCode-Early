@@ -239,6 +239,7 @@ export function Fliuno() {
 
   const effectiveScopeLabel = scopeOptions.find((item) => item.id === parsedQuery.scope)?.label;
   const fileSearchUnavailable = parsedQuery.scope !== "commands" && !workspaceRoot;
+  const hasQuery = query.trim().length > 0;
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-start justify-center px-5 pt-[9vh]">
@@ -249,34 +250,21 @@ export function Fliuno() {
         onClick={close}
       />
       <section
+        data-testid="fliuno-surface"
         aria-label="Fliuno 全局搜索"
-        className="relative flex max-h-[78vh] w-full max-w-[760px] flex-col overflow-hidden rounded-[22px] border border-[var(--border-overlay)] bg-[var(--material-overlay)] shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)]"
+        className={`relative grid w-full max-w-[720px] overflow-hidden border border-[var(--border-overlay)] bg-[var(--material-overlay)] shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)] transition-[border-radius] duration-200 ${
+          hasQuery ? "rounded-[20px]" : "rounded-[18px]"
+        }`}
       >
-        <div className="flex items-center gap-3 px-5 pb-3 pt-4">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--AccentPrimary)]/10 text-[var(--AccentPrimary)]">
-            <Icons.Sparkles size={18} stroke={1.8} />
+        <div className="flex h-14 items-center gap-3 px-4 transition-[background-color,box-shadow] focus-within:bg-[var(--material-surface)] focus-within:shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--TextMuted)_16%,transparent)]">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--AccentPrimary)]/10 text-[var(--AccentPrimary)]">
+            <Icons.Search size={17} stroke={1.8} />
           </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[13px] font-semibold text-[var(--TextHighlight)]">Fliuno</span>
-              <span className="text-[10px] text-[var(--TextMuted)]">快速抵达任何地方</span>
-            </div>
-            <div className="mt-0.5 truncate text-[9px] text-[var(--TextMuted)] opacity-70">
-              使用 &gt; 搜索命令，使用 @ 搜索工作区文件
-            </div>
-          </div>
-          <kbd className="rounded-md border border-[var(--border-subtle)] px-1.5 py-0.5 text-[9px] text-[var(--TextMuted)]">
-            Esc
-          </kbd>
-        </div>
-
-        <div className="mx-4 flex h-12 items-center gap-3 rounded-[14px] border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3.5 shadow-[var(--shadow-surface)] transition-[border-color,box-shadow] focus-within:border-[var(--TextMuted)]/30 focus-within:ring-2 focus-within:ring-[var(--TextMuted)]/10">
-          <Icons.Search size={18} stroke={1.7} className="shrink-0 text-[var(--TextMuted)]" />
           <input
             ref={inputRef}
             data-aurona-input="embedded"
             role="combobox"
-            aria-expanded="true"
+            aria-expanded={hasQuery}
             aria-controls="fliuno-results"
             aria-activedescendant={results[selectedIndex]?.id}
             value={query}
@@ -318,8 +306,8 @@ export function Fliuno() {
                 void execute(results[selectedIndex]);
               }
             }}
-            placeholder="搜索命令或文件…"
-            className="h-full min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-[14px] text-[var(--TextHighlight)] outline-none ring-0 placeholder:text-[var(--TextMuted)] focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+            placeholder="搜索命令、文件或设置…"
+            className="h-full min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-[14px] font-medium text-[var(--TextHighlight)] outline-none ring-0 placeholder:font-normal placeholder:text-[var(--TextMuted)] focus:outline-none focus-visible:outline-none focus-visible:ring-0"
           />
           {query && (
             <button
@@ -335,147 +323,166 @@ export function Fliuno() {
               <Icons.Close size={14} />
             </button>
           )}
-        </div>
-
-        <div className="flex items-center gap-1.5 px-5 py-3">
-          {scopeOptions.map((option) => {
-            const active = parsedQuery.scope === option.id;
-            const ScopeIcon = Icons[option.icon];
-            return (
-              <button
-                type="button"
-                key={option.id}
-                onClick={() => selectScope(option.id)}
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-medium transition-[background-color,color] ${
-                  active
-                    ? "bg-[var(--material-interactive-active)] text-[var(--TextHighlight)]"
-                    : "text-[var(--TextMuted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--TextPrimary)]"
-                }`}
-              >
-                <ScopeIcon size={12} stroke={1.8} />
-                {option.label}
-                {option.prefix && <span className="font-mono opacity-55">{option.prefix}</span>}
-              </button>
-            );
-          })}
-          <span className="ml-auto text-[9px] text-[var(--TextMuted)]">
-            {fileIndexState === "loading" && parsedQuery.scope !== "commands"
-              ? "正在整理工作区文件…"
-              : `${results.length} 个${effectiveScopeLabel ?? ""}结果`}
-          </span>
-        </div>
-
-        <div
-          ref={resultListRef}
-          id="fliuno-results"
-          role="listbox"
-          className="min-h-[190px] flex-1 overflow-y-auto border-t border-[var(--border-subtle)] px-2 py-2 aurona-scroll"
-          onMouseLeave={() => setInteractionMode("keyboard")}
-        >
-          {results.length ? (
-            results.map((result, index) => {
-              const enabled = result.kind === "file" || CommandRegistry.canExecute(result.command);
-              const selected = index === selectedIndex;
-              const keybinding = formatKeybinding(result);
-              return (
-                <button
-                  type="button"
-                  role="option"
-                  id={result.id}
-                  data-fliuno-index={index}
-                  aria-selected={selected}
-                  key={result.id}
-                  disabled={!enabled}
-                  onMouseMove={() => {
-                    setInteractionMode("pointer");
-                    setSelectedIndex(index);
-                  }}
-                  onClick={() => void execute(result)}
-                  className={`group flex min-h-[52px] w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-[background-color,color] ${
-                    selected
-                      ? "bg-[var(--material-interactive-active)] text-[var(--TextHighlight)]"
-                      : "text-[var(--TextPrimary)] hover:bg-[var(--material-interactive-hover)]"
-                  } ${enabled ? "" : "cursor-not-allowed opacity-45"}`}
-                >
-                  <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                      result.kind === "file"
-                        ? "bg-[var(--AccentPrimary)]/9 text-[var(--AccentPrimary)]"
-                        : "bg-[var(--material-panel)] text-[var(--TextMuted)]"
-                    }`}
-                  >
-                    {result.kind === "file" ? (
-                      <Icons.FileCode size={15} stroke={1.7} />
-                    ) : (
-                      <Icons.Command size={15} stroke={1.7} />
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2">
-                      <span className="truncate text-[13px] font-medium">{result.title}</span>
-                      {result.recent && !parsedQuery.query && (
-                        <span className="shrink-0 text-[8px] text-[var(--TextMuted)]">
-                          最近使用
-                        </span>
-                      )}
-                    </span>
-                    <span className="mt-0.5 block truncate text-[10px] text-[var(--TextMuted)]">
-                      {result.kind === "file" ? result.description : `命令 · ${result.description}`}
-                    </span>
-                  </span>
-                  {!enabled && result.kind === "command" && (
-                    <span className="max-w-44 truncate text-[9px] text-[var(--TextMuted)]">
-                      {CommandRegistry.getDisabledReason(result.command) ?? "当前不可用"}
-                    </span>
-                  )}
-                  {keybinding && (
-                    <kbd className="rounded-md border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--TextMuted)]">
-                      {keybinding}
-                    </kbd>
-                  )}
-                  <Icons.ArrowRight
-                    size={13}
-                    className={`shrink-0 text-[var(--TextMuted)] transition-opacity ${selected ? "opacity-80" : "opacity-0"}`}
-                  />
-                </button>
-              );
-            })
-          ) : (
-            <div className="flex min-h-[210px] flex-col items-center justify-center gap-3 px-6 text-center">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--TextMuted)]">
-                {fileSearchUnavailable ? (
-                  <Icons.FolderOpen size={20} />
-                ) : (
-                  <Icons.Search size={20} />
-                )}
-              </span>
-              <div>
-                <div className="text-[12px] font-medium text-[var(--TextPrimary)]">
-                  {fileSearchUnavailable
-                    ? "打开工作区后即可搜索文件"
-                    : fileIndexState === "error"
-                      ? "工作区文件暂时无法索引"
-                      : parsedQuery.query
-                        ? "没有找到匹配结果"
-                        : "开始输入，Fliuno 会带你抵达目标"}
-                </div>
-                <div className="mt-1 max-w-[420px] text-[10px] text-[var(--TextMuted)]">
-                  {fileIndexError ??
-                    (parsedQuery.query
-                      ? "尝试更短的关键词，或使用 > 和 @ 缩小范围"
-                      : "命令、最近文件和工作区路径会在这里统一出现")}
-                </div>
-              </div>
-            </div>
+          {!query && (
+            <kbd className="rounded-lg border border-[var(--border-subtle)] bg-[var(--material-panel)] px-2 py-1 text-[9px] text-[var(--TextMuted)]">
+              Esc
+            </kbd>
           )}
         </div>
 
-        <footer className="flex items-center gap-4 border-t border-[var(--border-subtle)] px-5 py-2.5 text-[9px] text-[var(--TextMuted)]">
-          <span>↑↓ 选择</span>
-          <span>Enter 打开</span>
-          <span>Tab 切换范围</span>
-          <span className="ml-auto">Fliuno · Aurona Code</span>
-        </footer>
+        <div
+          data-testid="fliuno-results-region"
+          className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
+            hasQuery
+              ? "grid-rows-[1fr] opacity-100"
+              : "pointer-events-none grid-rows-[0fr] opacity-0"
+          }`}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="flex items-center gap-1.5 border-t border-[var(--border-subtle)] px-5 py-3">
+              {scopeOptions.map((option) => {
+                const active = parsedQuery.scope === option.id;
+                const ScopeIcon = Icons[option.icon];
+                return (
+                  <button
+                    type="button"
+                    key={option.id}
+                    onClick={() => selectScope(option.id)}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-medium transition-[background-color,color] ${
+                      active
+                        ? "bg-[var(--material-interactive-active)] text-[var(--TextHighlight)]"
+                        : "text-[var(--TextMuted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--TextPrimary)]"
+                    }`}
+                  >
+                    <ScopeIcon size={12} stroke={1.8} />
+                    {option.label}
+                    {option.prefix && <span className="font-mono opacity-55">{option.prefix}</span>}
+                  </button>
+                );
+              })}
+              <span className="ml-auto text-[9px] text-[var(--TextMuted)]">
+                {fileIndexState === "loading" && parsedQuery.scope !== "commands"
+                  ? "正在整理工作区文件…"
+                  : `${results.length} 个${effectiveScopeLabel ?? ""}结果`}
+              </span>
+            </div>
+
+            <div
+              ref={resultListRef}
+              id="fliuno-results"
+              role="listbox"
+              className="max-h-[56vh] min-h-[190px] overflow-y-auto border-t border-[var(--border-subtle)] px-2 py-2 aurona-scroll"
+              onMouseLeave={() => setInteractionMode("keyboard")}
+            >
+              {results.length ? (
+                results.map((result, index) => {
+                  const enabled =
+                    result.kind === "file" || CommandRegistry.canExecute(result.command);
+                  const selected = index === selectedIndex;
+                  const keybinding = formatKeybinding(result);
+                  return (
+                    <button
+                      type="button"
+                      role="option"
+                      id={result.id}
+                      data-fliuno-index={index}
+                      aria-selected={selected}
+                      key={result.id}
+                      disabled={!enabled}
+                      onMouseMove={() => {
+                        setInteractionMode("pointer");
+                        setSelectedIndex(index);
+                      }}
+                      onClick={() => void execute(result)}
+                      className={`group flex min-h-[52px] w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-[background-color,color] ${
+                        selected
+                          ? "bg-[var(--material-interactive-active)] text-[var(--TextHighlight)]"
+                          : "text-[var(--TextPrimary)] hover:bg-[var(--material-interactive-hover)]"
+                      } ${enabled ? "" : "cursor-not-allowed opacity-45"}`}
+                    >
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                          result.kind === "file"
+                            ? "bg-[var(--AccentPrimary)]/9 text-[var(--AccentPrimary)]"
+                            : "bg-[var(--material-panel)] text-[var(--TextMuted)]"
+                        }`}
+                      >
+                        {result.kind === "file" ? (
+                          <Icons.FileCode size={15} stroke={1.7} />
+                        ) : (
+                          <Icons.Command size={15} stroke={1.7} />
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate text-[13px] font-medium">{result.title}</span>
+                          {result.recent && !parsedQuery.query && (
+                            <span className="shrink-0 text-[8px] text-[var(--TextMuted)]">
+                              最近使用
+                            </span>
+                          )}
+                        </span>
+                        <span className="mt-0.5 block truncate text-[10px] text-[var(--TextMuted)]">
+                          {result.kind === "file"
+                            ? result.description
+                            : `命令 · ${result.description}`}
+                        </span>
+                      </span>
+                      {!enabled && result.kind === "command" && (
+                        <span className="max-w-44 truncate text-[9px] text-[var(--TextMuted)]">
+                          {CommandRegistry.getDisabledReason(result.command) ?? "当前不可用"}
+                        </span>
+                      )}
+                      {keybinding && (
+                        <kbd className="rounded-md border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--TextMuted)]">
+                          {keybinding}
+                        </kbd>
+                      )}
+                      <Icons.ArrowRight
+                        size={13}
+                        className={`shrink-0 text-[var(--TextMuted)] transition-opacity ${selected ? "opacity-80" : "opacity-0"}`}
+                      />
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="flex min-h-[210px] flex-col items-center justify-center gap-3 px-6 text-center">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--TextMuted)]">
+                    {fileSearchUnavailable ? (
+                      <Icons.FolderOpen size={20} />
+                    ) : (
+                      <Icons.Search size={20} />
+                    )}
+                  </span>
+                  <div>
+                    <div className="text-[12px] font-medium text-[var(--TextPrimary)]">
+                      {fileSearchUnavailable
+                        ? "打开工作区后即可搜索文件"
+                        : fileIndexState === "error"
+                          ? "工作区文件暂时无法索引"
+                          : parsedQuery.query
+                            ? "没有找到匹配结果"
+                            : "开始输入，Fliuno 会带你抵达目标"}
+                    </div>
+                    <div className="mt-1 max-w-[420px] text-[10px] text-[var(--TextMuted)]">
+                      {fileIndexError ??
+                        (parsedQuery.query
+                          ? "尝试更短的关键词，或使用 > 和 @ 缩小范围"
+                          : "命令、最近文件和工作区路径会在这里统一出现")}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <footer className="flex items-center gap-4 border-t border-[var(--border-subtle)] px-5 py-2.5 text-[9px] text-[var(--TextMuted)]">
+              <span>↑↓ 选择</span>
+              <span>Enter 打开</span>
+              <span>Tab 切换范围</span>
+              <span className="ml-auto">Fliuno · Aurona Code</span>
+            </footer>
+          </div>
+        </div>
       </section>
     </div>
   );

@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { FileSystemService } from "../Core/FileSystemService";
-import { desktopDialog } from "../Foundation/Desktop";
+import { desktopDialog } from "../Foundation/Desktop/Dialog";
 import { EventBus } from "../Foundation/EventBus";
+import { PlatformService } from "../Foundation/Platform";
 import { WorkspaceStore } from "../Foundation/Storage/WorkspaceStore";
 import type { TabItem } from "../Foundation/Types/Tab";
 import { SIDEBAR_EXPLORER } from "../Shared/Constants/Sidebar";
@@ -42,6 +43,36 @@ export interface WorkbenchState {
 
 const isPathInside = (path: string, directory: string) =>
   path.startsWith(`${directory}/`) || path.startsWith(`${directory}\\`);
+
+export const filePathIdentity = (path: string) => {
+  const normalized = path
+    .trim()
+    .replaceAll("\\", "/")
+    .replace(/\/{2,}/g, "/")
+    .replace(/\/$/, "")
+    .normalize("NFC");
+  return PlatformService.current() === "windows"
+    ? normalized.toLocaleLowerCase("en-US")
+    : normalized;
+};
+
+const findOpenFileTab = (tabs: TabItem[], path: string) => {
+  const identity = filePathIdentity(path);
+  return tabs.find(
+    (tab) => tab.type === "file" && tab.path && filePathIdentity(tab.path) === identity,
+  );
+};
+
+const deduplicateFileTabs = (tabs: TabItem[]) => {
+  const identities = new Set<string>();
+  return tabs.filter((tab) => {
+    if (tab.type !== "file" || !tab.path) return true;
+    const identity = filePathIdentity(tab.path);
+    if (identities.has(identity)) return false;
+    identities.add(identity);
+    return true;
+  });
+};
 
 const persistWorkbench = (state: WorkbenchState) => {
   void WorkspaceStore.set({
@@ -126,16 +157,23 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   },
   openFile: (path) => {
     const title = FileSystemService.basename(path) || "未知文件";
-    set((state) => ({
-      tabs: state.tabs.some((tab) => tab.id === path)
-        ? state.tabs
-        : [...state.tabs, { id: path, type: "file", title, path, isDirty: false }],
-      activeTabId: path,
-    }));
+    set((state) => {
+      const existing = findOpenFileTab(state.tabs, path);
+      return existing
+        ? { tabs: state.tabs, activeTabId: existing.id }
+        : {
+            tabs: [...state.tabs, { id: path, type: "file", title, path, isDirty: false }],
+            activeTabId: path,
+          };
+    });
     persistWorkbench(get());
   },
   openTab: (tab) => {
     if (!tab?.id || !tab.type || !tab.title) return;
+    if (tab.type === "file" && tab.path) {
+      get().openFile(tab.path);
+      return;
+    }
     set((state) => ({
       tabs: state.tabs.some((item) => item.id === tab.id) ? state.tabs : [...state.tabs, tab],
       activeTabId: tab.id,
@@ -154,9 +192,17 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
 export async function initializeWorkbenchStore(): Promise<() => void> {
   await WorkspaceStore.init();
   const saved = await WorkspaceStore.get();
+  const savedTabs = saved.openTabs ?? [];
+  const tabs = deduplicateFileTabs(savedTabs);
+  const savedActiveTab = savedTabs.find((tab) => tab.id === saved.activeTabId);
+  const activeTabId = tabs.some((tab) => tab.id === saved.activeTabId)
+    ? (saved.activeTabId ?? null)
+    : savedActiveTab?.path
+      ? (findOpenFileTab(tabs, savedActiveTab.path)?.id ?? tabs.at(-1)?.id ?? null)
+      : (tabs.at(-1)?.id ?? null);
   useWorkbenchStore.setState({
-    tabs: saved.openTabs ?? [],
-    activeTabId: saved.activeTabId ?? null,
+    tabs,
+    activeTabId,
     activeSidebar: saved.activeSidebar ?? SIDEBAR_EXPLORER,
     sidebarWidth: normalizeSize(saved.sidebarWidth, DEFAULT_SIDEBAR_WIDTH, 180, 640),
     isBottomPanelOpen: saved.isBottomPanelOpen ?? false,

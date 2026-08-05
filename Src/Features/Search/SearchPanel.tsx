@@ -133,9 +133,9 @@ export const SearchPanel = React.memo(function SearchPanel() {
   const openFile = (file_path: string, line: number) => {
     if (!repoPath) return;
     const fullPath = `${repoPath}/${file_path}`;
-    const name = file_path.split("/").pop() || file_path;
-    EventBus.emit("app:open-tab", { id: fullPath, type: "file", title: name, path: fullPath });
-    useWorkbenchStore.getState().requestReveal(fullPath, line);
+    const workbench = useWorkbenchStore.getState();
+    workbench.openFile(fullPath);
+    workbench.requestReveal(fullPath, line);
   };
 
   const fileKeys = Object.keys(grouped);
@@ -144,7 +144,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
     <div className="flex flex-col h-full w-full select-none bg-transparent">
       <SidebarPageHeader title="全局搜索" />
 
-      <div className="px-[var(--PanelPaddingX)] pb-4 shrink-0 mt-2 flex flex-col gap-3">
+      <div className="flex shrink-0 flex-col gap-3 px-[var(--PanelPaddingX)] pb-4">
         <div
           className={cn(
             glassVariants({ layer: "base" }),

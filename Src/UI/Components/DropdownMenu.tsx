@@ -17,8 +17,8 @@ export const DropdownMenuContent = React.forwardRef<
       sideOffset={sideOffset}
       className={cn(
         glassVariants({ layer: "floating" }),
-        "rounded-xl p-1 z-[9999] flex flex-col min-w-[160px]",
-        "animate-in fade-in zoom-in-95 duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95",
+        "rounded-xl p-1 z-[9999] flex flex-col min-w-[160px] overflow-hidden",
+        "animate-in fade-in duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out",
         className,
       )}
       {...props}

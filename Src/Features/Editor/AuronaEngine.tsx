@@ -23,6 +23,7 @@ import { SearchWidget } from "./components/SearchWidget";
 import { EditorAdapter } from "./EditorAdapter";
 import { useEditorHistory } from "./Hooks/useEditorHistory";
 import { useEditorHover } from "./Hooks/useEditorHover";
+import { useSyntaxHighlighting } from "./Hooks/useSyntaxHighlighting";
 import type { IEditorEngine } from "./IEditorEngine";
 import { pointerSelectionDecision } from "./Utils/EditorInteraction";
 import {
@@ -50,6 +51,7 @@ import {
   normalizeEditorText,
   sortSelection,
 } from "./Utils/EditorMath";
+import { editorPointToViewport } from "./Utils/EditorOverlay";
 
 export type AuronaEngineProps = {
   value: string;
@@ -62,9 +64,6 @@ export type AuronaEngineProps = {
   onSyncError?: (error: Error) => void;
 };
 
-const LARGE_FILE_BYTES = 2 * 1024 * 1024;
-const LARGE_FILE_LINES = 20_000;
-const LARGE_FILE_OVERSCAN = 120;
 const DEFAULT_LANGUAGE_PREFERENCES: Required<LanguageFeaturePreferences> = {
   hoverEnabled: true,
   hoverDelayMs: 350,
@@ -338,22 +337,19 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   // ==========================================
   // 【Highlight.js 词法高亮引擎 (Web Worker 异步)】
   // ==========================================
-  const [linesTokens, setLinesTokens] = useState<number[][]>([]);
-  const [largeLineTokens, setLargeLineTokens] = useState<Map<number, number[]>>(() => new Map());
-  const highlightWorkerRef = useRef<Worker | null>(null);
-  const highlightTimeoutRef = useRef<number | ReturnType<typeof setTimeout> | null>(null);
   const maxLineLengthTimerRef = useRef<number | null>(null);
-  const latestHighlightIdRef = useRef<string>("");
-  const latestLargeHighlightRequestRef = useRef<string>("");
-  const visibleStartIndex = Math.max(
-    0,
-    Math.floor(Math.max(0, scrollTop - layout.contentInsetTop) / layout.lineHeight),
-  );
-  const visibleEndIndex = Math.min(
-    totalLines,
-    Math.ceil(Math.max(0, scrollTop - layout.contentInsetTop + viewportHeight) / layout.lineHeight),
-  );
-  const isLargeFileMode = totalLines > LARGE_FILE_LINES || value.length > LARGE_FILE_BYTES;
+  const { linesTokens, largeLineTokens, visibleStartIndex, visibleEndIndex, isLargeFileMode } =
+    useSyntaxHighlighting({
+      documentLines,
+      language,
+      path,
+      valueLength: value.length,
+      totalLines,
+      scrollTop,
+      viewportHeight,
+      contentInsetTop: layout.contentInsetTop,
+      lineHeight: layout.lineHeight,
+    });
 
   useEffect(() => {
     return () => {
@@ -362,91 +358,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       }
     };
   }, []);
-
-  useEffect(() => {
-    const HighlightWorker = async () => {
-      const WorkerModule = await import("./Workers/highlight.worker?worker");
-      return new WorkerModule.default();
-    };
-
-    HighlightWorker().then((worker) => {
-      highlightWorkerRef.current = worker;
-      worker.onmessage = (e: MessageEvent) => {
-        if (e.data.id === latestHighlightIdRef.current) {
-          setLinesTokens(e.data.tokens);
-        }
-      };
-    });
-
-    return () => {
-      highlightWorkerRef.current?.terminate();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
-
-    if (isLargeFileMode) {
-      return;
-    }
-
-    // 立即同步行数，防止越界
-    setLinesTokens((prev) => {
-      if (prev.length === documentLines.length) return prev;
-      const next = [...prev];
-      while (next.length < documentLines.length) next.push([]);
-      if (next.length > documentLines.length) next.length = documentLines.length;
-      return next;
-    });
-
-    highlightTimeoutRef.current = setTimeout(() => {
-      if (highlightWorkerRef.current) {
-        const id = Date.now().toString();
-        latestHighlightIdRef.current = id;
-        highlightWorkerRef.current.postMessage({
-          id,
-          fullText: documentLines.join("\n"),
-          language,
-          totalLines: documentLines.length,
-        });
-      }
-    }, 150); // 150ms 防抖，保证打字如丝般顺滑
-  }, [documentLines, isLargeFileMode, language]);
-
-  useEffect(() => {
-    setLargeLineTokens(new Map());
-  }, []);
-
-  useEffect(() => {
-    if (!path || !isLargeFileMode) return;
-
-    const startLine = Math.max(0, visibleStartIndex - LARGE_FILE_OVERSCAN);
-    const endLine = Math.min(totalLines, visibleEndIndex + LARGE_FILE_OVERSCAN);
-    const requestId = `${path}:${startLine}:${endLine}:${Date.now()}`;
-    latestLargeHighlightRequestRef.current = requestId;
-    const timer = window.setTimeout(() => {
-      DocumentService.getLines(path, startLine, endLine)
-        .then((response) => {
-          if (latestLargeHighlightRequestRef.current !== requestId) return;
-          const lines = response.lines;
-          setLargeLineTokens((previous) => {
-            const next = new Map(previous);
-            for (let index = 0; index < lines.length; index++) {
-              next.set(startLine + index, lines[index].tokens);
-            }
-            const retainStart = Math.max(0, startLine - LARGE_FILE_OVERSCAN * 4);
-            const retainEnd = Math.min(totalLines, endLine + LARGE_FILE_OVERSCAN * 4);
-            for (const lineIndex of next.keys()) {
-              if (lineIndex < retainStart || lineIndex >= retainEnd) next.delete(lineIndex);
-            }
-            return next;
-          });
-        })
-        .catch(console.error);
-    }, 80);
-
-    return () => window.clearTimeout(timer);
-  }, [isLargeFileMode, path, totalLines, visibleEndIndex, visibleStartIndex]);
 
   const updateMaxLineLength = useCallback((lines: string[]) => {
     if (maxLineLengthTimerRef.current !== null) {
@@ -639,10 +550,18 @@ export const AuronaEngine = React.memo(function AuronaEngine({
                 setCompletions([]);
                 return;
               }
-              const y =
-                layout.contentInsetTop + (lineIndex + 1) * layout.lineHeight - scrollTop + 10;
-              const scrollLeft = containerRef.current?.scrollLeft || 0;
-              setCompletionPos({ x: caretPos.x - scrollLeft, y });
+              const container = containerRef.current;
+              if (!container) return;
+              const bounds = container.getBoundingClientRect();
+              const viewportPoint = editorPointToViewport(
+                bounds,
+                {
+                  x: caretPos.x,
+                  y: layout.contentInsetTop + (lineIndex + 1) * layout.lineHeight + 6,
+                },
+                { left: container.scrollLeft, top: container.scrollTop },
+              );
+              setCompletionPos(viewportPoint);
               setCompletions(items);
               setCompletionIndex(0);
             })
@@ -1971,6 +1890,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         className="relative flex-1 overflow-auto aurona-scroll select-none p-0"
         onScroll={(e) => {
           setScrollTop(e.currentTarget.scrollTop);
+          setCompletions([]);
           dismissHover();
         }}
       >

@@ -5,9 +5,18 @@ pub struct ManagedChild {
     child: Child,
     #[cfg(windows)]
     job: WindowsJob,
+    #[cfg(unix)]
+    process_group: i32,
 }
 
 impl ManagedChild {
+    pub fn configure(command: &mut tokio::process::Command) {
+        #[cfg(unix)]
+        command.process_group(0);
+        #[cfg(not(unix))]
+        let _ = command;
+    }
+
     #[allow(unused_mut)]
     pub fn attach(mut child: Child) -> Result<Self, String> {
         #[cfg(windows)]
@@ -25,6 +34,20 @@ impl ManagedChild {
         }
         #[cfg(not(windows))]
         {
+            #[cfg(unix)]
+            {
+                let process_group = child
+                    .id()
+                    .and_then(|id| i32::try_from(id).ok())
+                    .ok_or_else(|| {
+                        "Spawned process does not expose a valid process id".to_string()
+                    })?;
+                Ok(Self {
+                    child,
+                    process_group,
+                })
+            }
+            #[cfg(not(unix))]
             Ok(Self { child })
         }
     }
@@ -36,6 +59,16 @@ impl ManagedChild {
         ) {
             return;
         }
+        #[cfg(unix)]
+        {
+            self.signal_process_group(libc::SIGTERM);
+            if matches!(
+                tokio::time::timeout(Duration::from_millis(500), self.child.wait()).await,
+                Ok(Ok(_))
+            ) {
+                return;
+            }
+        }
         self.terminate_now();
         let _ = self.child.wait().await;
     }
@@ -43,7 +76,17 @@ impl ManagedChild {
     pub fn terminate_now(&mut self) {
         #[cfg(windows)]
         self.job.terminate();
+        #[cfg(unix)]
+        self.signal_process_group(libc::SIGKILL);
         let _ = self.child.start_kill();
+    }
+
+    #[cfg(unix)]
+    fn signal_process_group(&self, signal: i32) {
+        // SAFETY: process_group is the positive pid of a child started as its own group leader.
+        unsafe {
+            let _ = libc::kill(-self.process_group, signal);
+        }
     }
 }
 
@@ -197,6 +240,69 @@ mod tests {
         assert!(
             process_has_exited(node_pid),
             "Node descendant {node_pid} survived termination of its Windows job"
+        );
+        let _ = tokio::fs::remove_file(pid_file).await;
+    }
+}
+
+#[cfg(all(test, unix))]
+mod unix_tests {
+    use super::ManagedChild;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use tokio::process::Command;
+
+    fn process_exists(process_id: i32) -> bool {
+        // SAFETY: signal 0 only queries whether the process can be addressed.
+        unsafe { libc::kill(process_id, 0) == 0 }
+    }
+
+    #[tokio::test]
+    async fn terminating_the_group_stops_shell_descendants() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should follow the Unix epoch")
+            .as_nanos();
+        let pid_file = std::env::temp_dir().join(format!(
+            "aurona-process-group-{}-{unique}.pid",
+            std::process::id()
+        ));
+        let mut command = Command::new("/bin/sh");
+        command.arg("-c").arg(format!(
+            "sleep 30 & echo $! > '{}' && wait",
+            pid_file.display()
+        ));
+        ManagedChild::configure(&mut command);
+        let child = command.spawn().expect("shell should start");
+        let mut managed = ManagedChild::attach(child).expect("process group should attach");
+
+        let descendant = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                if let Ok(raw_pid) = tokio::fs::read_to_string(&pid_file).await {
+                    if let Ok(process_id) = raw_pid.trim().parse::<i32>() {
+                        break process_id;
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        })
+        .await
+        .expect("descendant should report its process id");
+
+        managed.terminate_now();
+        managed.wait_or_terminate(Duration::from_secs(1)).await;
+        let descendant_exited = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if !process_exists(descendant) {
+                    break true;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        })
+        .await
+        .unwrap_or(false);
+        assert!(
+            descendant_exited,
+            "descendant {descendant} survived process-group termination"
         );
         let _ = tokio::fs::remove_file(pid_file).await;
     }

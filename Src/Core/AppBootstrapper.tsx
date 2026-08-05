@@ -1,7 +1,8 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 import { applyAccentTheme } from "../App/ThemeAccent";
-import { invokeDesktop } from "../Foundation/Desktop";
+import { AppLifecycleIPC } from "../Foundation/IPC/AppLifecycleCommands";
+import { PlatformService } from "../Foundation/Platform";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 import { AppServices } from "./AppServices";
 
@@ -41,6 +42,7 @@ export function AppBootstrapper({ children }: Props) {
     async function initializeCoreServices() {
       const startTime = performance.now();
       try {
+        await PlatformService.initialize();
         await UserConfigStore.init();
         const userConfig = await UserConfigStore.get();
 
@@ -78,15 +80,13 @@ export function AppBootstrapper({ children }: Props) {
           requestAnimationFrame(() => {
             if (!mounted) return;
             const mainInteractiveMs = performance.now() - startTime;
-            void invokeDesktop("record_startup_metrics", {
-              input: {
-                frontendBootstrapMs: elapsed,
-                mainInteractiveMs,
-                splashMinimumMs: 2_000,
-              },
+            void AppLifecycleIPC.recordStartupMetrics({
+              frontendBootstrapMs: elapsed,
+              mainInteractiveMs,
+              splashMinimumMs: 2_000,
             })
               .catch(console.error)
-              .finally(() => invokeDesktop("close_splashscreen").catch(console.error));
+              .finally(() => AppLifecycleIPC.closeSplashscreen().catch(console.error));
           });
         });
       } catch (error) {

@@ -43,6 +43,28 @@ export function normalizeDesktopError(
   ) {
     return new DesktopError(cause as DesktopErrorShape);
   }
+  if (
+    cause &&
+    typeof cause === "object" &&
+    "code" in cause &&
+    "userMessage" in cause &&
+    "detail" in cause &&
+    "recoverable" in cause
+  ) {
+    const accountError = cause as {
+      code: string;
+      userMessage: string;
+      detail: string;
+      recoverable: boolean;
+    };
+    return new DesktopError({
+      domain: overrides.domain ?? domainFromName(command),
+      code: accountError.code,
+      message: accountError.userMessage,
+      recoverable: accountError.recoverable,
+      cause: accountError.detail,
+    });
+  }
   const message = cause instanceof Error ? cause.message : String(cause);
   return new DesktopError({
     domain: overrides.domain ?? domainFromName(command),

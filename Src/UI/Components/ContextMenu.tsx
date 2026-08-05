@@ -20,8 +20,8 @@ export const ContextMenuContent = React.forwardRef<
       ref={ref}
       className={cn(
         glassVariants({ layer: "floating" }),
-        "p-1.5 z-[9999] flex flex-col min-w-[160px] rounded-xl overflow-hidden shadow-2xl",
-        "animate-in fade-in zoom-in-95 duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95",
+        "p-1.5 z-[9999] flex flex-col min-w-[160px] rounded-xl overflow-hidden",
+        "animate-in fade-in duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out",
         className,
       )}
       {...props}

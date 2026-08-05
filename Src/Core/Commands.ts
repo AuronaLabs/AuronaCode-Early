@@ -1,8 +1,9 @@
 import { type CommandContext, CommandRegistry } from "../Extension/CommandRegistry";
 import { EditorAdapter } from "../Features/Editor/EditorAdapter";
 import { LspClient, type LspFeature } from "../Features/Editor/LspClient";
-import { invokeDesktop } from "../Foundation/Desktop";
 import { EventBus } from "../Foundation/EventBus";
+import { AppLifecycleIPC } from "../Foundation/IPC/AppLifecycleCommands";
+import { PlatformService } from "../Foundation/Platform";
 import { handleSmartRun } from "../Shared/Constants/RunConfig";
 import { SIDEBAR_DEBUG } from "../Shared/Constants/Sidebar";
 import { useDebugStore } from "../State/useDebugStore";
@@ -17,12 +18,7 @@ const context = (): CommandContext => {
   const state = useWorkbenchStore.getState();
   const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
   const activeFilePath = activeTab?.type === "file" ? (activeTab.path ?? null) : null;
-  const userAgent = navigator.userAgent;
-  const platform = userAgent.includes("Mac")
-    ? "macos"
-    : userAgent.includes("Linux")
-      ? "linux"
-      : "windows";
+  const platform = PlatformService.current();
   const activeElement = document.activeElement;
   return {
     activeFilePath,
@@ -356,7 +352,7 @@ export function registerWorkbenchCommands(): () => void {
       id: "workbench.action.openDevtools",
       title: "打开开发者工具",
       category: "开发者",
-      handler: () => invokeDesktop("open_devtools"),
+      handler: () => AppLifecycleIPC.openDevtools(),
     }),
     CommandRegistry.register({
       id: "workbench.action.reloadWindow",

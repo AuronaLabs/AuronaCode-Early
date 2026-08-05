@@ -129,7 +129,7 @@ export function DebugPanel() {
               />
             )}
             {debug.error && (
-              <div className="mx-3 mb-2 rounded-xl bg-red-500/10 px-3 py-2.5 text-[11px] leading-5 text-red-500">
+              <div className="mx-[var(--PanelPaddingX)] mb-2 rounded-xl bg-red-500/10 px-3 py-2.5 text-[11px] leading-5 text-red-500">
                 {debug.error}
               </div>
             )}
@@ -147,7 +147,7 @@ export function DebugPanel() {
               </div>
             )}
 
-            <GlassList className="mx-3 mt-2">
+            <GlassList className="mx-[var(--PanelPaddingX)] mt-2">
               <DebugSection
                 title="调用栈"
                 icon={<Icons.Stack size={14} />}
@@ -319,7 +319,7 @@ function DebugToolbar({ paused }: { paused: boolean }) {
       ]
     : [{ command: "pause" as const, label: "暂停", icon: <Icons.Pause size={15} /> }];
   return (
-    <div className="flex shrink-0 items-center gap-0.5 border-y border-[var(--GlassBorder)] px-3 py-1.5">
+    <div className="flex shrink-0 items-center gap-0.5 border-y border-[var(--GlassBorder)] px-[var(--PanelPaddingX)] py-1.5">
       {actions.map((action) => (
         <Tooltip key={action.command} content={action.label} placement="bottom">
           <button
@@ -468,7 +468,7 @@ function DependencyPrompt({
   onInstall: () => void;
 }) {
   return (
-    <div className="mx-3 mb-3 rounded-xl border border-amber-500/20 bg-amber-500/8 p-3">
+    <div className="mx-[var(--PanelPaddingX)] mb-3 rounded-xl border border-amber-500/20 bg-amber-500/8 p-3">
       <div className="flex items-start gap-2.5">
         <Icons.Download className="mt-0.5 shrink-0 text-amber-500" size={15} />
         <div className="min-w-0 flex-1">

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { ACCENT_THEMES, applyAccentTheme } from "../../App/ThemeAccent";
 import { UpdaterService } from "../../Core/UpdaterService";
-import { BaseDirectory, desktopFileSystem, invokeDesktop } from "../../Foundation/Desktop";
+import { BaseDirectory, desktopFileSystem } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
 import { GitIPC } from "../../Foundation/IPC/GitCommands";
+import { StorageIPC } from "../../Foundation/IPC/StorageCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import type { AccentThemeId } from "../../Foundation/Types/Config";
@@ -15,10 +16,12 @@ import { GlassContainer, type GlassIntensity, useGlassStore } from "../../UI/Cor
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
+import { AccountSettings } from "./AccountSettings";
 import { DebugSettings } from "./DebugSettings";
 import { LanguageServiceSettings } from "./LanguageServiceSettings";
 
 export type SettingsSection =
+  | "account"
   | "appearance"
   | "editor"
   | "language"
@@ -38,7 +41,7 @@ interface StorageBreakdown {
 }
 
 export function SettingsTab() {
-  const [activeSection, setActiveSection] = useState<SettingsSection>("appearance");
+  const [activeSection, setActiveSection] = useState<SettingsSection>("account");
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const intensity = useGlassStore((state) => state.intensity);
   const setIntensity = useGlassStore((state) => state.setIntensity);
@@ -147,7 +150,7 @@ export function SettingsTab() {
 
   const loadStorageSizes = useCallback(async () => {
     try {
-      const breakdown = await invokeDesktop<StorageBreakdown>("get_storage_breakdown");
+      const breakdown = await StorageIPC.getBreakdown<StorageBreakdown>();
       setConfigSize(formatBytes(breakdown.configBytes));
       setRawConfigSize(breakdown.configBytes);
       setWorkspaceSize(formatBytes(breakdown.workspaceBytes));
@@ -214,7 +217,7 @@ export function SettingsTab() {
   const handleClearOtherAppData = async () => {
     setIsClearing("other");
     try {
-      await invokeDesktop("clear_other_app_data");
+      await StorageIPC.clearOtherAppData();
       showToast("已清理其他缓存数据与碎片，部分可能需重启后释放", "success");
       loadStorageSizes();
     } catch (e) {
@@ -228,7 +231,7 @@ export function SettingsTab() {
   const handleClearRecovery = async () => {
     setIsClearing("recovery");
     try {
-      await invokeDesktop("clear_editor_recovery");
+      await StorageIPC.clearEditorRecovery();
       await loadStorageSizes();
       showToast("编辑器恢复快照已清理", "success");
     } catch (error) {
@@ -241,7 +244,7 @@ export function SettingsTab() {
   const handleClearLogs = async () => {
     setIsClearing("logs");
     try {
-      await invokeDesktop("clear_app_logs");
+      await StorageIPC.clearAppLogs();
       await loadStorageSizes();
       showToast("运行日志已清理完毕", "success");
     } catch (_e) {
@@ -1060,6 +1063,14 @@ export function SettingsTab() {
 
       <button
         type="button"
+        onClick={() => setActiveSection("account")}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "account" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
+      >
+        <Icons.User size={16} /> 账户
+      </button>
+
+      <button
+        type="button"
         onClick={() => setActiveSection("appearance")}
         className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "appearance" ? "bg-[var(--GlassSurface-Elevated)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--GlassBorder)] text-[var(--TextHighlight)] font-semibold" : "text-[var(--TextMuted)] hover:text-[var(--TextHighlight)] hover:bg-[var(--GlassHover)] border border-transparent"}`}
       >
@@ -1126,6 +1137,8 @@ export function SettingsTab() {
 
   const getTitle = () => {
     switch (activeSection) {
+      case "account":
+        return "账户";
       case "appearance":
         return "外观";
       case "editor":
@@ -1149,6 +1162,7 @@ export function SettingsTab() {
 
   return (
     <InternalPageLayout title={getTitle()} sidebar={sidebarMenu} maxWidth="max-w-4xl">
+      {activeSection === "account" && <AccountSettings />}
       {activeSection === "appearance" && renderAppearance()}
       {activeSection === "editor" && renderEditor()}
       {activeSection === "language" && <LanguageServiceSettings />}

@@ -1,4 +1,4 @@
-import { invokeDesktop } from "../Desktop";
+import { invokeDesktop, listenDesktop } from "../Desktop";
 import type { ShellProfile } from "../Types/Terminal";
 
 export const PtyIPC = {
@@ -13,4 +13,10 @@ export const PtyIPC = {
   close: (id: string) => invokeDesktop<void>("close_pty", { id }),
 
   getAvailableShells: () => invokeDesktop<ShellProfile[]>("get_available_shells"),
+
+  listenOutput: (listener: (payload: { id: string; data: string }) => void) =>
+    listenDesktop("pty-output", listener),
+
+  listenExit: (listener: (payload: { id: string; reason: string }) => void) =>
+    listenDesktop("pty-exit", listener),
 };

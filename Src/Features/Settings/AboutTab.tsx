@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { desktopApp } from "../../Foundation/Desktop";
+import { PlatformService } from "../../Foundation/Platform";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
@@ -8,6 +9,8 @@ export function AboutTab() {
   const [osInfo, setOsInfo] = useState<string>("Detecting...");
   const [cpuCores, setCpuCores] = useState<number>(0);
   const [appVersion, setAppVersion] = useState<string>("Loading...");
+  const [architecture, setArchitecture] = useState<string>("unknown");
+  const [webview, setWebview] = useState<string>("WebView");
 
   useEffect(() => {
     desktopApp
@@ -15,17 +18,13 @@ export function AboutTab() {
       .then((ver) => setAppVersion(ver))
       .catch(() => setAppVersion("0.2.0"));
 
-    const ua = navigator.userAgent;
-    let os = "Unknown OS";
-    if (ua.indexOf("Win") !== -1) os = "Windows";
-    if (ua.indexOf("Mac") !== -1) os = "macOS";
-    if (ua.indexOf("Linux") !== -1) os = "Linux";
-
-    if (os === "Windows") {
-      const match = ua.match(/Windows NT ([\d.]+)/);
-      if (match) os = `Windows NT ${match[1]}`;
-    }
-    setOsInfo(os);
+    const platform = PlatformService.current();
+    const info = PlatformService.info();
+    setOsInfo(platform === "macos" ? "macOS" : platform === "linux" ? "Linux" : "Windows");
+    setArchitecture(info.architecture);
+    setWebview(
+      platform === "macos" ? "WKWebView" : platform === "linux" ? "WebKitGTK" : "WebView2",
+    );
     setCpuCores(navigator.hardwareConcurrency || 0);
   }, []);
 
@@ -72,7 +71,9 @@ export function AboutTab() {
               <span className="text-[12px] font-medium uppercase tracking-wider">系统架构</span>
             </div>
             <span className="text-[15px] font-medium text-[var(--TextHighlight)]">{osInfo}</span>
-            <span className="text-[12px] text-[var(--TextMuted)]">x64 (Cores: {cpuCores})</span>
+            <span className="text-[12px] text-[var(--TextMuted)]">
+              {architecture} (Cores: {cpuCores})
+            </span>
           </GlassContainer>
 
           <GlassContainer
@@ -84,7 +85,7 @@ export function AboutTab() {
               <span className="text-[12px] font-medium uppercase tracking-wider">技术栈</span>
             </div>
             <span className="text-[15px] font-medium text-[var(--TextHighlight)]">
-              Tauri / WebView2
+              Tauri / {webview}
             </span>
             <span className="text-[12px] text-[var(--TextMuted)]">
               React 19 + Tailwind CSS + Radix UI

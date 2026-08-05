@@ -1,0 +1,1 @@
+Generated toolchains are intentionally excluded from Git. Keep this file so direct Cargo checks can validate the Tauri resource directory.

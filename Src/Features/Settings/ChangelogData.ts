@@ -12,9 +12,72 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.3.5",
+    date: "2026-08-03",
+    isLatest: true,
+    summary:
+      "0.3.5 是一次以跨平台可靠性、安全边界、编辑体验和架构收口为核心的改进版本。本次更新修复三平台 Quality 阻断，完善 macOS Universal 与 Linux 运行适配，并继续优化 Fliuno、侧栏和编辑器细节。",
+    sections: [
+      {
+        title: "跨平台发布与运行时",
+        description:
+          "让三平台的直接 Cargo 检查、正式 Tauri 打包和桌面运行环境使用清晰、可验证的契约。",
+        items: [
+          "**修复 Quality 阻断**：在干净检出中保留最小 `resources/toolchains` 资源根，Windows、Linux 与 macOS 的 Cargo Job 不再因生成目录缺失而在 build script 阶段失败。",
+          "**工具链完整性验证**：正式构建会核对 Node Runtime、Pyright、TypeScript Language Server、许可证、平台、架构与应用版本。",
+          "**生成信息不再写死**：内置工具链元数据直接读取应用版本，并生成可审计的 Manifest。",
+          "**真正的 macOS Universal 工具链**：分别校验官方下载的 arm64 与 x64 Node 运行时，再通过 lipo 合成为双架构二进制，避免通用应用内混入单架构语言服务运行时。",
+          "**恢复桌面应用 PATH**：macOS Finder 与 Linux 桌面启动时会恢复登录 Shell 环境，使用户安装的语言服务器和开发工具能够被正常发现。",
+          "**新增平台运行验证**：Quality 单独验证 macOS Universal 双架构与 Linux 内置运行时，Release 在上传前再次检查真实产物。",
+        ],
+      },
+      {
+        title: "工作区文件安全",
+        description: "文件复制和移动现在由 Rust 在真实文件系统边界执行规范化校验。",
+        items: [
+          "**限制在活动工作区**：源路径和目标父目录都必须位于当前工作区内，绝对路径与规范化后的越界目标会被拒绝。",
+          "**符号链接保护**：复制过程拒绝可能逃出工作区的符号链接，不再依赖不可靠的字符串 `..` 检测。",
+          "**阻止递归复制**：目录不能复制或移动到自身内部，避免无限递归和磁盘异常增长。",
+          "**保留合法文件名**：包含连续点号但实际位于工作区内的普通文件仍可正常操作。",
+        ],
+      },
+      {
+        title: "Corona+ 边界收口",
+        description:
+          "Feature 与 Core 不再直接调用底层桌面 Transport，并通过统一平台服务读取真实运行环境。",
+        items: [
+          "**类型化 IPC Clients**：新增应用生命周期、文件系统、性能、存储与 PTY 事件客户端。",
+          "**统一桌面事件入口**：Terminal 的输出和退出事件通过 PTY IPC Client 订阅。",
+          "**静态边界升级**：Quality 会阻止 Foundation/IPC 之外新增原始桌面 Transport 调用。",
+          "**统一 PlatformService**：前端不再通过 User-Agent 猜测系统；Rust 统一提供操作系统、架构、默认 Shell、桌面会话与 PATH 恢复状态。",
+          "**Aurona Account 正式接入**：设置首页新增官方账户入口，通过系统浏览器、OAuth 2.1/OIDC、PKCE S256 与动态本机回调完成登录；每次申请都会生成独立的 state、nonce、PKCE 与随机回调端口，取消授权会清理本次事务并提示“已取消授权”，可立即重新申请。账户资料只展示用户名、ID、头像和已授权邮箱，刷新凭据由系统凭据库保护，并支持主动退出与撤销。",
+        ],
+      },
+      {
+        title: "编辑器性能与生命周期",
+        description:
+          "从 AuronaEngine 中抽离语法高亮协调，并补齐 macOS 与 Linux 的进程、终端和系统交互生命周期。",
+        items: [
+          "**独立高亮 Hook**：普通文档 Worker、高亮请求、大文件可见范围缓存和过期结果校验拥有独立职责。",
+          "**首次高亮可靠**：Worker 异步准备完成后会主动执行当前文档高亮，不再要求用户先输入一次。",
+          "**防止 Worker 泄漏**：组件在动态模块加载完成前卸载时，新建 Worker 会立即终止。",
+          "**切换文件不串色**：语言或路径变化会清理大文件 Token 缓存，避免旧文件高亮短暂复用。",
+          "**Unix 进程树完整回收**：LSP 与 DAP 在独立进程组中启动，停止、崩溃恢复和应用退出会依次发送 TERM/KILL，避免 macOS/Linux 遗留子进程。",
+          "**终端遵循用户 Shell**：macOS 与 Linux 自动发现 SHELL 和 /etc/shells，支持 Zsh、Bash、Fish、Dash，并以登录模式启动。",
+          "**原生交互适配**：Linux 文件定位优先使用 FileManager1/GIO 并保留 xdg-open 回退；macOS 应用菜单会随当前文档实时更新保存与运行状态，同时继续保留 Aurona 自定义顶栏。",
+          "**Fliuno 渐进式界面**：打开时只显示完整的圆角搜索框；开始输入后，范围筛选与结果列表会从搜索框下方平滑展开，减少初始视觉负担。",
+          "**侧栏排版统一**：全局搜索使用标准侧栏标题节奏，运行与调试的配置、状态、依赖提示和调试数据卡片统一采用面板水平边距。",
+          "**菜单浮层稳定**：顶部菜单、下拉菜单与右键菜单统一浮层材质，并移除容易在 WebView 合成时留下边角残影的缩放动画与重复阴影。",
+          "**LSP 浮层精准定位**：Hover、诊断说明与补全列表统一挂载到窗口浮层根节点，编辑器滚动、侧栏宽度和 WebView 合成层不再造成向右下偏移。",
+          "**同文件只打开一次**：统一 Windows 路径大小写与正反斜杠身份；文件树、Fliuno、全局搜索、调试跳转和恢复标签都会激活已有编辑器，不再创建重复标签。",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.3.4",
     date: "2026-08-02",
-    isLatest: true,
+    isLatest: false,
     summary:
       "0.3.4 聚焦真正可日常使用的编辑体验，把 Git 从状态摘要扩展为可操作的项目工作流，并重构 Fliuno 为统一的命令与文件入口；同时继续完善真实 DAP 会话，而不引入插件系统或占位功能。",
     sections: [

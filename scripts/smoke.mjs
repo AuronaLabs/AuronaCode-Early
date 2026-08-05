@@ -13,6 +13,14 @@ const changelog = await readFile(
 );
 const security = await readFile(new URL("../.github/SECURITY.md", import.meta.url), "utf8");
 const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
+const qualityWorkflow = await readFile(
+  new URL("../.github/workflows/quality.yml", import.meta.url),
+  "utf8",
+);
+const releaseWorkflow = await readFile(
+  new URL("../.github/workflows/release.yml", import.meta.url),
+  "utf8",
+);
 
 const cargoVersion = cargoToml.match(/^version = "([^"]+)"/m)?.[1];
 assert.ok(cargoVersion, "Cargo.toml must declare a package version");
@@ -48,6 +56,21 @@ assert.equal(
   tauriConfig.app.windows.find((window) => window.label === "main")?.dragDropEnabled,
   false,
   "The main WebView must leave HTML5 drag and drop to the application",
+);
+assert.equal(
+  tauriConfig.bundle.macOS.minimumSystemVersion,
+  "11.0",
+  "The macOS deployment target must match the bundled Node 22 runtime",
+);
+assert.match(
+  qualityWorkflow,
+  /target:\s*universal-apple-darwin/,
+  "Quality must verify the Universal macOS runtime contract",
+);
+assert.match(
+  releaseWorkflow,
+  /lipo -verify_arch arm64 x86_64/,
+  "Release must verify both embedded macOS runtime architectures",
 );
 
 console.log(`Aurona Code ${packageJson.version} release metadata smoke check passed.`);

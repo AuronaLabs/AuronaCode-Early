@@ -33,6 +33,7 @@ jobs:
       - run: pnpm run check
       - run: pnpm run check:boundaries
       - run: pnpm run check:materials
+      - run: pnpm run verify:toolchains:contract
       - run: pnpm run smoke
       - run: pnpm run test:frontend
       - run: pnpm run build
@@ -62,3 +63,39 @@ jobs:
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
       - run: cargo check --manifest-path src-tauri/Cargo.toml --locked
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+
+  platform-runtime:
+    name: Platform runtime (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: universal-apple-darwin
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      TAURI_ENV_TARGET_TRIPLE: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.13.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run prepare:toolchains
+      - run: pnpm run verify:toolchains
+      - name: Verify universal macOS Node
+        if: runner.os == 'macOS'
+        run: |
+          lipo -verify_arch arm64 x86_64 src-tauri/resources/toolchains/runtime/node
+          src-tauri/resources/toolchains/runtime/node --version
+      - name: Verify Linux Node
+        if: runner.os == 'Linux'
+        run: src-tauri/resources/toolchains/runtime/node --version

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { desktopDialog, desktopFileSystem, invokeDesktop } from "../../Foundation/Desktop";
+import { desktopDialog, desktopFileSystem } from "../../Foundation/Desktop";
+import { AuronaChannel } from "../../Foundation/IPC/IPCClient";
+import { PerformanceIPC } from "../../Foundation/IPC/PerformanceCommands";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { Button } from "../../UI/Components/Button";
 import { Card } from "../../UI/Components/Card";
@@ -122,11 +124,9 @@ export function PerformanceBenchmarkPage() {
   const refreshContext = useCallback(async () => {
     const workspace = await WorkspaceStore.get().catch(() => ({ lastOpenedPath: undefined }));
     const [nextEnvironment, nextStartup, savedHistory] = await Promise.all([
-      invokeDesktop<PerformanceEnvironment>("get_performance_environment", {
-        workspacePath: workspace.lastOpenedPath ?? null,
-      }),
-      invokeDesktop<StartupMetrics | null>("get_startup_metrics"),
-      invokeDesktop<PerformanceHistoryFile | BenchmarkSnapshot | null>("load_performance_baseline"),
+      PerformanceIPC.getEnvironment<PerformanceEnvironment>(workspace.lastOpenedPath ?? null),
+      PerformanceIPC.getStartupMetrics<StartupMetrics | null>(),
+      PerformanceIPC.loadBaseline<PerformanceHistoryFile | BenchmarkSnapshot | null>(),
     ]);
     const normalized = normalizeHistory(savedHistory);
     setEnvironment(nextEnvironment);
@@ -146,11 +146,11 @@ export function PerformanceBenchmarkPage() {
 
   const runIpcBenchmark = useCallback(async (): Promise<BenchmarkResult[]> => {
     for (let index = 0; index < IPC_WARMUP_RUNS; index += 1)
-      await invokeDesktop("aurona_bridge", { req: { action: "sys:ping" } });
+      await AuronaChannel.request("sys:ping");
     const samples: number[] = [];
     for (let index = 0; index < IPC_SAMPLE_RUNS; index += 1) {
       const started = performance.now();
-      await invokeDesktop("aurona_bridge", { req: { action: "sys:ping" } });
+      await AuronaChannel.request("sys:ping");
       samples.push(performance.now() - started);
     }
     const mean = average(samples);
@@ -215,10 +215,7 @@ export function PerformanceBenchmarkPage() {
             ? runIpcBenchmark()
             : kind === "ui"
               ? runUiBenchmark()
-              : invokeDesktop<BenchmarkResult[]>("run_performance_benchmark", {
-                  kind,
-                  requestId: `${token}`,
-                });
+              : PerformanceIPC.runBenchmark<BenchmarkResult[]>(kind, `${token}`);
         const sampleRuns = kind === "ipc" || kind === "ui" ? 1 : SAMPLE_RUNS;
         if (sampleRuns > 1) for (let index = 0; index < WARMUP_RUNS; index += 1) await execute();
         if (cancellationRef.current !== token) return false;
@@ -285,7 +282,7 @@ export function PerformanceBenchmarkPage() {
     const requestId = activeRequestIdRef.current;
     cancellationRef.current += 1;
     activeRequestIdRef.current = null;
-    if (requestId) void invokeDesktop("cancel_performance_benchmark", { requestId });
+    if (requestId) void PerformanceIPC.cancelBenchmark(requestId);
     setRunningKind(null);
     setIsRunningAll(false);
     showToast("已停止后续采样；当前原子测试会安全结束并清理临时文件", "info");
@@ -376,7 +373,7 @@ export function PerformanceBenchmarkPage() {
         latest: snapshot,
         history: nextHistory,
       };
-      await invokeDesktop("save_performance_baseline", { baseline: payload });
+      await PerformanceIPC.saveBaseline(payload);
       setHistory(nextHistory);
       setBaseline(snapshot);
       showToast("已保存本次性能记录，并加入本地版本排行榜", "success");

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import "@fontsource/righteous/400.css";
 import "./Styles/Splash.css";
-import { desktopApp, invokeDesktop } from "../Foundation/Desktop";
+import { desktopApp } from "../Foundation/Desktop";
+import { AppLifecycleIPC } from "../Foundation/IPC/AppLifecycleCommands";
 
 function SplashApp() {
   const [version, setVersion] = useState("...");
@@ -15,7 +16,7 @@ function SplashApp() {
     // the first React frame so Rust can keep the brand artwork visible for a
     // real two seconds without delaying window creation or image decoding.
     requestAnimationFrame(() => {
-      invokeDesktop("mark_splashscreen_shown").catch(console.error);
+      AppLifecycleIPC.markSplashscreenShown().catch(console.error);
     });
 
     desktopApp

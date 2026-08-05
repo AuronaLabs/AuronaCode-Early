@@ -45,6 +45,8 @@ import IconLayoutBottombar from "@tabler/icons-react/dist/esm/icons/IconLayoutBo
 import IconLayoutBottombarFilled from "@tabler/icons-react/dist/esm/icons/IconLayoutBottombarFilled.mjs";
 import IconLayoutSidebarLeftCollapse from "@tabler/icons-react/dist/esm/icons/IconLayoutSidebarLeftCollapse.mjs";
 import IconList from "@tabler/icons-react/dist/esm/icons/IconList.mjs";
+import IconLogin from "@tabler/icons-react/dist/esm/icons/IconLogin.mjs";
+import IconLogout from "@tabler/icons-react/dist/esm/icons/IconLogout.mjs";
 import IconMarkdown from "@tabler/icons-react/dist/esm/icons/IconMarkdown.mjs";
 import IconMenu2 from "@tabler/icons-react/dist/esm/icons/IconMenu2.mjs";
 import IconMinus from "@tabler/icons-react/dist/esm/icons/IconMinus.mjs";
@@ -68,6 +70,7 @@ import IconSun from "@tabler/icons-react/dist/esm/icons/IconSun.mjs";
 import IconTerminal2 from "@tabler/icons-react/dist/esm/icons/IconTerminal2.mjs";
 import IconTrash from "@tabler/icons-react/dist/esm/icons/IconTrash.mjs";
 import IconTypography from "@tabler/icons-react/dist/esm/icons/IconTypography.mjs";
+import IconUserCircle from "@tabler/icons-react/dist/esm/icons/IconUserCircle.mjs";
 import IconX from "@tabler/icons-react/dist/esm/icons/IconX.mjs";
 
 export const Icons = {
@@ -139,6 +142,9 @@ export const Icons = {
   BottomPanel: IconLayoutBottombar,
   BottomPanelFilled: IconLayoutBottombarFilled,
   List: IconList,
+  Login: IconLogin,
+  Logout: IconLogout,
+  User: IconUserCircle,
   Play: IconPlayerPlayFilled,
   Pause: IconPlayerPause,
   Stop: IconPlayerStop,

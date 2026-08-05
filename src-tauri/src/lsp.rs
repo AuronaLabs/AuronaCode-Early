@@ -120,6 +120,7 @@ impl LspClient {
         for (key, value) in environment {
             process.env(key, value);
         }
+        ManagedChild::configure(&mut process);
 
         #[cfg(target_os = "windows")]
         {

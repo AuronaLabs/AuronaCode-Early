@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "../../../Shared/Utils/cn";
 import { glassVariants } from "../../../UI/Core/GlassManager/variants";
 import { type EditorOverlayAnchor, positionEditorOverlay } from "../Utils/EditorOverlay";
@@ -72,7 +73,7 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
     return () => window.removeEventListener("resize", update);
   }, [hover.anchor]);
 
-  return (
+  return createPortal(
     <div
       ref={cardRef}
       role="tooltip"
@@ -119,6 +120,7 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
           ),
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

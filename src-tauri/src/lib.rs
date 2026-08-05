@@ -5,6 +5,7 @@ mod dap;
 mod editor;
 mod lsp;
 mod performance;
+mod platform;
 mod process_tree;
 mod pty;
 mod search;
@@ -14,6 +15,7 @@ pub use commands::lsp_cmds::LspState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    platform::initialize_environment();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -69,6 +71,7 @@ pub fn run() {
             performance::cancel_performance_benchmark,
             performance::record_startup_metrics,
             performance::get_startup_metrics,
+            platform::platform_info,
             performance::load_performance_baseline,
             performance::save_performance_baseline,
             commands::lsp_cmds::lsp_start,

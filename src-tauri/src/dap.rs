@@ -79,6 +79,7 @@ impl DapSession {
             command.current_dir(cwd);
         }
         command.envs(&launch.env);
+        ManagedChild::configure(&mut command);
 
         let mut child = command.spawn().map_err(|error| {
             format!(

@@ -11,6 +11,17 @@ export interface EditorOverlayPosition {
   placement: "above" | "below";
 }
 
+export function editorPointToViewport(
+  container: { left: number; top: number },
+  point: { x: number; y: number },
+  scroll: { left: number; top: number },
+) {
+  return {
+    x: container.left + point.x - scroll.left,
+    y: container.top + point.y - scroll.top,
+  };
+}
+
 export function positionEditorOverlay(
   anchor: EditorOverlayAnchor,
   overlay: { width: number; height: number },

@@ -2,11 +2,12 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Aurona Code",
   "mainBinaryName": "Aurona Code",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "identifier": "com.aurona.code",
   "build": {
+    "features": ["aurona-account"],
     "beforeDevCommand": "pnpm run prepare:toolchains && pnpm run dev",
-    "beforeBuildCommand": "pnpm run prepare:toolchains && pnpm run build",
+    "beforeBuildCommand": "pnpm run prepare:toolchains && pnpm run verify:toolchains && pnpm run build",
     "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../Dist"
   },
@@ -43,7 +44,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src ipc: http://ipc.localhost http://tauri.localhost",
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https://account.aurona.cc; connect-src ipc: http://ipc.localhost http://tauri.localhost",
       "dangerousDisableAssetCspModification": [
         "style-src"
       ]
@@ -87,7 +88,7 @@
       }
     },
     "macOS": {
-      "minimumSystemVersion": "10.13"
+      "minimumSystemVersion": "11.0"
     },
     "linux": {
       "deb": {}

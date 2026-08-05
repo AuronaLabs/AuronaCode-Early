@@ -4,7 +4,6 @@ import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { memo, useEffect, useRef, useState } from "react";
 import { type ShellProfile, TerminalManager } from "../../Core/TerminalService";
-import { listenDesktop } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
 import { PtyIPC } from "../../Foundation/IPC/PtyCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
@@ -22,16 +21,6 @@ interface TerminalViewProps {
   isActive: boolean;
   shellProfile?: ShellProfile;
   cwd?: string;
-}
-
-interface PtyOutputPayload {
-  id: string;
-  data: string;
-}
-
-interface PtyExitPayload {
-  id: string;
-  reason: string;
 }
 
 const terminalTheme = (isDark: boolean) => ({
@@ -207,7 +196,7 @@ export const TerminalView = memo(function TerminalView({
 
     const start = async () => {
       try {
-        unlistenOutput = await listenDesktop<PtyOutputPayload>("pty-output", (payload) => {
+        unlistenOutput = await PtyIPC.listenOutput((payload) => {
           if (payload.id !== id || disposed) return;
           try {
             terminalRef.current?.write(decodeBase64(payload.data));
@@ -220,7 +209,7 @@ export const TerminalView = memo(function TerminalView({
         // 已被卸载但仍继续执行到 spawn 导致双进程
         if (disposed) return;
 
-        unlistenExit = await listenDesktop<PtyExitPayload>("pty-exit", (payload) => {
+        unlistenExit = await PtyIPC.listenExit((payload) => {
           if (payload.id !== id || disposed) return;
           // 守卫：只处理真正已启动的会话退出，忽略旧会话清理产生的幽灵 exit 事件
           if (!spawnedRef.current) return;

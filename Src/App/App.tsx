@@ -2,12 +2,18 @@ import { useEffect } from "react";
 import { UpdaterService } from "../Core/UpdaterService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { setupMacApplicationMenu } from "../Foundation/Desktop";
+import { PlatformService } from "../Foundation/Platform";
 import { AppShell } from "../Layout/AppShell";
 import { WorkspaceView } from "../Layout/Workspace";
+import { isRunnable } from "../Shared/Constants/RunConfig";
+import { useWorkbenchStore } from "../State/useWorkspaceStore";
 import { useGlassStore } from "../UI/Core/GlassManager";
 
 export default function App() {
   useEffect(() => {
+    let disposed = false;
+    let disposeMacMenu: (() => void) | undefined;
+    let unsubscribeWorkbench: (() => void) | undefined;
     useGlassStore.getState().applyToDOM();
     const themeObserver = new MutationObserver(() => {
       useGlassStore.getState().applyToDOM();
@@ -28,7 +34,7 @@ export default function App() {
     };
     window.addEventListener("keydown", handleGlobalKeyDown, { capture: true });
 
-    if (navigator.userAgent.includes("Mac")) {
+    if (PlatformService.isMacOS()) {
       void setupMacApplicationMenu({
         createFile: () => void CommandRegistry.execute("workbench.action.files.newFile"),
         createFolder: () => void CommandRegistry.execute("workbench.action.files.newFolder"),
@@ -39,10 +45,34 @@ export default function App() {
         openChangelog: () => void CommandRegistry.execute("workbench.action.openChangelog"),
         openPerformance: () => void CommandRegistry.execute("workbench.action.openPerformance"),
         openDevtools: () => void CommandRegistry.execute("workbench.action.openDevtools"),
-      }).catch((error) => console.error("Failed to setup macOS native menu", error));
+      })
+        .then((controller) => {
+          if (disposed) {
+            controller.dispose();
+            return;
+          }
+          const synchronize = () => {
+            const state = useWorkbenchStore.getState();
+            const active = state.tabs.find((tab) => tab.id === state.activeTabId);
+            const path = active?.type === "file" ? (active.path ?? null) : null;
+            void controller
+              .update({
+                canSave: path !== null && Boolean(active?.isDirty),
+                canRun: path !== null && isRunnable(path),
+              })
+              .catch((error) => console.error("Failed to update macOS native menu", error));
+          };
+          synchronize();
+          unsubscribeWorkbench = useWorkbenchStore.subscribe(synchronize);
+          disposeMacMenu = () => controller.dispose();
+        })
+        .catch((error) => console.error("Failed to setup macOS native menu", error));
     }
 
     return () => {
+      disposed = true;
+      unsubscribeWorkbench?.();
+      disposeMacMenu?.();
       themeObserver.disconnect();
       window.clearTimeout(updateTimer);
       window.removeEventListener("keydown", handleGlobalKeyDown, { capture: true });

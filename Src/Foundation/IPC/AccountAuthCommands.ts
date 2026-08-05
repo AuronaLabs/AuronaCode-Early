@@ -1,4 +1,4 @@
-import { invokeDesktop } from "../Desktop";
+import { invokeDesktop } from "../Desktop/Transport";
 
 export type AccountAuthPhase =
   | "disabled"
@@ -33,11 +33,12 @@ export interface AccountAuthStatus {
   profile: AccountProfile | null;
   expiresAtUnix: number | null;
   lastError: AccountAuthError | null;
+  lastNotice: string | null;
 }
 
 /**
- * Hidden 0.3.4 foundation. Do not import this client from product UI until the
- * 0.3.5 Aurona Account experience is explicitly enabled.
+ * Hidden account foundation. Do not import this client from product UI until
+ * the Aurona Account experience is explicitly enabled for the product build.
  */
 export const AccountAuthIPC = {
   status(): Promise<AccountAuthStatus> {

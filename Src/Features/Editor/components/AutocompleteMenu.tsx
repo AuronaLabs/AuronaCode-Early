@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export interface CompletionItem {
   label: string;
@@ -29,6 +30,7 @@ export interface CompletionItem {
 
 import { cn } from "../../../Shared/Utils/cn";
 import { glassVariants } from "../../../UI/Core/GlassManager/variants";
+import { positionEditorOverlay } from "../Utils/EditorOverlay";
 
 export interface AutocompleteMenuProps {
   x: number;
@@ -68,6 +70,25 @@ const kindIconMap: Record<number, string> = {
 
 export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: AutocompleteMenuProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ left: x, top: y });
+
+  useLayoutEffect(() => {
+    const update = () => {
+      const menu = menuRef.current;
+      const next = positionEditorOverlay(
+        { left: x, right: x, top: y, bottom: y },
+        { width: menu?.offsetWidth ?? 520, height: menu?.offsetHeight ?? 300 },
+        { width: window.innerWidth, height: window.innerHeight },
+        8,
+        0,
+      );
+      setPosition({ left: next.left, top: next.top });
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [x, y]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -90,13 +111,14 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
 
   if (!items || items.length === 0) return null;
 
-  return (
+  return createPortal(
     <div
+      ref={menuRef}
       className={cn(
         glassVariants({ layer: "floating" }),
         "fixed z-50 rounded-xl overflow-hidden flex font-sans shadow-2xl",
       )}
-      style={{ left: x, top: y, maxHeight: "300px" }}
+      style={{ left: position.left, top: position.top, maxHeight: "300px" }}
     >
       {}
       <div ref={scrollRef} className="w-[280px] overflow-y-auto aurona-scroll flex flex-col py-1">
@@ -142,6 +164,7 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
             </div>
           </div>
         )}
-    </div>
+    </div>,
+    document.body,
   );
 }

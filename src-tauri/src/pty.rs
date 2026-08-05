@@ -82,7 +82,7 @@ fn shell_command(shell_path: Option<String>) -> Result<(String, CommandBuilder),
     #[cfg(target_os = "windows")]
     let default_shell = "powershell.exe";
     #[cfg(not(target_os = "windows"))]
-    let default_shell = "/bin/bash";
+    let default_shell = default_unix_shell();
 
     let shell = shell_path.unwrap_or_else(|| default_shell.to_string());
     let profile = available_shells()
@@ -94,6 +94,7 @@ fn shell_command(shell_path: Option<String>) -> Result<(String, CommandBuilder),
     match profile.id.as_str() {
         "powershell" | "pwsh" => command.args(["-NoLogo"]),
         "git-bash" => command.args(["--login", "-i"]),
+        "bash" | "zsh" | "fish" => command.args(["--login"]),
         _ => {}
     }
     Ok((profile.name.clone(), command))
@@ -293,24 +294,74 @@ pub fn get_available_shells() -> Vec<ShellProfile> {
     }
 
     #[cfg(not(target_os = "windows"))]
-    {
-        for (id, name, path) in [
-            ("bash", "Bash", "/bin/bash"),
-            ("zsh", "Zsh", "/bin/zsh"),
-            ("sh", "Shell", "/bin/sh"),
-        ] {
-            if Path::new(path).is_file() {
-                shells.push(ShellProfile {
-                    id: id.to_string(),
-                    name: name.to_string(),
-                    path: path.to_string(),
-                    icon: "terminal".to_string(),
-                });
-            }
-        }
-    }
+    shells.extend(discover_unix_shells());
 
     shells
+}
+
+#[cfg(unix)]
+fn default_unix_shell() -> &'static str {
+    available_shells()
+        .first()
+        .map(|profile| profile.path.as_str())
+        .unwrap_or("/bin/sh")
+}
+
+#[cfg(unix)]
+fn discover_unix_shells() -> Vec<ShellProfile> {
+    let mut candidates = Vec::new();
+    if let Ok(shell) = std::env::var("SHELL") {
+        candidates.push(shell);
+    }
+    if let Ok(contents) = std::fs::read_to_string("/etc/shells") {
+        candidates.extend(
+            contents
+                .lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty() && !line.starts_with('#'))
+                .map(str::to_string),
+        );
+    }
+    #[cfg(target_os = "macos")]
+    candidates.extend(["/bin/zsh".to_string(), "/bin/bash".to_string()]);
+    #[cfg(target_os = "linux")]
+    candidates.extend([
+        "/bin/bash".to_string(),
+        "/usr/bin/bash".to_string(),
+        "/bin/zsh".to_string(),
+        "/usr/bin/zsh".to_string(),
+        "/usr/bin/fish".to_string(),
+        "/bin/dash".to_string(),
+        "/bin/sh".to_string(),
+    ]);
+
+    let mut seen_paths = std::collections::HashSet::new();
+    let mut seen_shells = std::collections::HashSet::new();
+    candidates
+        .into_iter()
+        .filter(|path| seen_paths.insert(path.clone()))
+        .filter(|path| Path::new(path).is_file())
+        .filter_map(|path| {
+            let id = Path::new(&path).file_name()?.to_str()?.to_ascii_lowercase();
+            let name = match id.as_str() {
+                "bash" => "Bash",
+                "zsh" => "Zsh",
+                "fish" => "Fish",
+                "dash" => "Dash",
+                "sh" => "Shell",
+                _ => return None,
+            };
+            if !seen_shells.insert(id.clone()) {
+                return None;
+            }
+            Some(ShellProfile {
+                id,
+                name: name.to_string(),
+                path,
+                icon: "terminal".to_string(),
+            })
+        })
+        .collect()
 }
 
 #[cfg(target_os = "windows")]

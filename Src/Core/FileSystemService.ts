@@ -1,5 +1,7 @@
-import { desktopFileSystem, invokeDesktop } from "../Foundation/Desktop";
+import { desktopFileSystem } from "../Foundation/Desktop/FileSystem";
 import { EventBus } from "../Foundation/EventBus";
+import { FileSystemCommands } from "../Foundation/IPC/FileSystemCommands";
+import { WorkspaceService } from "./WorkspaceService";
 
 const { exists, mkdir, readDir, readTextFile, remove, rename, watch, writeTextFile } =
   desktopFileSystem;
@@ -109,11 +111,13 @@ export const FileSystemService = {
   },
 
   async revealInOs(path: string) {
-    await invokeDesktop("reveal_in_os", { path });
+    await FileSystemCommands.revealInOs(path);
   },
 
   async copyOrMove(source: string, destination: string, isMove: boolean) {
-    await invokeDesktop("fs_copy_or_move", { source, destination, isMove });
+    const workspaceRoot = WorkspaceService.getCurrent().primaryRoot;
+    if (!workspaceRoot) throw new Error("Cannot copy or move files without an open workspace");
+    await FileSystemCommands.copyOrMove(workspaceRoot, source, destination, isMove);
   },
 
   _unwatch: undefined as (() => void) | undefined,

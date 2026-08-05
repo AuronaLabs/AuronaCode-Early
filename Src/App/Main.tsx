@@ -8,6 +8,7 @@ import { AppBootstrapper } from "../Core/AppBootstrapper";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EventBus } from "../Foundation/EventBus";
 import { Logger } from "../Foundation/Logger";
+import { PlatformService } from "../Foundation/Platform";
 import { ErrorBoundary } from "../Layout/ErrorBoundary";
 
 Logger.init();
@@ -40,8 +41,7 @@ function RootApp() {
         return;
       }
 
-      const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
-      const cmdKey = isMac ? e.metaKey : e.ctrlKey;
+      const cmdKey = PlatformService.isMacOS() ? e.metaKey : e.ctrlKey;
 
       const preventKeys = [
         { ctrl: true, shift: false, key: "p" },

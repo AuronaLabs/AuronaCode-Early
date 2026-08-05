@@ -1,6 +1,6 @@
 [package]
 name = "aurona_code"
-version = "0.3.4"
+version = "0.3.5"
 description = "Aurona Code Preview"
 authors = ["Aurona Team"]
 edition = "2021"
@@ -53,6 +53,10 @@ windows-sys = { version = "0.61", features = [
   "Win32_System_JobObjects",
   "Win32_System_Threading",
 ] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs", rev = "c4c45d503ea115a839aae718d02f79e7c7f0f673" }
 
 [dev-dependencies]
 rsa = { version = "0.9.10", features = ["pem"] }

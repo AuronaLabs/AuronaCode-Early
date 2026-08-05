@@ -1,4 +1,4 @@
-import { invokeDesktop } from "../Desktop";
+import { invokeDesktop } from "../Desktop/Transport";
 
 export interface WorkspaceFileEntry {
   path: string;

@@ -16,6 +16,10 @@ use url::Url;
 
 pub const REGISTERED_REDIRECT_URI: &str = "http://127.0.0.1/oauth/callback";
 const CALLBACK_PATH: &str = "/oauth/callback";
+// OAuth client identifiers are case-sensitive. Keep this identical to the
+// production registration in Aurona Account/XAdmin.
+const PRODUCTION_CLIENT_ID: &str = "aurona_Eqg8DBjkJxk2rbXHY6vloqzplfgbO024";
+const DEVELOPMENT_CLIENT_ID: &str = "aurona_code_local_dev";
 const KEYRING_SERVICE: &str = "cc.aurona.code.account";
 const KEYRING_REFRESH_TOKEN: &str = "aurona-account-refresh-token";
 const CALLBACK_TIMEOUT: Duration = Duration::from_secs(300);
@@ -33,21 +37,43 @@ pub struct AccountProviderConfig {
 
 impl Default for AccountProviderConfig {
     fn default() -> Self {
+        let allow_insecure_loopback_provider = cfg!(debug_assertions)
+            && matches!(
+                option_env!("AURONA_ACCOUNT_ALLOW_INSECURE_LOOPBACK_PROVIDER"),
+                Some("1") | Some("true") | Some("TRUE")
+            );
+        let configured_client_id = option_env!("AURONA_ACCOUNT_CLIENT_ID")
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned);
+        let client_id = configured_client_id.or_else(|| {
+            Some(
+                if cfg!(debug_assertions) {
+                    DEVELOPMENT_CLIENT_ID
+                } else {
+                    PRODUCTION_CLIENT_ID
+                }
+                .to_owned(),
+            )
+        });
         Self {
-            // 0.3.4 deliberately ships this off. 0.3.5 may enable the feature and
-            // inject the public client id; a client secret must never be added.
+            // Aurona Code is a public client. Production builds inject only the
+            // public client id; development uses the local mock registration.
             enabled: cfg!(feature = "aurona-account"),
-            client_id: option_env!("AURONA_ACCOUNT_CLIENT_ID").map(str::to_owned),
-            discovery_url: "https://auth.aurona.cc/api/auth/.well-known/openid-configuration"
-                .into(),
-            expected_issuer: "https://auth.aurona.cc".into(),
+            client_id,
+            discovery_url: option_env!("AURONA_ACCOUNT_DISCOVERY_URL")
+                .unwrap_or("https://auth.aurona.cc/.well-known/openid-configuration")
+                .to_owned(),
+            expected_issuer: option_env!("AURONA_ACCOUNT_EXPECTED_ISSUER")
+                .unwrap_or("https://auth.aurona.cc")
+                .to_owned(),
             scopes: vec![
                 "openid".into(),
                 "profile".into(),
                 "email".into(),
                 "offline_access".into(),
             ],
-            allow_insecure_loopback_provider: false,
+            allow_insecure_loopback_provider,
         }
     }
 }
@@ -85,6 +111,7 @@ pub struct AccountAuthStatus {
     pub profile: Option<AccountProfile>,
     pub expires_at_unix: Option<u64>,
     pub last_error: Option<AccountAuthError>,
+    pub last_notice: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -179,6 +206,20 @@ struct RuntimeState {
     status: AccountAuthStatus,
     access_token: Option<String>,
     cancel: Option<oneshot::Sender<()>>,
+    active_authorization: Option<u64>,
+    next_authorization: u64,
+}
+
+enum AuthorizationCompletion {
+    Completed,
+    Cancelled,
+    Failed(AccountAuthError),
+}
+
+enum BrowserCallbackResponse {
+    Success,
+    Cancelled,
+    Failure,
 }
 
 pub struct AccountAuthService {
@@ -215,9 +256,12 @@ impl AccountAuthService {
                     profile: None,
                     expires_at_unix: None,
                     last_error: None,
+                    last_notice: None,
                 },
                 access_token: None,
                 cancel: None,
+                active_authorization: None,
+                next_authorization: 0,
             }),
         }
     }
@@ -232,61 +276,83 @@ impl AccountAuthService {
     ) -> Result<(), AccountAuthError> {
         self.ensure_enabled()?;
         self.cancel().await;
-        self.set_phase(AccountAuthPhase::Discovering).await;
+        let (authorization_id, cancel_rx) = self.begin_authorization().await;
 
         let discovery = match self.discover().await {
             Ok(discovery) => discovery,
             Err(error) => {
-                self.fail(error.clone()).await;
+                self.finish_authorization_failure(authorization_id, error.clone())
+                    .await;
                 return Err(error);
             }
         };
-        let listener = TcpListener::bind(("127.0.0.1", 0)).await.map_err(|error| {
-            AccountAuthError::new(
-                "callback_bind_failed",
-                "无法准备安全的账户回调。",
-                error.to_string(),
-                true,
-            )
-        })?;
-        let port = listener
-            .local_addr()
-            .map_err(|error| {
-                AccountAuthError::new(
+        if !self.is_active_authorization(authorization_id).await {
+            return Ok(());
+        }
+        let listener = match TcpListener::bind(("127.0.0.1", 0)).await {
+            Ok(listener) => listener,
+            Err(error) => {
+                let error = AccountAuthError::new(
+                    "callback_bind_failed",
+                    "无法准备安全的账户回调。",
+                    error.to_string(),
+                    true,
+                );
+                self.finish_authorization_failure(authorization_id, error.clone())
+                    .await;
+                return Err(error);
+            }
+        };
+        if !self.is_active_authorization(authorization_id).await {
+            return Ok(());
+        }
+        let port = match listener.local_addr() {
+            Ok(address) => address.port(),
+            Err(error) => {
+                let error = AccountAuthError::new(
                     "callback_address_failed",
                     "无法读取账户回调地址。",
                     error.to_string(),
                     true,
-                )
-            })?
-            .port();
+                );
+                self.finish_authorization_failure(authorization_id, error.clone())
+                    .await;
+                return Err(error);
+            }
+        };
         let redirect_uri = format!("http://127.0.0.1:{port}{CALLBACK_PATH}");
         let verifier = random_secret(64);
         let state = random_secret(48);
         let nonce = random_secret(48);
         let challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()));
         let authorization_url =
-            self.authorization_url(&discovery, &redirect_uri, &state, &nonce, &challenge)?;
-        let (cancel_tx, cancel_rx) = oneshot::channel();
+            match self.authorization_url(&discovery, &redirect_uri, &state, &nonce, &challenge) {
+                Ok(url) => url,
+                Err(error) => {
+                    self.finish_authorization_failure(authorization_id, error.clone())
+                        .await;
+                    return Err(error);
+                }
+            };
+        if !self
+            .set_authorization_phase(authorization_id, AccountAuthPhase::AwaitingCallback)
+            .await
         {
-            let mut runtime = self.runtime.lock().await;
-            runtime.status.phase = AccountAuthPhase::AwaitingCallback;
-            runtime.status.last_error = None;
-            runtime.cancel = Some(cancel_tx);
+            return Ok(());
         }
 
         if let Err(error) = app
             .opener()
             .open_url(authorization_url.as_str(), None::<&str>)
         {
-            self.cancel().await;
             let error = AccountAuthError::new(
                 "browser_open_failed",
                 "无法打开系统浏览器。",
                 error.to_string(),
                 true,
             );
-            self.fail(error.clone()).await;
+            self.finish_authorization_failure(authorization_id, error.clone())
+                .await;
             return Err(error);
         }
 
@@ -294,6 +360,7 @@ impl AccountAuthService {
         tauri::async_runtime::spawn(async move {
             let result = service
                 .complete_authorization(
+                    authorization_id,
                     listener,
                     cancel_rx,
                     discovery,
@@ -303,8 +370,18 @@ impl AccountAuthService {
                     nonce,
                 )
                 .await;
-            if let Err(error) = result {
-                service.fail(error).await;
+            match result {
+                AuthorizationCompletion::Completed => {}
+                AuthorizationCompletion::Cancelled => {
+                    service
+                        .finish_authorization_cancelled(authorization_id)
+                        .await;
+                }
+                AuthorizationCompletion::Failed(error) => {
+                    service
+                        .finish_authorization_failure(authorization_id, error)
+                        .await;
+                }
             }
         });
         Ok(())
@@ -315,8 +392,11 @@ impl AccountAuthService {
         if let Some(cancel) = runtime.cancel.take() {
             let _ = cancel.send(());
         }
+        runtime.active_authorization = None;
         if runtime.status.enabled && runtime.status.phase != AccountAuthPhase::SignedIn {
             runtime.status.phase = AccountAuthPhase::SignedOut;
+            runtime.status.last_error = None;
+            runtime.status.last_notice = Some("已取消授权。".into());
         }
     }
 
@@ -405,8 +485,8 @@ impl AccountAuthService {
         if !self.config.enabled || self.config.client_id.is_none() {
             return Err(AccountAuthError::new(
                 "account_feature_disabled",
-                "Aurona Account 将在后续版本开放。",
-                "The 0.3.4 account feature policy is disabled or has no public client id.",
+                "当前构建尚未配置 Aurona Account。",
+                "The account feature is disabled or has no public client id.",
                 false,
             ));
         }
@@ -549,6 +629,7 @@ impl AccountAuthService {
     #[allow(clippy::too_many_arguments)]
     async fn complete_authorization(
         &self,
+        authorization_id: u64,
         listener: TcpListener,
         mut cancel: oneshot::Receiver<()>,
         discovery: DiscoveryDocument,
@@ -556,33 +637,35 @@ impl AccountAuthService {
         verifier: String,
         expected_state: String,
         nonce: String,
-    ) -> Result<(), AccountAuthError> {
+    ) -> AuthorizationCompletion {
         let accepted = tokio::select! {
-            _ = &mut cancel => return Ok(()),
+            _ = &mut cancel => return AuthorizationCompletion::Cancelled,
             result = tokio::time::timeout(CALLBACK_TIMEOUT, listener.accept()) => result,
         };
-        let (mut stream, _) = accepted
-            .map_err(|_| {
-                AccountAuthError::new(
-                    "callback_timeout",
-                    "登录已超时。",
-                    "No loopback callback was received within five minutes.",
-                    true,
-                )
-            })?
-            .map_err(|error| {
-                AccountAuthError::new(
+        let (mut stream, _) = match accepted {
+            Ok(Ok(stream)) => stream,
+            Ok(Err(error)) => {
+                return AuthorizationCompletion::Failed(AccountAuthError::new(
                     "callback_failed",
                     "无法接收账户回调。",
                     error.to_string(),
                     true,
-                )
-            })?;
+                ))
+            }
+            Err(_) => {
+                return AuthorizationCompletion::Failed(AccountAuthError::new(
+                    "callback_timeout",
+                    "登录已超时。",
+                    "No loopback callback was received within five minutes.",
+                    true,
+                ))
+            }
+        };
         let callback = match read_callback(&mut stream).await {
             Ok(callback) => callback,
             Err(error) => {
-                write_browser_response(&mut stream, false).await;
-                return Err(error);
+                write_browser_response(&mut stream, BrowserCallbackResponse::Failure).await;
+                return AuthorizationCompletion::Failed(error);
             }
         };
         if expected_state
@@ -591,8 +674,8 @@ impl AccountAuthService {
             .unwrap_u8()
             != 1
         {
-            write_browser_response(&mut stream, false).await;
-            return Err(AccountAuthError::new(
+            write_browser_response(&mut stream, BrowserCallbackResponse::Failure).await;
+            return AuthorizationCompletion::Failed(AccountAuthError::new(
                 "state_mismatch",
                 "账户回调验证失败。",
                 "OAuth state did not match the pending authorization request.",
@@ -600,28 +683,52 @@ impl AccountAuthService {
             ));
         }
         if let Some(error) = callback.error {
-            write_browser_response(&mut stream, false).await;
-            return Err(AccountAuthError::new(
-                "authorization_rejected",
-                "Aurona Account 授权已取消或失败。",
+            if error == "access_denied" {
+                write_browser_response(&mut stream, BrowserCallbackResponse::Cancelled).await;
+                return AuthorizationCompletion::Cancelled;
+            }
+            write_browser_response(&mut stream, BrowserCallbackResponse::Failure).await;
+            return AuthorizationCompletion::Failed(AccountAuthError::new(
+                "authorization_failed",
+                "Aurona Account 授权未能完成。",
                 format!(
                     "{}: {}",
                     error,
-                    callback.error_description.as_deref().unwrap_or("")
+                    callback.error_description.as_deref().unwrap_or(""),
                 ),
                 true,
             ));
         }
-        let code = callback
-            .code
-            .ok_or_else(|| protocol_message("Loopback callback has no authorization code"))?;
-        write_browser_response(&mut stream, true).await;
-        self.set_phase(AccountAuthPhase::ExchangingCode).await;
-        let tokens = self
+        let Some(code) = callback.code else {
+            return AuthorizationCompletion::Failed(protocol_message(
+                "Loopback callback has no authorization code",
+            ));
+        };
+        write_browser_response(&mut stream, BrowserCallbackResponse::Success).await;
+        if !self
+            .set_authorization_phase(authorization_id, AccountAuthPhase::ExchangingCode)
+            .await
+        {
+            return AuthorizationCompletion::Cancelled;
+        }
+        let tokens = match self
             .exchange_code(&discovery, &redirect_uri, &verifier, &code)
-            .await?;
-        validate_token_type(&tokens)?;
-        self.accept_initial_tokens(&discovery, tokens, &nonce).await
+            .await
+        {
+            Ok(tokens) => tokens,
+            Err(error) => return AuthorizationCompletion::Failed(error),
+        };
+        if let Err(error) = validate_token_type(&tokens) {
+            return AuthorizationCompletion::Failed(error);
+        }
+        match self
+            .accept_initial_tokens(authorization_id, &discovery, tokens, &nonce)
+            .await
+        {
+            Ok(true) => AuthorizationCompletion::Completed,
+            Ok(false) => AuthorizationCompletion::Cancelled,
+            Err(error) => AuthorizationCompletion::Failed(error),
+        }
     }
 
     async fn exchange_code(
@@ -659,10 +766,11 @@ impl AccountAuthService {
 
     async fn accept_initial_tokens(
         &self,
+        authorization_id: u64,
         discovery: &DiscoveryDocument,
         tokens: TokenResponse,
         expected_nonce: &str,
-    ) -> Result<(), AccountAuthError> {
+    ) -> Result<bool, AccountAuthError> {
         let id_token = tokens
             .id_token
             .as_deref()
@@ -672,11 +780,8 @@ impl AccountAuthService {
             .await?;
         let profile = self.fetch_userinfo(discovery, &tokens.access_token).await?;
         validate_subject_match(&claims.sub, &profile.subject)?;
-        if let Some(refresh_token) = tokens.refresh_token.as_deref() {
-            write_refresh_token(refresh_token).map_err(credential_error)?;
-        }
-        self.set_authenticated(tokens, profile).await;
-        Ok(())
+        self.commit_initial_authorization(authorization_id, tokens, profile)
+            .await
     }
 
     async fn accept_refreshed_tokens(
@@ -826,10 +931,95 @@ impl AccountAuthService {
         runtime.status.profile = Some(profile);
         runtime.status.expires_at_unix = expires_at;
         runtime.status.last_error = None;
+        runtime.status.last_notice = None;
+    }
+
+    async fn commit_initial_authorization(
+        &self,
+        authorization_id: u64,
+        tokens: TokenResponse,
+        profile: AccountProfile,
+    ) -> Result<bool, AccountAuthError> {
+        let expires_at = tokens
+            .expires_in
+            .map(|seconds| unix_now().saturating_add(seconds));
+        let mut runtime = self.runtime.lock().await;
+        if runtime.active_authorization != Some(authorization_id) {
+            return Ok(false);
+        }
+        if let Some(refresh_token) = tokens.refresh_token.as_deref() {
+            write_refresh_token(refresh_token).map_err(credential_error)?;
+        }
+        runtime.access_token = Some(tokens.access_token);
+        runtime.cancel = None;
+        runtime.active_authorization = None;
+        runtime.status.phase = AccountAuthPhase::SignedIn;
+        runtime.status.profile = Some(profile);
+        runtime.status.expires_at_unix = expires_at;
+        runtime.status.last_error = None;
+        runtime.status.last_notice = None;
+        Ok(true)
     }
 
     async fn set_phase(&self, phase: AccountAuthPhase) {
         self.runtime.lock().await.status.phase = phase;
+    }
+
+    async fn begin_authorization(&self) -> (u64, oneshot::Receiver<()>) {
+        let (cancel_tx, cancel_rx) = oneshot::channel();
+        let mut runtime = self.runtime.lock().await;
+        runtime.next_authorization = runtime.next_authorization.wrapping_add(1);
+        if runtime.next_authorization == 0 {
+            runtime.next_authorization = 1;
+        }
+        let authorization_id = runtime.next_authorization;
+        runtime.active_authorization = Some(authorization_id);
+        runtime.cancel = Some(cancel_tx);
+        runtime.status.phase = AccountAuthPhase::Discovering;
+        runtime.status.last_error = None;
+        runtime.status.last_notice = None;
+        (authorization_id, cancel_rx)
+    }
+
+    async fn is_active_authorization(&self, authorization_id: u64) -> bool {
+        self.runtime.lock().await.active_authorization == Some(authorization_id)
+    }
+
+    async fn set_authorization_phase(
+        &self,
+        authorization_id: u64,
+        phase: AccountAuthPhase,
+    ) -> bool {
+        let mut runtime = self.runtime.lock().await;
+        if runtime.active_authorization != Some(authorization_id) {
+            return false;
+        }
+        runtime.status.phase = phase;
+        true
+    }
+
+    async fn finish_authorization_cancelled(&self, authorization_id: u64) {
+        let mut runtime = self.runtime.lock().await;
+        if runtime.active_authorization != Some(authorization_id) {
+            return;
+        }
+        runtime.cancel = None;
+        runtime.active_authorization = None;
+        runtime.status.phase = AccountAuthPhase::SignedOut;
+        runtime.status.last_error = None;
+        runtime.status.last_notice = Some("已取消授权。".into());
+    }
+
+    async fn finish_authorization_failure(&self, authorization_id: u64, error: AccountAuthError) {
+        let mut runtime = self.runtime.lock().await;
+        if runtime.active_authorization != Some(authorization_id) {
+            return;
+        }
+        runtime.cancel = None;
+        runtime.active_authorization = None;
+        runtime.status.phase = AccountAuthPhase::Failed;
+        runtime.status.last_error = Some(error);
+        runtime.status.last_notice = None;
     }
 
     async fn fail(&self, error: AccountAuthError) {
@@ -839,8 +1029,10 @@ impl AccountAuthService {
             return;
         }
         runtime.cancel = None;
+        runtime.active_authorization = None;
         runtime.status.phase = AccountAuthPhase::Failed;
         runtime.status.last_error = Some(error);
+        runtime.status.last_notice = None;
     }
 
     async fn clear_session(&self) {
@@ -849,6 +1041,8 @@ impl AccountAuthService {
         runtime.status.profile = None;
         runtime.status.expires_at_unix = None;
         runtime.status.last_error = None;
+        runtime.status.last_notice = None;
+        runtime.active_authorization = None;
         runtime.status.phase = if runtime.status.enabled {
             AccountAuthPhase::SignedOut
         } else {
@@ -877,11 +1071,7 @@ pub async fn account_auth_start(
     app: AppHandle,
     state: tauri::State<'_, AccountAuthState>,
 ) -> Result<(), AccountAuthError> {
-    let result = state.0.start(&app).await;
-    if let Err(error) = &result {
-        state.0.fail(error.clone()).await;
-    }
-    result
+    state.0.start(&app).await
 }
 
 #[tauri::command]
@@ -1048,19 +1238,26 @@ async fn read_callback(
     })
 }
 
-async fn write_browser_response(stream: &mut tokio::net::TcpStream, success: bool) {
-    let (status, title, message) = if success {
-        (
+async fn write_browser_response(
+    stream: &mut tokio::net::TcpStream,
+    response: BrowserCallbackResponse,
+) {
+    let (status, title, message) = match response {
+        BrowserCallbackResponse::Success => (
             "200 OK",
             "Aurona Code",
             "已收到授权结果，可以关闭此页面并返回 Aurona Code。",
-        )
-    } else {
-        (
+        ),
+        BrowserCallbackResponse::Cancelled => (
+            "200 OK",
+            "Aurona Code",
+            "已取消授权，可以关闭此页面并返回 Aurona Code。",
+        ),
+        BrowserCallbackResponse::Failure => (
             "400 Bad Request",
             "Aurona Code",
             "无法验证授权回调，请关闭此页面后重试。",
-        )
+        ),
     };
     let body = format!(
         "<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>{title}</title><style>body{{font:16px system-ui;margin:0;display:grid;place-items:center;min-height:100vh;background:#f6f7f9;color:#202124}}main{{max-width:32rem;padding:2rem}}h1{{font-size:1.35rem}}</style><main><h1>{title}</h1><p>{message}</p></main>"
@@ -1406,7 +1603,10 @@ mod tests {
 
     #[test]
     fn production_feature_is_hidden_without_a_client_id() {
-        let config = AccountProviderConfig::default();
+        let config = AccountProviderConfig {
+            client_id: None,
+            ..AccountProviderConfig::default()
+        };
         assert!(config.client_id.is_none());
         let service = AccountAuthService::new(config);
         assert!(service.ensure_enabled().is_err());
@@ -1494,21 +1694,148 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn access_denied_is_a_normal_cancelled_authorization() {
+        let service = AccountAuthService::new(AccountProviderConfig {
+            enabled: true,
+            client_id: Some("test-client".into()),
+            ..AccountProviderConfig::default()
+        });
+        let (authorization_id, cancel_rx) = service.begin_authorization().await;
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let mut stream = tokio::net::TcpStream::connect(address).await.unwrap();
+            stream
+                .write_all(b"GET /oauth/callback?error=access_denied&state=fresh-state HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+                .await
+                .unwrap();
+        });
+        let discovery = DiscoveryDocument {
+            issuer: "https://auth.aurona.cc".into(),
+            authorization_endpoint: "https://auth.aurona.cc/api/auth/oauth2/authorize".into(),
+            token_endpoint: "https://auth.aurona.cc/api/auth/oauth2/token".into(),
+            jwks_uri: "https://auth.aurona.cc/api/auth/jwks".into(),
+            userinfo_endpoint: Some("https://auth.aurona.cc/api/auth/oauth2/userinfo".into()),
+            revocation_endpoint: Some("https://auth.aurona.cc/api/auth/oauth2/revoke".into()),
+            code_challenge_methods_supported: Some(vec!["S256".into()]),
+            scopes_supported: None,
+            response_types_supported: Some(vec!["code".into()]),
+            grant_types_supported: Some(vec!["authorization_code".into()]),
+            token_endpoint_auth_methods_supported: Some(vec!["none".into()]),
+        };
+        let result = service
+            .complete_authorization(
+                authorization_id,
+                listener,
+                cancel_rx,
+                discovery,
+                "http://127.0.0.1:49152/oauth/callback".into(),
+                "fresh-verifier".into(),
+                "fresh-state".into(),
+                "fresh-nonce".into(),
+            )
+            .await;
+        assert!(matches!(result, AuthorizationCompletion::Cancelled));
+        service
+            .finish_authorization_cancelled(authorization_id)
+            .await;
+        let status = service.status().await;
+        assert_eq!(status.phase, AccountAuthPhase::SignedOut);
+        assert_eq!(status.last_notice.as_deref(), Some("已取消授权。"));
+        assert!(status.last_error.is_none());
+    }
+
+    #[tokio::test]
     async fn pending_authorization_can_be_cancelled_without_leaving_stale_state() {
         let service = AccountAuthService::new(AccountProviderConfig {
             enabled: true,
             client_id: Some("test-client".into()),
             ..AccountProviderConfig::default()
         });
-        let (cancel_tx, cancel_rx) = oneshot::channel();
-        {
-            let mut runtime = service.runtime.lock().await;
-            runtime.status.phase = AccountAuthPhase::AwaitingCallback;
-            runtime.cancel = Some(cancel_tx);
-        }
+        let (_, cancel_rx) = service.begin_authorization().await;
         service.cancel().await;
         assert!(cancel_rx.await.is_ok());
         assert_eq!(service.status().await.phase, AccountAuthPhase::SignedOut);
+        assert_eq!(
+            service.status().await.last_notice.as_deref(),
+            Some("已取消授权。")
+        );
+    }
+
+    #[tokio::test]
+    async fn cancelled_transaction_cannot_overwrite_a_new_authorization() {
+        let service = AccountAuthService::new(AccountProviderConfig {
+            enabled: true,
+            client_id: Some("test-client".into()),
+            ..AccountProviderConfig::default()
+        });
+        let (first, _) = service.begin_authorization().await;
+        service.finish_authorization_cancelled(first).await;
+        let (second, _) = service.begin_authorization().await;
+        assert_ne!(first, second);
+
+        service
+            .finish_authorization_failure(
+                first,
+                AccountAuthError::new("old_callback", "旧授权失败", "stale transaction", true),
+            )
+            .await;
+
+        let runtime = service.runtime.lock().await;
+        assert_eq!(runtime.active_authorization, Some(second));
+        assert_eq!(runtime.status.phase, AccountAuthPhase::Discovering);
+        assert!(runtime.status.last_error.is_none());
+    }
+
+    #[test]
+    fn authorization_url_contains_the_complete_public_client_request() {
+        let service = AccountAuthService::new(AccountProviderConfig {
+            enabled: true,
+            client_id: Some(PRODUCTION_CLIENT_ID.into()),
+            ..AccountProviderConfig::default()
+        });
+        let discovery = DiscoveryDocument {
+            issuer: "https://auth.aurona.cc".into(),
+            authorization_endpoint: "https://auth.aurona.cc/api/auth/oauth2/authorize".into(),
+            token_endpoint: "https://auth.aurona.cc/api/auth/oauth2/token".into(),
+            jwks_uri: "https://auth.aurona.cc/api/auth/jwks".into(),
+            userinfo_endpoint: Some("https://auth.aurona.cc/api/auth/oauth2/userinfo".into()),
+            revocation_endpoint: Some("https://auth.aurona.cc/api/auth/oauth2/revoke".into()),
+            code_challenge_methods_supported: Some(vec!["S256".into()]),
+            scopes_supported: None,
+            response_types_supported: Some(vec!["code".into()]),
+            grant_types_supported: Some(vec!["authorization_code".into()]),
+            token_endpoint_auth_methods_supported: Some(vec!["none".into()]),
+        };
+        let url = service
+            .authorization_url(
+                &discovery,
+                "http://127.0.0.1:49152/oauth/callback",
+                "fresh-state",
+                "fresh-nonce",
+                "fresh-challenge",
+            )
+            .unwrap();
+        let query: HashMap<String, String> = url.query_pairs().into_owned().collect();
+        assert_eq!(
+            query.get("client_id").map(String::as_str),
+            Some(PRODUCTION_CLIENT_ID)
+        );
+        assert_eq!(
+            query.get("redirect_uri").map(String::as_str),
+            Some("http://127.0.0.1:49152/oauth/callback")
+        );
+        assert_eq!(query.get("response_type").map(String::as_str), Some("code"));
+        assert_eq!(query.get("state").map(String::as_str), Some("fresh-state"));
+        assert_eq!(query.get("nonce").map(String::as_str), Some("fresh-nonce"));
+        assert_eq!(
+            query.get("code_challenge").map(String::as_str),
+            Some("fresh-challenge")
+        );
+        assert_eq!(
+            query.get("code_challenge_method").map(String::as_str),
+            Some("S256")
+        );
     }
 
     #[test]
@@ -1616,5 +1943,33 @@ mod tests {
             Some("https://account.aurona.cc/avatar/mock-user.png")
         );
         provider.await.unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore = "requires the local Aurona Account/Auth development services"]
+    async fn local_aurona_account_discovery_contract_is_compatible() {
+        let issuer = std::env::var("AURONA_ACCOUNT_TEST_ISSUER")
+            .unwrap_or_else(|_| "http://127.0.0.1:5174".into());
+        let service = AccountAuthService::new(AccountProviderConfig {
+            enabled: true,
+            client_id: Some("aurona_code_local_dev".into()),
+            discovery_url: format!("{issuer}/.well-known/openid-configuration"),
+            expected_issuer: issuer.clone(),
+            scopes: vec![
+                "openid".into(),
+                "profile".into(),
+                "email".into(),
+                "offline_access".into(),
+            ],
+            allow_insecure_loopback_provider: true,
+        });
+        let discovery = service.discover().await.unwrap();
+        assert_eq!(discovery.issuer, issuer);
+        assert!(discovery
+            .authorization_endpoint
+            .ends_with("/oauth2/authorize"));
+        assert!(discovery.token_endpoint.ends_with("/oauth2/token"));
+        assert!(discovery.userinfo_endpoint.is_some());
+        assert!(discovery.revocation_endpoint.is_some());
     }
 }

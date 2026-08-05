@@ -1,6 +1,7 @@
 import * as MenubarPrimitive from "@radix-ui/react-menubar";
 import * as React from "react";
 import { cn } from "../../Shared/Utils/cn";
+import { glassVariants } from "../Core/GlassManager/variants";
 
 export const MenubarRoot = React.forwardRef<
   React.ElementRef<typeof MenubarPrimitive.Root>,
@@ -49,8 +50,9 @@ export const MenubarContent = React.forwardRef<
       alignOffset={alignOffset}
       sideOffset={sideOffset}
       className={cn(
-        "bg-[var(--GlassSurface-Floating)] backdrop-blur-xl border border-[var(--GlassBorder)] shadow-lg rounded-xl p-1 z-[9999] flex flex-col min-w-[160px]",
-        "animate-in fade-in zoom-in-95 duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95",
+        glassVariants({ layer: "floating" }),
+        "rounded-xl p-1 z-[9999] flex flex-col min-w-[160px] overflow-hidden",
+        "animate-in fade-in duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out",
         className,
       )}
       {...props}
