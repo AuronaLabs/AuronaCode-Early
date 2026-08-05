@@ -173,6 +173,17 @@ export function TitleBar() {
       </div>
 
       <div className="flex h-full items-center pr-3 gap-2 shrink-0">
+        <Tooltip content="打开 Fliuno 全局搜索" delay={300} placement="bottom">
+          <button
+            type="button"
+            className="mr-2 flex h-[26px] cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 text-[12px] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+            onClick={() => runCommand("workbench.action.openFliuno")}
+          >
+            <Icons.Search size={14} stroke={1.8} />
+            Fliuno
+          </button>
+        </Tooltip>
+
         {activeFilePath && isRunnable(activeFilePath) && (
           <Tooltip content="运行当前文件" delay={300} placement="bottom">
             <button

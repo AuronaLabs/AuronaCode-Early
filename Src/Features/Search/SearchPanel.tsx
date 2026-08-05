@@ -148,13 +148,20 @@ export const SearchPanel = React.memo(function SearchPanel() {
         <div
           className={cn(
             glassVariants({ layer: "base" }),
-            "flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[11.5px] text-[var(--color-text-muted)]",
+            "flex flex-col gap-2 rounded-xl px-3.5 py-3 text-[11.5px] text-[var(--color-text-muted)]",
           )}
         >
-          <Icons.Info size={14} className="opacity-60 shrink-0" />
-          <span className="opacity-80">
-            搜索结果按文件与行号稳定排序；大文件与超过 500 条的结果会被安全限制。
-          </span>
+          <div className="flex items-start gap-2.5">
+            <Icons.Search size={14} className="mt-0.5 shrink-0 text-[var(--color-accent)]" />
+            <span className="opacity-90">
+              推荐使用 <b className="text-[var(--color-text-highlight)]">Fliuno</b>
+              （Ctrl+Shift+P）搜索命令与文件，更快也更智能。
+            </span>
+          </div>
+          <div className="flex items-start gap-2.5">
+            <Icons.Info size={14} className="mt-0.5 shrink-0 opacity-60" />
+            <span className="opacity-80">全局搜索不再更新，即将下架；请逐步迁移到 Fliuno。</span>
+          </div>
         </div>
 
         <div

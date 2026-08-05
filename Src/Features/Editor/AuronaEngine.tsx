@@ -485,6 +485,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     (lines: string[], lineIndex: number, charIndex: number, manual = false) => {
       if (!path) return;
       if (!manual && !languagePreferences.automaticCompletion) return;
+      // 未运行或不支持补全的语言（当前仅 Python / TypeScript）不发起自动补全请求。
+      if (!manual && !LspClient.getInstance().supports(language, "completion")) return;
       const lineText = lines[lineIndex] || "";
       const prefixMatch = lineText.substring(0, charIndex).match(/[a-zA-Z0-9_]*$/);
       const prefix = prefixMatch ? prefixMatch[0] : "";

@@ -227,6 +227,12 @@ class DebugServiceImpl {
     this.resetSession(sessionId);
   }
 
+  async restart(configuration: DebugConfiguration, activeFile?: string): Promise<void> {
+    const { sessionId } = useDebugStore.getState();
+    if (sessionId) await this.stop();
+    await this.start(configuration, activeFile);
+  }
+
   private resetSession(sessionId: string): void {
     this.configuredSessions.delete(sessionId);
     if (useDebugStore.getState().sessionId !== sessionId) return;
@@ -405,13 +411,38 @@ class DebugServiceImpl {
     const { sessionId, breakpoints } = useDebugStore.getState();
     if (!sessionId) return;
     const paths = [...new Set(breakpoints.map((item) => item.path))];
+    const verifiedByKey = new Map<string, { verified?: boolean; message?: string }>();
     for (const path of paths) {
-      await DebugAdapterIPC.request(sessionId, "setBreakpoints", {
+      const response = await DebugAdapterIPC.request<{
+        breakpoints?: Array<{
+          line?: number;
+          verified?: boolean;
+          message?: string;
+        }>;
+      }>(sessionId, "setBreakpoints", {
         source: { path },
         breakpoints: breakpoints
           .filter((item) => item.path === path)
           .map((item) => ({ line: item.line })),
         sourceModified: false,
+      });
+      for (const item of response.breakpoints ?? []) {
+        if (item.line !== undefined) {
+          verifiedByKey.set(`${path}:${item.line}`, {
+            verified: item.verified,
+            message: item.message,
+          });
+        }
+      }
+    }
+    if (verifiedByKey.size > 0) {
+      const latest = useDebugStore.getState();
+      if (latest.sessionId !== sessionId) return;
+      latest.set({
+        breakpoints: latest.breakpoints.map((item) => ({
+          ...item,
+          ...(verifiedByKey.get(`${item.path}:${item.line}`) ?? {}),
+        })),
       });
     }
   }

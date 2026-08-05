@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { WorkspaceService } from "../../Core/WorkspaceService";
 import { CommandRegistry } from "../../Extension/CommandRegistry";
 import { EventBus } from "../../Foundation/EventBus";
@@ -53,6 +53,34 @@ const formatKeybinding = (result: FliunoResult) => {
     .filter(Boolean)
     .join("+");
 };
+
+function HighlightedText({
+  text,
+  ranges,
+  className = "",
+}: {
+  text: string;
+  ranges: Array<[number, number]>;
+  className?: string;
+}) {
+  if (!ranges.length) return <span className={className}>{text}</span>;
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  for (const [start, end] of ranges) {
+    if (start > cursor) parts.push(text.slice(cursor, start));
+    parts.push(
+      <mark
+        key={`${start}-${end}`}
+        className="rounded-[2px] bg-[var(--color-accent)]/25 text-[var(--color-text-highlight)]"
+      >
+        {text.slice(start, end)}
+      </mark>,
+    );
+    cursor = end;
+  }
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return <span className={className}>{parts}</span>;
+}
 
 const scopeOptions: {
   id: FliunoScope;
@@ -252,11 +280,11 @@ export function Fliuno() {
       <section
         data-testid="fliuno-surface"
         aria-label="Fliuno 全局搜索"
-        className={`relative grid w-full max-w-[720px] overflow-hidden border border-[var(--border-overlay)] bg-[var(--material-overlay)] backdrop-blur-[var(--glass-blur-floating)] transition-[border-radius] duration-200 ${
+        className={`relative grid w-full max-w-[720px] overflow-hidden border border-[var(--border-overlay)] bg-[var(--material-panel)] backdrop-blur-[var(--glass-blur-floating)] transition-[border-radius] duration-200 ${
           hasQuery ? "rounded-[20px]" : "rounded-[18px]"
         }`}
       >
-        <div className="flex h-14 items-center gap-3 px-4 transition-[background-color,box-shadow] focus-within:bg-[var(--material-surface)] focus-within:shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-text-muted)_16%,transparent)]">
+        <div className="flex h-14 items-center gap-3 px-4">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--color-accent)]/10 text-[var(--color-accent)]">
             <Icons.Search size={17} stroke={1.8} />
           </span>
@@ -415,7 +443,11 @@ export function Fliuno() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2">
-                          <span className="truncate text-[13px] font-medium">{result.title}</span>
+                          <HighlightedText
+                            text={result.title}
+                            ranges={result.titleRanges}
+                            className="truncate text-[13px] font-medium"
+                          />
                           {result.recent && !parsedQuery.query && (
                             <span className="shrink-0 text-[8px] text-[var(--color-text-muted)]">
                               最近使用
@@ -423,9 +455,20 @@ export function Fliuno() {
                           )}
                         </span>
                         <span className="mt-0.5 block truncate text-[10px] text-[var(--color-text-muted)]">
-                          {result.kind === "file"
-                            ? result.description
-                            : `命令 · ${result.description}`}
+                          {result.kind === "file" ? (
+                            <HighlightedText
+                              text={result.description}
+                              ranges={result.descriptionRanges}
+                            />
+                          ) : (
+                            <>
+                              命令 ·{" "}
+                              <HighlightedText
+                                text={result.description}
+                                ranges={result.descriptionRanges}
+                              />
+                            </>
+                          )}
                         </span>
                       </span>
                       {!enabled && result.kind === "command" && (

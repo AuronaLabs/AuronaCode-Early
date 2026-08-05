@@ -117,6 +117,7 @@ export function PerformanceBenchmarkPage() {
   const [runningKind, setRunningKind] = useState<BenchmarkKind | null>(null);
   const [isRunningAll, setIsRunningAll] = useState(false);
   const [lastRunAt, setLastRunAt] = useState<string | null>(null);
+  const [expandedKind, setExpandedKind] = useState<BenchmarkKind | null>(null);
   const cancellationRef = useRef(0);
   const activeRequestIdRef = useRef<string | null>(null);
 
@@ -400,6 +401,17 @@ export function PerformanceBenchmarkPage() {
     }
   };
 
+  const currentVersion = environment?.appVersion;
+  const currentScore = leaderboard.find((entry) => entry.version === currentVersion)?.score ?? null;
+  const completedCount = BENCHMARKS.filter((benchmark) =>
+    results[benchmark.id]?.some((result) => result.status === "ok"),
+  ).length;
+  const completedPct = Math.round((completedCount / BENCHMARKS.length) * 100);
+  const ringValue = currentScore ?? completedPct;
+  const ringMax = currentScore === null ? 100 : 150;
+  const ringLabel = currentScore === null ? "完成度" : "相对得分";
+  const ringText = currentScore === null ? `${completedPct}%` : currentScore.toFixed(0);
+
   return (
     <InternalPageLayout
       title="性能测试"
@@ -427,129 +439,188 @@ export function PerformanceBenchmarkPage() {
         </div>
       }
     >
-      <div className="flex flex-col gap-6 pb-10">
-        <p className="max-w-3xl text-[13px] leading-relaxed text-[var(--color-text-muted)]">
-          测试仅使用本地 Rust、IPC 与临时数据路径，不访问网络、不修改工作区。后端套件预热{" "}
-          {WARMUP_RUNS} 轮后采样 {SAMPLE_RUNS} 轮，并以去除最高、最低值后的平均结果作为本次记录；IPC
-          与帧调度使用独立的密集采样。运行期间
-          CPU、内存、磁盘缓存和后台任务都会影响结果，因此排行榜仅比较同一硬件轮廓下保存的本地记录
-        </p>
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="flex flex-col gap-5 pb-10">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <Card className="flex items-center justify-center gap-5 p-5">
+            <ScoreRing value={ringValue} max={ringMax} text={ringText} label={ringLabel} />
+            <div className="flex flex-col gap-1.5 text-[12px]">
+              <span className="text-[var(--color-text-muted)]">本机性能概况</span>
+              <span className="font-medium text-[var(--color-text-highlight)]">
+                {completedCount}/{BENCHMARKS.length} 项完成
+              </span>
+              {currentScore !== null && (
+                <span className="text-[var(--color-text-muted)]">相对 0.2.10 基线</span>
+              )}
+              <span className="mt-1 text-[11px] text-[var(--color-text-muted)]">
+                {runningKind
+                  ? `正在运行：${BENCHMARKS.find((item) => item.id === runningKind)?.label}`
+                  : lastRunAt
+                    ? `最近运行 ${new Date(lastRunAt).toLocaleTimeString()}`
+                    : "尚未运行测试"}
+              </span>
+            </div>
+          </Card>
+
           <Card className="flex flex-col gap-4 p-5">
             <div className="flex items-center gap-2 text-[14px] font-semibold text-[var(--color-text-highlight)]">
               <Icons.Monitor size={17} /> 运行环境
             </div>
             {environment ? (
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-[12px]">
+              <div className="flex flex-wrap gap-2">
                 {[
                   ["版本", `v${environment.appVersion}`],
-                  ["运行模式", environment.runMode],
                   ["系统", environment.operatingSystem],
                   ["架构", environment.architecture],
-                  ["逻辑核心", `${environment.logicalCpuCores}`],
-                  ["可用内存", formatMemory(environment.availableMemoryBytes)],
-                  ["后端", environment.backendStatus],
-                  [
-                    "工作区",
-                    environment.workspace.pathOpen
-                      ? `${environment.workspace.topLevelEntries ?? "?"} 个顶层项目`
-                      : "未打开",
-                  ],
+                  ["CPU", `${environment.logicalCpuCores} 核`],
+                  ["内存", formatMemory(environment.availableMemoryBytes)],
+                  ["模式", environment.runMode],
                 ].map(([label, value]) => (
-                  <div key={label} className="flex flex-col gap-0.5">
+                  <span
+                    key={label}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 py-1.5 text-[11px] text-[var(--color-text-primary)]"
+                  >
                     <span className="text-[var(--color-text-muted)]">{label}</span>
-                    <Tooltip content={value} placement="bottom">
-                      <span className="truncate font-medium text-[var(--color-text-primary)]">
-                        {value}
-                      </span>
-                    </Tooltip>
-                  </div>
+                    <b>{value}</b>
+                  </span>
                 ))}
               </div>
             ) : (
               <span className="text-[12px] text-[var(--color-text-muted)]">正在读取运行环境…</span>
             )}
-          </Card>
-          <Card className="flex flex-col gap-4 p-5">
-            <div className="flex items-center gap-2 text-[14px] font-semibold text-[var(--color-text-highlight)]">
-              <Icons.History size={17} /> 最近启动记录
-            </div>
-            {startup ? (
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-[12px]">
-                <div>
-                  <span className="block text-[var(--color-text-muted)]">前端资源初始化</span>
-                  <b>{startup.frontendBootstrapMs.toFixed(1)} ms</b>
-                </div>
-                <div>
-                  <span className="block text-[var(--color-text-muted)]">主界面完成加载</span>
-                  <b>{startup.mainInteractiveMs.toFixed(1)} ms</b>
-                </div>
-                <div>
-                  <span className="block text-[var(--color-text-muted)]">后端至主界面</span>
-                  <b>{startup.backendToMainMs.toFixed(1)} ms</b>
-                </div>
-                <div>
-                  <span className="block text-[var(--color-text-muted)]">Splash 展示策略</span>
-                  <b>{startup.splashMinimumMs.toFixed(0)} ms（不计入）</b>
-                </div>
+            {startup && (
+              <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3">
+                <span className="text-[11px] text-[var(--color-text-muted)]">最近启动</span>
+                <span className="rounded-md bg-[var(--material-interactive-hover)] px-2 py-1 font-mono text-[11px] text-[var(--color-text-highlight)]">
+                  前端 {startup.frontendBootstrapMs.toFixed(0)} ms
+                </span>
+                <span className="rounded-md bg-[var(--material-interactive-hover)] px-2 py-1 font-mono text-[11px] text-[var(--color-text-highlight)]">
+                  主界面 {startup.mainInteractiveMs.toFixed(0)} ms
+                </span>
               </div>
-            ) : (
-              <span className="text-[12px] text-[var(--color-text-muted)]">
-                本次启动尚未记录指标
-              </span>
             )}
           </Card>
         </div>
-        <Card className="flex flex-col gap-4 p-5">
-          <div>
-            <h2 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
-              版本排行榜
-            </h2>
-            <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">
-              按版本号从新到旧排列。得分只反映当前设备上的相对趋势，不用于跨设备比较
-            </p>
-          </div>
-          {leaderboard.length ? (
-            <div className="overflow-hidden rounded-lg border border-[var(--border-subtle)]">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 border-b border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 py-2 text-[11px] text-[var(--color-text-muted)]">
-                <span>版本与测试时间</span>
-                <span>相对得分</span>
-              </div>
-              {leaderboard.map((entry) => (
-                <div
-                  key={`${entry.version}-${entry.generatedAt}`}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-[var(--border-subtle)] px-3 py-3 text-[12px] last:border-b-0"
-                >
-                  <div className="min-w-0">
-                    <b className="text-[var(--color-text-primary)]">v{entry.version}</b>
-                    <span className="ml-2 text-[var(--color-text-muted)]">
-                      {new Date(entry.generatedAt).toLocaleString()} · {entry.measuredMetrics} 项
-                    </span>
+
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          {BENCHMARKS.map((benchmark) => {
+            const suite = results[benchmark.id];
+            const ok = suite?.find((result) => result.status === "ok");
+            const failed = suite?.find((result) => result.status === "error");
+            const previous =
+              ok && comparisonBaseline ? getResult(comparisonBaseline, ok.id) : undefined;
+            const delta =
+              ok && previous && previous.durationNs > 0
+                ? ((ok.durationNs - previous.durationNs) / previous.durationNs) * 100
+                : null;
+            return (
+              <Card key={benchmark.id} className="flex min-w-0 flex-col gap-4 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--color-accent)]/10 text-[var(--color-accent)]">
+                      <BenchmarkIcon id={benchmark.id} />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
+                        {benchmark.label}
+                      </h2>
+                      {ok ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-[16px] font-bold text-[var(--color-text-highlight)]">
+                            {formatDuration(ok.durationNs)}
+                          </span>
+                          {ok.statistics && (
+                            <span
+                              className={`rounded-md px-1.5 py-0.5 text-[10px] ${
+                                ok.statistics.coefficientVariation <= 15
+                                  ? "bg-emerald-500/10 text-emerald-500"
+                                  : "bg-amber-500/10 text-amber-500"
+                              }`}
+                            >
+                              波动 {ok.statistics.coefficientVariation.toFixed(1)}%
+                            </span>
+                          )}
+                          {delta !== null && (
+                            <span
+                              className={`rounded-md px-1.5 py-0.5 text-[10px] ${
+                                delta > 5
+                                  ? "bg-amber-500/10 text-amber-500"
+                                  : delta < -5
+                                    ? "bg-emerald-500/10 text-emerald-500"
+                                    : "bg-[var(--material-interactive-hover)] text-[var(--color-text-muted)]"
+                              }`}
+                            >
+                              {delta > 0 ? "+" : ""}
+                              {delta.toFixed(1)}%
+                            </span>
+                          )}
+                        </div>
+                      ) : failed ? (
+                        <span className="text-[12px] text-[var(--DiagError)]">测试失败</span>
+                      ) : (
+                        <span className="text-[12px] text-[var(--color-text-muted)]">尚未运行</span>
+                      )}
+                    </div>
                   </div>
-                  <b className="font-mono text-[var(--color-text-highlight)]">
-                    {entry.score === null ? "不可比" : entry.score.toFixed(1)}
-                  </b>
+                  <Button
+                    className="shrink-0"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void runOne(benchmark.id)}
+                    disabled={!!runningKind || isRunningAll}
+                  >
+                    {runningKind === benchmark.id ? (
+                      <Icons.Refresh size={13} className="animate-spin" />
+                    ) : (
+                      <Icons.Play size={13} />
+                    )}
+                    {runningKind === benchmark.id ? "运行中" : "运行"}
+                  </Button>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <span className="text-[12px] text-[var(--color-text-muted)]">
-              保存一次测试结果后会出现在这里；升级到新版本后再次保存，即可形成版本对比
-            </span>
-          )}
-        </Card>
-        <Card className="p-5">
+                {ok && (
+                  <Tooltip content={ok.details} placement="top">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--material-surface)]">
+                      <div
+                        className="h-full rounded-full bg-[var(--color-accent)]/70"
+                        style={{
+                          width: `${Math.min(100, Math.max(14, 100 / (ok.durationNs / 1_000_000 + 0.6)))}%`,
+                        }}
+                      />
+                    </div>
+                  </Tooltip>
+                )}
+                <div className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-3">
+                  <span className="text-[10px] text-[var(--color-text-muted)]">
+                    {ok?.statistics ? `去极值平均 · ${ok.samplesNs?.length ?? 0} 个样本` : ""}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedKind((current) => (current === benchmark.id ? null : benchmark.id))
+                    }
+                    className="flex items-center gap-1 text-[11px] font-medium text-[var(--color-accent)] transition-opacity hover:opacity-80"
+                  >
+                    <Icons.ChevronRight
+                      size={13}
+                      stroke={2}
+                      className={`transition-transform duration-150 ${expandedKind === benchmark.id ? "rotate-90" : ""}`}
+                    />
+                    {expandedKind === benchmark.id ? "收起详情" : "查看详情"}
+                  </button>
+                </div>
+                {expandedKind === benchmark.id && ok && <BenchmarkDetail result={ok} />}
+              </Card>
+            );
+          })}
+        </div>
+
+        <Card className="flex flex-col gap-4 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
-                测试控制
+                版本排行榜
               </h2>
-              <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">
-                {runningKind
-                  ? `正在执行：${BENCHMARKS.find((item) => item.id === runningKind)?.label}`
-                  : lastRunAt
-                    ? `最近运行：${new Date(lastRunAt).toLocaleString()}`
-                    : "尚未运行测试"}
+              <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
+                仅比较本机保存的记录
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -559,7 +630,7 @@ export function PerformanceBenchmarkPage() {
                 onClick={() => void saveBaseline()}
                 disabled={!Object.keys(results).length || !!runningKind}
               >
-                保存本次记录
+                保存记录
               </Button>
               <Button
                 variant="ghost"
@@ -579,93 +650,176 @@ export function PerformanceBenchmarkPage() {
               </Button>
             </div>
           </div>
-        </Card>
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-          {BENCHMARKS.map((benchmark) => {
-            const suite = results[benchmark.id];
-            return (
-              <Card key={benchmark.id} className="flex min-w-0 flex-col gap-4 p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <h2 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
-                      {benchmark.label}
-                    </h2>
-                    <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-text-muted)]">
-                      {benchmark.description}
-                    </p>
+          {leaderboard.length ? (
+            <div className="overflow-hidden rounded-lg border border-[var(--border-subtle)]">
+              {leaderboard.map((entry) => (
+                <div
+                  key={`${entry.version}-${entry.generatedAt}`}
+                  className="flex items-center gap-4 border-b border-[var(--border-subtle)] px-3 py-2.5 text-[12px] last:border-b-0"
+                >
+                  <b className="w-16 shrink-0 text-[var(--color-text-primary)]">v{entry.version}</b>
+                  <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--material-surface)]">
+                    <div
+                      className="h-full rounded-full bg-[var(--color-accent)]/70"
+                      style={{
+                        width: `${entry.score === null ? 0 : Math.min(100, (entry.score / 150) * 100)}%`,
+                      }}
+                    />
                   </div>
-                  <Button
-                    className="w-full shrink-0 whitespace-nowrap sm:w-auto"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => void runOne(benchmark.id)}
-                    disabled={!!runningKind || isRunningAll}
-                  >
-                    <Icons.Play size={13} /> 单独运行
-                  </Button>
+                  <span className="w-14 shrink-0 text-right font-mono text-[var(--color-text-highlight)]">
+                    {entry.score === null ? "—" : entry.score.toFixed(0)}
+                  </span>
+                  <span className="hidden w-28 shrink-0 text-right text-[10px] text-[var(--color-text-muted)] sm:block">
+                    {new Date(entry.generatedAt).toLocaleDateString()}
+                  </span>
                 </div>
-                {suite ? (
-                  <div className="flex flex-col gap-2">
-                    {suite.map((result) => {
-                      const previous = comparisonBaseline
-                        ? getResult(comparisonBaseline, result.id)
-                        : undefined;
-                      const delta =
-                        previous && previous.durationNs > 0
-                          ? ((result.durationNs - previous.durationNs) / previous.durationNs) * 100
-                          : null;
-                      return (
-                        <div
-                          key={result.id}
-                          className={`rounded-lg border px-3 py-2.5 ${result.status === "error" ? "border-red-500/30 bg-red-500/10" : "border-[var(--border-subtle)] bg-[var(--material-surface)]"}`}
-                        >
-                          <div className="flex items-center justify-between gap-3 text-[12px]">
-                            <span className="min-w-0 font-medium text-[var(--color-text-primary)]">
-                              {result.name}
-                            </span>
-                            <span
-                              className={
-                                result.status === "error"
-                                  ? "shrink-0 text-red-500"
-                                  : "shrink-0 font-mono text-[var(--color-text-highlight)]"
-                              }
-                            >
-                              {result.status === "error"
-                                ? "失败"
-                                : formatDuration(result.durationNs)}
-                            </span>
-                          </div>
-                          <div className="mt-1.5 flex flex-col gap-1 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
-                            <span className="break-words">{result.details}</span>
-                            {delta !== null && (
-                              <span
-                                className={
-                                  delta > 5
-                                    ? "text-amber-500"
-                                    : delta < -5
-                                      ? "text-emerald-500"
-                                      : ""
-                                }
-                              >
-                                {delta > 0 ? "+" : ""}
-                                {delta.toFixed(1)}% 对比已保存记录
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex min-h-24 flex-1 items-center text-[12px] text-[var(--color-text-muted)]">
-                    等待运行。结果会保留在当前页面，直到重新测试或关闭标签页
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
+              ))}
+            </div>
+          ) : (
+            <span className="text-[12px] text-[var(--color-text-muted)]">
+              运行并保存一次测试后，这里会出现版本对比
+            </span>
+          )}
+        </Card>
       </div>
     </InternalPageLayout>
+  );
+}
+
+function ScoreRing({
+  value,
+  max,
+  text,
+  label,
+}: {
+  value: number;
+  max: number;
+  text: string;
+  label: string;
+}) {
+  const size = 104;
+  const stroke = 9;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
+  return (
+    <div
+      className="relative grid shrink-0 place-items-center"
+      style={{ width: size, height: size }}
+    >
+      <svg
+        width={size}
+        height={size}
+        className="-rotate-90"
+        role="img"
+        aria-label={`${label}：${text}`}
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="var(--material-surface)"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="var(--color-accent)"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - progress)}
+          style={{ transition: "stroke-dashoffset 500ms ease" }}
+        />
+      </svg>
+      <div className="absolute inset-0 grid place-items-center text-center">
+        <div>
+          <div className="font-mono text-[22px] font-bold leading-none text-[var(--color-text-highlight)]">
+            {text}
+          </div>
+          <div className="mt-1 text-[10px] text-[var(--color-text-muted)]">{label}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BenchmarkIcon({ id }: { id: BenchmarkKind }) {
+  switch (id) {
+    case "ipc":
+      return <Icons.Refresh size={18} />;
+    case "ui":
+      return <Icons.Monitor size={18} />;
+    case "filesystem":
+      return <Icons.Folder size={18} />;
+    case "editor":
+      return <Icons.FileCode size={18} />;
+    case "search":
+      return <Icons.Search size={18} />;
+  }
+}
+
+function BenchmarkDetail({ result }: { result: BenchmarkResult }) {
+  const samples = result.samplesNs ?? [];
+  const statistics = result.statistics;
+  if (!statistics || samples.length < 2) {
+    return (
+      <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] p-3 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+        {result.details}
+      </div>
+    );
+  }
+  const sorted = [...samples].sort((left, right) => left - right);
+  const min = sorted[0];
+  const max = sorted[sorted.length - 1];
+  const p50 = percentile(samples, 0.5);
+  const p95 = percentile(samples, 0.95);
+  const bucketCount = 14;
+  const range = Math.max(max - min, 1);
+  const counts = new Array<number>(bucketCount).fill(0);
+  for (const sample of samples) {
+    const index = Math.min(bucketCount - 1, Math.floor(((sample - min) / range) * bucketCount));
+    counts[index] += 1;
+  }
+  const maxCount = Math.max(...counts, 1);
+  const buckets = counts.map((count, index) => ({
+    id: `bar-${(min + (index * range) / bucketCount).toFixed(0)}`,
+    count,
+  }));
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] p-3">
+      <div className="grid grid-cols-3 gap-2 text-[11px]">
+        {[
+          ["样本", `${samples.length} 次`],
+          ["P50", formatDuration(p50)],
+          ["P95", formatDuration(p95)],
+          ["最小", formatDuration(min)],
+          ["最大", formatDuration(max)],
+          ["波动", `${statistics.coefficientVariation.toFixed(1)}%`],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-lg bg-[var(--material-panel)] px-2.5 py-2">
+            <div className="text-[10px] text-[var(--color-text-muted)]">{label}</div>
+            <div className="mt-0.5 font-mono text-[12px] font-semibold text-[var(--color-text-highlight)]">
+              {value}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex h-16 items-end gap-1">
+        {buckets.map((bucket) => (
+          <div
+            key={bucket.id}
+            className="flex-1 rounded-t-sm bg-[var(--color-accent)]/50"
+            style={{ height: `${Math.max(4, (bucket.count / maxCount) * 100)}%` }}
+          />
+        ))}
+      </div>
+      <p className="text-[10.5px] leading-relaxed text-[var(--color-text-muted)]">
+        {result.details}
+      </p>
+    </div>
   );
 }

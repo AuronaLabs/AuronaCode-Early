@@ -46,6 +46,30 @@ const parseHoverBlocks = (value: string): HoverBlock[] => {
   return blocks.length ? blocks : [{ id: "text-0", kind: "text", value }];
 };
 
+const renderRichText = (value: string) => {
+  const parts = value.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  return parts.map((part) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={part} className="font-semibold text-[var(--color-text-highlight)]">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code
+          key={part}
+          className="rounded bg-[var(--material-surface)] px-1 py-0.5 font-mono text-[10.5px] text-[var(--color-accent)]"
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return part;
+  });
+};
+
 export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps) {
   const blocks = useMemo(() => parseHoverBlocks(hover.text), [hover.text]);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -82,7 +106,7 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
       onMouseLeave={onMouseLeave}
       className={cn(
         glassVariants({ layer: "floating" }),
-        "fixed z-[80] max-h-[280px] w-max min-w-[220px] max-w-[420px] overflow-y-auto rounded-xl p-3 font-sans text-[12px] text-[var(--color-text-primary)] aurona-scroll",
+        "fixed z-[80] max-h-[320px] w-max min-w-[240px] max-w-[440px] overflow-y-auto rounded-xl p-3 font-sans text-[12px] text-[var(--color-text-primary)] aurona-scroll",
         hover.tone === "warning" && "border-amber-500/30",
         hover.tone === "error" && "border-red-500/30",
       )}
@@ -91,7 +115,8 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
     >
       {(hover.title || hover.source) && (
         <div className="mb-2 flex items-center justify-between gap-4 border-b border-[var(--border-subtle)] pb-2">
-          <span className="font-semibold text-[var(--color-text-highlight)]">
+          <span className="flex items-center gap-2 font-semibold text-[var(--color-text-highlight)]">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
             {hover.title ?? "语言服务"}
           </span>
           {hover.source && (
@@ -106,7 +131,7 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
           block.kind === "code" ? (
             <div
               key={block.id}
-              className="overflow-x-auto rounded-lg bg-[var(--material-surface)] p-2 font-mono text-[11px] leading-relaxed text-[var(--color-text-highlight)]"
+              className="overflow-x-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] p-2.5 font-mono text-[11px] leading-relaxed text-[var(--color-text-highlight)]"
             >
               {block.language && (
                 <div className="mb-1 text-[9px] uppercase tracking-wide text-[var(--color-text-muted)]">
@@ -117,7 +142,7 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
             </div>
           ) : (
             <div key={block.id} className="whitespace-pre-wrap break-words leading-relaxed">
-              {block.value}
+              {renderRichText(block.value)}
             </div>
           ),
         )}

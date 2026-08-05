@@ -108,11 +108,16 @@ export function DebugPanel() {
                 {running ? <Icons.Stop size={15} /> : <Icons.Play size={15} />}
               </Button>
             </div>
-            <SessionStatus state={debug.state} />
+            <SessionStatus state={debug.state} configuration={selected?.name} />
           </div>
 
           {(debug.state === "running" || debug.state === "paused") && (
-            <DebugToolbar paused={debug.state === "paused"} />
+            <DebugToolbar
+              paused={debug.state === "paused"}
+              onRestart={() => {
+                if (selected) void DebugService.restart(selected, activeFile);
+              }}
+            />
           )}
 
           <div className="min-h-0 flex-1 overflow-y-auto pb-3 no-scrollbar">
@@ -284,7 +289,13 @@ function HeaderAction({
   );
 }
 
-function SessionStatus({ state }: { state: ReturnType<typeof useDebugStore.getState>["state"] }) {
+function SessionStatus({
+  state,
+  configuration,
+}: {
+  state: ReturnType<typeof useDebugStore.getState>["state"];
+  configuration?: string;
+}) {
   const stateLabels = {
     idle: "等待启动",
     starting: "正在启动调试器",
@@ -307,11 +318,16 @@ function SessionStatus({ state }: { state: ReturnType<typeof useDebugStore.getSt
         }`}
       />
       {stateLabels[state]}
+      {configuration && (
+        <span className="ml-auto max-w-[160px] truncate rounded-md bg-[var(--material-interactive-hover)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--color-text-primary)]">
+          {configuration}
+        </span>
+      )}
     </div>
   );
 }
 
-function DebugToolbar({ paused }: { paused: boolean }) {
+function DebugToolbar({ paused, onRestart }: { paused: boolean; onRestart: () => void }) {
   const actions = paused
     ? [
         { command: "continue" as const, label: "继续", icon: <Icons.Play size={15} /> },
@@ -335,6 +351,16 @@ function DebugToolbar({ paused }: { paused: boolean }) {
         </Tooltip>
       ))}
       <span className="mx-1 h-4 w-px bg-[var(--border-subtle)]" />
+      <Tooltip content="重启会话" placement="bottom">
+        <button
+          type="button"
+          aria-label="重启会话"
+          onClick={onRestart}
+          className="rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+        >
+          <Icons.Refresh size={15} />
+        </button>
+      </Tooltip>
       <Tooltip content="停止调试" placement="bottom">
         <button
           type="button"

@@ -1,7 +1,7 @@
 import { EventBus } from "../Foundation/EventBus";
 import { DiagnosticsService } from "./DiagnosticsService";
 import { DocumentService } from "./DocumentService";
-import { LspClient, type LspLocation } from "./Language/LspClient";
+import { LspClient, type LspFeature, type LspLocation } from "./Language/LspClient";
 import { applyLspTextEdits, type LspTextEdit } from "./Language/TextEdits";
 import { OutputService } from "./OutputService";
 
@@ -41,7 +41,14 @@ const uriToPath = (uri: string): string => {
 };
 
 class LanguageFeatureServiceImpl {
+  private ensureCapability(language: string, feature: LspFeature): void {
+    if (!LspClient.getInstance().supports(language, feature)) {
+      throw new Error("当前语言服务器未运行或不支持该功能");
+    }
+  }
+
   async formatDocument(path: string, language: string): Promise<void> {
+    this.ensureCapability(language, "formatting");
     const document = DocumentService.get(path);
     if (!document) throw new Error("The active document is not open");
     const edits = (await LspClient.getInstance().formatDocument(language, path)) as LspTextEdit[];
@@ -56,6 +63,7 @@ class LanguageFeatureServiceImpl {
     line: number,
     character: number,
   ): Promise<LspLocation[]> {
+    this.ensureCapability(language, "definition");
     const response = await LspClient.getInstance().getDefinition(language, path, line, character);
     const values = response ? (Array.isArray(response) ? response : [response]) : [];
     const locations = values.map((value: LspLocation | LocationLink) =>
@@ -79,6 +87,7 @@ class LanguageFeatureServiceImpl {
     line: number,
     character: number,
   ): Promise<LspLocation[]> {
+    this.ensureCapability(language, "references");
     const locations = await LspClient.getInstance().getReferences(language, path, line, character);
     this.writeLocations("References", locations);
     return locations;
@@ -91,6 +100,7 @@ class LanguageFeatureServiceImpl {
     character: number,
     newName: string,
   ): Promise<{ edit: WorkspaceEdit; preview: WorkspaceEditPreview }> {
+    this.ensureCapability(language, "rename");
     await LspClient.getInstance().prepareRename(language, path, line, character);
     const edit = (await LspClient.getInstance().rename(
       language,
@@ -108,6 +118,7 @@ class LanguageFeatureServiceImpl {
     line: number,
     character: number,
   ): Promise<LanguageCodeAction[]> {
+    this.ensureCapability(language, "codeAction");
     const document = DocumentService.get(path);
     const diagnostics = document?.uri
       ? (DiagnosticsService.get(document.uri)?.diagnostics ?? [])

@@ -98,6 +98,16 @@ export class LspClient {
   private listenerGeneration = 0;
 
   private constructor() {
+    this.disposers.push(
+      EventBus.on("file:renamed", ({ oldPath }) => {
+        this.documentUris.delete(oldPath);
+        this.documentTexts.delete(oldPath);
+      }),
+      EventBus.on("file:deleted", ({ path }) => {
+        this.documentUris.delete(path);
+        this.documentTexts.delete(path);
+      }),
+    );
     void this.setupListeners();
   }
 

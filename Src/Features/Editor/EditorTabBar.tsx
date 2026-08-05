@@ -45,8 +45,9 @@ export const EditorTabBar = memo(function EditorTabBar() {
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 2);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+    // 保留 4px 回滞，避免在边缘来回移动时箭头反复出现/消失。
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
   }, []);
 
   useEffect(() => {
@@ -81,13 +82,13 @@ export const EditorTabBar = memo(function EditorTabBar() {
 
   if (tabs.length === 0) return null;
 
+  const hasOverflow = canScrollLeft || canScrollRight;
+
   return (
     <div className="aurona-tabbar relative h-[var(--TabBarHeight)] shrink-0">
       <div
         ref={scrollRef}
-        className={`aurona-tabbar-scroll flex h-[var(--TabBarHeight)] items-center gap-1.5 overflow-x-auto overflow-y-hidden py-1 no-scrollbar ${
-          canScrollLeft ? "pl-8" : "pl-1"
-        } ${canScrollRight ? "pr-8" : "pr-1"}`}
+        className="aurona-tabbar-scroll flex h-[var(--TabBarHeight)] items-center gap-1.5 overflow-x-auto overflow-y-hidden px-1 py-1 no-scrollbar"
       >
         {tabs.map((tab) => {
           const isActive = activeTabId === tab.id;
@@ -209,25 +210,29 @@ export const EditorTabBar = memo(function EditorTabBar() {
           );
         })}
       </div>
-      {canScrollLeft && (
-        <button
-          type="button"
-          aria-label="向左滚动标签"
-          onClick={() => scrollTabs(-1)}
-          className="absolute bottom-0 left-0 top-0 z-20 flex w-8 items-center justify-center rounded-tl-lg border-r border-[var(--border-subtle)] bg-[linear-gradient(to_right,var(--material-panel),transparent)] backdrop-blur-[var(--glass-blur-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)]"
-        >
-          <Icons.ChevronLeft size={16} stroke={2} />
-        </button>
-      )}
-      {canScrollRight && (
-        <button
-          type="button"
-          aria-label="向右滚动标签"
-          onClick={() => scrollTabs(1)}
-          className="absolute bottom-0 right-0 top-0 z-20 flex w-8 items-center justify-center rounded-tr-lg border-l border-[var(--border-subtle)] bg-[linear-gradient(to_left,var(--material-panel),transparent)] backdrop-blur-[var(--glass-blur-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)]"
-        >
-          <Icons.ChevronRight size={16} stroke={2} />
-        </button>
+      {hasOverflow && (
+        <>
+          <button
+            type="button"
+            aria-label="向左滚动标签"
+            onClick={() => scrollTabs(-1)}
+            className={`absolute bottom-0 left-0 top-0 z-20 flex w-8 items-center justify-center rounded-tl-lg border-r border-[var(--border-subtle)] bg-[linear-gradient(to_right,var(--material-panel),transparent)] backdrop-blur-[var(--glass-blur-elevated)] text-[var(--color-text-muted)] transition-opacity duration-150 hover:text-[var(--color-text-highlight)] ${
+              canScrollLeft ? "opacity-100" : "pointer-events-none opacity-0"
+            }`}
+          >
+            <Icons.ChevronLeft size={16} stroke={2} />
+          </button>
+          <button
+            type="button"
+            aria-label="向右滚动标签"
+            onClick={() => scrollTabs(1)}
+            className={`absolute bottom-0 right-0 top-0 z-20 flex w-8 items-center justify-center rounded-tr-lg border-l border-[var(--border-subtle)] bg-[linear-gradient(to_left,var(--material-panel),transparent)] backdrop-blur-[var(--glass-blur-elevated)] text-[var(--color-text-muted)] transition-opacity duration-150 hover:text-[var(--color-text-highlight)] ${
+              canScrollRight ? "opacity-100" : "pointer-events-none opacity-0"
+            }`}
+          >
+            <Icons.ChevronRight size={16} stroke={2} />
+          </button>
+        </>
       )}
     </div>
   );
