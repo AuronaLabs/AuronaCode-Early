@@ -77,7 +77,6 @@ export function StatusBar() {
         {signedInProfile && (
           <button
             type="button"
-            title={`${accountDisplayName} · 打开账户设置`}
             onClick={() => {
               void CommandRegistry.execute("workbench.action.openSettings");
               EventBus.emit("settings:nav", "account");
