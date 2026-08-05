@@ -1,8 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { AccountService } from "../Core/AccountService";
 import { type LanguageServerInfo, LspClient } from "../Core/Language/LspClient";
+import { CommandRegistry } from "../Extension/CommandRegistry";
+import { EventBus } from "../Foundation/EventBus";
 import { GetLanguageFromPath } from "../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../State/useEditorStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
+import { AccountAvatar } from "../UI/Components/AccountAvatar";
 
 const formatLanguage = (language: string) => {
   const labels: Record<string, string> = {
@@ -30,6 +34,11 @@ const formatLanguage = (language: string) => {
 };
 
 export function StatusBar() {
+  const account = useSyncExternalStore(
+    AccountService.subscribe,
+    AccountService.getSnapshot,
+    AccountService.getSnapshot,
+  );
   const editorStatus = useEditorStore((state) => state.editorStatus);
   const setActiveBottomPanel = useWorkbenchStore((state) => state.setActiveBottomPanel);
   const activeFilePath = useWorkbenchStore((state) => {
@@ -40,6 +49,9 @@ export function StatusBar() {
   const [languageServer, setLanguageServer] = useState<LanguageServerInfo | undefined>(() =>
     LspClient.getInstance().getState(activeLanguage),
   );
+  const signedInProfile = account.phase === "signedIn" ? account.profile : null;
+  const accountDisplayName =
+    signedInProfile?.preferredUsername || signedInProfile?.name || "Aurona 用户";
 
   useEffect(() => {
     const client = LspClient.getInstance();
@@ -62,6 +74,22 @@ export function StatusBar() {
         )}
       </div>
       <div className="ml-auto hidden sm:flex items-center gap-4 min-w-0">
+        {signedInProfile && (
+          <button
+            type="button"
+            title={`${accountDisplayName} · 打开账户设置`}
+            onClick={() => {
+              void CommandRegistry.execute("workbench.action.openSettings");
+              EventBus.emit("settings:nav", "account");
+            }}
+            className="flex max-w-[180px] items-center gap-2 rounded-md px-1.5 py-0.5 hover:bg-[var(--material-interactive-hover)]"
+          >
+            <AccountAvatar name={accountDisplayName} picture={signedInProfile.picture} size={20} />
+            <span className="max-w-[120px] truncate text-[var(--color-text-highlight)]">
+              {accountDisplayName}
+            </span>
+          </button>
+        )}
         {activeFilePath && (
           <>
             <span className="cursor-default">{editorStatus.encoding}</span>

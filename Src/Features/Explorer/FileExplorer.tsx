@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { FileSystemService } from "../../Core/FileSystemService";
 import { Button } from "../../UI/Components/Button";
 
@@ -23,6 +23,7 @@ export const FileExplorer = React.memo(function FileExplorer({
   onFileSelect: (path: string) => void;
 }) {
   const treeRef = useRef<HTMLDivElement>(null);
+  const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
   const {
     rootNode,
     activePath,
@@ -135,6 +136,8 @@ export const FileExplorer = React.memo(function FileExplorer({
       handleDuplicate,
       setDeletePrompt,
       rootPath: rootNode?.path || "",
+      dropTargetPath,
+      setDropTargetPath,
     }),
     [
       activePath,
@@ -153,6 +156,7 @@ export const FileExplorer = React.memo(function FileExplorer({
       handleDuplicate,
       setDeletePrompt,
       rootNode?.path,
+      dropTargetPath,
     ],
   );
 
@@ -266,6 +270,7 @@ export const FileExplorer = React.memo(function FileExplorer({
               if (src && rootNode) {
                 void handleDrop(src, rootNode.path, e.ctrlKey || e.metaKey);
               }
+              setDropTargetPath(null);
               ExplorerDragSession.end();
             }}
           >

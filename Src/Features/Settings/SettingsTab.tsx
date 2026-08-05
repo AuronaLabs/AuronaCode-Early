@@ -1,24 +1,26 @@
-import { useCallback, useEffect, useState } from "react";
-import { ACCENT_THEMES, applyAccentTheme } from "../../App/ThemeAccent";
+import { useEffect, useState } from "react";
+import { applyAccentTheme, applyLiquidTexture } from "../../App/ThemeAccent";
 import { UpdaterService } from "../../Core/UpdaterService";
 import { BaseDirectory, desktopFileSystem } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
 import { GitIPC } from "../../Foundation/IPC/GitCommands";
-import { StorageIPC } from "../../Foundation/IPC/StorageCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import type { AccentThemeId } from "../../Foundation/Types/Config";
 import { Button } from "../../UI/Components/Button";
 import { Input } from "../../UI/Components/Input";
 import { Select } from "../../UI/Components/Select";
+import { SettingsNavItem } from "../../UI/Components/SettingsNavItem";
 import { Switch } from "../../UI/Components/Switch";
-import { GlassContainer, type GlassIntensity, useGlassStore } from "../../UI/Core/GlassManager";
+import { GlassContainer, useGlassStore } from "../../UI/Core/GlassManager";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
 import { AccountSettings } from "./AccountSettings";
+import { AppearanceSettingsSection } from "./AppearanceSettingsSection";
 import { DebugSettings } from "./DebugSettings";
 import { LanguageServiceSettings } from "./LanguageServiceSettings";
+import { StorageSettingsSection } from "./StorageSettingsSection";
 
 export type SettingsSection =
   | "account"
@@ -30,15 +32,6 @@ export type SettingsSection =
   | "git"
   | "storage"
   | "advanced";
-
-interface StorageBreakdown {
-  appDataBytes: number;
-  logBytes: number;
-  configBytes: number;
-  workspaceBytes: number;
-  recoveryBytes: number;
-  otherAppDataBytes: number;
-}
 
 export function SettingsTab() {
   const [activeSection, setActiveSection] = useState<SettingsSection>("account");
@@ -55,7 +48,7 @@ export function SettingsTab() {
 
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
   const [accentTheme, setAccentTheme] = useState<AccentThemeId>("aurora");
-  const [accentInBackground, setAccentInBackground] = useState(false);
+  const [liquidTexture, setLiquidTexture] = useState(false);
 
   const [editorFontSize, setEditorFontSize] = useState("14");
   const [editorLineHeight, setEditorLineHeight] = useState("24");
@@ -70,10 +63,11 @@ export function SettingsTab() {
       const savedTheme = config.theme as "light" | "dark" | "system" | undefined;
       if (savedTheme) setTheme(savedTheme);
       const savedAccent = config.accentTheme ?? "aurora";
-      const savedAccentInBackground = config.accentInBackground ?? false;
       setAccentTheme(savedAccent);
-      setAccentInBackground(savedAccentInBackground);
-      applyAccentTheme(savedAccent, savedAccentInBackground);
+      applyAccentTheme(savedAccent);
+      const savedLiquidTexture = config.liquidTexture ?? false;
+      setLiquidTexture(savedLiquidTexture);
+      applyLiquidTexture(savedLiquidTexture);
 
       const savedEditorFont = config.editorFontSize?.toString() || "14";
       const savedEditorLineHeight = config.editorLineHeight?.toString() || "24";
@@ -109,14 +103,14 @@ export function SettingsTab() {
 
   const handleAccentThemeChange = (nextAccent: AccentThemeId) => {
     setAccentTheme(nextAccent);
-    applyAccentTheme(nextAccent, accentInBackground);
+    applyAccentTheme(nextAccent);
     void UserConfigStore.set({ accentTheme: nextAccent });
   };
 
-  const handleAccentBackgroundChange = (enabled: boolean) => {
-    setAccentInBackground(enabled);
-    applyAccentTheme(accentTheme, enabled);
-    void UserConfigStore.set({ accentInBackground: enabled });
+  const handleLiquidTextureChange = (enabled: boolean) => {
+    setLiquidTexture(enabled);
+    applyLiquidTexture(enabled);
+    void UserConfigStore.set({ liquidTexture: enabled });
   };
 
   const [repoPath, setRepoPath] = useState<string | null>(
@@ -125,134 +119,6 @@ export function SettingsTab() {
   const [remoteUrl, setRemoteUrl] = useState("");
   const [isSavingGit, setIsSavingGit] = useState(false);
   const [_isGitLoading, setIsGitLoading] = useState(true);
-
-  const [configSize, setConfigSize] = useState("0 B");
-  const [workspaceSize, setWorkspaceSize] = useState("0 B");
-  const [otherDataSize, setOtherDataSize] = useState("0 B");
-  const [recoverySize, setRecoverySize] = useState("0 B");
-  const [_appDataSize, setAppDataSize] = useState("0 B");
-  const [logSize, setLogSize] = useState("0 B");
-  const [rawConfigSize, setRawConfigSize] = useState(0);
-  const [rawWorkspaceSize, setRawWorkspaceSize] = useState(0);
-  const [rawOtherDataSize, setRawOtherDataSize] = useState(0);
-  const [rawRecoverySize, setRawRecoverySize] = useState(0);
-  const [rawAppDataSize, setRawAppDataSize] = useState(0);
-  const [rawLogSize, setRawLogSize] = useState(0);
-  const [isClearing, setIsClearing] = useState<string | null>(null);
-
-  const formatBytes = useCallback((bytes: number) => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
-  }, []);
-
-  const loadStorageSizes = useCallback(async () => {
-    try {
-      const breakdown = await StorageIPC.getBreakdown<StorageBreakdown>();
-      setConfigSize(formatBytes(breakdown.configBytes));
-      setRawConfigSize(breakdown.configBytes);
-      setWorkspaceSize(formatBytes(breakdown.workspaceBytes));
-      setRawWorkspaceSize(breakdown.workspaceBytes);
-      setRecoverySize(formatBytes(breakdown.recoveryBytes));
-      setRawRecoverySize(breakdown.recoveryBytes);
-      setOtherDataSize(formatBytes(breakdown.otherAppDataBytes));
-      setRawOtherDataSize(breakdown.otherAppDataBytes);
-      setAppDataSize(formatBytes(breakdown.appDataBytes));
-      setRawAppDataSize(breakdown.appDataBytes);
-      setLogSize(formatBytes(breakdown.logBytes));
-      setRawLogSize(breakdown.logBytes);
-    } catch {
-      setAppDataSize("0 B");
-      setRawAppDataSize(0);
-      setConfigSize("0 B");
-      setRawConfigSize(0);
-      setWorkspaceSize("0 B");
-      setRawWorkspaceSize(0);
-      setRecoverySize("0 B");
-      setRawRecoverySize(0);
-      setOtherDataSize("0 B");
-      setRawOtherDataSize(0);
-      setLogSize("0 B");
-      setRawLogSize(0);
-    }
-  }, [formatBytes]);
-
-  useEffect(() => {
-    if (activeSection === "storage") {
-      loadStorageSizes();
-    }
-  }, [activeSection, loadStorageSizes]);
-
-  const handleClearConfig = async () => {
-    setIsClearing("config");
-    try {
-      await desktopFileSystem.remove("user-config.json", { baseDir: BaseDirectory.AppLocalData });
-      UserConfigStore.resetCache();
-      showToast("用户配置文件已清除，重启后恢复默认", "success");
-      loadStorageSizes();
-    } catch (e) {
-      showToast(`清除失败: ${e}`, "error");
-    } finally {
-      setIsClearing(null);
-    }
-  };
-
-  const handleClearWorkspace = async () => {
-    setIsClearing("workspace");
-    try {
-      await desktopFileSystem.remove("workspace.json", { baseDir: BaseDirectory.AppLocalData });
-      WorkspaceStore.resetCache();
-      localStorage.clear();
-      showToast("工作区缓存已清理，重启后将重置界面布局", "success");
-      loadStorageSizes();
-    } catch (e) {
-      showToast(`清除失败: ${e}`, "error");
-    } finally {
-      setIsClearing(null);
-    }
-  };
-
-  const handleClearOtherAppData = async () => {
-    setIsClearing("other");
-    try {
-      await StorageIPC.clearOtherAppData();
-      showToast("已清理其他缓存数据与碎片，部分可能需重启后释放", "success");
-      loadStorageSizes();
-    } catch (e) {
-      showToast(`清除时发生错误: ${e}`, "warning");
-      loadStorageSizes(); // Still reload because some files might have been deleted
-    } finally {
-      setIsClearing(null);
-    }
-  };
-
-  const handleClearRecovery = async () => {
-    setIsClearing("recovery");
-    try {
-      await StorageIPC.clearEditorRecovery();
-      await loadStorageSizes();
-      showToast("编辑器恢复快照已清理", "success");
-    } catch (error) {
-      showToast(`清理恢复快照失败: ${error}`, "error");
-    } finally {
-      setIsClearing(null);
-    }
-  };
-
-  const handleClearLogs = async () => {
-    setIsClearing("logs");
-    try {
-      await StorageIPC.clearAppLogs();
-      await loadStorageSizes();
-      showToast("运行日志已清理完毕", "success");
-    } catch (_e) {
-      showToast(`没有发现可清理的日志`, "warning");
-    } finally {
-      setIsClearing(null);
-    }
-  };
 
   useEffect(() => {
     if (activeSection !== "git") return;
@@ -317,192 +183,16 @@ export function SettingsTab() {
   };
 
   const renderAppearance = () => (
-    <div className="flex flex-col gap-6 w-full max-w-3xl">
-      <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">外观与色彩</h3>
-        <p className="text-[13px] text-[var(--color-text-muted)]">
-          在同一处调整界面模式、工作台色彩与背景氛围
-        </p>
-      </div>
-
-      <GlassContainer layer="elevated" className="rounded-2xl overflow-hidden shadow-sm">
-        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
-              外观模式
-            </span>
-            <span className="text-[12px] text-[var(--color-text-muted)]">
-              更改编辑器的整体色彩倾向
-            </span>
-          </div>
-          <fieldset className="grid w-full grid-cols-3 gap-1 rounded-2xl border border-[var(--border-subtle)] bg-[var(--material-panel)] p-1.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.12)] backdrop-blur-[var(--glass-blur-base)] sm:w-auto">
-            <legend className="sr-only">外观模式</legend>
-            {(["system", "light", "dark"] as const).map((t) => (
-              <button
-                type="button"
-                aria-pressed={theme === t}
-                key={t}
-                onClick={() => handleThemeChange(t)}
-                className={`flex min-w-0 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-[background-color,border-color,color,box-shadow] duration-150 sm:min-w-[104px] ${
-                  theme === t
-                    ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-[0_4px_14px_rgba(15,23,42,0.08)] backdrop-blur-[var(--glass-blur-elevated)]"
-                    : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
-                }`}
-              >
-                {t === "system" && (
-                  <>
-                    <Icons.Monitor size={16} /> 跟随系统
-                  </>
-                )}
-                {t === "light" && (
-                  <>
-                    <Icons.Sun size={16} /> 浅色
-                  </>
-                )}
-                {t === "dark" && (
-                  <>
-                    <Icons.Moon size={16} /> 深色
-                  </>
-                )}
-              </button>
-            ))}
-          </fieldset>
-        </div>
-        <div className="border-t border-[var(--border-subtle)] p-3 sm:p-4">
-          <div className="mb-3 flex flex-col gap-1 px-1">
-            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
-              色彩主题
-            </span>
-            <span className="text-[12px] text-[var(--color-text-muted)]">
-              统一影响交互强调、焦点、状态反馈与可选的背景氛围
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {ACCENT_THEMES.map((accent) => {
-              const selected = accentTheme === accent.id;
-              return (
-                <button
-                  type="button"
-                  key={accent.id}
-                  aria-pressed={selected}
-                  onClick={() => handleAccentThemeChange(accent.id)}
-                  className={`group relative flex min-h-[68px] overflow-hidden rounded-xl border p-2.5 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 ${
-                    selected
-                      ? "border-[color-mix(in_srgb,var(--color-accent)_32%,var(--border-subtle))] bg-[var(--material-interactive-active)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_14%,transparent),var(--shadow-surface)]"
-                      : "border-transparent bg-[var(--material-panel)] hover:border-[var(--border-subtle)] hover:bg-[var(--material-interactive-hover)] hover:-translate-y-px"
-                  }`}
-                >
-                  <span
-                    className="absolute -right-3 -top-3 h-14 w-14 rounded-full opacity-90 blur-[1px] transition-transform duration-200 group-hover:scale-110"
-                    style={{ backgroundColor: `rgb(${accent.rgb})` }}
-                  />
-                  <span className="relative flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="h-1.5 w-8 rounded-full bg-[var(--color-text-highlight)]/12" />
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <span className="truncate text-[12px] font-semibold text-[var(--color-text-highlight)]">
-                        {accent.label}
-                      </span>
-                      {accent.isDefault && (
-                        <span className="shrink-0 rounded-md bg-[color-mix(in_srgb,var(--color-accent)_14%,transparent)] px-1 py-0.5 text-[9px] font-semibold leading-none text-[var(--color-accent)]">
-                          默认
-                        </span>
-                      )}
-                    </span>
-                  </span>
-                  {selected && (
-                    <Icons.Check
-                      className="relative shrink-0 text-[var(--color-text-highlight)]"
-                      size={15}
-                      stroke={2.5}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-panel)] px-3.5 py-3">
-            <div className="min-w-0 pr-2">
-              <span className="text-[12px] font-medium text-[var(--color-text-highlight)]">
-                背景同步渲染
-              </span>
-              <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-text-muted)]">
-                让当前色彩主题轻柔融入工作台背景渐变
-              </p>
-            </div>
-            <Switch
-              checked={accentInBackground}
-              onCheckedChange={handleAccentBackgroundChange}
-              aria-label="将色彩主题同步到背景渐变"
-            />
-          </div>
-        </div>
-      </GlassContainer>
-
-      {/*
-      <div
-  className =
-    "flex flex-col gap-2 mt-6" >
-    <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">视觉效果</h3> <
-    p;
-  className = "text-[13px] text-[var(--color-text-muted)]" > 调整界面元素的玻璃拟物;
-  （毛玻璃）效果强度
-        </p>
-      </div>
-
-      <GlassContainer layer="elevated" className="rounded-2xl overflow-hidden shadow-sm mt-2">
-        <div className="flex items-center justify-between p-5">
-          <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">拟物强度</span>
-            <span className="text-[12px] text-[var(--color-text-muted)]">
-              配置全局毛玻璃的模糊与透明度
-            </span>
-          </div>
-          <Select
-            value=
-  intensity;
-  onChange={(value) => setIntensity(value as GlassIntensity)}
-  className = "w-[140px] shrink-0";
-  options={[
-              { value: "light", label: "Light" },
-              { value: "medium", label: "Medium" },
-              { value: "heavy", label: "Heavy" },
-            ]}
-          />
-  </div>
-      </div>
-    </div>
-      */}
-
-      <div className="mt-6 flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">视觉效果</h3>
-        <p className="text-[13px] text-[var(--color-text-muted)]">
-          调整界面元素的玻璃拟物（毛玻璃）效果强度
-        </p>
-      </div>
-
-      <GlassContainer layer="elevated" className="mt-2 overflow-hidden rounded-2xl shadow-sm">
-        <div className="flex items-center justify-between p-5">
-          <div className="flex flex-col gap-1">
-            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
-              拟物强度
-            </span>
-            <span className="text-[12px] text-[var(--color-text-muted)]">
-              配置全局毛玻璃的模糊与透明度
-            </span>
-          </div>
-          <Select
-            value={intensity}
-            onChange={(value) => setIntensity(value as GlassIntensity)}
-            className="w-[140px] shrink-0"
-            options={[
-              { value: "light", label: "Light" },
-              { value: "medium", label: "Medium" },
-              { value: "heavy", label: "Heavy" },
-            ]}
-          />
-        </div>
-      </GlassContainer>
-    </div>
+    <AppearanceSettingsSection
+      theme={theme}
+      accentTheme={accentTheme}
+      intensity={intensity}
+      liquidTexture={liquidTexture}
+      onThemeChange={handleThemeChange}
+      onAccentThemeChange={handleAccentThemeChange}
+      onIntensityChange={(value) => setIntensity(value)}
+      onLiquidTextureChange={handleLiquidTextureChange}
+    />
   );
 
   const renderEditor = () => (
@@ -512,10 +202,7 @@ export function SettingsTab() {
         <p className="text-[13px] text-[var(--color-text-muted)]">配置代码编辑器的外观和行为</p>
       </div>
 
-      <GlassContainer
-        layer="elevated"
-        className="rounded-2xl overflow-hidden shadow-sm flex flex-col"
-      >
+      <GlassContainer layer="elevated" className="rounded-2xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -628,10 +315,7 @@ export function SettingsTab() {
         <p className="text-[13px] text-[var(--color-text-muted)]">自定义集成终端的显示效果</p>
       </div>
 
-      <GlassContainer
-        layer="elevated"
-        className="rounded-2xl overflow-hidden shadow-sm flex flex-col"
-      >
+      <GlassContainer layer="elevated" className="rounded-2xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -694,7 +378,7 @@ export function SettingsTab() {
           layer="elevated"
           className="mt-2 flex max-w-md flex-col items-center justify-center gap-4 rounded-2xl p-6 text-center"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
             <Icons.Git size={22} />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -713,7 +397,7 @@ export function SettingsTab() {
           className="mt-2 flex max-w-3xl flex-col overflow-hidden rounded-2xl"
         >
           <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
               <Icons.Git size={18} />
             </div>
             <div className="min-w-0 flex-1">
@@ -779,256 +463,7 @@ export function SettingsTab() {
     </div>
   );
 
-  const renderStorage = () => {
-    const totalRawSize = rawAppDataSize + rawLogSize;
-    const totalSizeFormatted = formatBytes(totalRawSize);
-
-    const totalForBar = totalRawSize === 0 ? 1 : totalRawSize;
-    const configPct = (rawConfigSize / totalForBar) * 100;
-    const workspacePct = (rawWorkspaceSize / totalForBar) * 100;
-    const recoveryPct = (rawRecoverySize / totalForBar) * 100;
-    const otherPct = (rawOtherDataSize / totalForBar) * 100;
-    const logPct = (rawLogSize / totalForBar) * 100;
-
-    return (
-      <div className="flex flex-col gap-6 w-full max-w-3xl">
-        <div className="flex flex-col gap-2">
-          <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">存储空间管理</h3>
-          <p className="text-[13px] text-[var(--color-text-muted)]">
-            监控并清理 Aurona Code 占用的磁盘存储空间
-          </p>
-        </div>
-
-        <GlassContainer layer="elevated" className="flex flex-col gap-6 rounded-2xl p-6 shadow-sm">
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-end">
-              <span className="text-[20px] font-extrabold text-[var(--color-text-highlight)] tracking-tight select-none">
-                {totalSizeFormatted}{" "}
-                <span className="text-[12px] font-normal text-[var(--color-text-muted)] font-sans">
-                  本地数据已使用
-                </span>
-              </span>
-              <span className="text-[12px] text-[var(--color-text-muted)] font-medium select-none">
-                已统计应用数据与运行日志
-              </span>
-            </div>
-
-            <div className="flex h-3.5 w-full select-none overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--material-panel)] p-px shadow-[inset_0_1px_2px_rgb(15_23_42_/_12%)]">
-              {totalRawSize === 0 && (
-                <div
-                  className="h-full rounded-full bg-[var(--material-surface)]"
-                  style={{ width: "100%" }}
-                />
-              )}
-              {rawConfigSize > 0 && (
-                <div
-                  className="h-full rounded-full bg-emerald-500/85 transition-opacity hover:opacity-80"
-                  style={{ width: `${configPct}%` }}
-                />
-              )}
-              {rawWorkspaceSize > 0 && (
-                <div
-                  className="h-full bg-amber-500/85 transition-opacity hover:opacity-80"
-                  style={{ width: `${workspacePct}%` }}
-                />
-              )}
-              {rawOtherDataSize > 0 && (
-                <div
-                  className="h-full bg-[var(--color-accent)] transition-opacity hover:opacity-80"
-                  style={{ width: `${otherPct}%` }}
-                />
-              )}
-              {rawRecoverySize > 0 && (
-                <div
-                  className="h-full bg-violet-500/85 transition-opacity hover:opacity-80"
-                  style={{ width: `${recoveryPct}%` }}
-                />
-              )}
-              {rawLogSize > 0 && (
-                <div
-                  className="h-full bg-fuchsia-500/85 transition-opacity hover:opacity-80"
-                  style={{ width: `${logPct}%` }}
-                />
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-x-4 gap-y-2 mt-1 select-none">
-              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]">
-                <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span>配置偏好 ({configSize})</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]">
-                <div className="w-2 h-2 rounded-full bg-amber-500" />
-                <span>工作区缓存 ({workspaceSize})</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]">
-                <div className="h-2 w-2 rounded-full bg-[var(--color-accent)]" />
-                <span>其他数据 ({otherDataSize})</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]">
-                <div className="h-2 w-2 rounded-full bg-violet-500/85" />
-                <span>恢复快照 ({recoverySize})</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]">
-                <div className="h-2 w-2 rounded-full bg-fuchsia-500/85" />
-                <span>运行日志 ({logSize})</span>
-              </div>
-            </div>
-            <p className="mt-3 text-[11px] leading-5 text-[var(--color-text-muted)]">
-              统计范围为 Aurona 可安全管理的应用数据与运行日志；系统 WebView
-              配置文件由操作系统管理，不会被这里的清理操作影响。
-            </p>
-          </div>
-        </GlassContainer>
-
-        <div className="flex flex-col gap-4 mt-2">
-          <h4 className="text-[13px] font-bold text-[var(--color-text-highlight)] px-1">
-            存储细分与清理
-          </h4>
-
-          <GlassContainer
-            layer="elevated"
-            className="rounded-2xl overflow-hidden shadow-sm flex flex-col"
-          >
-            <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
-              <div className="flex flex-col gap-1">
-                <span className="text-[14px] font-medium text-[var(--color-text-highlight)] flex items-center gap-2 select-none">
-                  用户配置偏好
-                  <span className="text-[11px] text-[var(--color-text-muted)] font-normal font-mono bg-[var(--material-surface)] px-2 py-0.5 rounded-lg">
-                    user-config.json
-                  </span>
-                </span>
-                <span className="text-[12px] text-[var(--color-text-muted)]">
-                  保存当前编辑器的全部个性化设置、字号大小与主题外观偏好
-                </span>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-[13px] font-mono text-[var(--color-text-highlight)] select-none">
-                  {configSize}
-                </span>
-                <Button
-                  variant="danger"
-                  className="h-8 text-[12px] px-3.5"
-                  disabled={isClearing !== null || rawConfigSize === 0}
-                  onClick={handleClearConfig}
-                >
-                  {isClearing === "config" ? "正在清理..." : "清理"}
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] p-5">
-              <div className="flex flex-col gap-1">
-                <span className="flex items-center gap-2 text-[14px] font-medium text-[var(--color-text-highlight)] select-none">
-                  编辑器恢复快照
-                  <span className="rounded-lg bg-[var(--material-surface)] px-2 py-0.5 font-mono text-[11px] font-normal text-[var(--color-text-muted)]">
-                    editor-recovery
-                  </span>
-                </span>
-                <span className="text-[12px] text-[var(--color-text-muted)]">
-                  用于在异常关闭后恢复未保存的文档；仅在确认不需要恢复内容时清理。
-                </span>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="select-none font-mono text-[13px] text-[var(--color-text-highlight)]">
-                  {recoverySize}
-                </span>
-                <Button
-                  variant="danger"
-                  className="h-8 px-3.5 text-[12px]"
-                  disabled={isClearing !== null || rawRecoverySize === 0}
-                  onClick={handleClearRecovery}
-                >
-                  {isClearing === "recovery" ? "正在清理..." : "清理"}
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
-              <div className="flex flex-col gap-1">
-                <span className="text-[14px] font-medium text-[var(--color-text-highlight)] flex items-center gap-2 select-none">
-                  最近工作区状态
-                  <span className="text-[11px] text-[var(--color-text-muted)] font-normal font-mono bg-[var(--material-surface)] px-2 py-0.5 rounded-lg">
-                    workspace.json
-                  </span>
-                </span>
-                <span className="text-[12px] text-[var(--color-text-muted)]">
-                  记录最近打开的文件夹列表、当前打开的编辑标签页与界面布局缓存
-                </span>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-[13px] font-mono text-[var(--color-text-highlight)] select-none">
-                  {workspaceSize}
-                </span>
-                <Button
-                  variant="danger"
-                  className="h-8 text-[12px] px-3.5"
-                  disabled={isClearing !== null || rawWorkspaceSize === 0}
-                  onClick={handleClearWorkspace}
-                >
-                  {isClearing === "workspace" ? "正在清理..." : "清理"}
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
-              <div className="flex flex-col gap-1">
-                <span className="text-[14px] font-medium text-[var(--color-text-highlight)] flex items-center gap-2 select-none">
-                  其他本地数据
-                  <span className="text-[11px] text-[var(--color-text-muted)] font-normal font-mono bg-[var(--material-surface)] px-2 py-0.5 rounded-lg">
-                    AppLocalData
-                  </span>
-                </span>
-                <span className="text-[12px] text-[var(--color-text-muted)]">
-                  不属于配置、工作区与恢复快照的应用本地文件。不会触碰编辑器恢复数据。
-                </span>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-[13px] font-mono text-[var(--color-text-highlight)] select-none">
-                  {otherDataSize}
-                </span>
-                <Button
-                  variant="danger"
-                  className="h-8 text-[12px] px-3.5"
-                  disabled={isClearing !== null || rawOtherDataSize === 0}
-                  onClick={handleClearOtherAppData}
-                >
-                  {isClearing === "other" ? "正在清理..." : "清理"}
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between p-5">
-              <div className="flex flex-col gap-1">
-                <span className="text-[14px] font-medium text-[var(--color-text-highlight)] flex items-center gap-2 select-none">
-                  系统运行日志
-                  <span className="text-[11px] text-[var(--color-text-muted)] font-normal font-mono bg-[var(--material-surface)] px-2 py-0.5 rounded-lg">
-                    *.log
-                  </span>
-                </span>
-                <span className="text-[12px] text-[var(--color-text-muted)]">
-                  记录应用生命周期、Tauri 进程及终端控制台诊断的运行日志
-                </span>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-[13px] font-mono text-[var(--color-text-highlight)] select-none">
-                  {logSize}
-                </span>
-                <Button
-                  variant="danger"
-                  className="h-8 text-[12px] px-3.5"
-                  disabled={isClearing !== null || logSize === "0 B"}
-                  onClick={handleClearLogs}
-                >
-                  {isClearing === "logs" ? "正在清理..." : "清理"}
-                </Button>
-              </div>
-            </div>
-          </GlassContainer>
-        </div>
-      </div>
-    );
-  };
+  const renderStorage = () => <StorageSettingsSection />;
 
   const renderAdvanced = () => (
     <div className="flex flex-col gap-6 w-full max-w-3xl">
@@ -1037,10 +472,7 @@ export function SettingsTab() {
         <p className="text-[13px] text-[var(--color-text-muted)]">进行系统偏好与出厂状态重置操作</p>
       </div>
 
-      <GlassContainer
-        layer="elevated"
-        className="rounded-2xl overflow-hidden shadow-sm flex flex-col"
-      >
+      <GlassContainer layer="elevated" className="rounded-2xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -1101,82 +533,73 @@ export function SettingsTab() {
   );
 
   const sidebarMenu = (
-    <div className="flex flex-col gap-1.5 w-full pr-3 pl-1">
-      <h2 className="text-[11px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest mb-6 px-4 mt-2">
+    <div className="flex w-full flex-col gap-1.5 pl-1 pr-3">
+      <h2 className="mb-6 mt-2 px-4 text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
         设置中心
       </h2>
 
-      <button
-        type="button"
+      <SettingsNavItem
+        label="账户"
+        icon={<Icons.User size={16} />}
+        active={activeSection === "account"}
         onClick={() => setActiveSection("account")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "account" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
-      >
-        <Icons.User size={16} /> 账户
-      </button>
+      />
 
-      <button
-        type="button"
+      <SettingsNavItem
+        label="外观"
+        icon={<Icons.Palette size={16} />}
+        active={activeSection === "appearance"}
         onClick={() => setActiveSection("appearance")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "appearance" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
-      >
-        <Icons.Palette size={16} /> 外观
-      </button>
+      />
 
-      <button
-        type="button"
+      <SettingsNavItem
+        label="编辑器"
+        icon={<Icons.FileCode size={16} />}
+        active={activeSection === "editor"}
         onClick={() => setActiveSection("editor")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "editor" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
-      >
-        <Icons.FileCode size={16} /> 编辑器
-      </button>
+      />
 
-      <button
-        type="button"
+      <SettingsNavItem
+        label="语言服务"
+        icon={<Icons.Sparkles size={16} />}
+        active={activeSection === "language"}
         onClick={() => setActiveSection("language")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "language" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
-      >
-        <Icons.Sparkles size={16} /> 语言服务
-      </button>
+      />
 
-      <button
-        type="button"
+      <SettingsNavItem
+        label="运行和调试"
+        icon={<Icons.Debug size={16} />}
+        active={activeSection === "debug"}
         onClick={() => setActiveSection("debug")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "debug" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
-      >
-        <Icons.Debug size={16} /> 运行和调试
-      </button>
+      />
 
-      <button
-        type="button"
+      <SettingsNavItem
+        label="终端"
+        icon={<Icons.Terminal size={16} />}
+        active={activeSection === "terminal"}
         onClick={() => setActiveSection("terminal")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "terminal" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
-      >
-        <Icons.Terminal size={16} /> 终端
-      </button>
+      />
 
-      <button
-        type="button"
+      <SettingsNavItem
+        label="版本控制"
+        icon={<Icons.Git size={16} />}
+        active={activeSection === "git"}
         onClick={() => setActiveSection("git")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "git" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
-      >
-        <Icons.Git size={16} /> 版本控制
-      </button>
+      />
 
-      <button
-        type="button"
+      <SettingsNavItem
+        label="存储管理"
+        icon={<Icons.Database size={16} />}
+        active={activeSection === "storage"}
         onClick={() => setActiveSection("storage")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "storage" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
-      >
-        <Icons.Database size={16} /> 存储管理
-      </button>
+      />
 
-      <button
-        type="button"
+      <SettingsNavItem
+        label="高级"
+        icon={<Icons.Settings size={16} />}
+        active={activeSection === "advanced"}
         onClick={() => setActiveSection("advanced")}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all ${activeSection === "advanced" ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] border border-transparent"}`}
-      >
-        <Icons.Settings size={16} /> 高级
-      </button>
+      />
     </div>
   );
 

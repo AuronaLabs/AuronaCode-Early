@@ -102,6 +102,9 @@ pub struct StorageBreakdown {
     pub config_bytes: u64,
     pub workspace_bytes: u64,
     pub recovery_bytes: u64,
+    pub performance_bytes: u64,
+    pub cache_bytes: u64,
+    pub errlog_bytes: u64,
     pub other_app_data_bytes: u64,
 }
 
@@ -130,16 +133,27 @@ pub async fn get_storage_breakdown(app: tauri::AppHandle) -> Result<StorageBreak
         let config_bytes = file_size(&app_dir.join("user-config.json"))?;
         let workspace_bytes = file_size(&app_dir.join("workspace.json"))?;
         let recovery_bytes = get_dir_size(&app_dir.join("editor-recovery")).unwrap_or(0);
-        let other_app_data_bytes = app_data_bytes
-            .saturating_sub(config_bytes)
-            .saturating_sub(workspace_bytes)
-            .saturating_sub(recovery_bytes);
+        let performance_bytes = file_size(&app_dir.join("performance-baseline.json"))?;
+        let cache_bytes = get_dir_size(&app_dir.join("EBWebView")).unwrap_or(0);
+        let errlog_bytes = get_dir_size(&app_dir.join("errlogs")).unwrap_or(0);
+        let log_bytes = get_dir_size(&log_dir).unwrap_or(0);
+        let accounted = config_bytes
+            .saturating_add(workspace_bytes)
+            .saturating_add(recovery_bytes)
+            .saturating_add(performance_bytes)
+            .saturating_add(cache_bytes)
+            .saturating_add(errlog_bytes)
+            .saturating_add(log_bytes);
+        let other_app_data_bytes = app_data_bytes.saturating_sub(accounted);
         Ok(StorageBreakdown {
             app_data_bytes,
-            log_bytes: get_dir_size(&log_dir).unwrap_or(0),
+            log_bytes,
             config_bytes,
             workspace_bytes,
             recovery_bytes,
+            performance_bytes,
+            cache_bytes,
+            errlog_bytes,
             other_app_data_bytes,
         })
     })
@@ -179,6 +193,46 @@ pub async fn clear_app_logs(app: tauri::AppHandle) -> Result<(), String> {
     tokio::task::spawn_blocking(move || clear_directory_contents(&log_dir, &[]))
         .await
         .map_err(|error| format!("Log cleanup task failed: {error}"))?
+}
+
+#[tauri::command]
+pub async fn clear_err_logs(app: tauri::AppHandle) -> Result<(), String> {
+    let app_dir = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("Failed to get app local data dir: {error}"))?;
+    tokio::task::spawn_blocking(move || clear_directory_contents(&app_dir.join("errlogs"), &[]))
+        .await
+        .map_err(|error| format!("Error log cleanup task failed: {error}"))?
+}
+
+#[tauri::command]
+pub async fn clear_webview_cache(app: tauri::AppHandle) -> Result<(), String> {
+    let app_dir = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("Failed to get app local data dir: {error}"))?;
+    tokio::task::spawn_blocking(move || clear_directory_contents(&app_dir.join("EBWebView"), &[]))
+        .await
+        .map_err(|error| format!("WebView cache cleanup task failed: {error}"))?
+}
+
+#[tauri::command]
+pub async fn clear_performance_baseline(app: tauri::AppHandle) -> Result<(), String> {
+    let app_dir = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("Failed to get app local data dir: {error}"))?;
+    tokio::task::spawn_blocking(move || {
+        let baseline = app_dir.join("performance-baseline.json");
+        if baseline.exists() {
+            fs::remove_file(&baseline)
+                .map_err(|error| format!("Unable to remove performance baseline: {error}"))?;
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|error| format!("Performance baseline cleanup task failed: {error}"))?
 }
 
 #[tauri::command]

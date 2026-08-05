@@ -407,7 +407,7 @@ export function WorkspaceView() {
                       {keys.map((k) => (
                         <kbd
                           key={k}
-                          className="bg-[var(--material-surface)] px-1.5 py-0.5 rounded border border-black/10 dark:border-white/20"
+                          className="bg-[var(--material-surface)] px-1.5 py-0.5 rounded border border-[var(--border-subtle)]"
                         >
                           {k}
                         </kbd>
@@ -571,7 +571,7 @@ export function WorkspaceView() {
             >
               {terminalStartupError && terminals.length === 0 && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center p-4">
-                  <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)] p-5 text-center shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)]">
+                  <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)] p-5 text-center backdrop-blur-[var(--glass-blur-floating)]">
                     <Icons.AlertTriangle size={20} className="text-amber-500" />
                     <div className="text-[13px] font-medium text-[var(--color-text-highlight)]">
                       终端启动失败

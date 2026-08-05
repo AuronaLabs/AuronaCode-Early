@@ -24,6 +24,8 @@ import { AccountSettings } from "./AccountSettings";
 const signedOut: AccountAuthStatus = {
   enabled: true,
   registeredRedirectUri: "http://127.0.0.1/oauth/callback",
+  providerIssuer: "https://auth.aurona.cc",
+  discoveryUrl: "https://auth.aurona.cc/.well-known/openid-configuration",
   phase: "signedOut",
   profile: null,
   expiresAtUnix: null,

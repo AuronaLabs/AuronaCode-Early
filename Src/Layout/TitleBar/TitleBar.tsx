@@ -237,7 +237,7 @@ export function TitleBar() {
         <Tooltip content="关闭" delay={500} placement="bottom">
           <button
             type="button"
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-red-500 hover:text-white transition-colors"
+            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--DiagError)] hover:text-white transition-colors"
             onClick={() => appWindow.close()}
           >
             <Icons.Close size={15} stroke={2} />

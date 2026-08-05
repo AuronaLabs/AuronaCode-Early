@@ -1,6 +1,7 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { AccountService } from "../../Core/AccountService";
 import type { AccountAuthPhase } from "../../Foundation/IPC/AccountAuthCommands";
+import { AccountAvatar } from "../../UI/Components/AccountAvatar";
 import { Button } from "../../UI/Components/Button";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { Icons } from "../../UI/Icons/IconManager";
@@ -25,29 +26,6 @@ function phaseMessage(phase: AccountAuthPhase): string {
     default:
       return "";
   }
-}
-
-function profileInitial(name: string): string {
-  return Array.from(name.trim())[0]?.toUpperCase() ?? "A";
-}
-
-function AccountAvatar({ name, picture }: { name: string; picture: string | null }) {
-  const [failed, setFailed] = useState(false);
-  return (
-    <div className="mb-7 grid size-28 place-items-center overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-4xl font-semibold text-[var(--color-accent)] shadow-[var(--shadow-surface)]">
-      {picture && !failed ? (
-        <img
-          src={picture}
-          alt={`${name} 的头像`}
-          className="size-full object-cover"
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <span aria-hidden="true">{profileInitial(name)}</span>
-      )}
-    </div>
-  );
 }
 
 export function AccountSettings() {
@@ -104,12 +82,17 @@ export function AccountSettings() {
   return (
     <GlassContainer
       layer="elevated"
-      className="flex min-h-[520px] w-full max-w-3xl flex-col overflow-hidden rounded-2xl  shadow-sm"
+      className="flex min-h-[520px] w-full max-w-3xl flex-col overflow-hidden rounded-2xl"
     >
       <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center">
         {profile && status.phase === "signedIn" ? (
           <>
-            <AccountAvatar key={profile.picture} name={displayName} picture={profile.picture} />
+            <AccountAvatar
+              key={profile.picture}
+              name={displayName}
+              picture={profile.picture}
+              className="mb-7"
+            />
             <h2 className="max-w-full break-words text-3xl font-bold tracking-tight text-[var(--color-text-highlight)]">
               {displayName}
             </h2>
@@ -125,7 +108,7 @@ export function AccountSettings() {
           </>
         ) : (
           <>
-            <div className="mb-7 grid size-20 place-items-center rounded-3xl border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-accent)] shadow-[var(--shadow-surface)]">
+            <div className="mb-7 grid size-20 place-items-center rounded-3xl border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-accent)]">
               <Icons.User size={36} stroke={1.5} />
             </div>
             <h2 className="text-2xl font-bold tracking-tight text-[var(--color-text-highlight)]">

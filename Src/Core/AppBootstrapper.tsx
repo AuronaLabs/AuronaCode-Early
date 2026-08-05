@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useState } from "react";
-import { applyAccentTheme } from "../App/ThemeAccent";
+import { applyAccentTheme, applyLiquidTexture } from "../App/ThemeAccent";
 import { AppLifecycleIPC } from "../Foundation/IPC/AppLifecycleCommands";
 import { PlatformService } from "../Foundation/Platform";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
@@ -54,7 +54,8 @@ export function AppBootstrapper({ children }: Props) {
           document.documentElement.classList.remove("dark");
         }
 
-        applyAccentTheme(userConfig.accentTheme, userConfig.accentInBackground);
+        applyAccentTheme(userConfig.accentTheme);
+        applyLiquidTexture(userConfig.liquidTexture ?? false);
 
         applyResponsiveDensity(userConfig.density);
 

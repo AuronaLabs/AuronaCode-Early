@@ -37,7 +37,7 @@ export function AboutTab() {
           <img
             src="/logo.png"
             alt="Aurona Code Logo"
-            className="w-32 h-32 object-contain relative z-10 drop-shadow-2xl"
+            className="w-32 h-32 object-contain relative z-10"
           />
           <div className="flex flex-col items-center gap-2 relative z-10">
             <h1
@@ -47,7 +47,7 @@ export function AboutTab() {
               Aurona Code
             </h1>
             <div className="flex items-center gap-3">
-              <span className="text-[14px] font-medium text-[var(--TextNormal)]">
+              <span className="text-[14px] font-medium text-[var(--color-text-primary)]">
                 V{appVersion}
               </span>
               <span className="px-2 py-0.5 rounded-full bg-[var(--color-accent)]/20 text-[var(--color-accent)] text-[11px] font-bold tracking-widest border border-[var(--color-accent)]/30">
@@ -62,10 +62,7 @@ export function AboutTab() {
 
         {/* System Info Cards */}
         <div className="grid grid-cols-2 gap-4 w-full max-w-2xl mt-4">
-          <GlassContainer
-            layer="elevated"
-            className="rounded-2xl p-5 flex flex-col gap-1.5 shadow-[0_12px_32px_rgba(15,23,42,0.08)]"
-          >
+          <GlassContainer layer="elevated" className="flex flex-col gap-1.5 rounded-2xl p-5">
             <div className="flex items-center gap-2 text-[var(--color-text-muted)] mb-2">
               <Icons.Monitor size={16} />
               <span className="text-[12px] font-medium uppercase tracking-wider">系统架构</span>
@@ -78,10 +75,7 @@ export function AboutTab() {
             </span>
           </GlassContainer>
 
-          <GlassContainer
-            layer="elevated"
-            className="rounded-2xl p-5 flex flex-col gap-1.5 shadow-[0_12px_32px_rgba(15,23,42,0.08)]"
-          >
+          <GlassContainer layer="elevated" className="flex flex-col gap-1.5 rounded-2xl p-5">
             <div className="flex items-center gap-2 text-[var(--color-text-muted)] mb-2">
               <Icons.Sparkles size={16} />
               <span className="text-[12px] font-medium uppercase tracking-wider">技术栈</span>

@@ -68,6 +68,7 @@ export interface EventMap {
   "git:changes-count": number;
 
   "settings:nav":
+    | "account"
     | "appearance"
     | "editor"
     | "language"

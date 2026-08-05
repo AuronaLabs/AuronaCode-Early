@@ -39,7 +39,7 @@ export function InternalPageLayout({
                 <div className="flex items-center gap-3">
                   {icon && <div className="text-[var(--color-text-highlight)]">{icon}</div>}
                   {title && (
-                    <h1 className="text-2xl text-[var(--color-text-highlight)] font-bold tracking-tight text-shadow-sm whitespace-nowrap">
+                    <h1 className="text-2xl text-[var(--color-text-highlight)] font-bold tracking-tight whitespace-nowrap">
                       {title}
                     </h1>
                   )}

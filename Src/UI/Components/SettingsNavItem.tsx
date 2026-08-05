@@ -17,7 +17,7 @@ export function SettingsNavItem({ label, icon, active, onClick }: SettingsNavIte
       className={cn(
         "flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all",
         active
-          ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold shadow-sm dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]"
+          ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold"
           : "border border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)]",
       )}
     >

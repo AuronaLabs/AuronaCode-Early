@@ -19,6 +19,8 @@ export interface ExplorerContextValue {
   handleDuplicate: (node: FileNode) => void;
   setDeletePrompt: (node: FileNode | null) => void;
   rootPath: string;
+  dropTargetPath: string | null;
+  setDropTargetPath: (path: string | null) => void;
 }
 
 export const ExplorerContext = createContext<ExplorerContextValue | null>(null);

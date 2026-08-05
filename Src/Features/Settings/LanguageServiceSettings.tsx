@@ -14,7 +14,7 @@ import { Icons } from "../../UI/Icons/IconManager";
 
 const DEFAULTS: Required<LanguageFeaturePreferences> = {
   hoverEnabled: true,
-  hoverDelayMs: 350,
+  hoverDelayMs: 600,
   automaticCompletion: true,
 };
 

@@ -29,6 +29,8 @@ export interface AccountProfile {
 export interface AccountAuthStatus {
   enabled: boolean;
   registeredRedirectUri: string;
+  providerIssuer: string;
+  discoveryUrl: string;
   phase: AccountAuthPhase;
   profile: AccountProfile | null;
   expiresAtUnix: number | null;

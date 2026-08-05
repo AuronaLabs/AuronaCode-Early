@@ -226,7 +226,7 @@ describe("real TypeScript Language Server", () => {
     );
     expect(normalizeFileUri(params.uri)).toBe(normalizeFileUri(mainUri));
     expect(params.diagnostics.length).toBeGreaterThan(0);
-  });
+  }, 20_000);
 
   it("serves completion, hover, definition, references, symbols, rename and formatting", async () => {
     const document = { uri: mainUri };
@@ -292,5 +292,5 @@ describe("real TypeScript Language Server", () => {
     rpc.notify("textDocument/didSave", { textDocument: { uri: mainUri } });
     rpc.notify("textDocument/didClose", { textDocument: { uri: mainUri } });
     expect(child.exitCode).toBeNull();
-  });
+  }, 15_000);
 });

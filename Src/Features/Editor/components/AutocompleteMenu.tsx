@@ -90,7 +90,7 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
       ref={menuRef}
       className={cn(
         glassVariants({ layer: "floating" }),
-        "fixed z-50 rounded-xl overflow-hidden flex font-sans shadow-2xl",
+        "fixed z-50 rounded-xl overflow-hidden flex font-sans",
       )}
       style={{ left: position.left, top: position.top, maxHeight: "300px" }}
     >
@@ -106,7 +106,7 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
               onClick={() => onSelect(index)}
               className={`flex items-center px-3 py-1 cursor-pointer select-none text-[13px] transition-colors ${
                 isSelected
-                  ? "bg-[var(--material-surface)] text-[var(--color-text-highlight)] shadow-sm"
+                  ? "bg-[var(--material-surface)] text-[var(--color-text-highlight)]"
                   : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)]"
               }`}
             >
@@ -127,7 +127,7 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
       {}
       {items[selectedIndex] &&
         (items[selectedIndex].detail || items[selectedIndex].documentation) && (
-          <div className="w-[240px] border-l border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-900/50 p-3 overflow-y-auto aurona-scroll">
+          <div className="w-[240px] border-l border-[var(--border-subtle)] bg-[var(--material-panel)] p-3 overflow-y-auto aurona-scroll">
             <div className="mb-2 whitespace-pre-wrap break-all font-mono text-[12px] text-[var(--color-accent)]">
               {items[selectedIndex].detail}
             </div>

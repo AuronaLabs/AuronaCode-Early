@@ -50,7 +50,7 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
             <div className="pointer-events-none absolute h-44 w-44 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] blur-3xl" />
             <div className="relative">
               <div className="absolute inset-0 scale-125 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] blur-xl" />
-              <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-accent)_22%,var(--border-subtle))] bg-[var(--material-surface)] text-[var(--color-accent)] shadow-[var(--shadow-surface)]">
+              <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-accent)_22%,var(--border-subtle))] bg-[var(--material-surface)] text-[var(--color-accent)]">
                 <Icons.Bell size={27} stroke={1.45} />
               </div>
             </div>
@@ -65,7 +65,7 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
               </p>
             </div>
             <div className="relative z-10 flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--color-accent)_16%,var(--border-subtle))] bg-[var(--material-panel)] px-3 py-1 text-[11px] font-medium text-[var(--color-text-muted)]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] shadow-[0_0_7px_color-mix(in_srgb,var(--color-accent)_65%,transparent)]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
               所有通知均已查看
             </div>
           </div>
@@ -93,7 +93,7 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
               return (
                 <div
                   key={item.id}
-                  className="flex gap-3 bg-white/5 bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] border border-black/5 dark:border-white/5 rounded-2xl p-3 z-10 hover:border-black/20 dark:hover:border-white/20 transition-all group relative"
+                  className="flex gap-3 bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] border border-[var(--border-subtle)] rounded-2xl p-3 z-10 hover:border-[var(--border-overlay)] transition-all group relative"
                 >
                   <div
                     className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full ${bgColor}`}

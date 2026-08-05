@@ -49,6 +49,8 @@ pub struct AccountProfile {
 pub struct AccountAuthStatus {
     pub enabled: bool,
     pub registered_redirect_uri: &'static str,
+    pub provider_issuer: String,
+    pub discovery_url: String,
     pub phase: AccountAuthPhase,
     pub profile: Option<AccountProfile>,
     pub expires_at_unix: Option<u64>,
@@ -179,6 +181,8 @@ impl Default for AccountAuthService {
 impl AccountAuthService {
     pub fn new(config: AccountProviderConfig) -> Self {
         let enabled = config.enabled && config.client_id.is_some();
+        let provider_issuer = config.expected_issuer.clone();
+        let discovery_url = config.discovery_url.clone();
         Self {
             config,
             http: reqwest::Client::builder()
@@ -190,6 +194,8 @@ impl AccountAuthService {
                 status: AccountAuthStatus {
                     enabled,
                     registered_redirect_uri: REGISTERED_REDIRECT_URI,
+                    provider_issuer,
+                    discovery_url,
                     phase: if enabled {
                         AccountAuthPhase::SignedOut
                     } else {

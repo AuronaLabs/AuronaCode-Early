@@ -15,7 +15,7 @@ export const ActivitySquare = React.forwardRef<HTMLButtonElement, ActivitySquare
         ref={ref}
         className={`relative flex h-[calc(var(--ActivityBarWidth)-16px)] w-[calc(var(--ActivityBarWidth)-16px)] min-h-8 min-w-8 items-center justify-center rounded-xl transition-[background-color,color,transform] duration-150 focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/60 ${
           active
-            ? "bg-[var(--material-interactive-active)] backdrop-blur-[var(--glass-blur-elevated)] text-[var(--color-text-highlight)] shadow-sm ring-1 ring-inset ring-[var(--border-subtle)]"
+            ? "bg-[var(--material-interactive-active)] backdrop-blur-[var(--glass-blur-elevated)] text-[var(--color-text-highlight)] ring-1 ring-inset ring-[var(--border-subtle)]"
             : "text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:backdrop-blur-[var(--glass-blur-base)] hover:text-[var(--color-text-highlight)]"
         } ${className}`}
         {...props}
@@ -25,7 +25,7 @@ export const ActivitySquare = React.forwardRef<HTMLButtonElement, ActivitySquare
           {badge && (
             <span
               aria-hidden="true"
-              className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-[var(--color-accent)] shadow-[0_1px_5px_color-mix(in_srgb,var(--color-accent)_80%,transparent),0_0_9px_color-mix(in_srgb,var(--color-accent)_42%,transparent)]"
+              className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-[var(--color-accent)]"
             />
           )}
         </div>

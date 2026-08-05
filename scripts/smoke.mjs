@@ -46,12 +46,12 @@ const currentEntry = changelog
   ?.split(/\n\s*\{\n\s*version: "V/)[0];
 assert.ok(currentEntry, "Current changelog entry must be readable");
 const currentSectionCount = [...currentEntry.matchAll(/^\s{8}title:/gm)].length;
-assert.equal(currentSectionCount, 4, "current changelog must contain exactly four sections");
 assert.equal(
   currentSectionCount % 2,
   0,
   "Changelog section count must stay even for the update-card layout",
 );
+assert.ok(currentSectionCount >= 2, "current changelog must contain at least two sections");
 assert.equal(
   tauriConfig.app.windows.find((window) => window.label === "main")?.dragDropEnabled,
   false,

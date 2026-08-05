@@ -12,11 +12,7 @@ export const GlassList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<H
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn(
-        glassVariants({ layer: "base" }),
-        "overflow-hidden rounded-2xl shadow-[var(--shadow-surface)]",
-        className,
-      )}
+      className={cn(glassVariants({ layer: "base" }), "overflow-hidden rounded-2xl", className)}
       {...props}
     />
   ),

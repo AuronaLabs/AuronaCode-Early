@@ -379,7 +379,7 @@ export const SourceControl = React.memo(function SourceControl() {
                     event.stopPropagation();
                     setDiscardTarget(file);
                   }}
-                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] shadow-sm transition-colors hover:bg-red-500/10 hover:text-red-500"
+                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] transition-colors hover:bg-red-500/10 hover:text-red-500"
                 >
                   <Icons.Trash size={11} stroke={2.2} />
                 </button>
@@ -393,7 +393,7 @@ export const SourceControl = React.memo(function SourceControl() {
                     event.stopPropagation();
                     toggleStage(file);
                   }}
-                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] shadow-sm transition-colors hover:bg-[var(--material-interactive-active)] hover:text-red-500"
+                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] transition-colors hover:bg-[var(--material-interactive-active)] hover:text-red-500"
                 >
                   <Icons.Minus size={11} stroke={3} />
                 </button>
@@ -406,7 +406,7 @@ export const SourceControl = React.memo(function SourceControl() {
                     event.stopPropagation();
                     toggleStage(file);
                   }}
-                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] shadow-sm transition-colors hover:bg-[var(--material-interactive-active)] hover:text-[var(--color-text-highlight)]"
+                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] transition-colors hover:bg-[var(--material-interactive-active)] hover:text-[var(--color-text-highlight)]"
                 >
                   <Icons.Plus size={11} stroke={3} />
                 </button>
@@ -466,7 +466,7 @@ export const SourceControl = React.memo(function SourceControl() {
           <button
             type="button"
             onClick={handleInit}
-            className="px-6 py-2.5 bg-[var(--color-accent)] hover:opacity-90 text-white text-[13px] font-bold rounded-xl transition-all shadow-sm flex items-center gap-2"
+            className="px-6 py-2.5 bg-[var(--color-accent)] hover:opacity-90 text-[var(--color-accent-text)] text-[13px] font-bold rounded-xl transition-all flex items-center gap-2"
           >
             <Icons.Plus size={16} stroke={2.5} />
             初始化 Git 仓库
@@ -517,14 +517,14 @@ export const SourceControl = React.memo(function SourceControl() {
       <div className="flex items-center gap-1 mx-[var(--PanelPaddingX)] mb-3 shrink-0">
         <button
           type="button"
-          className={`relative flex h-[28px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 ${activeTab === "changes" ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
+          className={`relative flex h-[28px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 ${activeTab === "changes" ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
           onClick={() => setActiveTab("changes")}
         >
           <Icons.GitBranch size={13} /> 更改
         </button>
         <button
           type="button"
-          className={`relative flex h-[28px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 ${activeTab === "history" ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
+          className={`relative flex h-[28px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 ${activeTab === "history" ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
           onClick={() => setActiveTab("history")}
         >
           <Icons.History size={13} /> 历史
@@ -581,7 +581,7 @@ export const SourceControl = React.memo(function SourceControl() {
               >
                 <Icons.Pull size={13} />
                 {behind > 0 && (
-                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--color-accent)] px-0.5 text-center text-[8px] leading-3 text-white">
+                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--color-accent)] px-0.5 text-center text-[8px] leading-3 text-[var(--color-accent-text)]">
                     {behind}
                   </span>
                 )}
@@ -596,7 +596,7 @@ export const SourceControl = React.memo(function SourceControl() {
               >
                 <Icons.Push size={13} />
                 {ahead > 0 && (
-                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--color-accent)] px-0.5 text-center text-[8px] leading-3 text-white">
+                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--color-accent)] px-0.5 text-center text-[8px] leading-3 text-[var(--color-accent-text)]">
                     {ahead}
                   </span>
                 )}
@@ -628,7 +628,7 @@ export const SourceControl = React.memo(function SourceControl() {
                   type="button"
                   onClick={handleCommit}
                   disabled={commitMsg.trim() === ""}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-4 py-2 text-[13px] font-medium text-[var(--color-text-highlight)] shadow-sm transition-colors hover:bg-[var(--material-interactive-active)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-4 py-2 text-[13px] font-medium text-[var(--color-text-highlight)] transition-colors hover:bg-[var(--material-interactive-active)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Icons.Checks size={16} stroke={2} />
                   提交
@@ -642,7 +642,7 @@ export const SourceControl = React.memo(function SourceControl() {
               <div
                 className={cn(
                   glassVariants({ layer: "base" }),
-                  "flex max-h-[34%] min-h-0 flex-col overflow-hidden rounded-2xl border-red-500/20 shadow-sm",
+                  "flex max-h-[34%] min-h-0 flex-col overflow-hidden rounded-2xl border-[color-mix(in_srgb,var(--DiagError)_20%,transparent)]",
                 )}
               >
                 <div className={cn(glassListHeaderStyles, "justify-between")}>
@@ -660,7 +660,7 @@ export const SourceControl = React.memo(function SourceControl() {
               <div
                 className={cn(
                   glassVariants({ layer: "base" }),
-                  `flex flex-col min-h-0 ${stagedExpanded ? "flex-1" : "flex-initial"} rounded-2xl overflow-hidden shadow-sm`,
+                  `flex flex-col min-h-0 ${stagedExpanded ? "flex-1" : "flex-initial"} rounded-2xl overflow-hidden`,
                 )}
               >
                 <div className={cn(glassListHeaderStyles, "group justify-between")}>
@@ -688,7 +688,7 @@ export const SourceControl = React.memo(function SourceControl() {
                         event.stopPropagation();
                         unstageAll();
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-[var(--color-text-muted)] hover:text-white hover:bg-red-500/80 transition-all flex items-center justify-center"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--DiagError)]/80 transition-all flex items-center justify-center"
                     >
                       <Icons.Minus size={14} />
                     </button>
@@ -707,7 +707,7 @@ export const SourceControl = React.memo(function SourceControl() {
               <div
                 className={cn(
                   glassVariants({ layer: "base" }),
-                  `flex flex-col min-h-0 ${unstagedExpanded && unstagedFiles.length > 0 ? "flex-1" : "flex-initial"} rounded-2xl overflow-hidden shadow-sm`,
+                  `flex flex-col min-h-0 ${unstagedExpanded && unstagedFiles.length > 0 ? "flex-1" : "flex-initial"} rounded-2xl overflow-hidden`,
                 )}
               >
                 <div className={cn(glassListHeaderStyles, "group justify-between")}>
@@ -736,7 +736,7 @@ export const SourceControl = React.memo(function SourceControl() {
                           event.stopPropagation();
                           stageAll();
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-accent)] transition-all flex items-center justify-center"
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-accent-text)] hover:bg-[var(--color-accent)] transition-all flex items-center justify-center"
                       >
                         <Icons.Checks size={14} />
                       </button>
@@ -763,7 +763,7 @@ export const SourceControl = React.memo(function SourceControl() {
             <div
               className={cn(
                 glassVariants({ layer: "elevated" }),
-                "p-4 text-center text-[12px] text-[var(--color-text-muted)] rounded-2xl z-10 mt-2 shadow-sm",
+                "p-4 text-center text-[12px] text-[var(--color-text-muted)] rounded-2xl z-10 mt-2",
               )}
             >
               尚未找到提交记录
@@ -776,7 +776,7 @@ export const SourceControl = React.memo(function SourceControl() {
                   key={commit.hash}
                   className={cn(
                     glassVariants({ layer: "base", interactive: true }),
-                    "flex flex-col shadow-sm rounded-xl p-4 cursor-pointer hover:border-black/20 dark:hover:border-white/30 group active:scale-[0.98]",
+                    "flex flex-col rounded-xl p-4 cursor-pointer hover:border-[var(--border-overlay)] group active:scale-[0.98]",
                   )}
                   onClick={() => {
                     EventBus.emit("app:open-tab", {
@@ -801,7 +801,7 @@ export const SourceControl = React.memo(function SourceControl() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border-subtle)] text-[12px] text-[var(--color-text-muted)] font-medium">
-                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-accent)] text-[10px] font-bold text-white shadow-[0_2px_8px_color-mix(in_srgb,var(--color-accent)_32%,transparent)]">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-accent)] text-[10px] font-bold text-[var(--color-accent-text)]">
                       {commit.author.charAt(0).toUpperCase()}
                     </div>
                     <span className="truncate">{commit.author}</span>

@@ -6,6 +6,8 @@ const AUTHORIZATION_TIMEOUT_MS = 305_000;
 const INITIAL_STATUS: AccountAuthStatus = {
   enabled: false,
   registeredRedirectUri: "http://127.0.0.1/oauth/callback",
+  providerIssuer: "https://auth.aurona.cc",
+  discoveryUrl: "https://auth.aurona.cc/.well-known/openid-configuration",
   phase: "disabled",
   profile: null,
   expiresAtUnix: null,

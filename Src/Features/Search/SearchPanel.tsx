@@ -183,7 +183,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
                 <button
                   type="button"
                   onClick={() => setIsCaseSensitive(!isCaseSensitive)}
-                  className={`rounded-lg border p-1.5 transition-colors ${isCaseSensitive ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
+                  className={`rounded-lg border p-1.5 transition-colors ${isCaseSensitive ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
                 >
                   <Icons.Typography size={14} stroke={isCaseSensitive ? 2.5 : 2} />
                 </button>
@@ -193,7 +193,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
                 <button
                   type="button"
                   onClick={() => setIsRegex(!isRegex)}
-                  className={`rounded-lg border p-1.5 transition-colors ${isRegex ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
+                  className={`rounded-lg border p-1.5 transition-colors ${isRegex ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
                 >
                   <Icons.Asterisk size={14} stroke={isRegex ? 2.5 : 2} />
                 </button>
@@ -206,7 +206,7 @@ export const SearchPanel = React.memo(function SearchPanel() {
                 disabled={!query.trim()}
                 className={cn(
                   glassVariants({ layer: "elevated", interactive: true }),
-                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-highlight)] shadow-sm transition-[background-color,border-color,box-shadow,opacity] disabled:cursor-not-allowed disabled:opacity-45",
+                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-highlight)] transition-[background-color,border-color,box-shadow,opacity] disabled:cursor-not-allowed disabled:opacity-45",
                 )}
               >
                 <Icons.Search size={13} stroke={2} />

@@ -135,7 +135,7 @@ export const EditorLine = React.memo(function EditorLine({
 
       return (
         <div
-          className="absolute top-0 bottom-0 bg-[var(--EditorSelectionBg,rgba(58,77,110,0.5))] pointer-events-none z-0"
+          className="absolute top-0 bottom-0 bg-[var(--EditorSelectionBg)] pointer-events-none z-0"
           style={{
             left: `${prefixWidth}px`,
             width: isEndLine ? `${selectedWidth}px` : `calc(100% - ${prefixWidth}px)`,

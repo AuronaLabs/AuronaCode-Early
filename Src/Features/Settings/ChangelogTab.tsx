@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { GlassContainer } from "../../UI/Core/GlassManager";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
 import { CHANGELOG_DATA } from "./ChangelogData";
@@ -50,7 +51,7 @@ export function ChangelogTab() {
             key={release.version}
             className={`flex flex-col gap-6 ${!release.isLatest ? "opacity-80" : ""}`}
           >
-            <div className="flex items-center gap-4 border-b border-black/10 dark:border-[var(--border-subtle)] pb-4">
+            <div className="flex items-center gap-4 border-b border-[var(--border-subtle)] pb-4">
               <span
                 className="text-[24px] font-bold text-[var(--color-text-highlight)] tracking-tight"
                 style={{ fontFamily: "'Righteous', sans-serif" }}
@@ -61,7 +62,7 @@ export function ChangelogTab() {
                 {release.date}
               </span>
               {release.isLatest && (
-                <span className="px-3 py-1 rounded-lg bg-[var(--color-accent)] text-white text-[11px] font-bold tracking-widest shadow-sm">
+                <span className="px-3 py-1 rounded-lg bg-[var(--color-accent)] text-white text-[11px] font-bold tracking-widest">
                   最新版本
                 </span>
               )}
@@ -75,9 +76,10 @@ export function ChangelogTab() {
 
             <div className="grid grid-cols-2 gap-5">
               {release.sections.map((section) => (
-                <div
+                <GlassContainer
                   key={section.title}
-                  className="bg-[var(--material-panel)] backdrop-blur-[var(--glass-blur-base)] border border-[var(--border-subtle)] p-6 rounded-2xl flex flex-col gap-4 shadow-sm"
+                  layer="elevated"
+                  className="flex flex-col gap-4 rounded-2xl p-6"
                 >
                   <div className="flex items-center gap-2 text-[var(--color-text-highlight)]">
                     <Icons.Sparkles size={18} />
@@ -102,7 +104,7 @@ export function ChangelogTab() {
                       ))}
                     </ul>
                   )}
-                </div>
+                </GlassContainer>
               ))}
             </div>
           </div>

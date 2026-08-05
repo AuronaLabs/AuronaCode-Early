@@ -61,7 +61,11 @@ export function AppShell({ Children }: AppShellProps) {
       className="flex h-dvh w-screen flex-col text-[var(--color-text-primary)] overflow-hidden"
       style={{ background: "var(--AppBackground, var(--AppBg))" }}
     >
-      <TitleBar />
+      <div className="liquid-texture" aria-hidden="true" />
+
+      <div className="relative z-[1]">
+        <TitleBar />
+      </div>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <nav className="flex w-[var(--ActivityBarWidth)] shrink-0 flex-col items-center bg-transparent pt-0 pb-1 relative z-20">
@@ -96,12 +100,14 @@ export function AppShell({ Children }: AppShellProps) {
           </div>
         </nav>
 
-        <main className="flex flex-1 min-w-0 overflow-hidden bg-transparent relative">
+        <main className="flex flex-1 min-w-0 overflow-hidden bg-transparent relative z-[1]">
           <div className="absolute inset-0 h-full w-full">{Children}</div>
         </main>
       </div>
 
-      <StatusBar />
+      <div className="relative z-[1]">
+        <StatusBar />
+      </div>
 
       <ToastContainer />
       <UpdateModal />

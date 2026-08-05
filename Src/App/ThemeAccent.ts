@@ -16,10 +16,14 @@ export const ACCENT_THEMES: {
   { id: "slate", label: "石墨夜航", rgb: "71, 85, 105" },
 ];
 
-export function applyAccentTheme(
-  accentTheme: AccentThemeId | undefined,
-  accentInBackground = false,
-) {
+export function applyAccentTheme(accentTheme: AccentThemeId | undefined) {
   document.documentElement.dataset.accent = accentTheme ?? "aurora";
-  document.documentElement.dataset.accentBackground = accentInBackground ? "true" : "false";
+}
+
+export function applyLiquidTexture(enabled: boolean) {
+  if (enabled) {
+    document.documentElement.dataset.liquidTexture = "true";
+  } else {
+    delete document.documentElement.dataset.liquidTexture;
+  }
 }

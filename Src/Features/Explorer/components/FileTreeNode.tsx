@@ -10,30 +10,49 @@ import {
 } from "../../../UI/Components/ContextMenu";
 import { Icons } from "../../../UI/Icons/IconManager";
 import { useExplorerContext } from "../ExplorerContext";
-import { ExplorerDragSession } from "../ExplorerDragSession";
+import { ExplorerDragSession, FILE_NODE_MIME } from "../ExplorerDragSession";
 import { InlineInput } from "./InlineInput";
+
+// 文件类型品牌色集中在常量中，便于统一维护；界面语义色仍走 Material token。
+const FILE_TYPE_COLORS: Record<string, string> = {
+  ts: "#3178c6",
+  tsx: "#3178c6",
+  js: "#f7df1e",
+  jsx: "#f7df1e",
+  py: "#3776ab",
+  css: "#264de4",
+  html: "#e34f26",
+  json: "#cb3837",
+  png: "#a855f7",
+  jpg: "#a855f7",
+  jpeg: "#a855f7",
+  svg: "#a855f7",
+  gif: "#a855f7",
+};
 
 function getFileIcon(filename: string, isActive: boolean) {
   const ext = filename.split(".").pop()?.toLowerCase();
   const baseColor = isActive
     ? "text-[var(--color-text-highlight)]"
     : "text-[var(--color-text-muted)]";
+  const brandColor = ext ? FILE_TYPE_COLORS[ext] : undefined;
+  const iconStyle = brandColor ? { color: brandColor } : undefined;
 
   switch (ext) {
     case "ts":
     case "tsx":
-      return <Icons.FileTs size={16} stroke={1.5} className="text-[#3178c6]" />;
+      return <Icons.FileTs size={16} stroke={1.5} style={iconStyle} />;
     case "js":
     case "jsx":
-      return <Icons.FileJs size={16} stroke={1.5} className="text-[#f7df1e]" />;
+      return <Icons.FileJs size={16} stroke={1.5} style={iconStyle} />;
     case "py":
-      return <Icons.FilePy size={16} stroke={1.5} className="text-[#3776ab]" />;
+      return <Icons.FilePy size={16} stroke={1.5} style={iconStyle} />;
     case "css":
-      return <Icons.FileCss size={16} stroke={1.5} className="text-[#264de4]" />;
+      return <Icons.FileCss size={16} stroke={1.5} style={iconStyle} />;
     case "html":
-      return <Icons.FileHtml size={16} stroke={1.5} className="text-[#e34f26]" />;
+      return <Icons.FileHtml size={16} stroke={1.5} style={iconStyle} />;
     case "json":
-      return <Icons.FileJson size={16} stroke={1.5} className="text-[#cb3837]" />;
+      return <Icons.FileJson size={16} stroke={1.5} style={iconStyle} />;
     case "md":
       return <Icons.FileMd size={16} stroke={1.5} className={baseColor} />;
     case "png":
@@ -41,7 +60,7 @@ function getFileIcon(filename: string, isActive: boolean) {
     case "jpeg":
     case "svg":
     case "gif":
-      return <Icons.FileImage size={16} stroke={1.5} className="text-[#a855f7]" />;
+      return <Icons.FileImage size={16} stroke={1.5} style={iconStyle} />;
     default:
       return <Icons.File size={16} stroke={1.5} className={baseColor} />;
   }
@@ -70,11 +89,14 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
     handleDuplicate,
     setDeletePrompt,
     rootPath,
+    dropTargetPath,
+    setDropTargetPath,
   } = useExplorerContext();
 
   const [isDragHover, setIsDragHover] = React.useState(false);
   const autoExpandTimer = React.useRef<number | null>(null);
   const dragEnterDepth = React.useRef(0);
+  const suppressClickUntil = React.useRef(0);
 
   const clearAutoExpandTimer = useCallback(() => {
     if (autoExpandTimer.current !== null) {
@@ -87,6 +109,7 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
   const isTargetForInline =
     inlineCreation?.parentPath === node.path && node.isDirectory && node.isOpen;
   const isEditingThis = inlineEditing === node.path;
+  const isDropTarget = dropTargetPath === node.path;
 
   React.useEffect(() => clearAutoExpandTimer, [clearAutoExpandTimer]);
 
@@ -122,31 +145,35 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
             aria-selected={isActive}
             aria-expanded={node.isDirectory ? node.isOpen : undefined}
             draggable={true}
-            className={`group/tree flex items-center gap-1.5 py-[3px] mx-1 pr-2 rounded-lg text-[13px] cursor-pointer select-none transition-colors outline-none ${
+            className={`group/tree relative flex items-center gap-1.5 py-[3px] mx-1 pr-2 rounded-lg text-[13px] cursor-pointer select-none transition-colors outline-none ${
               isDragHover
-                ? "bg-[var(--material-overlay)] border border-[var(--border-subtle)] shadow-md"
+                ? "bg-[var(--material-overlay)] border border-[var(--border-subtle)]"
                 : isActive
-                  ? "bg-[var(--material-surface)] text-[var(--color-text-highlight)] font-medium shadow-sm border border-[var(--border-subtle)]"
+                  ? "bg-[var(--material-surface)] text-[var(--color-text-highlight)] font-medium"
                   : "text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)]"
             }`}
             style={{
               paddingLeft: `calc(${depth} * var(--TreeIndent) + 4px)`,
             }}
-            onClick={() => onToggle(node)}
+            onClick={() => {
+              if (Date.now() < suppressClickUntil.current) return;
+              onToggle(node);
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter") onToggle(node);
             }}
             onDragStart={(e) => {
               e.stopPropagation();
+              suppressClickUntil.current = Date.now() + 300;
               ExplorerDragSession.begin(node.path);
-              e.dataTransfer.setData("application/x-aurona-file-node", node.path);
-              e.dataTransfer.setData("text/plain", node.path);
+              e.dataTransfer.setData(FILE_NODE_MIME, node.path);
               e.dataTransfer.effectAllowed = "copyMove";
             }}
             onDragEnd={() => {
               ExplorerDragSession.end();
               setIsDragHover(false);
               dragEnterDepth.current = 0;
+              setDropTargetPath(null);
               clearAutoExpandTimer();
             }}
             onDragOver={(e) => {
@@ -156,9 +183,11 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
               }
             }}
             onDragEnter={(e) => {
+              e.stopPropagation();
+              dragEnterDepth.current += 1;
+              setDropTargetPath(node.path);
               if (node.isDirectory) {
                 e.preventDefault();
-                dragEnterDepth.current += 1;
                 setIsDragHover(true);
                 if (!node.isOpen) {
                   clearAutoExpandTimer();
@@ -167,26 +196,30 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
               }
             }}
             onDragLeave={(e) => {
-              if (node.isDirectory) {
-                e.preventDefault();
-                dragEnterDepth.current = Math.max(0, dragEnterDepth.current - 1);
-                if (dragEnterDepth.current === 0) {
-                  setIsDragHover(false);
-                  clearAutoExpandTimer();
-                }
+              e.stopPropagation();
+              dragEnterDepth.current = Math.max(0, dragEnterDepth.current - 1);
+              if (dragEnterDepth.current === 0) {
+                setIsDragHover(false);
+                if (dropTargetPath === node.path) setDropTargetPath(null);
+                clearAutoExpandTimer();
               }
             }}
             onDrop={(e) => {
+              if (!node.isDirectory) {
+                // A file row is not a drop target on its own; let the event
+                // bubble to the containing directory row (or the tree root)
+                // so dropping onto a file still lands in its folder.
+                return;
+              }
               e.preventDefault();
               e.stopPropagation();
               setIsDragHover(false);
               dragEnterDepth.current = 0;
+              setDropTargetPath(null);
               clearAutoExpandTimer();
-              if (node.isDirectory) {
-                const src = ExplorerDragSession.read(e.dataTransfer);
-                if (src) {
-                  void onDrop(src, node.path, e.ctrlKey || e.metaKey);
-                }
+              const src = ExplorerDragSession.read(e.dataTransfer);
+              if (src) {
+                void onDrop(src, node.path, e.ctrlKey || e.metaKey);
               }
               ExplorerDragSession.end();
             }}
@@ -218,6 +251,9 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
             </div>
 
             <span className="truncate leading-tight select-none">{node.name}</span>
+            {isDropTarget && (
+              <span className="pointer-events-none absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-[var(--color-accent)]" />
+            )}
           </div>
         </ContextMenuTrigger>
 

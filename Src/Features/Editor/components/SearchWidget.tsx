@@ -87,11 +87,11 @@ export function SearchWidget({
         >
           <IconChevronDown size={14} stroke={2} />
         </button>
-        <div className="w-[1px] h-4 bg-black/10 bg-[var(--material-surface)] mx-1"></div>
+        <div className="w-[1px] h-4 bg-[var(--border-subtle)] mx-1"></div>
         <button
           type="button"
           onClick={onClose}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-red-500 hover:text-white dark:hover:bg-red-500 dark:hover:text-white transition-colors ml-1"
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--color-text-muted)] hover:bg-[var(--DiagError)] hover:text-white transition-colors ml-1"
         >
           <IconX size={14} stroke={2} />
         </button>

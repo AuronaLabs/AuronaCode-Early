@@ -76,24 +76,10 @@ export function useEditorHover({
 
       const client = LspClient.getInstance();
       const server = client.getState(language);
-      if (server?.status !== "running") {
-        setVisibleTooltip({
-          anchor,
-          title: "语言服务未运行",
-          text: server?.lastError ?? `${language} 语言服务器尚未启动`,
-          tone: server?.status === "failed" ? "error" : "warning",
-        });
-        return;
-      }
-      if (!client.supports(language, "hover")) {
-        setVisibleTooltip({
-          anchor,
-          title: "当前服务器不支持 Hover",
-          text: `${language} 语言服务器没有声明 hoverProvider 能力`,
-          tone: "warning",
-        });
-        return;
-      }
+      // 只有已运行且声明 hover 能力的服务器才展示悬浮信息；未配置、未启动
+      // 或不支持的语言（当前仅 Python / TypeScript 语言服务器可用）一律静默，
+      // 不再弹出“语言服务未运行”之类的干扰卡片。
+      if (server?.status !== "running" || !client.supports(language, "hover")) return;
 
       if (hoverTimerRef.current !== null) window.clearTimeout(hoverTimerRef.current);
       const generation = ++generationRef.current;
@@ -128,7 +114,7 @@ export function useEditorHover({
           });
       }, preferences.hoverDelayMs);
     },
-    [interactionBlocked, language, path, preferences, setVisibleTooltip],
+    [interactionBlocked, language, path, preferences],
   );
 
   const handleLineMouseLeave = useCallback(() => {

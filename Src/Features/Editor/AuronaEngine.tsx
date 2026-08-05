@@ -70,7 +70,7 @@ export type AuronaEngineProps = {
 
 const DEFAULT_LANGUAGE_PREFERENCES: Required<LanguageFeaturePreferences> = {
   hoverEnabled: true,
-  hoverDelayMs: 350,
+  hoverDelayMs: 600,
   automaticCompletion: true,
 };
 
@@ -1697,7 +1697,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           style={{ height: layout.lineHeight, lineHeight: `${layout.lineHeight}px` }}
         >
           {path && breakpoints.some((item) => item.path === path && item.line === idx + 1) && (
-            <span className="absolute left-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-red-500 shadow-sm" />
+            <span className="absolute left-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-red-500" />
           )}
           {idx + 1}
         </button>,
@@ -1743,8 +1743,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         .hl-token-8 { color: var(--SyntaxBuiltin); }
         .hl-token-9 { color: var(--SyntaxTypeHint, var(--color-accent)); }
 
-        .hl-search { background-color: rgba(234, 179, 8, 0.25); border-bottom: 1px solid rgba(234, 179, 8, 0.6); }
-        .hl-search-active { background-color: rgba(249, 115, 22, 0.45); border-bottom: 2px solid rgba(249, 115, 22, 0.9); }
+        .hl-search { background-color: var(--EditorSearchMatchBg); border-bottom: 1px solid var(--EditorSearchMatchBorder); }
+        .hl-search-active { background-color: var(--EditorSearchActiveBg); border-bottom: 2px solid var(--EditorSearchActiveBorder); }
         .hl-diag-error,
         .hl-diag-warning,
         .hl-diag-info,
@@ -1764,7 +1764,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         }
 
         /* 选中高亮段样式 */
-        .hl-selection { background-color: rgba(59, 130, 246, 0.3) !important; }
+        .hl-selection { background-color: var(--EditorSelectionBg) !important; }
 
         /* 经典重设呼吸动画光标 */
         @keyframes caret-blink {
@@ -1792,7 +1792,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
       {/* 侧边行号 */}
       <div
-        className="w-[48px] shrink-0 border-r border-black/5 dark:border-white/5 py-0 flex flex-col overflow-hidden select-none"
+        className="w-[48px] shrink-0 border-r border-[var(--EditorGutterBorder)] py-0 flex flex-col overflow-hidden select-none"
         style={{
           paddingTop: `${Math.max(0, layout.contentInsetTop - scrollTop)}px`,
           transform:
@@ -1911,7 +1911,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       )}
       {import.meta.env.DEV &&
         new URLSearchParams(window.location.search).has("editorLayoutDebug") && (
-          <div className="pointer-events-none absolute bottom-2 right-2 z-50 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--color-text-muted)] shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)]">
+          <div className="pointer-events-none absolute bottom-2 right-2 z-50 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-floating)]">
             {layout.fontSize}px / {layout.lineHeight}px · inset {layout.contentInsetX}px · DPR{" "}
             {layout.devicePixelRatio.toFixed(2)} · caret {caretPos.x.toFixed(1)},{" "}
             {caretPos.y.toFixed(1)}

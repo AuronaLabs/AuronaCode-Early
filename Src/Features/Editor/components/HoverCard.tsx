@@ -82,7 +82,7 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
       onMouseLeave={onMouseLeave}
       className={cn(
         glassVariants({ layer: "floating" }),
-        "fixed z-[80] max-h-[280px] w-max min-w-[220px] max-w-[420px] overflow-y-auto rounded-xl p-3 font-sans text-[12px] text-[var(--color-text-primary)] shadow-2xl aurona-scroll",
+        "fixed z-[80] max-h-[280px] w-max min-w-[220px] max-w-[420px] overflow-y-auto rounded-xl p-3 font-sans text-[12px] text-[var(--color-text-primary)] aurona-scroll",
         hover.tone === "warning" && "border-amber-500/30",
         hover.tone === "error" && "border-red-500/30",
       )}

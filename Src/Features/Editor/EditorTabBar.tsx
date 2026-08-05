@@ -1,4 +1,4 @@
-import React from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import {
@@ -10,7 +10,7 @@ import {
 } from "../../UI/Components/ContextMenu";
 import { Icons } from "../../UI/Icons/IconManager";
 
-export const EditorTabBar = React.memo(function EditorTabBar() {
+export const EditorTabBar = memo(function EditorTabBar() {
   const { tabs, activeTabId, setActiveTabId, closeTab, closeTabById } = useWorkbenchStore();
 
   const handleCloseToRight = (id: string) => {
@@ -38,11 +38,57 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
     }
   };
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  }, []);
+
+  useEffect(() => {
+    void tabs.length;
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScrollState();
+    const observer = new ResizeObserver(updateScrollState);
+    observer.observe(el);
+    el.addEventListener("scroll", updateScrollState, { passive: true });
+    window.addEventListener("resize", updateScrollState);
+    return () => {
+      observer.disconnect();
+      el.removeEventListener("scroll", updateScrollState);
+      window.removeEventListener("resize", updateScrollState);
+    };
+  }, [tabs.length, updateScrollState]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const target = el.querySelector<HTMLElement>(`[data-tab-id="${activeTabId}"]`);
+    target?.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
+  }, [activeTabId]);
+
+  const scrollTabs = useCallback((direction: -1 | 1) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const step = Math.max(200, el.clientWidth * 0.6);
+    el.scrollBy({ left: direction * step, behavior: "smooth" });
+  }, []);
+
   if (tabs.length === 0) return null;
 
   return (
-    <div className="aurona-tabbar h-[var(--TabBarHeight)] shrink-0">
-      <div className="aurona-tabbar-scroll flex h-[var(--TabBarHeight)] items-center gap-1.5 overflow-x-auto overflow-y-hidden px-1 py-1 no-scrollbar">
+    <div className="aurona-tabbar relative h-[var(--TabBarHeight)] shrink-0">
+      <div
+        ref={scrollRef}
+        className={`aurona-tabbar-scroll flex h-[var(--TabBarHeight)] items-center gap-1.5 overflow-x-auto overflow-y-hidden py-1 no-scrollbar ${
+          canScrollLeft ? "pl-8" : "pl-1"
+        } ${canScrollRight ? "pr-8" : "pr-1"}`}
+      >
         {tabs.map((tab) => {
           const isActive = activeTabId === tab.id;
           return (
@@ -50,6 +96,7 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
               <ContextMenuTrigger asChild>
                 <div
                   role="tab"
+                  data-tab-id={tab.id}
                   tabIndex={0}
                   aria-selected={isActive}
                   onClick={() => setActiveTabId(tab.id)}
@@ -162,6 +209,26 @@ export const EditorTabBar = React.memo(function EditorTabBar() {
           );
         })}
       </div>
+      {canScrollLeft && (
+        <button
+          type="button"
+          aria-label="向左滚动标签"
+          onClick={() => scrollTabs(-1)}
+          className="absolute bottom-0 left-0 top-0 z-20 flex w-8 items-center justify-center rounded-tl-lg border-r border-[var(--border-subtle)] bg-[linear-gradient(to_right,var(--material-panel),transparent)] backdrop-blur-[var(--glass-blur-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)]"
+        >
+          <Icons.ChevronLeft size={16} stroke={2} />
+        </button>
+      )}
+      {canScrollRight && (
+        <button
+          type="button"
+          aria-label="向右滚动标签"
+          onClick={() => scrollTabs(1)}
+          className="absolute bottom-0 right-0 top-0 z-20 flex w-8 items-center justify-center rounded-tr-lg border-l border-[var(--border-subtle)] bg-[linear-gradient(to_left,var(--material-panel),transparent)] backdrop-blur-[var(--glass-blur-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)]"
+        >
+          <Icons.ChevronRight size={16} stroke={2} />
+        </button>
+      )}
     </div>
   );
 });

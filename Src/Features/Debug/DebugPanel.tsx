@@ -218,8 +218,8 @@ export function DebugPanel() {
                     <span
                       className={`h-2.5 w-2.5 shrink-0 rounded-full ${
                         breakpoint.verified === false
-                          ? "border border-red-500"
-                          : "bg-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.12)]"
+                          ? "border border-[var(--DiagError)]"
+                          : "bg-[var(--DiagError)] shadow-[0_0_0_2px_color-mix(in_srgb,var(--DiagError)_12%,transparent)]"
                       }`}
                     />
                     <button
@@ -542,7 +542,7 @@ function DebugContextEmpty({ hasFile }: { hasFile: boolean }) {
       <div className="pointer-events-none absolute h-44 w-44 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] blur-3xl" />
       <div className="relative">
         <div className="absolute inset-0 scale-125 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] blur-xl" />
-        <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-accent)_22%,var(--border-subtle))] bg-[var(--material-surface)] text-[var(--color-accent)] shadow-[var(--shadow-surface)]">
+        <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-accent)_22%,var(--border-subtle))] bg-[var(--material-surface)] text-[var(--color-accent)]">
           <Icons.Debug size={27} stroke={1.45} />
         </div>
       </div>
@@ -567,7 +567,7 @@ function DebugContextEmpty({ hasFile }: { hasFile: boolean }) {
         </p>
       </div>
       <div className="relative z-10 flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--color-accent)_16%,var(--border-subtle))] bg-[var(--material-panel)] px-3 py-1 text-[11px] font-medium text-[var(--color-text-muted)]">
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] shadow-[0_0_7px_color-mix(in_srgb,var(--color-accent)_65%,transparent)]" />
+        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
         等待代码上下文
       </div>
     </div>

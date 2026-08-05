@@ -302,7 +302,7 @@ export const EditorTab = React.memo(function EditorTab({
             />
           )}
           {syncError && (
-            <div className="absolute inset-x-3 top-3 z-30 flex items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-600 dark:text-red-300 shadow-lg">
+            <div className="absolute inset-x-3 top-3 z-30 flex items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-600 dark:text-red-300">
               <span className="min-w-0 truncate">
                 编辑同步失败，已阻止保存以避免覆盖未同步内容。
               </span>
@@ -325,7 +325,7 @@ export const EditorTab = React.memo(function EditorTab({
             </div>
           )}
           {pendingRecovery && !syncError && (
-            <div className="absolute inset-x-3 top-3 z-30 flex items-center justify-between gap-3 rounded-xl border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-2 text-[12px] text-[var(--color-text-primary)] shadow-[var(--shadow-overlay)]">
+            <div className="absolute inset-x-3 top-3 z-30 flex items-center justify-between gap-3 rounded-xl border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-2 text-[12px] text-[var(--color-text-primary)]">
               <span className="min-w-0 truncate">检测到未保存的本地恢复快照</span>
               <span className="flex shrink-0 items-center gap-1">
                 <button
@@ -346,7 +346,7 @@ export const EditorTab = React.memo(function EditorTab({
             </div>
           )}
           {isSaving && (
-            <div className="absolute right-3 bottom-3 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-1.5 text-[12px] text-[var(--color-text-muted)] shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)]">
+            <div className="absolute right-3 bottom-3 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-1.5 text-[12px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-floating)]">
               正在保存...
             </div>
           )}

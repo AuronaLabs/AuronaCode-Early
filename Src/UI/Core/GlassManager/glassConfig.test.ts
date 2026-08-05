@@ -8,19 +8,19 @@ describe("glass intensity profiles", () => {
         base: "2px",
         elevated: "4px",
         floating: "8px",
-        opacityMultiplier: "1.35",
+        opacityMultiplier: "1.15",
       },
       medium: {
         base: "4px",
         elevated: "8px",
         floating: "12px",
-        opacityMultiplier: "1.2",
+        opacityMultiplier: "1.05",
       },
       heavy: {
         base: "8px",
         elevated: "16px",
         floating: "24px",
-        opacityMultiplier: "1.0",
+        opacityMultiplier: "0.95",
       },
     });
   });

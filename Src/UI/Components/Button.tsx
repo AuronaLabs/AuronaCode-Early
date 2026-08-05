@@ -9,15 +9,15 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] shadow-sm border border-black/5 dark:border-white/10",
+          "bg-[var(--color-accent)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-hover)] border border-[color-mix(in_srgb,var(--color-accent)_24%,transparent)]",
         secondary:
           "bg-[var(--material-interactive-hover)] text-[var(--color-text-highlight)] hover:bg-[var(--border-subtle)] border border-[var(--border-subtle)]",
         danger:
-          "bg-red-500/90 text-white hover:bg-red-500 shadow-sm border border-red-400/20 focus-visible:ring-red-500/50",
+          "bg-[var(--DiagError)]/90 text-white hover:bg-[var(--DiagError)] border border-[color-mix(in_srgb,var(--DiagError)_24%,transparent)]",
         ghost:
           "bg-transparent text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]",
         glass:
-          "border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-highlight)] shadow-sm backdrop-blur-[var(--glass-blur-elevated)] hover:bg-[var(--material-interactive-hover)]",
+          "border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-highlight)] backdrop-blur-[var(--glass-blur-elevated)] hover:bg-[var(--material-interactive-hover)]",
       },
       size: {
         default: "h-8 px-4 py-1.5",

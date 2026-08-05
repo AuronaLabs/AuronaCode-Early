@@ -252,7 +252,7 @@ export function Fliuno() {
       <section
         data-testid="fliuno-surface"
         aria-label="Fliuno 全局搜索"
-        className={`relative grid w-full max-w-[720px] overflow-hidden border border-[var(--border-overlay)] bg-[var(--material-overlay)] shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)] transition-[border-radius] duration-200 ${
+        className={`relative grid w-full max-w-[720px] overflow-hidden border border-[var(--border-overlay)] bg-[var(--material-overlay)] backdrop-blur-[var(--glass-blur-floating)] transition-[border-radius] duration-200 ${
           hasQuery ? "rounded-[20px]" : "rounded-[18px]"
         }`}
       >

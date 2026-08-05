@@ -32,7 +32,7 @@ export function ToastContainer() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="pointer-events-auto relative flex max-w-sm items-center gap-3 rounded-xl border border-[var(--border-overlay)] bg-[var(--material-overlay)] p-3 pr-8 shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)] animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group"
+          className="pointer-events-auto relative flex max-w-sm items-center gap-3 rounded-xl border border-[var(--border-overlay)] bg-[var(--material-overlay)] p-3 pr-8 backdrop-blur-[var(--glass-blur-floating)] animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group"
         >
           <div
             className={`flex items-center justify-center h-8 w-8 rounded-full shrink-0 ${
@@ -56,7 +56,7 @@ export function ToastContainer() {
           <button
             type="button"
             onClick={() => dismissToast(toast.id)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-all cursor-pointer"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-all cursor-pointer"
           >
             <Icons.Close size={12} />
           </button>

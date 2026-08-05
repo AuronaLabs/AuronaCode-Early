@@ -51,6 +51,7 @@ export interface UserConfig {
   theme?: "light" | "dark" | "system";
   accentTheme?: AccentThemeId;
   accentInBackground?: boolean;
+  liquidTexture?: boolean;
   fontSize?: number;
   lineHeight?: number;
   density?: "compact" | "default" | "comfortable";

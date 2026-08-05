@@ -16,7 +16,7 @@ export function Modal({ isOpen, onClose, title, children, footer, icon }: ModalP
     <DialogPrimitive.Root open={isOpen} onOpenChange={(open) => !open && onClose && onClose()}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[9998] bg-black/30 backdrop-blur-[var(--glass-blur-base)] animate-in fade-in duration-300" />
-        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-[9999] w-full max-w-md translate-x-[-50%] translate-y-[-50%] rounded-2xl border border-[var(--border-subtle)] bg-[var(--material-modal)] shadow-[var(--shadow-overlay)] backdrop-blur-[var(--glass-blur-floating)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/50">
+        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-[9999] w-full max-w-md translate-x-[-50%] translate-y-[-50%] rounded-2xl border border-[var(--border-subtle)] bg-[var(--material-modal)] backdrop-blur-[var(--glass-blur-floating)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/50">
           <div className="flex flex-col p-5 gap-3">
             {title && (
               <div className="flex items-center justify-between">

@@ -14,6 +14,7 @@ import IconBug from "@tabler/icons-react/dist/esm/icons/IconBug.mjs";
 import IconCheck from "@tabler/icons-react/dist/esm/icons/IconCheck.mjs";
 import IconChecks from "@tabler/icons-react/dist/esm/icons/IconChecks.mjs";
 import IconChevronDown from "@tabler/icons-react/dist/esm/icons/IconChevronDown.mjs";
+import IconChevronLeft from "@tabler/icons-react/dist/esm/icons/IconChevronLeft.mjs";
 import IconChevronRight from "@tabler/icons-react/dist/esm/icons/IconChevronRight.mjs";
 import IconChevronUp from "@tabler/icons-react/dist/esm/icons/IconChevronUp.mjs";
 import IconCircleDot from "@tabler/icons-react/dist/esm/icons/IconCircleDot.mjs";
@@ -114,6 +115,7 @@ export const Icons = {
   Folder: IconFolder,
   FolderOpen: IconFolderOpen,
   File: IconFile,
+  ChevronLeft: IconChevronLeft,
   ChevronRight: IconChevronRight,
   FilePlus: IconFilePlus,
   FolderPlus: IconFolderPlus,

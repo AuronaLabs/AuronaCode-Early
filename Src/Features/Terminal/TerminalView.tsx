@@ -23,29 +23,34 @@ interface TerminalViewProps {
   cwd?: string;
 }
 
-const terminalTheme = (isDark: boolean) => ({
-  background: "rgba(0, 0, 0, 0)",
-  foreground: isDark ? "#E6EDF3" : "#1F2937",
-  cursor: isDark ? "#A78BFA" : "#4F46E5",
-  cursorAccent: isDark ? "#111827" : "#FFFFFF",
-  selectionBackground: isDark ? "#A78BFA55" : "#4F46E533",
-  black: isDark ? "#111827" : "#1F2937",
-  red: "#EF4444",
-  green: "#22C55E",
-  yellow: "#EAB308",
-  blue: "#3B82F6",
-  magenta: "#A855F7",
-  cyan: "#06B6D4",
-  white: isDark ? "#E5E7EB" : "#F9FAFB",
-  brightBlack: isDark ? "#94A3B8" : "#6B7280",
-  brightRed: "#F87171",
-  brightGreen: "#4ADE80",
-  brightYellow: "#FACC15",
-  brightBlue: "#60A5FA",
-  brightMagenta: "#C084FC",
-  brightCyan: "#22D3EE",
-  brightWhite: "#FFFFFF",
-});
+function terminalTheme() {
+  const styles = getComputedStyle(document.documentElement);
+  const value = (name: string, fallback: string) =>
+    styles.getPropertyValue(name).trim() || fallback;
+  return {
+    background: "rgba(0, 0, 0, 0)",
+    foreground: value("--TerminalForeground", "#1F2937"),
+    cursor: value("--TerminalCursor", "#4F46E5"),
+    cursorAccent: value("--TerminalCursorAccent", "#FFFFFF"),
+    selectionBackground: value("--TerminalSelection", "#4F46E533"),
+    black: value("--TerminalBlack", "#1F2937"),
+    red: value("--TerminalRed", "#EF4444"),
+    green: value("--TerminalGreen", "#22C55E"),
+    yellow: value("--TerminalYellow", "#EAB308"),
+    blue: value("--TerminalBlue", "#3B82F6"),
+    magenta: value("--TerminalMagenta", "#A855F7"),
+    cyan: value("--TerminalCyan", "#06B6D4"),
+    white: value("--TerminalWhite", "#F9FAFB"),
+    brightBlack: value("--TerminalBrightBlack", "#6B7280"),
+    brightRed: value("--TerminalBrightRed", "#F87171"),
+    brightGreen: value("--TerminalBrightGreen", "#4ADE80"),
+    brightYellow: value("--TerminalBrightYellow", "#FACC15"),
+    brightBlue: value("--TerminalBrightBlue", "#60A5FA"),
+    brightMagenta: value("--TerminalBrightMagenta", "#C084FC"),
+    brightCyan: value("--TerminalBrightCyan", "#22D3EE"),
+    brightWhite: value("--TerminalBrightWhite", "#FFFFFF"),
+  };
+}
 
 // 高性能 base64 解码，for 循环比 Uint8Array.from callback 在高频长输出下快约 30%
 function decodeBase64(data: string): Uint8Array {
@@ -83,7 +88,7 @@ export const TerminalView = memo(function TerminalView({
       fontSize: 13,
       rightClickSelectsWord: true,
       scrollback: 10_000,
-      theme: terminalTheme(document.documentElement.classList.contains("dark")),
+      theme: terminalTheme(),
     });
     const fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
@@ -137,7 +142,7 @@ export const TerminalView = memo(function TerminalView({
     });
 
     const themeObserver = new MutationObserver(() => {
-      terminal.options.theme = terminalTheme(document.documentElement.classList.contains("dark"));
+      terminal.options.theme = terminalTheme();
       syncTransparentSurface();
       terminal.refresh(0, Math.max(0, terminal.rows - 1));
     });

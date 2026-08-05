@@ -155,7 +155,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
         <div
           className={cn(
             glassVariants({ layer: "elevated" }),
-            "flex items-center gap-2.5 rounded-2xl px-5 py-3 text-[12px] shadow-sm",
+            "flex items-center gap-2.5 rounded-2xl px-5 py-3 text-[12px]",
           )}
         >
           <Icons.Refresh className="animate-spin" size={17} /> 加载差异数据中...
@@ -170,7 +170,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
         <div
           className={cn(
             glassVariants({ layer: "elevated" }),
-            "flex max-w-md flex-col items-center rounded-2xl px-8 py-7 text-red-500 shadow-sm",
+            "flex max-w-md flex-col items-center rounded-2xl px-8 py-7 text-[var(--DiagError)]",
           )}
         >
           <Icons.AlertTriangle size={30} className="mb-2" />
@@ -187,11 +187,11 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
         <div
           className={cn(
             glassVariants({ layer: "elevated" }),
-            "flex min-h-[68px] items-center justify-between gap-4 rounded-2xl px-4 py-3 shadow-sm",
+            "flex min-h-[68px] items-center justify-between gap-4 rounded-2xl px-4 py-3",
           )}
         >
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--material-overlay)] text-[var(--color-text-highlight)] shadow-sm">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--material-overlay)] text-[var(--color-text-highlight)]">
               <Icons.GitCommit size={18} />
             </div>
             <div className="min-w-0">
@@ -258,7 +258,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                   key={`${file.oldName}-${file.newName}`}
                   className={cn(
                     glassVariants({ layer: "elevated" }),
-                    "overflow-hidden rounded-2xl shadow-sm",
+                    "overflow-hidden rounded-2xl",
                   )}
                 >
                   <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--material-panel)] px-3 py-2.5 backdrop-blur-[var(--glass-blur-base)]">

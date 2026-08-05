@@ -30,8 +30,8 @@ export const MenubarTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       "flex h-[26px] cursor-pointer items-center rounded-lg px-2.5 outline-none select-none text-[var(--color-text-primary)] text-[13px]",
-      "hover:bg-[var(--material-interactive-hover)] dark:hover:bg-white/15 hover:text-[var(--color-text-highlight)] transition-colors",
-      "data-[state=open]:bg-black/8 dark:data-[state=open]:bg-white/15 data-[state=open]:text-[var(--color-text-highlight)]",
+      "hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors",
+      "data-[state=open]:bg-[var(--material-interactive-active)] data-[state=open]:text-[var(--color-text-highlight)]",
       className,
     )}
     {...props}

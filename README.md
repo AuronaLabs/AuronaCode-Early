@@ -1,30 +1,44 @@
 <div align="center">
   <img src="public/logo.png" alt="Aurona Code" width="112" />
   <h1>Aurona Code</h1>
-  <p><strong>面向现代桌面开发体验的自研代码编辑器</strong></p>
+  <p><strong>写代码这件事，值得一个更舒服的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.3.6-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.3.7-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
   </p>
 </div>
 
-Aurona Code 不是 VS Code 的换皮项目。它以 Tauri 2、React 19 和 Rust 为基础，围绕自研的 **AuronaEngine**、Rust Rope 文档会话和桌面原生能力，探索一套更统一、更可控的现代代码编辑器架构。
+Aurona Code 是一款正在快速成长的桌面代码编辑器。它没有套用现成的网页内核，而是用 Rust 与自研编辑器引擎，从零搭一个「更安静、更克制、也更顺手」的开发角落。
 
 > [!IMPORTANT]
-> Aurona Code 仍处于早期快速迭代阶段。0.3.6 聚焦架构收口、审查驱动优化与 Material 美学统一，已具备可运行的编辑、文件、搜索、Git、终端、语言服务、基础调试和 Aurona Account 官方账户能力，但尚不适合替代成熟编辑器承担无法容忍数据风险的生产工作。请为重要项目保留版本控制和备份。
+> Aurona Code 仍处于早期快速迭代阶段。它已经可以支撑日常编辑、文件管理、Git、终端、Python/TypeScript 语言服务与基础调试，但生态和成熟度还不能和耕耘多年的编辑器相比。请为重要项目保留版本控制和备份，也欢迎你参与进来，把它打磨成想要的样子。
 
-## 项目方向
+## 它和主流编辑器有什么不一样？
 
-- **自研编辑体验**：不依赖 Monaco、CodeMirror 或 VS Code 编辑器内核。
-- **桌面优先**：文件系统、PTY、Git、窗口和更新器是核心能力，不是 Web 页面附加层。
-- **可靠性优先**：revision、原子批量编辑、磁盘指纹和恢复快照共同保护文档状态。
-- **统一操作模型**：菜单、快捷键和 Fliuno 复用同一套命令注册与执行路径。
-- **Aurona Material**：以玻璃材质、清晰层级和高信息密度塑造独立的桌面视觉语言。
-- **可演进边界**：业务代码通过类型化桌面接口访问 Tauri，降低 UI 与本地实现的耦合。
+我们尽量不吹牛，说点实在的对比：
 
-## 0.3.6 当前能力
+| 维度 | Aurona Code | VS Code 等主流编辑器 |
+| --- | --- | --- |
+| 编辑器内核 | 自研 AuronaEngine + Rust Rope，不依赖 Monaco/Electron | 成熟内核，插件生态庞大 |
+| 资源占用 | 面向轻量的桌面原生路径，目标是更小的启动与内存占用 | 功能全面，但通常更重 |
+| 语言能力 | 内置 Python / TypeScript 语言服务，正在逐步扩展 | 支持的语言和工具非常广泛 |
+| 插件生态 | 尚未开放（0.4.0 规划中） | 海量扩展 |
+| 隐私与账号 | 无遥测、无云端依赖，Aurona Account 完全可选 | 各家策略不同 |
+| 开源程度 | AGPL-3.0，仓库、文档与决策过程开放 | 部分开源 |
+
+一句话：**它不是来打败谁的，而是想证明「编辑器也可以长成另一种样子」**。现在的它还很年轻，恰好是参与和影响它成长的最好时机。
+
+## 现在能做什么
+
+- 写代码：自研编辑器、虚拟视口、语法高亮，Python 与 TypeScript 的补全、Hover、诊断开箱即用；
+- 管项目：文件树、Git 常用流程、全局搜索、集成终端；
+- 调试入门：断点、调用栈与变量查看；
+- 长得好看：8 套双色渐变主题、深浅色模式、玻璃质感与可选的「流光」动效；
+- 账户能力：可选的 Aurona Account 登录，头像与身份信息会出现在状态栏。
+
+## 当前能力
 
 | 领域 | 状态 | 当前实现 |
 | --- | --- | --- |
@@ -38,7 +52,7 @@ Aurona Code 不是 VS Code 的换皮项目。它以 Tauri 2、React 19 和 Rust 
 | 语言服务与调试 | 已实现基础闭环 | Python/TypeScript 语言服务、Hover/补全/诊断、DAP 会话、断点与变量查看 |
 | Aurona Account | 已启用官方账户 | OAuth 2.1/OIDC、PKCE S256、动态本机回调、系统凭据库；开发与正式使用同一公开客户端 |
 | 桌面更新 | 已实现代码路径 | 自动检查、手动检查、下载与安装；仍需随每次真实 Release 验证签名和更新链 |
-| 主题与界面 | 已实现 | 深色/浅色主题、拟物强度、界面密度、Aurona Material 语义 token 和 reduced motion |
+| 主题与界面 | 已实现 | 8 套双色渐变主题 × 浅色/深色、拟物强度、界面密度、Aurona Material 语义 token 与「流光」动效 |
 | 性能测试 | 已实现 | 多轮样本、统计摘要、环境可比性与按语义版本排序的本地排行 |
 | 跨平台 | 构建已配置 | Windows、macOS、Linux CI；实际发布质量仍需逐平台和 DPI 手工验证 |
 
@@ -50,7 +64,7 @@ Aurona Code 不是 VS Code 的换皮项目。它以 Tauri 2、React 19 和 Rust 
 - 完整的多编辑器分栏、自定义编辑器运行时和全量文档投影 LRU。
 - 覆盖全部 LSP、Worker 和异步请求的统一 revision 失效协议。
 
-这些内容属于未来候选，不应被视为 0.3.6 已交付功能。
+这些内容属于未来候选，不应被视为已交付功能。
 
 ## 架构概览
 
