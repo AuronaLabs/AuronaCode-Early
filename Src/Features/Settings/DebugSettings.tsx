@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { BuiltInToolRegistry } from "../../Core/BuiltInToolRegistry";
 import { EventBus } from "../../Foundation/EventBus";
+import { useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { DebugPreferences } from "../../Foundation/Types/Config";
 import { Input } from "../../UI/Components/Input";
@@ -18,6 +19,7 @@ const defaults: Required<DebugPreferences> = {
 };
 
 export function DebugSettings() {
+  const { t } = useLocale();
   const [preferences, setPreferences] = useState<Required<DebugPreferences>>(defaults);
   useEffect(() => {
     void UserConfigStore.get().then((config) => setPreferences({ ...defaults, ...config.debug }));
@@ -32,39 +34,42 @@ export function DebugSettings() {
 
   return (
     <div className="space-y-7">
-      <Group title="调试体验" description="控制调试会话的面板、暂停和日志行为。">
-        <Row label="启动时打开侧栏">
+      <Group
+        title={t("settings.debug.experienceTitle")}
+        description={t("settings.debug.experienceDescription")}
+      >
+        <Row label={t("settings.debug.openSidebar")}>
           <Switch
             checked={preferences.openSidebarOnStart}
             onCheckedChange={(value) => update({ openSidebarOnStart: value })}
           />
         </Row>
-        <Row label="入口处暂停">
+        <Row label={t("settings.debug.stopOnEntry")}>
           <Switch
             checked={preferences.stopOnEntry}
             onCheckedChange={(value) => update({ stopOnEntry: value })}
           />
         </Row>
-        <Row label="调试控制台">
+        <Row label={t("settings.debug.console")}>
           <Select
-            ariaLabel="调试控制台"
+            ariaLabel={t("settings.debug.console")}
             value={preferences.consoleMode}
             options={[
-              { value: "integrated", label: "集成控制台" },
-              { value: "terminal", label: "集成终端" },
-              { value: "none", label: "不打开" },
+              { value: "integrated", label: t("settings.debug.consoleIntegrated") },
+              { value: "terminal", label: t("settings.debug.consoleTerminal") },
+              { value: "none", label: t("settings.debug.consoleNone") },
             ]}
             onChange={(value) => update({ consoleMode: value as DebugPreferences["consoleMode"] })}
           />
         </Row>
-        <Row label="Adapter 日志级别">
+        <Row label={t("settings.debug.adapterLogLevel")}>
           <Select
-            ariaLabel="Adapter 日志级别"
+            ariaLabel={t("settings.debug.adapterLogLevel")}
             value={preferences.adapterLogLevel}
             options={[
-              { value: "error", label: "仅错误" },
-              { value: "info", label: "信息" },
-              { value: "debug", label: "调试" },
+              { value: "error", label: t("settings.debug.logError") },
+              { value: "info", label: t("settings.debug.logInfo") },
+              { value: "debug", label: t("settings.debug.logDebug") },
             ]}
             onChange={(value) =>
               update({ adapterLogLevel: value as DebugPreferences["adapterLogLevel"] })
@@ -73,15 +78,18 @@ export function DebugSettings() {
         </Row>
       </Group>
 
-      <Group title="运行时路径" description="直接启动程序，不经过 Shell，也不会自动下载软件。">
-        <Row label="Python">
+      <Group
+        title={t("settings.debug.runtimesTitle")}
+        description={t("settings.debug.runtimesDescription")}
+      >
+        <Row label={t("settings.debug.python")}>
           <Input
             value={preferences.pythonPath}
             onChange={(event) => update({ pythonPath: event.target.value })}
             className="w-64"
           />
         </Row>
-        <Row label="Node.js">
+        <Row label={t("settings.debug.node")}>
           <Input
             value={preferences.nodePath}
             onChange={(event) => update({ nodePath: event.target.value })}
@@ -91,8 +99,8 @@ export function DebugSettings() {
       </Group>
 
       <Group
-        title="内置调试支持"
-        description="协议客户端与界面由 Aurona 提供，Python 调试组件会在首次使用时检查并提供安装入口。"
+        title={t("settings.debug.adaptersTitle")}
+        description={t("settings.debug.adaptersDescription")}
       >
         {BuiltInToolRegistry.getByKind("debug-adapter").map((tool) => (
           <div

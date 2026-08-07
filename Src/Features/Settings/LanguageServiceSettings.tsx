@@ -3,6 +3,7 @@ import { BuiltInToolRegistry } from "../../Core/BuiltInToolRegistry";
 import { type LanguageServerInfo, LspClient } from "../../Core/Language/LspClient";
 import { OutputService } from "../../Core/OutputService";
 import { EventBus } from "../../Foundation/EventBus";
+import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { LanguageFeaturePreferences } from "../../Foundation/Types/Config";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
@@ -18,22 +19,23 @@ const DEFAULTS: Required<LanguageFeaturePreferences> = {
   automaticCompletion: true,
 };
 
-const statusLabel = (state: LanguageServerInfo | undefined) => {
-  if (!state) return "未启动";
+const statusLabel = (t: (key: I18nKey) => string, state: LanguageServerInfo | undefined) => {
+  if (!state) return t("settings.codeIntelligence.notStarted");
   return (
     {
-      stopped: "已停止",
-      starting: "正在启动",
-      initializing: "正在初始化",
-      running: "运行中",
-      restarting: "正在重启",
-      failed: "启动失败",
-      stopping: "正在停止",
+      stopped: t("settings.codeIntelligence.stopped"),
+      starting: t("settings.codeIntelligence.starting"),
+      initializing: t("settings.codeIntelligence.initializing"),
+      running: t("settings.codeIntelligence.running"),
+      restarting: t("settings.codeIntelligence.restarting"),
+      failed: t("settings.codeIntelligence.failed"),
+      stopping: t("settings.codeIntelligence.stopping"),
     }[state.status] ?? state.status
   );
 };
 
 export function LanguageServiceSettings() {
+  const { t } = useLocale();
   const [preferences, setPreferences] = useState(DEFAULTS);
   const [revision, setRevision] = useState(0);
   const [busyLanguage, setBusyLanguage] = useState<string | null>(null);
@@ -72,10 +74,10 @@ export function LanguageServiceSettings() {
       <section className="space-y-3">
         <div>
           <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
-            编辑器语言体验
+            {t("settings.codeIntelligence.experienceTitle")}
           </h3>
           <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-text-muted)]">
-            控制 Hover 与补全的实际触发行为。修改后立即应用到已打开的编辑器。
+            {t("settings.codeIntelligence.experienceDescription")}
           </p>
         </div>
         <GlassContainer
@@ -83,8 +85,8 @@ export function LanguageServiceSettings() {
           className="divide-y divide-[var(--border-subtle)] rounded-2xl"
         >
           <SettingRow
-            title="悬浮信息"
-            description="将鼠标停留在符号上时显示类型、签名和文档。"
+            title={t("settings.codeIntelligence.hover")}
+            description={t("settings.codeIntelligence.hoverDescription")}
             control={
               <Switch
                 checked={preferences.hoverEnabled}
@@ -93,11 +95,11 @@ export function LanguageServiceSettings() {
             }
           />
           <SettingRow
-            title="Hover 延迟"
-            description="鼠标稳定停留后再发送请求，避免移动过程中频繁调用服务器。"
+            title={t("settings.codeIntelligence.hoverDelay")}
+            description={t("settings.codeIntelligence.hoverDelayDescription")}
             control={
               <Select
-                ariaLabel="Hover 延迟"
+                ariaLabel={t("settings.codeIntelligence.hoverDelay")}
                 value={String(preferences.hoverDelayMs)}
                 onChange={(value) => void updatePreferences({ hoverDelayMs: Number(value) })}
                 options={[
@@ -110,8 +112,8 @@ export function LanguageServiceSettings() {
             }
           />
           <SettingRow
-            title="自动补全"
-            description="输入时自动请求建议；无论此项是否开启，Ctrl+Space 始终可手动触发。"
+            title={t("settings.codeIntelligence.completion")}
+            description={t("settings.codeIntelligence.completionDescription")}
             control={
               <Switch
                 checked={preferences.automaticCompletion}
@@ -127,10 +129,10 @@ export function LanguageServiceSettings() {
       <section className="space-y-3">
         <div>
           <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
-            内置语言服务器
+            {t("settings.codeIntelligence.serversTitle")}
           </h3>
           <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-text-muted)]">
-            内置服务器随 Aurona Code 分发，不依赖启动目录，也不会在运行时联网下载。
+            {t("settings.codeIntelligence.serversDescription")}
           </p>
         </div>
         <div className="space-y-3">
@@ -155,7 +157,7 @@ export function LanguageServiceSettings() {
                         {tool.label}
                       </span>
                       <span className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 font-mono text-[9px] text-[var(--color-text-muted)]">
-                        v{tool.version} · 内置
+                        v{tool.version} · {t("settings.codeIntelligence.builtin")}
                       </span>
                       <span
                         className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${
@@ -166,7 +168,7 @@ export function LanguageServiceSettings() {
                               : "bg-[var(--material-interactive-hover)] text-[var(--color-text-muted)]"
                         }`}
                       >
-                        {statusLabel(state)}
+                        {statusLabel(t, state)}
                       </span>
                     </div>
                     <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
@@ -186,7 +188,7 @@ export function LanguageServiceSettings() {
                           onClick={() => void runAction(language, "start")}
                         >
                           <Icons.Play size={13} />
-                          启动
+                          {t("settings.codeIntelligence.start")}
                         </Button>
                       ) : (
                         <>
@@ -197,7 +199,7 @@ export function LanguageServiceSettings() {
                             onClick={() => void runAction(language, "restart")}
                           >
                             <Icons.Refresh size={13} />
-                            重启
+                            {t("settings.codeIntelligence.restart")}
                           </Button>
                           <Button
                             size="sm"
@@ -205,7 +207,7 @@ export function LanguageServiceSettings() {
                             disabled={busy}
                             onClick={() => void runAction(language, "stop")}
                           >
-                            停止
+                            {t("settings.codeIntelligence.stop")}
                           </Button>
                         </>
                       )}
@@ -221,7 +223,7 @@ export function LanguageServiceSettings() {
                           useWorkbenchStore.getState().setActiveBottomPanel("output");
                         }}
                       >
-                        打开输出
+                        {t("settings.codeIntelligence.openOutput")}
                       </Button>
                     </div>
                   </div>

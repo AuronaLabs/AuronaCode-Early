@@ -10,7 +10,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-const applyResponsiveDensity = (density?: "compact" | "default" | "comfortable") => {
+const applyResponsiveDensity = (density?: "compact" | "default" | "regular" | "comfortable") => {
   const root = document.documentElement;
   if (density && density !== "default") {
     root.dataset.density = density;

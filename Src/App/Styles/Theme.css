@@ -656,6 +656,13 @@ select {
   outline: none;
 }
 
+/* Fliuno 输入框的焦点由容器材质表达，不显示浏览器/主题焦点描边。 */
+[data-fliuno-input]:focus,
+[data-fliuno-input]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 button {
   cursor: pointer;
 }

@@ -7,9 +7,11 @@ import { SIDEBAR_DEBUG } from "../Shared/Constants/Sidebar";
 import { useDebugStore } from "../State/useDebugStore";
 import { useEditorStore } from "../State/useEditorStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
+import { registerAccountCommands } from "./AccountCommands";
 import { DebugConfigurationService } from "./DebugConfigurationService";
 import { DebugService } from "./DebugService";
 import { EditorAdapter } from "./Editor/EditorAdapter";
+import { registerFliunoCommands } from "./Fliuno/commands";
 import { LspClient, type LspFeature } from "./Language/LspClient";
 import { LanguageFeatureService } from "./LanguageFeatureService";
 import { OutputService } from "./OutputService";
@@ -74,13 +76,8 @@ export function registerWorkbenchCommands(): () => void {
   };
   const disposers = [
     CommandRegistry.setContextProvider(context),
-    CommandRegistry.register({
-      id: "workbench.action.openFliuno",
-      title: "打开 Fliuno",
-      category: "工作台",
-      keybindings: [{ key: "p", primary: true, shift: true, allowInInput: true }],
-      handler: () => EventBus.emit("app:show-fliuno"),
-    }),
+    registerFliunoCommands(),
+    registerAccountCommands(),
     CommandRegistry.register({
       id: "workbench.action.files.openFile",
       title: "打开文件…",

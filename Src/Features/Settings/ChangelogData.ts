@@ -12,9 +12,56 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.3.9",
+    date: "2026-08-07",
+    isLatest: true,
+    summary:
+      "0.3.9 以「可发现性」为主题：Fliuno 成为统一搜索入口，设置体系按九大分类收拢并支持搜索，Aurona 账户升级为完整账户体验，用户不再需要记住功能在哪里。",
+    sections: [
+      {
+        title: "Fliuno 统一搜索",
+        description: "一套引擎、两种形态，旧搜索合流下线。",
+        items: [
+          "**Fliuno Core**：Query Parser、Ranking Engine、Search Session 与六类 Providers（命令/文件/设置/符号/内容）统一为单一引擎，Quick 与 Workspace 共用。",
+          "**Quick 迁移**：悬浮入口接入 Core Session，可直接搜索命令、文件、设置、符号与工作区内容。",
+          "**Workspace 页面**：新增与编辑器同级的右侧主内容页，结果分组、命中高亮、键盘导航一应俱全。",
+          "**旧搜索合流**：活动栏搜索入口改为打开 Workspace，旧侧边栏 Search 停止演进。",
+        ],
+      },
+      {
+        title: "设置体系",
+        description: "注册表统一元数据，九大分类，一处搜索。",
+        items: [
+          "**Settings Registry**：设置 metadata 统一收敛（id/分类/关键词/类型/默认值/experimental），设置 UI、设置搜索与 Fliuno Settings Provider 共用同一数据源。",
+          "**九大分类**：常规、外观、编辑器、代码智能、终端与运行、源代码管理、Aurona 账户、空间管理、高级；侧边栏搜索直达分类。",
+          "**常规页**：外观模式、界面密度与界面语言集中管理，语言切换即时生效（简体中文 + English Beta）。",
+        ],
+      },
+      {
+        title: "Aurona 账户",
+        description: "从登录实现升级为账户首页。",
+        items: [
+          "**账户首页**：头像、用户名、邮箱与账户 ID 一眼可见，支持一键刷新资料。",
+          "**授权透明**：登录前明确展示授权能力（openid / profile / email / offline_access）。",
+          "**Fliuno 账户命令**：统一搜索中可直接执行打开账户、登录、退出与刷新资料。",
+        ],
+      },
+      {
+        title: "体验细节",
+        description: "入口、布局与质感收尾。",
+        items: [
+          "**Workspace 视觉重做**：输入区去边框，结果列表与 Quick 统一质感。",
+          "**顶部快捷入口**：标题栏新增「搜索 + Fliuno」按钮；全局搜索明确标注即将下架。",
+          "**标签滚动按钮独立化**：左右箭头移到标签栏最右侧独立区域，不再悬浮覆盖标签。",
+          "**头像跨源加载**：兼容 Account 服务端跨源响应（/media/ 返回 CORP cross-origin）。",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.3.8",
     date: "2026-08-05",
-    isLatest: true,
+    isLatest: false,
     summary:
       "0.3.8 以体验细节为重心：标签栏滚动不再闪烁、性能测试页面焕新为更直观的环形视觉、Fliuno 更融入也更易发现，并为全局搜索的下架做好了过渡提示。",
     sections: [

@@ -54,7 +54,7 @@ export interface UserConfig {
   liquidTexture?: boolean;
   fontSize?: number;
   lineHeight?: number;
-  density?: "compact" | "default" | "comfortable";
+  density?: "compact" | "default" | "regular" | "comfortable";
 
   editorFontSize?: number;
   editorLineHeight?: number;

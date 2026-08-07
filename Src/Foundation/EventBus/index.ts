@@ -68,14 +68,14 @@ export interface EventMap {
   "git:changes-count": number;
 
   "settings:nav":
-    | "account"
+    | "general"
     | "appearance"
     | "editor"
-    | "language"
-    | "debug"
-    | "terminal"
-    | "git"
-    | "storage"
+    | "codeIntelligence"
+    | "terminalRun"
+    | "sourceControl"
+    | "accountCloud"
+    | "system"
     | "advanced";
   "settings:editor-changed": undefined;
   "settings:language-changed": undefined;

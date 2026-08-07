@@ -79,7 +79,7 @@ export function StatusBar() {
             type="button"
             onClick={() => {
               void CommandRegistry.execute("workbench.action.openSettings");
-              EventBus.emit("settings:nav", "account");
+              EventBus.emit("settings:nav", "accountCloud");
             }}
             className="flex max-w-[180px] items-center gap-2 rounded-md px-1.5 py-0.5 hover:bg-[var(--material-interactive-hover)]"
           >

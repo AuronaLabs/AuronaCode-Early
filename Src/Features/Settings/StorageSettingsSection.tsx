@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { BaseDirectory, desktopFileSystem } from "../../Foundation/Desktop";
+import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import { StorageIPC } from "../../Foundation/IPC/StorageCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
@@ -30,6 +31,26 @@ type ClearTarget =
   | "performance"
   | "other";
 
+type StorageGroup = "core" | "cache" | "logs" | "other";
+
+const ROW_GROUP: Record<ClearTarget, StorageGroup> = {
+  config: "core",
+  workspace: "core",
+  recovery: "core",
+  performance: "core",
+  cache: "cache",
+  logs: "logs",
+  errlogs: "logs",
+  other: "other",
+};
+
+const GROUP_META: Array<{ id: StorageGroup; color: string; nameKey: I18nKey }> = [
+  { id: "core", color: "bg-emerald-500/85", nameKey: "settings.storage.groupCore" },
+  { id: "cache", color: "bg-sky-500/85", nameKey: "settings.storage.groupCache" },
+  { id: "logs", color: "bg-fuchsia-500/85", nameKey: "settings.storage.groupLogs" },
+  { id: "other", color: "bg-[var(--color-accent)]", nameKey: "settings.storage.groupOther" },
+];
+
 const EMPTY_BREAKDOWN: StorageBreakdown = {
   appDataBytes: 0,
   logBytes: 0,
@@ -51,6 +72,7 @@ function formatBytes(bytes: number) {
 }
 
 export function StorageSettingsSection() {
+  const { t } = useLocale();
   const [sizes, setSizes] = useState<StorageBreakdown>(EMPTY_BREAKDOWN);
   const [clearing, setClearing] = useState<ClearTarget | null>(null);
 
@@ -75,7 +97,7 @@ export function StorageSettingsSection() {
             baseDir: BaseDirectory.AppLocalData,
           });
           UserConfigStore.resetCache();
-          showToast("用户配置文件已清除，重启后恢复默认", "success");
+          showToast(t("settings.storage.toasts.configCleared"), "success");
           break;
         case "workspace":
           await desktopFileSystem.remove("workspace.json", {
@@ -83,36 +105,39 @@ export function StorageSettingsSection() {
           });
           WorkspaceStore.resetCache();
           localStorage.clear();
-          showToast("工作区状态已清理，重启后将重置布局", "success");
+          showToast(t("settings.storage.toasts.workspaceCleared"), "success");
           break;
         case "recovery":
           await StorageIPC.clearEditorRecovery();
-          showToast("编辑器恢复快照已清理", "success");
+          showToast(t("settings.storage.toasts.recoveryCleared"), "success");
           break;
         case "cache":
           await StorageIPC.clearWebviewCache();
-          showToast("WebView 缓存已清理，下次启动会自动重建", "success");
+          showToast(t("settings.storage.toasts.cacheCleared"), "success");
           break;
         case "logs":
           await StorageIPC.clearAppLogs();
-          showToast("运行日志已清理", "success");
+          showToast(t("settings.storage.toasts.logsCleared"), "success");
           break;
         case "errlogs":
           await StorageIPC.clearErrLogs();
-          showToast("错误日志已清理", "success");
+          showToast(t("settings.storage.toasts.errlogsCleared"), "success");
           break;
         case "performance":
           await StorageIPC.clearPerformanceBaseline();
-          showToast("性能基线已重置，下次测试会重新建立", "success");
+          showToast(t("settings.storage.toasts.performanceCleared"), "success");
           break;
         case "other":
           await StorageIPC.clearOtherAppData();
-          showToast("已清理其他残留数据，部分占用可能需重启后释放", "success");
+          showToast(t("settings.storage.toasts.otherCleared"), "success");
           break;
       }
       await loadSizes();
     } catch (error) {
-      showToast(`清理失败：${String(error)}`, "error");
+      showToast(
+        t("settings.storage.toasts.clearFailed").replace("{message}", String(error)),
+        "error",
+      );
       await loadSizes().catch(() => undefined);
     } finally {
       setClearing(null);
@@ -125,75 +150,66 @@ export function StorageSettingsSection() {
     file: string;
     description: string;
     raw: number;
-    color: string;
     danger?: boolean;
   }[] = [
     {
       id: "config",
-      name: "用户配置偏好",
+      name: t("settings.storage.rows.config.name"),
       file: "user-config.json",
-      description: "主题、外观、字体、语言服务等个人设置；清理后重启恢复默认",
+      description: t("settings.storage.rows.config.description"),
       raw: sizes.configBytes,
-      color: "bg-emerald-500/85",
       danger: true,
     },
     {
       id: "workspace",
-      name: "工作区状态",
+      name: t("settings.storage.rows.workspace.name"),
       file: "workspace.json",
-      description: "最近打开的文件夹、标签页与界面布局记忆；清理后重启重置布局",
+      description: t("settings.storage.rows.workspace.description"),
       raw: sizes.workspaceBytes,
-      color: "bg-amber-500/85",
       danger: true,
     },
     {
       id: "recovery",
-      name: "编辑器恢复快照",
+      name: t("settings.storage.rows.recovery.name"),
       file: "editor-recovery/",
-      description: "异常关闭后用于恢复未保存文档；确认不需要恢复内容再清理",
+      description: t("settings.storage.rows.recovery.description"),
       raw: sizes.recoveryBytes,
-      color: "bg-violet-500/85",
       danger: true,
     },
     {
       id: "cache",
-      name: "WebView 渲染缓存",
+      name: t("settings.storage.rows.cache.name"),
       file: "EBWebView/",
-      description: "WebView2 的缓存与临时文件，通常是占用最大的部分；清理后下次启动自动重建",
+      description: t("settings.storage.rows.cache.description"),
       raw: sizes.cacheBytes,
-      color: "bg-sky-500/85",
     },
     {
       id: "logs",
-      name: "运行日志",
+      name: t("settings.storage.rows.logs.name"),
       file: "logs/",
-      description: "应用生命周期、Tauri 进程与终端控制台的诊断日志",
+      description: t("settings.storage.rows.logs.description"),
       raw: sizes.logBytes,
-      color: "bg-fuchsia-500/85",
     },
     {
       id: "errlogs",
-      name: "错误日志",
+      name: t("settings.storage.rows.errlogs.name"),
       file: "errlogs/",
-      description: "崩溃与错误诊断记录，排查问题后可以安全清理",
+      description: t("settings.storage.rows.errlogs.description"),
       raw: sizes.errlogBytes,
-      color: "bg-red-500/85",
     },
     {
       id: "performance",
-      name: "性能基线",
+      name: t("settings.storage.rows.performance.name"),
       file: "performance-baseline.json",
-      description: "本地性能对比基线数据；清理后下次测试重新建立",
+      description: t("settings.storage.rows.performance.description"),
       raw: sizes.performanceBytes,
-      color: "bg-teal-500/85",
     },
     {
       id: "other",
-      name: "其他本地数据",
+      name: t("settings.storage.rows.other.name"),
       file: "AppLocalData",
-      description: "未被上面分类的小型残留文件",
+      description: t("settings.storage.rows.other.description"),
       raw: sizes.otherAppDataBytes,
-      color: "bg-[var(--color-accent)]",
     },
   ];
 
@@ -201,12 +217,17 @@ export function StorageSettingsSection() {
   const totalFormatted = formatBytes(totalRawSize);
   const totalForBar = totalRawSize === 0 ? 1 : totalRawSize;
 
+  const groupColor = (target: ClearTarget) =>
+    GROUP_META.find((group) => group.id === ROW_GROUP[target])?.color ?? "";
+
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">存储空间管理</h3>
+        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
+          {t("settings.storage.title")}
+        </h3>
         <p className="text-[13px] text-[var(--color-text-muted)]">
-          按真实目录监控并清理 Aurona Code 占用的磁盘空间
+          {t("settings.storage.description")}
         </p>
       </div>
 
@@ -216,11 +237,11 @@ export function StorageSettingsSection() {
             <span className="text-[20px] font-extrabold tracking-tight text-[var(--color-text-highlight)] select-none">
               {totalFormatted}{" "}
               <span className="font-sans text-[12px] font-normal text-[var(--color-text-muted)]">
-                本地数据已使用
+                {t("settings.storage.localDataUsed")}
               </span>
             </span>
             <span className="text-[12px] font-medium text-[var(--color-text-muted)] select-none">
-              应用本地数据目录
+              {t("settings.storage.appDataDir")}
             </span>
           </div>
 
@@ -235,7 +256,7 @@ export function StorageSettingsSection() {
               row.raw > 0 ? (
                 <div
                   key={row.id}
-                  className={`h-full ${row.color} transition-opacity hover:opacity-80`}
+                  className={`h-full ${groupColor(row.id)} transition-opacity hover:opacity-80`}
                   style={{ width: `${(row.raw / totalForBar) * 100}%` }}
                 />
               ) : null,
@@ -243,28 +264,32 @@ export function StorageSettingsSection() {
           </div>
 
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2 select-none">
-            {rows.map((row) => (
-              <div
-                key={row.id}
-                className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]"
-              >
-                <div className={`h-2 w-2 rounded-full ${row.color}`} />
-                <span>
-                  {row.name} ({formatBytes(row.raw)})
-                </span>
-              </div>
-            ))}
+            {GROUP_META.map((group) => {
+              const bytes = rows
+                .filter((row) => ROW_GROUP[row.id] === group.id)
+                .reduce((sum, row) => sum + row.raw, 0);
+              return (
+                <div
+                  key={group.id}
+                  className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]"
+                >
+                  <div className={`h-2 w-2 rounded-full ${group.color}`} />
+                  <span>
+                    {t(group.nameKey)} ({formatBytes(bytes)})
+                  </span>
+                </div>
+              );
+            })}
           </div>
           <p className="mt-3 text-[11px] leading-5 text-[var(--color-text-muted)]">
-            以上条目对应应用本地数据目录中的真实文件与文件夹；WebView 缓存清理后由 WebView2
-            自动重建，配置、工作区状态与恢复快照属于核心数据，请谨慎清理。
+            {t("settings.storage.note")}
           </p>
         </div>
       </GlassContainer>
 
       <div className="mt-2 flex flex-col gap-4">
         <h4 className="px-1 text-[13px] font-bold text-[var(--color-text-highlight)]">
-          存储细分与清理
+          {t("settings.storage.detailsTitle")}
         </h4>
 
         <GlassContainer layer="elevated" className="flex flex-col overflow-hidden rounded-2xl">
@@ -296,7 +321,9 @@ export function StorageSettingsSection() {
                   disabled={clearing !== null || row.raw === 0}
                   onClick={() => void clear(row.id)}
                 >
-                  {clearing === row.id ? "清理中..." : "清理"}
+                  {clearing === row.id
+                    ? t("settings.storage.clearing")
+                    : t("settings.storage.clear")}
                 </Button>
               </div>
             </div>
@@ -305,10 +332,7 @@ export function StorageSettingsSection() {
 
         <div className="flex items-start gap-3 px-3 py-1 text-[11.5px] leading-relaxed text-[var(--color-text-muted)]">
           <Icons.Info size={16} className="mt-0.5 shrink-0" />
-          <span>
-            正在被应用使用的文件可能无法立即删除，清理后再次打开页面会显示最新占用。
-            重置全部应用数据请前往「高级设置 → 初始化重置」。
-          </span>
+          <span>{t("settings.storage.footerNote")}</span>
         </div>
       </div>
     </div>

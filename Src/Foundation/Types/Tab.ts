@@ -6,7 +6,8 @@ export type TabType =
   | "changelog"
   | "performance"
   | "notifications"
-  | "diff";
+  | "diff"
+  | "fliuno";
 
 export type TabItem = {
   id: string;

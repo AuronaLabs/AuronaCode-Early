@@ -12,9 +12,9 @@ import {
 } from "../Shared/Constants/Sidebar";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
 import { ActivitySquare } from "../UI/Components/ActivitySquare";
-import { Fliuno } from "../UI/Components/Fliuno";
 import { ToastContainer } from "../UI/Feedback/Toast";
 import { UpdateModal } from "../UI/Feedback/UpdateModal";
+import { Fliuno } from "../UI/Fliuno/Fliuno";
 import { Icons } from "../UI/Icons/IconManager";
 import { StatusBar } from "./StatusBar";
 import { TitleBar } from "./TitleBar/TitleBar";
@@ -44,9 +44,19 @@ export function AppShell({ Children }: AppShellProps) {
     };
   }, []);
 
-  const activityItems = [
+  const activityItems: Array<{
+    label: string;
+    Icon: typeof Icons.Files;
+    badge: boolean;
+    commandId?: string;
+  }> = [
     { label: SIDEBAR_EXPLORER, Icon: Icons.Files, badge: false },
-    { label: SIDEBAR_SEARCH, Icon: Icons.Search, badge: false },
+    {
+      label: SIDEBAR_SEARCH,
+      Icon: Icons.Search,
+      badge: false,
+      commandId: "workbench.action.openFliunoWorkspace",
+    },
     { label: SIDEBAR_SOURCE_CONTROL, Icon: Icons.Git, badge: gitChangeCount > 0 },
     { label: SIDEBAR_DEBUG, Icon: Icons.Debug, badge: false },
   ];
@@ -74,7 +84,13 @@ export function AppShell({ Children }: AppShellProps) {
               <ActivitySquare
                 key={item.label}
                 active={activeSidebar === item.label}
-                onClick={() => toggleActivity(item.label)}
+                onClick={() => {
+                  if (item.commandId) {
+                    void CommandRegistry.execute(item.commandId);
+                  } else {
+                    toggleActivity(item.label);
+                  }
+                }}
                 title={item.label}
                 icon={<item.Icon size={22} stroke={1.5} />}
                 badge={item.badge}

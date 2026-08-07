@@ -1194,17 +1194,17 @@ async fn write_browser_response(
         BrowserCallbackResponse::Success => (
             "200 OK",
             "Aurona Code",
-            "已收到授权结果，可以关闭此页面并返回 Aurona Code。",
+            "已收到授权结果，可以关闭此页面并返回 Aurona Code",
         ),
         BrowserCallbackResponse::Cancelled => (
             "200 OK",
             "Aurona Code",
-            "已取消授权，可以关闭此页面并返回 Aurona Code。",
+            "已取消授权，可以关闭此页面并返回 Aurona Code",
         ),
         BrowserCallbackResponse::Failure => (
             "400 Bad Request",
             "Aurona Code",
-            "无法验证授权回调，请关闭此页面后重试。",
+            "无法验证授权回调，请关闭此页面后重试",
         ),
     };
     let body = format!(

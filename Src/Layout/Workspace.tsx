@@ -13,6 +13,7 @@ import { RecoveryCoordinator } from "../Core/Recovery/RecoveryCoordinator";
 import { TerminalManager } from "../Core/TerminalService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EditorTabBar } from "../Features/Editor/EditorTabBar";
+import { FliunoWorkspacePage } from "../Features/Fliuno/FliunoWorkspacePage";
 import { AboutTab } from "../Features/Settings/AboutTab";
 import { ChangelogTab } from "../Features/Settings/ChangelogTab";
 import { PerformanceBenchmarkPage } from "../Features/Settings/PerformanceBenchmarkPage";
@@ -97,6 +98,8 @@ function renderTabContent(
     content = isActive ? <AboutTab /> : null;
   } else if (tab.type === "settings") {
     content = isActive ? <SettingsTab /> : null;
+  } else if (tab.type === "fliuno") {
+    content = isActive ? <FliunoWorkspacePage /> : null;
   } else if (tab.type === "changelog") {
     content = isActive ? <ChangelogTab /> : null;
   } else if (tab.type === "performance") {

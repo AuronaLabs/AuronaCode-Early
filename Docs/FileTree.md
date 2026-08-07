@@ -1,6 +1,6 @@
 # Aurona Code 文件树
 
-本文档以 0.3.8 当前仓库为准，展示长期维护时需要理解的目录、关键文件和职责；结构随版本演进，以源码为最终准。构建产物、依赖目录和批量图标资源未逐项展开。
+本文档以 0.3.9 当前仓库为准，展示长期维护时需要理解的目录、关键文件和职责；结构随版本演进，以源码为最终准。构建产物、依赖目录和批量图标资源未逐项展开。
 
 ```text
 Aurona Code/
@@ -40,11 +40,14 @@ Aurona Code/
 │  ├─ Core/
 │  │  ├─ AppBootstrapper.tsx           # React 生命周期与应用服务桥接
 │  │  ├─ AppServices.ts                # start/dispose 和监听器所有权
+│  │  ├─ AccountCommands.ts            # 账户统一命令：登录/退出/刷新/打开设置
 │  │  ├─ Commands.ts                   # 应用命令注册与处理器
 │  │  ├─ FileSystemService.ts          # 文件领域服务
 │  │  ├─ GitService.ts                 # Git 领域服务
 │  │  ├─ TerminalService.ts            # 终端服务生命周期
-│  │  └─ UpdaterService.ts             # 更新检查、下载与安装协调
+│  │  ├─ UpdaterService.ts             # 更新检查、下载与安装协调
+│  │  ├─ Fliuno/                       # 统一搜索 Core：Query/Ranking/Session/Providers
+│  │  └─ Settings/SettingRegistry.ts   # 设置注册表：分类、关键词与搜索元数据
 │  ├─ Extension/
 │  │  └─ CommandRegistry.ts            # 命令定义、上下文和快捷键；非插件运行时
 │  ├─ Features/
@@ -63,6 +66,7 @@ Aurona Code/
 │  │  │  └─ components/                # 补全、搜索和渲染行组件
 │  │  ├─ Explorer/                     # 文件树、节点操作和定位
 │  │  ├─ Search/SearchPanel.tsx         # 全局搜索、取消与结果列表
+│  │  ├─ Fliuno/FliunoWorkspacePage.tsx # Fliuno Workspace 主内容页
 │  │  ├─ SourceControl/
 │  │  │  ├─ SourceControl.tsx           # Git 状态、暂存、提交与历史
 │  │  │  └─ DiffViewer.tsx              # 提交差异玻璃视图
@@ -80,6 +84,7 @@ Aurona Code/
 │  │  │  └─ Updater.ts                 # Updater 插件 DTO 边界
 │  │  ├─ IPC/                          # Editor、Git、PTY 领域客户端
 │  │  ├─ EventBus/                     # 短生命周期 UI 通知
+│  │  ├─ I18n/                         # Locale Service、语言包与 useLocale
 │  │  ├─ Logger/                       # 前端日志门面
 │  │  ├─ Storage/                      # 用户配置和工作区持久化
 │  │  └─ Types/                        # 编辑器、标签、终端共享类型
@@ -95,6 +100,7 @@ Aurona Code/
 │  │  └─ useTerminalStore.ts            # 终端展示状态
 │  ├─ UI/
 │  │  ├─ Components/                   # Button、Input、Switch、菜单、玻璃列表等
+│  │  ├─ Fliuno/Fliuno.tsx             # Fliuno Quick 悬浮入口
 │  │  ├─ Core/GlassManager/            # 拟物档位、材质变体和 GlassContainer
 │  │  ├─ Feedback/                     # Toast、Tooltip、UpdateModal
 │  │  ├─ Icons/IconManager.tsx          # 统一图标入口

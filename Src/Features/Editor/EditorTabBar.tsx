@@ -82,13 +82,11 @@ export const EditorTabBar = memo(function EditorTabBar() {
 
   if (tabs.length === 0) return null;
 
-  const hasOverflow = canScrollLeft || canScrollRight;
-
   return (
-    <div className="aurona-tabbar relative h-[var(--TabBarHeight)] shrink-0">
+    <div className="aurona-tabbar flex h-[var(--TabBarHeight)] shrink-0 items-stretch">
       <div
         ref={scrollRef}
-        className="aurona-tabbar-scroll flex h-[var(--TabBarHeight)] items-center gap-1.5 overflow-x-auto overflow-y-hidden px-1 py-1 no-scrollbar"
+        className="aurona-tabbar-scroll flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto overflow-y-hidden px-1 py-1 no-scrollbar"
       >
         {tabs.map((tab) => {
           const isActive = activeTabId === tab.id;
@@ -152,6 +150,9 @@ export const EditorTabBar = memo(function EditorTabBar() {
                     {tab.type === "diff" && (
                       <Icons.GitBranch size={16} stroke={1.5} className="shrink-0" />
                     )}
+                    {tab.type === "fliuno" && (
+                      <Icons.Search size={16} stroke={1.5} className="shrink-0" />
+                    )}
                     <span
                       className={`truncate tracking-wide pt-0.5 ${
                         tab.isDirty ? "italic font-medium" : ""
@@ -210,30 +211,26 @@ export const EditorTabBar = memo(function EditorTabBar() {
           );
         })}
       </div>
-      {hasOverflow && (
-        <>
-          <button
-            type="button"
-            aria-label="向左滚动标签"
-            onClick={() => scrollTabs(-1)}
-            className={`absolute bottom-0 left-0 top-0 z-20 flex w-8 items-center justify-center rounded-tl-lg border-r border-[var(--border-subtle)] bg-[linear-gradient(to_right,var(--material-panel),transparent)] backdrop-blur-[var(--glass-blur-elevated)] text-[var(--color-text-muted)] transition-opacity duration-150 hover:text-[var(--color-text-highlight)] ${
-              canScrollLeft ? "opacity-100" : "pointer-events-none opacity-0"
-            }`}
-          >
-            <Icons.ChevronLeft size={16} stroke={2} />
-          </button>
-          <button
-            type="button"
-            aria-label="向右滚动标签"
-            onClick={() => scrollTabs(1)}
-            className={`absolute bottom-0 right-0 top-0 z-20 flex w-8 items-center justify-center rounded-tr-lg border-l border-[var(--border-subtle)] bg-[linear-gradient(to_left,var(--material-panel),transparent)] backdrop-blur-[var(--glass-blur-elevated)] text-[var(--color-text-muted)] transition-opacity duration-150 hover:text-[var(--color-text-highlight)] ${
-              canScrollRight ? "opacity-100" : "pointer-events-none opacity-0"
-            }`}
-          >
-            <Icons.ChevronRight size={16} stroke={2} />
-          </button>
-        </>
-      )}
+      <div className="flex shrink-0 items-center gap-0.5 border-l border-[var(--border-subtle)] px-1.5">
+        <button
+          type="button"
+          aria-label="向左滚动标签"
+          onClick={() => scrollTabs(-1)}
+          disabled={!canScrollLeft}
+          className="grid size-6 place-items-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--color-text-muted)]"
+        >
+          <Icons.ChevronLeft size={15} stroke={2} />
+        </button>
+        <button
+          type="button"
+          aria-label="向右滚动标签"
+          onClick={() => scrollTabs(1)}
+          disabled={!canScrollRight}
+          className="grid size-6 place-items-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--color-text-muted)]"
+        >
+          <Icons.ChevronRight size={15} stroke={2} />
+        </button>
+      </div>
     </div>
   );
 });
