@@ -1,6 +1,7 @@
 import React, { useCallback } from "react";
 import { type FileNode, FileSystemService } from "../../../Core/FileSystemService";
 import { EventBus } from "../../../Foundation/EventBus";
+import { useLocale } from "../../../Foundation/I18n";
 import {
   ContextMenuContent,
   ContextMenuDivider,
@@ -72,6 +73,7 @@ interface FileTreeNodeProps {
 }
 
 export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: FileTreeNodeProps) {
+  const { t } = useLocale();
   const {
     activePath,
     inlineCreation,
@@ -259,7 +261,7 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
 
         <ContextMenuContent>
           <ContextMenuItem
-            label="在此处新建文件"
+            label={t("explorer.context.newFileHere")}
             disabled={!node.isDirectory}
             onSelect={() => {
               if (node.isDirectory) {
@@ -268,7 +270,7 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
             }}
           />
           <ContextMenuItem
-            label="在此处新建文件夹"
+            label={t("explorer.context.newFolderHere")}
             disabled={!node.isDirectory}
             onSelect={() => {
               if (node.isDirectory) {
@@ -278,25 +280,25 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
           />
           <ContextMenuDivider />
           <ContextMenuItem
-            label="重命名"
+            label={t("explorer.context.rename")}
             onSelect={() => {
               setInlineEditing(node.path);
             }}
           />
           <ContextMenuItem
-            label="复制"
+            label={t("explorer.context.copy")}
             onSelect={() => {
               setClipboard({ path: node.path, isCut: false });
             }}
           />
           <ContextMenuItem
-            label="剪切"
+            label={t("explorer.context.cut")}
             onSelect={() => {
               setClipboard({ path: node.path, isCut: true });
             }}
           />
           <ContextMenuItem
-            label="粘贴"
+            label={t("explorer.context.paste")}
             disabled={!clipboard || !node.isDirectory}
             onSelect={() => {
               if (clipboard && node.isDirectory) {
@@ -305,33 +307,33 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
             }}
           />
           <ContextMenuItem
-            label="创建副本"
+            label={t("explorer.context.duplicate")}
             onSelect={() => {
               handleDuplicate(node);
             }}
           />
           <ContextMenuDivider />
           <ContextMenuItem
-            label="复制相对路径"
+            label={t("explorer.context.copyRelativePath")}
             onSelect={() => {
               const relativePath = node.path.replace(`${rootPath}/`, "");
               navigator.clipboard.writeText(relativePath);
             }}
           />
           <ContextMenuItem
-            label="复制绝对路径"
+            label={t("explorer.context.copyAbsolutePath")}
             onSelect={() => {
               navigator.clipboard.writeText(node.path);
             }}
           />
           <ContextMenuItem
-            label="在资源管理器中显示"
+            label={t("explorer.context.revealInExplorer")}
             onSelect={() => {
               FileSystemService.revealInOs(node.path);
             }}
           />
           <ContextMenuItem
-            label="在集成终端中打开"
+            label={t("explorer.context.openInTerminal")}
             disabled={!node.isDirectory}
             onSelect={() => {
               if (node.isDirectory) {
@@ -341,7 +343,7 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
           />
           <ContextMenuDivider />
           <ContextMenuItem
-            label="删除"
+            label={t("explorer.context.delete")}
             variant="danger"
             onSelect={() => {
               setDeletePrompt(node);

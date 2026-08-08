@@ -10,6 +10,7 @@ import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { AuronaEngine } from "./AuronaEngine";
+import { EditorBreadcrumb } from "./components/EditorBreadcrumb";
 
 type EditorTabProps = {
   path: string;
@@ -37,6 +38,10 @@ export const EditorTab = React.memo(function EditorTab({
   const [syncError, setSyncError] = useState<Error | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [diskFingerprint, setDiskFingerprint] = useState("");
+  const [externalContent, setExternalContent] = useState<{
+    content: string;
+    nonce: number;
+  } | null>(null);
   const [pendingRecovery, setPendingRecovery] = useState<RecoverySnapshot | null>(null);
   const [loadError, setLoadError] = useState<{ code?: string; message: string } | null>(null);
   const loadedPathRef = useRef<string | null>(null);
@@ -69,6 +74,7 @@ export const EditorTab = React.memo(function EditorTab({
       setPendingRecovery(await RecoveryStore.load(filePath));
       setFileContent(content);
       setSavedContent(content);
+      setExternalContent(null);
       contentRef.current = content;
       savedContentRef.current = content;
       setIsEditorReady(true);
@@ -91,6 +97,16 @@ export const EditorTab = React.memo(function EditorTab({
       EventBus.emit("editor:dirty-cleared", { path: filePath });
     }
   }, []);
+
+  // 外部 WorkspaceEdit（Rename / Code Action）应用到文档后，同步打开中的编辑器。
+  useEffect(
+    () =>
+      DocumentService.subscribe(path, (record) => {
+        if (!record || record.content === contentRef.current) return;
+        setExternalContent({ content: record.content, nonce: Date.now() });
+      }),
+    [path],
+  );
 
   const saveContent = useCallback(async () => {
     if (!isActive || isBinaryWarning) return;
@@ -286,20 +302,26 @@ export const EditorTab = React.memo(function EditorTab({
         </div>
       ) : (
         <div
-          className={`flex-1 overflow-hidden relative bg-transparent transition-opacity duration-300 ${isEditorReady ? "opacity-100" : "opacity-0"}`}
+          className={`relative flex flex-1 flex-col overflow-hidden bg-transparent transition-opacity duration-300 ${isEditorReady ? "opacity-100" : "opacity-0"}`}
         >
           {isEditorReady && (
-            <AuronaEngine
-              key={editorKey}
-              value={fileContent}
-              language={GetLanguageFromPath(path)}
-              isActive={isActive}
-              onChange={handleContentChange}
-              path={path}
-              revealLine={revealLine}
-              onRevealHandled={onRevealHandled}
-              onSyncError={setSyncError}
-            />
+            <>
+              <EditorBreadcrumb path={path} language={GetLanguageFromPath(path)} />
+              <div className="min-h-0 flex-1">
+                <AuronaEngine
+                  key={editorKey}
+                  value={fileContent}
+                  language={GetLanguageFromPath(path)}
+                  isActive={isActive}
+                  onChange={handleContentChange}
+                  path={path}
+                  externalContent={externalContent}
+                  revealLine={revealLine}
+                  onRevealHandled={onRevealHandled}
+                  onSyncError={setSyncError}
+                />
+              </div>
+            </>
           )}
           {syncError && (
             <div className="absolute inset-x-3 top-3 z-30 flex items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-600 dark:text-red-300">

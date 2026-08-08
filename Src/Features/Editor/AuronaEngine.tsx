@@ -4,7 +4,7 @@ import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { DocumentService } from "../../Core/DocumentService";
 import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
 import { LspClient } from "../../Core/Language/LspClient";
-import { applyLspTextEdits } from "../../Core/Language/TextEdits";
+import { applyLspTextEdits, positionToUtf16Offset } from "../../Core/Language/TextEdits";
 import { EventBus } from "../../Foundation/EventBus";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { LanguageFeaturePreferences } from "../../Foundation/Types/Config";
@@ -66,6 +66,8 @@ export type AuronaEngineProps = {
   revealLine?: number;
   onRevealHandled?: (path: string, line: number) => void;
   onSyncError?: (error: Error) => void;
+  /** 外部修改（Rename/Code Action 等 WorkspaceEdit）应用到文档后，用于同步编辑器视图。 */
+  externalContent?: { content: string; nonce: number } | null;
 };
 
 const DEFAULT_LANGUAGE_PREFERENCES: Required<LanguageFeaturePreferences> = {
@@ -124,6 +126,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   revealLine,
   onRevealHandled,
   onSyncError,
+  externalContent,
 }: AuronaEngineProps) {
   const breakpoints = useDebugStore((state) => state.breakpoints);
   const toggleBreakpoint = useDebugStore((state) => state.toggleBreakpoint);
@@ -604,12 +607,10 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     try {
       const applied = applyLspTextEdits(content, [mainEdit, ...(item.additionalTextEdits ?? [])]);
       const lines = applied.content.split("\n");
+      const mainStartUtf16 = positionToUtf16Offset(content, mainEdit.range.start);
       setDocumentLines(lines);
       setTotalLines(lines.length);
-      setCursor({
-        line: mainEdit.range.start.line,
-        char: mainEdit.range.start.character + insertText.length,
-      });
+      setCursor(getCursorFromUtf16Offset(lines, mainStartUtf16 + insertText.length));
       setCompletions([]);
       DocumentService.applyEdits(path, applied.documentEdits, applied.content).catch(console.error);
       updateMaxLineLength(lines);
@@ -618,6 +619,25 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       setCompletions([]);
     }
   };
+
+  // 选中补全项时按需 resolve 文档/详情，避免为每个候选项提前拉取。
+  useEffect(() => {
+    const item = completions[completionIndex];
+    if (!item || !path || item.documentation || !item.data) return;
+    let cancelled = false;
+    void LspClient.getInstance()
+      .resolveCompletion(language, item)
+      .then((resolved) => {
+        if (cancelled || !resolved) return;
+        setCompletions((current) =>
+          current.map((entry, index) => (index === completionIndex ? resolved : entry)),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [completionIndex, completions, language, path]);
 
   // 6. 编辑行为与文本处理
   const getSelectionText = useCallback((): string => {
@@ -726,6 +746,20 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     },
     [dismissHover, documentLines, onChange, path, updateMaxLineLength],
   );
+
+  // 外部 WorkspaceEdit 同步：更新视图并写入撤销历史，Ctrl+Z 可回退。
+  useEffect(() => {
+    if (!externalContent) return;
+    const content = externalContent.content;
+    const previous = documentLines.join("\n");
+    if (previous === content) return;
+    const lines = content.split("\n");
+    const safeLine = Math.min(cursor.line, Math.max(0, lines.length - 1));
+    const safeChar = Math.min(cursor.char, (lines[safeLine] ?? "").length);
+    const currentOffset = getLineStartUtf16(documentLines, cursor.line) + cursor.char;
+    pushHistory(content, currentOffset);
+    replaceDocumentLines(lines, { line: safeLine, char: safeChar });
+  }, [cursor, documentLines, externalContent, pushHistory, replaceDocumentLines]);
 
   // 支持选区覆盖写入与合并
   const insertTextAtCursor = useCallback(

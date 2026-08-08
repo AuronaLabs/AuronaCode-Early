@@ -51,11 +51,9 @@ async function waitForAuthorization(operationGeneration: number): Promise<Accoun
 }
 
 export const AccountService = {
-  getSnapshot(): AccountAuthStatus {
-    return snapshot;
-  },
+  getSnapshot: (): AccountAuthStatus => snapshot,
 
-  subscribe(listener: AccountListener): () => void {
+  subscribe: (listener: AccountListener): (() => void) => {
     listeners.add(listener);
     return () => listeners.delete(listener);
   },

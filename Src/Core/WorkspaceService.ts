@@ -30,7 +30,14 @@ class WorkspaceServiceImpl {
   async initialize(): Promise<void> {
     const persisted = await WorkspaceStore.get();
     if (persisted.lastOpenedPath) {
-      await this.openRoot(persisted.lastOpenedPath);
+      try {
+        await this.openRoot(persisted.lastOpenedPath);
+      } catch (error) {
+        console.warn("Stored workspace is no longer available, clearing it:", error);
+        this.current = EMPTY_WORKSPACE;
+        await WorkspaceStore.set({ lastOpenedPath: undefined });
+        await this.clearBackendRoot();
+      }
     } else {
       await this.clearBackendRoot();
     }
@@ -48,11 +55,7 @@ class WorkspaceServiceImpl {
 
   async openRoot(path: string): Promise<void> {
     const root = normalize(path);
-    try {
-      await FileSystemCommands.setWorkspaceRoot(root);
-    } catch (error) {
-      console.warn("Failed to authorize workspace in the desktop session:", error);
-    }
+    await FileSystemCommands.setWorkspaceRoot(root);
     this.setRoot(path, false);
     await WorkspaceStore.set({ lastOpenedPath: this.current.primaryRoot ?? undefined });
   }

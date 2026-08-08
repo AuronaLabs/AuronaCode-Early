@@ -6,6 +6,7 @@ import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { DebugPreferences } from "../../Foundation/Types/Config";
 import { Input } from "../../UI/Components/Input";
 import { Select } from "../../UI/Components/Select";
+import { SettingResetButton } from "../../UI/Components/SettingResetButton";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 
@@ -38,19 +39,31 @@ export function DebugSettings() {
         title={t("settings.debug.experienceTitle")}
         description={t("settings.debug.experienceDescription")}
       >
-        <Row label={t("settings.debug.openSidebar")}>
+        <Row
+          settingId="openSidebarOnStart"
+          label={t("settings.debug.openSidebar")}
+          onReset={() => update({ openSidebarOnStart: true })}
+        >
           <Switch
             checked={preferences.openSidebarOnStart}
             onCheckedChange={(value) => update({ openSidebarOnStart: value })}
           />
         </Row>
-        <Row label={t("settings.debug.stopOnEntry")}>
+        <Row
+          settingId="stopOnEntry"
+          label={t("settings.debug.stopOnEntry")}
+          onReset={() => update({ stopOnEntry: false })}
+        >
           <Switch
             checked={preferences.stopOnEntry}
             onCheckedChange={(value) => update({ stopOnEntry: value })}
           />
         </Row>
-        <Row label={t("settings.debug.console")}>
+        <Row
+          settingId="consoleMode"
+          label={t("settings.debug.console")}
+          onReset={() => update({ consoleMode: "integrated" })}
+        >
           <Select
             ariaLabel={t("settings.debug.console")}
             value={preferences.consoleMode}
@@ -62,7 +75,11 @@ export function DebugSettings() {
             onChange={(value) => update({ consoleMode: value as DebugPreferences["consoleMode"] })}
           />
         </Row>
-        <Row label={t("settings.debug.adapterLogLevel")}>
+        <Row
+          settingId="adapterLogLevel"
+          label={t("settings.debug.adapterLogLevel")}
+          onReset={() => update({ adapterLogLevel: "info" })}
+        >
           <Select
             ariaLabel={t("settings.debug.adapterLogLevel")}
             value={preferences.adapterLogLevel}
@@ -82,14 +99,22 @@ export function DebugSettings() {
         title={t("settings.debug.runtimesTitle")}
         description={t("settings.debug.runtimesDescription")}
       >
-        <Row label={t("settings.debug.python")}>
+        <Row
+          settingId="pythonPath"
+          label={t("settings.debug.python")}
+          onReset={() => update({ pythonPath: "python" })}
+        >
           <Input
             value={preferences.pythonPath}
             onChange={(event) => update({ pythonPath: event.target.value })}
             className="w-64"
           />
         </Row>
-        <Row label={t("settings.debug.node")}>
+        <Row
+          settingId="nodePath"
+          label={t("settings.debug.node")}
+          onReset={() => update({ nodePath: "node" })}
+        >
           <Input
             value={preferences.nodePath}
             onChange={(event) => update({ nodePath: event.target.value })}
@@ -112,7 +137,7 @@ export function DebugSettings() {
                 {tool.label}
               </div>
               <p className="mt-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
-                {tool.description}
+                {t(tool.descriptionKey)}
               </p>
             </div>
             <span className="shrink-0 text-[10px] text-[var(--color-text-muted)]">
@@ -147,11 +172,28 @@ function Group({
   );
 }
 
-function Row({ label, children }: { label: string; children: ReactNode }) {
+function Row({
+  settingId,
+  label,
+  children,
+  onReset,
+}: {
+  settingId?: string;
+  label: string;
+  children: ReactNode;
+  onReset?: () => void;
+}) {
+  const { t } = useLocale();
   return (
-    <div className="flex min-h-14 items-center justify-between gap-6 border-b border-[var(--border-subtle)] p-5 last:border-b-0">
+    <div
+      data-setting-id={settingId}
+      className="flex min-h-14 items-center justify-between gap-6 border-b border-[var(--border-subtle)] p-5 last:border-b-0"
+    >
       <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">{label}</span>
-      {children}
+      <div className="flex shrink-0 items-center gap-2">
+        {children}
+        {onReset && <SettingResetButton label={t("settings.reset")} onReset={onReset} />}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,12 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DebugService } from "../Core/DebugService";
 import { DiagnosticsService } from "../Core/DiagnosticsService";
 import { LspClient } from "../Core/Language/LspClient";
+import {
+  type DocumentSymbolNode,
+  type FlattenedSymbol,
+  flattenDocumentSymbols,
+} from "../Core/Language/SymbolUtils";
 import { LanguageConfigurationService } from "../Core/LanguageConfigurationService";
 import {
   type LanguageCodeAction,
@@ -14,19 +20,24 @@ import { TerminalManager } from "../Core/TerminalService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EditorTabBar } from "../Features/Editor/EditorTabBar";
 import { FliunoWorkspacePage } from "../Features/Fliuno/FliunoWorkspacePage";
+import { LocationResultsPanel } from "../Features/Language/LocationResultsPanel";
+import { OutlineView } from "../Features/Language/OutlineView";
+import { WorkspaceEditPreviewList } from "../Features/Language/WorkspaceEditPreviewList";
 import { AboutTab } from "../Features/Settings/AboutTab";
 import { ChangelogTab } from "../Features/Settings/ChangelogTab";
 import { PerformanceBenchmarkPage } from "../Features/Settings/PerformanceBenchmarkPage";
 import { SettingsTab } from "../Features/Settings/SettingsTab";
 import { EventBus } from "../Foundation/EventBus";
+import { useLocale } from "../Foundation/I18n";
 import type { TabItem } from "../Foundation/Types/Tab";
 import {
   SIDEBAR_DEBUG,
   SIDEBAR_EXPLORER,
   SIDEBAR_NOTIFICATIONS,
-  SIDEBAR_SEARCH,
+  SIDEBAR_OUTLINE,
   SIDEBAR_SOURCE_CONTROL,
 } from "../Shared/Constants/Sidebar";
+import { GetLanguageFromPath } from "../Shared/Utils/LanguageUtils";
 import { useTerminalStore } from "../State/useTerminalStore";
 import {
   DEFAULT_BOTTOM_PANEL_HEIGHT,
@@ -65,9 +76,6 @@ const SourceControl = lazy(() =>
 );
 const TerminalView = lazy(() =>
   import("../Features/Terminal/TerminalView").then((m) => ({ default: m.TerminalView })),
-);
-const SearchPanel = lazy(() =>
-  import("../Features/Search/SearchPanel").then((m) => ({ default: m.SearchPanel })),
 );
 const DebugPanel = lazy(() =>
   import("../Features/Debug/DebugPanel").then((m) => ({ default: m.DebugPanel })),
@@ -111,6 +119,7 @@ function renderTabContent(
 }
 
 export function WorkspaceView() {
+  const { t } = useLocale();
   const {
     tabs,
     activeTabId,
@@ -169,6 +178,21 @@ export function WorkspaceView() {
   const [codeActionLanguage, setCodeActionLanguage] = useState<string | null>(null);
   const [codeActions, setCodeActions] = useState<LanguageCodeAction[] | null>(null);
   const [codeActionError, setCodeActionError] = useState<string | null>(null);
+  const [codeActionPreview, setCodeActionPreview] = useState<{
+    edit: WorkspaceEdit;
+    preview: WorkspaceEditPreview;
+  } | null>(null);
+  const [codeActionPreviewBusy, setCodeActionPreviewBusy] = useState(false);
+  const [codeActionPreviewError, setCodeActionPreviewError] = useState<string | null>(null);
+  const [symbolSearch, setSymbolSearch] = useState<{ path: string; language: string } | null>(null);
+  const [symbols, setSymbols] = useState<FlattenedSymbol[]>([]);
+  const [symbolQuery, setSymbolQuery] = useState("");
+  const [symbolIndex, setSymbolIndex] = useState(0);
+  const [symbolError, setSymbolError] = useState<string | null>(null);
+  const symbolInputRef = useRef<HTMLInputElement>(null);
+  const [debugConsoleInput, setDebugConsoleInput] = useState("");
+  const [debugConsoleHistory, setDebugConsoleHistory] = useState<string[]>([]);
+  const [debugConsoleHistoryIndex, setDebugConsoleHistoryIndex] = useState(-1);
   const [trustRequest, setTrustRequest] = useState<{ root: string; language: string } | null>(null);
   const activeFilePath = tabs.find((tab) => tab.id === activeTabId && tab.type === "file")?.path;
 
@@ -210,6 +234,30 @@ export function WorkspaceView() {
       }),
     [],
   );
+  useEffect(
+    () =>
+      EventBus.on("language:symbol-search-request", ({ path, language }) => {
+        setSymbolSearch({ path, language });
+        setSymbolQuery("");
+        setSymbolIndex(0);
+        setSymbolError(null);
+        void LspClient.getInstance()
+          .getDocumentSymbols(language, path)
+          .then((raw) => {
+            setSymbols(
+              flattenDocumentSymbols(Array.isArray(raw) ? (raw as DocumentSymbolNode[]) : []),
+            );
+          })
+          .catch((error) => {
+            setSymbols([]);
+            setSymbolError(error instanceof Error ? error.message : String(error));
+          });
+      }),
+    [],
+  );
+  useEffect(() => {
+    if (symbolSearch) symbolInputRef.current?.focus();
+  }, [symbolSearch]);
 
   const problems = activeFilePath
     ? DiagnosticsService.getAll()
@@ -222,6 +270,8 @@ export function WorkspaceView() {
           })),
         )
     : [];
+  const MAX_VISIBLE_PROBLEMS = 500;
+  const visibleProblems = problems.slice(0, MAX_VISIBLE_PROBLEMS);
   const outputChannel =
     activeOutputChannel === "all"
       ? {
@@ -236,6 +286,32 @@ export function WorkspaceView() {
       : OutputService.getChannel(activeOutputChannel);
   void diagnosticsRevision;
   void outputRevision;
+  const filteredSymbols = useMemo(() => {
+    const normalized = symbolQuery.trim().toLocaleLowerCase("zh-CN");
+    if (!normalized) return symbols;
+    return symbols.filter((symbol) =>
+      `${symbol.name} ${symbol.detail ?? ""}`.toLocaleLowerCase("zh-CN").includes(normalized),
+    );
+  }, [symbolQuery, symbols]);
+
+  const submitDebugConsole = async () => {
+    const expression = debugConsoleInput.trim();
+    if (!expression) return;
+    setDebugConsoleHistory((history) => [expression, ...history].slice(0, 50));
+    setDebugConsoleHistoryIndex(-1);
+    setDebugConsoleInput("");
+    OutputService.append("debug-adapter", `> ${expression}`, "info");
+    try {
+      const result = await DebugService.evaluate(expression, "repl");
+      OutputService.append("debug-adapter", result.value, "info");
+    } catch (error) {
+      OutputService.append(
+        "debug-adapter",
+        error instanceof Error ? error.message : String(error),
+        "error",
+      );
+    }
+  };
 
   const ensureTerminal = useCallback(async () => {
     setTerminalStartupError(null);
@@ -251,6 +327,14 @@ export function WorkspaceView() {
       void ensureTerminal();
     }
   }, [activeBottomPanel, ensureTerminal, isBottomPanelOpen, terminals.length]);
+
+  useEffect(
+    () =>
+      EventBus.on("language:open-location-results", () => {
+        setActiveBottomPanel("references");
+      }),
+    [setActiveBottomPanel],
+  );
 
   const handleSaveAndClose = useCallback(() => {
     if (!pendingCloseTab) return;
@@ -305,18 +389,6 @@ export function WorkspaceView() {
         </div>
         <div
           className="flex flex-1 flex-col min-h-0"
-          style={{ display: activeSidebar === SIDEBAR_SEARCH ? "flex" : "none" }}
-        >
-          <Suspense
-            fallback={
-              <div className="p-4 text-[var(--color-text-muted)] text-xs">Loading Search...</div>
-            }
-          >
-            <SearchPanel />
-          </Suspense>
-        </div>
-        <div
-          className="flex flex-1 flex-col min-h-0"
           style={{ display: activeSidebar === SIDEBAR_SOURCE_CONTROL ? "flex" : "none" }}
         >
           <Suspense
@@ -326,6 +398,12 @@ export function WorkspaceView() {
           >
             <SourceControl />
           </Suspense>
+        </div>
+        <div
+          className="flex flex-1 flex-col min-h-0"
+          style={{ display: activeSidebar === SIDEBAR_OUTLINE ? "flex" : "none" }}
+        >
+          <OutlineView />
         </div>
         <div
           className="flex flex-1 flex-col min-h-0"
@@ -400,9 +478,8 @@ export function WorkspaceView() {
               </div>
               <div className="flex flex-col gap-3 text-xs mt-8">
                 {[
-                  { label: "快速打开文件", keys: ["Ctrl", "P"] },
-                  { label: "全局搜索", keys: ["Ctrl", "Shift", "F"] },
-                  { label: "Fliuno 全局搜索", keys: ["Ctrl", "Shift", "P"] },
+                  { label: t("fliuno.quickOpenFile"), keys: ["Ctrl", "O"] },
+                  { label: t("fliuno.openShortcutLabel"), keys: ["Ctrl", "Shift", "P"] },
                 ].map(({ label, keys }) => (
                   <div key={label} className="flex items-center justify-between gap-12">
                     <span>{label}</span>
@@ -449,41 +526,44 @@ export function WorkspaceView() {
           {}
           <div className="flex items-center px-3 py-1.5 bg-transparent relative z-10 select-none border-t border-[var(--border-subtle)]">
             <div className="flex items-center gap-0.5">
-              {(["problems", "output", "terminal", "debug-console"] as const).map((tabId) => {
-                const labels = {
-                  problems: "问题",
-                  output: "输出",
-                  terminal: "终端",
-                  "debug-console": "调试控制台",
-                };
-                const isActive = activeBottomPanel === tabId;
-                const count = tabId === "problems" && problems.length ? problems.length : null;
-                return (
-                  <button
-                    type="button"
-                    key={tabId}
-                    onClick={() => setActiveBottomPanel(tabId)}
-                    className={`relative h-[26px] px-2.5 text-[12px] transition-colors duration-150 flex items-center gap-1.5 rounded-lg ${
-                      isActive
-                        ? "bg-[var(--material-surface)] text-[var(--color-text-highlight)]"
-                        : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)]"
-                    }`}
-                  >
-                    <span>{labels[tabId]}</span>
-                    {count !== null && count > 0 && (
-                      <span
-                        className={`flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] rounded-full ${
-                          isActive
-                            ? "bg-[var(--color-accent)] text-white"
-                            : "bg-[var(--color-accent)]/20 text-[var(--color-accent)] font-bold"
-                        }`}
-                      >
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+              {(["problems", "output", "terminal", "debug-console", "references"] as const).map(
+                (tabId) => {
+                  const labels = {
+                    problems: t("bottomPanel.problems"),
+                    output: t("bottomPanel.output"),
+                    terminal: t("bottomPanel.terminal"),
+                    "debug-console": t("bottomPanel.debugConsole"),
+                    references: t("bottomPanel.references"),
+                  };
+                  const isActive = activeBottomPanel === tabId;
+                  const count = tabId === "problems" && problems.length ? problems.length : null;
+                  return (
+                    <button
+                      type="button"
+                      key={tabId}
+                      onClick={() => setActiveBottomPanel(tabId)}
+                      className={`relative h-[26px] px-2.5 text-[12px] transition-colors duration-150 flex items-center gap-1.5 rounded-lg ${
+                        isActive
+                          ? "bg-[var(--material-surface)] text-[var(--color-text-highlight)]"
+                          : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)]"
+                      }`}
+                    >
+                      <span>{labels[tabId]}</span>
+                      {count !== null && count > 0 && (
+                        <span
+                          className={`flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] rounded-full ${
+                            isActive
+                              ? "bg-[var(--color-accent)] text-white"
+                              : "bg-[var(--color-accent)]/20 text-[var(--color-accent)] font-bold"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                },
+              )}
             </div>
 
             <div className="flex-1" />
@@ -682,40 +762,72 @@ export function WorkspaceView() {
             {activeBottomPanel === "problems" && (
               <div className="absolute inset-0 p-3 flex flex-col items-start gap-1 overflow-y-auto no-scrollbar">
                 {problems.length > 0 ? (
-                  problems.map((problem) => {
-                    const path = fileUriToPath(problem.uri);
-                    return (
-                      <button
-                        type="button"
-                        key={problem.key}
-                        onClick={() => {
-                          if (!path) return;
-                          openFile(path);
-                          requestReveal(path, problem.range.start.line + 1);
-                        }}
-                        className="flex gap-2 items-start text-left hover:bg-[var(--material-interactive-hover)] w-full p-2 rounded-lg cursor-pointer selectable transition-colors"
-                      >
+                  <>
+                    {visibleProblems.map((problem) => {
+                      const path = fileUriToPath(problem.uri);
+                      return (
                         <div
-                          className={`mt-0.5 shrink-0 flex items-center justify-center p-0.5 rounded ${
-                            problem.severity === 1
-                              ? "bg-red-500/10 text-red-500"
-                              : "bg-orange-500/10 text-orange-500"
-                          }`}
+                          key={problem.key}
+                          className="group flex w-full items-start gap-2 rounded-lg p-2 transition-colors hover:bg-[var(--material-interactive-hover)]"
                         >
-                          <Icons.AlertTriangle size={14} stroke={2} />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!path) return;
+                              openFile(path);
+                              requestReveal(path, problem.range.start.line + 1);
+                            }}
+                            className="flex min-w-0 flex-1 items-start gap-2 text-left"
+                          >
+                            <div
+                              className={`mt-0.5 shrink-0 flex items-center justify-center p-0.5 rounded ${
+                                problem.severity === 1
+                                  ? "bg-red-500/10 text-red-500"
+                                  : "bg-orange-500/10 text-orange-500"
+                              }`}
+                            >
+                              <Icons.AlertTriangle size={14} stroke={2} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[13px] font-medium text-[var(--color-text-highlight)] whitespace-pre-wrap">
+                                {problem.message}
+                              </span>
+                              <span className="mt-0.5 block text-[11px] text-[var(--color-text-muted)] font-mono">
+                                {path ?? problem.uri} · [{problem.source || "aurona"}] Ln{" "}
+                                {problem.range.start.line + 1}, Col{" "}
+                                {problem.range.start.character + 1}
+                              </span>
+                            </div>
+                          </button>
+                          <Tooltip content={t("language.quickFix")} delay={300} placement="top">
+                            <button
+                              type="button"
+                              aria-label={t("language.quickFix")}
+                              onClick={() => {
+                                if (!path) return;
+                                EventBus.emit("language:code-actions-request", {
+                                  path,
+                                  language: GetLanguageFromPath(path),
+                                  line: problem.range.start.line,
+                                  character: problem.range.start.character,
+                                });
+                              }}
+                              className="mt-0.5 shrink-0 rounded-md p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] group-hover:opacity-100"
+                            >
+                              <Icons.Sparkles size={14} stroke={1.8} />
+                            </button>
+                          </Tooltip>
                         </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-[13px] font-medium text-[var(--color-text-highlight)] whitespace-pre-wrap">
-                            {problem.message}
-                          </span>
-                          <span className="text-[11px] text-[var(--color-text-muted)] mt-0.5 font-mono">
-                            {path ?? problem.uri} · [{problem.source || "aurona"}] Ln{" "}
-                            {problem.range.start.line + 1}, Col {problem.range.start.character + 1}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })
+                      );
+                    })}
+                    {problems.length > visibleProblems.length && (
+                      <div className="w-full px-3 pb-1 text-[10px] text-[var(--color-text-muted)]">
+                        {t("bottomPanel.problemsTruncated")
+                          .replace("{shown}", String(visibleProblems.length))
+                          .replace("{total}", String(problems.length))}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="flex flex-col items-center justify-center w-full h-full gap-2 opacity-50">
                     <Icons.Checks size={32} stroke={1} />
@@ -724,6 +836,12 @@ export function WorkspaceView() {
                     </span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {activeBottomPanel === "references" && (
+              <div className="absolute inset-0">
+                <LocationResultsPanel />
               </div>
             )}
 
@@ -877,6 +995,46 @@ export function WorkspaceView() {
                     </div>
                   )}
                 </div>
+                <div className="flex shrink-0 items-center gap-2 border-t border-[var(--border-subtle)] px-3 py-1.5">
+                  <span className="select-none text-[13px] font-bold text-[var(--color-accent)]">
+                    &gt;
+                  </span>
+                  <input
+                    value={debugConsoleInput}
+                    onChange={(event) => {
+                      setDebugConsoleInput(event.target.value);
+                      setDebugConsoleHistoryIndex(-1);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void submitDebugConsole();
+                      } else if (event.key === "ArrowUp") {
+                        event.preventDefault();
+                        const next = Math.min(
+                          debugConsoleHistoryIndex + 1,
+                          debugConsoleHistory.length - 1,
+                        );
+                        if (debugConsoleHistory[next]) {
+                          setDebugConsoleHistoryIndex(next);
+                          setDebugConsoleInput(debugConsoleHistory[next] as string);
+                        }
+                      } else if (event.key === "ArrowDown") {
+                        event.preventDefault();
+                        const next = debugConsoleHistoryIndex - 1;
+                        if (next < 0) {
+                          setDebugConsoleHistoryIndex(-1);
+                          setDebugConsoleInput("");
+                        } else if (debugConsoleHistory[next]) {
+                          setDebugConsoleHistoryIndex(next);
+                          setDebugConsoleInput(debugConsoleHistory[next] as string);
+                        }
+                      }
+                    }}
+                    placeholder={t("debug.evaluatePlaceholder")}
+                    className="h-6 min-w-0 flex-1 bg-transparent font-mono text-[11px] text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-muted)]"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -887,15 +1045,15 @@ export function WorkspaceView() {
       <Modal
         isOpen={!!pendingCloseTab}
         onClose={() => setPendingCloseTab(null)}
-        title="文件尚未保存"
+        title={t("workspace.unsavedTitle")}
         icon={<Icons.AlertTriangle className="text-[var(--color-accent)]" size={18} stroke={2} />}
         footer={
           <>
             <Button variant="secondary" onClick={() => setPendingCloseTab(null)}>
-              取消
+              {t("common.cancel")}
             </Button>
             <Button variant="primary" onClick={handleSaveAndClose}>
-              保存并关闭
+              {t("workspace.saveAndClose")}
             </Button>
             <Button
               variant="danger"
@@ -907,22 +1065,25 @@ export function WorkspaceView() {
                 setPendingCloseTab(null);
               }}
             >
-              放弃更改
+              {t("workspace.discardChanges")}
             </Button>
           </>
         }
       >
-        <strong>{pendingCloseTab?.title}</strong> 还有未保存的更改关闭后，这些更改会丢失
+        <strong>
+          {pendingCloseTab?.titleKey ? t(pendingCloseTab.titleKey) : pendingCloseTab?.title}
+        </strong>{" "}
+        {t("workspace.unsavedHint")}
       </Modal>
       <Modal
         isOpen={renameRequest !== null}
         onClose={() => setRenameRequest(null)}
-        title="重命名符号"
+        title={t("language.renameTitle")}
         icon={<Icons.Typography size={18} />}
         footer={
           <>
             <Button variant="secondary" onClick={() => setRenameRequest(null)}>
-              取消
+              {t("language.cancel")}
             </Button>
             {renamePreview && renameEdit ? (
               <Button
@@ -941,7 +1102,9 @@ export function WorkspaceView() {
                   }
                 }}
               >
-                {renameBusy ? "正在应用..." : `确认修改 ${renamePreview.totalEdits} 处`}
+                {renameBusy
+                  ? t("language.applying")
+                  : t("language.applyChanges").replace("{count}", String(renamePreview.totalEdits))}
               </Button>
             ) : (
               <Button
@@ -968,7 +1131,7 @@ export function WorkspaceView() {
                   }
                 }}
               >
-                {renameBusy ? "正在检查..." : "预览修改"}
+                {renameBusy ? t("language.checking") : t("language.previewChanges")}
               </Button>
             )}
           </>
@@ -979,39 +1142,25 @@ export function WorkspaceView() {
             <input
               value={renameName}
               onChange={(event) => setRenameName(event.target.value)}
-              placeholder="输入新名称"
+              placeholder={t("language.renamePlaceholder")}
               className="h-9 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
             />
           )}
-          {renamePreview && (
-            <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl bg-[var(--material-surface)] p-2">
-              {renamePreview.files.map((file) => (
-                <div
-                  key={file.uri}
-                  className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-[12px]"
-                >
-                  <span className="min-w-0 truncate font-mono">{fileUriToPath(file.uri)}</span>
-                  <span className="shrink-0 text-[var(--color-text-muted)]">
-                    {file.editCount} 处修改
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          {renamePreview && <WorkspaceEditPreviewList preview={renamePreview} />}
           {renameError && <div className="text-[12px] text-red-500">{renameError}</div>}
         </div>
       </Modal>
       <Modal
         isOpen={codeActionLanguage !== null}
         onClose={() => setCodeActionLanguage(null)}
-        title="代码操作"
+        title={t("language.codeActionsTitle")}
         icon={<Icons.Sparkles size={18} />}
       >
         <div className="max-h-72 space-y-1 overflow-y-auto">
           {codeActionError && <div className="p-3 text-[12px] text-red-500">{codeActionError}</div>}
           {codeActions?.length === 0 && !codeActionError && (
             <div className="p-6 text-center text-[12px] text-[var(--color-text-muted)]">
-              当前光标位置没有可用操作
+              {t("language.noActions")}
             </div>
           )}
           {codeActions?.map((action) => (
@@ -1025,8 +1174,18 @@ export function WorkspaceView() {
               onClick={async () => {
                 if (!codeActionLanguage) return;
                 try {
-                  await LanguageFeatureService.applyCodeAction(codeActionLanguage, action);
-                  setCodeActionLanguage(null);
+                  const prepared = await LanguageFeatureService.previewCodeAction(
+                    codeActionLanguage,
+                    action,
+                  );
+                  if (prepared) {
+                    setCodeActionLanguage(null);
+                    setCodeActionPreview(prepared);
+                    setCodeActionPreviewError(null);
+                  } else {
+                    await LanguageFeatureService.applyCodeAction(codeActionLanguage, action);
+                    setCodeActionLanguage(null);
+                  }
                 } catch (error) {
                   setCodeActionError(error instanceof Error ? error.message : String(error));
                 }
@@ -1039,6 +1198,127 @@ export function WorkspaceView() {
               </span>
             </button>
           ))}
+        </div>
+      </Modal>
+      <Modal
+        isOpen={codeActionPreview !== null}
+        onClose={() => setCodeActionPreview(null)}
+        title={t("language.previewTitle")}
+        icon={<Icons.Sparkles size={18} />}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setCodeActionPreview(null)}>
+              {t("language.cancel")}
+            </Button>
+            <Button
+              variant="primary"
+              disabled={codeActionPreviewBusy}
+              onClick={async () => {
+                if (!codeActionPreview) return;
+                setCodeActionPreviewBusy(true);
+                setCodeActionPreviewError(null);
+                try {
+                  await LanguageFeatureService.applyWorkspaceEdit(codeActionPreview.edit);
+                  setCodeActionPreview(null);
+                } catch (error) {
+                  setCodeActionPreviewError(error instanceof Error ? error.message : String(error));
+                } finally {
+                  setCodeActionPreviewBusy(false);
+                }
+              }}
+            >
+              {codeActionPreviewBusy
+                ? t("language.applying")
+                : t("language.applyChanges").replace(
+                    "{count}",
+                    String(codeActionPreview?.preview.totalEdits ?? 0),
+                  )}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          {codeActionPreview && <WorkspaceEditPreviewList preview={codeActionPreview.preview} />}
+          {codeActionPreviewError && (
+            <div className="text-[12px] text-red-500">{codeActionPreviewError}</div>
+          )}
+        </div>
+      </Modal>
+      <Modal
+        isOpen={symbolSearch !== null}
+        onClose={() => setSymbolSearch(null)}
+        title={t("language.symbolSearchTitle")}
+        icon={<Icons.Sparkles size={18} />}
+      >
+        <div className="space-y-3">
+          <input
+            ref={symbolInputRef}
+            value={symbolQuery}
+            onChange={(event) => {
+              setSymbolQuery(event.target.value);
+              setSymbolIndex(0);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setSymbolIndex((index) =>
+                  Math.min(index + 1, Math.max(0, filteredSymbols.length - 1)),
+                );
+              } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setSymbolIndex((index) => Math.max(0, index - 1));
+              } else if (event.key === "Enter") {
+                event.preventDefault();
+                const symbol = filteredSymbols[symbolIndex];
+                if (symbol && symbolSearch) {
+                  openFile(symbolSearch.path);
+                  requestReveal(symbolSearch.path, symbol.line);
+                  setSymbolSearch(null);
+                }
+              }
+            }}
+            placeholder={t("language.symbolSearchPlaceholder")}
+            className="h-9 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
+          />
+          {symbolError && <div className="text-[12px] text-red-500">{symbolError}</div>}
+          {filteredSymbols.length === 0 && !symbolError && (
+            <div className="p-6 text-center text-[12px] text-[var(--color-text-muted)]">
+              {t("language.noSymbols")}
+            </div>
+          )}
+          <div className="max-h-72 space-y-0.5 overflow-y-auto rounded-xl bg-[var(--material-surface)] p-1.5 aurona-scroll">
+            {filteredSymbols.map((symbol, index) => (
+              <button
+                type="button"
+                key={`${symbol.line}-${symbol.depth}-${symbol.name}`}
+                onClick={() => {
+                  if (!symbolSearch) return;
+                  openFile(symbolSearch.path);
+                  requestReveal(symbolSearch.path, symbol.line);
+                  setSymbolSearch(null);
+                }}
+                onMouseMove={() => setSymbolIndex(index)}
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[12px] transition-colors ${
+                  index === symbolIndex
+                    ? "bg-[var(--material-interactive-active)]"
+                    : "hover:bg-[var(--material-interactive-hover)]"
+                }`}
+                style={{ paddingLeft: `${8 + symbol.depth * 14}px` }}
+              >
+                <span className="min-w-0 flex-1 truncate text-[var(--color-text-highlight)]">
+                  {symbol.name}
+                </span>
+                {symbol.detail && (
+                  <span className="truncate text-[10px] text-[var(--color-text-muted)]">
+                    {symbol.detail}
+                  </span>
+                )}
+                <span className="shrink-0 font-mono text-[10px] text-[var(--color-text-muted)]">
+                  {symbol.line}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </Modal>
       <Modal

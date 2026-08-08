@@ -67,7 +67,7 @@ describe("AccountSettings", () => {
     render(<AccountSettings />);
 
     expect(screen.getByRole("heading", { name: "Aurona" })).toBeInTheDocument();
-    expect(screen.getByText("ID · account-user-id")).toBeInTheDocument();
+    expect(screen.getByText("@Aurona")).toBeInTheDocument();
     expect(screen.getAllByText("user@aurona.cc").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: "退出登录" }));

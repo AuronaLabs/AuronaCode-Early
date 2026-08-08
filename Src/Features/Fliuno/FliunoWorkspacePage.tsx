@@ -1,11 +1,19 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type FliunoCoreResult,
-  type FliunoCoreResultKind,
   type FliunoScope,
   FliunoSearchSession,
   parseFliunoQuery,
+  queryForScope,
 } from "../../Core/Fliuno/FliunoCore";
+import {
+  FLIUNO_RECENT_COMMANDS_KEY,
+  FLIUNO_RECENT_FILES_KEY,
+  readHistory,
+  writeHistory,
+} from "../../Core/Fliuno/history";
+import { flattenFliunoPresentation, SECTION_ORDER } from "../../Core/Fliuno/presentation";
+import { NavigationHistory } from "../../Core/NavigationHistory";
 import { WorkspaceService } from "../../Core/WorkspaceService";
 import { CommandRegistry } from "../../Extension/CommandRegistry";
 import { EventBus } from "../../Foundation/EventBus";
@@ -19,29 +27,6 @@ import { useEditorStore } from "../../State/useEditorStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
-
-const RECENT_COMMANDS_KEY = "aurona.fliuno.recent.v1";
-const RECENT_FILES_KEY = "aurona.fliuno.files.recent.v1";
-
-const readHistory = (key: string): string[] => {
-  try {
-    const value = localStorage.getItem(key);
-    const parsed = JSON.parse(value ?? "[]");
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === "string")
-      : [];
-  } catch {
-    return [];
-  }
-};
-
-const writeHistory = (key: string, value: string[]) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value.slice(0, 30)));
-  } catch {
-    // 历史记录失败不影响搜索。
-  }
-};
 
 function HighlightedText({
   text,
@@ -85,14 +70,17 @@ export function FliunoWorkspacePage() {
   const sessionRef = useRef<FliunoSearchSession | null>(null);
   if (!sessionRef.current) sessionRef.current = new FliunoSearchSession();
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<FliunoScope>("all");
   const [results, setResults] = useState<FliunoCoreResult[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [recentCommands, setRecentCommands] = useState(() => readHistory(RECENT_COMMANDS_KEY));
-  const [recentFiles, setRecentFiles] = useState(() => readHistory(RECENT_FILES_KEY));
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [recentCommands, setRecentCommands] = useState(() =>
+    readHistory(FLIUNO_RECENT_COMMANDS_KEY),
+  );
+  const [recentFiles, setRecentFiles] = useState(() => readHistory(FLIUNO_RECENT_FILES_KEY));
   const [workspaceRoot, setWorkspaceRoot] = useState(
     () => WorkspaceService.getCurrent().primaryRoot,
   );
@@ -145,7 +133,7 @@ export function FliunoWorkspacePage() {
         const session = sessionRef.current;
         if (!session) return;
         session.cancel();
-        setSelectedIndex(0);
+        setSelectedIndex(-1);
         const workbench = useWorkbenchStore.getState();
         const activeTab = workbench.tabs.find((tab) => tab.id === workbench.activeTabId);
         const activeFilePath = activeTab?.type === "file" ? activeTab.path : undefined;
@@ -186,36 +174,27 @@ export function FliunoWorkspacePage() {
     };
   }, [query, runSearch, scope]);
 
-  const grouped = useMemo(() => {
-    const order: FliunoCoreResultKind[] = ["command", "file", "setting", "symbol", "content"];
-    return order
-      .map((kind) => ({ kind, items: results.filter((result) => result.kind === kind) }))
-      .filter((group) => group.items.length > 0);
+  /**
+   * 展示顺序 = 键盘导航顺序 = Enter 执行顺序。
+   * displayResults 按可视分组顺序拍平：命令/文件/设置/符号，内容按文件分组。
+   */
+  const presentation = useMemo(() => {
+    return flattenFliunoPresentation(results);
   }, [results]);
 
-  const contentByFile = useMemo(() => {
-    const map = new Map<string, FliunoCoreResult[]>();
-    for (const result of results) {
-      if (result.kind !== "content" || !result.targetPath) continue;
-      const list = map.get(result.targetPath) ?? [];
-      list.push(result);
-      map.set(result.targetPath, list);
-    }
-    return [...map.entries()].map(([path, items]) => ({ path, items }));
-  }, [results]);
-
-  const indexById = useMemo(() => {
-    const map: Record<string, number> = {};
-    results.forEach((result, index) => {
-      map[result.id] = index;
-    });
-    return map;
-  }, [results]);
+  const grouped = useMemo(
+    () =>
+      SECTION_ORDER.map((kind) => ({
+        kind,
+        items: presentation.display.filter((result) => result.kind === kind),
+      })).filter((group) => group.items.length > 0),
+    [presentation.display],
+  );
 
   const pushRecentCommand = (id: string) => {
     setRecentCommands((current) => {
       const next = [id, ...current.filter((item) => item !== id)].slice(0, 30);
-      writeHistory(RECENT_COMMANDS_KEY, next);
+      writeHistory(FLIUNO_RECENT_COMMANDS_KEY, next);
       return next;
     });
   };
@@ -223,7 +202,7 @@ export function FliunoWorkspacePage() {
   const pushRecentFile = (path: string) => {
     setRecentFiles((current) => {
       const next = [path, ...current.filter((item) => item !== path)].slice(0, 30);
-      writeHistory(RECENT_FILES_KEY, next);
+      writeHistory(FLIUNO_RECENT_FILES_KEY, next);
       return next;
     });
   };
@@ -244,24 +223,78 @@ export function FliunoWorkspacePage() {
         }
         break;
       case "openSettings":
-        workbench.openTab({ id: "settings", type: "settings", title: "设置" });
+        workbench.openTab({
+          id: "settings",
+          type: "settings",
+          title: t("settings.title"),
+          titleKey: "settings.title",
+        });
+        if (result.settingCategory) {
+          EventBus.emit("settings:reveal", {
+            category: result.settingCategory,
+            settingId: result.settingId,
+          });
+        }
         break;
       case "revealSymbol":
       case "revealContent":
         if (result.targetPath) {
+          const editor = useEditorStore.getState().editorStatus;
+          if (editor.path) {
+            NavigationHistory.record({
+              path: editor.path,
+              line: editor.line,
+              character: editor.column,
+            });
+          }
           workbench.openFile(result.targetPath);
-          if (result.targetLine) workbench.requestReveal(result.targetPath, result.targetLine);
+          const targetLine = result.targetLine ?? 1;
+          workbench.requestReveal(result.targetPath, targetLine);
+          NavigationHistory.record({ path: result.targetPath, line: targetLine });
         }
         break;
     }
   };
 
   const moveSelection = (offset: number) => {
-    if (!results.length) return;
-    setSelectedIndex((index) => Math.min(Math.max(index + offset, 0), results.length - 1));
+    const count = presentation.display.length;
+    if (!count) return;
+    setSelectedIndex((index) => {
+      if (index < 0) return offset > 0 ? 0 : -1;
+      return Math.min(Math.max(index + offset, 0), count - 1);
+    });
+  };
+
+  const jumpSelection = (target: "start" | "end" | "pageUp" | "pageDown") => {
+    const count = presentation.display.length;
+    if (!count) return;
+    setSelectedIndex((index) => {
+      const base = index < 0 ? 0 : index;
+      if (target === "start") return 0;
+      if (target === "end") return count - 1;
+      const page = 12;
+      if (target === "pageUp") return Math.max(0, base - page);
+      return Math.min(count - 1, base + page);
+    });
+  };
+
+  useEffect(() => {
+    const container = resultsRef.current;
+    if (!container) return;
+    const element = container.querySelector<HTMLElement>(
+      `[data-fliuno-workspace-index="${selectedIndex}"]`,
+    );
+    element?.scrollIntoView({ block: "nearest" });
+  }, [selectedIndex]);
+
+  const selectScope = (nextScope: FliunoScope) => {
+    setScope(nextScope);
+    setQuery((current) => queryForScope(current, nextScope));
+    setSelectedIndex(-1);
   };
 
   const parsed = parseFliunoQuery(query, scope);
+  const selectedResult = presentation.display[selectedIndex];
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 bg-transparent px-6 pb-3 pt-4">
@@ -275,7 +308,7 @@ export function FliunoWorkspacePage() {
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
-            setSelectedIndex(0);
+            setSelectedIndex(-1);
           }}
           onKeyDown={(event) => {
             if (event.key === "ArrowDown") {
@@ -284,9 +317,29 @@ export function FliunoWorkspacePage() {
             } else if (event.key === "ArrowUp") {
               event.preventDefault();
               moveSelection(-1);
-            } else if (event.key === "Enter" && results[selectedIndex]) {
+            } else if (event.key === "PageDown") {
               event.preventDefault();
-              execute(results[selectedIndex]);
+              jumpSelection("pageDown");
+            } else if (event.key === "PageUp") {
+              event.preventDefault();
+              jumpSelection("pageUp");
+            } else if (event.key === "Home") {
+              event.preventDefault();
+              jumpSelection("start");
+            } else if (event.key === "End") {
+              event.preventDefault();
+              jumpSelection("end");
+            } else if (event.key === "Tab") {
+              event.preventDefault();
+              const index = SCOPE_OPTIONS.findIndex((option) => option.id === parsed.scope);
+              const nextScope =
+                SCOPE_OPTIONS[
+                  (index + (event.shiftKey ? -1 : 1) + SCOPE_OPTIONS.length) % SCOPE_OPTIONS.length
+                ].id;
+              selectScope(nextScope);
+            } else if (event.key === "Enter" && selectedResult) {
+              event.preventDefault();
+              execute(selectedResult);
             }
           }}
           placeholder={t("fliuno.workspacePlaceholder")}
@@ -298,7 +351,7 @@ export function FliunoWorkspacePage() {
             aria-label={t("common.clear")}
             onClick={() => {
               setQuery("");
-              setSelectedIndex(0);
+              setSelectedIndex(-1);
               inputRef.current?.focus();
             }}
             className="rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
@@ -315,10 +368,7 @@ export function FliunoWorkspacePage() {
             <button
               type="button"
               key={option.id}
-              onClick={() => {
-                setScope(option.id);
-                setSelectedIndex(0);
-              }}
+              onClick={() => selectScope(option.id)}
               className={`rounded-lg px-2.5 py-1.5 text-[10px] font-medium transition-colors ${
                 active
                   ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
@@ -332,10 +382,10 @@ export function FliunoWorkspacePage() {
         {parsed.scope === "content" && (
           <>
             <span className="mx-1 h-4 w-px bg-[var(--border-subtle)]" />
-            <Tooltip content="区分大小写" placement="bottom">
+            <Tooltip content={t("fliuno.caseSensitive")} placement="bottom">
               <button
                 type="button"
-                aria-label="区分大小写"
+                aria-label={t("fliuno.caseSensitive")}
                 onClick={() => setContentCaseSensitive((value) => !value)}
                 className={`rounded-lg p-1.5 transition-colors ${
                   contentCaseSensitive
@@ -346,10 +396,10 @@ export function FliunoWorkspacePage() {
                 <Icons.Typography size={13} stroke={contentCaseSensitive ? 2.5 : 2} />
               </button>
             </Tooltip>
-            <Tooltip content="正则表达式" placement="bottom">
+            <Tooltip content={t("fliuno.regex")} placement="bottom">
               <button
                 type="button"
-                aria-label="正则表达式"
+                aria-label={t("fliuno.regex")}
                 onClick={() => setContentRegex((value) => !value)}
                 className={`rounded-lg p-1.5 transition-colors ${
                   contentRegex
@@ -363,11 +413,11 @@ export function FliunoWorkspacePage() {
           </>
         )}
         <span className="ml-auto pr-1 text-[10px] text-[var(--color-text-muted)]">
-          {t("fliuno.resultsCount").replace("{count}", String(results.length))}
+          {t("fliuno.resultsCount").replace("{count}", String(presentation.display.length))}
         </span>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2 aurona-scroll">
+      <div ref={resultsRef} className="min-h-0 flex-1 overflow-y-auto px-1 pb-2 aurona-scroll">
         {!workspaceRoot && (query || scope !== "commands") ? (
           <EmptyState text={t("fliuno.noWorkspace")} />
         ) : grouped.length ? (
@@ -377,7 +427,7 @@ export function FliunoWorkspacePage() {
                 return (
                   <section key={group.kind}>
                     <div className="flex flex-col gap-2.5">
-                      {contentByFile.map((fileGroup) => (
+                      {presentation.contentGroups.map((fileGroup) => (
                         <div
                           key={fileGroup.path}
                           className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)]"
@@ -385,15 +435,19 @@ export function FliunoWorkspacePage() {
                           <div className="truncate border-b border-[var(--border-subtle)] px-3 py-2 font-mono text-[10px] text-[var(--color-text-muted)]">
                             {fileGroup.path}
                           </div>
-                          {fileGroup.items.map((result) => (
-                            <ContentRow
-                              key={result.id}
-                              result={result}
-                              selected={selectedIndex === (indexById[result.id] ?? 0)}
-                              onSelect={() => setSelectedIndex(indexById[result.id] ?? 0)}
-                              onExecute={execute}
-                            />
-                          ))}
+                          {fileGroup.items.map((result) => {
+                            const displayIndex = presentation.indexById.get(result.id) ?? 0;
+                            return (
+                              <ContentRow
+                                key={result.id}
+                                result={result}
+                                displayIndex={displayIndex}
+                                selected={displayIndex === selectedIndex}
+                                onSelect={() => setSelectedIndex(displayIndex)}
+                                onExecute={execute}
+                              />
+                            );
+                          })}
                         </div>
                       ))}
                     </div>
@@ -403,15 +457,19 @@ export function FliunoWorkspacePage() {
               return (
                 <section key={group.kind}>
                   <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-                    {group.items.map((result) => (
-                      <ResultCard
-                        key={result.id}
-                        result={result}
-                        selected={selectedIndex === (indexById[result.id] ?? 0)}
-                        onSelect={() => setSelectedIndex(indexById[result.id] ?? 0)}
-                        onExecute={execute}
-                      />
-                    ))}
+                    {group.items.map((result) => {
+                      const displayIndex = presentation.indexById.get(result.id) ?? 0;
+                      return (
+                        <ResultCard
+                          key={result.id}
+                          result={result}
+                          displayIndex={displayIndex}
+                          selected={displayIndex === selectedIndex}
+                          onSelect={() => setSelectedIndex(displayIndex)}
+                          onExecute={execute}
+                        />
+                      );
+                    })}
                   </div>
                 </section>
               );
@@ -450,11 +508,13 @@ export function FliunoWorkspacePage() {
 
 function ResultCard({
   result,
+  displayIndex,
   selected,
   onSelect,
   onExecute,
 }: {
   result: FliunoCoreResult;
+  displayIndex: number;
   selected: boolean;
   onSelect: () => void;
   onExecute: (result: FliunoCoreResult) => void;
@@ -462,11 +522,13 @@ function ResultCard({
   return (
     <button
       type="button"
+      data-result-id={result.id}
+      data-fliuno-workspace-index={displayIndex}
       onClick={() => onExecute(result)}
       onMouseMove={onSelect}
       className={`flex min-h-[72px] flex-col justify-between gap-2 rounded-xl border p-3 text-left transition-all ${
         selected
-          ? "border-[color-mix(in_srgb,var(--color-accent)_38%,var(--border-subtle))] bg-[var(--material-interactive-active)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_16%,transparent)]"
+          ? "border-transparent bg-[var(--material-interactive-active)]"
           : "border-[var(--border-subtle)] bg-[var(--material-surface)] hover:border-[var(--border-overlay)] hover:bg-[var(--material-interactive-hover)]"
       }`}
     >
@@ -493,11 +555,13 @@ function ResultCard({
 
 function ContentRow({
   result,
+  displayIndex,
   selected,
   onSelect,
   onExecute,
 }: {
   result: FliunoCoreResult;
+  displayIndex: number;
   selected: boolean;
   onSelect: () => void;
   onExecute: (result: FliunoCoreResult) => void;
@@ -505,6 +569,8 @@ function ContentRow({
   return (
     <button
       type="button"
+      data-result-id={result.id}
+      data-fliuno-workspace-index={displayIndex}
       onClick={() => onExecute(result)}
       onMouseMove={onSelect}
       className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${
@@ -534,7 +600,7 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
-function ResultIcon({ kind }: { kind: FliunoCoreResultKind }) {
+function ResultIcon({ kind }: { kind: FliunoCoreResult["kind"] }) {
   switch (kind) {
     case "command":
       return <Icons.Command size={14} stroke={1.8} />;

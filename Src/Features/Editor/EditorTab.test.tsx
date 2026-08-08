@@ -19,6 +19,13 @@ vi.mock("../../Foundation/Desktop", () => ({
   DesktopError: class DesktopError extends Error {
     code = "desktop_error";
   },
+  BaseDirectory: { AppLocalData: 23 },
+  desktopFileSystem: {
+    exists: vi.fn(async () => false),
+    mkdir: vi.fn(async () => undefined),
+    readTextFile: vi.fn(async () => ""),
+    writeTextFile: vi.fn(async () => undefined),
+  },
   invokeDesktop: vi.fn(async () => undefined),
   listenDesktop: vi.fn(async () => () => undefined),
 }));
@@ -52,6 +59,7 @@ vi.mock("../../Foundation/IPC/EditorCommands", () => ({
     close: mocks.close,
     clearSyncError: vi.fn(),
     applyEdit: vi.fn(async () => ({ revision: 1, lineCount: 1, dirty: true })),
+    applyEdits: vi.fn(async () => ({ revision: 1, lineCount: 1, dirty: true })),
   },
 }));
 vi.mock("../../Core/Recovery/RecoveryStore", () => ({
@@ -71,20 +79,36 @@ vi.mock("../../Core/Recovery/RecoveryCoordinator", () => ({
 vi.mock("./AuronaEngine", async () => {
   const React = await import("react");
   return {
-    AuronaEngine: ({ onChange }: { onChange?: (value: string) => void }) =>
+    AuronaEngine: ({
+      onChange,
+      externalContent,
+    }: {
+      onChange?: (value: string) => void;
+      externalContent?: { content: string; nonce: number } | null;
+    }) =>
       React.createElement(
-        "button",
-        {
-          type: "button",
-          "data-testid": "editor-change",
-          onClick: () => onChange?.(mocks.changeValues.shift() ?? "edited"),
-        },
-        "change",
+        "div",
+        null,
+        React.createElement(
+          "button",
+          {
+            type: "button",
+            "data-testid": "editor-change",
+            onClick: () => onChange?.(mocks.changeValues.shift() ?? "edited"),
+          },
+          "change",
+        ),
+        React.createElement(
+          "span",
+          { "data-testid": "external-content" },
+          externalContent?.content ?? "",
+        ),
       ),
   };
 });
 vi.mock("../../UI/Feedback/Toast", () => ({ showToast: vi.fn() }));
 
+import { DocumentService } from "../../Core/DocumentService";
 import { EditorTab } from "./EditorTab";
 
 describe("EditorTab save checkpoints", () => {
@@ -133,5 +157,18 @@ describe("EditorTab save checkpoints", () => {
 
     expect(mocks.discardRecovery).toHaveBeenCalledWith("C:\\clean.ts");
     expect(mocks.emit).toHaveBeenCalledWith("editor:file-saved", { path: "C:\\clean.ts" });
+  });
+
+  it("forwards external workspace edits into the open editor", async () => {
+    render(<EditorTab path={"C:\\external.ts"} isActive />);
+    await screen.findByTestId("editor-change");
+
+    await act(async () => {
+      await DocumentService.applyEdits("C:\\external.ts", [], "updated external content");
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("external-content")).toHaveTextContent("updated external content"),
+    );
   });
 });

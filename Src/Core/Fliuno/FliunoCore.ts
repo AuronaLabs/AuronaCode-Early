@@ -1,7 +1,18 @@
-import type { CommandDefinition } from "../../Extension/CommandRegistry";
+import {
+  type CommandDefinition,
+  getCommandCategory,
+  getCommandTitle,
+} from "../../Extension/CommandRegistry";
 import { type I18nKey, LocaleService } from "../../Foundation/I18n";
-import type { WorkspaceFileEntry } from "../../Foundation/IPC/WorkspaceSearchCommands";
-import { SETTING_CATEGORY_KEYS, searchSettings } from "../Settings/SettingRegistry";
+import {
+  type WorkspaceFileEntry,
+  WorkspaceSearchIPC,
+} from "../../Foundation/IPC/WorkspaceSearchCommands";
+import {
+  SETTING_CATEGORY_KEYS,
+  type SettingCategory,
+  searchSettings,
+} from "../Settings/SettingRegistry";
 
 export type FliunoScope = "all" | "commands" | "files" | "settings" | "symbols" | "content";
 
@@ -26,6 +37,64 @@ export function parseFliunoQuery(value: string, selectedScope: FliunoScope): Par
     return { scope: "content", query: trimmed.slice(1).trimStart(), explicitScope: true };
   }
   return { scope: selectedScope, query: value.trim(), explicitScope: false };
+}
+
+const PREFIX_SCOPE: Record<string, FliunoScope> = {
+  ">": "commands",
+  "@": "files",
+  "#": "symbols",
+  ":": "content",
+};
+
+/**
+ * 用户主动切换 Scope 时，若输入仍带有旧的显式 Prefix，则移除该 Prefix，
+ * 保证视觉 Scope 与实际搜索 Scope 一致。
+ */
+export function queryForScope(value: string, nextScope: FliunoScope): string {
+  const trimmed = value.trimStart();
+  const prefix = trimmed[0] ?? "";
+  if (prefix in PREFIX_SCOPE && PREFIX_SCOPE[prefix] !== nextScope) {
+    return trimmed.slice(1).trimStart();
+  }
+  return value;
+}
+
+const SYNONYMS: Array<{ pattern: RegExp; words: string[] }> = [
+  {
+    pattern: /设置|偏好|选项|settings|preferences|prefs/i,
+    words: ["settings", "设置", "偏好", "preferences", "prefs"],
+  },
+  { pattern: /保存|save/i, words: ["save", "保存"] },
+  { pattern: /打开|open/i, words: ["open", "打开"] },
+  { pattern: /关闭|close/i, words: ["close", "关闭"] },
+  { pattern: /运行|run/i, words: ["run", "运行"] },
+  { pattern: /调试|debug/i, words: ["debug", "调试"] },
+  { pattern: /搜索|search/i, words: ["search", "搜索"] },
+  { pattern: /终端|terminal/i, words: ["terminal", "终端"] },
+  { pattern: /文件|file/i, words: ["file", "文件"] },
+  { pattern: /格式化|format/i, words: ["format", "格式化"] },
+  { pattern: /刷新|refresh/i, words: ["refresh", "刷新"] },
+  { pattern: /复制|copy/i, words: ["copy", "复制"] },
+  { pattern: /粘贴|paste/i, words: ["paste", "粘贴"] },
+  { pattern: /撤销|undo/i, words: ["undo", "撤销"] },
+  { pattern: /重做|redo/i, words: ["redo", "重做"] },
+  { pattern: /重命名|rename/i, words: ["rename", "重命名"] },
+  { pattern: /删除|delete/i, words: ["delete", "删除"] },
+  { pattern: /新建|创建|create|new/i, words: ["new", "新建", "create"] },
+  { pattern: /更新|update/i, words: ["update", "更新"] },
+  { pattern: /主题|theme/i, words: ["theme", "主题"] },
+  { pattern: /字体|font/i, words: ["font", "字体"] },
+  { pattern: /性能|performance|benchmark/i, words: ["performance", "性能", "benchmark"] },
+  { pattern: /账户|账号|account/i, words: ["account", "账户", "账号"] },
+];
+
+function commandKeywords(command: CommandDefinition<unknown>): string[] {
+  const source = `${command.title} ${command.id} ${command.category ?? ""}`;
+  const found: string[] = [];
+  for (const { pattern, words } of SYNONYMS) {
+    if (pattern.test(source)) found.push(...words);
+  }
+  return [...new Set(found)];
 }
 
 export interface SearchField {
@@ -172,6 +241,7 @@ export interface FliunoCoreResult {
   targetLine?: number;
   commandId?: string;
   settingId?: string;
+  settingCategory?: SettingCategory;
 }
 
 export interface FliunoCoreContext {
@@ -224,11 +294,12 @@ export async function searchFliuno(context: FliunoCoreContext): Promise<FliunoCo
       let descriptionRanges: Array<[number, number]> = [];
       if (query) {
         const fields: SearchField[] = [
-          { text: command.title, weight: 1, surface: "title" },
+          { text: getCommandTitle(command), weight: 1, surface: "title" },
           { text: command.id, weight: 1 },
-          { text: command.category ?? "", weight: 0.5, surface: "description" },
+          { text: getCommandCategory(command), weight: 0.5, surface: "description" },
           { text: acronymOf(command.id), weight: 0.9 },
-          { text: acronymOf(command.title), weight: 0.9 },
+          { text: acronymOf(getCommandTitle(command)), weight: 0.9 },
+          ...commandKeywords(command).map<SearchField>((word) => ({ text: word, weight: 0.8 })),
         ];
         const match = matchQuery(query, fields);
         if (!match) continue;
@@ -243,8 +314,8 @@ export async function searchFliuno(context: FliunoCoreContext): Promise<FliunoCo
       results.push({
         id: `command:${command.id}`,
         kind: "command",
-        title: command.title,
-        description: command.category,
+        title: getCommandTitle(command),
+        description: getCommandCategory(command),
         score,
         recent: recentIndex >= 0,
         titleRanges,
@@ -332,6 +403,7 @@ export async function searchFliuno(context: FliunoCoreContext): Promise<FliunoCo
         descriptionRanges: match.descriptionRanges,
         action: "openSettings",
         settingId: setting.id,
+        settingCategory: setting.category,
       });
     }
   }
@@ -395,7 +467,6 @@ export async function searchFliuno(context: FliunoCoreContext): Promise<FliunoCo
 
   if ((context.scope === "all" || context.scope === "content") && context.workspaceRoot && query) {
     try {
-      const { WorkspaceSearchIPC } = await import("../../Foundation/IPC/WorkspaceSearchCommands");
       const response = await WorkspaceSearchIPC.searchText(
         context.workspaceRoot,
         query,
@@ -406,21 +477,42 @@ export async function searchFliuno(context: FliunoCoreContext): Promise<FliunoCo
       for (const item of response.results.slice(0, 300)) {
         const title = fileBaseName(item.file_path);
         const description = `:${item.line_number} · ${item.match_text.trim().slice(0, 80)}`;
-        const match = matchQuery(query, [
-          { text: item.file_path, weight: 0.7, surface: "description" },
-          { text: item.match_text, weight: 0.9, surface: "description" },
-        ]);
-        if (!match) continue;
+        let titleRanges: Array<[number, number]> = [];
+        let descriptionRanges: Array<[number, number]> = [];
+        let score = 0;
+        if (context.contentRegex) {
+          // 正则模式下 backend 是唯一过滤事实来源；这里只负责展示与排序，不再做二次 fuzzy 过滤。
+          score = 500;
+          try {
+            const flags = context.contentCaseSensitive ? "" : "i";
+            const matcher = new RegExp(query, flags);
+            const match = matcher.exec(item.match_text);
+            if (match?.index !== undefined) {
+              descriptionRanges = [[match.index, match.index + Math.max(1, match[0].length)]];
+            }
+          } catch {
+            // 无效正则已由 backend 处理；展示层忽略高亮即可。
+          }
+        } else {
+          const match = matchQuery(query, [
+            { text: item.file_path, weight: 0.7, surface: "description" },
+            { text: item.match_text, weight: 0.9, surface: "description" },
+          ]);
+          if (!match) continue;
+          score = match.score;
+          titleRanges = match.titleRanges;
+          descriptionRanges = match.descriptionRanges;
+        }
         const root = context.workspaceRoot?.replace(/[\\/]+$/, "") ?? "";
         results.push({
           id: `content:${item.file_path}:${item.line_number}:${item.index}`,
           kind: "content",
           title,
           description,
-          score: match.score + 10,
+          score: score + 10,
           recent: false,
-          titleRanges: match.titleRanges,
-          descriptionRanges: match.descriptionRanges,
+          titleRanges,
+          descriptionRanges,
           action: "revealContent",
           targetPath: `${root}/${item.file_path}`,
           targetLine: item.line_number,
@@ -449,9 +541,7 @@ export class FliunoSearchSession {
     const requestId = `fliuno-${Date.now()}-${generation}`;
     if (this.lastRequestId && this.lastRequestId !== requestId) {
       const previous = this.lastRequestId;
-      void import("../../Foundation/IPC/WorkspaceSearchCommands")
-        .then(({ WorkspaceSearchIPC }) => WorkspaceSearchIPC.cancel(previous))
-        .catch(() => undefined);
+      WorkspaceSearchIPC.cancel(previous).catch(() => undefined);
     }
     this.lastRequestId = requestId;
     const next = await searchFliuno({ ...context, requestId });
@@ -465,9 +555,7 @@ export class FliunoSearchSession {
     this.generation += 1;
     if (this.lastRequestId) {
       const requestId = this.lastRequestId;
-      void import("../../Foundation/IPC/WorkspaceSearchCommands")
-        .then(({ WorkspaceSearchIPC }) => WorkspaceSearchIPC.cancel(requestId))
-        .catch(() => undefined);
+      WorkspaceSearchIPC.cancel(requestId).catch(() => undefined);
       this.lastRequestId = null;
     }
   }

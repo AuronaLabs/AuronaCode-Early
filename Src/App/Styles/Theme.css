@@ -656,11 +656,41 @@ select {
   outline: none;
 }
 
+/* Radix 菜单与下拉列表的选中态由背景高亮表达，不叠加主题焦点描边。
+   菜单项在鼠标划过时会被程序化聚焦，Chromium 的 focus-visible 判定
+   取决于上一次输入方式，导致概率性出现蓝框；这里统一收敛。
+   作用域收在菜单与列表内部，顶部菜单栏按钮仍保留键盘焦点环。 */
+[role="menu"] [role="menuitem"]:focus-visible,
+[role="menu"] [role="menuitemradio"]:focus-visible,
+[role="menu"] [role="menuitemcheckbox"]:focus-visible,
+[role="listbox"] [role="option"]:focus-visible {
+  outline: none;
+  outline-offset: 0;
+  box-shadow: none;
+}
+
 /* Fliuno 输入框的焦点由容器材质表达，不显示浏览器/主题焦点描边。 */
 [data-fliuno-input]:focus,
 [data-fliuno-input]:focus-visible {
   outline: none;
   box-shadow: none;
+}
+
+@keyframes setting-reveal-pulse {
+  0%,
+  100% {
+    background-color: transparent;
+    border-color: var(--border-subtle);
+  }
+  25% {
+    background-color: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--border-subtle));
+  }
+}
+
+.setting-reveal-flash {
+  animation: setting-reveal-pulse 1.5s ease-out;
+  border-radius: 12px;
 }
 
 button {

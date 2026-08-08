@@ -159,7 +159,7 @@ export const SourceControl = React.memo(function SourceControl() {
           checkRepo(path, true);
         } else {
           setRepoPath(path);
-          checkRepo(path);
+          checkRepo(path, true);
         }
       } catch (error) {
         console.error(error);

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CommandRegistry } from "../../Extension/CommandRegistry";
 import { desktopApp, desktopWindow } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
+import { useLocale } from "../../Foundation/I18n";
 import { isRunnable } from "../../Shared/Constants/RunConfig";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import {
@@ -19,6 +20,7 @@ const appWindow = desktopWindow;
 const runCommand = (id: string) => void CommandRegistry.execute(id);
 
 export function TitleBar() {
+  const { t } = useLocale();
   const [isMaximized, setIsMaximized] = useState(false);
   const [hasUpdate, setHasUpdate] = useState(false);
   const isTerminalOpen = useWorkbenchStore((state) => state.isBottomPanelOpen);
@@ -63,65 +65,84 @@ export function TitleBar() {
         </div>
         <MenubarRoot className="flex h-full items-center space-x-0.5 min-w-0">
           <MenubarMenu>
-            <MenubarTrigger>文件</MenubarTrigger>
+            <MenubarTrigger>{t("menu.file")}</MenubarTrigger>
             <MenubarContent>
               <MenubarItem
-                label="新建文件"
+                label={t("menu.newFile")}
                 rightElement="Ctrl+N"
                 onSelect={() => runCommand("workbench.action.files.newFile")}
               />
               <MenubarItem
-                label="新建文件夹"
+                label={t("menu.newFolder")}
                 onSelect={() => runCommand("workbench.action.files.newFolder")}
               />
               <MenubarDivider />
               <MenubarItem
-                label="打开文件..."
+                label={t("menu.openFile")}
                 onSelect={() => runCommand("workbench.action.files.openFile")}
               />
               <MenubarItem
-                label="打开文件夹..."
+                label={t("menu.openFolder")}
                 onSelect={() => runCommand("workbench.action.files.openFolder")}
               />
               <MenubarItem
-                label="保存"
+                label={t("menu.save")}
                 rightElement="Ctrl+S"
                 onSelect={() => runCommand("workbench.action.files.save")}
               />
               <MenubarDivider />
-              <MenubarItem label="退出" variant="danger" onSelect={() => appWindow.close()} />
+              <MenubarItem
+                label={t("menu.exit")}
+                variant="danger"
+                onSelect={() => appWindow.close()}
+              />
             </MenubarContent>
           </MenubarMenu>
 
           <MenubarMenu>
-            <MenubarTrigger>编辑</MenubarTrigger>
-            <MenubarContent>
-              <MenubarItem label="撤销" onSelect={() => runCommand("editor.action.undo")} />
-              <MenubarItem label="重做" onSelect={() => runCommand("editor.action.redo")} />
-              <MenubarDivider />
-              <MenubarItem label="剪切" onSelect={() => runCommand("editor.action.cut")} />
-              <MenubarItem label="复制" onSelect={() => runCommand("editor.action.copy")} />
-              <MenubarItem label="粘贴" onSelect={() => runCommand("editor.action.paste")} />
-              <MenubarDivider />
-              <MenubarItem label="全选" onSelect={() => runCommand("editor.action.selectAll")} />
-            </MenubarContent>
-          </MenubarMenu>
-
-          <MenubarMenu>
-            <MenubarTrigger>运行</MenubarTrigger>
+            <MenubarTrigger>{t("menu.edit")}</MenubarTrigger>
             <MenubarContent>
               <MenubarItem
-                label="运行"
+                label={t("menu.undo")}
+                onSelect={() => runCommand("editor.action.undo")}
+              />
+              <MenubarItem
+                label={t("menu.redo")}
+                onSelect={() => runCommand("editor.action.redo")}
+              />
+              <MenubarDivider />
+              <MenubarItem label={t("menu.cut")} onSelect={() => runCommand("editor.action.cut")} />
+              <MenubarItem
+                label={t("menu.copy")}
+                onSelect={() => runCommand("editor.action.copy")}
+              />
+              <MenubarItem
+                label={t("menu.paste")}
+                onSelect={() => runCommand("editor.action.paste")}
+              />
+              <MenubarDivider />
+              <MenubarItem
+                label={t("menu.selectAll")}
+                onSelect={() => runCommand("editor.action.selectAll")}
+              />
+            </MenubarContent>
+          </MenubarMenu>
+
+          <MenubarMenu>
+            <MenubarTrigger>{t("menu.run")}</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem
+                label={t("menu.runActive")}
                 onSelect={() => runCommand("workbench.action.runActiveFile")}
               />
             </MenubarContent>
           </MenubarMenu>
 
           <MenubarMenu>
-            <MenubarTrigger>帮助</MenubarTrigger>
+            <MenubarTrigger>{t("menu.help")}</MenubarTrigger>
             <MenubarContent>
               <MenubarItem
-                label="强制重启"
+                label={t("menu.forceRestart")}
                 onSelect={async () => {
                   try {
                     if (import.meta.env.DEV) {
@@ -142,11 +163,11 @@ export function TitleBar() {
                 }}
               />
               <MenubarItem
-                label="性能测试"
+                label={t("menu.performanceTest")}
                 onSelect={() => runCommand("workbench.action.openPerformance")}
               />
               <MenubarItem
-                label="开发者工具"
+                label={t("menu.devtools")}
                 onSelect={() => {
                   void CommandRegistry.execute("workbench.action.openDevtools").then((result) => {
                     if (result.error) {
@@ -160,11 +181,11 @@ export function TitleBar() {
               />
               <MenubarDivider />
               <MenubarItem
-                label="版本更新记录"
+                label={t("menu.changelog")}
                 onSelect={() => runCommand("workbench.action.openChangelog")}
               />
               <MenubarItem
-                label="关于 Aurona Code"
+                label={t("menu.about")}
                 onSelect={() => runCommand("workbench.action.openAbout")}
               />
             </MenubarContent>
@@ -173,7 +194,7 @@ export function TitleBar() {
       </div>
 
       <div className="flex h-full items-center pr-3 gap-2 shrink-0">
-        <Tooltip content="打开 Fliuno 全局搜索" delay={300} placement="bottom">
+        <Tooltip content={t("fliuno.titleBarTooltip")} delay={300} placement="bottom">
           <button
             type="button"
             className="mr-2 flex h-[26px] cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 text-[12px] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
@@ -185,7 +206,7 @@ export function TitleBar() {
         </Tooltip>
 
         {activeFilePath && isRunnable(activeFilePath) && (
-          <Tooltip content="运行当前文件" delay={300} placement="bottom">
+          <Tooltip content={t("titleBar.runActiveFile")} delay={300} placement="bottom">
             <button
               type="button"
               className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-highlight)] transition-colors mr-2"
@@ -197,7 +218,7 @@ export function TitleBar() {
         )}
 
         {hasUpdate && (
-          <Tooltip content="发现新版本" delay={300} placement="bottom">
+          <Tooltip content={t("titleBar.updateAvailable")} delay={300} placement="bottom">
             <button
               type="button"
               className="relative mr-1 flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg text-[var(--color-accent)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-accent-hover)]"
@@ -209,7 +230,7 @@ export function TitleBar() {
           </Tooltip>
         )}
 
-        <Tooltip content="切换底侧面板" delay={500} placement="bottom">
+        <Tooltip content={t("titleBar.togglePanel")} delay={500} placement="bottom">
           <button
             type="button"
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
@@ -223,7 +244,7 @@ export function TitleBar() {
           </button>
         </Tooltip>
         <div className="w-px h-[14px] bg-[var(--border-subtle)] mx-0.5" />
-        <Tooltip content="最小化" delay={500} placement="bottom">
+        <Tooltip content={t("titleBar.minimize")} delay={500} placement="bottom">
           <button
             type="button"
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
@@ -232,7 +253,11 @@ export function TitleBar() {
             <Icons.Minimize size={15} stroke={2} />
           </button>
         </Tooltip>
-        <Tooltip content={isMaximized ? "向下还原" : "最大化"} delay={500} placement="bottom">
+        <Tooltip
+          content={isMaximized ? t("titleBar.restore") : t("titleBar.maximize")}
+          delay={500}
+          placement="bottom"
+        >
           <button
             type="button"
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
@@ -245,7 +270,7 @@ export function TitleBar() {
             )}
           </button>
         </Tooltip>
-        <Tooltip content="关闭" delay={500} placement="bottom">
+        <Tooltip content={t("titleBar.close")} delay={500} placement="bottom">
           <button
             type="button"
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--DiagError)] hover:text-white transition-colors"

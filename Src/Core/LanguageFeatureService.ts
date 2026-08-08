@@ -1,9 +1,12 @@
 import { EventBus } from "../Foundation/EventBus";
+import { FileSystemCommands } from "../Foundation/IPC/FileSystemCommands";
+import { fileUriToPath } from "../Shared/Utils/UriUtils";
 import { DiagnosticsService } from "./DiagnosticsService";
 import { DocumentService } from "./DocumentService";
 import { LspClient, type LspFeature, type LspLocation } from "./Language/LspClient";
-import { applyLspTextEdits, type LspTextEdit } from "./Language/TextEdits";
-import { OutputService } from "./OutputService";
+import { applyLspTextEdits, type LspTextEdit, positionToUtf16Offset } from "./Language/TextEdits";
+import { LocationResultsStore } from "./LocationResultsStore";
+import { NavigationHistory } from "./NavigationHistory";
 
 interface LocationLink {
   targetUri: string;
@@ -19,7 +22,11 @@ export interface WorkspaceEdit {
 }
 
 export interface WorkspaceEditPreview {
-  files: Array<{ uri: string; editCount: number }>;
+  files: Array<{
+    uri: string;
+    editCount: number;
+    edits: Array<{ line: number; oldText: string; newText: string }>;
+  }>;
   totalEdits: number;
 }
 
@@ -31,14 +38,6 @@ export interface LanguageCodeAction {
   command?: { command: string; arguments?: unknown[] };
   data?: unknown;
 }
-
-const uriToPath = (uri: string): string => {
-  const url = new URL(uri);
-  let path = decodeURIComponent(url.pathname);
-  if (/^\/[A-Za-z]:\//.test(path)) path = path.slice(1);
-  if (url.host) path = `//${url.host}${path}`;
-  return path.replace(/\//g, "\\");
-};
 
 class LanguageFeatureServiceImpl {
   private ensureCapability(language: string, feature: LspFeature): void {
@@ -69,14 +68,24 @@ class LanguageFeatureServiceImpl {
     const locations = values.map((value: LspLocation | LocationLink) =>
       "targetUri" in value ? { uri: value.targetUri, range: value.targetSelectionRange } : value,
     );
+    NavigationHistory.record({ path, line: line + 1, character: character + 1 });
     if (locations.length === 1) {
       const location = locations[0];
-      EventBus.emit("editor:reveal-location", {
-        path: uriToPath(location.uri),
-        line: location.range.start.line + 1,
-      });
-    } else {
-      this.writeLocations("Definitions", locations);
+      const targetPath = fileUriToPath(location.uri);
+      if (targetPath) {
+        EventBus.emit("editor:reveal-location", {
+          path: targetPath,
+          line: location.range.start.line + 1,
+        });
+        NavigationHistory.record({
+          path: targetPath,
+          line: location.range.start.line + 1,
+          character: location.range.start.character + 1,
+        });
+      }
+    } else if (locations.length > 1) {
+      await LocationResultsStore.open("definition", "Definitions", locations);
+      EventBus.emit("language:open-location-results");
     }
     return locations;
   }
@@ -89,7 +98,11 @@ class LanguageFeatureServiceImpl {
   ): Promise<LspLocation[]> {
     this.ensureCapability(language, "references");
     const locations = await LspClient.getInstance().getReferences(language, path, line, character);
-    this.writeLocations("References", locations);
+    if (locations.length > 0) {
+      NavigationHistory.record({ path, line: line + 1, character: character + 1 });
+      await LocationResultsStore.open("references", "References", locations);
+      EventBus.emit("language:open-location-results");
+    }
     return locations;
   }
 
@@ -109,7 +122,55 @@ class LanguageFeatureServiceImpl {
       character,
       newName,
     )) as WorkspaceEdit;
-    return { edit, preview: this.describeWorkspaceEdit(edit) };
+    return { edit, preview: await this.previewWorkspaceEdit(edit) };
+  }
+
+  /**
+   * 共享的多文件修改预览：读取每个目标文档当前内容，计算每处修改的原文与新文。
+   * Rename、Code Action 与未来的重构/AI 编辑共用同一套 Preview / Apply 机制。
+   */
+  async previewWorkspaceEdit(edit: WorkspaceEdit): Promise<WorkspaceEditPreview> {
+    const entries = this.textDocumentEdits(edit);
+    const files: WorkspaceEditPreview["files"] = [];
+    for (const entry of entries) {
+      const path = fileUriToPath(entry.uri) ?? entry.uri;
+      let content = DocumentService.get(path)?.content;
+      if (content === undefined) {
+        content = await FileSystemCommands.readTextFile(path);
+      }
+      const edits = entry.edits
+        .map((textEdit) => {
+          const start = positionToUtf16Offset(content, textEdit.range.start);
+          const end = positionToUtf16Offset(content, textEdit.range.end);
+          return {
+            line: textEdit.range.start.line + 1,
+            oldText: content.slice(start, end),
+            newText: textEdit.newText,
+          };
+        })
+        .sort((left, right) => left.line - right.line);
+      files.push({ uri: entry.uri, editCount: entry.edits.length, edits });
+    }
+    return {
+      files,
+      totalEdits: files.reduce((total, file) => total + file.editCount, 0),
+    };
+  }
+
+  async previewCodeAction(
+    language: string,
+    action: LanguageCodeAction,
+  ): Promise<{ edit: WorkspaceEdit; preview: WorkspaceEditPreview } | null> {
+    if (action.disabled) throw new Error(action.disabled.reason);
+    let resolved = action;
+    if (!action.edit && action.data !== undefined) {
+      resolved = (await LspClient.getInstance().resolveCodeAction(
+        language,
+        action,
+      )) as LanguageCodeAction;
+    }
+    if (!resolved.edit) return null;
+    return { edit: resolved.edit, preview: await this.previewWorkspaceEdit(resolved.edit) };
   }
 
   async getCodeActions(
@@ -161,7 +222,7 @@ class LanguageFeatureServiceImpl {
       expectedVersion?: number | null;
     }> = [];
     for (const entry of entries) {
-      const path = uriToPath(entry.uri);
+      const path = fileUriToPath(entry.uri) ?? entry.uri;
       const document = DocumentService.get(path);
       if (!document) {
         throw new Error(`Workspace edit targets a document that is not open: ${path}`);
@@ -184,14 +245,6 @@ class LanguageFeatureServiceImpl {
     }
   }
 
-  private describeWorkspaceEdit(edit: WorkspaceEdit): WorkspaceEditPreview {
-    const entries = this.textDocumentEdits(edit);
-    return {
-      files: entries.map((entry) => ({ uri: entry.uri, editCount: entry.edits.length })),
-      totalEdits: entries.reduce((total, entry) => total + entry.edits.length, 0),
-    };
-  }
-
   private textDocumentEdits(edit: WorkspaceEdit) {
     const entries: Array<{ uri: string; version?: number | null; edits: LspTextEdit[] }> = [];
     for (const [uri, edits] of Object.entries(edit.changes ?? {})) {
@@ -208,16 +261,6 @@ class LanguageFeatureServiceImpl {
       });
     }
     return entries;
-  }
-
-  private writeLocations(title: string, locations: readonly LspLocation[]): void {
-    OutputService.append("language-server", `${title}: ${locations.length} result(s)`);
-    for (const location of locations) {
-      OutputService.append(
-        "language-server",
-        `${uriToPath(location.uri)}:${location.range.start.line + 1}:${location.range.start.character + 1}`,
-      );
-    }
   }
 }
 

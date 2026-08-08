@@ -4,7 +4,7 @@
   <p><strong>写代码这件事，值得一个更舒服的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.3.9-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.3.10-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
   </p>

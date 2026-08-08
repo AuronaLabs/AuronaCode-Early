@@ -15,6 +15,10 @@ export interface DebugBreakpoint {
   line: number;
   verified?: boolean;
   message?: string;
+  enabled?: boolean;
+  condition?: string;
+  hitCondition?: string;
+  logMessage?: string;
 }
 
 export interface DebugStackFrame {
@@ -41,6 +45,13 @@ export interface DebugScope {
   expensive?: boolean;
 }
 
+export interface DebugWatchExpression {
+  id: string;
+  expression: string;
+  value?: string;
+  error?: string;
+}
+
 interface DebugStore {
   state: DebugState;
   sessionId: string | null;
@@ -48,18 +59,25 @@ interface DebugStore {
   configurations: DebugConfiguration[];
   selectedConfiguration: string | null;
   threads: Array<{ id: number; name: string }>;
+  selectedThreadId: number | null;
   stackFrames: DebugStackFrame[];
   selectedFrameId: number | null;
   scopes: DebugScope[];
   variablesByReference: Record<number, DebugVariable[]>;
   loadingVariableReferences: number[];
+  variablePagination: Record<number, { nextStart: number; hasMore: boolean }>;
   breakpoints: DebugBreakpoint[];
+  watchExpressions: DebugWatchExpression[];
+  changedVariables: string[];
   error: string | null;
   dependencyState: DebugDependencyState;
   dependencyMessage: string | null;
   pythonPath: string | null;
   set(patch: Partial<DebugStore>): void;
   toggleBreakpoint(path: string, line: number): void;
+  setBreakpointEnabled(path: string, line: number, enabled: boolean): void;
+  removeAllBreakpoints(): void;
+  setAllBreakpointsEnabled(enabled: boolean): void;
   reset(): void;
 }
 
@@ -70,12 +88,16 @@ const initial = {
   configurations: [] as DebugConfiguration[],
   selectedConfiguration: null,
   threads: [],
+  selectedThreadId: null,
   stackFrames: [],
   selectedFrameId: null,
   scopes: [],
   variablesByReference: {},
   loadingVariableReferences: [],
+  variablePagination: {},
   breakpoints: [],
+  watchExpressions: [],
+  changedVariables: [],
   error: null,
   dependencyState: "unknown" as DebugDependencyState,
   dependencyMessage: null,
@@ -90,6 +112,17 @@ export const useDebugStore = create<DebugStore>((set) => ({
       breakpoints: state.breakpoints.some((item) => item.path === path && item.line === line)
         ? state.breakpoints.filter((item) => item.path !== path || item.line !== line)
         : [...state.breakpoints, { path, line }],
+    })),
+  setBreakpointEnabled: (path, line, enabled) =>
+    set((state) => ({
+      breakpoints: state.breakpoints.map((item) =>
+        item.path === path && item.line === line ? { ...item, enabled } : item,
+      ),
+    })),
+  removeAllBreakpoints: () => set({ breakpoints: [] }),
+  setAllBreakpointsEnabled: (enabled) =>
+    set((state) => ({
+      breakpoints: state.breakpoints.map((item) => ({ ...item, enabled })),
     })),
   reset: () => set(initial),
 }));

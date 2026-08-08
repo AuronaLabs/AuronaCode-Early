@@ -11,6 +11,13 @@ export type SettingCategory =
   | "system"
   | "advanced";
 
+/**
+ * Registry 的职责边界：
+ * - 只登记「可搜索的偏好项」（Preference）：有默认值、可被设置 UI 修改。
+ * - 按钮动作（检查更新/初始化重置/清理）、导航目标（Git Remote 页、性能测试）不属于 Preference，
+ *   不登记为 Setting，避免产生假的 source of truth。
+ * 设置 UI 与 Fliuno Settings Provider 都以本注册表为搜索数据源。
+ */
 export type SettingType = "boolean" | "number" | "string" | "select";
 
 export interface SettingDefinition {
@@ -105,6 +112,16 @@ registerSetting({
 });
 
 registerSetting({
+  id: "language",
+  category: "general",
+  titleKey: "settings.definitions.language.title",
+  descriptionKey: "settings.definitions.language.description",
+  keywords: ["language", "locale", "i18n", "语言", "界面语言"],
+  type: "select",
+  defaultValue: "zh-CN",
+});
+
+registerSetting({
   id: "accentTheme",
   category: "appearance",
   titleKey: "settings.definitions.accentTheme.title",
@@ -122,6 +139,16 @@ registerSetting({
   keywords: ["flowing", "light", "liquid", "流光", "液态", "光带"],
   type: "boolean",
   defaultValue: false,
+});
+
+registerSetting({
+  id: "materialIntensity",
+  category: "appearance",
+  titleKey: "settings.definitions.materialIntensity.title",
+  descriptionKey: "settings.definitions.materialIntensity.description",
+  keywords: ["material", "glass", "intensity", "拟物", "毛玻璃", "强度"],
+  type: "select",
+  defaultValue: "medium",
 });
 
 registerSetting({
@@ -195,6 +222,17 @@ registerSetting({
 });
 
 registerSetting({
+  id: "editorMinimap",
+  category: "editor",
+  titleKey: "settings.definitions.editorMinimap.title",
+  descriptionKey: "settings.definitions.editorMinimap.description",
+  keywords: ["minimap", "thumbnail", "缩略图"],
+  type: "boolean",
+  defaultValue: false,
+  experimental: true,
+});
+
+registerSetting({
   id: "terminalFontSize",
   category: "terminalRun",
   titleKey: "settings.definitions.terminalFontSize.title",
@@ -212,6 +250,36 @@ registerSetting({
   keywords: ["terminal", "cursor", "blink", "终端", "光标", "闪烁"],
   type: "boolean",
   defaultValue: true,
+});
+
+registerSetting({
+  id: "openSidebarOnStart",
+  category: "terminalRun",
+  titleKey: "settings.definitions.openSidebarOnStart.title",
+  descriptionKey: "settings.definitions.openSidebarOnStart.description",
+  keywords: ["debug", "sidebar", "调试", "侧栏"],
+  type: "boolean",
+  defaultValue: true,
+});
+
+registerSetting({
+  id: "consoleMode",
+  category: "terminalRun",
+  titleKey: "settings.definitions.consoleMode.title",
+  descriptionKey: "settings.definitions.consoleMode.description",
+  keywords: ["debug", "console", "调试", "控制台"],
+  type: "select",
+  defaultValue: "integrated",
+});
+
+registerSetting({
+  id: "adapterLogLevel",
+  category: "terminalRun",
+  titleKey: "settings.definitions.adapterLogLevel.title",
+  descriptionKey: "settings.definitions.adapterLogLevel.description",
+  keywords: ["adapter", "debug", "log", "日志", "调试"],
+  type: "select",
+  defaultValue: "info",
 });
 
 registerSetting({

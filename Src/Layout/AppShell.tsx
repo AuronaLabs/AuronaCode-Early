@@ -6,8 +6,9 @@ import { EventBus } from "../Foundation/EventBus";
 import {
   SIDEBAR_DEBUG,
   SIDEBAR_EXPLORER,
+  SIDEBAR_FLIUNO,
   SIDEBAR_NOTIFICATIONS,
-  SIDEBAR_SEARCH,
+  SIDEBAR_OUTLINE,
   SIDEBAR_SOURCE_CONTROL,
 } from "../Shared/Constants/Sidebar";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
@@ -52,12 +53,13 @@ export function AppShell({ Children }: AppShellProps) {
   }> = [
     { label: SIDEBAR_EXPLORER, Icon: Icons.Files, badge: false },
     {
-      label: SIDEBAR_SEARCH,
+      label: SIDEBAR_FLIUNO,
       Icon: Icons.Search,
       badge: false,
       commandId: "workbench.action.openFliunoWorkspace",
     },
     { label: SIDEBAR_SOURCE_CONTROL, Icon: Icons.Git, badge: gitChangeCount > 0 },
+    { label: SIDEBAR_OUTLINE, Icon: Icons.List, badge: false },
     { label: SIDEBAR_DEBUG, Icon: Icons.Debug, badge: false },
   ];
 
@@ -108,7 +110,14 @@ export function AppShell({ Children }: AppShellProps) {
             />
             <ActivitySquare
               onClick={() => {
-                void CommandRegistry.execute("workbench.action.openSettings");
+                void CommandRegistry.execute("workbench.action.openSettings").then((result) => {
+                  if (!result.ok && result.error) {
+                    EventBus.emit("app:toast", {
+                      type: "warning",
+                      message: result.error.message,
+                    });
+                  }
+                });
               }}
               title="设置"
               icon={<Icons.Settings size={22} stroke={1.5} />}

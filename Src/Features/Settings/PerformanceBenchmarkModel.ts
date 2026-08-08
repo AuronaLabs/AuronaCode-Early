@@ -1,4 +1,4 @@
-export type BenchmarkKind = "ipc" | "ui" | "filesystem" | "editor" | "search";
+export type BenchmarkKind = "ipc" | "ui" | "filesystem" | "editor" | "search" | "encoding";
 
 export interface PerformanceEnvironment {
   appVersion: string;

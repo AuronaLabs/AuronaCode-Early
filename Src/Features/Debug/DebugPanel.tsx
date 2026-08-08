@@ -1,7 +1,8 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { DebugConfigurationService } from "../../Core/DebugConfigurationService";
 import { DebugService } from "../../Core/DebugService";
-import { type DebugVariable, useDebugStore } from "../../State/useDebugStore";
+import { useLocale } from "../../Foundation/I18n";
+import { type DebugBreakpoint, type DebugVariable, useDebugStore } from "../../State/useDebugStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Button } from "../../UI/Components/Button";
 import {
@@ -9,12 +10,14 @@ import {
   glassListHeaderStyles,
   glassListRowStyles,
 } from "../../UI/Components/GlassList";
+import { Modal } from "../../UI/Components/Modal";
 import { Select } from "../../UI/Components/Select";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 
 export function DebugPanel() {
+  const { t } = useLocale();
   const debug = useDebugStore();
   const activeFile = useWorkbenchStore((state) => {
     const tab = state.tabs.find((item) => item.id === state.activeTabId);
@@ -33,9 +36,33 @@ export function DebugPanel() {
     ? DebugConfigurationService.getApplicability(selected, activeFile)
     : null;
   const showContextEmpty = !running && !debug.error && (!activeFile || !applicability?.supported);
+  const [editingBreakpoint, setEditingBreakpoint] = useState<DebugBreakpoint | null>(null);
+  const [breakpointDraft, setBreakpointDraft] = useState({
+    condition: "",
+    hitCondition: "",
+    logMessage: "",
+  });
 
   const start = () => {
     if (selected) void DebugService.start(selected, activeFile);
+  };
+
+  const saveBreakpoint = () => {
+    if (!editingBreakpoint) return;
+    debug.set({
+      breakpoints: debug.breakpoints.map((item) =>
+        item.path === editingBreakpoint.path && item.line === editingBreakpoint.line
+          ? {
+              ...item,
+              condition: breakpointDraft.condition.trim() || undefined,
+              hitCondition: breakpointDraft.hitCondition.trim() || undefined,
+              logMessage: breakpointDraft.logMessage.trim() || undefined,
+            }
+          : item,
+      ),
+    });
+    setEditingBreakpoint(null);
+    void DebugService.syncBreakpoints();
   };
 
   return (
@@ -156,6 +183,33 @@ export function DebugPanel() {
 
             <GlassList className="mx-[var(--PanelPaddingX)] mt-2">
               <DebugSection
+                title={t("debug.threads")}
+                icon={<Icons.Debug size={14} />}
+                count={debug.threads.length}
+                empty="程序暂停后，这里会显示所有线程。"
+              >
+                {debug.threads.map((thread) => (
+                  <button
+                    type="button"
+                    key={thread.id}
+                    className={`${glassListRowStyles} w-full text-left ${
+                      thread.id === debug.selectedThreadId ? "bg-[var(--material-panel)]" : ""
+                    }`}
+                    onClick={() => void DebugService.selectThread(thread.id)}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--color-text-primary)]">
+                      {thread.name}
+                    </span>
+                    <span className="font-mono text-[9px] text-[var(--color-text-muted)]">
+                      #{thread.id}
+                    </span>
+                  </button>
+                ))}
+              </DebugSection>
+
+              <WatchSection />
+
+              <DebugSection
                 title="调用栈"
                 icon={<Icons.Stack size={14} />}
                 count={debug.stackFrames.length}
@@ -205,28 +259,73 @@ export function DebugPanel() {
                     variables={debug.variablesByReference[scope.variablesReference] ?? []}
                     variablesByReference={debug.variablesByReference}
                     loadingReferences={debug.loadingVariableReferences}
+                    changedVariables={debug.changedVariables}
+                    variablePagination={debug.variablePagination}
                   />
                 ))}
               </DebugSection>
 
               <DebugSection
-                title="断点"
+                title={t("debug.breakpoints")}
                 icon={<Icons.Breakpoint size={14} />}
                 count={debug.breakpoints.length}
                 empty="点击编辑器行号左侧即可添加断点。"
               >
+                {debug.breakpoints.length > 0 && (
+                  <div className="flex items-center gap-1 px-1 pb-1">
+                    <button
+                      type="button"
+                      className="rounded-md px-1.5 py-1 text-[9px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+                      onClick={() => void DebugService.setAllBreakpointsEnabled(true)}
+                    >
+                      {t("debug.enableAll")}
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-md px-1.5 py-1 text-[9px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+                      onClick={() => void DebugService.setAllBreakpointsEnabled(false)}
+                    >
+                      {t("debug.disableAll")}
+                    </button>
+                    <button
+                      type="button"
+                      className="ml-auto rounded-md px-1.5 py-1 text-[9px] text-red-500/80 hover:bg-red-500/10 hover:text-red-500"
+                      onClick={() => void DebugService.removeAllBreakpoints()}
+                    >
+                      {t("debug.removeAll")}
+                    </button>
+                  </div>
+                )}
                 {debug.breakpoints.map((breakpoint) => (
                   <div
                     key={`${breakpoint.path}:${breakpoint.line}`}
-                    className={`${glassListRowStyles} min-w-0 gap-2`}
+                    className={`${glassListRowStyles} min-w-0 gap-2 ${
+                      breakpoint.enabled === false ? "opacity-45" : ""
+                    }`}
                   >
-                    <span
-                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                        breakpoint.verified === false
-                          ? "border border-[var(--DiagError)]"
-                          : "bg-[var(--DiagError)] shadow-[0_0_0_2px_color-mix(in_srgb,var(--DiagError)_12%,transparent)]"
-                      }`}
-                    />
+                    <button
+                      type="button"
+                      aria-label={`${breakpoint.enabled === false ? t("debug.enableAll") : t("debug.disableAll")} ${fileName(breakpoint.path)} ${breakpoint.line}`}
+                      onClick={() => {
+                        debug.setBreakpointEnabled(
+                          breakpoint.path,
+                          breakpoint.line,
+                          breakpoint.enabled === false,
+                        );
+                        void DebugService.syncBreakpoints();
+                      }}
+                      className="shrink-0"
+                    >
+                      <span
+                        className={`block h-2.5 w-2.5 rounded-full ${
+                          breakpoint.enabled === false
+                            ? "border border-[var(--DiagError)] opacity-40"
+                            : breakpoint.verified === false
+                              ? "border border-[var(--DiagError)]"
+                              : "bg-[var(--DiagError)] shadow-[0_0_0_2px_color-mix(in_srgb,var(--DiagError)_12%,transparent)]"
+                        }`}
+                      />
+                    </button>
                     <button
                       type="button"
                       className="min-w-0 flex-1 text-left"
@@ -241,8 +340,32 @@ export function DebugPanel() {
                         {fileName(breakpoint.path)}
                       </div>
                       <div className="truncate text-[9px] text-[var(--color-text-muted)]">
-                        第 {breakpoint.line} 行
+                        第 {breakpoint.line} 行 ·{" "}
+                        {breakpoint.enabled === false
+                          ? t("debug.disabled")
+                          : breakpoint.verified
+                            ? t("debug.verified")
+                            : t("debug.unverified")}
+                        {breakpoint.message ? ` · ${breakpoint.message}` : ""}
+                        {breakpoint.condition ? ` · if ${breakpoint.condition}` : ""}
+                        {breakpoint.hitCondition ? ` · hit ${breakpoint.hitCondition}` : ""}
+                        {breakpoint.logMessage ? " · log" : ""}
                       </div>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={t("debug.editBreakpoint")}
+                      className="rounded-md p-1 text-[9px] text-[var(--color-text-muted)] opacity-0 transition-opacity hover:text-[var(--color-text-highlight)] group-hover:opacity-100 focus-visible:opacity-100"
+                      onClick={() => {
+                        setBreakpointDraft({
+                          condition: breakpoint.condition ?? "",
+                          hitCondition: breakpoint.hitCondition ?? "",
+                          logMessage: breakpoint.logMessage ?? "",
+                        });
+                        setEditingBreakpoint(breakpoint);
+                      }}
+                    >
+                      {t("debug.editBreakpoint")}
                     </button>
                     <button
                       type="button"
@@ -262,6 +385,64 @@ export function DebugPanel() {
           </div>
         </>
       )}
+      <Modal
+        isOpen={editingBreakpoint !== null}
+        onClose={() => setEditingBreakpoint(null)}
+        title={t("debug.editBreakpoint")}
+        icon={<Icons.Breakpoint size={18} />}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEditingBreakpoint(null)}>
+              {t("language.cancel")}
+            </Button>
+            <Button variant="primary" onClick={saveBreakpoint}>
+              {t("debug.save")}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <label className="block space-y-1">
+            <span className="text-[11px] font-medium text-[var(--color-text-primary)]">
+              {t("debug.condition")}
+            </span>
+            <input
+              value={breakpointDraft.condition}
+              onChange={(event) =>
+                setBreakpointDraft((draft) => ({ ...draft, condition: event.target.value }))
+              }
+              placeholder={t("debug.conditionPlaceholder")}
+              className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 font-mono text-[12px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-[11px] font-medium text-[var(--color-text-primary)]">
+              {t("debug.hitCondition")}
+            </span>
+            <input
+              value={breakpointDraft.hitCondition}
+              onChange={(event) =>
+                setBreakpointDraft((draft) => ({ ...draft, hitCondition: event.target.value }))
+              }
+              placeholder={t("debug.hitConditionPlaceholder")}
+              className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 font-mono text-[12px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-[11px] font-medium text-[var(--color-text-primary)]">
+              {t("debug.logMessage")}
+            </span>
+            <input
+              value={breakpointDraft.logMessage}
+              onChange={(event) =>
+                setBreakpointDraft((draft) => ({ ...draft, logMessage: event.target.value }))
+              }
+              placeholder={t("debug.logMessagePlaceholder")}
+              className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 font-mono text-[12px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
+            />
+          </label>
+        </div>
+      </Modal>
     </section>
   );
 }
@@ -380,11 +561,15 @@ function VariableScope({
   variables,
   variablesByReference,
   loadingReferences,
+  changedVariables,
+  variablePagination,
 }: {
   name: string;
   variables: DebugVariable[];
   variablesByReference: Record<number, DebugVariable[]>;
   loadingReferences: number[];
+  changedVariables: string[];
+  variablePagination: Record<number, { nextStart: number; hasMore: boolean }>;
 }) {
   const [expandedReferences, setExpandedReferences] = useState<Set<number>>(() => new Set());
   const toggleReference = (reference: number) => {
@@ -413,6 +598,10 @@ function VariableScope({
             variablesByReference={variablesByReference}
             loadingReferences={loadingReferences}
             expandedReferences={expandedReferences}
+            changed={changedVariables.includes(`${name}.${variable.evaluateName ?? variable.name}`)}
+            pagination={variablePagination[variable.variablesReference]}
+            totalHint={variable.namedVariables ?? variable.indexedVariables}
+            variablePagination={variablePagination}
             onToggle={toggleReference}
           />
         ))}
@@ -427,6 +616,10 @@ function VariableRow({
   variablesByReference,
   loadingReferences,
   expandedReferences,
+  changed,
+  pagination,
+  totalHint,
+  variablePagination,
   onToggle,
 }: {
   variable: DebugVariable;
@@ -434,23 +627,29 @@ function VariableRow({
   variablesByReference: Record<number, DebugVariable[]>;
   loadingReferences: number[];
   expandedReferences: Set<number>;
+  changed: boolean;
+  pagination?: { nextStart: number; hasMore: boolean };
+  totalHint?: number;
+  variablePagination: Record<number, { nextStart: number; hasMore: boolean }>;
   onToggle: (reference: number) => void;
 }) {
+  const { t } = useLocale();
   const expandable = variable.variablesReference > 0;
   const expanded = expandable && expandedReferences.has(variable.variablesReference);
   const loading = loadingReferences.includes(variable.variablesReference);
   const children = variablesByReference[variable.variablesReference] ?? [];
   return (
     <>
-      <button
-        type="button"
-        className="grid h-7 w-full min-w-0 grid-cols-[minmax(70px,0.8fr)_minmax(0,1.2fr)] items-center gap-2 rounded-md pr-2 text-left text-[10px] hover:bg-[var(--material-interactive-hover)] disabled:cursor-default"
+      <div
+        className="group grid h-7 w-full min-w-0 grid-cols-[minmax(70px,0.8fr)_minmax(0,1.2fr)_auto] items-center gap-1 rounded-md pr-1 text-left text-[10px] hover:bg-[var(--material-interactive-hover)]"
         style={{ paddingLeft: `${8 + depth * 14}px` }}
-        disabled={!expandable}
-        onClick={() => expandable && onToggle(variable.variablesReference)}
-        title={variable.evaluateName ?? `${variable.name}: ${variable.value}`}
       >
-        <span className="flex min-w-0 items-center gap-1">
+        <button
+          type="button"
+          className="flex h-7 min-w-0 items-center gap-1 disabled:cursor-default"
+          disabled={!expandable}
+          onClick={() => expandable && onToggle(variable.variablesReference)}
+        >
           <span className="flex h-3 w-3 shrink-0 items-center justify-center text-[var(--color-text-muted)]">
             {expandable && (
               <Icons.ChevronRight
@@ -462,9 +661,18 @@ function VariableRow({
           <span className="truncate font-medium text-[var(--color-text-primary)]">
             {variable.name}
           </span>
-        </span>
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate font-mono text-[var(--color-text-muted)]">
+        </button>
+        <button
+          type="button"
+          className="flex h-7 min-w-0 items-center gap-1.5 disabled:cursor-default"
+          disabled={!expandable}
+          onClick={() => expandable && onToggle(variable.variablesReference)}
+        >
+          <span
+            className={`truncate font-mono ${
+              changed ? "text-amber-500" : "text-[var(--color-text-muted)]"
+            }`}
+          >
             {loading && expanded ? "正在读取…" : variable.value}
           </span>
           {variable.type && (
@@ -472,8 +680,28 @@ function VariableRow({
               {variable.type}
             </span>
           )}
+        </button>
+        <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          {variable.evaluateName && (
+            <button
+              type="button"
+              aria-label="复制表达式"
+              className="rounded p-0.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)]"
+              onClick={() => void navigator.clipboard.writeText(variable.evaluateName as string)}
+            >
+              <Icons.Copy size={10} />
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label="复制值"
+            className="rounded p-0.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)]"
+            onClick={() => void navigator.clipboard.writeText(variable.value)}
+          >
+            <Icons.Copy size={10} />
+          </button>
         </span>
-      </button>
+      </div>
       {expanded &&
         children.map((child) => (
           <VariableRow
@@ -483,9 +711,29 @@ function VariableRow({
             variablesByReference={variablesByReference}
             loadingReferences={loadingReferences}
             expandedReferences={expandedReferences}
+            changed={false}
+            pagination={variablePagination[child.variablesReference]}
+            totalHint={child.namedVariables ?? child.indexedVariables}
+            variablePagination={variablePagination}
             onToggle={onToggle}
           />
         ))}
+      {expanded && pagination?.hasMore && (
+        <button
+          type="button"
+          className="rounded-md py-1 pr-2 text-[9px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+          style={{ paddingLeft: `${18 + depth * 14}px` }}
+          onClick={() =>
+            void DebugService.loadVariables(
+              variable.variablesReference,
+              pagination.nextStart,
+              totalHint,
+            )
+          }
+        >
+          {t("debug.loadMore")}
+        </button>
+      )}
     </>
   );
 }
@@ -559,6 +807,78 @@ function DebugSection({
           </div>
         ))}
     </section>
+  );
+}
+
+function WatchSection() {
+  const { t } = useLocale();
+  const watchExpressions = useDebugStore((state) => state.watchExpressions);
+  const [draft, setDraft] = useState("");
+
+  const add = () => {
+    const expression = draft.trim();
+    if (!expression) return;
+    void DebugService.addWatch(expression);
+    setDraft("");
+  };
+
+  return (
+    <DebugSection
+      title={t("debug.watches")}
+      icon={<Icons.Variables size={14} />}
+      count={watchExpressions.length}
+      empty="程序暂停后，可在这里添加监视表达式。"
+    >
+      <div className="flex items-center gap-1 px-1 pb-1.5">
+        <input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") add();
+          }}
+          placeholder={t("debug.addWatch")}
+          className="h-6 min-w-0 flex-1 rounded-md border border-[var(--border-subtle)] bg-[var(--material-panel)] px-2 text-[10px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
+        />
+        <button
+          type="button"
+          disabled={!draft.trim()}
+          onClick={add}
+          className="rounded-md px-1.5 py-1 text-[9px] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {t("debug.addWatch")}
+        </button>
+      </div>
+      {watchExpressions.map((entry) => (
+        <div key={entry.id} className={`${glassListRowStyles} min-w-0 gap-2`}>
+          <button
+            type="button"
+            className="min-w-0 flex-1 text-left"
+            onClick={() => void DebugService.updateWatchExpression(entry.id, entry.expression)}
+          >
+            <div className="truncate font-mono text-[10px] font-medium text-[var(--color-text-primary)]">
+              {entry.expression}
+            </div>
+            {entry.error ? (
+              <div className="truncate text-[9px] text-red-500">{entry.error}</div>
+            ) : (
+              entry.value !== undefined && (
+                <div className="truncate text-[9px] text-[var(--color-text-muted)]">
+                  {entry.value}
+                </div>
+              )
+            )}
+          </button>
+          <button
+            type="button"
+            aria-label={`${t("debug.removeWatch")} ${entry.expression}`}
+            className="rounded-md p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 focus-visible:opacity-100"
+            onClick={() => DebugService.removeWatch(entry.id)}
+          >
+            <Icons.Close size={11} />
+          </button>
+        </div>
+      ))}
+    </DebugSection>
   );
 }
 

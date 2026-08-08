@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { UpdaterService } from "../Core/UpdaterService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { setupMacApplicationMenu } from "../Foundation/Desktop";
+import { Logger } from "../Foundation/Logger";
 import { PlatformService } from "../Foundation/Platform";
 import { AppShell } from "../Layout/AppShell";
 import { WorkspaceView } from "../Layout/Workspace";
@@ -33,6 +34,15 @@ export default function App() {
       }
     };
     window.addEventListener("keydown", handleGlobalKeyDown, { capture: true });
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
+      Logger.error("Unhandled Promise Rejection", reason);
+    };
+    const handleUnhandledError = (event: ErrorEvent) => {
+      Logger.error("Unhandled window error", event.error ?? event.message);
+    };
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    window.addEventListener("error", handleUnhandledError);
 
     if (PlatformService.isMacOS()) {
       void setupMacApplicationMenu({
@@ -76,6 +86,8 @@ export default function App() {
       themeObserver.disconnect();
       window.clearTimeout(updateTimer);
       window.removeEventListener("keydown", handleGlobalKeyDown, { capture: true });
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+      window.removeEventListener("error", handleUnhandledError);
     };
   }, []);
 

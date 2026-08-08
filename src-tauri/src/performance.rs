@@ -13,6 +13,7 @@ const BASELINE_FILE: &str = "performance-baseline.json";
 const SAMPLE_FILE_COUNT: usize = 320;
 const SAMPLE_FILE_BYTES: usize = 4_096;
 const SEARCH_FILE_COUNT: usize = 256;
+const ENCODING_SAMPLE_LINES: usize = 12_000;
 
 pub struct PerformanceState {
     started_at: Instant,
@@ -358,6 +359,58 @@ fn run_editor_benchmark(cancelled: &AtomicBool) -> Result<Vec<PerformanceBenchma
     Ok(results)
 }
 
+fn run_encoding_benchmark(
+    cancelled: &AtomicBool,
+) -> Result<Vec<PerformanceBenchmarkResult>, String> {
+    ensure_not_cancelled(cancelled)?;
+    let source = (0..ENCODING_SAMPLE_LINES)
+        .map(|index| format!("let 值_{index} = \"中文😀{index}\";\n"))
+        .collect::<String>();
+    let rope = Rope::from_str(&source);
+    let mut results = Vec::new();
+
+    let started = Instant::now();
+    let char_count = rope.chars().count();
+    results.push(benchmark_result(
+        "encoding-char-scan",
+        "字符遍历",
+        started,
+        char_count,
+        format!("遍历 {char_count} 个字符"),
+    ));
+
+    let started = Instant::now();
+    let utf16_len = rope.to_string().encode_utf16().count();
+    results.push(benchmark_result(
+        "encoding-utf16",
+        "UTF-16 偏移换算",
+        started,
+        utf16_len,
+        format!("将 {char_count} 个字符换算为 UTF-16 偏移"),
+    ));
+
+    let started = Instant::now();
+    let mut utf16_offsets = Vec::with_capacity(rope.len_lines());
+    let mut utf16_offset = 0_usize;
+    for line in rope.lines() {
+        ensure_not_cancelled(cancelled)?;
+        utf16_offset += line
+            .chars()
+            .map(|character| character.len_utf16())
+            .sum::<usize>();
+        utf16_offsets.push(utf16_offset);
+    }
+    results.push(benchmark_result(
+        "encoding-line-map",
+        "行偏移表",
+        started,
+        utf16_offsets.len(),
+        format!("为 {} 行建立 UTF-16 行偏移表", utf16_offsets.len()),
+    ));
+
+    Ok(results)
+}
+
 async fn run_search_benchmark(
     cancelled: Arc<AtomicBool>,
 ) -> Result<Vec<PerformanceBenchmarkResult>, String> {
@@ -498,6 +551,12 @@ pub async fn run_performance_benchmark(
                 .map_err(|error| format!("Editor benchmark task failed: {error}"))?
         }
         "search" => run_search_benchmark(cancelled.clone()).await,
+        "encoding" => {
+            let cancelled = cancelled.clone();
+            tokio::task::spawn_blocking(move || run_encoding_benchmark(&cancelled))
+                .await
+                .map_err(|error| format!("Encoding benchmark task failed: {error}"))?
+        }
         _ => Err(format!("Unknown performance benchmark: {kind}")),
     };
 
@@ -608,6 +667,13 @@ pub async fn save_performance_baseline(
             .map_err(|error| format!("Unable to encode performance baseline: {error}"))?;
         fs::write(&temporary, content)
             .map_err(|error| format!("Unable to write temporary performance baseline: {error}"))?;
+        // On Windows, fs::rename refuses to overwrite an existing file, so remove
+        // the previous baseline before promoting the temporary file.
+        if path.exists() {
+            fs::remove_file(&path).map_err(|error| {
+                format!("Unable to replace existing performance baseline: {error}")
+            })?;
+        }
         fs::rename(&temporary, &path)
             .map_err(|error| format!("Unable to save performance baseline: {error}"))
     })
@@ -618,7 +684,8 @@ pub async fn save_performance_baseline(
 #[cfg(test)]
 mod tests {
     use super::{
-        run_editor_benchmark, run_filesystem_benchmark, run_search_benchmark, SEARCH_FILE_COUNT,
+        run_editor_benchmark, run_encoding_benchmark, run_filesystem_benchmark,
+        run_search_benchmark, SEARCH_FILE_COUNT,
     };
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
@@ -649,5 +716,14 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].id, "search-content");
         assert_eq!(results[0].value, SEARCH_FILE_COUNT as f64);
+    }
+
+    #[test]
+    fn encoding_benchmark_covers_all_conversions() {
+        let cancelled = AtomicBool::new(false);
+        let results =
+            run_encoding_benchmark(&cancelled).expect("encoding benchmark should complete");
+        assert_eq!(results.len(), 3);
+        assert!(results.iter().all(|result| result.status == "ok"));
     }
 }

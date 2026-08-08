@@ -43,7 +43,7 @@ export interface WorkspaceState {
   activeSidebar?: string | null;
   sidebarWidth?: number;
   isBottomPanelOpen?: boolean;
-  activeBottomPanel?: "problems" | "output" | "terminal" | "debug-console";
+  activeBottomPanel?: "problems" | "output" | "terminal" | "debug-console" | "references";
   bottomPanelHeight?: number;
 }
 

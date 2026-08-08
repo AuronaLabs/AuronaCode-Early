@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import { FileSystemCommands } from "../../Foundation/IPC/FileSystemCommands";
 import { PerformanceIPC } from "../../Foundation/IPC/PerformanceCommands";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
@@ -29,28 +30,41 @@ const IPC_WARMUP_RUNS = 24;
 const IPC_SAMPLE_RUNS = 120;
 const UI_WARMUP_FRAMES = 12;
 const UI_SAMPLE_FRAMES = 90;
-const BENCHMARKS: { id: BenchmarkKind; label: string; description: string }[] = [
+const FS_SAMPLE_COUNT = 320;
+const FS_SAMPLE_BYTES = 4_096;
+const SEARCH_SAMPLE_COUNT = 256;
+const ENCODING_SAMPLE_LINES = 12_000;
+const BENCHMARKS: { id: BenchmarkKind; labelKey: I18nKey; descriptionKey: I18nKey }[] = [
   {
     id: "ipc",
-    label: "IPC 往返",
-    description: "24 次预热后采样 120 次真实 Tauri 请求，包含 WebView 调度",
+    labelKey: "performance.benchmarks.ipc.label",
+    descriptionKey: "performance.benchmarks.ipc.description",
   },
   {
     id: "ui",
-    label: "主线程帧调度",
-    description: "连续采样 90 帧的 requestAnimationFrame 间隔，反映当前 UI 响应压力",
+    labelKey: "performance.benchmarks.ui.label",
+    descriptionKey: "performance.benchmarks.ui.description",
   },
   {
     id: "filesystem",
-    label: "文件系统",
-    description: "临时目录内创建、读取、覆写、元数据读取、遍历与删除 320 个文件",
+    labelKey: "performance.benchmarks.filesystem.label",
+    descriptionKey: "performance.benchmarks.filesystem.description",
   },
   {
     id: "editor",
-    label: "编辑器内核",
-    description: "使用 Rust Rope 执行文档创建、快照、局部读写和批量编辑",
+    labelKey: "performance.benchmarks.editor.label",
+    descriptionKey: "performance.benchmarks.editor.description",
   },
-  { id: "search", label: "搜索能力", description: "对 256 个临时源码样本调用真实工作区搜索引擎" },
+  {
+    id: "search",
+    labelKey: "performance.benchmarks.search.label",
+    descriptionKey: "performance.benchmarks.search.description",
+  },
+  {
+    id: "encoding",
+    labelKey: "performance.benchmarks.encoding.label",
+    descriptionKey: "performance.benchmarks.encoding.description",
+  },
 ];
 const formatDuration = (nanoseconds: number) =>
   nanoseconds < 1_000
@@ -61,7 +75,7 @@ const formatDuration = (nanoseconds: number) =>
         ? `${(nanoseconds / 1_000_000).toFixed(2)} ms`
         : `${(nanoseconds / 1_000_000_000).toFixed(2)} s`;
 const formatMemory = (bytes: number) =>
-  bytes ? `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB` : "未提供";
+  bytes ? `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB` : "—";
 const average = (values: number[]) =>
   values.reduce((total, value) => total + value, 0) / Math.max(values.length, 1);
 const percentile = (values: number[], point: number) => {
@@ -82,7 +96,10 @@ const getResult = (snapshot: BenchmarkSnapshot, id: string) =>
     .flat()
     .find((result) => result?.id === id && result.status === "ok");
 
-const aggregateSuites = (suites: BenchmarkResult[][]): BenchmarkResult[] => {
+const aggregateSuites = (
+  suites: BenchmarkResult[][],
+  t: (key: I18nKey) => string,
+): BenchmarkResult[] => {
   const grouped = new Map<string, BenchmarkResult[]>();
   for (const suite of suites)
     for (const result of suite) grouped.set(result.id, [...(grouped.get(result.id) ?? []), result]);
@@ -103,12 +120,81 @@ const aggregateSuites = (suites: BenchmarkResult[][]): BenchmarkResult[] => {
       value: average(trimmedSamples(samples.map((sample) => sample.value))),
       samplesNs: durations,
       statistics,
-      details: `${first.details} · ${samples.length} 轮去极值平均 ${formatDuration(statistics.trimmedMeanNs)} · 中位数 ${formatDuration(percentile(durations, 0.5))} · P95 ${formatDuration(statistics.p95Ns)} · 波动 ${statistics.coefficientVariation.toFixed(1)}%`,
+      details: `${first.details}${t("performance.details.aggregate")
+        .replace("{count}", String(samples.length))
+        .replace("{mean}", formatDuration(statistics.trimmedMeanNs))
+        .replace("{median}", formatDuration(percentile(durations, 0.5)))
+        .replace("{p95}", formatDuration(statistics.p95Ns))
+        .replace("{cv}", statistics.coefficientVariation.toFixed(1))}`,
     };
   });
 };
 
+const formatResultDetails = (result: BenchmarkResult, t: (key: I18nKey) => string) => {
+  const samplesNs = result.samplesNs ?? [];
+  const minNs = samplesNs.length ? Math.min(...samplesNs) : 0;
+  const p95Ns = result.statistics?.p95Ns ?? 0;
+  const cv = result.statistics?.coefficientVariation ?? 0;
+  const fill = (key: I18nKey) =>
+    t(key)
+      .replace("{runs}", String(IPC_SAMPLE_RUNS))
+      .replace("{frames}", String(UI_SAMPLE_FRAMES))
+      .replace("{count}", String(FS_SAMPLE_COUNT))
+      .replace("{bytes}", String(FS_SAMPLE_BYTES))
+      .replace("{files}", String(SEARCH_SAMPLE_COUNT))
+      .replace("{matches}", String(Math.round(result.value)))
+      .replace("{lines}", String(ENCODING_SAMPLE_LINES))
+      .replace("{edits}", "500")
+      .replace("{mean}", result.value.toFixed(3))
+      .replace("{min}", (minNs / 1_000_000).toFixed(3))
+      .replace("{p95}", (p95Ns / 1_000_000).toFixed(3))
+      .replace("{cv}", cv.toFixed(1));
+  switch (result.id) {
+    case "ipc-roundtrip":
+      return fill("performance.details.ipcRoundtrip");
+    case "ui-frame-cadence":
+      return fill("performance.details.uiFrameCadence");
+    case "filesystem-create":
+      return fill("performance.details.filesystemCreate");
+    case "filesystem-metadata":
+      return fill("performance.details.filesystemMetadata");
+    case "filesystem-read":
+      return fill("performance.details.filesystemRead");
+    case "filesystem-write":
+      return fill("performance.details.filesystemWrite");
+    case "filesystem-enumerate":
+      return fill("performance.details.filesystemEnumerate");
+    case "filesystem-delete":
+      return fill("performance.details.filesystemDelete");
+    case "editor-create":
+      return fill("performance.details.editorCreate");
+    case "editor-insert":
+      return fill("performance.details.editorInsert");
+    case "editor-read-line":
+      return fill("performance.details.editorReadLine");
+    case "editor-snapshot":
+      return fill("performance.details.editorSnapshot");
+    case "editor-batch-edit":
+      return fill("performance.details.editorBatchEdit");
+    case "editor-delete":
+      return fill("performance.details.editorDelete");
+    case "editor-release":
+      return fill("performance.details.editorRelease");
+    case "search-content":
+      return fill("performance.details.searchContent");
+    case "encoding-char-scan":
+      return fill("performance.details.encodingCharScan");
+    case "encoding-utf16":
+      return fill("performance.details.encodingUtf16");
+    case "encoding-line-map":
+      return fill("performance.details.encodingLineMap");
+    default:
+      return result.details;
+  }
+};
+
 export function PerformanceBenchmarkPage() {
+  const { t } = useLocale();
   const [environment, setEnvironment] = useState<PerformanceEnvironment | null>(null);
   const [startup, setStartup] = useState<StartupMetrics | null>(null);
   const [results, setResults] = useState<Partial<Record<BenchmarkKind, BenchmarkResult[]>>>({});
@@ -120,6 +206,15 @@ export function PerformanceBenchmarkPage() {
   const [expandedKind, setExpandedKind] = useState<BenchmarkKind | null>(null);
   const cancellationRef = useRef(0);
   const activeRequestIdRef = useRef<string | null>(null);
+
+  const benchmarkLabel = useCallback(
+    (kind: BenchmarkKind) =>
+      t(
+        BENCHMARKS.find((benchmark) => benchmark.id === kind)?.labelKey ??
+          "performance.benchmarks.ipc.label",
+      ),
+    [t],
+  );
 
   const refreshContext = useCallback(async () => {
     const workspace = await WorkspaceStore.get().catch(() => ({ lastOpenedPath: undefined }));
@@ -137,12 +232,12 @@ export function PerformanceBenchmarkPage() {
 
   useEffect(() => {
     void refreshContext().catch((error) =>
-      showToast(`无法读取性能环境：${String(error)}`, "error"),
+      showToast(t("performance.toast.envFailed").replace("{error}", String(error)), "error"),
     );
     return () => {
       cancellationRef.current += 1;
     };
-  }, [refreshContext]);
+  }, [refreshContext, t]);
 
   const runIpcBenchmark = useCallback(async (): Promise<BenchmarkResult[]> => {
     for (let index = 0; index < IPC_WARMUP_RUNS; index += 1) await PerformanceIPC.ping();
@@ -162,7 +257,12 @@ export function PerformanceBenchmarkPage() {
         value: mean,
         unit: "ms",
         status: "ok",
-        details: `${IPC_SAMPLE_RUNS} 次 · 平均 ${mean.toFixed(3)} ms · 最小 ${Math.min(...samples).toFixed(3)} ms · P95 ${percentile(samples, 0.95).toFixed(3)} ms · 波动 ${coefficientOfVariation(samples).toFixed(1)}%`,
+        details: t("performance.details.ipcRoundtrip")
+          .replace("{runs}", String(IPC_SAMPLE_RUNS))
+          .replace("{mean}", mean.toFixed(3))
+          .replace("{min}", Math.min(...samples).toFixed(3))
+          .replace("{p95}", percentile(samples, 0.95).toFixed(3))
+          .replace("{cv}", coefficientOfVariation(samples).toFixed(1)),
         samplesNs,
         statistics: {
           meanNs: average(samplesNs),
@@ -172,7 +272,7 @@ export function PerformanceBenchmarkPage() {
         },
       },
     ];
-  }, []);
+  }, [t]);
 
   const runUiBenchmark = useCallback(async (): Promise<BenchmarkResult[]> => {
     for (let index = 0; index < UI_WARMUP_FRAMES; index += 1) await frame();
@@ -193,7 +293,12 @@ export function PerformanceBenchmarkPage() {
         value: mean,
         unit: "ms",
         status: "ok",
-        details: `${UI_SAMPLE_FRAMES} 帧 · 平均 ${mean.toFixed(2)} ms · 最小 ${Math.min(...samples).toFixed(2)} ms · P95 ${percentile(samples, 0.95).toFixed(2)} ms · 波动 ${coefficientOfVariation(samples).toFixed(1)}%`,
+        details: t("performance.details.uiFrameCadence")
+          .replace("{frames}", String(UI_SAMPLE_FRAMES))
+          .replace("{mean}", mean.toFixed(2))
+          .replace("{min}", Math.min(...samples).toFixed(2))
+          .replace("{p95}", percentile(samples, 0.95).toFixed(2))
+          .replace("{cv}", coefficientOfVariation(samples).toFixed(1)),
         samplesNs,
         statistics: {
           meanNs: average(samplesNs),
@@ -203,7 +308,7 @@ export function PerformanceBenchmarkPage() {
         },
       },
     ];
-  }, []);
+  }, [t]);
 
   const runBenchmark = useCallback(
     async (kind: BenchmarkKind, token: number) => {
@@ -223,7 +328,7 @@ export function PerformanceBenchmarkPage() {
           samples.push(await execute());
           if (cancellationRef.current !== token) return false;
         }
-        setResults((current) => ({ ...current, [kind]: aggregateSuites(samples) }));
+        setResults((current) => ({ ...current, [kind]: aggregateSuites(samples, t) }));
         setLastRunAt(new Date().toISOString());
         return true;
       } catch (error) {
@@ -233,7 +338,7 @@ export function PerformanceBenchmarkPage() {
           [kind]: [
             {
               id: `${kind}-error`,
-              name: BENCHMARKS.find((benchmark) => benchmark.id === kind)?.label || kind,
+              name: benchmarkLabel(kind),
               durationNs: 0,
               value: 0,
               unit: "",
@@ -243,7 +348,7 @@ export function PerformanceBenchmarkPage() {
           ],
         }));
         showToast(
-          `${BENCHMARKS.find((benchmark) => benchmark.id === kind)?.label || kind}测试失败`,
+          t("performance.toast.benchmarkFailed").replace("{name}", benchmarkLabel(kind)),
           "error",
         );
         return false;
@@ -251,7 +356,7 @@ export function PerformanceBenchmarkPage() {
         if (cancellationRef.current === token) setRunningKind(null);
       }
     },
-    [runIpcBenchmark, runUiBenchmark],
+    [benchmarkLabel, runIpcBenchmark, runUiBenchmark, t],
   );
 
   const runOne = useCallback(
@@ -284,7 +389,7 @@ export function PerformanceBenchmarkPage() {
     if (requestId) void PerformanceIPC.cancelBenchmark(requestId);
     setRunningKind(null);
     setIsRunningAll(false);
-    showToast("已停止后续采样；当前原子测试会安全结束并清理临时文件", "info");
+    showToast(t("performance.toast.cancelled"), "info");
   };
 
   const snapshot = useMemo<BenchmarkSnapshot>(
@@ -306,7 +411,7 @@ export function PerformanceBenchmarkPage() {
     for (const item of history.filter(
       (item) => snapshotComparabilityKey(item) === environmentKey(environment),
     )) {
-      const version = item.environment?.appVersion ?? "未知版本";
+      const version = item.environment?.appVersion ?? t("performance.unknownVersion");
       const previous = latestByVersion.get(version);
       if (!previous || previous.generatedAt < item.generatedAt) {
         latestByVersion.set(version, item);
@@ -337,7 +442,7 @@ export function PerformanceBenchmarkPage() {
           return duration && baselineDuration && stable ? [baselineDuration / duration] : [];
         });
         return {
-          version: item.environment?.appVersion ?? "未知版本",
+          version: item.environment?.appVersion ?? t("performance.unknownVersion"),
           generatedAt: item.generatedAt,
           score:
             ratios.length > 0
@@ -347,7 +452,7 @@ export function PerformanceBenchmarkPage() {
         };
       })
       .sort((left, right) => compareSemanticVersionsDescending(left.version, right.version));
-  }, [environment, history]);
+  }, [environment, history, t]);
   const comparisonBaseline = useMemo(
     () =>
       history
@@ -362,7 +467,7 @@ export function PerformanceBenchmarkPage() {
 
   const saveBaseline = async () => {
     if (Object.keys(results).length === 0) {
-      showToast("请先完成至少一项性能测试", "warning");
+      showToast(t("performance.toast.runFirst"), "warning");
       return;
     }
     try {
@@ -375,17 +480,17 @@ export function PerformanceBenchmarkPage() {
       await PerformanceIPC.saveBaseline(payload);
       setHistory(nextHistory);
       setBaseline(snapshot);
-      showToast("已保存本次性能记录，并加入本地版本排行榜", "success");
+      showToast(t("performance.toast.saved"), "success");
     } catch (error) {
-      showToast(`保存性能记录失败：${String(error)}`, "error");
+      showToast(t("performance.toast.saveFailed").replace("{error}", String(error)), "error");
     }
   };
   const copySnapshot = async () => {
     try {
       await navigator.clipboard.writeText(JSON.stringify(snapshot, null, 2));
-      showToast("性能结果 JSON 已复制", "success");
+      showToast(t("performance.toast.copied"), "success");
     } catch (error) {
-      showToast(`复制性能结果失败：${String(error)}`, "error");
+      showToast(t("performance.toast.copyFailed").replace("{error}", String(error)), "error");
     }
   };
   const exportSnapshot = async () => {
@@ -395,9 +500,26 @@ export function PerformanceBenchmarkPage() {
         `aurona-performance-${new Date().toISOString().slice(0, 10)}.json`,
       );
       if (!target) return;
-      showToast("性能结果已导出", "success");
+      showToast(t("performance.toast.exported"), "success");
     } catch (error) {
-      showToast(`导出性能结果失败：${String(error)}`, "error");
+      showToast(t("performance.toast.exportFailed").replace("{error}", String(error)), "error");
+    }
+  };
+  const deleteHistoryEntry = async (generatedAt: string) => {
+    const nextHistory = history.filter((item) => item.generatedAt !== generatedAt);
+    const nextLatest = nextHistory.at(-1) ?? null;
+    const payload: PerformanceHistoryFile = {
+      schemaVersion: 3,
+      latest: nextLatest,
+      history: nextHistory,
+    };
+    try {
+      await PerformanceIPC.saveBaseline(payload);
+      setHistory(nextHistory);
+      setBaseline(nextLatest);
+      showToast(t("performance.toast.deleted"), "success");
+    } catch (error) {
+      showToast(t("performance.toast.deleteFailed").replace("{error}", String(error)), "error");
     }
   };
 
@@ -409,12 +531,13 @@ export function PerformanceBenchmarkPage() {
   const completedPct = Math.round((completedCount / BENCHMARKS.length) * 100);
   const ringValue = currentScore ?? completedPct;
   const ringMax = currentScore === null ? 100 : 150;
-  const ringLabel = currentScore === null ? "完成度" : "相对得分";
+  const ringLabel =
+    currentScore === null ? t("performance.completion") : t("performance.relativeScore");
   const ringText = currentScore === null ? `${completedPct}%` : currentScore.toFixed(0);
 
   return (
     <InternalPageLayout
-      title="性能测试"
+      title={t("performance.title")}
       icon={<Icons.History size={24} />}
       maxWidth="max-w-5xl"
       headerRight={
@@ -425,15 +548,15 @@ export function PerformanceBenchmarkPage() {
             onClick={() => void refreshContext()}
             disabled={!!runningKind}
           >
-            <Icons.Refresh size={14} /> 刷新环境
+            <Icons.Refresh size={14} /> {t("performance.refreshEnvironment")}
           </Button>
           {runningKind || isRunningAll ? (
             <Button variant="danger" size="sm" onClick={cancel}>
-              <Icons.Close size={14} /> 取消
+              <Icons.Close size={14} /> {t("performance.cancel")}
             </Button>
           ) : (
             <Button variant="primary" size="sm" onClick={() => void runAll()}>
-              <Icons.Play size={14} /> 运行全部
+              <Icons.Play size={14} /> {t("performance.runAll")}
             </Button>
           )}
         </div>
@@ -444,36 +567,48 @@ export function PerformanceBenchmarkPage() {
           <Card className="flex items-center justify-center gap-5 p-5">
             <ScoreRing value={ringValue} max={ringMax} text={ringText} label={ringLabel} />
             <div className="flex flex-col gap-1.5 text-[12px]">
-              <span className="text-[var(--color-text-muted)]">本机性能概况</span>
+              <span className="text-[var(--color-text-muted)]">
+                {t("performance.machineOverview")}
+              </span>
               <span className="font-medium text-[var(--color-text-highlight)]">
-                {completedCount}/{BENCHMARKS.length} 项完成
+                {t("performance.completedCount")
+                  .replace("{done}", String(completedCount))
+                  .replace("{total}", String(BENCHMARKS.length))}
               </span>
               {currentScore !== null && (
-                <span className="text-[var(--color-text-muted)]">相对 0.2.10 基线</span>
+                <span className="text-[var(--color-text-muted)]">
+                  {t("performance.relativeBaseline")}
+                </span>
               )}
               <span className="mt-1 text-[11px] text-[var(--color-text-muted)]">
                 {runningKind
-                  ? `正在运行：${BENCHMARKS.find((item) => item.id === runningKind)?.label}`
+                  ? t("performance.runningLabel").replace("{name}", benchmarkLabel(runningKind))
                   : lastRunAt
-                    ? `最近运行 ${new Date(lastRunAt).toLocaleTimeString()}`
-                    : "尚未运行测试"}
+                    ? t("performance.lastRunLabel").replace(
+                        "{time}",
+                        new Date(lastRunAt).toLocaleTimeString(),
+                      )
+                    : t("performance.neverRun")}
               </span>
             </div>
           </Card>
 
           <Card className="flex flex-col gap-4 p-5">
             <div className="flex items-center gap-2 text-[14px] font-semibold text-[var(--color-text-highlight)]">
-              <Icons.Monitor size={17} /> 运行环境
+              <Icons.Monitor size={17} /> {t("performance.environment")}
             </div>
             {environment ? (
               <div className="flex flex-wrap gap-2">
                 {[
-                  ["版本", `v${environment.appVersion}`],
-                  ["系统", environment.operatingSystem],
-                  ["架构", environment.architecture],
-                  ["CPU", `${environment.logicalCpuCores} 核`],
-                  ["内存", formatMemory(environment.availableMemoryBytes)],
-                  ["模式", environment.runMode],
+                  [t("performance.envVersion"), `v${environment.appVersion}`],
+                  [t("performance.envSystem"), environment.operatingSystem],
+                  [t("performance.envArchitecture"), environment.architecture],
+                  [
+                    t("performance.envCpu"),
+                    `${environment.logicalCpuCores} ${t("performance.envCpuCores")}`,
+                  ],
+                  [t("performance.envMemory"), formatMemory(environment.availableMemoryBytes)],
+                  [t("performance.envMode"), environment.runMode],
                 ].map(([label, value]) => (
                   <span
                     key={label}
@@ -485,16 +620,23 @@ export function PerformanceBenchmarkPage() {
                 ))}
               </div>
             ) : (
-              <span className="text-[12px] text-[var(--color-text-muted)]">正在读取运行环境…</span>
+              <span className="text-[12px] text-[var(--color-text-muted)]">
+                {t("performance.readingEnvironment")}
+              </span>
             )}
             {startup && (
               <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3">
-                <span className="text-[11px] text-[var(--color-text-muted)]">最近启动</span>
-                <span className="rounded-md bg-[var(--material-interactive-hover)] px-2 py-1 font-mono text-[11px] text-[var(--color-text-highlight)]">
-                  前端 {startup.frontendBootstrapMs.toFixed(0)} ms
+                <span className="text-[11px] text-[var(--color-text-muted)]">
+                  {t("performance.recentStartup")}
                 </span>
                 <span className="rounded-md bg-[var(--material-interactive-hover)] px-2 py-1 font-mono text-[11px] text-[var(--color-text-highlight)]">
-                  主界面 {startup.mainInteractiveMs.toFixed(0)} ms
+                  {t("performance.frontendMs").replace(
+                    "{ms}",
+                    startup.frontendBootstrapMs.toFixed(0),
+                  )}
+                </span>
+                <span className="rounded-md bg-[var(--material-interactive-hover)] px-2 py-1 font-mono text-[11px] text-[var(--color-text-highlight)]">
+                  {t("performance.mainMs").replace("{ms}", startup.mainInteractiveMs.toFixed(0))}
                 </span>
               </div>
             )}
@@ -521,7 +663,7 @@ export function PerformanceBenchmarkPage() {
                     </div>
                     <div className="min-w-0">
                       <h2 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
-                        {benchmark.label}
+                        {t(benchmark.labelKey)}
                       </h2>
                       {ok ? (
                         <div className="flex flex-wrap items-center gap-2">
@@ -536,7 +678,10 @@ export function PerformanceBenchmarkPage() {
                                   : "bg-amber-500/10 text-amber-500"
                               }`}
                             >
-                              波动 {ok.statistics.coefficientVariation.toFixed(1)}%
+                              {t("performance.variation").replace(
+                                "{pct}",
+                                ok.statistics.coefficientVariation.toFixed(1),
+                              )}
                             </span>
                           )}
                           {delta !== null && (
@@ -555,9 +700,13 @@ export function PerformanceBenchmarkPage() {
                           )}
                         </div>
                       ) : failed ? (
-                        <span className="text-[12px] text-[var(--DiagError)]">测试失败</span>
+                        <span className="text-[12px] text-[var(--DiagError)]">
+                          {t("performance.testFailed")}
+                        </span>
                       ) : (
-                        <span className="text-[12px] text-[var(--color-text-muted)]">尚未运行</span>
+                        <span className="text-[12px] text-[var(--color-text-muted)]">
+                          {t("performance.notRun")}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -573,11 +722,11 @@ export function PerformanceBenchmarkPage() {
                     ) : (
                       <Icons.Play size={13} />
                     )}
-                    {runningKind === benchmark.id ? "运行中" : "运行"}
+                    {runningKind === benchmark.id ? t("performance.running") : t("performance.run")}
                   </Button>
                 </div>
                 {ok && (
-                  <Tooltip content={ok.details} placement="top">
+                  <Tooltip content={formatResultDetails(ok, t)} placement="top">
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--material-surface)]">
                       <div
                         className="h-full rounded-full bg-[var(--color-accent)]/70"
@@ -590,7 +739,12 @@ export function PerformanceBenchmarkPage() {
                 )}
                 <div className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-3">
                   <span className="text-[10px] text-[var(--color-text-muted)]">
-                    {ok?.statistics ? `去极值平均 · ${ok.samplesNs?.length ?? 0} 个样本` : ""}
+                    {ok?.statistics
+                      ? t("performance.trimmedAverage").replace(
+                          "{count}",
+                          String(ok.samplesNs?.length ?? 0),
+                        )
+                      : ""}
                   </span>
                   <button
                     type="button"
@@ -604,7 +758,9 @@ export function PerformanceBenchmarkPage() {
                       stroke={2}
                       className={`transition-transform duration-150 ${expandedKind === benchmark.id ? "rotate-90" : ""}`}
                     />
-                    {expandedKind === benchmark.id ? "收起详情" : "查看详情"}
+                    {expandedKind === benchmark.id
+                      ? t("performance.collapseDetails")
+                      : t("performance.viewDetails")}
                   </button>
                 </div>
                 {expandedKind === benchmark.id && ok && <BenchmarkDetail result={ok} />}
@@ -617,10 +773,10 @@ export function PerformanceBenchmarkPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
-                版本排行榜
+                {t("performance.leaderboard")}
               </h2>
               <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
-                仅比较本机保存的记录
+                {t("performance.leaderboardHint")}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -630,7 +786,7 @@ export function PerformanceBenchmarkPage() {
                 onClick={() => void saveBaseline()}
                 disabled={!Object.keys(results).length || !!runningKind}
               >
-                保存记录
+                {t("performance.saveRecord")}
               </Button>
               <Button
                 variant="ghost"
@@ -638,7 +794,7 @@ export function PerformanceBenchmarkPage() {
                 onClick={() => void copySnapshot()}
                 disabled={!Object.keys(results).length}
               >
-                复制 JSON
+                {t("performance.copyJson")}
               </Button>
               <Button
                 variant="ghost"
@@ -646,7 +802,7 @@ export function PerformanceBenchmarkPage() {
                 onClick={() => void exportSnapshot()}
                 disabled={!Object.keys(results).length}
               >
-                <Icons.Download size={14} /> 导出
+                <Icons.Download size={14} /> {t("performance.export")}
               </Button>
             </div>
           </div>
@@ -667,17 +823,33 @@ export function PerformanceBenchmarkPage() {
                     />
                   </div>
                   <span className="w-14 shrink-0 text-right font-mono text-[var(--color-text-highlight)]">
-                    {entry.score === null ? "—" : entry.score.toFixed(0)}
+                    {entry.score === null
+                      ? t("performance.metricsCount").replace(
+                          "{count}",
+                          String(entry.measuredMetrics),
+                        )
+                      : entry.score.toFixed(0)}
                   </span>
                   <span className="hidden w-28 shrink-0 text-right text-[10px] text-[var(--color-text-muted)] sm:block">
                     {new Date(entry.generatedAt).toLocaleDateString()}
                   </span>
+                  <Tooltip content={t("performance.deleteRecord")} placement="top">
+                    <button
+                      type="button"
+                      aria-label={t("performance.deleteRecord")}
+                      disabled={!!runningKind}
+                      onClick={() => void deleteHistoryEntry(entry.generatedAt)}
+                      className="shrink-0 rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--DiagError)] disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      <Icons.Trash size={13} />
+                    </button>
+                  </Tooltip>
                 </div>
               ))}
             </div>
           ) : (
             <span className="text-[12px] text-[var(--color-text-muted)]">
-              运行并保存一次测试后，这里会出现版本对比
+              {t("performance.leaderboardEmpty")}
             </span>
           )}
         </Card>
@@ -759,10 +931,13 @@ function BenchmarkIcon({ id }: { id: BenchmarkKind }) {
       return <Icons.FileCode size={18} />;
     case "search":
       return <Icons.Search size={18} />;
+    case "encoding":
+      return <Icons.Typography size={18} />;
   }
 }
 
 function BenchmarkDetail({ result }: { result: BenchmarkResult }) {
+  const { t } = useLocale();
   const samples = result.samplesNs ?? [];
   const statistics = result.statistics;
   if (!statistics || samples.length < 2) {
@@ -793,12 +968,15 @@ function BenchmarkDetail({ result }: { result: BenchmarkResult }) {
     <div className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] p-3">
       <div className="grid grid-cols-3 gap-2 text-[11px]">
         {[
-          ["样本", `${samples.length} 次`],
-          ["P50", formatDuration(p50)],
-          ["P95", formatDuration(p95)],
-          ["最小", formatDuration(min)],
-          ["最大", formatDuration(max)],
-          ["波动", `${statistics.coefficientVariation.toFixed(1)}%`],
+          [
+            t("performance.detailSamples"),
+            `${samples.length} ${t("performance.detailSamplesUnit")}`,
+          ],
+          [t("performance.detailP50"), formatDuration(p50)],
+          [t("performance.detailP95"), formatDuration(p95)],
+          [t("performance.detailMin"), formatDuration(min)],
+          [t("performance.detailMax"), formatDuration(max)],
+          [t("performance.detailVariation"), `${statistics.coefficientVariation.toFixed(1)}%`],
         ].map(([label, value]) => (
           <div key={label} className="rounded-lg bg-[var(--material-panel)] px-2.5 py-2">
             <div className="text-[10px] text-[var(--color-text-muted)]">{label}</div>
@@ -818,7 +996,7 @@ function BenchmarkDetail({ result }: { result: BenchmarkResult }) {
         ))}
       </div>
       <p className="text-[10.5px] leading-relaxed text-[var(--color-text-muted)]">
-        {result.details}
+        {formatResultDetails(result, t)}
       </p>
     </div>
   );

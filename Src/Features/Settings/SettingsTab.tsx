@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { applyAccentTheme, applyLiquidTexture } from "../../App/ThemeAccent";
 import {
   SETTING_CATEGORY_KEYS,
@@ -17,6 +17,7 @@ import type { AccentThemeId } from "../../Foundation/Types/Config";
 import { Button } from "../../UI/Components/Button";
 import { Input } from "../../UI/Components/Input";
 import { Select } from "../../UI/Components/Select";
+import { SettingResetButton } from "../../UI/Components/SettingResetButton";
 import { SettingsNavItem } from "../../UI/Components/SettingsNavItem";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer, useGlassStore } from "../../UI/Core/GlassManager";
@@ -96,6 +97,10 @@ export function SettingsTab() {
   const { locale, setLocale, t } = useLocale();
   const [activeSection, setActiveSection] = useState<SettingsSection>("general");
   const [settingsQuery, setSettingsQuery] = useState("");
+  const [revealTarget, setRevealTarget] = useState<{ settingId: string; nonce: number } | null>(
+    null,
+  );
+  const revealTargetRef = useRef<number | null>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const intensity = useGlassStore((state) => state.intensity);
   const setIntensity = useGlassStore((state) => state.setIntensity);
@@ -104,8 +109,37 @@ export function SettingsTab() {
     const unsub = EventBus.on("settings:nav", (section: SettingsSection) => {
       setActiveSection(section);
     });
-    return () => unsub();
+    const unsubReveal = EventBus.on("settings:reveal", ({ category, settingId }) => {
+      setActiveSection(CATEGORY_TO_SECTION[category]);
+      if (settingId) setRevealTarget({ settingId, nonce: Date.now() });
+    });
+    return () => {
+      unsub();
+      unsubReveal();
+    };
   }, []);
+
+  useEffect(() => {
+    if (!revealTarget) return;
+    const element = document.querySelector<HTMLElement>(
+      `[data-setting-id="${revealTarget.settingId}"]`,
+    );
+    if (!element) return;
+    const frame = requestAnimationFrame(() => {
+      element.scrollIntoView({ block: "center" });
+      element.classList.add("setting-reveal-flash");
+      const timer = window.setTimeout(() => {
+        element.classList.remove("setting-reveal-flash");
+      }, 1500);
+      revealTargetRef.current = timer;
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      if (revealTargetRef.current) window.clearTimeout(revealTargetRef.current);
+      revealTargetRef.current = null;
+      element.classList.remove("setting-reveal-flash");
+    };
+  }, [revealTarget]);
 
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
   const [accentTheme, setAccentTheme] = useState<AccentThemeId>("aurora");
@@ -183,6 +217,44 @@ export function SettingsTab() {
     setDensity(next);
     applyDensity(next);
     void UserConfigStore.set({ density: next });
+  };
+
+  const resetEditorFontSize = () => {
+    setEditorFontSize("14");
+    void UserConfigStore.set({ editorFontSize: 14 });
+    document.documentElement.style.setProperty("--EditorFontSize", "14px");
+    EventBus.emit("settings:editor-changed");
+  };
+
+  const resetEditorLineHeight = () => {
+    setEditorLineHeight("24");
+    void UserConfigStore.set({ editorLineHeight: 24 });
+    document.documentElement.style.setProperty("--EditorLineHeight", "24px");
+  };
+
+  const resetEditorTabSize = () => {
+    setEditorTabSize("2");
+    void UserConfigStore.set({ editorTabSize: 2 });
+    document.documentElement.style.setProperty("--EditorTabSize", "2");
+  };
+
+  const resetEditorWordWrap = () => {
+    setEditorWordWrap("on");
+    void UserConfigStore.set({ editorWordWrap: "on" });
+    EventBus.emit("settings:editor-changed");
+  };
+
+  const resetTerminalFontSize = () => {
+    setTerminalFontSize("13");
+    void UserConfigStore.set({ terminalFontSize: 13 });
+    document.documentElement.style.setProperty("--TerminalFontSize", "13px");
+    EventBus.emit("settings:terminal-changed");
+  };
+
+  const resetTerminalCursorBlink = () => {
+    setTerminalCursorBlink("true");
+    void UserConfigStore.set({ terminalCursorBlink: true });
+    EventBus.emit("settings:terminal-changed");
   };
 
   const [repoPath, setRepoPath] = useState<string | null>(
@@ -268,7 +340,10 @@ export function SettingsTab() {
       </div>
 
       <GlassContainer layer="elevated" className="overflow-hidden rounded-2xl">
-        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          data-setting-id="theme"
+          className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"
+        >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.theme")}
@@ -277,41 +352,50 @@ export function SettingsTab() {
               {t("settings.themeDescription")}
             </span>
           </div>
-          <fieldset className="grid w-full grid-cols-3 gap-1 rounded-2xl border border-[var(--border-subtle)] bg-[var(--material-panel)] p-1.5 shadow-[inset_0_1px_1px_var(--material-inset)] backdrop-blur-[var(--glass-blur-base)] sm:w-auto">
-            <legend className="sr-only">{t("settings.theme")}</legend>
-            {(["system", "light", "dark"] as const).map((mode) => (
-              <button
-                type="button"
-                aria-pressed={theme === mode}
-                key={mode}
-                onClick={() => handleThemeChange(mode)}
-                className={`flex min-w-0 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-[background-color,border-color,color,box-shadow] duration-150 sm:min-w-[104px] ${
-                  theme === mode
-                    ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] backdrop-blur-[var(--glass-blur-elevated)]"
-                    : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
-                }`}
-              >
-                {mode === "system" && (
-                  <>
-                    <Icons.Monitor size={16} /> {t("settings.themeSystem")}
-                  </>
-                )}
-                {mode === "light" && (
-                  <>
-                    <Icons.Sun size={16} /> {t("settings.themeLight")}
-                  </>
-                )}
-                {mode === "dark" && (
-                  <>
-                    <Icons.Moon size={16} /> {t("settings.themeDark")}
-                  </>
-                )}
-              </button>
-            ))}
-          </fieldset>
+          <div className="flex items-center gap-2">
+            <fieldset className="grid w-full grid-cols-3 gap-1 rounded-2xl border border-[var(--border-subtle)] bg-[var(--material-panel)] p-1.5 shadow-[inset_0_1px_1px_var(--material-inset)] backdrop-blur-[var(--glass-blur-base)] sm:w-auto">
+              <legend className="sr-only">{t("settings.theme")}</legend>
+              {(["system", "light", "dark"] as const).map((mode) => (
+                <button
+                  type="button"
+                  aria-pressed={theme === mode}
+                  key={mode}
+                  onClick={() => handleThemeChange(mode)}
+                  className={`flex min-w-0 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-[background-color,border-color,color,box-shadow] duration-150 sm:min-w-[104px] ${
+                    theme === mode
+                      ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] backdrop-blur-[var(--glass-blur-elevated)]"
+                      : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+                  }`}
+                >
+                  {mode === "system" && (
+                    <>
+                      <Icons.Monitor size={16} /> {t("settings.themeSystem")}
+                    </>
+                  )}
+                  {mode === "light" && (
+                    <>
+                      <Icons.Sun size={16} /> {t("settings.themeLight")}
+                    </>
+                  )}
+                  {mode === "dark" && (
+                    <>
+                      <Icons.Moon size={16} /> {t("settings.themeDark")}
+                    </>
+                  )}
+                </button>
+              ))}
+            </fieldset>
+            <SettingResetButton
+              label={t("settings.reset")}
+              onReset={() => handleThemeChange("system")}
+            />
+          </div>
         </div>
 
-        <div className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5">
+        <div
+          data-setting-id="density"
+          className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
+        >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.density")}
@@ -320,20 +404,29 @@ export function SettingsTab() {
               {t("settings.densityDescription")}
             </span>
           </div>
-          <Select
-            value={density}
-            onChange={(value) => handleDensityChange(value as Density)}
-            className="w-[140px] shrink-0"
-            options={[
-              { value: "default", label: t("settings.densityAuto") },
-              { value: "compact", label: t("settings.densityCompact") },
-              { value: "regular", label: t("settings.densityRegular") },
-              { value: "comfortable", label: t("settings.densityComfortable") },
-            ]}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            <Select
+              value={density}
+              onChange={(value) => handleDensityChange(value as Density)}
+              className="w-[140px]"
+              options={[
+                { value: "default", label: t("settings.densityAuto") },
+                { value: "compact", label: t("settings.densityCompact") },
+                { value: "regular", label: t("settings.densityRegular") },
+                { value: "comfortable", label: t("settings.densityComfortable") },
+              ]}
+            />
+            <SettingResetButton
+              label={t("settings.reset")}
+              onReset={() => handleDensityChange("default")}
+            />
+          </div>
         </div>
 
-        <div className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5">
+        <div
+          data-setting-id="language"
+          className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
+        >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.language")}
@@ -342,15 +435,18 @@ export function SettingsTab() {
               {t("settings.languageDescription")}
             </span>
           </div>
-          <Select
-            value={locale}
-            onChange={(value) => setLocale(value as Locale)}
-            className="w-[160px] shrink-0"
-            options={[
-              { value: "zh-CN", label: t("settings.languageZhCN") },
-              { value: "en", label: t("settings.languageEn") },
-            ]}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            <Select
+              value={locale}
+              onChange={(value) => setLocale(value as Locale)}
+              className="w-[160px]"
+              options={[
+                { value: "zh-CN", label: t("settings.languageZhCN") },
+                { value: "en", label: t("settings.languageEn") },
+              ]}
+            />
+            <SettingResetButton label={t("settings.reset")} onReset={() => setLocale("zh-CN")} />
+          </div>
         </div>
       </GlassContainer>
     </div>
@@ -379,7 +475,10 @@ export function SettingsTab() {
       </div>
 
       <GlassContainer layer="elevated" className="rounded-2xl overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
+        <div
+          data-setting-id="editorFontSize"
+          className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]"
+        >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.editorSection.fontSize")}
@@ -388,23 +487,29 @@ export function SettingsTab() {
               {t("settings.editorSection.fontSizeDescription")}
             </span>
           </div>
-          <Select
-            value={editorFontSize}
-            className="w-[140px] shrink-0"
-            onChange={(val: string) => {
-              setEditorFontSize(val);
-              UserConfigStore.set({ editorFontSize: parseInt(val, 10) });
-              document.documentElement.style.setProperty("--EditorFontSize", `${val}px`);
-              EventBus.emit("settings:editor-changed");
-            }}
-            options={[12, 13, 14, 15, 16, 18, 20].map((size) => ({
-              value: size.toString(),
-              label: `${size}px`,
-            }))}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            <Select
+              value={editorFontSize}
+              className="w-[140px]"
+              onChange={(val: string) => {
+                setEditorFontSize(val);
+                UserConfigStore.set({ editorFontSize: parseInt(val, 10) });
+                document.documentElement.style.setProperty("--EditorFontSize", `${val}px`);
+                EventBus.emit("settings:editor-changed");
+              }}
+              options={[12, 13, 14, 15, 16, 18, 20].map((size) => ({
+                value: size.toString(),
+                label: `${size}px`,
+              }))}
+            />
+            <SettingResetButton label={t("settings.reset")} onReset={resetEditorFontSize} />
+          </div>
         </div>
 
-        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] p-5">
+        <div
+          data-setting-id="editorLineHeight"
+          className="flex items-center justify-between border-b border-[var(--border-subtle)] p-5"
+        >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.editorSection.lineHeight")}
@@ -413,22 +518,28 @@ export function SettingsTab() {
               {t("settings.editorSection.lineHeightDescription")}
             </span>
           </div>
-          <Select
-            value={editorLineHeight}
-            className="w-[140px] shrink-0"
-            onChange={(value) => {
-              setEditorLineHeight(value);
-              UserConfigStore.set({ editorLineHeight: Number(value) });
-              document.documentElement.style.setProperty("--EditorLineHeight", `${value}px`);
-            }}
-            options={[20, 22, 24, 26, 28, 30].map((value) => ({
-              value: String(value),
-              label: `${value}px`,
-            }))}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            <Select
+              value={editorLineHeight}
+              className="w-[140px]"
+              onChange={(value) => {
+                setEditorLineHeight(value);
+                UserConfigStore.set({ editorLineHeight: Number(value) });
+                document.documentElement.style.setProperty("--EditorLineHeight", `${value}px`);
+              }}
+              options={[20, 22, 24, 26, 28, 30].map((value) => ({
+                value: String(value),
+                label: `${value}px`,
+              }))}
+            />
+            <SettingResetButton label={t("settings.reset")} onReset={resetEditorLineHeight} />
+          </div>
         </div>
 
-        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] p-5">
+        <div
+          data-setting-id="editorTabSize"
+          className="flex items-center justify-between border-b border-[var(--border-subtle)] p-5"
+        >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.editorSection.tabWidth")}
@@ -437,19 +548,28 @@ export function SettingsTab() {
               {t("settings.editorSection.tabWidthDescription")}
             </span>
           </div>
-          <Select
-            value={editorTabSize}
-            className="w-[140px] shrink-0"
-            onChange={(value) => {
-              setEditorTabSize(value);
-              UserConfigStore.set({ editorTabSize: Number(value) });
-              document.documentElement.style.setProperty("--EditorTabSize", value);
-            }}
-            options={[2, 4, 8].map((value) => ({ value: String(value), label: `${value} spaces` }))}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            <Select
+              value={editorTabSize}
+              className="w-[140px]"
+              onChange={(value) => {
+                setEditorTabSize(value);
+                UserConfigStore.set({ editorTabSize: Number(value) });
+                document.documentElement.style.setProperty("--EditorTabSize", value);
+              }}
+              options={[2, 4, 8].map((value) => ({
+                value: String(value),
+                label: `${value} spaces`,
+              }))}
+            />
+            <SettingResetButton label={t("settings.reset")} onReset={resetEditorTabSize} />
+          </div>
         </div>
 
-        <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
+        <div
+          data-setting-id="editorWordWrap"
+          className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]"
+        >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.editorSection.wordWrap")}
@@ -458,18 +578,21 @@ export function SettingsTab() {
               {t("settings.editorSection.wordWrapDescription")}
             </span>
           </div>
-          <Switch
-            checked={editorWordWrap === "on"}
-            onCheckedChange={(checked) => {
-              const val = checked ? "on" : "off";
-              setEditorWordWrap(val);
-              UserConfigStore.set({ editorWordWrap: val });
-              EventBus.emit("settings:editor-changed");
-            }}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            <Switch
+              checked={editorWordWrap === "on"}
+              onCheckedChange={(checked) => {
+                const val = checked ? "on" : "off";
+                setEditorWordWrap(val);
+                UserConfigStore.set({ editorWordWrap: val });
+                EventBus.emit("settings:editor-changed");
+              }}
+            />
+            <SettingResetButton label={t("settings.reset")} onReset={resetEditorWordWrap} />
+          </div>
         </div>
 
-        <div className="flex items-center justify-between p-5">
+        <div data-setting-id="editorMinimap" className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.editorSection.minimap")}
@@ -498,7 +621,10 @@ export function SettingsTab() {
       </div>
 
       <GlassContainer layer="elevated" className="rounded-2xl overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
+        <div
+          data-setting-id="terminalFontSize"
+          className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]"
+        >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.terminalSection.fontSize")}
@@ -507,23 +633,29 @@ export function SettingsTab() {
               {t("settings.terminalSection.fontSizeDescription")}
             </span>
           </div>
-          <Select
-            value={terminalFontSize}
-            className="w-[140px] shrink-0"
-            onChange={(val: string) => {
-              setTerminalFontSize(val);
-              UserConfigStore.set({ terminalFontSize: parseInt(val, 10) });
-              document.documentElement.style.setProperty("--TerminalFontSize", `${val}px`);
-              EventBus.emit("settings:terminal-changed");
-            }}
-            options={[12, 13, 14, 15, 16, 18, 20].map((size) => ({
-              value: size.toString(),
-              label: `${size}px`,
-            }))}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            <Select
+              value={terminalFontSize}
+              className="w-[140px]"
+              onChange={(val: string) => {
+                setTerminalFontSize(val);
+                UserConfigStore.set({ terminalFontSize: parseInt(val, 10) });
+                document.documentElement.style.setProperty("--TerminalFontSize", `${val}px`);
+                EventBus.emit("settings:terminal-changed");
+              }}
+              options={[12, 13, 14, 15, 16, 18, 20].map((size) => ({
+                value: size.toString(),
+                label: `${size}px`,
+              }))}
+            />
+            <SettingResetButton label={t("settings.reset")} onReset={resetTerminalFontSize} />
+          </div>
         </div>
 
-        <div className="flex items-center justify-between p-5">
+        <div
+          data-setting-id="terminalCursorBlink"
+          className="flex items-center justify-between p-5"
+        >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.terminalSection.cursorBlink")}
@@ -532,15 +664,18 @@ export function SettingsTab() {
               {t("settings.terminalSection.cursorBlinkDescription")}
             </span>
           </div>
-          <Switch
-            checked={terminalCursorBlink === "true"}
-            onCheckedChange={(checked) => {
-              const val = checked ? "true" : "false";
-              setTerminalCursorBlink(val);
-              UserConfigStore.set({ terminalCursorBlink: checked });
-              EventBus.emit("settings:terminal-changed");
-            }}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            <Switch
+              checked={terminalCursorBlink === "true"}
+              onCheckedChange={(checked) => {
+                const val = checked ? "true" : "false";
+                setTerminalCursorBlink(val);
+                UserConfigStore.set({ terminalCursorBlink: checked });
+                EventBus.emit("settings:terminal-changed");
+              }}
+            />
+            <SettingResetButton label={t("settings.reset")} onReset={resetTerminalCursorBlink} />
+          </div>
         </div>
       </GlassContainer>
 
@@ -793,16 +928,17 @@ export function SettingsTab() {
           <p className="text-[13px] text-[var(--color-text-muted)]">{t("settings.noResults")}</p>
         </GlassContainer>
       ) : (
-        <GlassContainer
-          layer="elevated"
-          className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-2xl"
-        >
+        <div className="flex flex-col gap-2">
           {searchResults.map((setting) => (
             <button
               key={setting.id}
               type="button"
-              onClick={() => navigateTo(CATEGORY_TO_SECTION[setting.category])}
-              className="flex w-full items-center gap-4 p-5 text-left transition-colors hover:bg-[var(--material-interactive-hover)]"
+              onClick={() => {
+                setActiveSection(CATEGORY_TO_SECTION[setting.category]);
+                setSettingsQuery("");
+                setRevealTarget({ settingId: setting.id, nonce: Date.now() });
+              }}
+              className="flex w-full items-center gap-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] p-4 text-left transition-[background-color,border-color] hover:border-[var(--border-overlay)] hover:bg-[var(--material-interactive-hover)]"
             >
               <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--material-interactive-active)] text-[var(--color-accent)]">
                 <Icons.Settings size={18} />
@@ -823,7 +959,7 @@ export function SettingsTab() {
               <Icons.ChevronRight size={16} className="shrink-0 text-[var(--color-text-muted)]" />
             </button>
           ))}
-        </GlassContainer>
+        </div>
       )}
     </div>
   );
@@ -856,6 +992,7 @@ export function SettingsTab() {
       <div className="mb-4 flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-panel)] px-3 py-2 shadow-[inset_0_1px_1px_var(--material-inset)]">
         <Icons.Search size={15} className="shrink-0 text-[var(--color-text-muted)]" />
         <input
+          data-aurona-input="embedded"
           value={settingsQuery}
           onChange={(event) => setSettingsQuery(event.target.value)}
           placeholder={t("settings.searchPlaceholder")}

@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { type NotificationItem, NotificationService } from "../../Core/NotificationService";
 import { EventBus } from "../../Foundation/EventBus";
+import { useLocale } from "../../Foundation/I18n";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 
 export const NotificationsPanel = React.memo(function NotificationsPanel() {
+  const { t } = useLocale();
   const [notifications, setNotifications] = useState<NotificationItem[]>(
     NotificationService.getHistory(),
   );
@@ -27,10 +29,10 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
     <div className="flex flex-col h-full w-full bg-transparent">
       {}
       <SidebarPageHeader
-        title="通知"
+        title={t("notifications.title")}
         actions={
           notifications.length > 0 ? (
-            <Tooltip content="清除所有通知" delay={300}>
+            <Tooltip content={t("notifications.clearAll")} delay={300}>
               <button
                 type="button"
                 onClick={handleClear}
@@ -56,17 +58,17 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
             </div>
             <div className="relative z-10 space-y-2">
               <h3 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
-                通知中心很安静
+                {t("notifications.emptyTitle")}
               </h3>
               <p className="text-[12px] leading-relaxed text-[var(--color-text-muted)]">
-                Aurona Code 会在需要你处理时通知你
+                {t("notifications.emptyHintA")}
                 <br />
-                其余工作将在后台安静完成
+                {t("notifications.emptyHintB")}
               </p>
             </div>
             <div className="relative z-10 flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--color-accent)_16%,var(--border-subtle))] bg-[var(--material-panel)] px-3 py-1 text-[11px] font-medium text-[var(--color-text-muted)]">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
-              所有通知均已查看
+              {t("notifications.allRead")}
             </div>
           </div>
         ) : (

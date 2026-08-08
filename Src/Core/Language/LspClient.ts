@@ -2,6 +2,7 @@ import { EventBus } from "../../Foundation/EventBus";
 import { LanguageServerIPC } from "../../Foundation/IPC/LanguageServerCommands";
 import type { CompletionItem } from "../../Foundation/Types/Lsp";
 import { type DiagnosticItem, DiagnosticsService } from "../DiagnosticsService";
+import { DocumentService } from "../DocumentService";
 import { OutputService } from "../OutputService";
 import { normalizePositionEncoding, positionForEncoding } from "./Position";
 
@@ -92,6 +93,7 @@ export class LspClient {
   private readonly serverStates = new Map<string, LanguageServerInfo>();
   private readonly documentUris = new Map<string, string>();
   private readonly documentTexts = new Map<string, string>();
+  private readonly documentLanguages = new Map<string, string>();
   private readonly stateListeners = new Set<StateListener>();
   private readonly disposers: (() => void)[] = [];
   private requestSequence = 1;
@@ -100,12 +102,24 @@ export class LspClient {
   private constructor() {
     this.disposers.push(
       EventBus.on("file:renamed", ({ oldPath }) => {
+        const uri = this.documentUris.get(oldPath);
         this.documentUris.delete(oldPath);
         this.documentTexts.delete(oldPath);
+        this.documentLanguages.delete(oldPath);
+        if (uri) DiagnosticsService.clear(uri);
       }),
       EventBus.on("file:deleted", ({ path }) => {
+        const uri = this.documentUris.get(path);
         this.documentUris.delete(path);
         this.documentTexts.delete(path);
+        this.documentLanguages.delete(path);
+        if (uri) DiagnosticsService.clear(uri);
+      }),
+      EventBus.on("workspace:root-changed", () => {
+        DiagnosticsService.clear();
+        this.documentUris.clear();
+        this.documentTexts.clear();
+        this.documentLanguages.clear();
       }),
     );
     void this.setupListeners();
@@ -200,15 +214,19 @@ export class LspClient {
   public async stopServer(language: string): Promise<void> {
     await LanguageServerIPC.stop(language);
     await this.refreshStates();
+    this.clearDiagnosticsForLanguage(language);
   }
 
   public async restartServer(language: string): Promise<void> {
     await LanguageServerIPC.restart(language);
     await this.refreshStates();
+    this.clearDiagnosticsForLanguage(language);
+    await this.reopenDocuments(language);
   }
 
   public async didOpen(language: string, path: string, text: string, version = 1): Promise<void> {
     this.documentTexts.set(path, text);
+    this.documentLanguages.set(path, language);
     await this.startServer(language);
     await this.resolveFileUri(path);
     await LanguageServerIPC.didOpen(language, path, text, version);
@@ -221,6 +239,7 @@ export class LspClient {
     version: number,
   ): Promise<void> {
     this.documentTexts.set(path, text);
+    this.documentLanguages.set(path, language);
     if (this.getState(language)?.status !== "running") return;
     await LanguageServerIPC.didChange(language, path, text, version);
   }
@@ -413,6 +432,23 @@ export class LspClient {
 
   private nextRequestId(): number {
     return this.requestSequence++;
+  }
+
+  private clearDiagnosticsForLanguage(language: string): void {
+    for (const [path, trackedLanguage] of this.documentLanguages) {
+      if (trackedLanguage !== language) continue;
+      const uri = this.documentUris.get(path);
+      if (uri) DiagnosticsService.clear(uri);
+    }
+  }
+
+  private async reopenDocuments(language: string): Promise<void> {
+    for (const [path, trackedLanguage] of this.documentLanguages) {
+      if (trackedLanguage !== language) continue;
+      const document = DocumentService.get(path);
+      const text = document?.content ?? this.documentTexts.get(path) ?? "";
+      await LanguageServerIPC.didOpen(language, path, text, document?.version ?? 1);
+    }
   }
 
   private async setupListeners(): Promise<void> {

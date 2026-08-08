@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { FileSystemService } from "../../Core/FileSystemService";
+import { useLocale } from "../../Foundation/I18n";
 import { Button } from "../../UI/Components/Button";
 
 import { Modal } from "../../UI/Components/Modal";
@@ -22,6 +23,7 @@ export const FileExplorer = React.memo(function FileExplorer({
 }: {
   onFileSelect: (path: string) => void;
 }) {
+  const { t } = useLocale();
   const treeRef = useRef<HTMLDivElement>(null);
   const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
   const {
@@ -51,7 +53,7 @@ export const FileExplorer = React.memo(function FileExplorer({
   } = useFileTree(onFileSelect);
 
   const isRootTargetForInline = inlineCreation?.parentPath === rootNode?.path;
-  const title = useMemo(() => rootNode?.name || "资源管理器", [rootNode]);
+  const title = useMemo(() => rootNode?.name || t("explorer.title"), [rootNode, t]);
   const visibleNodes = useMemo(() => {
     const nodes: { node: NonNullable<typeof rootNode>; depth: number }[] = [];
     const visit = (children: NonNullable<typeof rootNode>["children"], depth: number) => {
@@ -191,7 +193,7 @@ export const FileExplorer = React.memo(function FileExplorer({
           actions={
             rootNode ? (
               <>
-                <Tooltip content="新建文件" placement="bottom">
+                <Tooltip content={t("explorer.newFile")} placement="bottom">
                   <button
                     type="button"
                     className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
@@ -200,7 +202,7 @@ export const FileExplorer = React.memo(function FileExplorer({
                     <Icons.FilePlus size={16} />
                   </button>
                 </Tooltip>
-                <Tooltip content="新建文件夹" placement="bottom">
+                <Tooltip content={t("explorer.newFolder")} placement="bottom">
                   <button
                     type="button"
                     className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
@@ -210,7 +212,7 @@ export const FileExplorer = React.memo(function FileExplorer({
                   </button>
                 </Tooltip>
                 <div className="w-px h-3 bg-[var(--border-subtle)] mx-1" />
-                <Tooltip content="折叠全部" placement="bottom">
+                <Tooltip content={t("explorer.collapseAll")} placement="bottom">
                   <button
                     type="button"
                     className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
@@ -219,13 +221,16 @@ export const FileExplorer = React.memo(function FileExplorer({
                     <Icons.Minus size={16} />
                   </button>
                 </Tooltip>
-                <Tooltip content="刷新" placement="bottom">
+                <Tooltip content={t("explorer.refresh")} placement="bottom">
                   <button
                     type="button"
                     className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
                     onClick={() =>
                       refreshDirectory(rootNode.path).catch((error) =>
-                        showToast(`刷新失败：${FileSystemService.toMessage(error)}`, "error"),
+                        showToast(
+                          `${t("explorer.refreshFailed")}${FileSystemService.toMessage(error)}`,
+                          "error",
+                        ),
                       )
                     }
                   >
@@ -245,10 +250,10 @@ export const FileExplorer = React.memo(function FileExplorer({
             tabIndex={-1}
           >
             <p className="text-xs text-[var(--color-text-muted)] text-center select-none">
-              当前未打开任何文件夹
+              {t("explorer.noFolderOpen")}
             </p>
             <Button onClick={handleOpenFolder} variant="primary">
-              打开文件夹
+              {t("explorer.openFolder")}
             </Button>
           </div>
         ) : (
@@ -257,7 +262,7 @@ export const FileExplorer = React.memo(function FileExplorer({
             className="flex-1 overflow-y-auto overflow-x-hidden py-1 outline-none focus:outline-none relative"
             tabIndex={0}
             role="tree"
-            aria-label="文件资源管理器"
+            aria-label={t("explorer.ariaLabel")}
             onKeyDown={handleTreeKeyDown}
             onClick={() => treeRef.current?.focus()}
             onDragOver={(e) => {
@@ -291,22 +296,23 @@ export const FileExplorer = React.memo(function FileExplorer({
             <Modal
               isOpen={!!deletePrompt}
               onClose={() => setDeletePrompt(null)}
-              title="确认删除"
+              title={t("explorer.deleteTitle")}
               icon={<Icons.AlertTriangle className="text-red-500" size={18} stroke={2} />}
               footer={
                 <>
                   <Button variant="secondary" onClick={() => setDeletePrompt(null)}>
-                    取消
+                    {t("explorer.cancel")}
                   </Button>
                   <Button variant="danger" onClick={handleConfirmDelete}>
-                    永久删除
+                    {t("explorer.deleteForever")}
                   </Button>
                 </>
               }
             >
-              你确定要永久删除 <strong>{deletePrompt?.name}</strong> 吗？
+              {t("explorer.deleteConfirmStart")} <strong>{deletePrompt?.name}</strong>{" "}
+              {t("explorer.deleteConfirmEnd")}
               <br />
-              这个操作无法撤销
+              {t("explorer.deleteIrreversible")}
             </Modal>
           </div>
         )}

@@ -1,3 +1,5 @@
+import { type I18nKey, LocaleService } from "../Foundation/I18n";
+
 export interface CommandContext {
   activeFilePath: string | null;
   hasActiveEditor: boolean;
@@ -22,6 +24,10 @@ export interface CommandDefinition<Args = undefined> {
   id: string;
   title: string;
   category: string;
+  /** 可选国际化标题；提供后 Fliuno 等展示层优先使用翻译，缺省回退到 title。 */
+  titleKey?: I18nKey;
+  /** 可选国际化分类；提供后展示层优先使用翻译，缺省回退到 category。 */
+  categoryKey?: I18nKey;
   source?: "core" | "user";
   handler: (args: Args, context: CommandContext) => void | Promise<void>;
   canExecute?: ContextPredicate;
@@ -29,6 +35,14 @@ export interface CommandDefinition<Args = undefined> {
   when?: ContextPredicate;
   keybindings?: Keybinding[];
   placements?: CommandPlacement[];
+}
+
+export function getCommandTitle(command: CommandDefinition<unknown>): string {
+  return command.titleKey ? LocaleService.translate(command.titleKey) : command.title;
+}
+
+export function getCommandCategory(command: CommandDefinition<unknown>): string {
+  return command.categoryKey ? LocaleService.translate(command.categoryKey) : command.category;
 }
 
 export interface CommandExecutionResult {
@@ -148,4 +162,10 @@ class CommandRegistryImpl {
   }
 }
 
-export const CommandRegistry = new CommandRegistryImpl();
+const globalStore = globalThis as unknown as { __auronaCommandRegistry?: CommandRegistryImpl };
+
+if (!globalStore.__auronaCommandRegistry) {
+  globalStore.__auronaCommandRegistry = new CommandRegistryImpl();
+}
+
+export const CommandRegistry = globalStore.__auronaCommandRegistry;

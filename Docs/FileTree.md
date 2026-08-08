@@ -1,6 +1,6 @@
 # Aurona Code 文件树
 
-本文档以 0.3.9 当前仓库为准，展示长期维护时需要理解的目录、关键文件和职责；结构随版本演进，以源码为最终准。构建产物、依赖目录和批量图标资源未逐项展开。
+本文档以 0.3.10 当前仓库为准，展示长期维护时需要理解的目录、关键文件和职责；结构随版本演进，以源码为最终准。构建产物、依赖目录和批量图标资源未逐项展开。
 
 ```text
 Aurona Code/
@@ -47,6 +47,8 @@ Aurona Code/
 │  │  ├─ TerminalService.ts            # 终端服务生命周期
 │  │  ├─ UpdaterService.ts             # 更新检查、下载与安装协调
 │  │  ├─ Fliuno/                       # 统一搜索 Core：Query/Ranking/Session/Providers
+│  │  │  ├─ presentation.ts            # 可视顺序拍平：展示=键盘=执行
+│  │  │  └─ history.ts                 # Fliuno 最近命令/文件持久化
 │  │  └─ Settings/SettingRegistry.ts   # 设置注册表：分类、关键词与搜索元数据
 │  ├─ Extension/
 │  │  └─ CommandRegistry.ts            # 命令定义、上下文和快捷键；非插件运行时
@@ -65,7 +67,6 @@ Aurona Code/
 │  │  │  ├─ Workers/highlight.worker.ts# 语法高亮 Worker
 │  │  │  └─ components/                # 补全、搜索和渲染行组件
 │  │  ├─ Explorer/                     # 文件树、节点操作和定位
-│  │  ├─ Search/SearchPanel.tsx         # 全局搜索、取消与结果列表
 │  │  ├─ Fliuno/FliunoWorkspacePage.tsx # Fliuno Workspace 主内容页
 │  │  ├─ SourceControl/
 │  │  │  ├─ SourceControl.tsx           # Git 状态、暂存、提交与历史

@@ -36,8 +36,8 @@ export function AccountSettings() {
   const { t } = useLocale();
   const status = useSyncExternalStore(
     AccountService.subscribe,
-    AccountService.getSnapshot,
-    AccountService.getSnapshot,
+    () => AccountService.getSnapshot(),
+    () => AccountService.getSnapshot(),
   );
   const [interactionError, setInteractionError] = useState<string | null>(null);
   const [isOperating, setIsOperating] = useState(false);
@@ -123,9 +123,11 @@ export function AccountSettings() {
             {profile.email || t("account.noEmail")}
           </p>
 
-          <p className="mt-4 max-w-lg break-all text-[11px] tracking-wide text-[var(--color-text-muted)]">
-            ID · {profile.subject}
-          </p>
+          {profile.preferredUsername && (
+            <p className="mt-4 max-w-lg break-all text-[13px] font-medium text-[var(--color-text-muted)]">
+              @{profile.preferredUsername}
+            </p>
+          )}
 
           <div className="mt-7 flex items-center justify-center gap-3">
             <Button

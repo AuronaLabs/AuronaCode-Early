@@ -41,6 +41,7 @@ vi.mock("../State/useEditorStore", () => ({
   initializeEditorStore: mocks.initializeEditorStore,
 }));
 vi.mock("./Commands", () => ({ registerWorkbenchCommands: mocks.registerWorkbenchCommands }));
+vi.mock("./DebugService", () => ({ DebugService: { dispose: vi.fn() } }));
 vi.mock("./Recovery/RecoveryCoordinator", () => ({
   RecoveryCoordinator: { flushAll: mocks.flushRecovery },
 }));

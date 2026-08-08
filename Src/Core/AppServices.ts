@@ -5,6 +5,7 @@ import { initializeTerminalStore } from "../State/useTerminalStore";
 import { initializeWorkbenchStore } from "../State/useWorkspaceStore";
 import { AccountService } from "./AccountService";
 import { registerWorkbenchCommands } from "./Commands";
+import { DebugService } from "./DebugService";
 import { DocumentService } from "./DocumentService";
 import { LspClient } from "./Language/LspClient";
 import { OutputService } from "./OutputService";
@@ -70,6 +71,7 @@ export const AppServices = {
     const current = disposers;
     disposers = [];
     for (const dispose of current.reverse()) dispose();
+    DebugService.dispose();
     void WorkspaceStore.flush();
   },
 };

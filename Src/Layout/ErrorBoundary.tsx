@@ -12,21 +12,29 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  logPath: string | null;
+  copied: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,
+    logPath: null,
+    copied: false,
   };
 
-  public static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: Error): Pick<State, "hasError" | "error"> {
     return { hasError: true, error };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
     Logger.error("React ErrorBoundary Caught Exception", { error, errorInfo });
+    void desktopApp
+      .logFilePath()
+      .then((logPath) => this.setState({ logPath }))
+      .catch(() => this.setState({ logPath: null }));
   }
 
   private handleReload = () => {
@@ -34,12 +42,14 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   private handleCopyLog = async () => {
+    const logPath = this.state.logPath;
+    if (!logPath) return;
     try {
-      const logPath = await desktopApp.logFilePath();
       await navigator.clipboard.writeText(logPath);
-      alert(`日志地址已复制：${logPath}`);
+      this.setState({ copied: true });
+      window.setTimeout(() => this.setState({ copied: false }), 2000);
     } catch {
-      alert("复制路径失败，日志位于 AppData/Local 目录下");
+      // 剪贴板不可用时保持按钮可用，不弹原生对话框。
     }
   };
 
@@ -47,31 +57,33 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div
-          className="flex flex-col items-center justify-center w-screen h-screen text-[var(--color-text-highlight)] select-none overflow-hidden px-6"
+          className="flex w-screen h-screen flex-col items-center justify-center overflow-hidden px-6 select-none text-[var(--color-text-highlight)]"
           style={{ background: "var(--AppBackground)" }}
         >
-          <div className="flex max-w-[520px] flex-col items-center gap-4 text-center">
-            <div className="text-[var(--color-accent)] mb-2">
-              <Icons.AlertTriangle size={64} stroke={1.5} />
+          <div className="flex max-w-[560px] flex-col items-center gap-4 text-center">
+            <div className="mb-2 text-[var(--color-accent)]">
+              <Icons.AlertTriangle size={60} stroke={1.5} />
             </div>
-
             <h1 className="text-3xl font-bold tracking-tight">Aurona Code 出现异常</h1>
-            <p className="text-sm text-[var(--color-text-muted)] leading-relaxed">
+            <p className="text-sm leading-relaxed text-[var(--color-text-muted)]">
               工作区遇到了未处理错误
               <br />
-              你可以重启前端引擎，或复制日志地址继续排查
+              你可以重启前端引擎；如果问题持续，请把日志地址发给开发团队
             </p>
-            <p className="text-sm text-[var(--color-text-muted)] font-mono">
-              CrashID: {Logger.getLogId()}
-            </p>
-
-            <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
+            {this.state.logPath && (
+              <p className="max-w-full truncate rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-muted)]">
+                {this.state.logPath}
+              </p>
+            )}
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <Button variant="primary" onClick={this.handleReload} className="px-8 py-2">
                 重启引擎
               </Button>
-              <Button variant="secondary" onClick={this.handleCopyLog} className="px-8 py-2">
-                复制日志地址
-              </Button>
+              {this.state.logPath && (
+                <Button variant="secondary" onClick={this.handleCopyLog} className="px-8 py-2">
+                  {this.state.copied ? "已复制" : "复制日志地址"}
+                </Button>
+              )}
             </div>
           </div>
         </div>

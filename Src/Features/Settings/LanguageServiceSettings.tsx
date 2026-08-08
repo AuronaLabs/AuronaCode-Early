@@ -9,6 +9,7 @@ import type { LanguageFeaturePreferences } from "../../Foundation/Types/Config";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Button } from "../../UI/Components/Button";
 import { Select } from "../../UI/Components/Select";
+import { SettingResetButton } from "../../UI/Components/SettingResetButton";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { Icons } from "../../UI/Icons/IconManager";
@@ -85,8 +86,10 @@ export function LanguageServiceSettings() {
           className="divide-y divide-[var(--border-subtle)] rounded-2xl"
         >
           <SettingRow
+            settingId="hoverEnabled"
             title={t("settings.codeIntelligence.hover")}
             description={t("settings.codeIntelligence.hoverDescription")}
+            onReset={() => void updatePreferences({ hoverEnabled: true })}
             control={
               <Switch
                 checked={preferences.hoverEnabled}
@@ -95,8 +98,10 @@ export function LanguageServiceSettings() {
             }
           />
           <SettingRow
+            settingId="hoverDelayMs"
             title={t("settings.codeIntelligence.hoverDelay")}
             description={t("settings.codeIntelligence.hoverDelayDescription")}
+            onReset={() => void updatePreferences({ hoverDelayMs: 600 })}
             control={
               <Select
                 ariaLabel={t("settings.codeIntelligence.hoverDelay")}
@@ -112,8 +117,10 @@ export function LanguageServiceSettings() {
             }
           />
           <SettingRow
+            settingId="automaticCompletion"
             title={t("settings.codeIntelligence.completion")}
             description={t("settings.codeIntelligence.completionDescription")}
+            onReset={() => void updatePreferences({ automaticCompletion: true })}
             control={
               <Switch
                 checked={preferences.automaticCompletion}
@@ -172,7 +179,7 @@ export function LanguageServiceSettings() {
                       </span>
                     </div>
                     <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
-                      {tool.description}
+                      {t(tool.descriptionKey)}
                     </p>
                     {state?.lastError && (
                       <p className="mt-2 line-clamp-2 font-mono text-[10px] text-red-500">
@@ -238,23 +245,31 @@ export function LanguageServiceSettings() {
 }
 
 function SettingRow({
+  settingId,
   title,
   description,
   control,
+  onReset,
 }: {
+  settingId?: string;
   title: string;
   description: string;
   control: ReactNode;
+  onReset?: () => void;
 }) {
+  const { t } = useLocale();
   return (
-    <div className="flex items-center justify-between gap-6 px-5 py-4">
+    <div data-setting-id={settingId} className="flex items-center justify-between gap-6 px-5 py-4">
       <div className="min-w-0">
         <div className="text-[13px] font-semibold text-[var(--color-text-highlight)]">{title}</div>
         <div className="mt-1 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
           {description}
         </div>
       </div>
-      <div className="shrink-0">{control}</div>
+      <div className="flex shrink-0 items-center gap-2">
+        {control}
+        {onReset && <SettingResetButton label={t("settings.reset")} onReset={onReset} />}
+      </div>
     </div>
   );
 }

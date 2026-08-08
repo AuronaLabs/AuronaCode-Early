@@ -3,6 +3,7 @@ import { AccountService } from "../Core/AccountService";
 import { type LanguageServerInfo, LspClient } from "../Core/Language/LspClient";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EventBus } from "../Foundation/EventBus";
+import { LocaleService, useLocale } from "../Foundation/I18n";
 import { GetLanguageFromPath } from "../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../State/useEditorStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
@@ -34,10 +35,11 @@ const formatLanguage = (language: string) => {
 };
 
 export function StatusBar() {
+  const { t } = useLocale();
   const account = useSyncExternalStore(
     AccountService.subscribe,
-    AccountService.getSnapshot,
-    AccountService.getSnapshot,
+    () => AccountService.getSnapshot(),
+    () => AccountService.getSnapshot(),
   );
   const editorStatus = useEditorStore((state) => state.editorStatus);
   const setActiveBottomPanel = useWorkbenchStore((state) => state.setActiveBottomPanel);
@@ -51,7 +53,7 @@ export function StatusBar() {
   );
   const signedInProfile = account.phase === "signedIn" ? account.profile : null;
   const accountDisplayName =
-    signedInProfile?.preferredUsername || signedInProfile?.name || "Aurona 用户";
+    signedInProfile?.preferredUsername || signedInProfile?.name || t("account.defaultDisplayName");
 
   useEffect(() => {
     const client = LspClient.getInstance();
@@ -64,12 +66,15 @@ export function StatusBar() {
     <footer className="flex h-[var(--StatusBarHeight)] shrink-0 items-center bg-transparent px-4 text-xs text-[var(--color-text-muted)] font-medium overflow-hidden">
       <div className="flex items-center gap-4 min-w-0">
         <span className="cursor-default truncate">
-          {editorStatus.errors} 错误, {editorStatus.warnings} 警告
+          {editorStatus.errors} {t("statusBar.errors")}, {editorStatus.warnings}{" "}
+          {t("statusBar.warnings")}
         </span>
         {activeFilePath && editorStatus.hasEditor && (
           <span className="cursor-default truncate">
-            行 {editorStatus.line}, 列 {editorStatus.column}
-            {editorStatus.selectionLength > 0 ? ` (${editorStatus.selectionLength} 已选)` : ""}
+            {t("statusBar.line")} {editorStatus.line}, {t("statusBar.column")} {editorStatus.column}
+            {editorStatus.selectionLength > 0
+              ? ` (${editorStatus.selectionLength} ${t("statusBar.selected")})`
+              : ""}
           </span>
         )}
       </div>
@@ -94,13 +99,13 @@ export function StatusBar() {
             <span className="cursor-default">{editorStatus.encoding}</span>
             <span className="cursor-default">{editorStatus.lineEnding}</span>
             <span className="cursor-default">
-              {editorStatus.insertSpaces ? "空格" : "Tab"}: {editorStatus.tabSize}
+              {editorStatus.insertSpaces ? t("statusBar.spaces") : "Tab"}: {editorStatus.tabSize}
             </span>
             <span className="cursor-default truncate">{formatLanguage(activeLanguage)}</span>
             <button
               type="button"
               onClick={() => setActiveBottomPanel("output")}
-              aria-label={languageServer?.lastError ?? "打开语言服务器输出"}
+              aria-label={languageServer?.lastError ?? t("statusBar.lspOutputLabel")}
               className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 hover:bg-[var(--material-interactive-hover)]"
             >
               <span
@@ -116,15 +121,15 @@ export function StatusBar() {
 }
 
 function languageServerStatusLabel(status?: LanguageServerInfo["status"]): string {
-  if (!status) return "语言服务未配置";
+  if (!status) return LocaleService.translate("statusBar.lspNotConfigured");
   return {
-    stopped: "语言服务已停止",
-    starting: "语言服务启动中",
-    initializing: "语言服务初始化中",
-    running: "语言服务运行中",
-    restarting: "语言服务重启中",
-    failed: "语言服务失败",
-    stopping: "语言服务停止中",
+    stopped: LocaleService.translate("statusBar.lspStopped"),
+    starting: LocaleService.translate("statusBar.lspStarting"),
+    initializing: LocaleService.translate("statusBar.lspInitializing"),
+    running: LocaleService.translate("statusBar.lspRunning"),
+    restarting: LocaleService.translate("statusBar.lspRestarting"),
+    failed: LocaleService.translate("statusBar.lspFailed"),
+    stopping: LocaleService.translate("statusBar.lspStopping"),
   }[status];
 }
 

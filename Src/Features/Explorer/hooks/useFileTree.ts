@@ -3,6 +3,7 @@ import { type FileNode, FileSystemService } from "../../../Core/FileSystemServic
 import { WorkspaceService } from "../../../Core/WorkspaceService";
 import { desktopDialog } from "../../../Foundation/Desktop";
 import { EventBus } from "../../../Foundation/EventBus";
+import { useLocale } from "../../../Foundation/I18n";
 import { WorkspaceStore } from "../../../Foundation/Storage/WorkspaceStore";
 import { SIDEBAR_EXPLORER } from "../../../Shared/Constants/Sidebar";
 import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
@@ -40,6 +41,7 @@ export interface UseFileTreeReturn {
 }
 
 export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeReturn {
+  const { t } = useLocale();
   const [rootNode, setRootNode] = useState<FileNode | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [inlineCreation, setInlineCreation] = useState<InlineCreation | null>(null);
@@ -75,23 +77,29 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
     });
   }, []);
 
-  const loadFolderDirectly = useCallback(async (selectedPath: string) => {
-    try {
-      await WorkspaceService.openRoot(selectedPath);
-      const folderName = FileSystemService.basename(selectedPath);
-      const children = await FileSystemService.readDirectory(selectedPath);
-      setRootNode({
-        name: folderName,
-        path: selectedPath,
-        isDirectory: true,
-        isOpen: true,
-        children,
-      });
-      EventBus.emit("workspace:root-changed", selectedPath);
-    } catch (error) {
-      showToast(`打开文件夹失败：${FileSystemService.toMessage(error)}`, "error");
-    }
-  }, []);
+  const loadFolderDirectly = useCallback(
+    async (selectedPath: string) => {
+      try {
+        await WorkspaceService.openRoot(selectedPath);
+        const folderName = FileSystemService.basename(selectedPath);
+        const children = await FileSystemService.readDirectory(selectedPath);
+        setRootNode({
+          name: folderName,
+          path: selectedPath,
+          isDirectory: true,
+          isOpen: true,
+          children,
+        });
+        EventBus.emit("workspace:root-changed", selectedPath);
+      } catch (error) {
+        showToast(
+          `${t("explorer.openFolderFailed")}${FileSystemService.toMessage(error)}`,
+          "error",
+        );
+      }
+    },
+    [t],
+  );
 
   useEffect(() => {
     const init = async () => {
@@ -175,9 +183,9 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         await loadFolderDirectly(selectedPath);
       }
     } catch (error) {
-      showToast(`打开文件夹失败：${FileSystemService.toMessage(error)}`, "error");
+      showToast(`${t("explorer.openFolderFailed")}${FileSystemService.toMessage(error)}`, "error");
     }
-  }, [loadFolderDirectly]);
+  }, [loadFolderDirectly, t]);
 
   const selectNode = useCallback(
     (node: FileNode, openFile = false) => {
@@ -222,10 +230,13 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
           };
         });
       } catch (error) {
-        showToast(`读取目录失败：${FileSystemService.toMessage(error)}`, "error");
+        showToast(
+          `${t("explorer.readDirectoryFailed")}${FileSystemService.toMessage(error)}`,
+          "error",
+        );
       }
     },
-    [selectNode],
+    [selectNode, t],
   );
 
   const collapseAll = useCallback(() => {
@@ -338,14 +349,17 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
           setActivePath(newPath);
           onFileSelect(newPath);
         }
-        showToast(type === "file" ? "文件已创建" : "文件夹已创建", "success");
+        showToast(
+          type === "file" ? t("explorer.fileCreated") : t("explorer.folderCreated"),
+          "success",
+        );
       } catch (error) {
-        showToast(`创建失败：${FileSystemService.toMessage(error)}`, "error");
+        showToast(`${t("explorer.createFailed")}${FileSystemService.toMessage(error)}`, "error");
       } finally {
         setInlineCreation(null);
       }
     },
-    [inlineCreation, onFileSelect, refreshDirectory],
+    [inlineCreation, onFileSelect, refreshDirectory, t],
   );
 
   const handleInlineCancel = useCallback(() => {
@@ -356,7 +370,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
   const handleInlineRename = useCallback(
     async (oldPath: string, newName: string) => {
       if (hasDirtyOpenTabAtOrBelow(oldPath)) {
-        showToast("请先保存已打开文件的更改，再重命名", "warning");
+        showToast(t("explorer.saveBeforeRename"), "warning");
         return;
       }
       try {
@@ -365,21 +379,21 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         await refreshDirectory(parentPath);
         EventBus.emit("file:renamed", { oldPath, newPath });
         updateActivePathAfterMove(oldPath, newPath);
-        showToast("重命名完成", "success");
+        showToast(t("explorer.renamed"), "success");
       } catch (error) {
-        showToast(`重命名失败：${FileSystemService.toMessage(error)}`, "error");
+        showToast(`${t("explorer.renameFailed")}${FileSystemService.toMessage(error)}`, "error");
       } finally {
         setInlineEditing(null);
       }
     },
-    [hasDirtyOpenTabAtOrBelow, refreshDirectory, updateActivePathAfterMove],
+    [hasDirtyOpenTabAtOrBelow, refreshDirectory, updateActivePathAfterMove, t],
   );
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deletePrompt) return;
     const node = deletePrompt;
     if (hasDirtyOpenTabAtOrBelow(node.path)) {
-      showToast("请先保存已打开文件的更改，再删除", "warning");
+      showToast(t("explorer.saveBeforeDelete"), "warning");
       return;
     }
     setDeletePrompt(null);
@@ -394,17 +408,17 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
       ) {
         setActivePath(null);
       }
-      showToast("删除完成", "success");
+      showToast(t("explorer.deleted"), "success");
     } catch (error) {
-      showToast(`删除失败：${FileSystemService.toMessage(error)}`, "error");
+      showToast(`${t("explorer.deleteFailed")}${FileSystemService.toMessage(error)}`, "error");
     }
-  }, [activePath, deletePrompt, hasDirtyOpenTabAtOrBelow, refreshDirectory]);
+  }, [activePath, deletePrompt, hasDirtyOpenTabAtOrBelow, refreshDirectory, t]);
 
   const handlePaste = useCallback(
     async (targetDir: string) => {
       if (!clipboard) return;
       if (clipboard.isCut && hasDirtyOpenTabAtOrBelow(clipboard.path)) {
-        showToast("请先保存已打开文件的更改，再移动", "warning");
+        showToast(t("explorer.saveBeforeMove"), "warning");
         return;
       }
       try {
@@ -412,7 +426,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         const destPath = FileSystemService.joinPath(targetDir, fileName);
 
         if (clipboard.path === destPath) {
-          showToast("不能粘贴到同一位置", "warning");
+          showToast(t("explorer.pasteSameLocation"), "warning");
           return;
         }
 
@@ -427,12 +441,12 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         }
         await refreshDirectory(targetDir);
 
-        showToast(clipboard.isCut ? "移动成功" : "复制成功", "success");
+        showToast(clipboard.isCut ? t("explorer.moved") : t("explorer.copied"), "success");
       } catch (error) {
-        showToast(`粘贴失败: ${FileSystemService.toMessage(error)}`, "error");
+        showToast(`${t("explorer.pasteFailed")}${FileSystemService.toMessage(error)}`, "error");
       }
     },
-    [clipboard, hasDirtyOpenTabAtOrBelow, refreshDirectory, updateActivePathAfterMove],
+    [clipboard, hasDirtyOpenTabAtOrBelow, refreshDirectory, updateActivePathAfterMove, t],
   );
 
   const handleDuplicate = useCallback(
@@ -443,27 +457,27 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
 
         let newFileName = "";
         if (node.isDirectory) {
-          newFileName = `${fileName} - 副本`;
+          newFileName = `${fileName}${t("explorer.duplicateSuffix")}`;
         } else {
           const lastDotIndex = fileName.lastIndexOf(".");
           if (lastDotIndex > 0) {
             const name = fileName.substring(0, lastDotIndex);
             const ext = fileName.substring(lastDotIndex);
-            newFileName = `${name} - 副本${ext}`;
+            newFileName = `${name}${t("explorer.duplicateSuffix")}${ext}`;
           } else {
-            newFileName = `${fileName} - 副本`;
+            newFileName = `${fileName}${t("explorer.duplicateSuffix")}`;
           }
         }
 
         const newPath = FileSystemService.joinPath(parentPath, newFileName);
         await FileSystemService.copyOrMove(node.path, newPath, false);
         await refreshDirectory(parentPath);
-        showToast("副本创建成功", "success");
+        showToast(t("explorer.duplicateCreated"), "success");
       } catch (error) {
-        showToast(`创建副本失败: ${FileSystemService.toMessage(error)}`, "error");
+        showToast(`${t("explorer.duplicateFailed")}${FileSystemService.toMessage(error)}`, "error");
       }
     },
-    [refreshDirectory],
+    [refreshDirectory, t],
   );
 
   const handleContextMenu = useCallback((event: React.MouseEvent, node: FileNode) => {
@@ -475,12 +489,12 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
       if (sourcePath === targetPath) return;
 
       if (!copy && hasDirtyOpenTabAtOrBelow(sourcePath)) {
-        showToast("请先保存已打开文件的更改，再移动", "warning");
+        showToast(t("explorer.saveBeforeMove"), "warning");
         return;
       }
 
       if (targetPath.startsWith(`${sourcePath}/`) || targetPath.startsWith(`${sourcePath}\\`)) {
-        showToast("无法将文件夹移动到其子文件夹中", "error");
+        showToast(t("explorer.cannotMoveIntoChild"), "error");
         return;
       }
 
@@ -501,12 +515,12 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
           updateActivePathAfterMove(sourcePath, destPath);
         }
 
-        showToast(copy ? "复制成功" : "移动成功", "success");
+        showToast(copy ? t("explorer.copied") : t("explorer.moved"), "success");
       } catch (error) {
-        showToast(`移动失败: ${FileSystemService.toMessage(error)}`, "error");
+        showToast(`${t("explorer.moveFailed")}${FileSystemService.toMessage(error)}`, "error");
       }
     },
-    [hasDirtyOpenTabAtOrBelow, refreshDirectory, updateActivePathAfterMove],
+    [hasDirtyOpenTabAtOrBelow, refreshDirectory, updateActivePathAfterMove, t],
   );
 
   useEffect(() => {
@@ -517,7 +531,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
     );
     const unsubReveal = EventBus.on("app:reveal-in-explorer", (path: string) => {
       void revealInExplorer(path).catch((error) => {
-        showToast(`Unable to reveal file: ${FileSystemService.toMessage(error)}`, "error");
+        showToast(`${t("explorer.revealFailed")}${FileSystemService.toMessage(error)}`, "error");
       });
     });
     return () => {
@@ -526,7 +540,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
       unsubNewFolder();
       unsubReveal();
     };
-  }, [handleOpenFolder, revealInExplorer, startInlineCreate]);
+  }, [handleOpenFolder, revealInExplorer, startInlineCreate, t]);
 
   return {
     rootNode,

@@ -7,6 +7,7 @@ import {
   useDebugStore,
 } from "../State/useDebugStore";
 import { type DebugConfiguration, DebugConfigurationService } from "./DebugConfigurationService";
+import { collectVariableValues, diffVariableValues } from "./DebugVariableDiff";
 import { OutputService } from "./OutputService";
 
 class DebugServiceImpl {
@@ -119,11 +120,14 @@ class DebugServiceImpl {
       sessionTargetPath: typeof resolved.program === "string" ? resolved.program : null,
       error: null,
       threads: [],
+      selectedThreadId: null,
+      changedVariables: [],
       stackFrames: [],
       selectedFrameId: null,
       scopes: [],
       variablesByReference: {},
       loadingVariableReferences: [],
+      variablePagination: {},
     });
     try {
       await DebugAdapterIPC.start({
@@ -242,11 +246,14 @@ class DebugServiceImpl {
       sessionTargetPath: null,
       error: null,
       threads: [],
+      selectedThreadId: null,
+      changedVariables: [],
       stackFrames: [],
       selectedFrameId: null,
       scopes: [],
       variablesByReference: {},
       loadingVariableReferences: [],
+      variablePagination: {},
     });
   }
 
@@ -259,17 +266,140 @@ class DebugServiceImpl {
   async request(command: "continue" | "pause" | "next" | "stepIn" | "stepOut"): Promise<void> {
     const { sessionId } = useDebugStore.getState();
     if (!sessionId) return;
-    let threads = useDebugStore.getState().threads;
+    const current = useDebugStore.getState();
+    let threads = current.threads;
+    let threadId = current.selectedThreadId;
     if (threads.length === 0) {
       const result = await DebugAdapterIPC.request<{
         threads?: Array<{ id: number; name: string }>;
       }>(sessionId, "threads", {});
       threads = result.threads ?? [];
       useDebugStore.getState().set({ threads });
+      threadId = threads[0]?.id ?? null;
+    } else if (threadId === null) {
+      threadId = threads[0]?.id ?? null;
     }
-    const threadId = threads[0]?.id;
     if (!threadId) throw new Error("Debug Adapter 没有返回可操作的线程");
     await DebugAdapterIPC.request(sessionId, command, { threadId });
+  }
+
+  async selectThread(threadId: number): Promise<void> {
+    const { sessionId, state } = useDebugStore.getState();
+    if (!sessionId || state !== "paused") return;
+    useDebugStore.getState().set({
+      selectedThreadId: threadId,
+      stackFrames: [],
+      selectedFrameId: null,
+      scopes: [],
+      variablesByReference: {},
+      loadingVariableReferences: [],
+      variablePagination: {},
+    });
+    const result = await DebugAdapterIPC.request<{ stackFrames?: DebugStackFrame[] }>(
+      sessionId,
+      "stackTrace",
+      { threadId, startFrame: 0, levels: 50 },
+    );
+    const latest = useDebugStore.getState();
+    if (latest.sessionId !== sessionId || latest.selectedThreadId !== threadId) return;
+    const stackFrames = result.stackFrames ?? [];
+    latest.set({ stackFrames, selectedFrameId: stackFrames[0]?.id ?? null });
+    const firstFrame = stackFrames[0];
+    if (firstFrame) await this.selectFrame(firstFrame.id);
+  }
+
+  async addWatch(expression: string): Promise<void> {
+    const trimmed = expression.trim();
+    if (!trimmed) return;
+    const id = `watch-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+    useDebugStore.getState().set({
+      watchExpressions: [...useDebugStore.getState().watchExpressions, { id, expression: trimmed }],
+    });
+    await this.evaluateWatch(id, trimmed);
+  }
+
+  removeWatch(id: string): void {
+    useDebugStore.getState().set({
+      watchExpressions: useDebugStore
+        .getState()
+        .watchExpressions.filter((entry) => entry.id !== id),
+    });
+  }
+
+  async updateWatchExpression(id: string, expression: string): Promise<void> {
+    const trimmed = expression.trim();
+    const current = useDebugStore.getState();
+    current.set({
+      watchExpressions: current.watchExpressions.map((entry) =>
+        entry.id === id ? { ...entry, expression: trimmed } : entry,
+      ),
+    });
+    await this.evaluateWatch(id, trimmed);
+  }
+
+  async reevaluateWatches(): Promise<void> {
+    for (const entry of useDebugStore.getState().watchExpressions) {
+      await this.evaluateWatch(entry.id, entry.expression);
+    }
+  }
+
+  private async evaluateWatch(id: string, expression: string): Promise<void> {
+    const { sessionId, state } = useDebugStore.getState();
+    if (!sessionId || state !== "paused") return;
+    try {
+      const result = await this.evaluate(expression, "watch");
+      const latest = useDebugStore.getState();
+      if (latest.sessionId !== sessionId) return;
+      latest.set({
+        watchExpressions: latest.watchExpressions.map((entry) =>
+          entry.id === id ? { ...entry, value: result.value, error: undefined } : entry,
+        ),
+      });
+    } catch (error) {
+      const latest = useDebugStore.getState();
+      if (latest.sessionId !== sessionId) return;
+      latest.set({
+        watchExpressions: latest.watchExpressions.map((entry) =>
+          entry.id === id
+            ? {
+                ...entry,
+                value: undefined,
+                error: error instanceof Error ? error.message : String(error),
+              }
+            : entry,
+        ),
+      });
+    }
+  }
+
+  async evaluate(
+    expression: string,
+    context: "watch" | "repl" | "variables" | "hover" = "repl",
+  ): Promise<{ value: string; type?: string }> {
+    const { sessionId, state, selectedFrameId, selectedThreadId } = useDebugStore.getState();
+    if (!sessionId || state !== "paused") {
+      throw new Error("调试会话未暂停，无法求值");
+    }
+    const result = await DebugAdapterIPC.request<{
+      result?: string;
+      type?: string;
+    }>(sessionId, "evaluate", {
+      expression,
+      context,
+      frameId: selectedFrameId ?? undefined,
+      ...(selectedThreadId !== null ? { threadId: selectedThreadId } : {}),
+    });
+    return { value: result.result ?? "", type: result.type };
+  }
+
+  async removeAllBreakpoints(): Promise<void> {
+    useDebugStore.getState().removeAllBreakpoints();
+    await this.syncBreakpoints();
+  }
+
+  async setAllBreakpointsEnabled(enabled: boolean): Promise<void> {
+    useDebugStore.getState().setAllBreakpointsEnabled(enabled);
+    await this.syncBreakpoints();
   }
 
   private toAdapterArguments(configuration: DebugConfiguration): Record<string, unknown> {
@@ -294,17 +424,18 @@ class DebugServiceImpl {
       await this.syncBreakpoints();
       await DebugAdapterIPC.request(event.sessionId, "configurationDone", {});
     } else if (event.event === "stopped") {
+      const previousValues = collectVariableValues(store.scopes, store.variablesByReference);
       const threadResult = await DebugAdapterIPC.request<{
         threads?: Array<{ id: number; name: string }>;
       }>(event.sessionId, "threads", {});
       const threads = threadResult.threads ?? [];
-      store.set({ state: "paused", threads });
-      const threadId = Number(body.threadId ?? threads[0]?.id);
-      if (threadId) {
+      const stoppedThreadId = Number(body.threadId ?? threads[0]?.id);
+      store.set({ state: "paused", threads, selectedThreadId: stoppedThreadId || null });
+      if (stoppedThreadId) {
         const result = await DebugAdapterIPC.request<{ stackFrames?: DebugStackFrame[] }>(
           event.sessionId,
           "stackTrace",
-          { threadId, startFrame: 0, levels: 50 },
+          { threadId: stoppedThreadId, startFrame: 0, levels: 50 },
         );
         const stackFrames = result.stackFrames ?? [];
         store.set({ stackFrames, selectedFrameId: stackFrames[0]?.id ?? null });
@@ -312,15 +443,22 @@ class DebugServiceImpl {
         if (firstFrame) {
           await this.selectFrame(firstFrame.id);
         }
+        const latest = useDebugStore.getState();
+        const currentValues = collectVariableValues(latest.scopes, latest.variablesByReference);
+        latest.set({ changedVariables: diffVariableValues(previousValues, currentValues) });
+        await this.reevaluateWatches();
       }
     } else if (event.event === "continued") {
       store.set({
         state: "running",
+        selectedThreadId: null,
+        changedVariables: [],
         stackFrames: [],
         selectedFrameId: null,
         scopes: [],
         variablesByReference: {},
         loadingVariableReferences: [],
+        variablePagination: {},
       });
     } else if (event.event === "terminated" || event.event === "exited") {
       await this.finishSession(event.sessionId);
@@ -341,6 +479,7 @@ class DebugServiceImpl {
       scopes: [],
       variablesByReference: {},
       loadingVariableReferences: [],
+      variablePagination: {},
     });
     try {
       const result = await DebugAdapterIPC.request<{ scopes?: DebugScope[] }>(sessionId, "scopes", {
@@ -361,16 +500,14 @@ class DebugServiceImpl {
     }
   }
 
-  async loadVariables(variablesReference: number): Promise<void> {
+  async loadVariables(variablesReference: number, start = 0, totalHint?: number): Promise<void> {
     if (variablesReference <= 0) return;
     const current = useDebugStore.getState();
-    if (
-      !current.sessionId ||
-      current.variablesByReference[variablesReference] ||
-      current.loadingVariableReferences.includes(variablesReference)
-    ) {
+    if (!current.sessionId || current.loadingVariableReferences.includes(variablesReference)) {
       return;
     }
+    const existing = current.variablesByReference[variablesReference] ?? [];
+    if (start > 0 && existing.length < start) return;
     const sessionId = current.sessionId;
     const selectedFrameId = current.selectedFrameId;
     current.set({
@@ -380,16 +517,24 @@ class DebugServiceImpl {
       const result = await DebugAdapterIPC.request<{ variables?: DebugVariable[] }>(
         sessionId,
         "variables",
-        { variablesReference },
+        { variablesReference, start, count: 100 },
       );
       const latest = useDebugStore.getState();
       if (latest.sessionId !== sessionId || latest.selectedFrameId !== selectedFrameId) {
         return;
       }
+      const incoming = result.variables ?? [];
+      const appended = start === 0 ? incoming : [...existing, ...incoming];
+      const nextStart = start + incoming.length;
+      const hasMore = incoming.length >= 100 && (totalHint === undefined || nextStart < totalHint);
       latest.set({
         variablesByReference: {
           ...latest.variablesByReference,
-          [variablesReference]: result.variables ?? [],
+          [variablesReference]: appended,
+        },
+        variablePagination: {
+          ...latest.variablePagination,
+          [variablesReference]: { nextStart, hasMore },
         },
       });
     } catch (error) {
@@ -410,8 +555,10 @@ class DebugServiceImpl {
   async syncBreakpoints(): Promise<void> {
     const { sessionId, breakpoints } = useDebugStore.getState();
     if (!sessionId) return;
-    const paths = [...new Set(breakpoints.map((item) => item.path))];
+    const enabled = breakpoints.filter((item) => item.enabled !== false);
+    const paths = [...new Set(enabled.map((item) => item.path))];
     const verifiedByKey = new Map<string, { verified?: boolean; message?: string }>();
+    const enabledByKey = new Set(enabled.map((item) => `${item.path}:${item.line}`));
     for (const path of paths) {
       const response = await DebugAdapterIPC.request<{
         breakpoints?: Array<{
@@ -421,9 +568,14 @@ class DebugServiceImpl {
         }>;
       }>(sessionId, "setBreakpoints", {
         source: { path },
-        breakpoints: breakpoints
+        breakpoints: enabled
           .filter((item) => item.path === path)
-          .map((item) => ({ line: item.line })),
+          .map((item) => ({
+            line: item.line,
+            ...(item.condition ? { condition: item.condition } : {}),
+            ...(item.hitCondition ? { hitCondition: item.hitCondition } : {}),
+            ...(item.logMessage ? { logMessage: item.logMessage } : {}),
+          })),
         sourceModified: false,
       });
       for (const item of response.breakpoints ?? []) {
@@ -439,10 +591,14 @@ class DebugServiceImpl {
       const latest = useDebugStore.getState();
       if (latest.sessionId !== sessionId) return;
       latest.set({
-        breakpoints: latest.breakpoints.map((item) => ({
-          ...item,
-          ...(verifiedByKey.get(`${item.path}:${item.line}`) ?? {}),
-        })),
+        breakpoints: latest.breakpoints.map((item) =>
+          enabledByKey.has(`${item.path}:${item.line}`)
+            ? {
+                ...item,
+                ...(verifiedByKey.get(`${item.path}:${item.line}`) ?? {}),
+              }
+            : { ...item, verified: undefined, message: undefined },
+        ),
       });
     }
   }

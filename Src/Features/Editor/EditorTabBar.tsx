@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
+import { useLocale } from "../../Foundation/I18n";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import {
   ContextMenuContent,
@@ -11,6 +12,7 @@ import {
 import { Icons } from "../../UI/Icons/IconManager";
 
 export const EditorTabBar = memo(function EditorTabBar() {
+  const { t } = useLocale();
   const { tabs, activeTabId, setActiveTabId, closeTab, closeTabById } = useWorkbenchStore();
 
   const handleCloseToRight = (id: string) => {
@@ -158,7 +160,7 @@ export const EditorTabBar = memo(function EditorTabBar() {
                         tab.isDirty ? "italic font-medium" : ""
                       } ${isActive ? "text-[var(--color-text-highlight)] font-medium" : "text-[var(--color-text-muted)] group-hover:text-[var(--color-text-primary)]"}`}
                     >
-                      {tab.title}
+                      {tab.titleKey ? t(tab.titleKey) : tab.title}
                     </span>
                   </div>
                   <button
@@ -170,7 +172,9 @@ export const EditorTabBar = memo(function EditorTabBar() {
                       e.stopPropagation();
                       closeTab(tab);
                     }}
-                    aria-label={tab.isDirty ? "未保存，关闭标签" : "关闭标签"}
+                    aria-label={
+                      tab.isDirty ? t("editorTabBar.closeDirtyTab") : t("editorTabBar.closeTab")
+                    }
                   >
                     {tab.isDirty ? (
                       <>
@@ -185,21 +189,31 @@ export const EditorTabBar = memo(function EditorTabBar() {
               </ContextMenuTrigger>
 
               <ContextMenuContent>
-                <ContextMenuItem label="关闭当前" onSelect={() => handleCloseCurrent(tab.id)} />
-                <ContextMenuItem label="关闭右侧" onSelect={() => handleCloseToRight(tab.id)} />
+                <ContextMenuItem
+                  label={t("editorTabBar.closeCurrent")}
+                  onSelect={() => handleCloseCurrent(tab.id)}
+                />
+                <ContextMenuItem
+                  label={t("editorTabBar.closeToRight")}
+                  onSelect={() => handleCloseToRight(tab.id)}
+                />
                 <ContextMenuDivider />
-                <ContextMenuItem label="关闭全部" variant="danger" onSelect={handleCloseAll} />
+                <ContextMenuItem
+                  label={t("editorTabBar.closeAll")}
+                  variant="danger"
+                  onSelect={handleCloseAll}
+                />
                 {tab.type === "file" && tab.path && (
                   <>
                     <ContextMenuDivider />
                     <ContextMenuItem
-                      label="复制路径"
+                      label={t("editorTabBar.copyPath")}
                       onSelect={() => {
                         navigator.clipboard.writeText(tab.path as string);
                       }}
                     />
                     <ContextMenuItem
-                      label="在资源管理器中显示"
+                      label={t("editorTabBar.revealInExplorer")}
                       onSelect={() => {
                         EventBus.emit("app:reveal-in-explorer", tab.path as string);
                       }}
@@ -214,7 +228,7 @@ export const EditorTabBar = memo(function EditorTabBar() {
       <div className="flex shrink-0 items-center gap-0.5 border-l border-[var(--border-subtle)] px-1.5">
         <button
           type="button"
-          aria-label="向左滚动标签"
+          aria-label={t("editorTabBar.scrollLeft")}
           onClick={() => scrollTabs(-1)}
           disabled={!canScrollLeft}
           className="grid size-6 place-items-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--color-text-muted)]"
@@ -223,7 +237,7 @@ export const EditorTabBar = memo(function EditorTabBar() {
         </button>
         <button
           type="button"
-          aria-label="向右滚动标签"
+          aria-label={t("editorTabBar.scrollRight")}
           onClick={() => scrollTabs(1)}
           disabled={!canScrollRight}
           className="grid size-6 place-items-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--color-text-muted)]"

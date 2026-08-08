@@ -7,6 +7,11 @@ describe("SettingRegistry", () => {
     expect(getAllSettings().length).toBeGreaterThan(10);
     const editor = getSettingsByCategory("editor");
     expect(editor.some((setting) => setting.id === "editorFontSize")).toBe(true);
+    const general = getSettingsByCategory("general");
+    expect(general.some((setting) => setting.id === "language")).toBe(true);
+    expect(general.some((setting) => setting.id === "density")).toBe(true);
+    const appearance = getSettingsByCategory("appearance");
+    expect(appearance.some((setting) => setting.id === "materialIntensity")).toBe(true);
     const advanced = getSettingsByCategory("advanced");
     expect(advanced.every((setting) => setting.experimental)).toBe(true);
   });

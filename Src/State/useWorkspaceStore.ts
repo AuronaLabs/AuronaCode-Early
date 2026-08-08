@@ -1,14 +1,17 @@
 import { create } from "zustand";
+import { DiagnosticsService } from "../Core/DiagnosticsService";
 import { FileSystemService } from "../Core/FileSystemService";
 import { EventBus } from "../Foundation/EventBus";
+import { type I18nKey, LocaleService } from "../Foundation/I18n";
 import { EditorIPC } from "../Foundation/IPC/EditorCommands";
 import { PlatformService } from "../Foundation/Platform";
 import { WorkspaceStore } from "../Foundation/Storage/WorkspaceStore";
 import type { TabItem } from "../Foundation/Types/Tab";
-import { SIDEBAR_EXPLORER } from "../Shared/Constants/Sidebar";
+import { LEGACY_SIDEBAR_SEARCH, SIDEBAR_EXPLORER } from "../Shared/Constants/Sidebar";
+import { pathToFileUri } from "../Shared/Utils/UriUtils";
 import { showToast } from "../UI/Feedback/Toast";
 
-export type BottomPanel = "problems" | "output" | "terminal" | "debug-console";
+export type BottomPanel = "problems" | "output" | "terminal" | "debug-console" | "references";
 
 export const DEFAULT_SIDEBAR_WIDTH = 260;
 export const DEFAULT_BOTTOM_PANEL_HEIGHT = 300;
@@ -72,6 +75,14 @@ const deduplicateFileTabs = (tabs: TabItem[]) => {
     identities.add(identity);
     return true;
   });
+};
+
+const BUILTIN_TAB_TITLE_KEYS: Record<string, I18nKey> = {
+  settings: "settings.title",
+  changelog: "commands.openChangelog",
+  performance: "commands.openPerformance",
+  about: "commands.openAbout",
+  fliuno: "fliuno.workspaceTitle",
 };
 
 const persistWorkbench = (state: WorkbenchState) => {
@@ -149,6 +160,10 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   },
   closeTabById: (id) => {
     set((state) => {
+      const closing = state.tabs.find((tab) => tab.id === id);
+      if (closing?.type === "file" && closing.path) {
+        DiagnosticsService.clear(pathToFileUri(closing.path));
+      }
       const tabs = state.tabs.filter((tab) => tab.id !== id);
       const activeTabId = state.activeTabId === id ? (tabs.at(-1)?.id ?? null) : state.activeTabId;
       return { tabs, activeTabId };
@@ -192,8 +207,14 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
 export async function initializeWorkbenchStore(): Promise<() => void> {
   await WorkspaceStore.init();
   const saved = await WorkspaceStore.get();
+  const migratedSidebar =
+    saved.activeSidebar === LEGACY_SIDEBAR_SEARCH ? null : saved.activeSidebar;
   const savedTabs = saved.openTabs ?? [];
-  const tabs = deduplicateFileTabs(savedTabs);
+  const tabs = deduplicateFileTabs(savedTabs).map((tab) => {
+    const titleKey = BUILTIN_TAB_TITLE_KEYS[tab.id];
+    if (!titleKey) return tab;
+    return { ...tab, titleKey, title: LocaleService.translate(titleKey) };
+  });
   const savedActiveTab = savedTabs.find((tab) => tab.id === saved.activeTabId);
   const activeTabId = tabs.some((tab) => tab.id === saved.activeTabId)
     ? (saved.activeTabId ?? null)
@@ -203,7 +224,7 @@ export async function initializeWorkbenchStore(): Promise<() => void> {
   useWorkbenchStore.setState({
     tabs,
     activeTabId,
-    activeSidebar: saved.activeSidebar ?? SIDEBAR_EXPLORER,
+    activeSidebar: migratedSidebar ?? SIDEBAR_EXPLORER,
     sidebarWidth: normalizeSize(saved.sidebarWidth, DEFAULT_SIDEBAR_WIDTH, 180, 640),
     isBottomPanelOpen: saved.isBottomPanelOpen ?? false,
     activeBottomPanel: saved.activeBottomPanel ?? "problems",

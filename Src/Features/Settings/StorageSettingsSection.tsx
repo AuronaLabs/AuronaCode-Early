@@ -8,6 +8,7 @@ import { Button } from "../../UI/Components/Button";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
+import { clearWorkspaceLocalState } from "./storageOwnership";
 
 interface StorageBreakdown {
   appDataBytes: number;
@@ -104,7 +105,7 @@ export function StorageSettingsSection() {
             baseDir: BaseDirectory.AppLocalData,
           });
           WorkspaceStore.resetCache();
-          localStorage.clear();
+          clearWorkspaceLocalState();
           showToast(t("settings.storage.toasts.workspaceCleared"), "success");
           break;
         case "recovery":

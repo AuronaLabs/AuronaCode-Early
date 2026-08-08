@@ -1,6 +1,7 @@
 import { IconChevronDown, IconChevronUp, IconSearch, IconX } from "@tabler/icons-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "../../../Foundation/I18n";
 import { cn } from "../../../Shared/Utils/cn";
 import { glassVariants } from "../../../UI/Core/GlassManager/variants";
 
@@ -21,6 +22,7 @@ export function SearchWidget({
   totalMatches,
   currentIndex,
 }: SearchWidgetProps) {
+  const { t } = useLocale();
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -54,20 +56,20 @@ export function SearchWidget({
       )}
     >
       <div className="flex-1 flex items-center pl-4 pr-3 h-full">
-        <IconSearch size={14} stroke={2} className="text-gray-400 dark:text-gray-500 mr-2.5" />
+        <IconSearch size={14} stroke={2} className="mr-2.5 text-[var(--color-text-muted)]" />
         <input
           ref={inputRef}
           type="text"
           value={query}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder="搜索..."
-          className="w-full h-full bg-transparent border-none outline-none text-[13px] text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 font-medium"
+          placeholder={t("editor.searchPlaceholder")}
+          className="h-full w-full border-none bg-transparent font-medium text-[13px] text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-muted)]"
         />
       </div>
 
-      <div className="flex items-center justify-center px-3 text-[11px] text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap h-full">
-        {totalMatches > 0 ? `${currentIndex + 1} / ${totalMatches}` : "无结果"}
+      <div className="flex h-full items-center justify-center whitespace-nowrap px-3 text-[11px] font-medium text-[var(--color-text-muted)]">
+        {totalMatches > 0 ? `${currentIndex + 1} / ${totalMatches}` : t("editor.searchNoResults")}
       </div>
 
       <div className="flex items-center h-full pr-1">

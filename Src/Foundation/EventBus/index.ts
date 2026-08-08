@@ -1,3 +1,4 @@
+import type { SettingCategory } from "../../Core/Settings/SettingRegistry";
 import type { UpdateInfo, UpdateProgress } from "../Desktop";
 import type { DebugPreferences } from "../Types/Config";
 import type { TabItem } from "../Types/Tab";
@@ -53,6 +54,8 @@ export interface EventMap {
     line: number;
     character: number;
   };
+  "language:open-location-results": undefined;
+  "language:symbol-search-request": { path: string; language: string };
   "workspace:trust-request": { root: string; language: string };
 
   "file:renamed": { oldPath: string; newPath: string };
@@ -77,6 +80,7 @@ export interface EventMap {
     | "accountCloud"
     | "system"
     | "advanced";
+  "settings:reveal": { category: SettingCategory; settingId?: string };
   "settings:editor-changed": undefined;
   "settings:language-changed": undefined;
   "settings:debug-changed": DebugPreferences;

@@ -1,7 +1,8 @@
 import { ACCENT_THEMES } from "../../App/ThemeAccent";
-import { useLocale } from "../../Foundation/I18n";
+import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import type { AccentThemeId } from "../../Foundation/Types/Config";
 import { Select } from "../../UI/Components/Select";
+import { SettingResetButton } from "../../UI/Components/SettingResetButton";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer, type GlassIntensity } from "../../UI/Core/GlassManager";
 import { Icons } from "../../UI/Icons/IconManager";
@@ -24,6 +25,7 @@ export function AppearanceSettingsSection({
   onLiquidTextureChange,
 }: AppearanceSettingsSectionProps) {
   const { t } = useLocale();
+  const themeLabel = (id: AccentThemeId) => t(`settings.themes.${id}` as I18nKey);
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
       <div className="flex flex-col gap-2">
@@ -36,14 +38,20 @@ export function AppearanceSettingsSection({
       </div>
 
       <GlassContainer layer="elevated" className="overflow-hidden rounded-2xl">
-        <div className="p-3 sm:p-4">
-          <div className="mb-3 flex flex-col gap-1 px-1">
-            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
-              {t("settings.appearanceSection.accentTitle")}
-            </span>
-            <span className="text-[12px] text-[var(--color-text-muted)]">
-              {t("settings.appearanceSection.accentDescription")}
-            </span>
+        <div data-setting-id="accentTheme" className="p-3 sm:p-4">
+          <div className="mb-3 flex items-start justify-between gap-2 px-1">
+            <div className="flex flex-col gap-1">
+              <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+                {t("settings.appearanceSection.accentTitle")}
+              </span>
+              <span className="text-[12px] text-[var(--color-text-muted)]">
+                {t("settings.appearanceSection.accentDescription")}
+              </span>
+            </div>
+            <SettingResetButton
+              label={t("settings.reset")}
+              onReset={() => onAccentThemeChange("aurora")}
+            />
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {ACCENT_THEMES.map((accent) => {
@@ -68,7 +76,7 @@ export function AppearanceSettingsSection({
                     <span className="h-1.5 w-8 rounded-full bg-[var(--color-text-highlight)]/12" />
                     <span className="flex min-w-0 items-center gap-1.5">
                       <span className="truncate text-[12px] font-semibold text-[var(--color-text-highlight)]">
-                        {accent.label}
+                        {themeLabel(accent.id)}
                       </span>
                       {accent.isDefault && (
                         <span className="shrink-0 rounded-md bg-[color-mix(in_srgb,var(--color-accent)_14%,transparent)] px-1 py-0.5 text-[9px] font-semibold leading-none text-[var(--color-accent)]">
@@ -101,7 +109,7 @@ export function AppearanceSettingsSection({
       </div>
 
       <GlassContainer layer="elevated" className="overflow-hidden rounded-2xl">
-        <div className="flex items-center justify-between p-5">
+        <div data-setting-id="materialIntensity" className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.appearanceSection.intensity")}
@@ -110,18 +118,27 @@ export function AppearanceSettingsSection({
               {t("settings.appearanceSection.intensityDescription")}
             </span>
           </div>
-          <Select
-            value={intensity}
-            onChange={(value) => onIntensityChange(value as GlassIntensity)}
-            className="w-[140px] shrink-0"
-            options={[
-              { value: "light", label: "Light" },
-              { value: "medium", label: "Medium" },
-              { value: "heavy", label: "Heavy" },
-            ]}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            <Select
+              value={intensity}
+              onChange={(value) => onIntensityChange(value as GlassIntensity)}
+              className="w-[140px]"
+              options={[
+                { value: "light", label: t("settings.appearanceSection.intensityLight") },
+                { value: "medium", label: t("settings.appearanceSection.intensityMedium") },
+                { value: "heavy", label: t("settings.appearanceSection.intensityHeavy") },
+              ]}
+            />
+            <SettingResetButton
+              label={t("settings.reset")}
+              onReset={() => onIntensityChange("medium")}
+            />
+          </div>
         </div>
-        <div className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5">
+        <div
+          data-setting-id="liquidTexture"
+          className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
+        >
           <div className="min-w-0 pr-2">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.appearanceSection.liquid")}
@@ -130,11 +147,17 @@ export function AppearanceSettingsSection({
               {t("settings.appearanceSection.liquidDescription")}
             </p>
           </div>
-          <Switch
-            checked={liquidTexture}
-            onCheckedChange={onLiquidTextureChange}
-            aria-label={t("settings.appearanceSection.liquidLabel")}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            <Switch
+              checked={liquidTexture}
+              onCheckedChange={onLiquidTextureChange}
+              aria-label={t("settings.appearanceSection.liquidLabel")}
+            />
+            <SettingResetButton
+              label={t("settings.reset")}
+              onReset={() => onLiquidTextureChange(false)}
+            />
+          </div>
         </div>
       </GlassContainer>
     </div>
