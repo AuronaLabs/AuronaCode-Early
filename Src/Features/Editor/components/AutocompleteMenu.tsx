@@ -131,7 +131,7 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
             <div className="mb-2 whitespace-pre-wrap break-all font-mono text-[12px] text-[var(--color-accent)]">
               {items[selectedIndex].detail}
             </div>
-            <div className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap break-all">
+            <div className="text-[12px] text-[var(--color-text-muted)] leading-relaxed whitespace-pre-wrap break-all">
               {typeof items[selectedIndex].documentation === "string"
                 ? items[selectedIndex].documentation
                 : items[selectedIndex].documentation?.value}

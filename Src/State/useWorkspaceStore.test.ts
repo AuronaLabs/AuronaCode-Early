@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DiagnosticsService } from "../Core/DiagnosticsService";
+import { pathToFileUri } from "../Shared/Utils/UriUtils";
 
 vi.mock("../Core/FileSystemService", () => ({
   FileSystemService: {
@@ -58,5 +60,27 @@ describe("workbench file identity", () => {
     });
 
     expect(useWorkbenchStore.getState().tabs).toHaveLength(1);
+  });
+
+  it("clears diagnostics when the owning tab closes", () => {
+    const uri = pathToFileUri("E:\\Project\\Src\\Main.ts");
+    DiagnosticsService.update({
+      uri,
+      diagnostics: [
+        {
+          range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+          message: "boom",
+        },
+      ],
+    });
+
+    const store = useWorkbenchStore.getState();
+    store.openFile("E:\\Project\\Src\\Main.ts");
+    const tab = useWorkbenchStore.getState().tabs[0];
+    expect(tab).toBeDefined();
+    if (!tab) return;
+    store.closeTab(tab);
+
+    expect(DiagnosticsService.get(uri)).toBeUndefined();
   });
 });

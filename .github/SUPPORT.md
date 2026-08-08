@@ -18,6 +18,8 @@
 - [文件树](../Docs/FileTree.md)
 - [设计原则](../Docs/DesignPrinciples.md)
 - [0.3.0 技术说明](../Docs/0.3.0-TechnicalNotes.md)
+- [0.3.10 完整性审计](../Docs/0.3.10-Completeness-Audit.md)
+- [0.3.11 第一阶段审计](../Docs/0.3.11-Phase1-Audit.md)
 
 ## 其他联系
 

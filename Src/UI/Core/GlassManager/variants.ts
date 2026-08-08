@@ -7,7 +7,8 @@ export const glassVariants = cva(
       layer: {
         base: "bg-[var(--material-panel)] backdrop-blur-[var(--glass-blur-base)]",
         elevated: "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)]",
-        floating: "bg-[var(--material-overlay)] backdrop-blur-[var(--glass-blur-floating)]",
+        floating:
+          "bg-[var(--material-overlay)] backdrop-blur-[var(--glass-blur-floating)] shadow-[var(--shadow-overlay)]",
       },
       interactive: {
         true: "hover:bg-[var(--material-interactive-hover)] active:scale-[0.98]",

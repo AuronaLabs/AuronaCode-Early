@@ -42,8 +42,13 @@
     <script>
       (() => {
         var text = null;
+        var locale = null;
         try {
-          if (localStorage.getItem("aurona.locale") === "en") {
+          locale = localStorage.getItem("aurona.locale");
+          if (locale === "zh-Hant") {
+            text = document.getElementById("SplashLoadingText");
+            if (text) text.textContent = "進入創作模式";
+          } else if (locale === "en") {
             text = document.getElementById("SplashLoadingText");
             if (text) text.textContent = "Entering creation mode";
           }

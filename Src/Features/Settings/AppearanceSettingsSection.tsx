@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { ACCENT_THEMES } from "../../App/ThemeAccent";
+import { buildThemePreviewGradient, getThemeDefinition } from "../../App/themePalettes";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import type { AccentThemeId } from "../../Foundation/Types/Config";
 import { Select } from "../../UI/Components/Select";
@@ -26,6 +28,17 @@ export function AppearanceSettingsSection({
 }: AppearanceSettingsSectionProps) {
   const { t } = useLocale();
   const themeLabel = (id: AccentThemeId) => t(`settings.themes.${id}` as I18nKey);
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
+  useEffect(() => {
+    const observer = new MutationObserver(() =>
+      setIsDark(document.documentElement.classList.contains("dark")),
+    );
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
+  }, []);
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
       <div className="flex flex-col gap-2">
@@ -65,17 +78,28 @@ export function AppearanceSettingsSection({
                   className={`group relative flex min-h-[68px] overflow-hidden rounded-xl border p-2.5 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 ${
                     selected
                       ? "border-[color-mix(in_srgb,var(--color-accent)_32%,var(--border-subtle))] bg-[var(--material-interactive-active)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_14%,transparent)]"
-                      : "border-transparent bg-[var(--material-panel)] hover:border-[var(--border-subtle)] hover:bg-[var(--material-interactive-hover)] hover:-translate-y-px"
+                      : "border-[var(--border-subtle)] bg-[var(--material-surface)] hover:border-[var(--border-overlay)] hover:bg-[var(--material-interactive-hover)] hover:-translate-y-px"
                   }`}
                 >
                   <span
-                    className="absolute -right-3 -top-3 h-14 w-14 rounded-full opacity-90 blur-[1px] transition-transform duration-200 group-hover:scale-110"
-                    style={{ backgroundColor: `rgb(${accent.rgb})` }}
-                  />
-                  <span className="relative flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="h-1.5 w-8 rounded-full bg-[var(--color-text-highlight)]/12" />
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <span className="truncate text-[12px] font-semibold text-[var(--color-text-highlight)]">
+                    className="relative flex h-[58px] w-full items-end overflow-hidden rounded-lg border border-[var(--border-subtle)]"
+                    aria-hidden="true"
+                  >
+                    <span
+                      className="absolute inset-0"
+                      style={{
+                        background: buildThemePreviewGradient(
+                          getThemeDefinition(accent.id),
+                          isDark ? "dark" : "light",
+                        ),
+                      }}
+                    />
+                    <span
+                      className="absolute right-1.5 top-1.5 size-3 rounded-full border border-white/70 shadow-sm"
+                      style={{ backgroundColor: `rgb(${accent.rgb})` }}
+                    />
+                    <span className="relative z-10 flex w-full items-center gap-1.5 bg-[linear-gradient(to_top,color-mix(in_srgb,var(--material-overlay)_88%,transparent),transparent)] px-2 pb-1.5 pt-4">
+                      <span className="truncate text-[11px] font-semibold text-[var(--color-text-highlight)]">
                         {themeLabel(accent.id)}
                       </span>
                       {accent.isDefault && (
@@ -87,7 +111,7 @@ export function AppearanceSettingsSection({
                   </span>
                   {selected && (
                     <Icons.Check
-                      className="relative shrink-0 text-[var(--color-text-highlight)]"
+                      className="absolute left-1.5 top-1.5 z-20 text-[var(--color-text-highlight)]"
                       size={15}
                       stroke={2.5}
                     />

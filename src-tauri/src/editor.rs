@@ -598,7 +598,7 @@ pub fn open_file_internal(
         return Err(DesktopError::editor(
             "file_too_large",
             format!(
-                "文件大小为 {:.1} MiB，超过 Aurona Code 0.3.0 的 32 MiB 完整编辑上限",
+                "文件大小为 {:.1} MiB，超过 32 MiB 完整编辑上限",
                 file_size as f64 / (1024.0 * 1024.0)
             ),
             false,

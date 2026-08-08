@@ -169,9 +169,9 @@ export function LanguageServiceSettings() {
                       <span
                         className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${
                           running
-                            ? "bg-emerald-500/10 text-emerald-500"
+                            ? "bg-[var(--StatusSuccess)]/10 text-[var(--StatusSuccess)]"
                             : state?.status === "failed"
-                              ? "bg-red-500/10 text-red-500"
+                              ? "bg-[var(--StatusError)]/10 text-[var(--StatusError)]"
                               : "bg-[var(--material-interactive-hover)] text-[var(--color-text-muted)]"
                         }`}
                       >
@@ -182,7 +182,7 @@ export function LanguageServiceSettings() {
                       {t(tool.descriptionKey)}
                     </p>
                     {state?.lastError && (
-                      <p className="mt-2 line-clamp-2 font-mono text-[10px] text-red-500">
+                      <p className="mt-2 line-clamp-2 font-mono text-[10px] text-[var(--StatusError)]">
                         {state.lastError}
                       </p>
                     )}

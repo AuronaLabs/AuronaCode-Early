@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { desktopApp } from "../Foundation/Desktop";
 import { EventBus } from "../Foundation/EventBus";
+import { LocaleService } from "../Foundation/I18n";
 import { Logger } from "../Foundation/Logger";
 import { Button } from "../UI/Components/Button";
 import { Icons } from "../UI/Icons/IconManager";
@@ -64,11 +65,13 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="mb-2 text-[var(--color-accent)]">
               <Icons.AlertTriangle size={60} stroke={1.5} />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">Aurona Code 出现异常</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {LocaleService.translate("errorBoundary.title")}
+            </h1>
             <p className="text-sm leading-relaxed text-[var(--color-text-muted)]">
-              工作区遇到了未处理错误
+              {LocaleService.translate("errorBoundary.intro")}
               <br />
-              你可以重启前端引擎；如果问题持续，请把日志地址发给开发团队
+              {LocaleService.translate("errorBoundary.hint")}
             </p>
             {this.state.logPath && (
               <p className="max-w-full truncate rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-muted)]">
@@ -77,11 +80,13 @@ export class ErrorBoundary extends Component<Props, State> {
             )}
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <Button variant="primary" onClick={this.handleReload} className="px-8 py-2">
-                重启引擎
+                {LocaleService.translate("errorBoundary.restart")}
               </Button>
               {this.state.logPath && (
                 <Button variant="secondary" onClick={this.handleCopyLog} className="px-8 py-2">
-                  {this.state.copied ? "已复制" : "复制日志地址"}
+                  {this.state.copied
+                    ? LocaleService.translate("errorBoundary.copied")
+                    : LocaleService.translate("errorBoundary.copyLogPath")}
                 </Button>
               )}
             </div>

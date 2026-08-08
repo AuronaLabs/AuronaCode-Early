@@ -442,6 +442,7 @@ export function SettingsTab() {
               className="w-[160px]"
               options={[
                 { value: "zh-CN", label: t("settings.languageZhCN") },
+                { value: "zh-Hant", label: t("settings.languageZhHant") },
                 { value: "en", label: t("settings.languageEn") },
               ]}
             />

@@ -134,10 +134,10 @@ function languageServerStatusLabel(status?: LanguageServerInfo["status"]): strin
 }
 
 function languageServerStatusColor(status?: LanguageServerInfo["status"]): string {
-  if (status === "running") return "bg-emerald-500";
-  if (status === "failed") return "bg-red-500";
+  if (status === "running") return "bg-[var(--StatusSuccess)]";
+  if (status === "failed") return "bg-[var(--StatusError)]";
   if (status === "starting" || status === "initializing" || status === "restarting") {
-    return "bg-amber-500 animate-pulse";
+    return "bg-[var(--StatusWarning)] animate-pulse";
   }
   return "bg-[var(--color-text-muted)]";
 }

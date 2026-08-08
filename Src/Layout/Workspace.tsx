@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DebugService } from "../Core/DebugService";
-import { DiagnosticsService } from "../Core/DiagnosticsService";
+import { collectProblems, DiagnosticsService } from "../Core/DiagnosticsService";
+import { DocumentSymbolService } from "../Core/Language/DocumentSymbolService";
 import { LspClient } from "../Core/Language/LspClient";
 import {
   type DocumentSymbolNode,
@@ -38,6 +39,7 @@ import {
   SIDEBAR_SOURCE_CONTROL,
 } from "../Shared/Constants/Sidebar";
 import { GetLanguageFromPath } from "../Shared/Utils/LanguageUtils";
+import { fileUriToPath } from "../Shared/Utils/UriUtils";
 import { useTerminalStore } from "../State/useTerminalStore";
 import {
   DEFAULT_BOTTOM_PANEL_HEIGHT,
@@ -193,6 +195,7 @@ export function WorkspaceView() {
   const [debugConsoleInput, setDebugConsoleInput] = useState("");
   const [debugConsoleHistory, setDebugConsoleHistory] = useState<string[]>([]);
   const [debugConsoleHistoryIndex, setDebugConsoleHistoryIndex] = useState(-1);
+  const [problemsScope, setProblemsScope] = useState<"file" | "workspace">("file");
   const [trustRequest, setTrustRequest] = useState<{ root: string; language: string } | null>(null);
   const activeFilePath = tabs.find((tab) => tab.id === activeTabId && tab.type === "file")?.path;
 
@@ -241,8 +244,7 @@ export function WorkspaceView() {
         setSymbolQuery("");
         setSymbolIndex(0);
         setSymbolError(null);
-        void LspClient.getInstance()
-          .getDocumentSymbols(language, path)
+        void DocumentSymbolService.get(language, path)
           .then((raw) => {
             setSymbols(
               flattenDocumentSymbols(Array.isArray(raw) ? (raw as DocumentSymbolNode[]) : []),
@@ -259,19 +261,22 @@ export function WorkspaceView() {
     if (symbolSearch) symbolInputRef.current?.focus();
   }, [symbolSearch]);
 
-  const problems = activeFilePath
-    ? DiagnosticsService.getAll()
-        .filter((document) => sameFilePath(fileUriToPath(document.uri), activeFilePath))
-        .flatMap((document) =>
-          document.diagnostics.map((diagnostic, index) => ({
-            ...diagnostic,
-            uri: document.uri,
-            key: `${document.uri}-${diagnostic.source ?? "aurona"}-${diagnostic.range.start.line}-${diagnostic.range.start.character}-${index}`,
-          })),
-        )
-    : [];
+  const problems = useMemo(() => {
+    void diagnosticsRevision;
+    return collectProblems(DiagnosticsService.getAll(), problemsScope, activeFilePath);
+  }, [activeFilePath, diagnosticsRevision, problemsScope]);
   const MAX_VISIBLE_PROBLEMS = 500;
   const visibleProblems = problems.slice(0, MAX_VISIBLE_PROBLEMS);
+  const problemCounts = useMemo(() => {
+    const counts = new Map<string, { errors: number; warnings: number }>();
+    for (const problem of problems) {
+      const current = counts.get(problem.uri) ?? { errors: 0, warnings: 0 };
+      if (problem.severity === 1) current.errors += 1;
+      else current.warnings += 1;
+      counts.set(problem.uri, current);
+    }
+    return counts;
+  }, [problems]);
   const outputChannel =
     activeOutputChannel === "all"
       ? {
@@ -381,7 +386,9 @@ export function WorkspaceView() {
         >
           <Suspense
             fallback={
-              <div className="p-4 text-[var(--color-text-muted)] text-xs">Loading Explorer...</div>
+              <div className="p-4 text-[var(--color-text-muted)] text-xs">
+                {t("workspace.loadingExplorer")}
+              </div>
             }
           >
             <FileExplorer onFileSelect={openFile} />
@@ -393,7 +400,9 @@ export function WorkspaceView() {
         >
           <Suspense
             fallback={
-              <div className="p-4 text-[var(--color-text-muted)] text-xs">Loading Git...</div>
+              <div className="p-4 text-[var(--color-text-muted)] text-xs">
+                {t("workspace.loadingGit")}
+              </div>
             }
           >
             <SourceControl />
@@ -412,7 +421,7 @@ export function WorkspaceView() {
           <Suspense
             fallback={
               <div className="p-4 text-[var(--color-text-muted)] text-xs">
-                Loading Notifications...
+                {t("workspace.loadingNotifications")}
               </div>
             }
           >
@@ -425,7 +434,9 @@ export function WorkspaceView() {
         >
           <Suspense
             fallback={
-              <div className="p-4 text-[var(--color-text-muted)] text-xs">Loading Debug...</div>
+              <div className="p-4 text-[var(--color-text-muted)] text-xs">
+                {t("workspace.loadingDebug")}
+              </div>
             }
           >
             <DebugPanel />
@@ -440,7 +451,7 @@ export function WorkspaceView() {
           min={200}
           max={520}
           defaultValue={DEFAULT_SIDEBAR_WIDTH}
-          label="调整侧边栏宽度"
+          label={t("workspace.adjustSidebar")}
           onChange={(width) => setSidebarWidth(clampSidebarWidth(width), false)}
           onCommit={(width) => setSidebarWidth(clampSidebarWidth(width))}
         />
@@ -507,7 +518,7 @@ export function WorkspaceView() {
             min={140}
             max={600}
             defaultValue={DEFAULT_BOTTOM_PANEL_HEIGHT}
-            label="调整底部面板高度"
+            label={t("workspace.adjustBottomPanel")}
             onChange={(height) => setBottomPanelHeight(clampBottomPanelHeight(height), false)}
             onCommit={(height) => setBottomPanelHeight(clampBottomPanelHeight(height))}
           />
@@ -571,7 +582,7 @@ export function WorkspaceView() {
             <div className="flex items-center gap-0.5">
               {activeBottomPanel === "terminal" && (
                 <div className="flex items-center gap-0.5 mr-2 pr-2 relative after:content-[''] after:absolute after:right-0 after:top-1/2 after:-translate-y-1/2 after:w-px after:h-[14px] after:bg-[var(--border-subtle)]">
-                  <Tooltip content="列表" delay={300} placement="top">
+                  <Tooltip content={t("workspace.terminalList")} delay={300} placement="top">
                     <button
                       type="button"
                       className={`flex h-[26px] w-[26px] items-center justify-center rounded-lg transition-colors ${
@@ -585,7 +596,7 @@ export function WorkspaceView() {
                     </button>
                   </Tooltip>
                   <div className="relative">
-                    <Tooltip content="清空终端" delay={300} placement="top">
+                    <Tooltip content={t("workspace.clearTerminal")} delay={300} placement="top">
                       <button
                         type="button"
                         className="flex h-[26px] w-[26px] items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] rounded-lg transition-colors"
@@ -596,7 +607,7 @@ export function WorkspaceView() {
                         <Icons.Eraser size={14} />
                       </button>
                     </Tooltip>
-                    <Tooltip content="新建终端" delay={300} placement="top">
+                    <Tooltip content={t("workspace.newTerminal")} delay={300} placement="top">
                       <button
                         type="button"
                         className="flex h-[26px] w-[26px] items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] rounded-lg transition-colors"
@@ -634,7 +645,7 @@ export function WorkspaceView() {
                 </div>
               )}
 
-              <Tooltip content="最小化面板" delay={300} placement="top">
+              <Tooltip content={t("workspace.minimizePanel")} delay={300} placement="top">
                 <button
                   type="button"
                   className="flex h-[26px] w-[26px] items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] rounded-lg transition-colors"
@@ -655,7 +666,7 @@ export function WorkspaceView() {
               {terminalStartupError && terminals.length === 0 && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center p-4">
                   <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)] p-5 text-center backdrop-blur-[var(--glass-blur-floating)]">
-                    <Icons.AlertTriangle size={20} className="text-amber-500" />
+                    <Icons.AlertTriangle size={20} className="text-[var(--StatusWarning)]" />
                     <div className="text-[13px] font-medium text-[var(--color-text-highlight)]">
                       终端启动失败
                     </div>
@@ -752,7 +763,10 @@ export function WorkspaceView() {
                         TerminalManager.removeTerminal(term.id);
                       }}
                     >
-                      <Icons.Trash size={12} className="text-red-500/80 hover:text-red-500" />
+                      <Icons.Trash
+                        size={12}
+                        className="text-[var(--StatusError)]/80 hover:text-[var(--StatusError)]"
+                      />
                     </button>
                   </div>
                 ))}
@@ -760,82 +774,122 @@ export function WorkspaceView() {
             )}
 
             {activeBottomPanel === "problems" && (
-              <div className="absolute inset-0 p-3 flex flex-col items-start gap-1 overflow-y-auto no-scrollbar">
-                {problems.length > 0 ? (
-                  <>
-                    {visibleProblems.map((problem) => {
-                      const path = fileUriToPath(problem.uri);
-                      return (
-                        <div
-                          key={problem.key}
-                          className="group flex w-full items-start gap-2 rounded-lg p-2 transition-colors hover:bg-[var(--material-interactive-hover)]"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (!path) return;
-                              openFile(path);
-                              requestReveal(path, problem.range.start.line + 1);
-                            }}
-                            className="flex min-w-0 flex-1 items-start gap-2 text-left"
-                          >
-                            <div
-                              className={`mt-0.5 shrink-0 flex items-center justify-center p-0.5 rounded ${
-                                problem.severity === 1
-                                  ? "bg-red-500/10 text-red-500"
-                                  : "bg-orange-500/10 text-orange-500"
-                              }`}
-                            >
-                              <Icons.AlertTriangle size={14} stroke={2} />
+              <div className="absolute inset-0 flex flex-col overflow-hidden">
+                <div className="flex shrink-0 items-center gap-1 border-b border-[var(--border-subtle)] px-3 py-1.5">
+                  {(["file", "workspace"] as const).map((scope) => (
+                    <button
+                      key={scope}
+                      type="button"
+                      onClick={() => setProblemsScope(scope)}
+                      className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                        problemsScope === scope
+                          ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
+                          : "text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-primary)]"
+                      }`}
+                    >
+                      {scope === "file"
+                        ? t("bottomPanel.problemsScopeFile")
+                        : t("bottomPanel.problemsScopeWorkspace")}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex-1 overflow-y-auto p-3 flex flex-col items-start gap-1 no-scrollbar">
+                  {problems.length > 0 ? (
+                    <>
+                      {visibleProblems.map((problem, index) => {
+                        const path = fileUriToPath(problem.uri);
+                        const showGroupHeader =
+                          problemsScope === "workspace" &&
+                          (index === 0 || visibleProblems[index - 1]?.uri !== problem.uri);
+                        const counts = problemCounts.get(problem.uri);
+                        return (
+                          <div key={problem.key} className="flex w-full flex-col gap-1">
+                            {showGroupHeader && (
+                              <div className="flex w-full items-center gap-2 rounded-lg bg-[var(--material-surface)] px-2 py-1 text-[10px]">
+                                <span className="min-w-0 flex-1 truncate font-mono text-[var(--color-text-muted)]">
+                                  {path ?? problem.uri}
+                                </span>
+                                {counts && (
+                                  <span className="shrink-0 text-[var(--color-text-muted)]">
+                                    {counts.errors} {t("statusBar.errors")} · {counts.warnings}{" "}
+                                    {t("statusBar.warnings")}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            <div className="group flex w-full items-start gap-2 rounded-lg p-2 transition-colors hover:bg-[var(--material-interactive-hover)]">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!path) return;
+                                  openFile(path);
+                                  requestReveal(path, problem.range.start.line + 1);
+                                }}
+                                className="flex min-w-0 flex-1 items-start gap-2 text-left"
+                              >
+                                <div
+                                  className={`mt-0.5 shrink-0 flex items-center justify-center p-0.5 rounded ${
+                                    problem.severity === 1
+                                      ? "bg-[var(--StatusError)]/10 text-[var(--StatusError)]"
+                                      : "bg-[var(--StatusWarning)]/10 text-[var(--StatusWarning)]"
+                                  }`}
+                                >
+                                  <Icons.AlertTriangle size={14} stroke={2} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <span className="text-[13px] font-medium text-[var(--color-text-highlight)] whitespace-pre-wrap">
+                                    {problem.message}
+                                  </span>
+                                  <span className="mt-0.5 block text-[11px] text-[var(--color-text-muted)] font-mono">
+                                    {path ?? problem.uri} · [{problem.source || "aurona"}] Ln{" "}
+                                    {problem.range.start.line + 1}, Col{" "}
+                                    {problem.range.start.character + 1}
+                                  </span>
+                                </div>
+                              </button>
+                              <Tooltip content={t("language.quickFix")} delay={300} placement="top">
+                                <button
+                                  type="button"
+                                  aria-label={t("language.quickFix")}
+                                  onClick={() => {
+                                    if (!path) return;
+                                    EventBus.emit("language:code-actions-request", {
+                                      path,
+                                      language: GetLanguageFromPath(path),
+                                      line: problem.range.start.line,
+                                      character: problem.range.start.character,
+                                    });
+                                  }}
+                                  className="mt-0.5 shrink-0 rounded-md p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] group-hover:opacity-100"
+                                >
+                                  <Icons.Sparkles size={14} stroke={1.8} />
+                                </button>
+                              </Tooltip>
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <span className="text-[13px] font-medium text-[var(--color-text-highlight)] whitespace-pre-wrap">
-                                {problem.message}
-                              </span>
-                              <span className="mt-0.5 block text-[11px] text-[var(--color-text-muted)] font-mono">
-                                {path ?? problem.uri} · [{problem.source || "aurona"}] Ln{" "}
-                                {problem.range.start.line + 1}, Col{" "}
-                                {problem.range.start.character + 1}
-                              </span>
-                            </div>
-                          </button>
-                          <Tooltip content={t("language.quickFix")} delay={300} placement="top">
-                            <button
-                              type="button"
-                              aria-label={t("language.quickFix")}
-                              onClick={() => {
-                                if (!path) return;
-                                EventBus.emit("language:code-actions-request", {
-                                  path,
-                                  language: GetLanguageFromPath(path),
-                                  line: problem.range.start.line,
-                                  character: problem.range.start.character,
-                                });
-                              }}
-                              className="mt-0.5 shrink-0 rounded-md p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] group-hover:opacity-100"
-                            >
-                              <Icons.Sparkles size={14} stroke={1.8} />
-                            </button>
-                          </Tooltip>
+                          </div>
+                        );
+                      })}
+                      {problems.length > visibleProblems.length && (
+                        <div className="w-full px-3 pb-1 text-[10px] text-[var(--color-text-muted)]">
+                          {t("bottomPanel.problemsTruncated")
+                            .replace("{shown}", String(visibleProblems.length))
+                            .replace("{total}", String(problems.length))}
                         </div>
-                      );
-                    })}
-                    {problems.length > visibleProblems.length && (
-                      <div className="w-full px-3 pb-1 text-[10px] text-[var(--color-text-muted)]">
-                        {t("bottomPanel.problemsTruncated")
-                          .replace("{shown}", String(visibleProblems.length))
-                          .replace("{total}", String(problems.length))}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center w-full h-full gap-2 opacity-50">
-                    <Icons.Checks size={32} stroke={1} />
-                    <span className="text-[13px]">
-                      {activeFilePath ? "当前文件没有检测到问题" : "打开代码文件以查看问题"}
-                    </span>
-                  </div>
-                )}
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center w-full h-full gap-2 opacity-50">
+                      <Icons.Checks size={32} stroke={1} />
+                      <span className="text-[13px]">
+                        {problemsScope === "workspace"
+                          ? t("bottomPanel.workspaceEmpty")
+                          : activeFilePath
+                            ? t("bottomPanel.fileEmpty")
+                            : t("bottomPanel.noFileOpen")}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -849,11 +903,11 @@ export function WorkspaceView() {
               <div className="absolute inset-0 flex flex-col font-mono text-[12px] text-[var(--color-text-muted)]">
                 <div className="flex shrink-0 items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-1.5">
                   <Select
-                    ariaLabel="输出来源"
+                    ariaLabel={t("workspace.outputSource")}
                     value={activeOutputChannel}
                     onChange={(value) => setActiveOutputChannel(value as OutputChannelId | "all")}
                     options={[
-                      { value: "all", label: "全部 Aurona 日志" },
+                      { value: "all", label: t("workspace.outputAllLabel") },
                       ...OutputService.getChannels().map((channel) => ({
                         value: channel.id,
                         label: channel.label,
@@ -890,7 +944,7 @@ export function WorkspaceView() {
                           .join("\n");
                       void navigator.clipboard
                         .writeText(text)
-                        .then(() => showToast("输出内容已复制", "success"))
+                        .then(() => showToast(t("workspace.outputCopied"), "success"))
                         .catch((error) =>
                           showToast(
                             `复制失败：${error instanceof Error ? error.message : String(error)}`,
@@ -915,9 +969,9 @@ export function WorkspaceView() {
                         key={entry.id}
                         className={
                           entry.level === "error"
-                            ? "text-red-500"
+                            ? "text-[var(--StatusError)]"
                             : entry.level === "warn"
-                              ? "text-amber-500"
+                              ? "text-[var(--StatusWarning)]"
                               : ""
                         }
                       >
@@ -956,7 +1010,7 @@ export function WorkspaceView() {
                       if (!text) return;
                       void navigator.clipboard
                         .writeText(text)
-                        .then(() => showToast("调试控制台内容已复制", "success"))
+                        .then(() => showToast(t("workspace.debugConsoleCopied"), "success"))
                         .catch((error) =>
                           showToast(
                             `复制失败：${error instanceof Error ? error.message : String(error)}`,
@@ -980,9 +1034,9 @@ export function WorkspaceView() {
                         key={entry.id}
                         className={
                           entry.level === "error"
-                            ? "whitespace-pre-wrap text-red-500"
+                            ? "whitespace-pre-wrap text-[var(--StatusError)]"
                             : entry.level === "warn"
-                              ? "whitespace-pre-wrap text-amber-500"
+                              ? "whitespace-pre-wrap text-[var(--StatusWarning)]"
                               : "whitespace-pre-wrap text-[var(--color-text-muted)]"
                         }
                       >
@@ -1093,7 +1147,10 @@ export function WorkspaceView() {
                   setRenameBusy(true);
                   setRenameError(null);
                   try {
-                    await LanguageFeatureService.applyWorkspaceEdit(renameEdit);
+                    await LanguageFeatureService.applyWorkspaceEditWithFingerprints(
+                      renameEdit,
+                      renamePreview.fingerprints,
+                    );
                     setRenameRequest(null);
                   } catch (error) {
                     setRenameError(error instanceof Error ? error.message : String(error));
@@ -1147,7 +1204,9 @@ export function WorkspaceView() {
             />
           )}
           {renamePreview && <WorkspaceEditPreviewList preview={renamePreview} />}
-          {renameError && <div className="text-[12px] text-red-500">{renameError}</div>}
+          {renameError && (
+            <div className="text-[12px] text-[var(--StatusError)]">{renameError}</div>
+          )}
         </div>
       </Modal>
       <Modal
@@ -1157,7 +1216,9 @@ export function WorkspaceView() {
         icon={<Icons.Sparkles size={18} />}
       >
         <div className="max-h-72 space-y-1 overflow-y-auto">
-          {codeActionError && <div className="p-3 text-[12px] text-red-500">{codeActionError}</div>}
+          {codeActionError && (
+            <div className="p-3 text-[12px] text-[var(--StatusError)]">{codeActionError}</div>
+          )}
           {codeActions?.length === 0 && !codeActionError && (
             <div className="p-6 text-center text-[12px] text-[var(--color-text-muted)]">
               {t("language.noActions")}
@@ -1218,7 +1279,10 @@ export function WorkspaceView() {
                 setCodeActionPreviewBusy(true);
                 setCodeActionPreviewError(null);
                 try {
-                  await LanguageFeatureService.applyWorkspaceEdit(codeActionPreview.edit);
+                  await LanguageFeatureService.applyWorkspaceEditWithFingerprints(
+                    codeActionPreview.edit,
+                    codeActionPreview.preview.fingerprints,
+                  );
                   setCodeActionPreview(null);
                 } catch (error) {
                   setCodeActionPreviewError(error instanceof Error ? error.message : String(error));
@@ -1240,7 +1304,7 @@ export function WorkspaceView() {
         <div className="space-y-3">
           {codeActionPreview && <WorkspaceEditPreviewList preview={codeActionPreview.preview} />}
           {codeActionPreviewError && (
-            <div className="text-[12px] text-red-500">{codeActionPreviewError}</div>
+            <div className="text-[12px] text-[var(--StatusError)]">{codeActionPreviewError}</div>
           )}
         </div>
       </Modal>
@@ -1280,7 +1344,9 @@ export function WorkspaceView() {
             placeholder={t("language.symbolSearchPlaceholder")}
             className="h-9 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
           />
-          {symbolError && <div className="text-[12px] text-red-500">{symbolError}</div>}
+          {symbolError && (
+            <div className="text-[12px] text-[var(--StatusError)]">{symbolError}</div>
+          )}
           {filteredSymbols.length === 0 && !symbolError && (
             <div className="p-6 text-center text-[12px] text-[var(--color-text-muted)]">
               {t("language.noSymbols")}
@@ -1324,12 +1390,12 @@ export function WorkspaceView() {
       <Modal
         isOpen={trustRequest !== null}
         onClose={() => setTrustRequest(null)}
-        title="信任工作区语言服务器"
-        icon={<Icons.AlertTriangle size={18} className="text-amber-500" />}
+        title={t("workspace.trustTitle")}
+        icon={<Icons.AlertTriangle size={18} className="text-[var(--StatusWarning)]" />}
         footer={
           <>
             <Button variant="secondary" onClick={() => setTrustRequest(null)}>
-              不信任
+              {t("workspace.trustNo")}
             </Button>
             <Button
               variant="primary"
@@ -1343,45 +1409,19 @@ export function WorkspaceView() {
                   .catch(() => undefined);
               }}
             >
-              信任并启动
+              {t("workspace.trustYes")}
             </Button>
           </>
         }
       >
         <div className="space-y-2 text-[13px] leading-relaxed text-[var(--color-text-primary)]">
-          <p>此工作区包含自定义语言服务器配置，启动后会执行本机程序。</p>
+          <p>{t("workspace.trustBody")}</p>
           <p className="rounded-lg bg-[var(--material-surface)] p-2 font-mono text-[11px]">
             {trustRequest?.root}
           </p>
-          <p className="text-[12px] text-[var(--color-text-muted)]">
-            仅在你信任此项目来源时继续。环境变量值不会写入输出日志。
-          </p>
+          <p className="text-[12px] text-[var(--color-text-muted)]">{t("workspace.trustHint")}</p>
         </div>
       </Modal>
     </div>
   );
-}
-
-function fileUriToPath(uri: string): string | null {
-  if (!uri.startsWith("file:")) return null;
-  try {
-    const url = new URL(uri);
-    let path = decodeURIComponent(url.pathname);
-    if (/^\/[A-Za-z]:\//.test(path)) path = path.slice(1);
-    if (url.host) path = `//${url.host}${path}`;
-    return path.replace(/\//g, "\\");
-  } catch {
-    return null;
-  }
-}
-
-function sameFilePath(left: string | null, right: string): boolean {
-  if (!left) return false;
-  const normalize = (value: string) => {
-    const slashed = value.replace(/\\/g, "/");
-    return /^[A-Za-z]:\//.test(slashed) || slashed.startsWith("//")
-      ? slashed.toLowerCase()
-      : slashed;
-  };
-  return normalize(left) === normalize(right);
 }

@@ -5,6 +5,7 @@ import "@xterm/xterm/css/xterm.css";
 import { memo, useEffect, useRef, useState } from "react";
 import { type ShellProfile, TerminalManager } from "../../Core/TerminalService";
 import { EventBus } from "../../Foundation/EventBus";
+import { useLocale } from "../../Foundation/I18n";
 import { PtyIPC } from "../../Foundation/IPC/PtyCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
@@ -75,6 +76,7 @@ export const TerminalView = memo(function TerminalView({
   // generation 计数器：每次挂载递增，清理函数用于识别自己是否还是"当代"管理者
   const generationRef = useRef(0);
   const [status, setStatus] = useState<"starting" | "ready" | "exited" | "error">("starting");
+  const { t } = useLocale();
 
   useEffect(() => {
     const host = hostRef.current;
@@ -285,19 +287,22 @@ export const TerminalView = memo(function TerminalView({
           {status !== "ready" && (
             <span className="pointer-events-none absolute right-3 top-2 z-10 text-[11px] text-[var(--color-text-muted)]">
               {status === "starting"
-                ? "正在启动终端…"
+                ? t("terminal.starting")
                 : status === "exited"
-                  ? "终端已退出"
-                  : "终端启动失败"}
+                  ? t("terminal.exited")
+                  : t("terminal.failed")}
             </span>
           )}
           <div ref={hostRef} className="h-full w-full p-2" />
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem label="全选" onSelect={() => terminalRef.current?.selectAll()} />
         <ContextMenuItem
-          label="复制"
+          label={t("menu.selectAll")}
+          onSelect={() => terminalRef.current?.selectAll()}
+        />
+        <ContextMenuItem
+          label={t("menu.copy")}
           onSelect={() => {
             const terminal = terminalRef.current;
             if (!terminal?.hasSelection()) return;
@@ -306,13 +311,16 @@ export const TerminalView = memo(function TerminalView({
           }}
         />
         <ContextMenuItem
-          label="粘贴"
+          label={t("menu.paste")}
           onSelect={() =>
             void navigator.clipboard.readText().then((text) => PtyIPC.write(id, text))
           }
         />
         <ContextMenuDivider />
-        <ContextMenuItem label="清除显示" onSelect={() => terminalRef.current?.clear()} />
+        <ContextMenuItem
+          label={t("terminal.clearDisplay")}
+          onSelect={() => terminalRef.current?.clear()}
+        />
       </ContextMenuContent>
     </ContextMenuRoot>
   );

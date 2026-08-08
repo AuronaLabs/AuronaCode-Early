@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { DebugConfigurationService } from "../../Core/DebugConfigurationService";
 import { DebugService } from "../../Core/DebugService";
-import { useLocale } from "../../Foundation/I18n";
+import { LocaleService, useLocale } from "../../Foundation/I18n";
 import { type DebugBreakpoint, type DebugVariable, useDebugStore } from "../../State/useDebugStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Button } from "../../UI/Components/Button";
@@ -68,12 +68,12 @@ export function DebugPanel() {
   return (
     <section className="flex h-full min-h-0 flex-col">
       <SidebarPageHeader
-        title="运行和调试"
+        title={t("debug.sidebarTitle")}
         actions={
           <>
             {debug.configurations.length > 0 && (
               <HeaderAction
-                label="编辑调试配置"
+                label={t("debug.editConfig")}
                 icon={<Icons.FileCode size={16} />}
                 onClick={() => {
                   const path = DebugConfigurationService.getConfigurationPath();
@@ -82,7 +82,7 @@ export function DebugPanel() {
               />
             )}
             <HeaderAction
-              label="刷新调试配置"
+              label={t("debug.refreshConfig")}
               icon={<Icons.Refresh size={16} />}
               onClick={() => void DebugService.reloadConfigurations(activeFile)}
             />
@@ -98,7 +98,7 @@ export function DebugPanel() {
             <div className="flex gap-2">
               {debug.configurations.length ? (
                 <Select
-                  ariaLabel="调试配置"
+                  ariaLabel={t("debug.configLabel")}
                   className="min-w-0 flex-1"
                   value={debug.selectedConfiguration ?? debug.configurations[0].name}
                   options={debug.configurations.map((configuration) => ({
@@ -115,13 +115,13 @@ export function DebugPanel() {
                 />
               ) : (
                 <div className="flex h-8 min-w-0 flex-1 items-center px-1 text-[11px] text-[var(--color-text-muted)]">
-                  未检测到可调试项目
+                  {t("debug.noDebuggableProject")}
                 </div>
               )}
               <Button
                 size="icon"
                 variant={running ? "danger" : "primary"}
-                aria-label={running ? "停止调试" : "开始调试"}
+                aria-label={running ? t("debug.stopDebug") : t("debug.startDebug")}
                 disabled={
                   !selected ||
                   !applicability?.supported ||
@@ -161,7 +161,7 @@ export function DebugPanel() {
               />
             )}
             {debug.error && (
-              <div className="mx-[var(--PanelPaddingX)] mb-2 rounded-xl bg-red-500/10 px-3 py-2.5 text-[11px] leading-5 text-red-500">
+              <div className="mx-[var(--PanelPaddingX)] mb-2 rounded-xl bg-[var(--StatusError)]/10 px-3 py-2.5 text-[11px] leading-5 text-[var(--StatusError)]">
                 {debug.error}
               </div>
             )}
@@ -175,7 +175,7 @@ export function DebugPanel() {
                     打开可调试的代码文件
                   </div>
                   <p className="mt-1">
-                    Aurona 会识别项目并生成可编辑的启动配置，无需手工创建基础配置。
+                    Aurona 会识别项目并生成可编辑的启动配置，无需手工创建基础配置
                   </p>
                 </div>
               </div>
@@ -186,7 +186,7 @@ export function DebugPanel() {
                 title={t("debug.threads")}
                 icon={<Icons.Debug size={14} />}
                 count={debug.threads.length}
-                empty="程序暂停后，这里会显示所有线程。"
+                empty={t("debug.threadsEmpty")}
               >
                 {debug.threads.map((thread) => (
                   <button
@@ -210,10 +210,10 @@ export function DebugPanel() {
               <WatchSection />
 
               <DebugSection
-                title="调用栈"
+                title={t("debug.stackTitle")}
                 icon={<Icons.Stack size={14} />}
                 count={debug.stackFrames.length}
-                empty="程序暂停后，这里会显示当前执行位置和调用链。"
+                empty={t("debug.stackEmpty")}
               >
                 {debug.stackFrames.map((frame) => (
                   <button
@@ -243,14 +243,14 @@ export function DebugPanel() {
               </DebugSection>
 
               <DebugSection
-                title="变量"
+                title={t("debug.variablesTitle")}
                 icon={<Icons.Variables size={14} />}
                 count={debug.scopes.reduce(
                   (count, scope) =>
                     count + (debug.variablesByReference[scope.variablesReference]?.length ?? 0),
                   0,
                 )}
-                empty="选择暂停的栈帧后，这里会显示当前作用域变量。"
+                empty={t("debug.variablesEmpty")}
               >
                 {debug.scopes.map((scope) => (
                   <VariableScope
@@ -269,7 +269,7 @@ export function DebugPanel() {
                 title={t("debug.breakpoints")}
                 icon={<Icons.Breakpoint size={14} />}
                 count={debug.breakpoints.length}
-                empty="点击编辑器行号左侧即可添加断点。"
+                empty={t("debug.breakpointsEmpty")}
               >
                 {debug.breakpoints.length > 0 && (
                   <div className="flex items-center gap-1 px-1 pb-1">
@@ -289,7 +289,7 @@ export function DebugPanel() {
                     </button>
                     <button
                       type="button"
-                      className="ml-auto rounded-md px-1.5 py-1 text-[9px] text-red-500/80 hover:bg-red-500/10 hover:text-red-500"
+                      className="ml-auto rounded-md px-1.5 py-1 text-[9px] text-[var(--StatusError)]/80 hover:bg-[var(--StatusError)]/10 hover:text-[var(--StatusError)]"
                       onClick={() => void DebugService.removeAllBreakpoints()}
                     >
                       {t("debug.removeAll")}
@@ -370,7 +370,7 @@ export function DebugPanel() {
                     <button
                       type="button"
                       aria-label={`移除 ${fileName(breakpoint.path)} 第 ${breakpoint.line} 行断点`}
-                      className="rounded-md p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 focus-visible:opacity-100"
+                      className="rounded-md p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:text-[var(--StatusError)] group-hover:opacity-100 focus-visible:opacity-100"
                       onClick={() => {
                         debug.toggleBreakpoint(breakpoint.path, breakpoint.line);
                         void DebugService.syncBreakpoints();
@@ -477,24 +477,25 @@ function SessionStatus({
   state: ReturnType<typeof useDebugStore.getState>["state"];
   configuration?: string;
 }) {
+  const { t } = useLocale();
   const stateLabels = {
-    idle: "等待启动",
-    starting: "正在启动调试器",
-    running: "程序正在运行 · 可暂停查看调用栈",
-    paused: "已在断点处暂停",
-    stopping: "正在结束会话",
-    failed: "调试会话启动失败",
+    idle: t("debug.sessionIdle"),
+    starting: t("debug.sessionStarting"),
+    running: t("debug.sessionRunning"),
+    paused: t("debug.sessionPaused"),
+    stopping: t("debug.sessionStopping"),
+    failed: t("debug.sessionFailed"),
   };
   return (
     <div className="mt-2 flex items-center gap-1.5 px-1 text-[10px] text-[var(--color-text-muted)]">
       <span
         className={`h-1.5 w-1.5 rounded-full ${
           state === "running"
-            ? "bg-emerald-500"
+            ? "bg-[var(--StatusSuccess)]"
             : state === "paused"
-              ? "bg-amber-500"
+              ? "bg-[var(--StatusWarning)]"
               : state === "failed"
-                ? "bg-red-500"
+                ? "bg-[var(--StatusError)]"
                 : "bg-[var(--color-text-muted)]/50"
         }`}
       />
@@ -509,14 +510,27 @@ function SessionStatus({
 }
 
 function DebugToolbar({ paused, onRestart }: { paused: boolean; onRestart: () => void }) {
+  const { t } = useLocale();
   const actions = paused
     ? [
-        { command: "continue" as const, label: "继续", icon: <Icons.Play size={15} /> },
-        { command: "next" as const, label: "单步跳过", icon: <Icons.StepOver size={15} /> },
-        { command: "stepIn" as const, label: "单步进入", icon: <Icons.StepIn size={15} /> },
-        { command: "stepOut" as const, label: "单步跳出", icon: <Icons.StepOut size={15} /> },
+        {
+          command: "continue" as const,
+          label: t("debug.continue"),
+          icon: <Icons.Play size={15} />,
+        },
+        {
+          command: "next" as const,
+          label: t("debug.stepOver"),
+          icon: <Icons.StepOver size={15} />,
+        },
+        { command: "stepIn" as const, label: t("debug.stepIn"), icon: <Icons.StepIn size={15} /> },
+        {
+          command: "stepOut" as const,
+          label: t("debug.stepOut"),
+          icon: <Icons.StepOut size={15} />,
+        },
       ]
-    : [{ command: "pause" as const, label: "暂停", icon: <Icons.Pause size={15} /> }];
+    : [{ command: "pause" as const, label: t("debug.pause"), icon: <Icons.Pause size={15} /> }];
   return (
     <div className="flex shrink-0 items-center gap-0.5 border-y border-[var(--border-subtle)] px-[var(--PanelPaddingX)] py-1.5">
       {actions.map((action) => (
@@ -532,22 +546,22 @@ function DebugToolbar({ paused, onRestart }: { paused: boolean; onRestart: () =>
         </Tooltip>
       ))}
       <span className="mx-1 h-4 w-px bg-[var(--border-subtle)]" />
-      <Tooltip content="重启会话" placement="bottom">
+      <Tooltip content={t("debug.restartSession")} placement="bottom">
         <button
           type="button"
-          aria-label="重启会话"
+          aria-label={t("debug.restartSession")}
           onClick={onRestart}
           className="rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
         >
           <Icons.Refresh size={15} />
         </button>
       </Tooltip>
-      <Tooltip content="停止调试" placement="bottom">
+      <Tooltip content={t("debug.stopDebug")} placement="bottom">
         <button
           type="button"
-          aria-label="停止调试"
+          aria-label={t("debug.stopDebug")}
           onClick={() => void DebugService.stop()}
-          className="rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-500/10"
+          className="rounded-lg p-1.5 text-[var(--StatusError)] transition-colors hover:bg-[var(--StatusError)]/10"
         >
           <Icons.Stop size={15} />
         </button>
@@ -670,10 +684,10 @@ function VariableRow({
         >
           <span
             className={`truncate font-mono ${
-              changed ? "text-amber-500" : "text-[var(--color-text-muted)]"
+              changed ? "text-[var(--StatusWarning)]" : "text-[var(--color-text-muted)]"
             }`}
           >
-            {loading && expanded ? "正在读取…" : variable.value}
+            {loading && expanded ? t("debug.loadingRead") : variable.value}
           </span>
           {variable.type && (
             <span className="shrink-0 text-[9px] text-[var(--color-text-muted)]/70">
@@ -685,7 +699,7 @@ function VariableRow({
           {variable.evaluateName && (
             <button
               type="button"
-              aria-label="复制表达式"
+              aria-label={t("debug.copyExpression")}
               className="rounded p-0.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)]"
               onClick={() => void navigator.clipboard.writeText(variable.evaluateName as string)}
             >
@@ -694,7 +708,7 @@ function VariableRow({
           )}
           <button
             type="button"
-            aria-label="复制值"
+            aria-label={t("debug.copyValue")}
             className="rounded p-0.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)]"
             onClick={() => void navigator.clipboard.writeText(variable.value)}
           >
@@ -747,19 +761,20 @@ function DependencyPrompt({
   busy: boolean;
   onInstall: () => void;
 }) {
+  const { t } = useLocale();
   return (
-    <div className="mx-[var(--PanelPaddingX)] mb-3 rounded-xl border border-amber-500/20 bg-amber-500/8 p-3">
+    <div className="mx-[var(--PanelPaddingX)] mb-3 rounded-xl border border-[var(--StatusWarning)]/20 bg-[var(--StatusWarning)]/10 p-3">
       <div className="flex items-start gap-2.5">
-        <Icons.Download className="mt-0.5 shrink-0 text-amber-500" size={15} />
+        <Icons.Download className="mt-0.5 shrink-0 text-[var(--StatusWarning)]" size={15} />
         <div className="min-w-0 flex-1">
           <div className="text-[11px] font-semibold text-[var(--color-text-primary)]">
-            需要 Python 调试组件
+            {t("debug.needsPythonComponent")}
           </div>
           <p className="mt-1 break-words text-[10px] leading-4 text-[var(--color-text-muted)]">
             {message}
           </p>
           <Button className="mt-2" size="sm" disabled={busy} onClick={onInstall}>
-            {busy ? "正在安装…" : "安装并继续"}
+            {busy ? t("debug.installing") : t("debug.installAndContinue")}
           </Button>
         </div>
       </div>
@@ -827,7 +842,7 @@ function WatchSection() {
       title={t("debug.watches")}
       icon={<Icons.Variables size={14} />}
       count={watchExpressions.length}
-      empty="程序暂停后，可在这里添加监视表达式。"
+      empty={t("debug.watchEmpty")}
     >
       <div className="flex items-center gap-1 px-1 pb-1.5">
         <input
@@ -859,7 +874,7 @@ function WatchSection() {
               {entry.expression}
             </div>
             {entry.error ? (
-              <div className="truncate text-[9px] text-red-500">{entry.error}</div>
+              <div className="truncate text-[9px] text-[var(--StatusError)]">{entry.error}</div>
             ) : (
               entry.value !== undefined && (
                 <div className="truncate text-[9px] text-[var(--color-text-muted)]">
@@ -871,7 +886,7 @@ function WatchSection() {
           <button
             type="button"
             aria-label={`${t("debug.removeWatch")} ${entry.expression}`}
-            className="rounded-md p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 focus-visible:opacity-100"
+            className="rounded-md p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:text-[var(--StatusError)] group-hover:opacity-100 focus-visible:opacity-100"
             onClick={() => DebugService.removeWatch(entry.id)}
           >
             <Icons.Close size={11} />
@@ -883,6 +898,7 @@ function WatchSection() {
 }
 
 function DebugContextEmpty({ hasFile }: { hasFile: boolean }) {
+  const { t } = useLocale();
   return (
     <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-5 overflow-hidden px-6 text-center">
       <div className="pointer-events-none absolute h-44 w-44 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] blur-3xl" />
@@ -894,14 +910,14 @@ function DebugContextEmpty({ hasFile }: { hasFile: boolean }) {
       </div>
       <div className="relative z-10 space-y-2">
         <h3 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
-          {hasFile ? "当前文件无需调试" : "准备好开始调试"}
+          {hasFile ? t("debug.currentFileNoDebug") : t("debug.readyToDebug")}
         </h3>
         <p className="text-[12px] leading-relaxed text-[var(--color-text-muted)]">
           {hasFile ? (
             <>
-              切换到受支持的代码文件
+              {t("debug.switchToSupportedFile")}
               <br />
-              Aurona 会自动匹配可用调试配置
+              {t("debug.autoMatchConfig")}
             </>
           ) : (
             <>
@@ -927,6 +943,6 @@ function debugConfigurationLabel(type: string, fallback: string): string {
 }
 
 function fileName(path?: string): string {
-  if (!path) return "未知来源";
+  if (!path) return LocaleService.translate("debug.unknownSource");
   return path.split(/[\\/]/).pop() ?? path;
 }

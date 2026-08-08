@@ -39,8 +39,8 @@ body:
     id: version
     attributes:
       label: Aurona Code 版本号
-      description: 您正在使用哪个版本（例如 0.3.0）
-      placeholder: 0.3.0
+      description: 您正在使用哪个版本（例如 0.3.10）
+      placeholder: 0.3.10
     validations:
       required: true
   - type: dropdown

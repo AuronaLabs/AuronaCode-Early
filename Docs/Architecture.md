@@ -109,7 +109,7 @@ revision acknowledgement or conflict
 
 ## 6. 命令与用户操作
 
-`Extension/CommandRegistry.ts` 定义命令 ID、标题、上下文、快捷键与执行器。标题栏菜单、macOS 菜单、Fliuno 和编辑快捷键调用相同命令，而不是各自复制业务逻辑。Fliuno 是全局搜索界面，当前首先接入命令数据源。
+`Extension/CommandRegistry.ts` 定义命令 ID、标题、上下文、快捷键与执行器。标题栏菜单、macOS 菜单、Fliuno 和编辑快捷键调用相同命令，而不是各自复制业务逻辑。Fliuno 是统一搜索界面，接入命令、文件、设置、符号与内容 Provider。
 
 `Extension` 目录当前不是插件运行时。仓库没有插件沙箱、市场、扩展 API 或 VS Code 兼容层。
 

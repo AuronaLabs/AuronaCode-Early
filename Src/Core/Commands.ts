@@ -57,14 +57,21 @@ export function registerWorkbenchCommands(): () => void {
     );
   };
   const languageFeatureReason = (feature: LspFeature) => (current: CommandContext) => {
-    if (!current.hasActiveEditor) return "没有活动编辑器";
+    if (!current.hasActiveEditor) {
+      return LocaleService.translate("commands.errors.noActiveEditor");
+    }
     const status = useEditorStore.getState().editorStatus;
     const server = LspClient.getInstance().getState(status.language);
-    if (!server) return "当前语言未配置服务器";
-    if (server.status !== "running") return `语言服务器状态：${server.status}`;
+    if (!server) return LocaleService.translate("commands.errors.languageNotConfigured");
+    if (server.status !== "running") {
+      return LocaleService.translate("commands.errors.languageServerStatus").replace(
+        "{status}",
+        server.status,
+      );
+    }
     return LspClient.getInstance().supports(status.language, feature)
       ? undefined
-      : "当前服务器不支持此能力";
+      : LocaleService.translate("commands.errors.languageServerUnsupported");
   };
   const activeLanguageLocation = (current: CommandContext) => {
     const status = useEditorStore.getState().editorStatus;
@@ -222,7 +229,6 @@ export function registerWorkbenchCommands(): () => void {
           location.line,
           location.character,
         );
-        useWorkbenchStore.getState().setActiveBottomPanel("output");
       },
     }),
     CommandRegistry.register({

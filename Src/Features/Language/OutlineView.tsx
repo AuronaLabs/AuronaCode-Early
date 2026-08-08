@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LspClient } from "../../Core/Language/LspClient";
+import { DocumentSymbolService } from "../../Core/Language/DocumentSymbolService";
 import {
   type DocumentSymbolNode,
   type FlattenedSymbol,
@@ -27,7 +27,7 @@ export function OutlineView() {
     const generation = ++generationRef.current;
     setStatus("loading");
     try {
-      const raw = await LspClient.getInstance().getDocumentSymbols(GetLanguageFromPath(path), path);
+      const raw = await DocumentSymbolService.get(GetLanguageFromPath(path), path);
       if (generation !== generationRef.current) return;
       setSymbols(flattenDocumentSymbols(Array.isArray(raw) ? (raw as DocumentSymbolNode[]) : []));
       setStatus("idle");

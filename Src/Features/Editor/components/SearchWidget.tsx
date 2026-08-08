@@ -77,7 +77,7 @@ export function SearchWidget({
           type="button"
           onClick={onPrev}
           disabled={totalMatches === 0}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-[var(--material-interactive-hover)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors mr-0.5"
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors mr-0.5"
         >
           <IconChevronUp size={14} stroke={2} />
         </button>
@@ -85,7 +85,7 @@ export function SearchWidget({
           type="button"
           onClick={onNext}
           disabled={totalMatches === 0}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-[var(--material-interactive-hover)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors mr-1"
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors mr-1"
         >
           <IconChevronDown size={14} stroke={2} />
         </button>

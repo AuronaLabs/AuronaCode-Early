@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { desktopApp } from "../../Foundation/Desktop";
+import { useLocale } from "../../Foundation/I18n";
 import { PlatformService } from "../../Foundation/Platform";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
 
 export function AboutTab() {
+  const { t } = useLocale();
   const [osInfo, setOsInfo] = useState<string>("Detecting...");
   const [cpuCores, setCpuCores] = useState<number>(0);
   const [appVersion, setAppVersion] = useState<string>("Loading...");
@@ -51,34 +53,38 @@ export function AboutTab() {
                 V{appVersion}
               </span>
               <span className="px-2 py-0.5 rounded-full bg-[var(--color-accent)]/20 text-[var(--color-accent)] text-[11px] font-bold tracking-widest border border-[var(--color-accent)]/30">
-                基于Corona+ 架构开发
+                {t("about.basedOn")}
               </span>
             </div>
             <p className="text-[13px] text-[var(--color-text-muted)] mt-2 tracking-wide">
-              基于 Tauri 构建的新一代轻量级、超高性能代码编辑器
+              {t("about.tagline")}
             </p>
           </div>
         </div>
 
         {/* System Info Cards */}
-        <div className="grid grid-cols-2 gap-4 w-full max-w-2xl mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl mt-4">
           <GlassContainer layer="elevated" className="flex flex-col gap-1.5 rounded-2xl p-5">
             <div className="flex items-center gap-2 text-[var(--color-text-muted)] mb-2">
               <Icons.Monitor size={16} />
-              <span className="text-[12px] font-medium uppercase tracking-wider">系统架构</span>
+              <span className="text-[12px] font-medium uppercase tracking-wider">
+                {t("about.systemArch")}
+              </span>
             </div>
             <span className="text-[15px] font-medium text-[var(--color-text-highlight)]">
               {osInfo}
             </span>
             <span className="text-[12px] text-[var(--color-text-muted)]">
-              {architecture} (Cores: {cpuCores})
+              {architecture} · {cpuCores} {t("about.cores")}
             </span>
           </GlassContainer>
 
           <GlassContainer layer="elevated" className="flex flex-col gap-1.5 rounded-2xl p-5">
             <div className="flex items-center gap-2 text-[var(--color-text-muted)] mb-2">
               <Icons.Sparkles size={16} />
-              <span className="text-[12px] font-medium uppercase tracking-wider">技术栈</span>
+              <span className="text-[12px] font-medium uppercase tracking-wider">
+                {t("about.techStack")}
+              </span>
             </div>
             <span className="text-[15px] font-medium text-[var(--color-text-highlight)]">
               Tauri / {webview}
@@ -92,11 +98,11 @@ export function AboutTab() {
         {/* Copyright */}
         <div className="flex flex-col items-center gap-2 text-[12px] text-[var(--color-text-muted)]/60 mt-8 text-center max-w-lg">
           <p>
-            Aurona Code 的诞生离不开开源社区的伟大力量
+            {t("about.thanksTitle")}
             <br />
-            特别感谢 Tauri 团队提供的高效跨平台能力，以及所有参与本项目的开源作者们
+            {t("about.thanksBody")}
           </p>
-          <p className="mt-2">Copyright © 2026 Aurona Labs. All rights reserved.</p>
+          <p className="mt-2">Copyright © 2026 Aurona Labs. All rights reserved</p>
         </div>
       </div>
     </InternalPageLayout>

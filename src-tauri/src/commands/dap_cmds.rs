@@ -60,7 +60,7 @@ pub async fn dap_python_debugpy_status(python_path: String) -> Result<PythonDebu
         installed: false,
         version: None,
         message: format!(
-            "当前 Python 环境尚未安装 debugpy。Aurona 可以将 debugpy {} 安装到该环境。",
+            "当前 Python 环境尚未安装 debugpy。Aurona 可以将 debugpy {} 安装到该环境",
             DEBUGPY_VERSION
         ),
     })

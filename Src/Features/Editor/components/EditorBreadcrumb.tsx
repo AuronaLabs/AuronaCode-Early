@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LspClient } from "../../../Core/Language/LspClient";
+import { DocumentSymbolService } from "../../../Core/Language/DocumentSymbolService";
 import {
   type DocumentSymbolNode,
   type FlattenedSymbol,
@@ -18,8 +18,7 @@ export function EditorBreadcrumb({ path, language }: { path: string; language: s
 
   useEffect(() => {
     const generation = ++generationRef.current;
-    void LspClient.getInstance()
-      .getDocumentSymbols(language, path)
+    void DocumentSymbolService.get(language, path)
       .then((raw) => {
         if (generation !== generationRef.current) return;
         setSymbols(flattenDocumentSymbols(Array.isArray(raw) ? (raw as DocumentSymbolNode[]) : []));

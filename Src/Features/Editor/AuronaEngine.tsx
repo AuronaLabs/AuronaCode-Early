@@ -1733,7 +1733,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           style={{ height: layout.lineHeight, lineHeight: `${layout.lineHeight}px` }}
         >
           {path && breakpoints.some((item) => item.path === path && item.line === idx + 1) && (
-            <span className="absolute left-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-red-500" />
+            <span className="absolute left-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-[var(--StatusWarning)]" />
           )}
           {idx + 1}
         </button>,

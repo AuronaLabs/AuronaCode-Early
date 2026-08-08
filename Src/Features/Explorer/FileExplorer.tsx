@@ -297,7 +297,9 @@ export const FileExplorer = React.memo(function FileExplorer({
               isOpen={!!deletePrompt}
               onClose={() => setDeletePrompt(null)}
               title={t("explorer.deleteTitle")}
-              icon={<Icons.AlertTriangle className="text-red-500" size={18} stroke={2} />}
+              icon={
+                <Icons.AlertTriangle className="text-[var(--StatusError)]" size={18} stroke={2} />
+              }
               footer={
                 <>
                   <Button variant="secondary" onClick={() => setDeletePrompt(null)}>

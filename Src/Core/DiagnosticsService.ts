@@ -1,3 +1,5 @@
+import { fileUriToPath, pathsEqual } from "../Shared/Utils/UriUtils";
+
 export interface DiagnosticPosition {
   line: number;
   character: number;
@@ -27,6 +29,32 @@ export interface DiagnosticDocument {
   uri: string;
   version?: number;
   diagnostics: readonly DiagnosticItem[];
+}
+
+export interface ProblemViewItem extends DiagnosticItem {
+  uri: string;
+  key: string;
+}
+
+/** 将全部诊断摊平为可渲染条目；file 作用域按活动文件过滤，workspace 返回全部。 */
+export function collectProblems(
+  documents: readonly DiagnosticDocument[],
+  scope: "file" | "workspace",
+  activeFilePath: string | null | undefined,
+): ProblemViewItem[] {
+  const all = documents.flatMap((document) =>
+    document.diagnostics.map((diagnostic, index) => ({
+      ...diagnostic,
+      uri: document.uri,
+      key: `${document.uri}-${diagnostic.source ?? "aurona"}-${diagnostic.range.start.line}-${diagnostic.range.start.character}-${index}`,
+    })),
+  );
+  if (scope === "file") {
+    return activeFilePath
+      ? all.filter((problem) => pathsEqual(fileUriToPath(problem.uri), activeFilePath))
+      : [];
+  }
+  return all;
 }
 
 type Listener = () => void;

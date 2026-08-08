@@ -46,7 +46,7 @@ const ROW_GROUP: Record<ClearTarget, StorageGroup> = {
 };
 
 const GROUP_META: Array<{ id: StorageGroup; color: string; nameKey: I18nKey }> = [
-  { id: "core", color: "bg-emerald-500/85", nameKey: "settings.storage.groupCore" },
+  { id: "core", color: "bg-[var(--StatusSuccess)]/85", nameKey: "settings.storage.groupCore" },
   { id: "cache", color: "bg-sky-500/85", nameKey: "settings.storage.groupCache" },
   { id: "logs", color: "bg-fuchsia-500/85", nameKey: "settings.storage.groupLogs" },
   { id: "other", color: "bg-[var(--color-accent)]", nameKey: "settings.storage.groupOther" },

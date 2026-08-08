@@ -31,14 +31,14 @@ export function WorkspaceEditPreviewList({ preview }: { preview: WorkspaceEditPr
                   {t("language.linePrefix").replace("{line}", String(edit.line))}
                 </span>
                 <div className="flex min-w-0 items-start gap-2">
-                  <span className="w-4 shrink-0 select-none text-red-500">−</span>
-                  <span className="min-w-0 flex-1 truncate text-red-500/90 line-through decoration-red-500/40">
+                  <span className="w-4 shrink-0 select-none text-[var(--StatusError)]">−</span>
+                  <span className="min-w-0 flex-1 truncate text-[var(--StatusError)]/90 line-through decoration-[var(--StatusError)]/40">
                     {edit.oldText || " "}
                   </span>
                 </div>
                 <div className="flex min-w-0 items-start gap-2">
-                  <span className="w-4 shrink-0 select-none text-emerald-500">+</span>
-                  <span className="min-w-0 flex-1 truncate whitespace-pre text-emerald-600 dark:text-emerald-400">
+                  <span className="w-4 shrink-0 select-none text-[var(--StatusSuccess)]">+</span>
+                  <span className="min-w-0 flex-1 truncate whitespace-pre text-[var(--StatusSuccess)]">
                     {edit.newText || " "}
                   </span>
                 </div>

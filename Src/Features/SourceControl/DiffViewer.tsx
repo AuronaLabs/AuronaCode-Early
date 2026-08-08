@@ -217,12 +217,12 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
               {files.length} 个文件
             </span>
             {summary.additions > 0 && (
-              <span className="rounded-lg border border-green-500/15 bg-green-500/10 px-2 py-1 font-mono text-green-600 dark:text-green-400">
+              <span className="rounded-lg border border-[var(--StatusSuccess)]/15 bg-[var(--StatusSuccess)]/10 px-2 py-1 font-mono text-[var(--StatusSuccess)]">
                 +{summary.additions}
               </span>
             )}
             {summary.deletions > 0 && (
-              <span className="rounded-lg border border-red-500/15 bg-red-500/10 px-2 py-1 font-mono text-red-600 dark:text-red-400">
+              <span className="rounded-lg border border-[var(--StatusError)]/15 bg-[var(--StatusError)]/10 px-2 py-1 font-mono text-[var(--StatusError)]">
                 -{summary.deletions}
               </span>
             )}
@@ -274,12 +274,12 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                     </div>
                     <div className="ml-3 flex shrink-0 items-center gap-1.5 font-mono text-[10.5px] font-semibold">
                       {additions > 0 && (
-                        <span className="rounded-md border border-green-500/15 bg-green-500/10 px-1.5 py-0.5 text-green-600 dark:text-green-400">
+                        <span className="rounded-md border border-[var(--StatusSuccess)]/15 bg-[var(--StatusSuccess)]/10 px-1.5 py-0.5 text-[var(--StatusSuccess)]">
                           +{additions}
                         </span>
                       )}
                       {deletions > 0 && (
-                        <span className="rounded-md border border-red-500/15 bg-red-500/10 px-1.5 py-0.5 text-red-600 dark:text-red-400">
+                        <span className="rounded-md border border-[var(--StatusError)]/15 bg-[var(--StatusError)]/10 px-1.5 py-0.5 text-[var(--StatusError)]">
                           -{deletions}
                         </span>
                       )}
@@ -305,7 +305,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                                 const leftBg = isContext
                                   ? "bg-transparent"
                                   : isDel
-                                    ? "bg-red-500/10"
+                                    ? "bg-[var(--StatusError)]/10"
                                     : "bg-[var(--material-surface)]";
                                 const leftText = isContext
                                   ? line.content
@@ -326,7 +326,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                                       {line.leftLineNum || ""}
                                     </div>
                                     <div
-                                      className={`px-4 flex-1 flex items-center whitespace-pre ${leftBg} ${isDel ? "text-red-600 dark:text-red-400" : "text-[var(--color-text-primary)]"}`}
+                                      className={`px-4 flex-1 flex items-center whitespace-pre ${leftBg} ${isDel ? "text-[var(--StatusError)]" : "text-[var(--color-text-primary)]"}`}
                                     >
                                       {leftText || " "}
                                     </div>
@@ -345,7 +345,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                                 const rightBg = isContext
                                   ? "bg-transparent"
                                   : isAdd
-                                    ? "bg-green-500/10"
+                                    ? "bg-[var(--StatusSuccess)]/10"
                                     : "bg-[var(--material-surface)]";
                                 const rightText = isContext
                                   ? line.content
@@ -366,7 +366,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                                       {line.rightLineNum || ""}
                                     </div>
                                     <div
-                                      className={`px-4 flex-1 flex items-center whitespace-pre ${rightBg} ${isAdd ? "text-green-600 dark:text-green-400" : "text-[var(--color-text-primary)]"}`}
+                                      className={`px-4 flex-1 flex items-center whitespace-pre ${rightBg} ${isAdd ? "text-[var(--StatusSuccess)]" : "text-[var(--color-text-primary)]"}`}
                                     >
                                       {rightText || " "}
                                     </div>

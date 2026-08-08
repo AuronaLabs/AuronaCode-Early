@@ -38,9 +38,7 @@ CARGO_TOML = ROOT / "src-tauri" / "Cargo.toml"
 CARGO_LOCK = ROOT / "src-tauri" / "Cargo.lock"
 SECURITY_POLICY = ROOT / ".github" / "SECURITY.md"
 README = ROOT / "README.md"
-SPLASH_HTML = ROOT / "splash.html"
 PACKAGE_MANAGER = "pnpm"
-PACKAGE_MANAGER_VERSION = "11.13.0"
 SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 TARGET_WARNING_BYTES = 8 * 1024**3
 
@@ -137,6 +135,20 @@ def write_json(path: Path, data: dict) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def read_package_manager_version() -> str:
+    """从 package.json 的 packageManager 字段读取固定 pnpm 版本，避免硬编码漂移。"""
+    try:
+        value = str(read_json(PACKAGE_JSON).get("packageManager", ""))
+    except (OSError, json.JSONDecodeError):
+        return "11.13.0"
+    if value.startswith("pnpm@"):
+        return value.split("@", 1)[1]
+    return "11.13.0"
+
+
+PACKAGE_MANAGER_VERSION = read_package_manager_version()
+
+
 def read_cargo_version() -> str:
     content = CARGO_TOML.read_text(encoding="utf-8")
     match = re.search(r'(?ms)^\[package\].*?^version\s*=\s*"([^"]+)"', content)
@@ -220,29 +232,6 @@ def replace_readme_version(version: str) -> None:
     README.write_text(updated, encoding="utf-8")
 
 
-def read_splash_version() -> str:
-    if not SPLASH_HTML.exists():
-        return "missing"
-    match = re.search(
-        r'<div class="splash__version"><span>v([0-9A-Za-z.-]+)</span></div>',
-        SPLASH_HTML.read_text(encoding="utf-8"),
-    )
-    return match.group(1) if match else "unknown"
-
-
-def replace_splash_version(version: str) -> None:
-    content = SPLASH_HTML.read_text(encoding="utf-8")
-    updated, count = re.subn(
-        r'(<div class="splash__version"><span>v)[0-9A-Za-z.-]+(</span></div>)',
-        rf"\g<1>{version}\g<2>",
-        content,
-        count=1,
-    )
-    if count != 1:
-        raise RuntimeError("无法定位 splash.html 中的版本")
-    SPLASH_HTML.write_text(updated, encoding="utf-8")
-
-
 def command_display(command: Sequence[str]) -> str:
     return " ".join(f'"{item}"' if " " in item else item for item in command)
 
@@ -321,7 +310,6 @@ def version_snapshot() -> dict[str, str]:
         "Cargo.toml": read_cargo_version(),
         "Cargo.lock": read_lock_version(),
         "README badge": read_readme_version(),
-        "splash.html": read_splash_version(),
     }
 
 
@@ -378,7 +366,7 @@ def show_menu() -> None:
         ("4", "运行质量门禁", "前端、边界、smoke、测试与 Rust 检查"),
         ("5", "环境诊断", "只读检查 Node、pnpm、Rust、Tauri 与 Git"),
         ("6", "安装冻结依赖", "pnpm install --frozen-lockfile"),
-        ("7", "同步工程版本", "package、Tauri、Cargo、lock 与安全策略"),
+        ("7", "同步工程版本", "package、Tauri、Cargo、lock、README 与安全策略"),
         ("8", "编辑打包配置", "修改受支持的 Tauri 基础字段"),
         ("9", "清理构建缓存", "删除 Dist 与 src-tauri/target"),
         ("10", "查看 Git 概览", "分支、最近提交与当前改动"),
@@ -438,6 +426,7 @@ QUALITY_STEPS: list[tuple[list[str], str]] = [
     ([PACKAGE_MANAGER, "run", "check"], "Biome 代码质量检查"),
     ([PACKAGE_MANAGER, "run", "check:boundaries"], "桌面边界检查"),
     ([PACKAGE_MANAGER, "run", "check:materials"], "Material 边界检查"),
+    ([PACKAGE_MANAGER, "run", "verify:toolchains:contract"], "内置工具链契约检查"),
     ([PACKAGE_MANAGER, "run", "smoke"], "发布元数据 smoke"),
     ([PACKAGE_MANAGER, "run", "test:frontend"], "前端测试"),
     ([PACKAGE_MANAGER, "run", "build"], "前端生产构建"),
@@ -471,7 +460,7 @@ def run_quality_gate() -> bool:
     return True
 
 
-def sync_versions() -> None:
+def sync_versions(requested: str | None = None) -> bool:
     versions = version_snapshot()
     table = Table(title="工程版本", box=box.ROUNDED, header_style="bold cyan")
     table.add_column("文件")
@@ -481,15 +470,18 @@ def sync_versions() -> None:
     console.print(table)
 
     current = versions["package.json"]
-    new_version = Prompt.ask("目标版本", default=current).strip()
+    if requested is not None:
+        new_version = requested
+    else:
+        new_version = Prompt.ask("目标版本", default=current).strip()
     if not SEMVER_PATTERN.fullmatch(new_version):
         console.print("[bold red]版本格式无效，请使用 0.3.0 或 0.3.0-beta.1 形式。[/bold red]")
-        return
+        return False
     if new_version == current and len(set(versions.values())) == 1:
         console.print("[dim]所有版本文件已经一致，无需修改。[/dim]")
-        return
-    if not Confirm.ask(f"确认将工程版本同步为 {new_version}？", default=False):
-        return
+        return True
+    if requested is None and not Confirm.ask(f"确认将工程版本同步为 {new_version}？", default=False):
+        return True
 
     package = read_json(PACKAGE_JSON)
     tauri = read_json(TAURI_CONFIG)
@@ -501,13 +493,13 @@ def sync_versions() -> None:
     replace_lock_version(new_version)
     replace_security_version(new_version)
     replace_readme_version(new_version)
-    replace_splash_version(new_version)
     console.print(
-        "[bold green][OK] 已同步 package、Tauri、Cargo、Cargo.lock、安全策略、README 徽章和 splash.html 版本[/bold green]"
+        "[bold green][OK] 已同步 package、Tauri、Cargo、Cargo.lock、安全策略与 README 徽章版本[/bold green]"
     )
     console.print(
         "[yellow]仍需人工更新 ChangelogData、Release Notes，并运行 pnpm run smoke；管理器不会生成虚假更新记录。[/yellow]"
     )
+    return True
 
 
 def edit_build_config() -> None:
@@ -663,6 +655,13 @@ def parse_args() -> argparse.Namespace:
     group.add_argument("--dev", action="store_true", help="直接启动 Tauri 开发环境")
     group.add_argument("--check", action="store_true", help="直接运行完整质量门禁")
     group.add_argument("--status", action="store_true", help="输出环境与 Git 状态")
+    group.add_argument(
+        "-v",
+        "--version",
+        dest="sync_version",
+        metavar="VERSION",
+        help="同步工程版本到指定版本，例如：python manager.py -v 0.3.11",
+    )
     return parser.parse_args()
 
 
@@ -680,6 +679,8 @@ def main() -> int:
         environment_report()
         show_git_overview()
         return 0
+    if args.sync_version:
+        return 0 if sync_versions(args.sync_version) else 1
     interactive_main()
     return 0
 

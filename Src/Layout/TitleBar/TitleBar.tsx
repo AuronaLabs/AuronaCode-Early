@@ -225,7 +225,7 @@ export function TitleBar() {
               onClick={() => EventBus.emit("app:show-update-modal")}
             >
               <Icons.Download size={16} stroke={2} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse border border-white dark:border-zinc-900"></span>
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full animate-pulse border border-white bg-[var(--StatusError)] dark:border-zinc-900"></span>
             </button>
           </Tooltip>
         )}

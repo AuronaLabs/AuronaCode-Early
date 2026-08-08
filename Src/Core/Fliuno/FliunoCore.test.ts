@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CommandDefinition } from "../../Extension/CommandRegistry";
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({}),
+}));
+
 import {
   type FliunoCoreContext,
   FliunoSearchSession,
@@ -13,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   client: {
     supports: vi.fn(),
     getDocumentSymbols: vi.fn(),
+    subscribe: vi.fn(() => () => undefined),
   },
   workspace: {
     listFiles: vi.fn(),
@@ -26,10 +32,13 @@ vi.mock("../../Foundation/IPC/WorkspaceSearchCommands", () => ({
 }));
 
 vi.mock("../Language/LspClient", () => ({
-  LspClient: { getInstance: () => mocks.client },
+  LspClient: {
+    getInstance: () => mocks.client,
+  },
 }));
 
 import type { WorkspaceFileEntry } from "../../Foundation/IPC/WorkspaceSearchCommands";
+import { DocumentSymbolService } from "../Language/DocumentSymbolService";
 
 const command = (id: string, title: string, category = "工作台"): CommandDefinition<unknown> => ({
   id,
@@ -166,6 +175,7 @@ describe("settings provider", () => {
 
 describe("symbol provider", () => {
   beforeEach(() => {
+    DocumentSymbolService.clear();
     mocks.client.supports.mockReset();
     mocks.client.getDocumentSymbols.mockReset();
   });

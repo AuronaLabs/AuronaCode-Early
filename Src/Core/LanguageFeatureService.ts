@@ -1,4 +1,5 @@
 import { EventBus } from "../Foundation/EventBus";
+import { LocaleService } from "../Foundation/I18n";
 import { FileSystemCommands } from "../Foundation/IPC/FileSystemCommands";
 import { fileUriToPath } from "../Shared/Utils/UriUtils";
 import { DiagnosticsService } from "./DiagnosticsService";
@@ -12,6 +13,15 @@ interface LocationLink {
   targetUri: string;
   targetSelectionRange: LspLocation["range"];
 }
+
+const fingerprintOf = (content: string): string => {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < content.length; index++) {
+    hash ^= content.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+};
 
 export interface WorkspaceEdit {
   changes?: Record<string, LspTextEdit[]>;
@@ -28,6 +38,8 @@ export interface WorkspaceEditPreview {
     edits: Array<{ line: number; oldText: string; newText: string }>;
   }>;
   totalEdits: number;
+  /** 预览时各目标文件的内容指纹（key 为原生路径），应用前用于检测外部变化。 */
+  fingerprints: Record<string, string>;
 }
 
 export interface LanguageCodeAction {
@@ -42,7 +54,7 @@ export interface LanguageCodeAction {
 class LanguageFeatureServiceImpl {
   private ensureCapability(language: string, feature: LspFeature): void {
     if (!LspClient.getInstance().supports(language, feature)) {
-      throw new Error("当前语言服务器未运行或不支持该功能");
+      throw new Error(LocaleService.translate("language.serverUnavailable"));
     }
   }
 
@@ -132,12 +144,14 @@ class LanguageFeatureServiceImpl {
   async previewWorkspaceEdit(edit: WorkspaceEdit): Promise<WorkspaceEditPreview> {
     const entries = this.textDocumentEdits(edit);
     const files: WorkspaceEditPreview["files"] = [];
+    const fingerprints: Record<string, string> = {};
     for (const entry of entries) {
       const path = fileUriToPath(entry.uri) ?? entry.uri;
       let content = DocumentService.get(path)?.content;
       if (content === undefined) {
         content = await FileSystemCommands.readTextFile(path);
       }
+      fingerprints[path] = fingerprintOf(content);
       const edits = entry.edits
         .map((textEdit) => {
           const start = positionToUtf16Offset(content, textEdit.range.start);
@@ -154,6 +168,7 @@ class LanguageFeatureServiceImpl {
     return {
       files,
       totalEdits: files.reduce((total, file) => total + file.editCount, 0),
+      fingerprints,
     };
   }
 
@@ -215,34 +230,96 @@ class LanguageFeatureServiceImpl {
   }
 
   async applyWorkspaceEdit(edit: WorkspaceEdit): Promise<void> {
-    const entries = this.textDocumentEdits(edit);
+    await this.applyWorkspaceEditWithFingerprints(edit, undefined);
+  }
+
+  /**
+   * 应用 WorkspaceEdit：
+   * Phase 1 对全部目标做版本/指纹/内容校验，任何可预知错误都在修改前抛出；
+   * Phase 2 已打开文档走编辑器会话，未打开文档安全写盘，失败显式抛出、绝不静默部分成功。
+   */
+  async applyWorkspaceEditWithFingerprints(
+    edit: WorkspaceEdit,
+    expectedFingerprints: Record<string, string> | undefined,
+  ): Promise<void> {
+    const grouped = new Map<
+      string,
+      { uri: string; version?: number | null; edits: LspTextEdit[] }
+    >();
+    for (const entry of this.textDocumentEdits(edit)) {
+      const path = fileUriToPath(entry.uri) ?? entry.uri;
+      const existing = grouped.get(path);
+      if (existing) {
+        if (
+          entry.version !== undefined &&
+          entry.version !== null &&
+          existing.version !== undefined &&
+          existing.version !== null &&
+          existing.version !== entry.version
+        ) {
+          throw new Error(`Workspace edit version mismatch for ${path}`);
+        }
+        existing.edits.push(...entry.edits);
+      } else {
+        grouped.set(path, { uri: entry.uri, version: entry.version, edits: [...entry.edits] });
+      }
+    }
+
     const prepared: Array<{
       path: string;
-      edits: ReturnType<typeof applyLspTextEdits>;
-      expectedVersion?: number | null;
+      isOpen: boolean;
+      applied: ReturnType<typeof applyLspTextEdits>;
     }> = [];
-    for (const entry of entries) {
-      const path = fileUriToPath(entry.uri) ?? entry.uri;
+    for (const [path, entry] of grouped) {
       const document = DocumentService.get(path);
-      if (!document) {
-        throw new Error(`Workspace edit targets a document that is not open: ${path}`);
+      const isOpen = document?.openState === "open";
+      let content: string;
+      if (isOpen) {
+        if (
+          entry.version !== undefined &&
+          entry.version !== null &&
+          document.version !== entry.version
+        ) {
+          throw new Error(`Workspace edit version mismatch for ${path}`);
+        }
+        content = document.content;
+      } else {
+        content = await FileSystemCommands.readTextFile(path);
       }
-      if (
-        entry.version !== undefined &&
-        entry.version !== null &&
-        document.version !== entry.version
-      ) {
-        throw new Error(`Workspace edit version mismatch for ${path}`);
+      const expected = expectedFingerprints?.[path];
+      if (expected && fingerprintOf(content) !== expected) {
+        throw new Error(`Workspace edit target changed since preview: ${path}`);
       }
+      const normalizedEdits = entry.edits.map((textEdit) => ({
+        ...textEdit,
+        newText: this.normalizeEditNewText(content, textEdit.newText),
+      }));
       prepared.push({
         path,
-        edits: applyLspTextEdits(document.content, entry.edits),
-        expectedVersion: entry.version,
+        isOpen,
+        applied: applyLspTextEdits(content, normalizedEdits),
       });
     }
+
     for (const item of prepared) {
-      await DocumentService.applyEdits(item.path, item.edits.documentEdits, item.edits.content);
+      if (item.isOpen) {
+        await DocumentService.applyEdits(
+          item.path,
+          item.applied.documentEdits,
+          item.applied.content,
+        );
+      } else {
+        await FileSystemCommands.writeTextFile(item.path, item.applied.content);
+        EventBus.emit("fs:changed", { type: "modified", paths: [item.path] });
+      }
     }
+  }
+
+  private normalizeEditNewText(content: string, newText: string): string {
+    if (content.includes("\r\n") && !newText.includes("\r\n")) {
+      return newText.replace(/\n/g, "\r\n");
+    }
+    return newText;
   }
 
   private textDocumentEdits(edit: WorkspaceEdit) {
@@ -252,7 +329,7 @@ class LanguageFeatureServiceImpl {
     }
     for (const change of edit.documentChanges ?? []) {
       if ("kind" in change) {
-        throw new Error(`Workspace resource operation is not supported in 0.3.2: ${change.kind}`);
+        throw new Error(`Workspace resource operation is not supported yet: ${change.kind}`);
       }
       entries.push({
         uri: change.textDocument.uri,

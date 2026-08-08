@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { DiagnosticsService } from "./DiagnosticsService";
+import { setPathPlatform } from "../Shared/Utils/UriUtils";
+import { collectProblems, DiagnosticsService } from "./DiagnosticsService";
 
 describe("DiagnosticsService lifecycle", () => {
   beforeEach(() => {
+    setPathPlatform("windows");
     DiagnosticsService.clear();
   });
 
@@ -62,5 +64,54 @@ describe("DiagnosticsService lifecycle", () => {
 
     DiagnosticsService.clear();
     expect(DiagnosticsService.getAll()).toHaveLength(0);
+  });
+
+  it("collects workspace problems for every file", () => {
+    DiagnosticsService.update({
+      uri: "file:///C:/repo/a.ts",
+      diagnostics: [
+        {
+          range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+          severity: 1,
+          message: "a-error",
+        },
+        {
+          range: { start: { line: 1, character: 0 }, end: { line: 1, character: 1 } },
+          severity: 2,
+          message: "a-warning",
+        },
+      ],
+    });
+    DiagnosticsService.update({
+      uri: "file:///C:/repo/b.ts",
+      diagnostics: [
+        {
+          range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+          severity: 1,
+          message: "b-error",
+        },
+      ],
+    });
+
+    const workspace = collectProblems(DiagnosticsService.getAll(), "workspace", "C:\\repo\\a.ts");
+    expect(workspace).toHaveLength(3);
+    expect(workspace.some((problem) => problem.message === "b-error")).toBe(true);
+
+    const fileOnly = collectProblems(DiagnosticsService.getAll(), "file", "C:\\repo\\a.ts");
+    expect(fileOnly).toHaveLength(2);
+    expect(fileOnly.every((problem) => problem.message.startsWith("a-"))).toBe(true);
+  });
+
+  it("returns no file-scope problems when no file is active", () => {
+    DiagnosticsService.update({
+      uri: "file:///C:/repo/a.ts",
+      diagnostics: [
+        {
+          range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+          message: "a-error",
+        },
+      ],
+    });
+    expect(collectProblems(DiagnosticsService.getAll(), "file", null)).toHaveLength(0);
   });
 });

@@ -3,6 +3,7 @@ use jsonwebtoken::{decode, decode_header, jwk::JwkSet, Algorithm, DecodingKey, V
 use rand::{distr::Alphanumeric, Rng};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::error::Error;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use subtle::ConstantTimeEq;
 use tauri::{AppHandle, Runtime};
@@ -187,7 +188,7 @@ impl AccountAuthService {
             config,
             http: reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
-                .timeout(Duration::from_secs(15))
+                .timeout(Duration::from_secs(30))
                 .build()
                 .expect("account HTTP client configuration is valid"),
             runtime: Mutex::new(RuntimeState {
@@ -242,7 +243,7 @@ impl AccountAuthService {
             Err(error) => {
                 let error = AccountAuthError::new(
                     "callback_bind_failed",
-                    "无法准备安全的账户回调。",
+                    "无法准备安全的账户回调",
                     error.to_string(),
                     true,
                 );
@@ -259,7 +260,7 @@ impl AccountAuthService {
             Err(error) => {
                 let error = AccountAuthError::new(
                     "callback_address_failed",
-                    "无法读取账户回调地址。",
+                    "无法读取账户回调地址",
                     error.to_string(),
                     true,
                 );
@@ -295,7 +296,7 @@ impl AccountAuthService {
         {
             let error = AccountAuthError::new(
                 "browser_open_failed",
-                "无法打开系统浏览器。",
+                "无法打开系统浏览器",
                 error.to_string(),
                 true,
             );
@@ -344,7 +345,7 @@ impl AccountAuthService {
         if runtime.status.enabled && runtime.status.phase != AccountAuthPhase::SignedIn {
             runtime.status.phase = AccountAuthPhase::SignedOut;
             runtime.status.last_error = None;
-            runtime.status.last_notice = Some("已取消授权。".into());
+            runtime.status.last_notice = Some("已取消授权".into());
         }
     }
 
@@ -354,7 +355,7 @@ impl AccountAuthService {
         let refresh_token = read_refresh_token().map_err(|error| {
             AccountAuthError::new(
                 "refresh_token_unavailable",
-                "账户登录已过期，请重新登录。",
+                "账户登录已过期，请重新登录",
                 error,
                 true,
             )
@@ -379,7 +380,7 @@ impl AccountAuthService {
             self.clear_session().await;
             return Err(AccountAuthError::new(
                 "refresh_rejected",
-                "账户授权已失效，请重新登录。",
+                "账户授权已失效，请重新登录",
                 format!("token endpoint returned {status}: {detail}"),
                 true,
             ));
@@ -433,7 +434,7 @@ impl AccountAuthService {
         if !self.config.enabled || self.config.client_id.is_none() {
             return Err(AccountAuthError::new(
                 "account_feature_disabled",
-                "当前构建尚未配置 Aurona Account。",
+                "当前构建尚未配置 Aurona Account",
                 "The account feature is disabled or has no public client id.",
                 false,
             ));
@@ -445,7 +446,7 @@ impl AccountAuthService {
         self.config.client_id.as_deref().ok_or_else(|| {
             AccountAuthError::new(
                 "client_not_configured",
-                "Aurona Account 尚未配置。",
+                "Aurona Account 尚未配置",
                 "Public OAuth client id is missing.",
                 false,
             )
@@ -462,7 +463,7 @@ impl AccountAuthService {
         if !response.status().is_success() {
             return Err(AccountAuthError::new(
                 "discovery_failed",
-                "无法连接 Aurona Account。",
+                "无法连接 Aurona Account",
                 format!("discovery returned HTTP {}", response.status()),
                 true,
             ));
@@ -595,7 +596,7 @@ impl AccountAuthService {
             Ok(Err(error)) => {
                 return AuthorizationCompletion::Failed(AccountAuthError::new(
                     "callback_failed",
-                    "无法接收账户回调。",
+                    "无法接收账户回调",
                     error.to_string(),
                     true,
                 ))
@@ -603,7 +604,7 @@ impl AccountAuthService {
             Err(_) => {
                 return AuthorizationCompletion::Failed(AccountAuthError::new(
                     "callback_timeout",
-                    "登录已超时。",
+                    "登录已超时",
                     "No loopback callback was received within five minutes.",
                     true,
                 ))
@@ -625,7 +626,7 @@ impl AccountAuthService {
             write_browser_response(&mut stream, BrowserCallbackResponse::Failure).await;
             return AuthorizationCompletion::Failed(AccountAuthError::new(
                 "state_mismatch",
-                "账户回调验证失败。",
+                "账户回调验证失败",
                 "OAuth state did not match the pending authorization request.",
                 false,
             ));
@@ -638,7 +639,7 @@ impl AccountAuthService {
             write_browser_response(&mut stream, BrowserCallbackResponse::Failure).await;
             return AuthorizationCompletion::Failed(AccountAuthError::new(
                 "authorization_failed",
-                "Aurona Account 授权未能完成。",
+                "Aurona Account 授权未能完成",
                 format!(
                     "{}: {}",
                     error,
@@ -704,7 +705,7 @@ impl AccountAuthService {
             let detail = response.text().await.unwrap_or_default();
             return Err(AccountAuthError::new(
                 "token_exchange_failed",
-                "Aurona Account 未能完成登录。",
+                "Aurona Account 未能完成登录",
                 format!("token endpoint returned {status}: {detail}"),
                 true,
             ));
@@ -852,7 +853,7 @@ impl AccountAuthService {
         if !response.status().is_success() {
             return Err(AccountAuthError::new(
                 "userinfo_failed",
-                "无法读取 Aurona Account 资料。",
+                "无法读取 Aurona Account 资料",
                 format!("userinfo returned HTTP {}", response.status()),
                 true,
             ));
@@ -955,7 +956,7 @@ impl AccountAuthService {
         runtime.active_authorization = None;
         runtime.status.phase = AccountAuthPhase::SignedOut;
         runtime.status.last_error = None;
-        runtime.status.last_notice = Some("已取消授权。".into());
+        runtime.status.last_notice = Some("已取消授权".into());
     }
 
     async fn finish_authorization_failure(&self, authorization_id: u64, error: AccountAuthError) {
@@ -1122,7 +1123,7 @@ async fn read_callback(
         let count = stream.read(&mut chunk).await.map_err(|error| {
             AccountAuthError::new(
                 "callback_read_failed",
-                "无法读取账户回调。",
+                "无法读取账户回调",
                 error.to_string(),
                 true,
             )
@@ -1154,7 +1155,7 @@ async fn read_callback(
     if url.path() != CALLBACK_PATH {
         return Err(AccountAuthError::new(
             "callback_path_mismatch",
-            "账户回调地址不匹配。",
+            "账户回调地址不匹配",
             format!("Expected {CALLBACK_PATH}, received {}", url.path()),
             false,
         ));
@@ -1244,10 +1245,17 @@ fn unix_now() -> u64 {
 }
 
 fn network_error(error: reqwest::Error) -> AccountAuthError {
+    let mut detail = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        detail.push_str(" | ");
+        detail.push_str(&cause.to_string());
+        source = cause.source();
+    }
     AccountAuthError::new(
         "account_network_error",
-        "无法连接 Aurona Account。",
-        error.to_string(),
+        "无法连接 Aurona Account",
+        detail,
         true,
     )
 }
@@ -1259,7 +1267,7 @@ fn protocol_error(error: impl std::fmt::Display) -> AccountAuthError {
 fn protocol_message(message: impl Into<String>) -> AccountAuthError {
     AccountAuthError::new(
         "oidc_protocol_error",
-        "Aurona Account 返回了无法验证的授权数据。",
+        "Aurona Account 返回了无法验证的授权数据",
         message,
         false,
     )
@@ -1272,7 +1280,7 @@ fn url_error(error: url::ParseError) -> AccountAuthError {
 fn credential_error(error: String) -> AccountAuthError {
     AccountAuthError::new(
         "credential_store_error",
-        "无法安全保存账户授权。",
+        "无法安全保存账户授权",
         error,
         true,
     )
@@ -1707,7 +1715,7 @@ mod tests {
             .await;
         let status = service.status().await;
         assert_eq!(status.phase, AccountAuthPhase::SignedOut);
-        assert_eq!(status.last_notice.as_deref(), Some("已取消授权。"));
+        assert_eq!(status.last_notice.as_deref(), Some("已取消授权"));
         assert!(status.last_error.is_none());
     }
 
@@ -1724,7 +1732,7 @@ mod tests {
         assert_eq!(service.status().await.phase, AccountAuthPhase::SignedOut);
         assert_eq!(
             service.status().await.last_notice.as_deref(),
-            Some("已取消授权。")
+            Some("已取消授权")
         );
     }
 

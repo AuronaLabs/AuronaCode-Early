@@ -112,7 +112,7 @@ export function AccountSettings() {
         <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center">
           <div className="relative mb-7">
             <AccountAvatar key={profile.picture} name={displayName} picture={profile.picture} />
-            <span className="absolute bottom-1.5 right-1.5 grid size-6 place-items-center rounded-full border border-[var(--border-subtle)] bg-emerald-500 text-white shadow-sm">
+            <span className="absolute bottom-1.5 right-1.5 grid size-6 place-items-center rounded-full border border-[var(--border-subtle)] bg-[var(--StatusSuccess)] text-white shadow-sm">
               <Icons.Check size={13} stroke={3} />
             </span>
           </div>
@@ -141,7 +141,7 @@ export function AccountSettings() {
             <Button
               variant="secondary"
               disabled={isOperating}
-              className="text-red-600 dark:text-red-400"
+              className="text-[var(--StatusError)]"
               onClick={() => void logout()}
             >
               <Icons.Logout size={17} />
@@ -201,7 +201,7 @@ export function AccountSettings() {
           {(interactionError || status.lastError?.userMessage) && status.phase !== "signedIn" && (
             <div
               role="alert"
-              className="mt-6 max-w-lg rounded-xl border border-red-500/15 bg-red-500/5 px-4 py-3 text-[12px] leading-5 text-red-600 dark:text-red-400"
+              className="mt-6 max-w-lg rounded-xl border border-[var(--StatusError)]/15 bg-[var(--StatusError)]/5 px-4 py-3 text-[12px] leading-5 text-[var(--StatusError)]"
             >
               {interactionError || status.lastError?.userMessage}
             </div>

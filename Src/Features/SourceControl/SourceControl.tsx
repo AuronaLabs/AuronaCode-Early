@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { GitService, type SourceControlCache } from "../../Core/GitService";
 import { OutputService } from "../../Core/OutputService";
 import { EventBus } from "../../Foundation/EventBus";
+import { useLocale } from "../../Foundation/I18n";
 import {
   type GitBranch,
   type GitCommit,
@@ -22,6 +23,7 @@ import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 
 export const SourceControl = React.memo(function SourceControl() {
+  const { t } = useLocale();
   const [repoPath, setRepoPath] = useState<string | null>(null);
   const [isRepo, setIsRepo] = useState(false);
   const [files, setFiles] = useState<GitFile[]>([]);
@@ -232,16 +234,16 @@ export const SourceControl = React.memo(function SourceControl() {
     try {
       const stagedFilesCount = files.filter((file) => file.is_staged).length;
       if (stagedFilesCount === 0) {
-        showToast("请先暂存至少一个文件，再提交", "warning");
+        showToast(t("sourceControl.stageFirst"), "warning");
         return;
       }
 
       await GitIPC.commit(repoPath, commitMsg);
       setCommitMsg("");
       await fetchStatus(repoPath, true);
-      showToast("提交成功", "success");
+      showToast(t("sourceControl.commitSuccess"), "success");
     } catch (error) {
-      showToast(`提交失败：${error}`, "error");
+      showToast(t("sourceControl.commitFailed").replace("{message}", String(error)), "error");
     }
   };
 
@@ -324,16 +326,16 @@ export const SourceControl = React.memo(function SourceControl() {
   const getStatusBadgeStyle = (status: string) => {
     switch (status) {
       case "M":
-        return "text-amber-500 bg-amber-500/10 border border-amber-500/20";
+        return "text-[var(--StatusWarning)] bg-[var(--StatusWarning)]/10 border border-[var(--StatusWarning)]/20";
       case "A":
-        return "text-emerald-500 bg-emerald-500/10 border border-emerald-500/20";
+        return "text-[var(--StatusSuccess)] bg-[var(--StatusSuccess)]/10 border border-[var(--StatusSuccess)]/20";
       case "D":
-        return "text-red-500 bg-red-500/10 border border-red-500/20";
+        return "text-[var(--StatusError)] bg-[var(--StatusError)]/10 border border-[var(--StatusError)]/20";
       case "U":
       case "?":
         return "border border-[color-mix(in_srgb,var(--color-accent)_20%,transparent)] bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]";
       case "!":
-        return "border border-red-500/20 bg-red-500/10 text-red-500";
+        return "border border-[var(--StatusError)]/20 bg-[var(--StatusError)]/10 text-[var(--StatusError)]";
       default:
         return "text-[var(--color-text-muted)] bg-[var(--material-surface)] border border-transparent";
     }
@@ -372,34 +374,34 @@ export const SourceControl = React.memo(function SourceControl() {
           </span>
           <div className="opacity-0 w-0 group-hover:w-auto group-hover:opacity-100 transition-all flex items-center shrink-0">
             {!file.is_staged && (
-              <Tooltip content="放弃此文件的更改" delay={300}>
+              <Tooltip content={t("sourceControl.discardFile")} delay={300}>
                 <button
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
                     setDiscardTarget(file);
                   }}
-                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] transition-colors hover:bg-red-500/10 hover:text-red-500"
+                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] transition-colors hover:bg-[var(--StatusError)]/10 hover:text-[var(--StatusError)]"
                 >
                   <Icons.Trash size={11} stroke={2.2} />
                 </button>
               </Tooltip>
             )}
             {file.is_staged ? (
-              <Tooltip content="取消暂存" delay={300}>
+              <Tooltip content={t("sourceControl.unstage")} delay={300}>
                 <button
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
                     toggleStage(file);
                   }}
-                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] transition-colors hover:bg-[var(--material-interactive-active)] hover:text-red-500"
+                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] transition-colors hover:bg-[var(--material-interactive-active)] hover:text-[var(--StatusError)]"
                 >
                   <Icons.Minus size={11} stroke={3} />
                 </button>
               </Tooltip>
             ) : (
-              <Tooltip content="暂存更改" delay={300}>
+              <Tooltip content={t("sourceControl.stage")} delay={300}>
                 <button
                   type="button"
                   onClick={(event) => {
@@ -492,7 +494,7 @@ export const SourceControl = React.memo(function SourceControl() {
           </>
         }
         actions={
-          <Tooltip content="刷新" delay={300}>
+          <Tooltip content={t("sourceControl.refresh")} delay={300}>
             <button
               type="button"
               onClick={() => repoPath && fetchStatus(repoPath, true)}
@@ -509,7 +511,7 @@ export const SourceControl = React.memo(function SourceControl() {
       />
 
       {statusError && (
-        <div className="mx-[var(--PanelPaddingX)] mb-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-500">
+        <div className="mx-[var(--PanelPaddingX)] mb-3 rounded-xl border border-[var(--StatusError)]/30 bg-[var(--StatusError)]/10 px-3 py-2 text-[12px] text-[var(--StatusError)]">
           Git 状态读取失败：{statusError}
         </div>
       )}
@@ -534,14 +536,14 @@ export const SourceControl = React.memo(function SourceControl() {
       <div className="mx-[var(--PanelPaddingX)] mb-3 flex shrink-0 items-center gap-1.5">
         {branch && branches.length > 0 ? (
           <Select
-            ariaLabel="当前 Git 分支"
+            ariaLabel={t("sourceControl.branchAria")}
             value={branch}
             onChange={(value) => void handleSwitchBranch(value)}
             options={branches.map((item) => ({
               value: item.name,
               label: item.name,
               disabled: Boolean(gitAction),
-              disabledReason: gitAction ? "Git 操作正在进行" : undefined,
+              disabledReason: gitAction ? t("sourceControl.gitBusy") : undefined,
             }))}
             className="h-7 min-w-0 flex-1 rounded-lg px-2.5 text-[11.5px]"
           />
@@ -550,7 +552,7 @@ export const SourceControl = React.memo(function SourceControl() {
             尚无提交分支
           </div>
         )}
-        <Tooltip content="创建分支" delay={300}>
+        <Tooltip content={t("sourceControl.createBranch")} delay={300}>
           <button
             type="button"
             onClick={() => setIsCreateBranchOpen(true)}
@@ -562,7 +564,7 @@ export const SourceControl = React.memo(function SourceControl() {
         </Tooltip>
         {hasRemote && (
           <>
-            <Tooltip content="获取远程更新" delay={300}>
+            <Tooltip content={t("sourceControl.fetchUpdates")} delay={300}>
               <button
                 type="button"
                 onClick={() => void runRepositoryAction("fetch", "Fetch")}
@@ -572,7 +574,14 @@ export const SourceControl = React.memo(function SourceControl() {
                 <Icons.Refresh size={13} className={gitAction === "fetch" ? "animate-spin" : ""} />
               </button>
             </Tooltip>
-            <Tooltip content={behind > 0 ? `拉取 ${behind} 个提交` : "拉取"} delay={300}>
+            <Tooltip
+              content={
+                behind > 0
+                  ? t("sourceControl.pullCount").replace("{count}", String(behind))
+                  : t("sourceControl.pull")
+              }
+              delay={300}
+            >
               <button
                 type="button"
                 onClick={() => void runRepositoryAction("pull", "Pull")}
@@ -587,7 +596,14 @@ export const SourceControl = React.memo(function SourceControl() {
                 )}
               </button>
             </Tooltip>
-            <Tooltip content={ahead > 0 ? `推送 ${ahead} 个提交` : "推送"} delay={300}>
+            <Tooltip
+              content={
+                ahead > 0
+                  ? t("sourceControl.pushCount").replace("{count}", String(ahead))
+                  : t("sourceControl.push")
+              }
+              delay={300}
+            >
               <button
                 type="button"
                 onClick={() => void runRepositoryAction("push", "Push")}
@@ -618,7 +634,7 @@ export const SourceControl = React.memo(function SourceControl() {
               <textarea
                 data-aurona-input="embedded"
                 className="w-full bg-transparent text-[13px] text-[var(--color-text-highlight)] outline-none resize-none placeholder-[var(--color-text-muted)] leading-relaxed"
-                placeholder="描述你的代码变更..."
+                placeholder={t("sourceControl.commitPlaceholder")}
                 rows={2}
                 value={commitMsg}
                 onChange={(event) => setCommitMsg(event.target.value)}
@@ -646,7 +662,7 @@ export const SourceControl = React.memo(function SourceControl() {
                 )}
               >
                 <div className={cn(glassListHeaderStyles, "justify-between")}>
-                  <span className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-wider text-red-500">
+                  <span className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-wider text-[var(--StatusError)]">
                     <Icons.AlertTriangle size={14} /> 冲突 ({conflictedFiles.length})
                   </span>
                   <span className="text-[10px] text-[var(--color-text-muted)]">解决后暂存文件</span>
@@ -681,7 +697,7 @@ export const SourceControl = React.memo(function SourceControl() {
                       已暂存 ({stagedFiles.length})
                     </span>
                   </button>
-                  <Tooltip content="全部取消暂存" delay={300}>
+                  <Tooltip content={t("sourceControl.unstageAll")} delay={300}>
                     <button
                       type="button"
                       onClick={(event) => {
@@ -729,7 +745,7 @@ export const SourceControl = React.memo(function SourceControl() {
                     </span>
                   </button>
                   {unstagedFiles.length > 0 && (
-                    <Tooltip content="全部暂存" delay={300}>
+                    <Tooltip content={t("sourceControl.stageAll")} delay={300}>
                       <button
                         type="button"
                         onClick={(event) => {
@@ -815,24 +831,26 @@ export const SourceControl = React.memo(function SourceControl() {
       <Modal
         isOpen={isCreateBranchOpen}
         onClose={() => setIsCreateBranchOpen(false)}
-        title="创建分支"
+        title={t("sourceControl.createBranch")}
         icon={<Icons.GitBranch size={18} />}
         footer={
           <>
             <Button variant="secondary" onClick={() => setIsCreateBranchOpen(false)}>
-              取消
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={() => void handleCreateBranch()}
               disabled={!newBranchName.trim() || Boolean(gitAction)}
             >
-              创建并切换
+              {t("sourceControl.createAndSwitch")}
             </Button>
           </>
         }
       >
         <label className="flex flex-col gap-2">
-          <span className="text-[12px] text-[var(--color-text-muted)]">新分支名称</span>
+          <span className="text-[12px] text-[var(--color-text-muted)]">
+            {t("sourceControl.newBranchName")}
+          </span>
           <input
             data-aurona-input="embedded"
             value={newBranchName}
@@ -840,7 +858,7 @@ export const SourceControl = React.memo(function SourceControl() {
             onKeyDown={(event) => {
               if (event.key === "Enter") void handleCreateBranch();
             }}
-            placeholder="例如 feature/editor-overlays"
+            placeholder={t("sourceControl.branchPlaceholder")}
             className="h-9 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 text-[13px] text-[var(--color-text-highlight)] outline-none focus:border-[var(--color-accent)]"
           />
         </label>
@@ -848,12 +866,12 @@ export const SourceControl = React.memo(function SourceControl() {
       <Modal
         isOpen={Boolean(discardTarget)}
         onClose={() => setDiscardTarget(null)}
-        title="放弃文件更改"
-        icon={<Icons.AlertTriangle className="text-red-500" size={18} />}
+        title={t("sourceControl.discardTitle")}
+        icon={<Icons.AlertTriangle className="text-[var(--StatusError)]" size={18} />}
         footer={
           <>
             <Button variant="secondary" onClick={() => setDiscardTarget(null)}>
-              取消
+              {t("common.cancel")}
             </Button>
             <Button variant="danger" onClick={() => void confirmDiscardFile()}>
               放弃更改
@@ -861,7 +879,7 @@ export const SourceControl = React.memo(function SourceControl() {
           </>
         }
       >
-        将永久放弃 <strong>{discardTarget?.path}</strong> 的未暂存更改。这个操作无法撤销。
+        将永久放弃 <strong>{discardTarget?.path}</strong> 的未暂存更改。这个操作无法撤销
       </Modal>
     </div>
   );

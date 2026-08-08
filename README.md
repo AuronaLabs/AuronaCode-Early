@@ -4,7 +4,7 @@
   <p><strong>写代码这件事，值得一个更舒服的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.3.10-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.3.11-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
   </p>
@@ -33,10 +33,11 @@ Aurona Code 是一款正在快速成长的桌面代码编辑器。它没有套�
 ## 现在能做什么
 
 - 写代码：自研编辑器、虚拟视口、语法高亮，Python 与 TypeScript 的补全、Hover、诊断开箱即用；
-- 管项目：文件树、Git 常用流程、全局搜索、集成终端；
+- 管项目：文件树、Git 常用流程、Fliuno 统一搜索（命令/文件/设置/符号/内容）、集成终端；
 - 调试入门：断点、调用栈与变量查看；
 - 长得好看：8 套双色渐变主题、深浅色模式、玻璃质感与可选的「流光」动效；
 - 账户能力：可选的 Aurona Account 登录，头像与身份信息会出现在状态栏。
+- 语言：简体中文、繁體中文 (Beta) 与 English (Beta)，切换即时生效并持久化。
 
 ## 当前能力
 
@@ -45,15 +46,15 @@ Aurona Code 是一款正在快速成长的桌面代码编辑器。它没有套�
 | 编辑器 | 已实现核心闭环 | AuronaEngine、Rust Rope、UTF-16 编辑、虚拟视口、Worker/Rust 高亮、撤销/重做、搜索/补全/Hover/诊断与 LSP 基础能力 |
 | 文档可靠性 | 已实现基础保护 | revision、原子批次、磁盘指纹、临时文件替换、恢复快照和冲突拒绝覆盖 |
 | 工作区 | 已实现 | 文件树、标签页、打开/保存、新建/重命名/删除、布局持久化、文件定位；文件操作由 Rust 授权会话与规范化路径校验 |
-| 全局搜索 | 已实现 | 工作区搜索、结果分组、跳转、请求 ID 与后端取消 |
+| Fliuno 统一搜索 | 已实现 | Quick 悬浮搜索 + Workspace 页面共用一套引擎；命令、文件、设置、符号与内容可搜，键盘优先；旧全局搜索已下线 |
 | Git | 已实现常用流程 | 状态、暂存/取消暂存、提交、历史、提交 Diff、分支管理、Fetch/Pull/Push；子进程纳入受保护进程组 |
 | 终端 | 已实现 | 基于 `portable-pty` 与 xterm.js 的本地 PTY 终端 |
-| Fliuno 与命令系统 | 已实现命令范围 | Fliuno 提供全局搜索入口，当前接入真实命令；标题栏菜单、快捷键和 macOS 菜单共享命令 ID |
+| Fliuno 与命令系统 | 已实现命令范围 | 命令、文件、设置、符号与内容统一可搜；标题栏菜单、快捷键和 macOS 菜单共享命令 ID |
 | 语言服务与调试 | 已实现基础闭环 | Python/TypeScript 语言服务、Hover/补全/诊断、DAP 会话、断点与变量查看 |
 | Aurona Account | 已启用官方账户 | OAuth 2.1/OIDC、PKCE S256、动态本机回调、系统凭据库；开发与正式使用同一公开客户端 |
 | 桌面更新 | 已实现代码路径 | 自动检查、手动检查、下载与安装；仍需随每次真实 Release 验证签名和更新链 |
 | 主题与界面 | 已实现 | 8 套双色渐变主题 × 浅色/深色、拟物强度、界面密度、Aurona Material 语义 token 与「流光」动效 |
-| 性能测试 | 已实现 | 多轮样本、统计摘要、环境可比性与按语义版本排序的本地排行 |
+| 性能测试 | 已实现 | 六项基准（IPC/UI 帧调度/文件系统/编辑器内核/搜索/编码转换）、统计摘要、保存/删除/导出与本地排行 |
 | 跨平台 | 构建已配置 | Windows、macOS、Linux CI；实际发布质量仍需逐平台和 DPI 手工验证 |
 
 ### 尚未实现或尚未完整闭环
@@ -127,6 +128,7 @@ pnpm run tauri:dev
 ```powershell
 python -m pip install rich
 python manager.py
+python manager.py -v 0.3.11   # 非交互式同步工程版本
 ```
 
 `manager.py` 只是开发辅助入口，项目构建不依赖 Python。
@@ -197,11 +199,16 @@ Aurona Code/
 - [0.3.3 Release Notes](Docs/0.3.3-Release-Notes.md)
 - [0.3.4 Release Notes](Docs/0.3.4-Release-Notes.md)
 - [0.3.5 Release Notes](Docs/0.3.5-Release-Notes.md)
+- [0.3.10 Release Notes](Docs/0.3.10-Release-Notes.md)
+- [0.3.11 Release Notes](Docs/0.3.11-Release-Notes.md)
 - [0.3.4 编辑器与 Git 架构](Docs/architecture/0.3.4-editor-and-git.md)
 - [0.3.4 Aurona Account 基础](Docs/architecture/0.3.4-aurora-account-foundation.md)
 - [0.3.5 收口说明](Docs/architecture/0.3.5-hardening.md)
 - [0.3.6 审查报告](Docs/0.3.6-Audit-Report.md)
 - [0.3.6 性能报告](Docs/0.3.6-Performance-Report.md)
+- [0.3.10 完整性审计](Docs/0.3.10-Completeness-Audit.md)
+- [0.3.11 第一阶段审计](Docs/0.3.11-Phase1-Audit.md)
+- [0.3.11 第二阶段视觉审计](Docs/0.3.11-Phase2-Visual-Audit.md)
 
 ## 参与贡献
 

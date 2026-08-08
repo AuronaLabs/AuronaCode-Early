@@ -85,11 +85,11 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
 
               const bgColor =
                 item.type === "success"
-                  ? "bg-green-500/10 text-green-500"
+                  ? "bg-[var(--StatusSuccess)]/10 text-[var(--StatusSuccess)]"
                   : item.type === "error"
-                    ? "bg-red-500/10 text-red-500"
+                    ? "bg-[var(--StatusError)]/10 text-[var(--StatusError)]"
                     : item.type === "warning"
-                      ? "bg-yellow-500/10 text-yellow-500"
+                      ? "bg-[var(--StatusWarning)]/10 text-[var(--StatusWarning)]"
                       : "bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]";
 
               return (

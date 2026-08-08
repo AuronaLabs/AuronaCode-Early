@@ -152,7 +152,7 @@ fn resolve_bundled_node_server(
         .collect::<Vec<_>>()
         .join(", ");
     Err(format!(
-        "Built-in {server_name} resources are unavailable. Searched: {searched}. Reinstall Aurona Code or configure an explicit language server command."
+        "Built-in {server_name} resources are unavailable. Searched: {searched}. Reinstall Aurona Code or configure an explicit language server command"
     ))
 }
 

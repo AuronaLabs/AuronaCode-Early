@@ -674,8 +674,8 @@ export function PerformanceBenchmarkPage() {
                             <span
                               className={`rounded-md px-1.5 py-0.5 text-[10px] ${
                                 ok.statistics.coefficientVariation <= 15
-                                  ? "bg-emerald-500/10 text-emerald-500"
-                                  : "bg-amber-500/10 text-amber-500"
+                                  ? "bg-[var(--StatusSuccess)]/10 text-[var(--StatusSuccess)]"
+                                  : "bg-[var(--StatusWarning)]/10 text-[var(--StatusWarning)]"
                               }`}
                             >
                               {t("performance.variation").replace(
@@ -688,9 +688,9 @@ export function PerformanceBenchmarkPage() {
                             <span
                               className={`rounded-md px-1.5 py-0.5 text-[10px] ${
                                 delta > 5
-                                  ? "bg-amber-500/10 text-amber-500"
+                                  ? "bg-[var(--StatusWarning)]/10 text-[var(--StatusWarning)]"
                                   : delta < -5
-                                    ? "bg-emerald-500/10 text-emerald-500"
+                                    ? "bg-[var(--StatusSuccess)]/10 text-[var(--StatusSuccess)]"
                                     : "bg-[var(--material-interactive-hover)] text-[var(--color-text-muted)]"
                               }`}
                             >

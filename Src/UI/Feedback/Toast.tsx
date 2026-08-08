@@ -37,11 +37,11 @@ export function ToastContainer() {
           <div
             className={`flex items-center justify-center h-8 w-8 rounded-full shrink-0 ${
               toast.type === "success"
-                ? "bg-green-500/10 text-green-500"
+                ? "bg-[var(--StatusSuccess)]/10 text-[var(--StatusSuccess)]"
                 : toast.type === "error"
-                  ? "bg-red-500/10 text-red-500"
+                  ? "bg-[var(--StatusError)]/10 text-[var(--StatusError)]"
                   : toast.type === "warning"
-                    ? "bg-amber-500/10 text-amber-500"
+                    ? "bg-[var(--StatusWarning)]/10 text-[var(--StatusWarning)]"
                     : "bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]"
             }`}
           >

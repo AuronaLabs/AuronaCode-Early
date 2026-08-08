@@ -414,6 +414,7 @@ export async function searchFliuno(context: FliunoCoreContext): Promise<FliunoCo
   ) {
     try {
       const { LspClient } = await import("../Language/LspClient");
+      const { DocumentSymbolService } = await import("../Language/DocumentSymbolService");
       const client = LspClient.getInstance();
       const tabs = context.openFileTabs?.length
         ? context.openFileTabs
@@ -425,7 +426,7 @@ export async function searchFliuno(context: FliunoCoreContext): Promise<FliunoCo
         const language = tab.language ?? context.activeLanguage;
         if (!tab.path || !language || !client.supports(language, "documentSymbols")) continue;
         try {
-          const symbols = (await client.getDocumentSymbols(language, tab.path)) as unknown;
+          const symbols = (await DocumentSymbolService.get(language, tab.path)) as unknown;
           const nodes = flattenSymbols(Array.isArray(symbols) ? (symbols as LspSymbolNode[]) : []);
           for (const node of nodes) {
             const name = node.name ?? "";

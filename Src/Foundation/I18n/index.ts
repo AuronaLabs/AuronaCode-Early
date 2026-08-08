@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 
-export type Locale = "zh-CN" | "en";
+export type Locale = "zh-CN" | "zh-Hant" | "en";
 
 import { en } from "./locales/en";
 import { type LocaleMessages, zhCN } from "./locales/zh-CN";
+import { zhHant } from "./locales/zh-Hant";
 
 type DeepKey<T> = {
   [K in keyof T & string]: T[K] extends string ? K : `${K}.${DeepKey<T[K]>}`;
@@ -13,6 +14,7 @@ export type MessageKey = DeepKey<typeof zhCN>;
 
 const MESSAGES: Record<Locale, LocaleMessages> = {
   "zh-CN": zhCN,
+  "zh-Hant": zhHant,
   en,
 };
 
@@ -37,7 +39,12 @@ class LocaleServiceImpl {
   constructor() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === "zh-CN" || saved === "en") this.current = saved;
+      if (saved === "zh-Hant") this.current = saved;
+      else if (saved === "zh-TW") {
+        // 旧版繁体 ID 迁移到港澳台通用繁体。
+        this.current = "zh-Hant";
+        localStorage.setItem(STORAGE_KEY, "zh-Hant");
+      } else if (saved === "zh-CN" || saved === "en") this.current = saved;
     } catch {
       // 本地存储不可用时保持默认语言。
     }

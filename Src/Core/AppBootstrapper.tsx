@@ -4,6 +4,7 @@ import { applyAccentTheme, applyLiquidTexture } from "../App/ThemeAccent";
 import { AppLifecycleIPC } from "../Foundation/IPC/AppLifecycleCommands";
 import { PlatformService } from "../Foundation/Platform";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
+import { setPathPlatform } from "../Shared/Utils/UriUtils";
 import { AppServices } from "./AppServices";
 
 interface Props {
@@ -43,6 +44,7 @@ export function AppBootstrapper({ children }: Props) {
       const startTime = performance.now();
       try {
         await PlatformService.initialize();
+        setPathPlatform(PlatformService.current());
         await UserConfigStore.init();
         const userConfig = await UserConfigStore.get();
 

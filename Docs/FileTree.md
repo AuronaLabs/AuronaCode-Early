@@ -1,6 +1,6 @@
 # Aurona Code 文件树
 
-本文档以 0.3.10 当前仓库为准，展示长期维护时需要理解的目录、关键文件和职责；结构随版本演进，以源码为最终准。构建产物、依赖目录和批量图标资源未逐项展开。
+本文档以 0.3.11 当前仓库为准，展示长期维护时需要理解的目录、关键文件和职责；结构随版本演进，以源码为最终准。构建产物、依赖目录和批量图标资源未逐项展开。
 
 ```text
 Aurona Code/
@@ -21,7 +21,12 @@ Aurona Code/
 │  ├─ 0.3.0-Execution-Plan.md          # 0.3.0 阶段执行记录
 │  ├─ 0.3.0-TechnicalNotes.md          # 已完成和明确未完成事项
 │  ├─ 0.3.0-Performance-Report.md      # 基准方法、产物体积与待测项
-│  └─ 0.3.0-Release-Notes.md           # 对外版本说明
+│  ├─ 0.3.0-Release-Notes.md           # 对外版本说明
+│  ├─ 0.3.10-Completeness-Audit.md     # 0.3.10 完整性审计
+│  ├─ 0.3.10-Release-Notes.md          # 0.3.10 对外版本说明
+│  ├─ 0.3.11-Phase1-Audit.md           # 0.3.11 第一阶段工程审计
+│  ├─ 0.3.11-Phase2-Visual-Audit.md    # 0.3.11 第二阶段视觉审计
+│  └─ 0.3.11-Release-Notes.md          # 0.3.11 对外版本说明
 ├─ public/
 │  ├─ logo.png                         # 品牌 Logo
 │  └─ splash.webp                      # 启动页图像资源
@@ -33,7 +38,9 @@ Aurona Code/
 │  ├─ App/
 │  │  ├─ App.tsx                       # 主 React 应用入口
 │  │  ├─ Main.tsx                      # DOM 挂载入口
-│  │  ├─ Splash.tsx                    # 独立启动窗口入口
+│  │  ├─ Splash.ts                     # 独立启动窗口入口（静态 HTML + 极轻量脚本）
+│  │  ├─ ThemeAccent.ts                # 主题 ID、强调色与 data-accent 应用
+│  │  ├─ themePalettes.ts              # 主题调色板元数据（Theme Picker 预览）
 │  │  └─ Styles/
 │  │     ├─ Theme.css                  # Material tokens、主题与全局样式
 │  │     └─ Splash.css                 # 不依赖主主题的最小启动页样式
@@ -42,13 +49,22 @@ Aurona Code/
 │  │  ├─ AppServices.ts                # start/dispose 和监听器所有权
 │  │  ├─ AccountCommands.ts            # 账户统一命令：登录/退出/刷新/打开设置
 │  │  ├─ Commands.ts                   # 应用命令注册与处理器
+│  │  ├─ DiagnosticsService.ts         # 诊断文档存储与 Workspace/File 过滤
+│  │  ├─ DocumentService.ts            # 打开文档会话与编辑同步
 │  │  ├─ FileSystemService.ts          # 文件领域服务
 │  │  ├─ GitService.ts                 # Git 领域服务
+│  │  ├─ LanguageFeatureService.ts     # 定义/引用/重命名/WorkspaceEdit 工作流
+│  │  ├─ NavigationHistory.ts          # Alt+←/→ 导航历史
 │  │  ├─ TerminalService.ts            # 终端服务生命周期
 │  │  ├─ UpdaterService.ts             # 更新检查、下载与安装协调
+│  │  ├─ WorkspaceService.ts           # 工作区根与信任状态
 │  │  ├─ Fliuno/                       # 统一搜索 Core：Query/Ranking/Session/Providers
 │  │  │  ├─ presentation.ts            # 可视顺序拍平：展示=键盘=执行
 │  │  │  └─ history.ts                 # Fliuno 最近命令/文件持久化
+│  │  ├─ Language/
+│  │  │  ├─ LspClient.ts               # LSP 前端适配与生命周期
+│  │  │  ├─ DocumentSymbolService.ts   # 文档符号轻量缓存
+│  │  │  └─ TextEdits.ts               # UTF-16 位置与文本编辑应用
 │  │  └─ Settings/SettingRegistry.ts   # 设置注册表：分类、关键词与搜索元数据
 │  ├─ Extension/
 │  │  └─ CommandRegistry.ts            # 命令定义、上下文和快捷键；非插件运行时
@@ -58,8 +74,6 @@ Aurona Code/
 │  │  │  ├─ EditorTab.tsx              # 文档会话与标签内容入口
 │  │  │  ├─ EditorTabBar.tsx           # 标签栏交互
 │  │  │  ├─ EditorAdapter.ts           # 活动编辑器只读门面
-│  │  │  ├─ IEditorEngine.ts           # 编辑器公开接口
-│  │  │  ├─ LspClient.ts               # LSP 前端适配
 │  │  │  ├─ Hooks/                     # 选择与操作历史
 │  │  │  ├─ Model/RecoveryStore.ts      # 恢复快照持久化
 │  │  │  ├─ Model/RecoveryCoordinator.ts# debounce、串行写入与关闭前刷新
@@ -74,7 +88,7 @@ Aurona Code/
 │  │  ├─ Terminal/TerminalView.tsx      # xterm.js 终端视图
 │  │  ├─ Settings/                     # 设置、关于、更新历史和性能测试
 │  │  ├─ Notifications/                # 通知面板
-│  │  └─ Plugins/                      # 未实现插件能力的说明页面
+│  │  └─ Language/                     # Outline、位置结果与 WorkspaceEdit 预览
 │  ├─ Foundation/
 │  │  ├─ Desktop/                      # 唯一允许导入 @tauri-apps/* 的边界
 │  │  │  ├─ Transport.ts               # 类型化 invoke/listen 与 DesktopError
@@ -85,7 +99,9 @@ Aurona Code/
 │  │  │  └─ Updater.ts                 # Updater 插件 DTO 边界
 │  │  ├─ IPC/                          # Editor、Git、PTY 领域客户端
 │  │  ├─ EventBus/                     # 短生命周期 UI 通知
-│  │  ├─ I18n/                         # Locale Service、语言包与 useLocale
+│  │  ├─ I18n/
+│  │  │  ├─ index.ts                   # Locale Service 与 useLocale
+│  │  │  └─ locales/                   # zh-CN / zh-Hant / en 独立语言包
 │  │  ├─ Logger/                       # 前端日志门面
 │  │  ├─ Storage/                      # 用户配置和工作区持久化
 │  │  └─ Types/                        # 编辑器、标签、终端共享类型

@@ -5,6 +5,7 @@ import { RecoveryCoordinator } from "../../Core/Recovery/RecoveryCoordinator";
 import { type RecoverySnapshot, RecoveryStore } from "../../Core/Recovery/RecoveryStore";
 import { DesktopError } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
+import { useLocale } from "../../Foundation/I18n";
 import { isBinaryExtension } from "../../Shared/Constants/FileTypes";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
 import { showToast } from "../../UI/Feedback/Toast";
@@ -30,6 +31,7 @@ export const EditorTab = React.memo(function EditorTab({
   revealLine,
   onRevealHandled,
 }: EditorTabProps) {
+  const { t } = useLocale();
   const [fileContent, setFileContent] = useState("");
   const [savedContent, setSavedContent] = useState("");
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -166,11 +168,11 @@ export const EditorTab = React.memo(function EditorTab({
       contentRef.current = pendingRecovery.text;
       setFileContent(pendingRecovery.text);
       setPendingRecovery(null);
-      showToast("已恢复本地编辑快照", "success");
+      showToast(t("editor.recoveryRestored"), "success");
     } catch (error) {
       setSyncError(error instanceof Error ? error : new Error(String(error)));
     }
-  }, [path, pendingRecovery]);
+  }, [path, pendingRecovery, t]);
 
   const handleIgnoreRecovery = useCallback(async () => {
     await RecoveryStore.remove(path);
@@ -187,21 +189,27 @@ export const EditorTab = React.memo(function EditorTab({
       setSyncError(null);
       await loadContent(path, true);
       setEditorKey((key) => key + 1);
-      showToast("已从磁盘重新加载文件", "success");
+      showToast(t("editor.reloadedFromDisk"), "success");
     } catch (error) {
-      showToast(`重新加载失败：${FileSystemService.toMessage(error)}`, "error");
+      showToast(
+        t("editor.reloadFailed").replace("{message}", FileSystemService.toMessage(error)),
+        "error",
+      );
       setIsEditorReady(true);
     }
-  }, [diskFingerprint, loadContent, path]);
+  }, [diskFingerprint, loadContent, path, t]);
 
   const handleCopyLocalContent = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(contentRef.current);
-      showToast("已复制当前本地内容", "success");
+      showToast(t("editor.copiedLocalContent"), "success");
     } catch (error) {
-      showToast(`复制失败：${FileSystemService.toMessage(error)}`, "error");
+      showToast(
+        t("editor.copyFailed").replace("{message}", FileSystemService.toMessage(error)),
+        "error",
+      );
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (path !== loadedPathRef.current) {
@@ -272,7 +280,9 @@ export const EditorTab = React.memo(function EditorTab({
             <Icons.AlertTriangle size={38} stroke={1.2} />
           </div>
           <h3 className="mb-2 text-[16px] font-semibold text-[var(--color-text-highlight)]">
-            {loadError.code === "file_too_large" ? "文件超出安全编辑范围" : "无法打开文件"}
+            {loadError.code === "file_too_large"
+              ? t("editor.fileTooLarge")
+              : t("editor.cannotOpen")}
           </h3>
           <p className="max-w-[520px] text-[13px] leading-relaxed text-[var(--color-text-muted)]">
             {loadError.message}
@@ -324,22 +334,20 @@ export const EditorTab = React.memo(function EditorTab({
             </>
           )}
           {syncError && (
-            <div className="absolute inset-x-3 top-3 z-30 flex items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-600 dark:text-red-300">
-              <span className="min-w-0 truncate">
-                编辑同步失败，已阻止保存以避免覆盖未同步内容。
-              </span>
+            <div className="absolute inset-x-3 top-3 z-30 flex items-center justify-between gap-3 rounded-xl border border-[var(--StatusError)]/30 bg-[var(--StatusError)]/10 px-3 py-2 text-[12px] text-[var(--StatusError)]">
+              <span className="min-w-0 truncate">编辑同步失败，已阻止保存以避免覆盖未同步内容</span>
               <span className="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
                   onClick={() => void handleCopyLocalContent()}
-                  className="rounded-lg px-2 py-1 font-medium hover:bg-red-500/15"
+                  className="rounded-lg px-2 py-1 font-medium hover:bg-[var(--StatusError)]/15"
                 >
                   复制本地内容
                 </button>
                 <button
                   type="button"
                   onClick={handleReloadAfterSyncError}
-                  className="rounded-lg px-2 py-1 font-medium hover:bg-red-500/15"
+                  className="rounded-lg px-2 py-1 font-medium hover:bg-[var(--StatusError)]/15"
                 >
                   从磁盘重新加载
                 </button>
