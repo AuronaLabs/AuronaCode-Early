@@ -4,13 +4,16 @@ import { NotificationService } from "../Core/NotificationService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EventBus } from "../Foundation/EventBus";
 import {
+  extensionSidebarId,
   SIDEBAR_DEBUG,
   SIDEBAR_EXPLORER,
+  SIDEBAR_EXTENSIONS,
   SIDEBAR_FLIUNO,
   SIDEBAR_NOTIFICATIONS,
   SIDEBAR_OUTLINE,
   SIDEBAR_SOURCE_CONTROL,
 } from "../Shared/Constants/Sidebar";
+import { useExtensionStore } from "../State/useExtensionStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
 import { ActivitySquare } from "../UI/Components/ActivitySquare";
 import { ToastContainer } from "../UI/Feedback/Toast";
@@ -24,15 +27,29 @@ type AppShellProps = {
   Children: ReactNode;
 };
 
+function ExtensionActivityIcon({ extensionId }: { extensionId: string }) {
+  const icon = useExtensionStore((state) => state.views[extensionId]?.icon);
+  if (!icon) return <Icons.Extensions size={22} stroke={1.5} />;
+  return (
+    <span
+      className="flex size-[22px] items-center justify-center [&>svg]:size-full [&>svg]:stroke-current"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: extension icon SVG is verified at package build time
+      dangerouslySetInnerHTML={{ __html: icon }}
+    />
+  );
+}
+
 export function AppShell({ Children }: AppShellProps) {
   const activeSidebar = useWorkbenchStore((state) => state.activeSidebar);
   const setActiveSidebar = useWorkbenchStore((state) => state.setActiveSidebar);
+  const extensionDescriptors = useExtensionStore((state) => state.descriptors);
   const [gitChangeCount, setGitChangeCount] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(
     NotificationService.getUnreadCount(),
   );
 
   useEffect(() => {
+    void useExtensionStore.getState().initialize();
     const unsubGit = EventBus.on("git:changes-count", (count: number) => {
       setGitChangeCount(count);
     });
@@ -47,20 +64,29 @@ export function AppShell({ Children }: AppShellProps) {
 
   const activityItems: Array<{
     label: string;
-    Icon: typeof Icons.Files;
+    icon: ReactNode;
     badge: boolean;
     commandId?: string;
   }> = [
-    { label: SIDEBAR_EXPLORER, Icon: Icons.Files, badge: false },
+    { label: SIDEBAR_EXPLORER, icon: <Icons.Files size={22} stroke={1.5} />, badge: false },
     {
       label: SIDEBAR_FLIUNO,
-      Icon: Icons.Search,
+      icon: <Icons.Search size={22} stroke={1.5} />,
       badge: false,
       commandId: "workbench.action.openFliunoWorkspace",
     },
-    { label: SIDEBAR_SOURCE_CONTROL, Icon: Icons.Git, badge: gitChangeCount > 0 },
-    { label: SIDEBAR_OUTLINE, Icon: Icons.List, badge: false },
-    { label: SIDEBAR_DEBUG, Icon: Icons.Debug, badge: false },
+    {
+      label: SIDEBAR_SOURCE_CONTROL,
+      icon: <Icons.Git size={22} stroke={1.5} />,
+      badge: gitChangeCount > 0,
+    },
+    { label: SIDEBAR_OUTLINE, icon: <Icons.List size={22} stroke={1.5} />, badge: false },
+    { label: SIDEBAR_DEBUG, icon: <Icons.Debug size={22} stroke={1.5} />, badge: false },
+    {
+      label: SIDEBAR_EXTENSIONS,
+      icon: <Icons.Extensions size={22} stroke={1.5} />,
+      badge: false,
+    },
   ];
 
   const toggleActivity = (label: string) => {
@@ -98,8 +124,20 @@ export function AppShell({ Children }: AppShellProps) {
                   }
                 }}
                 title={item.label}
-                icon={<item.Icon size={22} stroke={1.5} />}
+                icon={item.icon}
                 badge={item.badge}
+              />
+            ))}
+            {extensionDescriptors.length > 0 ? (
+              <div className="my-1 h-px w-8 bg-[var(--border-subtle)]" aria-hidden="true" />
+            ) : null}
+            {extensionDescriptors.map((descriptor) => (
+              <ActivitySquare
+                key={extensionSidebarId(descriptor.id)}
+                active={activeSidebar === extensionSidebarId(descriptor.id)}
+                onClick={() => toggleActivity(extensionSidebarId(descriptor.id))}
+                title={descriptor.name}
+                icon={<ExtensionActivityIcon extensionId={descriptor.id} />}
               />
             ))}
           </div>

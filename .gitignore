@@ -33,6 +33,9 @@ src-tauri/gen
 src-tauri/resources/toolchains/*
 !src-tauri/resources/toolchains/.gitkeep
 
+# Built-in extension build artifacts
+Extensions/*/target/
+
 # Python (manager.py artifacts)
 __pycache__/
 *.py[cod]

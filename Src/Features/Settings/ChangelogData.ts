@@ -12,9 +12,56 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.3.12",
+    date: "2026-08-09",
+    isLatest: true,
+    summary:
+      "0.3.12 以「扩展基础」为主题：Aurona Code 首次引入最小的 Aurona Extensions Foundation。基于 AURX 扩展包与 WebAssembly Component，内置的 Aurona Markdown 扩展拥有独立 Activity Bar 入口与完全隔离的 Sidebar 视图，在显式授权后读取当前编辑器与工作区内容，提供实时 Markdown 预览。本阶段只验证扩展运行、权限与 UI 隔离基础，不开放第三方插件",
+    sections: [
+      {
+        title: "Aurona Extensions Foundation",
+        description: "最小可运行的扩展底座，从第一个插件开始",
+        items: [
+          "**AURX 扩展包**：正式定义 .aurx 包格式，内置扩展以真实包的形式随应用分发，由 ExtensionRegistry 发现、校验并加载",
+          "**WASM Component 运行时**：插件核心逻辑运行在 WebAssembly Component 中，通过最小 WIT 契约与宿主交换上下文，并带有内存与执行时间限制",
+          "**独立 Activity Bar 入口**：已发现的内置扩展拥有自己的侧边栏按钮，与 Explorer、Search、Source Control 并列，点击后进入插件自己的 Sidebar 视图",
+          "**懒加载**：应用启动时只发现扩展元数据；用户打开插件视图前不会加载或实例化 WASM",
+        ],
+      },
+      {
+        title: "Aurona Markdown",
+        description: "第一个真实扩展：Markdown 实时预览",
+        items: [
+          "**插件即真实扩展**：Markdown 解析运行在扩展 WASM 内，预览界面来自 AURX 中的插件视图，移除扩展包后 Markdown 文件仍可正常编辑，但不再出现预览按钮",
+          "**实时预览**：编辑 README.md 等 Markdown 文档时，侧边栏预览稳定跟随当前编辑器内容更新，支持标题、列表、引用、表格、代码块等常用语法",
+          "**大文档降频**：文档较大时自动延长刷新间隔并提示预览刷新率已降低，保持输入流畅",
+        ],
+      },
+      {
+        title: "权限与安全",
+        description: "插件能力明确授权，边界真实有效",
+        items: [
+          "**显式权限**：editor.current.read 与 workspace.read 默认未知，插件首次使用需用户明确允许，授权按工作区记录",
+          "**工作区沙箱**：workspace.read 在 Rust 侧再次校验工作区边界与授权记录，路径穿越、绝对路径、UNC 与符号链接逃逸均被拒绝",
+          "**UI 隔离**：插件视图运行在独立沙箱 WebView 面中，不能直接调用 Tauri、访问主界面 DOM 或读取本地文件，所有宿主能力通过结构化消息桥接",
+          "**失败隔离**：WASM 崩溃、插件 UI 异常或消息错误只影响插件视图，编辑器与主界面继续正常工作",
+        ],
+      },
+      {
+        title: "工程与可靠性",
+        description: "扩展基础同样遵守 Corona+ 约束",
+        items: [
+          "**不复制核心**：扩展只通过适配桥接 Document、Workspace 与主题等既有服务，不创建第二套 DocumentService 或 WorkspaceService",
+          "**轻量性能指标**：记录扩展发现、包打开、WASM 编译、实例化、视图就绪与渲染耗时，融入现有性能测试",
+          "**可复现构建**：扩展源码、构建脚本与产物均入库，CI 校验 AURX 可复现重建，发布与开发构建无需额外 WASM 工具链",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.3.11",
     date: "2026-08-08",
-    isLatest: true,
+    isLatest: false,
     summary:
       "0.3.11 以「材质与氛围」为主题：八套主题真正拥有各自的色彩构图与背景氛围，材质层级、对比度与状态表现统一收口，流光从「扫过的光带」变成「几乎察觉不到轨迹的环境光」；同时完成跨平台路径、多文件修改、问题面板与繁体中文的工程收口。细节也一并打磨：大纲与符号搜索共用轻量缓存，界面文案去掉无用的句末标点，标签页标题不再带「打开 / Open」前缀，深浅色下开关开启状态更清晰，启动页跟随界面语言，旧语言值与过期运行时文案完成清理",
     sections: [
@@ -81,7 +128,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
     version: "V0.3.10",
     date: "2026-08-08",
-    isLatest: true,
+    isLatest: false,
     summary:
       "0.3.10 以「顺手」为主题：Fliuno 从能搜变成好搜，代码智能从能用变成完整工作流，调试、设置、存储与国际化全部收口。不需要记住功能在哪里，也用不着为细节将就",
     sections: [

@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+  />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Markdown Preview</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #1e293b;
+      --muted: #64748b;
+      --border: rgba(0, 0, 0, 0.07);
+      --code-bg: rgba(0, 0, 0, 0.04);
+      --pre-bg: #f8fafc;
+      --quote-bg: rgba(37, 99, 235, 0.04);
+      --quote-border: #3b82f6;
+      --accent: #2563eb;
+      --table-hover: rgba(0, 0, 0, 0.02);
+      --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+    :root[data-theme="dark"] {
+      --bg: #13161d;
+      --fg: #e2e8f0;
+      --muted: #94a3b8;
+      --border: rgba(255, 255, 255, 0.08);
+      --code-bg: rgba(255, 255, 255, 0.06);
+      --pre-bg: #181c26;
+      --quote-bg: rgba(96, 165, 250, 0.05);
+      --quote-border: #60a5fa;
+      --accent: #60a5fa;
+      --table-hover: rgba(255, 255, 255, 0.03);
+      --card-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      font: 13.5px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
+      overflow-wrap: break-word;
+      user-select: text;
+    }
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(128, 128, 128, 0.22);
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(128, 128, 128, 0.38);
+    }
+    #preview {
+      padding: 18px 20px 48px;
+      min-height: 100%;
+      box-sizing: border-box;
+    }
+    #preview:empty {
+      display: none;
+    }
+    #preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 {
+      margin: 1.3em 0 0.6em;
+      line-height: 1.3;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      color: var(--fg);
+    }
+    #preview h1 {
+      font-size: 1.45em;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.35em;
+    }
+    #preview h2 {
+      font-size: 1.25em;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.3em;
+    }
+    #preview h3 { font-size: 1.12em; }
+    #preview h4 { font-size: 1.02em; }
+    #preview p { margin: 0.75em 0; }
+    #preview ul, #preview ol {
+      margin: 0.75em 0;
+      padding-left: 1.6em;
+    }
+    #preview li {
+      margin: 0.3em 0;
+    }
+    #preview li > p {
+      margin: 0.2em 0;
+    }
+    #preview blockquote {
+      margin: 0.9em 0;
+      padding: 0.5em 0.9em 0.5em 1.1em;
+      border-left: 3.5px solid var(--quote-border);
+      background: var(--quote-bg);
+      border-radius: 0 8px 8px 0;
+      color: var(--muted);
+    }
+    #preview blockquote > :first-child { margin-top: 0; }
+    #preview blockquote > :last-child { margin-bottom: 0; }
+    #preview code {
+      padding: 0.18em 0.42em;
+      border-radius: 5px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      font: 12px/1.5 "JetBrains Mono", Consolas, Menlo, monospace;
+    }
+    #preview pre {
+      margin: 1em 0;
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: var(--pre-bg);
+      border: 1px solid var(--border);
+      box-shadow: var(--card-shadow);
+      overflow-x: auto;
+    }
+    #preview pre code {
+      padding: 0;
+      background: transparent;
+      border: none;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    #preview table {
+      border-collapse: separate;
+      border-spacing: 0;
+      margin: 1em 0;
+      width: 100%;
+      max-width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      display: block;
+      overflow-x: auto;
+    }
+    #preview th, #preview td {
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 7px 12px;
+      text-align: left;
+      font-size: 12.5px;
+    }
+    #preview th:last-child, #preview td:last-child {
+      border-right: none;
+    }
+    #preview tr:last-child td {
+      border-bottom: none;
+    }
+    #preview th {
+      background: var(--code-bg);
+      font-weight: 600;
+      color: var(--fg);
+    }
+    #preview tr:hover td {
+      background: var(--table-hover);
+    }
+    #preview kbd {
+      display: inline-block;
+      padding: 0.15em 0.45em;
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--fg);
+      background: var(--pre-bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      box-shadow: 0 1px 0 var(--border);
+      font-family: inherit;
+    }
+    #preview a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.15s ease;
+    }
+    #preview a:hover {
+      border-bottom-color: var(--accent);
+    }
+    #preview hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1.4em 0;
+    }
+    #preview img {
+      max-width: 100%;
+      border-radius: 8px;
+      box-shadow: var(--card-shadow);
+    }
+    #preview del {
+      opacity: 0.6;
+    }
+    #empty {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    #preview:empty ~ #empty {
+      display: flex;
+    }
+    #empty svg {
+      width: 44px;
+      height: 44px;
+      stroke: var(--muted);
+      opacity: 0.55;
+      margin-bottom: 12px;
+    }
+    #empty .title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--fg);
+      opacity: 0.85;
+      margin-bottom: 4px;
+    }
+    #empty .desc {
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    #status {
+      position: sticky;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: none;
+      padding: 6px 14px;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+    }
+    #status:not(:empty) {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <article id="preview"><!--AURONA_RENDER_SLOT--></article>
+  <div id="empty">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13l1.5 1.5L12 13l1.5 1.5L15 13" />
+      <path d="M9 17h6" />
+    </svg>
+    <div class="title">Markdown 实时预览</div>
+    <div class="desc">在右侧编辑器中打开或编辑 Markdown 文档即可在此实时查看渲染效果</div>
+  </div>
+  <div id="status"><!--AURONA_STATUS_SLOT--></div>
+</body>
+</html>

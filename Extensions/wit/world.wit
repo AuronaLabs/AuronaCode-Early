@@ -1,0 +1,56 @@
+package aurona:extensions;
+
+/// Host-provided context and capabilities for the extension.
+interface context {
+  record environment {
+    theme: string,
+    locale: string,
+  }
+
+  record editor-snapshot {
+    path: option<string>,
+    language: option<string>,
+    content: option<string>,
+    version: u64,
+  }
+
+  enum permission-state {
+    unknown,
+    granted,
+    denied,
+  }
+
+  get-environment: func() -> environment;
+
+  /// Returns the current editor snapshot. Content is only included when the
+  /// host has granted `editor.current.read`.
+  get-editor-snapshot: func() -> editor-snapshot;
+
+  /// Requests a permission by id (for example "editor.current.read").
+  /// Returns the current state; the host decides whether the user is asked.
+  request-permission: func(permission: string) -> permission-state;
+
+  /// Reads a file inside the current workspace when `workspace.read` is
+  /// granted. Paths are relative to the workspace root and are validated by
+  /// the host against the workspace boundary.
+  read-workspace-file: func(path: string) -> result<string, string>;
+}
+
+/// The extension's render contract.
+interface render {
+  record render-input {
+    markdown: string,
+  }
+
+  record render-output {
+    html: string,
+    diagnostics: list<string>,
+  }
+
+  render: func(input: render-input) -> result<render-output, string>;
+}
+
+world aurona-extension {
+  import context;
+  export render;
+}

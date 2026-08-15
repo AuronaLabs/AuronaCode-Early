@@ -1,7 +1,7 @@
 {
   "name": "aurona-code",
   "private": true,
-  "version": "0.3.11",
+  "version": "0.3.12",
   "packageManager": "pnpm@11.13.0",
   "type": "module",
   "scripts": {
@@ -10,6 +10,9 @@
     "prepare:toolchains": "node scripts/prepare-builtin-toolchains.mjs",
     "verify:toolchains": "node scripts/verify-builtin-toolchains.mjs",
     "verify:toolchains:contract": "node scripts/verify-builtin-toolchains.mjs --contract",
+    "build:markdown": "node scripts/build-markdown-extension.mjs",
+    "verify:markdown": "node scripts/verify-markdown-extension.mjs",
+    "prepare:extensions": "pnpm run build:markdown && pnpm run verify:markdown",
     "typecheck": "tsc --noEmit",
     "check": "biome ci Src",
     "check:boundaries": "node scripts/check-desktop-boundaries.mjs",

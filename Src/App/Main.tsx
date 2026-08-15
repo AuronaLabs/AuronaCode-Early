@@ -63,11 +63,18 @@ function RootApp() {
       }
     };
 
+    const onContextMenu = (e: MouseEvent) => {
+      // 阻止 webview 原生右键菜单，自定义 contextmenu 由组件自行处理
+      e.preventDefault();
+    };
+
     window.addEventListener("keydown", onKeyDown, { capture: true });
+    window.addEventListener("contextmenu", onContextMenu, { capture: true });
 
     return () => {
       EventBus.off("app:reboot", onReboot);
       window.removeEventListener("keydown", onKeyDown, { capture: true });
+      window.removeEventListener("contextmenu", onContextMenu, { capture: true });
     };
   }, []);
 

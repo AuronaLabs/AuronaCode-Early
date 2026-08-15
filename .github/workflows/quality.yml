@@ -34,9 +34,40 @@ jobs:
       - run: pnpm run check:boundaries
       - run: pnpm run check:materials
       - run: pnpm run verify:toolchains:contract
+      - run: pnpm run verify:markdown
       - run: pnpm run smoke
       - run: pnpm run test:frontend
       - run: pnpm run build
+
+  extension:
+    name: Built-in extension (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+      - run: rustup target add wasm32-wasip2
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./Extensions/aurona.markdown
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.13.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run prepare:extensions
+      - name: Committed AURX must match the reproducible rebuild
+        run: git diff --exit-code -- src-tauri/resources/extensions/aurona.markdown.aurx
 
   rust:
     name: Rust (${{ matrix.os }})

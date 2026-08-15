@@ -26,14 +26,21 @@ Aurona Code/
 │  ├─ 0.3.10-Release-Notes.md          # 0.3.10 对外版本说明
 │  ├─ 0.3.11-Phase1-Audit.md           # 0.3.11 第一阶段工程审计
 │  ├─ 0.3.11-Phase2-Visual-Audit.md    # 0.3.11 第二阶段视觉审计
-│  └─ 0.3.11-Release-Notes.md          # 0.3.11 对外版本说明
+│  ├─ 0.3.11-Release-Notes.md          # 0.3.11 对外版本说明
+│  ├─ V0.3.12-Extension-Research.md    # 0.3.12 扩展技术调研与决策
+│  └─ V0.3.12-Extension-Progress.md    # 0.3.12 扩展开发进度
 ├─ public/
 │  ├─ logo.png                         # 品牌 Logo
 │  └─ splash.webp                      # 启动页图像资源
 ├─ scripts/
 │  ├─ check-desktop-boundaries.mjs     # 禁止业务层直接导入 Tauri
+│  ├─ build-markdown-extension.mjs     # 构建内置 Markdown 扩展 AURX
+│  ├─ verify-markdown-extension.mjs    # 校验 AURX 结构、CRC 与内容
 │  ├─ extract-changelog.ts             # 从应用更新历史生成 Release Body
 │  └─ smoke.mjs                        # 版本和更新历史一致性检查
+├─ Extensions/
+│  ├─ wit/world.wit                    # 规范 WIT：context 宿主接口 + render 导出
+│  └─ aurona.markdown/                 # 内置 Markdown 扩展源码（guest WASM + UI）
 ├─ Src/
 │  ├─ App/
 │  │  ├─ App.tsx                       # 主 React 应用入口
@@ -138,6 +145,12 @@ Aurona Code/
 │  │  │  ├─ lsp_cmds.rs                # LSP commands
 │  │  │  └─ utils.rs                   # command 共用工具
 │  │  ├─ editor.rs                     # Rope 会话、revision、编辑与原子保存
+│  │  ├─ extensions/
+│  │  │  ├─ aurx.rs                    # AURX 安全解包与 manifest 校验
+│  │  │  ├─ registry.rs                # 内置扩展发现与元数据
+│  │  │  ├─ runtime.rs                 # Wasmtime Component 运行时与限额
+│  │  │  ├─ state.rs                   # 权限存储与懒加载 runtime 缓存
+│  │  │  └─ commands.rs                # 扩展 IPC commands
 │  │  ├─ search.rs                     # 工作区搜索、request ID 与取消
 │  │  ├─ pty.rs                        # PTY 进程和事件
 │  │  ├─ lsp.rs                        # LSP 子进程和事件
@@ -145,6 +158,7 @@ Aurona Code/
 │  │  ├─ performance.rs                # 性能工作负载与资源清理
 │  │  ├─ lib.rs                        # Tauri Builder、插件和 command 注册
 │  │  └─ main.rs                       # 桌面二进制入口
+│  ├─ resources/extensions/            # 内置 AURX 扩展包（随 bundle 分发）
 │  ├─ Cargo.toml
 │  ├─ Cargo.lock
 │  └─ tauri.conf.json                  # 窗口、CSP、更新器和打包配置
@@ -175,7 +189,7 @@ App / Layout / Features
 - 除 `Foundation/Desktop` 外，`Src` 内不得直接导入 `@tauri-apps/*`。
 - 长期工作台事实写入 Zustand；EventBus 只传递短暂通知和导航意图。
 - Rust 是持久文档的权威，前端控制器持有乐观投影、选择、历史和同步状态。
-- `Extension` 目前仅包含命令注册，不代表已存在插件市场、沙箱或扩展运行时。
+- `Extension`（命令注册）与 `Extensions/`（内置 AURX/WASM 插件）是两回事：0.3.12 只提供内置扩展的最小运行时与沙箱，不开放插件市场、安装与第三方扩展。
 
 ## 不纳入文件树的内容
 

@@ -6,8 +6,8 @@ Aurona Code 仍处于早期快速开发阶段，目前只为最新预览版本�
 
 | 版本 | 支持状态 |
 | --- | --- |
-| 0.3.11 | :white_check_mark: |
-| < 0.3.11 | :x: |
+| 0.3.12 | :white_check_mark: |
+| < 0.3.12 | :x: |
 
 ## 私密报告漏洞
 
@@ -32,5 +32,5 @@ Aurona Code 仍处于早期快速开发阶段，目前只为最新预览版本�
 ## 安全边界说明
 
 - Tauri capability 最小化不等于工作区文件系统沙箱。
-- 插件运行时、插件沙箱、AI Command Center 和云端遥测当前尚未实现。
+- 0.3.12 起内置扩展以 WASM Component 运行（Wasmtime 限额 + sandbox iframe 隔离），仅加载随应用分发的 AURX；不开放第三方扩展安装。AI Command Center 和云端遥测当前尚未实现。
 - 更新器安全依赖 Release 签名、`latest.json` 和真实旧版本到新版本的链路验证。

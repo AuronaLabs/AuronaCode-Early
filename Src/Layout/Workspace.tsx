@@ -20,6 +20,8 @@ import { RecoveryCoordinator } from "../Core/Recovery/RecoveryCoordinator";
 import { TerminalManager } from "../Core/TerminalService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EditorTabBar } from "../Features/Editor/EditorTabBar";
+import { ExtensionSidebar } from "../Features/Extensions/ExtensionSidebar";
+import { ExtensionsPanel } from "../Features/Extensions/ExtensionsPanel";
 import { FliunoWorkspacePage } from "../Features/Fliuno/FliunoWorkspacePage";
 import { LocationResultsPanel } from "../Features/Language/LocationResultsPanel";
 import { OutlineView } from "../Features/Language/OutlineView";
@@ -32,8 +34,10 @@ import { EventBus } from "../Foundation/EventBus";
 import { useLocale } from "../Foundation/I18n";
 import type { TabItem } from "../Foundation/Types/Tab";
 import {
+  extensionIdFromSidebar,
   SIDEBAR_DEBUG,
   SIDEBAR_EXPLORER,
+  SIDEBAR_EXTENSIONS,
   SIDEBAR_NOTIFICATIONS,
   SIDEBAR_OUTLINE,
   SIDEBAR_SOURCE_CONTROL,
@@ -441,6 +445,28 @@ export function WorkspaceView() {
           >
             <DebugPanel />
           </Suspense>
+        </div>
+        <div
+          className="flex flex-1 flex-col min-h-0"
+          style={{ display: activeSidebar === SIDEBAR_EXTENSIONS ? "flex" : "none" }}
+        >
+          <ExtensionsPanel />
+        </div>
+        <div
+          className="flex flex-1 flex-col min-h-0"
+          style={{
+            display:
+              activeSidebar !== null && extensionIdFromSidebar(activeSidebar) !== null
+                ? "flex"
+                : "none",
+          }}
+        >
+          {activeSidebar !== null && extensionIdFromSidebar(activeSidebar) !== null ? (
+            <ExtensionSidebar
+              key={activeSidebar}
+              extensionId={extensionIdFromSidebar(activeSidebar) ?? ""}
+            />
+          ) : null}
         </div>
       </Card>
 

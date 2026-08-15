@@ -4,7 +4,7 @@
   <p><strong>写代码这件事，值得一个更舒服的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.3.11-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.3.12-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
   </p>
@@ -128,7 +128,7 @@ pnpm run tauri:dev
 ```powershell
 python -m pip install rich
 python manager.py
-python manager.py -v 0.3.11   # 非交互式同步工程版本
+python manager.py -v 0.3.12   # 非交互式同步工程版本
 ```
 
 `manager.py` 只是开发辅助入口，项目构建不依赖 Python。
@@ -201,6 +201,8 @@ Aurona Code/
 - [0.3.5 Release Notes](Docs/0.3.5-Release-Notes.md)
 - [0.3.10 Release Notes](Docs/0.3.10-Release-Notes.md)
 - [0.3.11 Release Notes](Docs/0.3.11-Release-Notes.md)
+- [0.3.12 扩展技术调研](Docs/V0.3.12-Extension-Research.md)
+- [0.3.12 扩展开发进度](Docs/V0.3.12-Extension-Progress.md)
 - [0.3.4 编辑器与 Git 架构](Docs/architecture/0.3.4-editor-and-git.md)
 - [0.3.4 Aurona Account 基础](Docs/architecture/0.3.4-aurora-account-foundation.md)
 - [0.3.5 收口说明](Docs/architecture/0.3.5-hardening.md)

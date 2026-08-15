@@ -1100,7 +1100,7 @@ code {
 
 /* Editor / Terminal Quiet Zone：内容区保持中性高对比，不直接透出主题氛围。 */
 [data-editor-font] {
-  background-color: var(--EditorSurface);
+  background-color: transparent;
 }
 
 .terminal-host {

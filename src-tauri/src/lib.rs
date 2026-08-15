@@ -3,6 +3,7 @@ mod commands;
 mod content_length;
 mod dap;
 mod editor;
+mod extensions;
 mod lsp;
 mod performance;
 mod platform;
@@ -12,6 +13,12 @@ mod search;
 
 use commands::dap_cmds::DapState;
 pub use commands::lsp_cmds::LspState;
+use extensions::commands::{
+    extensions_get_permission, extensions_get_view, extensions_list, extensions_render,
+    extensions_set_permission,
+};
+use extensions::state::ExtensionState;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -30,7 +37,20 @@ pub fn run() {
         .manage(DapState::new())
         .manage(account_auth::AccountAuthState::default())
         .manage(commands::fs::WorkspaceState::new())
+        .manage(ExtensionState::new())
+        .setup(|app| {
+            let state = app.state::<ExtensionState>();
+            if let Err(error) = state.initialize(app.handle()) {
+                eprintln!("[Extensions] 初始化失败: {error}");
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
+            extensions_list,
+            extensions_get_view,
+            extensions_get_permission,
+            extensions_set_permission,
+            extensions_render,
             account_auth::account_auth_status,
             account_auth::account_auth_start,
             account_auth::account_auth_cancel,

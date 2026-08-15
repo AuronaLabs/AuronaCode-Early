@@ -16,6 +16,11 @@ pub struct PlatformInfo {
 static PATH_RESTORED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 
 pub fn initialize_environment() {
+    #[cfg(windows)]
+    {
+        // 设置 WebView2 默认背景色为全透明 (0x00000000)，使 iframe 与透明画布不产生默认白底
+        std::env::set_var("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "0");
+    }
     #[cfg(unix)]
     let restored = fix_path_env::fix().is_ok();
     #[cfg(not(unix))]
