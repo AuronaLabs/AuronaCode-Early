@@ -30,14 +30,26 @@ function buildGuest() {
   if (existsSync(lockPath)) args.push("--locked");
   try {
     execFileSync("cargo", args, { stdio: "inherit" });
-  } catch (error) {
-    if (process.platform === "win32" && /link\.exe|msvc/i.test(String(error))) {
-      console.error(
-        "Windows 下需要 Visual Studio Build Tools 环境：\n" +
-          '  cmd /c call "D:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat" && pnpm run build:markdown',
-      );
+  } catch (firstError) {
+    console.warn("WASM 目标 wasm32-wasip2 编译未就绪，尝试通过 rustup 自动补充 target...");
+    try {
+      execFileSync("rustup", ["target", "add", "wasm32-wasip2"], { stdio: "inherit" });
+      execFileSync("cargo", args, { stdio: "inherit" });
+    } catch (secondError) {
+      if (existsSync(outputPath)) {
+        console.warn("未能重新编译 WASM，但检测到已存在扩展归档，将继续使用现有产物并执行校验。");
+        return;
+      }
+      if (process.platform === "win32" && /link\.exe|msvc/i.test(String(firstError))) {
+        console.error(
+          "Windows 下需要 Visual Studio Build Tools 环境：\n" +
+            '  cmd /c call "D:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat" && pnpm run build:markdown',
+        );
+      } else {
+        console.error(`WASM 构建失败: ${secondError}`);
+      }
+      process.exit(1);
     }
-    process.exit(1);
   }
 }
 
