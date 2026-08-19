@@ -6,6 +6,7 @@ import { extensionSidebarId } from "../../Shared/Constants/Sidebar";
 import { useExtensionStore } from "../../State/useExtensionStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Button } from "../../UI/Components/Button";
+import { resolveExtensionName } from "./ExtensionUtils";
 
 function ExtensionPermissionRow({
   extensionId,
@@ -63,7 +64,7 @@ function ExtensionPermissionRow({
 }
 
 export function ExtensionsPanel() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const descriptors = useExtensionStore((state) => state.descriptors);
   const views = useExtensionStore((state) => state.views);
   const setActiveSidebar = useWorkbenchStore((state) => state.setActiveSidebar);
@@ -99,7 +100,7 @@ export function ExtensionsPanel() {
                   ) : null}
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-[13px] font-medium text-[var(--color-text-highlight)]">
-                      {descriptor.name}
+                      {resolveExtensionName(descriptor, locale)}
                     </span>
                     <span className="truncate text-[11px] text-[var(--color-text-muted)]">
                       {t("extensions.builtin")} · {descriptor.publisher} · v{descriptor.version}

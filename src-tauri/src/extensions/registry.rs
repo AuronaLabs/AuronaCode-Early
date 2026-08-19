@@ -11,9 +11,13 @@ use super::aurx::{open_package, ExtensionPackage};
 pub struct ExtensionDescriptor {
     pub id: String,
     pub name: String,
+    pub display_name: Option<HashMap<String, String>>,
     pub publisher: String,
     pub version: String,
+    pub description: Option<String>,
+    pub display_description: Option<HashMap<String, String>>,
     pub sidebar_title: String,
+    pub display_title: Option<HashMap<String, String>>,
     pub sidebar_icon: String,
     pub view_entry: String,
 }
@@ -24,9 +28,13 @@ impl ExtensionDescriptor {
         Self {
             id: manifest.id.clone(),
             name: manifest.name.clone(),
+            display_name: manifest.display_name.clone(),
             publisher: manifest.publisher.clone(),
             version: manifest.version.clone(),
+            description: manifest.description.clone(),
+            display_description: manifest.display_description.clone(),
             sidebar_title: manifest.sidebar.title.clone(),
+            display_title: manifest.sidebar.display_title.clone(),
             sidebar_icon: manifest.sidebar.icon.clone(),
             view_entry: manifest.view.entry.clone(),
         }

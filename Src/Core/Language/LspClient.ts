@@ -88,6 +88,23 @@ const CAPABILITY_KEYS: Record<LspFeature, string> = {
   codeAction: "codeActionProvider",
 };
 
+export function isLanguageConfigured(
+  language: string,
+  configuration?: { command?: string },
+): boolean {
+  const normalized = language.toLowerCase();
+  if (
+    normalized === "typescript" ||
+    normalized === "javascript" ||
+    normalized === "javascriptreact" ||
+    normalized === "typescriptreact" ||
+    normalized === "python"
+  ) {
+    return true;
+  }
+  return Boolean(configuration?.command && configuration.command.trim().length > 0);
+}
+
 export class LspClient {
   private static instance: LspClient | null = null;
   private readonly serverStates = new Map<string, LanguageServerInfo>();
@@ -180,6 +197,9 @@ export class LspClient {
         "../../Core/LanguageConfigurationService"
       );
       const configuration = await LanguageConfigurationService.resolve(language);
+      if (!isLanguageConfigured(language, configuration)) {
+        return;
+      }
       await LanguageServerIPC.start(language, {
         workspaceRoot,
         command: configuration.command,
@@ -192,6 +212,9 @@ export class LspClient {
       await this.refreshStates();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("No language server is configured")) {
+        return;
+      }
       OutputService.append("language-server", message, "error");
       this.serverStates.set(language === "javascript" ? "typescript" : language, {
         language: language === "javascript" ? "typescript" : language,
@@ -227,6 +250,13 @@ export class LspClient {
   public async didOpen(language: string, path: string, text: string, version = 1): Promise<void> {
     this.documentTexts.set(path, text);
     this.documentLanguages.set(path, language);
+    const { LanguageConfigurationService } = await import(
+      "../../Core/LanguageConfigurationService"
+    );
+    const configuration = await LanguageConfigurationService.resolve(language);
+    if (!isLanguageConfigured(language, configuration)) {
+      return;
+    }
     await this.startServer(language);
     await this.resolveFileUri(path);
     await LanguageServerIPC.didOpen(language, path, text, version);

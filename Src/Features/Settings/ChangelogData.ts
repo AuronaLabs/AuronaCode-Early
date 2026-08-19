@@ -12,9 +12,71 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.3.13",
+    date: "2026-08-16",
+    isLatest: true,
+    summary:
+      "0.3.13 以「优化与改进」为主题：通知中心全面升级支持 Action 动作按钮与确认交互，编辑器恢复快照迁移至右下角通知中心；推出 iOS Swift 风格面向对象 Aurona 插件 SDK 并扩展文件监控 API；插件完全自主经营多语言体系并支持 Keep-Alive 驻留保活与即时刷新；新增粗体显示与界面字号缩放；性能测试支持多卡片独立展开与 100 分制综合评分；根治 Fliuno 搜索高亮错位并加固核心架构",
+    sections: [
+      {
+        title: "通知中心升级与突兀横条根治",
+        description: "右下角现代卡片化通知与编辑器恢复/同步交互全面重构",
+        items: [
+          "**通知中心全面升级**：Toast 架构重构为现代 Notification Center，支持标题、多行消息、操作按钮（Action Buttons）与常驻确认（Confirm）弹窗",
+          "**突兀横条彻底根治**：彻底根除编辑器顶部快照恢复横条、编辑同步失败横条与扩展底部错误条，全面迁移至右下角通知中心，支持「复制本地内容」、「从磁盘重新加载」、「恢复内容」等即时动作按钮",
+        ],
+      },
+      {
+        title: "iOS 风格插件 SDK 与文件监控",
+        description: "面向对象门面设计与工作区路径监控能力",
+        items: [
+          "**Swift/iOS 风格统一门面**：插件 SDK 采用面向对象设计（Aurona::config()、Aurona::editor()、Aurona::workspace()、Aurona::logger()），代码高度自解释与优雅",
+          "**工作区文件监控 API**：WIT 契约与 Host 增加 watch_workspace_path 与 unwatch_workspace_path 接口，沙箱扩展可安全请求宿主统筹监控文件变动",
+          "**完整 SDK 参考手册发布**：新增《Aurona Code AURX 插件 SDK 参考手册》（Docs/AURX-SDK-Reference.md），详尽记录所有命名空间、数据结构与调用范例",
+        ],
+      },
+      {
+        title: "插件自主多语言与 Keep-Alive 保活",
+        description: "生态彻底解耦、自包含多语言与毫秒级秒开",
+        items: [
+          "**插件完全自包含多语言**：插件元数据（displayName, displayTitle, displayDescription）由插件自身 manifest 独立经营，宿主核心语言包彻底解耦零侵入",
+          "**Keep-Alive 驻留保活机制**：扩展侧边栏进入保活状态，切换侧边栏至其他面板再切回时保持 DOM、WebView 与状态驻留，不再重新销毁重建，实现秒开",
+          "**Markdown 预览文件切换直通**：活动文档切换瞬间绕过防抖延迟，首屏即刻同步直通触发渲染；非 .md 文档展示友好提示且不触发 WASM 报错",
+        ],
+      },
+      {
+        title: "视觉与排版设置升级",
+        description: "全局粗体显示与界面字号缩放",
+        items: [
+          "**全局粗体显示开关**：外观设置中新增「粗体显示」Switch 控件，一键增强工作台文字、标签与代码字重，提升可读性与视觉饱满度",
+          "**界面字号等级调节**：新增「界面字号」Select 下拉选择器，支持紧凑 (12px)、标准 (13px)、舒适 (14px) 与大号 (15px) 四档全局排版缩放",
+          "**持久化与多语言同步**：视觉配置自动持久化至 UserConfigStore，并在简体中文、繁体中文与英文语言包中完成完整翻译对齐",
+        ],
+      },
+      {
+        title: "性能测试交互升级与综合评分",
+        description: "多卡片独立展开、专属图表与综合性能指数",
+        items: [
+          "**多卡片独立展开/折叠**：各 Benchmark 卡片展开状态完全解耦，支持同时打开多项性能详情互不干扰",
+          "**IPC 与 UI 专属图表结构化呈现**：适配 6 宫格统计、微直方图与耗时徽章，彻底告别粗糙单行文本展示",
+          "**综合性能评分与指标数修复**：修复保存记录中显示「0项指标」的缺陷；引入 100 分制加权综合性能指数模型，直观进行历史与排行榜对比",
+        ],
+      },
+      {
+        title: "Fliuno 高亮根治与架构加固",
+        description: "字符级严格对齐、Hooks 渐进拆分与构建加固",
+        items: [
+          "**消除前缀截断与空白偏移**：重构内容搜索 description 生成与高亮区间计算逻辑，彻底根除拼接行号前缀导致的字符高亮错位 bug",
+          "**AuronaEngine 渐进式 Hooks 拆分**：成功独立拆离 useEditorIME、useEditorContextMenu 与 useEditorPointerSelection 三大核心交互模块并配套单元测试",
+          "**构建脚本容错与 Target 自动安装**：扩展构建流水线支持 wasm32-wasip2 目标自动检测与容错，保障跨平台 CI 打包绝对稳定",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.3.12",
     date: "2026-08-09",
-    isLatest: true,
+    isLatest: false,
     summary:
       "0.3.12 以「扩展基础」为主题：Aurona Code 首次引入最小的 Aurona Extensions Foundation。基于 AURX 扩展包与 WebAssembly Component，内置的 Aurona Markdown 扩展拥有独立 Activity Bar 入口与完全隔离的 Sidebar 视图，在显式授权后读取当前编辑器与工作区内容，提供实时 Markdown 预览。本阶段只验证扩展运行、权限与 UI 隔离基础，不开放第三方插件",
     sections: [

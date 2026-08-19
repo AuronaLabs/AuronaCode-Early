@@ -31,7 +31,20 @@ export interface EventMap {
   "app:open-folder": undefined;
   "app:save-file": undefined;
   "app:open-tab": TabItem;
-  "app:toast": { message: string; type: "info" | "success" | "error" | "warning" };
+  "app:toast": {
+    id?: string;
+    title?: string;
+    message: string;
+    type: "info" | "success" | "error" | "warning" | "confirm";
+    duration?: number | null;
+    actions?: Array<{
+      label: string;
+      primary?: boolean;
+      variant?: "default" | "primary" | "danger" | "secondary";
+      onClick?: () => void | Promise<void>;
+    }>;
+    onDismiss?: () => void;
+  };
   "app:show-fliuno": undefined;
 
   "app:toggle-terminal": boolean | undefined;

@@ -134,11 +134,30 @@ function main() {
     packageVersion: 1,
     id: "aurona.markdown",
     name: "Markdown Preview",
+    displayName: {
+      "zh-CN": "Markdown 预览",
+      "zh-Hant": "Markdown 預覽",
+      en: "Markdown Preview",
+    },
+    description: "Live Markdown preview with structured outline and diagnostics",
+    displayDescription: {
+      "zh-CN": "实时渲染 Markdown 文档并提供结构化大纲与诊断",
+      "zh-Hant": "即時轉譯 Markdown 文件並提供結構化大綱與診斷",
+      en: "Live Markdown preview with structured outline and diagnostics",
+    },
     publisher: "aurona",
     version: "0.1.0",
     engine: { auronaCode: ">=0.3.12" },
     runtime: { component: "extension.wasm" },
-    sidebar: { title: "Markdown", icon: "assets/icon.svg" },
+    sidebar: {
+      title: "Markdown",
+      displayTitle: {
+        "zh-CN": "Markdown",
+        "zh-Hant": "Markdown",
+        en: "Markdown",
+      },
+      icon: "assets/icon.svg",
+    },
     view: { entry: "ui/index.html" },
   };
   const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");

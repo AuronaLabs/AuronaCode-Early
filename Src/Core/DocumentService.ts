@@ -82,11 +82,14 @@ class DocumentServiceImpl {
           if (uri) this.patch(path, { uri });
         })
         .catch((error) => {
-          OutputService.append(
-            "language-server",
-            `Unable to open ${path} in the language server: ${String(error)}`,
-            "warn",
-          );
+          const message = String(error);
+          if (!message.includes("No language server is configured")) {
+            OutputService.append(
+              "language-server",
+              `Unable to open ${path} in the language server: ${message}`,
+              "warn",
+            );
+          }
         });
       return record;
     } catch (error) {

@@ -2,7 +2,8 @@ import { EventBus } from "../Foundation/EventBus";
 
 export interface NotificationItem {
   id: string;
-  type: "info" | "success" | "warning" | "error";
+  type: "info" | "success" | "warning" | "error" | "confirm";
+  title?: string;
   message: string;
   timestamp: number;
   read: boolean;
@@ -15,8 +16,9 @@ class NotificationServiceImpl {
   constructor() {
     this.unsubToast = EventBus.on("app:toast", (payload) => {
       this.add({
-        id: Date.now().toString() + Math.random().toString(),
+        id: payload.id || Date.now().toString() + Math.random().toString(),
         type: payload.type,
+        title: payload.title,
         message: payload.message,
         timestamp: Date.now(),
         read: false,

@@ -2,70 +2,198 @@ import { useEffect, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { Icons } from "../Icons/IconManager";
 
-interface ToastMessage {
+export type ToastType = "info" | "success" | "warning" | "error" | "confirm";
+
+export interface ToastAction {
+  label: string;
+  primary?: boolean;
+  variant?: "default" | "primary" | "danger" | "secondary";
+  onClick?: () => void | Promise<void>;
+}
+
+export interface ToastMessage {
   id: string;
-  type: "info" | "success" | "warning" | "error";
+  type: ToastType;
+  title?: string;
   message: string;
+  duration?: number | null;
+  actions?: ToastAction[];
+  onDismiss?: () => void;
+}
+
+export interface ShowToastOptions {
+  id?: string;
+  title?: string;
+  duration?: number | null;
+  actions?: ToastAction[];
+  onDismiss?: () => void;
 }
 
 export function ToastContainer() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   useEffect(() => {
-    const handleToast = (payload: { type: ToastMessage["type"]; message: string }) => {
-      const id = Date.now().toString() + Math.random().toString();
-      setToasts((prev) => [...prev, { id, ...payload }]);
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 4000);
+    const handleToast = (payload: Omit<ToastMessage, "id"> & { id?: string }) => {
+      const id = payload.id || Date.now().toString() + Math.random().toString();
+      const defaultDuration = payload.actions && payload.actions.length > 0 ? null : 4000;
+      const duration = payload.duration !== undefined ? payload.duration : defaultDuration;
+
+      setToasts((prev) => {
+        // 如果相同 id 已经存在，更新它；否则新增
+        const filtered = prev.filter((item) => item.id !== id);
+        return [...filtered, { ...payload, id, duration }];
+      });
+
+      if (duration && duration > 0) {
+        setTimeout(() => {
+          setToasts((prev) => prev.filter((t) => t.id !== id));
+        }, duration);
+      }
     };
 
     return EventBus.on("app:toast", handleToast);
   }, []);
 
   const dismissToast = (id: string) => {
+    const target = toasts.find((t) => t.id === id);
+    target?.onDismiss?.();
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  const handleActionClick = async (toastId: string, action: ToastAction) => {
+    try {
+      await action.onClick?.();
+    } finally {
+      dismissToast(toastId);
+    }
+  };
+
   return (
-    <div className="fixed bottom-[calc(var(--StatusBarHeight)+16px)] right-6 z-[100] flex flex-col-reverse gap-3 pointer-events-none">
+    <div className="fixed bottom-[calc(var(--StatusBarHeight)+16px)] right-6 z-[100] flex flex-col-reverse gap-3 pointer-events-none max-w-sm w-full">
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="pointer-events-auto relative flex max-w-sm items-center gap-3 rounded-xl border border-[var(--border-overlay)] bg-[var(--material-overlay)] p-3 pr-8 backdrop-blur-[var(--glass-blur-floating)] animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group"
+          className="pointer-events-auto relative flex flex-col gap-2.5 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)]/90 p-3.5 backdrop-blur-[var(--glass-blur-floating)] shadow-2xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group"
         >
-          <div
-            className={`flex items-center justify-center h-8 w-8 rounded-full shrink-0 ${
-              toast.type === "success"
-                ? "bg-[var(--StatusSuccess)]/10 text-[var(--StatusSuccess)]"
-                : toast.type === "error"
-                  ? "bg-[var(--StatusError)]/10 text-[var(--StatusError)]"
-                  : toast.type === "warning"
-                    ? "bg-[var(--StatusWarning)]/10 text-[var(--StatusWarning)]"
-                    : "bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]"
-            }`}
-          >
-            {toast.type === "success" && <Icons.Checks size={16} />}
-            {toast.type === "error" && <Icons.Close size={16} />}
-            {toast.type === "warning" && <Icons.AlertTriangle size={16} />}
-            {toast.type === "info" && <Icons.Info size={16} />}
+          <div className="flex items-start gap-3">
+            <div
+              className={`flex items-center justify-center h-8 w-8 rounded-xl shrink-0 mt-0.5 ${
+                toast.type === "success"
+                  ? "bg-[var(--StatusSuccess)]/15 text-[var(--StatusSuccess)]"
+                  : toast.type === "error"
+                    ? "bg-[var(--StatusError)]/15 text-[var(--StatusError)]"
+                    : toast.type === "warning"
+                      ? "bg-[var(--StatusWarning)]/15 text-[var(--StatusWarning)]"
+                      : toast.type === "confirm"
+                        ? "bg-[var(--color-accent)]/15 text-[var(--color-accent)]"
+                        : "bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] text-[var(--color-accent)]"
+              }`}
+            >
+              {toast.type === "success" && <Icons.Checks size={16} stroke={2} />}
+              {toast.type === "error" && <Icons.Close size={16} stroke={2} />}
+              {toast.type === "warning" && <Icons.AlertTriangle size={16} stroke={2} />}
+              {toast.type === "confirm" && <Icons.InfoCircle size={17} stroke={2} />}
+              {toast.type === "info" && <Icons.Info size={16} stroke={2} />}
+            </div>
+
+            <div className="flex-1 min-w-0 pr-5">
+              {toast.title && (
+                <div className="text-[13px] font-semibold text-[var(--color-text-highlight)] leading-snug select-none mb-0.5">
+                  {toast.title}
+                </div>
+              )}
+              <div className="text-[12px] text-[var(--color-text-primary)] leading-relaxed select-none break-words">
+                {toast.message}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => dismissToast(toast.id)}
+              className="absolute right-2.5 top-2.5 p-1 rounded-lg opacity-60 hover:opacity-100 hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-all cursor-pointer"
+              title="关闭通知"
+            >
+              <Icons.Close size={13} stroke={2} />
+            </button>
           </div>
-          <span className="text-[13px] text-[var(--color-text-highlight)] font-medium select-none break-all leading-normal">
-            {toast.message}
-          </span>
-          <button
-            type="button"
-            onClick={() => dismissToast(toast.id)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-all cursor-pointer"
-          >
-            <Icons.Close size={12} />
-          </button>
+
+          {toast.actions && toast.actions.length > 0 && (
+            <div className="flex items-center justify-end gap-2 pt-1 border-t border-[var(--border-subtle)]/60 mt-1">
+              {toast.actions.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={() => void handleActionClick(toast.id, action)}
+                  className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all cursor-pointer select-none ${
+                    action.primary || action.variant === "primary"
+                      ? "bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white shadow-sm"
+                      : action.variant === "danger"
+                        ? "bg-[var(--StatusError)]/15 text-[var(--StatusError)] hover:bg-[var(--StatusError)]/25"
+                        : "bg-[var(--material-interactive-hover)] text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-active)]"
+                  }`}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </div>
   );
 }
 
-export const showToast = (message: string, type: ToastMessage["type"] = "info") => {
-  EventBus.emit("app:toast", { message, type });
+export const showToast = (
+  message: string,
+  type: ToastType = "info",
+  options?: ShowToastOptions,
+) => {
+  EventBus.emit("app:toast", {
+    message,
+    type,
+    ...options,
+  });
+};
+
+export const showNotification = (options: {
+  title?: string;
+  message: string;
+  type?: ToastType;
+  id?: string;
+  duration?: number | null;
+  actions?: ToastAction[];
+  onDismiss?: () => void;
+}) => {
+  EventBus.emit("app:toast", {
+    type: options.type ?? "info",
+    ...options,
+  });
+};
+
+export const showConfirm = (options: {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  onConfirm: () => void | Promise<void>;
+  onCancel?: () => void | Promise<void>;
+}) => {
+  showNotification({
+    title: options.title,
+    message: options.message,
+    type: "confirm",
+    duration: null,
+    actions: [
+      {
+        label: options.cancelLabel ?? "取消",
+        variant: "secondary",
+        onClick: options.onCancel,
+      },
+      {
+        label: options.confirmLabel ?? "确定",
+        primary: true,
+        onClick: options.onConfirm,
+      },
+    ],
+  });
 };

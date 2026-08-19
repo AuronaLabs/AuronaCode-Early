@@ -55,6 +55,8 @@ export interface UserConfig {
   fontSize?: number;
   lineHeight?: number;
   density?: "compact" | "default" | "regular" | "comfortable";
+  boldText?: boolean;
+  interfaceFontSize?: "compact" | "default" | "comfortable" | "large";
 
   editorFontSize?: number;
   editorLineHeight?: number;

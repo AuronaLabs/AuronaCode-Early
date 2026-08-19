@@ -5,9 +5,13 @@ export type ExtensionPermissionState = "unknown" | "granted" | "denied";
 export interface ExtensionDescriptor {
   id: string;
   name: string;
+  displayName?: Record<string, string>;
   publisher: string;
   version: string;
+  description?: string;
+  displayDescription?: Record<string, string>;
   sidebarTitle: string;
+  displayTitle?: Record<string, string>;
   sidebarIcon: string;
   viewEntry: string;
 }
@@ -22,7 +26,11 @@ export interface ExtensionRenderRequest {
   markdown: string;
   activeEditorPath: string | null;
   theme: string;
+  accentColor?: string;
+  colorScheme?: string;
   locale: string;
+  fontWeight?: string;
+  fontSize?: string;
 }
 
 export interface ExtensionRenderMetrics {

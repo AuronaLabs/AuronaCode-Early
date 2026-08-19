@@ -330,6 +330,26 @@
   --EditorLineHeight: 24px;
 }
 
+:root[data-bold-text="true"] {
+  font-weight: 600;
+  --font-weight-normal: 550;
+  --font-weight-medium: 650;
+  --font-weight-semibold: 750;
+}
+
+:root[data-font-size="compact"] {
+  --FontSizeBase: 12px;
+}
+:root[data-font-size="default"] {
+  --FontSizeBase: 13px;
+}
+:root[data-font-size="comfortable"] {
+  --FontSizeBase: 14px;
+}
+:root[data-font-size="large"] {
+  --FontSizeBase: 15px;
+}
+
 .dark {
   --RGB-Bg: 9, 9, 11;
   --RGB-Fg: 255, 255, 255;
@@ -978,6 +998,14 @@ select {
 
 button {
   cursor: pointer;
+}
+
+:root[data-bold-text="true"] body,
+:root[data-bold-text="true"] button,
+:root[data-bold-text="true"] input,
+:root[data-bold-text="true"] select,
+:root[data-bold-text="true"] textarea {
+  font-weight: 550;
 }
 
 ::-webkit-scrollbar {

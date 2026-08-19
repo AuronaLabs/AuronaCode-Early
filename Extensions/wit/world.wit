@@ -4,7 +4,23 @@ package aurona:extensions;
 interface context {
   record environment {
     theme: string,
+    accent-color: string,
+    color-scheme: string,
     locale: string,
+    font-weight: string,
+    font-size: string,
+    app-version: string,
+    platform: string,
+  }
+
+  record text-position {
+    line: u32,
+    character: u32,
+  }
+
+  record selection-range {
+    start: text-position,
+    end: text-position,
   }
 
   record editor-snapshot {
@@ -12,6 +28,18 @@ interface context {
     language: option<string>,
     content: option<string>,
     version: u64,
+  }
+
+  record workspace-info {
+    has-workspace: bool,
+    name: option<string>,
+    root-name: option<string>,
+  }
+
+  record file-entry {
+    name: string,
+    is-directory: bool,
+    size-bytes: u64,
   }
 
   enum permission-state {
@@ -26,6 +54,12 @@ interface context {
   /// host has granted `editor.current.read`.
   get-editor-snapshot: func() -> editor-snapshot;
 
+  /// Returns the current editor selection range when `editor.current.read` is granted.
+  get-editor-selection: func() -> option<selection-range>;
+
+  /// Returns workspace metadata when `workspace.read` is granted.
+  get-workspace-info: func() -> workspace-info;
+
   /// Requests a permission by id (for example "editor.current.read").
   /// Returns the current state; the host decides whether the user is asked.
   request-permission: func(permission: string) -> permission-state;
@@ -34,6 +68,20 @@ interface context {
   /// granted. Paths are relative to the workspace root and are validated by
   /// the host against the workspace boundary.
   read-workspace-file: func(path: string) -> result<string, string>;
+
+  /// Lists entries in a workspace directory (relative to workspace root) when
+  /// `workspace.read` is granted. The host enforces workspace boundary and max count limit.
+  list-workspace-files: func(directory: string, max-count: u32) -> result<list<file-entry>, string>;
+
+  /// Requests the host to register a file or directory watcher within the workspace boundary.
+  /// Returns a watch identifier handle when `workspace.read` is granted.
+  watch-workspace-path: func(path: string) -> result<u64, string>;
+
+  /// Unregisters an active workspace file watcher handle.
+  unwatch-workspace-path: func(watch-id: u64) -> result<bool, string>;
+
+  /// Sends a structured log message to the host standard logger for extension diagnostics.
+  log: func(level: string, message: string);
 }
 
 /// The extension's render contract.
@@ -54,3 +102,4 @@ world aurona-extension {
   import context;
   export render;
 }
+

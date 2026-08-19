@@ -10,7 +10,9 @@ import { SIDEBAR_EXTENSIONS } from "../../Shared/Constants/Sidebar";
 import { useExtensionStore } from "../../State/useExtensionStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Button } from "../../UI/Components/Button";
+import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
+import { resolveExtensionName } from "./ExtensionUtils";
 import { type ExtensionRenderState, ExtensionViewHost } from "./ExtensionViewHost";
 
 const LARGE_DOCUMENT_BYTES = 512 * 1024;
@@ -20,6 +22,11 @@ const LARGE_DOCUMENT_DEBOUNCE_MS = 350;
 function currentTheme(): string {
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
+
+const isMarkdownFile = (filePath: string | null): boolean => {
+  if (!filePath) return false;
+  return /\.(md|markdown|mdown|mkd|mdx)$/i.test(filePath);
+};
 
 export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   const { t, locale } = useLocale();
@@ -45,22 +52,31 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   activePathRef.current = activePath;
 
   const runRender = useCallback(
-    async (document: { content: string; version: number }) => {
+    async (docPayload: { content: string; version: number }) => {
       const currentGeneration = ++generation.current;
       try {
+        const isBold = window.document.documentElement.getAttribute("data-bold-text") === "true";
+        const fontSizeAttr =
+          window.document.documentElement.getAttribute("data-font-size") || "default";
+        const accentTheme =
+          window.document.documentElement.getAttribute("data-accent-theme") || "aurora";
         const response = await ExtensionIPC.render({
           extensionId,
-          markdown: document.content,
+          markdown: docPayload.content,
           activeEditorPath: activePathRef.current,
           theme: currentTheme(),
+          accentColor: accentTheme,
+          colorScheme: currentTheme(),
           locale,
+          fontWeight: isBold ? "bold" : "normal",
+          fontSize: fontSizeAttr,
         });
         if (currentGeneration !== generation.current) return;
         setRenderError(null);
         setRenderState({
           html: response.html,
           diagnostics: response.diagnostics,
-          revision: document.version,
+          revision: docPayload.version,
         });
       } catch (error) {
         if (currentGeneration !== generation.current) return;
@@ -85,7 +101,12 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
   const refresh = useCallback(async () => {
     const path = activePathRef.current;
-    if (!path) return;
+    if (!path || !isMarkdownFile(path)) {
+      latestDocument.current = null;
+      setRenderState(null);
+      setRenderError(null);
+      return;
+    }
     let record = DocumentService.get(path);
     if (!record || record.content === undefined) {
       try {
@@ -131,9 +152,14 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   }, [extensionId, refresh]);
 
   useEffect(() => {
+    if (debounceTimer.current !== null) {
+      window.clearTimeout(debounceTimer.current);
+      debounceTimer.current = null;
+    }
     if (!activePath) {
       latestDocument.current = null;
       setRenderState(null);
+      setRenderError(null);
       return;
     }
     void refresh();
@@ -143,11 +169,18 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
         setRenderState(null);
         return;
       }
+      const prev = latestDocument.current;
       latestDocument.current = { content: record.content, version: record.version };
-      if (editorPermission === "granted") scheduleRender();
+      if (editorPermission === "granted") {
+        if (!prev || prev.version === 0) {
+          void runRender(latestDocument.current);
+        } else {
+          scheduleRender();
+        }
+      }
     });
     return unsubscribe;
-  }, [activePath, editorPermission, refresh, scheduleRender]);
+  }, [activePath, editorPermission, refresh, runRender, scheduleRender]);
 
   useEffect(
     () => () => {
@@ -156,13 +189,19 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
     [],
   );
 
-  const name = descriptor?.name ?? extensionId;
+  useEffect(() => {
+    if (renderError) {
+      showToast(`${t("extensions.renderError")}: ${renderError}`, "error");
+    }
+  }, [renderError, t]);
+
+  const name = resolveExtensionName(descriptor, locale) || extensionId;
   const isPermissionGranted = editorPermission === "granted";
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       {/* 顶部标题栏：由 Aurona Code 宿主获取名称，不显示版本号，提供刷新按钮 */}
-      <div className="flex shrink-0 items-center justify-between gap-2 px-3.5 pb-2 pt-2.5">
+      <div className="flex shrink-0 items-center justify-between gap-2 px-3.5 pb-1.5 pt-2">
         <h2 className="truncate text-[13px] font-semibold text-[var(--color-text-highlight)]">
           {name}
         </h2>
@@ -178,7 +217,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
       </div>
 
       {/* 核心内卡片容器：带边距与圆角矩形，内部由插件完全掌控设计 */}
-      <div className="relative mx-3 mb-3 flex min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/30 shadow-[inset_0_1px_1px_var(--material-inset)]">
+      <div className="relative mx-2.5 mb-2.5 flex min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/30 shadow-[inset_0_1px_1px_var(--material-inset)]">
         {!isPermissionGranted ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
             <div className="flex size-10 items-center justify-center rounded-xl bg-[var(--material-surface)] text-[var(--color-text-muted)]">
@@ -198,6 +237,30 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
           <div className="grid h-full place-items-center px-4 text-center text-xs text-[var(--color-text-muted)]">
             {t("extensions.viewFailed")}
           </div>
+        ) : !activePath ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-[var(--material-surface)] text-[var(--color-text-muted)]">
+              <Icons.FileText size={20} stroke={1.5} />
+            </div>
+            <span className="text-[13px] font-medium text-[var(--color-text-primary)]">
+              {t("extensions.noActiveEditor")}
+            </span>
+            <p className="max-w-[220px] text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+              {t("extensions.markdownOnlyPrompt")}
+            </p>
+          </div>
+        ) : !isMarkdownFile(activePath) ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-[var(--material-surface)] text-[var(--color-text-muted)]">
+              <Icons.FileText size={20} stroke={1.5} />
+            </div>
+            <span className="text-[13px] font-medium text-[var(--color-text-primary)]">
+              {t("extensions.nonMarkdownFile")}
+            </span>
+            <p className="max-w-[220px] text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+              {t("extensions.markdownOnlyPrompt")}
+            </p>
+          </div>
         ) : view ? (
           <ExtensionViewHost
             viewHtml={view.html}
@@ -209,11 +272,6 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
             {t("extensions.loading")}
           </div>
         )}
-        {renderError ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-[var(--color-surface-2)]/90 px-3 py-2 text-[11px] text-[var(--color-error)] backdrop-blur">
-            {t("extensions.renderError")}: {renderError}
-          </div>
-        ) : null}
       </div>
     </div>
   );

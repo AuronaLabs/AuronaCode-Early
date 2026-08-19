@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::{Cursor, Read};
 use std::sync::Arc;
 
@@ -24,8 +24,14 @@ pub struct ExtensionManifest {
     pub package_version: u32,
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub display_name: Option<HashMap<String, String>>,
     pub publisher: String,
     pub version: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub display_description: Option<HashMap<String, String>>,
     pub engine: EngineRequirement,
     pub runtime: RuntimeEntry,
     pub sidebar: SidebarEntry,
@@ -48,6 +54,8 @@ pub struct RuntimeEntry {
 #[serde(rename_all = "camelCase")]
 pub struct SidebarEntry {
     pub title: String,
+    #[serde(default)]
+    pub display_title: Option<HashMap<String, String>>,
     pub icon: String,
 }
 

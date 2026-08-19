@@ -13,6 +13,7 @@ import {
   type BenchmarkKind,
   type BenchmarkResult,
   type BenchmarkSnapshot,
+  calculateCompositeScore,
   compareSemanticVersionsDescending,
   environmentKey,
   type LeaderboardEntry,
@@ -64,6 +65,11 @@ const BENCHMARKS: { id: BenchmarkKind; labelKey: I18nKey; descriptionKey: I18nKe
     id: "encoding",
     labelKey: "performance.benchmarks.encoding.label",
     descriptionKey: "performance.benchmarks.encoding.description",
+  },
+  {
+    id: "wasm",
+    labelKey: "performance.benchmarks.wasm.label",
+    descriptionKey: "performance.benchmarks.wasm.description",
   },
 ];
 const formatDuration = (nanoseconds: number) =>
@@ -203,9 +209,18 @@ export function PerformanceBenchmarkPage() {
   const [runningKind, setRunningKind] = useState<BenchmarkKind | null>(null);
   const [isRunningAll, setIsRunningAll] = useState(false);
   const [lastRunAt, setLastRunAt] = useState<string | null>(null);
-  const [expandedKind, setExpandedKind] = useState<BenchmarkKind | null>(null);
+  const [expandedKinds, setExpandedKinds] = useState<Set<BenchmarkKind>>(new Set());
   const cancellationRef = useRef(0);
   const activeRequestIdRef = useRef<string | null>(null);
+
+  const toggleExpanded = useCallback((kind: BenchmarkKind) => {
+    setExpandedKinds((prev) => {
+      const next = new Set(prev);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
+  }, []);
 
   const benchmarkLabel = useCallback(
     (kind: BenchmarkKind) =>
@@ -441,14 +456,18 @@ export function PerformanceBenchmarkPage() {
           const stable = (candidateResult?.statistics?.coefficientVariation ?? 0) <= 15;
           return duration && baselineDuration && stable ? [baselineDuration / duration] : [];
         });
+        const actualMetricsCount = Object.values(item.results)
+          .flat()
+          .filter((r) => r && r.status === "ok").length;
+        const finalScore =
+          ratios.length > 0
+            ? Math.exp(average(ratios.map((ratio) => Math.log(ratio)))) * 100
+            : calculateCompositeScore(item);
         return {
           version: item.environment?.appVersion ?? t("performance.unknownVersion"),
           generatedAt: item.generatedAt,
-          score:
-            ratios.length > 0
-              ? Math.exp(average(ratios.map((ratio) => Math.log(ratio)))) * 100
-              : null,
-          measuredMetrics: ratios.length,
+          score: finalScore,
+          measuredMetrics: actualMetricsCount > 0 ? actualMetricsCount : ratios.length,
         };
       })
       .sort((left, right) => compareSemanticVersionsDescending(left.version, right.version));
@@ -748,22 +767,22 @@ export function PerformanceBenchmarkPage() {
                   </span>
                   <button
                     type="button"
-                    onClick={() =>
-                      setExpandedKind((current) => (current === benchmark.id ? null : benchmark.id))
-                    }
+                    onClick={() => toggleExpanded(benchmark.id)}
                     className="flex items-center gap-1 text-[11px] font-medium text-[var(--color-accent)] transition-opacity hover:opacity-80"
                   >
                     <Icons.ChevronRight
                       size={13}
                       stroke={2}
-                      className={`transition-transform duration-150 ${expandedKind === benchmark.id ? "rotate-90" : ""}`}
+                      className={`transition-transform duration-150 ${expandedKinds.has(benchmark.id) ? "rotate-90" : ""}`}
                     />
-                    {expandedKind === benchmark.id
+                    {expandedKinds.has(benchmark.id)
                       ? t("performance.collapseDetails")
                       : t("performance.viewDetails")}
                   </button>
                 </div>
-                {expandedKind === benchmark.id && ok && <BenchmarkDetail result={ok} />}
+                {expandedKinds.has(benchmark.id) && suite && suite.length > 0 && (
+                  <BenchmarkDetail kind={benchmark.id} results={suite} />
+                )}
               </Card>
             );
           })}
@@ -933,71 +952,108 @@ function BenchmarkIcon({ id }: { id: BenchmarkKind }) {
       return <Icons.Search size={18} />;
     case "encoding":
       return <Icons.Typography size={18} />;
+    case "wasm":
+      return <Icons.Extensions size={18} />;
   }
 }
 
-function BenchmarkDetail({ result }: { result: BenchmarkResult }) {
+function BenchmarkDetail({ kind, results }: { kind: BenchmarkKind; results: BenchmarkResult[] }) {
   const { t } = useLocale();
-  const samples = result.samplesNs ?? [];
-  const statistics = result.statistics;
-  if (!statistics || samples.length < 2) {
+  const primary = results[0];
+  if (!primary) return null;
+
+  const samples = primary.samplesNs ?? [];
+  const statistics = primary.statistics;
+
+  // 单项统计直方图呈现（主要针对 IPC / UI）
+  if (statistics && samples.length >= 2) {
+    const sorted = [...samples].sort((left, right) => left - right);
+    const min = sorted[0];
+    const max = sorted[sorted.length - 1];
+    const p50 = percentile(samples, 0.5);
+    const p95 = percentile(samples, 0.95);
+    const bucketCount = 14;
+    const range = Math.max(max - min, 1);
+    const counts = new Array<number>(bucketCount).fill(0);
+    for (const sample of samples) {
+      const index = Math.min(bucketCount - 1, Math.floor(((sample - min) / range) * bucketCount));
+      counts[index] += 1;
+    }
+    const maxCount = Math.max(...counts, 1);
+    const buckets = counts.map((count, index) => ({
+      id: `bar-${(min + (index * range) / bucketCount).toFixed(0)}`,
+      count,
+    }));
+
     return (
-      <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] p-3 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
-        {result.details}
+      <div className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] p-3">
+        <div className="grid grid-cols-3 gap-2 text-[11px]">
+          {[
+            [
+              t("performance.detailSamples"),
+              `${samples.length} ${t("performance.detailSamplesUnit")}`,
+            ],
+            [t("performance.detailP50"), formatDuration(p50)],
+            [t("performance.detailP95"), formatDuration(p95)],
+            [t("performance.detailMin"), formatDuration(min)],
+            [t("performance.detailMax"), formatDuration(max)],
+            [t("performance.detailVariation"), `${statistics.coefficientVariation.toFixed(1)}%`],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg bg-[var(--material-panel)] px-2.5 py-2">
+              <div className="text-[10px] text-[var(--color-text-muted)]">{label}</div>
+              <div className="mt-0.5 font-mono text-[12px] font-semibold text-[var(--color-text-highlight)]">
+                {value}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex h-16 items-end gap-1 px-1">
+          {buckets.map((bucket) => (
+            <div
+              key={bucket.id}
+              className="flex-1 rounded-t-sm bg-[var(--color-accent)]/60 transition-all hover:bg-[var(--color-accent)]"
+              style={{ height: `${Math.max(6, (bucket.count / maxCount) * 100)}%` }}
+            />
+          ))}
+        </div>
+        <div className="flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-panel)] px-3 py-2 text-[11px] text-[var(--color-text-muted)]">
+          <span className="text-[var(--color-accent)]">
+            <BenchmarkIcon id={kind} />
+          </span>
+          <span className="flex-1 leading-relaxed">{formatResultDetails(primary, t)}</span>
+        </div>
       </div>
     );
   }
-  const sorted = [...samples].sort((left, right) => left - right);
-  const min = sorted[0];
-  const max = sorted[sorted.length - 1];
-  const p50 = percentile(samples, 0.5);
-  const p95 = percentile(samples, 0.95);
-  const bucketCount = 14;
-  const range = Math.max(max - min, 1);
-  const counts = new Array<number>(bucketCount).fill(0);
-  for (const sample of samples) {
-    const index = Math.min(bucketCount - 1, Math.floor(((sample - min) / range) * bucketCount));
-    counts[index] += 1;
-  }
-  const maxCount = Math.max(...counts, 1);
-  const buckets = counts.map((count, index) => ({
-    id: `bar-${(min + (index * range) / bucketCount).toFixed(0)}`,
-    count,
-  }));
+
+  // 多子项指标卡片呈现（针对 FS, Editor, Search, Encoding, WASM 等）
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] p-3">
-      <div className="grid grid-cols-3 gap-2 text-[11px]">
-        {[
-          [
-            t("performance.detailSamples"),
-            `${samples.length} ${t("performance.detailSamplesUnit")}`,
-          ],
-          [t("performance.detailP50"), formatDuration(p50)],
-          [t("performance.detailP95"), formatDuration(p95)],
-          [t("performance.detailMin"), formatDuration(min)],
-          [t("performance.detailMax"), formatDuration(max)],
-          [t("performance.detailVariation"), `${statistics.coefficientVariation.toFixed(1)}%`],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-lg bg-[var(--material-panel)] px-2.5 py-2">
-            <div className="text-[10px] text-[var(--color-text-muted)]">{label}</div>
-            <div className="mt-0.5 font-mono text-[12px] font-semibold text-[var(--color-text-highlight)]">
-              {value}
+    <div className="flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] p-3">
+      <div className="grid gap-1.5">
+        {results.map((item) => (
+          <div
+            key={item.id}
+            className="flex items-center justify-between rounded-lg bg-[var(--material-panel)] px-3 py-2 text-[11px]"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="text-[var(--color-accent)] shrink-0">
+                <BenchmarkIcon id={kind} />
+              </span>
+              <span className="font-medium text-[var(--color-text-highlight)] truncate">
+                {item.name || item.id}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 shrink-0 font-mono">
+              <span className="text-[var(--color-text-primary)]">
+                {item.value.toFixed(item.unit === "ops/s" ? 0 : 2)} {item.unit}
+              </span>
+              <span className="text-[10px] text-[var(--color-text-muted)]">
+                {formatDuration(item.durationNs)}
+              </span>
             </div>
           </div>
         ))}
       </div>
-      <div className="flex h-16 items-end gap-1">
-        {buckets.map((bucket) => (
-          <div
-            key={bucket.id}
-            className="flex-1 rounded-t-sm bg-[var(--color-accent)]/50"
-            style={{ height: `${Math.max(4, (bucket.count / maxCount) * 100)}%` }}
-          />
-        ))}
-      </div>
-      <p className="text-[10.5px] leading-relaxed text-[var(--color-text-muted)]">
-        {formatResultDetails(result, t)}
-      </p>
     </div>
   );
 }

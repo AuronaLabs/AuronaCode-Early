@@ -11,13 +11,15 @@ bindgen!({
 
 pub use aurona::extensions::context::{
     EditorSnapshot as ContextEditorSnapshot, Environment as ContextEnvironment,
-    PermissionState as ContextPermissionState,
+    FileEntry as ContextFileEntry, PermissionState as ContextPermissionState,
+    SelectionRange as ContextSelectionRange, WorkspaceInfo as ContextWorkspaceInfo,
 };
 pub use exports::aurona::extensions::render::{RenderInput, RenderOutput};
 
 const DEFAULT_MEMORY_BYTES: usize = 64 * 1024 * 1024;
 const DEFAULT_FUEL: u64 = 10_000_000;
 const MAX_WORKSPACE_READ_BYTES: u64 = 4 * 1024 * 1024;
+const MAX_WORKSPACE_LIST_ENTRIES: u32 = 1000;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ExtensionLimits {
@@ -38,8 +40,10 @@ impl Default for ExtensionLimits {
 /// extension may see; the component itself cannot reach beyond these values.
 pub struct ExtensionContext {
     pub workspace_root: Option<std::path::PathBuf>,
+    pub workspace_name: Option<String>,
     pub environment: ContextEnvironment,
     pub editor_snapshot: Option<ContextEditorSnapshot>,
+    pub editor_selection: Option<ContextSelectionRange>,
     pub editor_permission: ContextPermissionState,
     pub workspace_permission: ContextPermissionState,
     pub limits: StoreLimits,
@@ -54,8 +58,10 @@ impl ExtensionContext {
     ) -> Self {
         Self {
             workspace_root,
+            workspace_name: None,
             environment,
             editor_snapshot: None,
+            editor_selection: None,
             editor_permission: ContextPermissionState::Unknown,
             workspace_permission: ContextPermissionState::Unknown,
             limits: StoreLimitsBuilder::new()
@@ -91,7 +97,13 @@ impl aurona::extensions::context::Host for ExtensionContext {
     fn get_environment(&mut self) -> ContextEnvironment {
         ContextEnvironment {
             theme: self.environment.theme.clone(),
+            accent_color: self.environment.accent_color.clone(),
+            color_scheme: self.environment.color_scheme.clone(),
             locale: self.environment.locale.clone(),
+            font_weight: self.environment.font_weight.clone(),
+            font_size: self.environment.font_size.clone(),
+            app_version: self.environment.app_version.clone(),
+            platform: self.environment.platform.clone(),
         }
     }
 
@@ -110,6 +122,36 @@ impl aurona::extensions::context::Host for ExtensionContext {
                 content: None,
                 version: 0,
             },
+        }
+    }
+
+    fn get_editor_selection(&mut self) -> Option<ContextSelectionRange> {
+        if self.editor_permission == ContextPermissionState::Granted {
+            self.editor_selection.clone()
+        } else {
+            None
+        }
+    }
+
+    fn get_workspace_info(&mut self) -> ContextWorkspaceInfo {
+        if self.workspace_permission == ContextPermissionState::Granted
+            && self.workspace_root.is_some()
+        {
+            let root = self.workspace_root.as_ref().unwrap();
+            let root_name = root
+                .file_name()
+                .map(|name| name.to_string_lossy().to_string());
+            ContextWorkspaceInfo {
+                has_workspace: true,
+                name: self.workspace_name.clone().or_else(|| root_name.clone()),
+                root_name,
+            }
+        } else {
+            ContextWorkspaceInfo {
+                has_workspace: false,
+                name: None,
+                root_name: None,
+            }
         }
     }
 
@@ -165,6 +207,123 @@ impl aurona::extensions::context::Host for ExtensionContext {
         }
 
         std::fs::read_to_string(&resolved).map_err(|error| format!("读取文件 {path} 失败: {error}"))
+    }
+
+    fn list_workspace_files(
+        &mut self,
+        directory: String,
+        max_count: u32,
+    ) -> Result<Vec<ContextFileEntry>, String> {
+        if self.workspace_permission != ContextPermissionState::Granted {
+            return Err("workspace.read is not granted".to_string());
+        }
+        let root = self
+            .workspace_root
+            .as_ref()
+            .ok_or_else(|| "尚未打开工作区".to_string())?;
+
+        let dir_path = Path::new(&directory);
+        let mut safe = true;
+        for component in dir_path.components() {
+            match component {
+                Component::ParentDir | Component::Prefix(_) => {
+                    safe = false;
+                    break;
+                }
+                _ => {}
+            }
+        }
+        if !safe {
+            return Err(format!("不安全的工作区目录路径: {directory}"));
+        }
+
+        let canonical_root = root
+            .canonicalize()
+            .map_err(|error| format!("无法解析工作区根目录 {}: {error}", root.display()))?;
+        let target_dir = if directory.is_empty() || directory == "." {
+            canonical_root.clone()
+        } else {
+            canonical_root.join(dir_path).canonicalize().map_err(|error| {
+                format!("无法解析工作区目录 {directory}: {error}")
+            })?
+        };
+
+        if !target_dir.starts_with(&canonical_root) {
+            return Err(format!("不允许访问工作区外的目录: {directory}"));
+        }
+        if !target_dir.is_dir() {
+            return Err(format!("指定路径不是目录: {directory}"));
+        }
+
+        let limit = max_count.min(MAX_WORKSPACE_LIST_ENTRIES) as usize;
+        let mut entries = Vec::new();
+        let read_dir = std::fs::read_dir(&target_dir)
+            .map_err(|error| format!("列出目录 {directory} 失败: {error}"))?;
+
+        for entry in read_dir {
+            if entries.len() >= limit {
+                break;
+            }
+            if let Ok(entry) = entry {
+                let name = entry.file_name().to_string_lossy().to_string();
+                let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+                let size_bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                entries.push(ContextFileEntry {
+                    name,
+                    is_directory: is_dir,
+                    size_bytes,
+                });
+            }
+        }
+        entries.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(entries)
+    }
+
+    fn watch_workspace_path(&mut self, path: String) -> Result<u64, String> {
+        let root = self
+            .workspace_root
+            .as_ref()
+            .ok_or_else(|| "当前未打开工作区".to_string())?;
+        if self.workspace_permission != ContextPermissionState::Granted {
+            return Err("缺少 workspace.read 权限".to_string());
+        }
+
+        let rel_path = Path::new(&path);
+        let mut safe = true;
+        for comp in rel_path.components() {
+            match comp {
+                Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                    safe = false;
+                    break;
+                }
+                _ => {}
+            }
+        }
+        if !safe {
+            return Err(format!("不安全的文件监听路径: {path}"));
+        }
+
+        let canonical_root = root
+            .canonicalize()
+            .map_err(|error| format!("无法解析工作区根目录 {}: {error}", root.display()))?;
+        let target = if path.is_empty() || path == "." {
+            canonical_root.clone()
+        } else {
+            canonical_root.join(rel_path)
+        };
+
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        std::hash::Hash::hash(&target.to_string_lossy(), &mut hasher);
+        let watch_id = std::hash::Hasher::finish(&hasher);
+        Ok(watch_id)
+    }
+
+    fn unwatch_workspace_path(&mut self, _watch_id: u64) -> Result<bool, String> {
+        Ok(true)
+    }
+
+    fn log(&mut self, level: String, message: String) {
+        eprintln!("[aurona-extension][{level}] {message}");
     }
 }
 
@@ -238,7 +397,13 @@ mod tests {
     fn test_environment() -> ContextEnvironment {
         ContextEnvironment {
             theme: "coral-sunset".to_string(),
+            accent_color: "coral".to_string(),
+            color_scheme: "dark".to_string(),
             locale: "zh-CN".to_string(),
+            font_weight: "normal".to_string(),
+            font_size: "default".to_string(),
+            app_version: "0.3.13".to_string(),
+            platform: "windows".to_string(),
         }
     }
 
@@ -345,6 +510,51 @@ mod tests {
             host.read_workspace_file("file.txt".to_string()),
             Ok("ok".to_string())
         );
+        std::fs::remove_dir_all(&temp).ok();
+    }
+
+    #[test]
+    fn environment_reports_metadata() {
+        let mut context = test_context(None);
+        context.environment.app_version = "0.3.13".to_string();
+        context.environment.platform = "windows".to_string();
+        let env = context.get_environment();
+        assert_eq!(env.theme, "coral-sunset");
+        assert_eq!(env.locale, "zh-CN");
+        assert_eq!(env.app_version, "0.3.13");
+        assert_eq!(env.platform, "windows");
+    }
+
+    #[test]
+    fn workspace_info_and_list_files_requires_grant() {
+        let temp =
+            std::env::temp_dir().join(format!("aurona-ext-list-{}", std::process::id()));
+        std::fs::create_dir_all(&temp).unwrap();
+        std::fs::write(temp.join("a.md"), b"test").unwrap();
+        std::fs::create_dir(temp.join("sub")).unwrap();
+
+        let mut host = test_context(Some(temp.clone()));
+        host.workspace_name = Some("MyWorkspace".to_string());
+        host.workspace_permission = ContextPermissionState::Denied;
+        
+        let info = host.get_workspace_info();
+        assert!(!info.has_workspace);
+        assert_eq!(info.name, None);
+        assert!(host.list_workspace_files(".".to_string(), 10).is_err());
+
+        host.workspace_permission = ContextPermissionState::Granted;
+        let info = host.get_workspace_info();
+        assert!(info.has_workspace);
+        assert_eq!(info.name.as_deref(), Some("MyWorkspace"));
+
+        let files = host.list_workspace_files(".".to_string(), 10).unwrap();
+        assert_eq!(files.len(), 2);
+        assert_eq!(files[0].name, "a.md");
+        assert!(!files[0].is_directory);
+        assert_eq!(files[1].name, "sub");
+        assert!(files[1].is_directory);
+
+        assert!(host.list_workspace_files("../".to_string(), 10).is_err());
         std::fs::remove_dir_all(&temp).ok();
     }
 

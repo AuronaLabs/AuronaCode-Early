@@ -145,6 +145,10 @@ export function SettingsTab() {
   const [accentTheme, setAccentTheme] = useState<AccentThemeId>("aurora");
   const [liquidTexture, setLiquidTexture] = useState(false);
   const [density, setDensity] = useState<Density>("default");
+  const [boldText, setBoldText] = useState(false);
+  const [interfaceFontSize, setInterfaceFontSize] = useState<
+    "compact" | "default" | "comfortable" | "large"
+  >("default");
 
   const [editorFontSize, setEditorFontSize] = useState("14");
   const [editorLineHeight, setEditorLineHeight] = useState("24");
@@ -168,6 +172,22 @@ export function SettingsTab() {
       const savedDensity = (config.density ?? "default") as Density;
       setDensity(savedDensity);
       applyDensity(savedDensity);
+
+      const savedBoldText = config.boldText ?? false;
+      setBoldText(savedBoldText);
+      if (savedBoldText) {
+        document.documentElement.setAttribute("data-bold-text", "true");
+      } else {
+        document.documentElement.removeAttribute("data-bold-text");
+      }
+
+      const savedInterfaceFont = config.interfaceFontSize ?? "default";
+      setInterfaceFontSize(savedInterfaceFont);
+      if (savedInterfaceFont !== "default") {
+        document.documentElement.setAttribute("data-font-size", savedInterfaceFont);
+      } else {
+        document.documentElement.removeAttribute("data-font-size");
+      }
 
       const savedEditorFont = config.editorFontSize?.toString() || "14";
       const savedEditorLineHeight = config.editorLineHeight?.toString() || "24";
@@ -217,6 +237,26 @@ export function SettingsTab() {
     setDensity(next);
     applyDensity(next);
     void UserConfigStore.set({ density: next });
+  };
+
+  const handleBoldTextChange = (enabled: boolean) => {
+    setBoldText(enabled);
+    if (enabled) {
+      document.documentElement.setAttribute("data-bold-text", "true");
+    } else {
+      document.documentElement.removeAttribute("data-bold-text");
+    }
+    void UserConfigStore.set({ boldText: enabled });
+  };
+
+  const handleInterfaceFontSizeChange = (size: "compact" | "default" | "comfortable" | "large") => {
+    setInterfaceFontSize(size);
+    if (size !== "default") {
+      document.documentElement.setAttribute("data-font-size", size);
+    } else {
+      document.documentElement.removeAttribute("data-font-size");
+    }
+    void UserConfigStore.set({ interfaceFontSize: size });
   };
 
   const resetEditorFontSize = () => {
@@ -458,9 +498,13 @@ export function SettingsTab() {
       accentTheme={accentTheme}
       intensity={intensity}
       liquidTexture={liquidTexture}
+      boldText={boldText}
+      interfaceFontSize={interfaceFontSize}
       onAccentThemeChange={handleAccentThemeChange}
       onIntensityChange={(value) => setIntensity(value)}
       onLiquidTextureChange={handleLiquidTextureChange}
+      onBoldTextChange={handleBoldTextChange}
+      onInterfaceFontSizeChange={handleInterfaceFontSizeChange}
     />
   );
 

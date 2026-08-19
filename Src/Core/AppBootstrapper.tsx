@@ -58,8 +58,19 @@ export function AppBootstrapper({ children }: Props) {
 
         applyAccentTheme(userConfig.accentTheme);
         applyLiquidTexture(userConfig.liquidTexture ?? false);
-
         applyResponsiveDensity(userConfig.density);
+
+        if (userConfig.boldText) {
+          document.documentElement.setAttribute("data-bold-text", "true");
+        } else {
+          document.documentElement.removeAttribute("data-bold-text");
+        }
+
+        if (userConfig.interfaceFontSize && userConfig.interfaceFontSize !== "default") {
+          document.documentElement.setAttribute("data-font-size", userConfig.interfaceFontSize);
+        } else {
+          document.documentElement.removeAttribute("data-font-size");
+        }
 
         const savedEditorFont = userConfig.editorFontSize?.toString() || "14";
         const savedEditorLineHeight = userConfig.editorLineHeight?.toString() || "24";

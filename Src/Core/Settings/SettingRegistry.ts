@@ -152,6 +152,26 @@ registerSetting({
 });
 
 registerSetting({
+  id: "boldText",
+  category: "appearance",
+  titleKey: "settings.definitions.boldText.title",
+  descriptionKey: "settings.definitions.boldText.description",
+  keywords: ["bold", "weight", "font", "粗体", "字重", "字体"],
+  type: "boolean",
+  defaultValue: false,
+});
+
+registerSetting({
+  id: "interfaceFontSize",
+  category: "appearance",
+  titleKey: "settings.definitions.interfaceFontSize.title",
+  descriptionKey: "settings.definitions.interfaceFontSize.description",
+  keywords: ["font", "size", "interface", "scale", "字号", "文字大小", "界面"],
+  type: "select",
+  defaultValue: "default",
+});
+
+registerSetting({
   id: "hoverEnabled",
   category: "codeIntelligence",
   titleKey: "settings.definitions.hoverEnabled.title",

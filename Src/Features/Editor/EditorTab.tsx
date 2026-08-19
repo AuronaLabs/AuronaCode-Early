@@ -2,13 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { DocumentService } from "../../Core/DocumentService";
 import { FileSystemService } from "../../Core/FileSystemService";
 import { RecoveryCoordinator } from "../../Core/Recovery/RecoveryCoordinator";
-import { type RecoverySnapshot, RecoveryStore } from "../../Core/Recovery/RecoveryStore";
+import { RecoveryStore } from "../../Core/Recovery/RecoveryStore";
 import { DesktopError } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { isBinaryExtension } from "../../Shared/Constants/FileTypes";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
-import { showToast } from "../../UI/Feedback/Toast";
+import { showNotification, showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { AuronaEngine } from "./AuronaEngine";
 import { EditorBreadcrumb } from "./components/EditorBreadcrumb";
@@ -25,18 +25,18 @@ const getExtension = (filePath: string) => {
   return index >= 0 ? filePath.slice(index + 1).toLowerCase() : "";
 };
 
-export const EditorTab = React.memo(function EditorTab({
+export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab({
   path,
   isActive,
   revealLine,
   onRevealHandled,
-}: EditorTabProps) {
+}) {
   const { t } = useLocale();
   const [fileContent, setFileContent] = useState("");
   const [savedContent, setSavedContent] = useState("");
   const [isEditorReady, setIsEditorReady] = useState(false);
-  const [isBinaryWarning, setIsBinaryWarning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isBinaryWarning, setIsBinaryWarning] = useState(false);
   const [syncError, setSyncError] = useState<Error | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [diskFingerprint, setDiskFingerprint] = useState("");
@@ -44,7 +44,6 @@ export const EditorTab = React.memo(function EditorTab({
     content: string;
     nonce: number;
   } | null>(null);
-  const [pendingRecovery, setPendingRecovery] = useState<RecoverySnapshot | null>(null);
   const [loadError, setLoadError] = useState<{ code?: string; message: string } | null>(null);
   const loadedPathRef = useRef<string | null>(null);
   const contentRef = useRef("");
@@ -53,52 +52,93 @@ export const EditorTab = React.memo(function EditorTab({
 
   const isDirty = fileContent !== savedContent;
 
-  const loadContent = useCallback(async (filePath: string, force = false) => {
-    try {
-      const ext = getExtension(filePath);
-      if (!force && isBinaryExtension(ext)) {
-        setLoadError(null);
-        setIsBinaryWarning(true);
-        setFileContent("");
-        setSavedContent("");
-        EventBus.emit("editor:dirty-cleared", { path: filePath });
-        return;
-      }
+  const loadContent = useCallback(
+    async (filePath: string, force = false) => {
+      try {
+        const ext = getExtension(filePath);
+        if (!force && isBinaryExtension(ext)) {
+          setLoadError(null);
+          setIsBinaryWarning(true);
+          setFileContent("");
+          setSavedContent("");
+          EventBus.emit("editor:dirty-cleared", { path: filePath });
+          return;
+        }
 
-      setIsBinaryWarning(false);
-      setLoadError(null);
-      setSyncError(null);
-      DocumentService.clearSyncError(filePath);
-      setIsEditorReady(false);
-      const document = await DocumentService.open(filePath);
-      const content = document.content;
-      setDiskFingerprint(document.diskFingerprint);
-      setPendingRecovery(await RecoveryStore.load(filePath));
-      setFileContent(content);
-      setSavedContent(content);
-      setExternalContent(null);
-      contentRef.current = content;
-      savedContentRef.current = content;
-      setIsEditorReady(true);
-      EventBus.emit("editor:dirty-cleared", { path: filePath });
-    } catch (error) {
-      const message = FileSystemService.toMessage(error);
-      if (!force && /utf-8|invalid data|stream did not contain/i.test(message)) {
-        setIsBinaryWarning(true);
-        setFileContent("");
-        setSavedContent("");
-      } else {
-        setLoadError({
-          code: error instanceof DesktopError ? error.code : undefined,
-          message,
-        });
-        setFileContent("");
-        setSavedContent("");
+        setIsBinaryWarning(false);
+        setLoadError(null);
+        setSyncError(null);
+        DocumentService.clearSyncError(filePath);
         setIsEditorReady(false);
+        const document = await DocumentService.open(filePath);
+        const content = document.content;
+        const recovery = await RecoveryStore.load(filePath);
+        if (recovery && recovery.text !== content) {
+          const fileName = filePath.split(/[\\/]/).pop() || filePath;
+          showNotification({
+            id: `recovery-${filePath}`,
+            type: "confirm",
+            title: t("editor.recoverySnapshotTitle"),
+            message: t("editor.recoverySnapshotMessage").replace("{file}", fileName),
+            duration: null,
+            actions: [
+              {
+                label: t("editor.restoreAction"),
+                primary: true,
+                onClick: async () => {
+                  try {
+                    await DocumentService.applyEdit(
+                      filePath,
+                      0,
+                      contentRef.current.length,
+                      recovery.text,
+                      recovery.text,
+                    );
+                    contentRef.current = recovery.text;
+                    setFileContent(recovery.text);
+                    showToast(t("editor.recoveryRestored"), "success");
+                  } catch (err) {
+                    setSyncError(err instanceof Error ? err : new Error(String(err)));
+                  }
+                },
+              },
+              {
+                label: t("editor.ignoreAction"),
+                variant: "secondary",
+                onClick: async () => {
+                  await RecoveryStore.remove(filePath);
+                },
+              },
+            ],
+          });
+        }
+        setFileContent(content);
+        setSavedContent(content);
+        setExternalContent(null);
+        contentRef.current = content;
+        savedContentRef.current = content;
+        setIsEditorReady(true);
+        EventBus.emit("editor:dirty-cleared", { path: filePath });
+      } catch (error) {
+        const message = FileSystemService.toMessage(error);
+        if (!force && /utf-8|invalid data|stream did not contain/i.test(message)) {
+          setIsBinaryWarning(true);
+          setFileContent("");
+          setSavedContent("");
+        } else {
+          setLoadError({
+            code: error instanceof DesktopError ? error.code : undefined,
+            message,
+          });
+          setFileContent("");
+          setSavedContent("");
+          setIsEditorReady(false);
+        }
+        EventBus.emit("editor:dirty-cleared", { path: filePath });
       }
-      EventBus.emit("editor:dirty-cleared", { path: filePath });
-    }
-  }, []);
+    },
+    [t],
+  );
 
   // 外部 WorkspaceEdit（Rename / Code Action）应用到文档后，同步打开中的编辑器。
   useEffect(
@@ -155,30 +195,6 @@ export const EditorTab = React.memo(function EditorTab({
     setFileContent(content);
   }, []);
 
-  const handleRestoreRecovery = useCallback(async () => {
-    if (!pendingRecovery) return;
-    try {
-      await DocumentService.applyEdit(
-        path,
-        0,
-        contentRef.current.length,
-        pendingRecovery.text,
-        pendingRecovery.text,
-      );
-      contentRef.current = pendingRecovery.text;
-      setFileContent(pendingRecovery.text);
-      setPendingRecovery(null);
-      showToast(t("editor.recoveryRestored"), "success");
-    } catch (error) {
-      setSyncError(error instanceof Error ? error : new Error(String(error)));
-    }
-  }, [path, pendingRecovery, t]);
-
-  const handleIgnoreRecovery = useCallback(async () => {
-    await RecoveryStore.remove(path);
-    setPendingRecovery(null);
-  }, [path]);
-
   const handleReloadAfterSyncError = useCallback(async () => {
     try {
       RecoveryCoordinator.update(path, contentRef.current, diskFingerprint, true);
@@ -202,7 +218,7 @@ export const EditorTab = React.memo(function EditorTab({
   const handleCopyLocalContent = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(contentRef.current);
-      showToast(t("editor.copiedLocalContent"), "success");
+      showToast(t("editor.copiedLocalContent"), "info");
     } catch (error) {
       showToast(
         t("editor.copyFailed").replace("{message}", FileSystemService.toMessage(error)),
@@ -210,6 +226,30 @@ export const EditorTab = React.memo(function EditorTab({
       );
     }
   }, [t]);
+
+  useEffect(() => {
+    if (!syncError) return;
+    const notificationId = `sync-error-${path}`;
+    showNotification({
+      id: notificationId,
+      type: "error",
+      title: t("editor.syncErrorTitle"),
+      message: t("editor.syncErrorMessage"),
+      duration: null,
+      actions: [
+        {
+          label: t("editor.copyLocalContentAction"),
+          variant: "secondary",
+          onClick: () => void handleCopyLocalContent(),
+        },
+        {
+          label: t("editor.reloadFromDiskAction"),
+          variant: "danger",
+          onClick: () => void handleReloadAfterSyncError(),
+        },
+      ],
+    });
+  }, [syncError, path, t, handleCopyLocalContent, handleReloadAfterSyncError]);
 
   useEffect(() => {
     if (path !== loadedPathRef.current) {
@@ -332,48 +372,6 @@ export const EditorTab = React.memo(function EditorTab({
                 />
               </div>
             </>
-          )}
-          {syncError && (
-            <div className="absolute inset-x-3 top-3 z-30 flex items-center justify-between gap-3 rounded-xl border border-[var(--StatusError)]/30 bg-[var(--StatusError)]/10 px-3 py-2 text-[12px] text-[var(--StatusError)]">
-              <span className="min-w-0 truncate">编辑同步失败，已阻止保存以避免覆盖未同步内容</span>
-              <span className="flex shrink-0 items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => void handleCopyLocalContent()}
-                  className="rounded-lg px-2 py-1 font-medium hover:bg-[var(--StatusError)]/15"
-                >
-                  复制本地内容
-                </button>
-                <button
-                  type="button"
-                  onClick={handleReloadAfterSyncError}
-                  className="rounded-lg px-2 py-1 font-medium hover:bg-[var(--StatusError)]/15"
-                >
-                  从磁盘重新加载
-                </button>
-              </span>
-            </div>
-          )}
-          {pendingRecovery && !syncError && (
-            <div className="absolute inset-x-3 top-3 z-30 flex items-center justify-between gap-3 rounded-xl border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-2 text-[12px] text-[var(--color-text-primary)]">
-              <span className="min-w-0 truncate">检测到未保存的本地恢复快照</span>
-              <span className="flex shrink-0 items-center gap-1">
-                <button
-                  type="button"
-                  onClick={handleIgnoreRecovery}
-                  className="rounded-lg px-2 py-1 hover:bg-[var(--material-interactive-hover)]"
-                >
-                  忽略
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRestoreRecovery}
-                  className="rounded-lg bg-[var(--color-accent)] px-2 py-1 font-medium text-white"
-                >
-                  恢复内容
-                </button>
-              </span>
-            </div>
           )}
           {isSaving && (
             <div className="absolute right-3 bottom-3 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-1.5 text-[12px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-floating)]">

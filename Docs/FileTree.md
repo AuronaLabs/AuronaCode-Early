@@ -27,8 +27,8 @@ Aurona Code/
 │  ├─ 0.3.11-Phase1-Audit.md           # 0.3.11 第一阶段工程审计
 │  ├─ 0.3.11-Phase2-Visual-Audit.md    # 0.3.11 第二阶段视觉审计
 │  ├─ 0.3.11-Release-Notes.md          # 0.3.11 对外版本说明
-│  ├─ V0.3.12-Extension-Research.md    # 0.3.12 扩展技术调研与决策
-│  └─ V0.3.12-Extension-Progress.md    # 0.3.12 扩展开发进度
+│  ├─ AURX-Extension-Development.md    # 0.3.13 AURX 扩展开发实战指南
+│  └─ AURX-SDK-Reference.md            # 0.3.13 AURX 插件 SDK 参考手册
 ├─ public/
 │  ├─ logo.png                         # 品牌 Logo
 │  └─ splash.webp                      # 启动页图像资源

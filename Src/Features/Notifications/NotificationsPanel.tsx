@@ -81,7 +81,9 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
                     ? Icons.Close
                     : item.type === "warning"
                       ? Icons.AlertTriangle
-                      : Icons.Info;
+                      : item.type === "confirm"
+                        ? Icons.InfoCircle
+                        : Icons.Info;
 
               const bgColor =
                 item.type === "success"
@@ -103,6 +105,11 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
                     <Icon size={14} />
                   </div>
                   <div className="flex flex-col justify-center gap-1 min-w-0">
+                    {item.title && (
+                      <span className="text-[12px] font-semibold text-[var(--color-text-highlight)] leading-snug">
+                        {item.title}
+                      </span>
+                    )}
                     <span className="text-[12px] text-[var(--color-text-highlight)] leading-relaxed break-words">
                       {item.message}
                     </span>

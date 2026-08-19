@@ -256,6 +256,33 @@ describe("content provider", () => {
     );
     expect(results).toHaveLength(1);
   });
+
+  it("aligns descriptionRanges with the rendered description text exactly", async () => {
+    mocks.workspace.searchText.mockResolvedValue({
+      results: [
+        {
+          file_path: "src/main.rs",
+          line_number: 42,
+          index: 0,
+          match_text: "    fn render_markdown() {",
+        },
+      ],
+    });
+    const results = await searchFliuno(
+      baseContext({
+        scope: "content",
+        query: "render",
+        workspaceRoot: "C:/repo",
+        requestId: "align-1",
+      }),
+    );
+    expect(results).toHaveLength(1);
+    const item = results[0];
+    expect(item).toBeDefined();
+    const [start, end] = item?.descriptionRanges[0] ?? [0, 0];
+    const highlightedSlice = item?.description.slice(start, end);
+    expect(highlightedSlice?.toLowerCase()).toBe("render");
+  });
 });
 
 describe("FliunoSearchSession", () => {

@@ -148,6 +148,20 @@ export function WorkspaceView() {
     clearPendingReveal,
   } = useWorkbenchStore();
 
+  const [mountedExtensions, setMountedExtensions] = useState<Set<string>>(new Set());
+  const currentExtId = activeSidebar ? extensionIdFromSidebar(activeSidebar) : null;
+
+  useEffect(() => {
+    if (currentExtId) {
+      setMountedExtensions((prev) => {
+        if (prev.has(currentExtId)) return prev;
+        const next = new Set(prev);
+        next.add(currentExtId);
+        return next;
+      });
+    }
+  }, [currentExtId]);
+
   const {
     terminals,
     activeTerminalId,
@@ -452,22 +466,17 @@ export function WorkspaceView() {
         >
           <ExtensionsPanel />
         </div>
-        <div
-          className="flex flex-1 flex-col min-h-0"
-          style={{
-            display:
-              activeSidebar !== null && extensionIdFromSidebar(activeSidebar) !== null
-                ? "flex"
-                : "none",
-          }}
-        >
-          {activeSidebar !== null && extensionIdFromSidebar(activeSidebar) !== null ? (
-            <ExtensionSidebar
-              key={activeSidebar}
-              extensionId={extensionIdFromSidebar(activeSidebar) ?? ""}
-            />
-          ) : null}
-        </div>
+        {Array.from(mountedExtensions).map((extId) => (
+          <div
+            key={extId}
+            className="flex flex-1 flex-col min-h-0"
+            style={{
+              display: currentExtId === extId ? "flex" : "none",
+            }}
+          >
+            <ExtensionSidebar extensionId={extId} />
+          </div>
+        ))}
       </Card>
 
       {activeSidebar && (

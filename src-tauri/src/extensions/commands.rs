@@ -25,7 +25,11 @@ pub struct ExtensionRenderRequest {
     pub markdown: String,
     pub active_editor_path: Option<String>,
     pub theme: String,
+    pub accent_color: Option<String>,
+    pub color_scheme: Option<String>,
     pub locale: String,
+    pub font_weight: Option<String>,
+    pub font_size: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -116,11 +120,33 @@ pub async fn extensions_render(
         return Err("扩展需要权限: 权限已被拒绝".to_string());
     }
 
+    let platform = if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "unknown"
+    };
+
     let mut context = ExtensionContext::new(
         root,
         ContextEnvironment {
             theme: request.theme.clone(),
+            accent_color: request.accent_color.unwrap_or_else(|| "aurora".to_string()),
+            color_scheme: request.color_scheme.unwrap_or_else(|| {
+                if request.theme == "dark" {
+                    "dark".to_string()
+                } else {
+                    "light".to_string()
+                }
+            }),
             locale: request.locale.clone(),
+            font_weight: request.font_weight.unwrap_or_else(|| "normal".to_string()),
+            font_size: request.font_size.unwrap_or_else(|| "default".to_string()),
+            app_version: "0.3.13".to_string(),
+            platform: platform.to_string(),
         },
     );
     context.editor_permission = editor_permission;

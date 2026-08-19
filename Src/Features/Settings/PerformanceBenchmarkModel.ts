@@ -1,4 +1,4 @@
-export type BenchmarkKind = "ipc" | "ui" | "filesystem" | "editor" | "search" | "encoding";
+export type BenchmarkKind = "ipc" | "ui" | "filesystem" | "editor" | "search" | "encoding" | "wasm";
 
 export interface PerformanceEnvironment {
   appVersion: string;
@@ -110,3 +110,34 @@ export const compareSemanticVersionsDescending = (left: string, right: string) =
   if (leftParts.prerelease && !rightParts.prerelease) return 1;
   return rightParts.prerelease.localeCompare(leftParts.prerelease, undefined, { numeric: true });
 };
+
+export function calculateCompositeScore(snapshot: BenchmarkSnapshot): number | null {
+  const allResults = Object.values(snapshot.results)
+    .flat()
+    .filter((r): r is BenchmarkResult => Boolean(r && r.status === "ok"));
+  if (allResults.length === 0) return null;
+
+  let totalScore = 0;
+  let count = 0;
+
+  for (const res of allResults) {
+    let itemScore = 85;
+    const durationMs = res.durationNs / 1_000_000;
+    if (res.id === "ipc-roundtrip") {
+      itemScore = Math.max(60, Math.min(100, 100 - (durationMs - 0.05) * 30));
+    } else if (res.id === "ui-frame-cadence") {
+      const cv = res.statistics?.coefficientVariation ?? 8;
+      itemScore = Math.max(60, Math.min(100, 100 - cv * 1.5));
+    } else if (res.id.startsWith("filesystem-")) {
+      itemScore = Math.max(60, Math.min(100, 100 - durationMs * 8));
+    } else if (res.id.startsWith("wasm-")) {
+      itemScore = Math.max(60, Math.min(100, 100 - durationMs * 4));
+    } else {
+      itemScore = Math.max(60, Math.min(100, 100 - durationMs * 5));
+    }
+    totalScore += itemScore;
+    count += 1;
+  }
+
+  return count > 0 ? Math.round(totalScore / count) : null;
+}

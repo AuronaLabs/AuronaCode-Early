@@ -22,13 +22,15 @@ import { AutocompleteMenu } from "./components/AutocompleteMenu";
 import { EditorLine } from "./components/EditorLine";
 import { HoverCard } from "./components/HoverCard";
 import { SearchWidget } from "./components/SearchWidget";
+import { useEditorContextMenu } from "./Hooks/useEditorContextMenu";
 import { useEditorHistory } from "./Hooks/useEditorHistory";
 import { useEditorHover } from "./Hooks/useEditorHover";
+import { useEditorIME } from "./Hooks/useEditorIME";
+import { useEditorPointerSelection } from "./Hooks/useEditorPointerSelection";
 import { useEditorSearch } from "./Hooks/useEditorSearch";
 import { useSyntaxHighlighting } from "./Hooks/useSyntaxHighlighting";
 import type { IEditorEngine } from "./IEditorEngine";
 import { rankCompletionItems } from "./Utils/EditorCompletion";
-import { pointerSelectionDecision } from "./Utils/EditorInteraction";
 import {
   DEFAULT_EDITOR_LAYOUT,
   editorTextIndexAtX,
@@ -143,20 +145,25 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(500);
 
-  // 光标、选区与中文输入法
+  // 光标、选区与光标物理坐标
   const [cursor, setCursor] = useState({ line: 0, char: 0 });
   const [selection, setSelection] = useState<{
     start: { line: number; char: number };
     end: { line: number; char: number };
   } | null>(null);
-  const [isComposing, setIsComposing] = useState(false);
-  const [compositionText, setCompositionText] = useState("");
 
-  // 拖动选中标记
-  const isDraggingRef = useRef(false);
-  const dragStartRef = useRef<{ line: number; char: number } | null>(null);
+  const insertTextAtCursorRef = useRef<(text: string) => void>(() => {});
+  const {
+    isComposing,
+    compositionText,
+    handleCompositionStart,
+    handleCompositionUpdate,
+    handleCompositionEnd,
+  } = useEditorIME({
+    textareaRef,
+    onCommitText: (text) => insertTextAtCursorRef.current(text),
+  });
 
-  // 光标物理坐标
   const [layout, setLayout] = useState(DEFAULT_EDITOR_LAYOUT);
   const [caretPos, setCaretPos] = useState({ x: DEFAULT_EDITOR_LAYOUT.contentInsetX, y: 0 });
   const [, setRenderedLineEpoch] = useState(0);
@@ -186,8 +193,10 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   // 诊断与 tooltip
   const [diagnostics, setDiagnostics] = useState<DiagnosticItem[]>([]);
   const [languagePreferences, setLanguagePreferences] = useState(DEFAULT_LANGUAGE_PREFERENCES);
+  const isDraggingPointerRef = useRef(false);
+
   const isHoverInteractionBlocked = useCallback(
-    () => isDraggingRef.current || isComposing,
+    () => isDraggingPointerRef.current || isComposing,
     [isComposing],
   );
   const {
@@ -206,18 +215,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     preferences: languagePreferences,
     interactionBlocked: isHoverInteractionBlocked,
   });
-
-  const handleContextMenuOpenChange = useCallback(
-    (open: boolean) => {
-      setHoverContextMenuOpen(open);
-      if (open) {
-        setCompletions([]);
-        return;
-      }
-      window.requestAnimationFrame(() => textareaRef.current?.focus());
-    },
-    [setHoverContextMenuOpen],
-  );
 
   const { pushHistory, resetHistory, undo, redo } = useEditorHistory("");
   const documentLoadedRef = useRef(false);
@@ -804,6 +801,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     [cursor, documentLines, onChange, path, selection, triggerAutocomplete, updateMaxLineLength],
   );
 
+  insertTextAtCursorRef.current = insertTextAtCursor;
+
   // 支持选区删除
   const executeSelectionDelete = useCallback(() => {
     if (!selection) return;
@@ -1291,28 +1290,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     }
   };
 
-  // IME 拼音输入法
-  const handleCompositionStart = () => {
-    setIsComposing(true);
-    setCompositionText("");
-  };
-
-  const handleCompositionUpdate = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
-    setCompositionText(e.data);
-  };
-
-  const handleCompositionEnd = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
-    setIsComposing(false);
-    setCompositionText("");
-    if (textareaRef.current) {
-      textareaRef.current.value = "";
-    }
-    const text = e.data;
-    if (text) {
-      insertTextAtCursor(text);
-    }
-  };
-
   // 复制粘贴
   const handleCopy = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
@@ -1448,134 +1425,45 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     [documentLines, layout.contentInsetX, minTextLengthIndex],
   );
 
-  const handleLineMouseDown = useCallback(
-    (lineIndex: number, e: React.MouseEvent<HTMLButtonElement>) => {
-      const lineEl = e.currentTarget;
-      const charIndex = textIndexAtPoint(lineIndex, lineEl, e.clientX, e.clientY);
-
-      const pos = { line: lineIndex, char: charIndex };
-
-      const pointerDecision = pointerSelectionDecision(e.button, pos, selection);
-      if (pointerDecision.kind === "preserve-selection") {
-        isDraggingRef.current = false;
-        dragStartRef.current = null;
-        setCompletions([]);
-        dismissHover();
-        return;
-      }
-
-      // 支持三击选中整行
-      if (e.button === 0 && e.detail === 3) {
-        const lineLen = (documentLines[lineIndex] || "").length;
-        setSelection({
-          start: { line: lineIndex, char: 0 },
-          end: { line: lineIndex, char: lineLen },
-        });
-        setCursor({ line: lineIndex, char: lineLen });
-        isDraggingRef.current = false;
-        return;
-      }
-
-      // 支持双击选中当前单词
-      if (e.button === 0 && e.detail === 2) {
-        const lineText = documentLines[lineIndex] || "";
-        const { start: wordStart, end: wordEnd } = findWordBoundaries(lineText, charIndex);
-        const selStart = { line: lineIndex, char: wordStart };
-        const selEnd = { line: lineIndex, char: wordEnd };
-        setSelection({ start: selStart, end: selEnd });
-        setCursor(selEnd);
-        isDraggingRef.current = false;
-        return;
-      }
-
-      // 常规点击/开启拖拽选中
-      setCursor(pointerDecision.position);
-      isDraggingRef.current = pointerDecision.beginDrag;
-      dragStartRef.current = pointerDecision.beginDrag ? pointerDecision.position : null;
-      setSelection(
-        pointerDecision.beginDrag
-          ? { start: pointerDecision.position, end: pointerDecision.position }
-          : null,
-      );
-
+  const { isDraggingRef, handleLineMouseDown } = useEditorPointerSelection({
+    containerRef,
+    textareaRef,
+    lineElementsRef,
+    documentLines,
+    totalLines,
+    layout,
+    selection,
+    setSelection,
+    setCursor,
+    textIndexAtPoint,
+    minTextLengthIndex,
+    findWordBoundaries,
+    onPointerStateChange: () => {
       setCompletions([]);
       dismissHover();
-      if (e.button === 0) {
-        textareaRef.current?.focus();
-        e.preventDefault();
-      }
     },
-    [dismissHover, documentLines, findWordBoundaries, selection, textIndexAtPoint],
-  );
+  });
+  isDraggingPointerRef.current = isDraggingRef.current;
 
-  // 全局 mousemove：支持鼠标拖出视口和拖出编辑行时，自动更新选区，并触发自动滚动（Auto-Scroll）
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current || !dragStartRef.current || !containerRef.current) return;
-
-      const container = containerRef.current;
-      const rect = container.getBoundingClientRect();
-      const relativeY = e.clientY - rect.top;
-      const relativeX = e.clientX - rect.left;
-
-      // 视口边界拖动触发自动滚动
-      const scrollThreshold = 32;
-      const scrollSpeed = 6;
-      if (relativeY < scrollThreshold) {
-        container.scrollTop -= scrollSpeed;
-      } else if (relativeY > rect.height - scrollThreshold) {
-        container.scrollTop += scrollSpeed;
-      }
-
-      const currentScrollTop = container.scrollTop;
-      const currentScrollLeft = container.scrollLeft;
-
-      const y = relativeY + currentScrollTop;
-      const lineIndex = Math.max(
-        0,
-        Math.min(
-          totalLines - 1,
-          Math.floor(Math.max(0, y - layout.contentInsetTop) / layout.lineHeight),
-        ),
-      );
-
-      // 注意：containerRef 已经是纯文本区域，不包含行号槽，所以不需要再减去 48px
-      const lineElement = lineElementsRef.current.get(lineIndex);
-      const charIndex = lineElement
-        ? textIndexAtPoint(lineIndex, lineElement, e.clientX, e.clientY)
-        : minTextLengthIndex(
-            documentLines[lineIndex] || "",
-            relativeX + currentScrollLeft - layout.contentInsetX,
-          );
-
-      const pos = { line: lineIndex, char: charIndex };
-      setSelection({
-        start: dragStartRef.current,
-        end: pos,
-      });
-      setCursor(pos);
-    };
-
-    window.addEventListener("mousemove", handleGlobalMouseMove);
-    return () => window.removeEventListener("mousemove", handleGlobalMouseMove);
-  }, [totalLines, documentLines, layout, minTextLengthIndex, textIndexAtPoint]);
-
-  useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      if (isDraggingRef.current) {
-        isDraggingRef.current = false;
-        dragStartRef.current = null;
-        setSelection((prev) => {
-          if (prev && prev.start.line === prev.end.line && prev.start.char === prev.end.char) {
-            return null;
-          }
-          return prev;
-        });
-      }
-    };
-    window.addEventListener("mouseup", handleGlobalMouseUp);
-    return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
-  }, []);
+  const { handleContextMenuOpenChange } = useEditorContextMenu({
+    textareaRef,
+    setHoverContextMenuOpen,
+    clearCompletions: () => setCompletions([]),
+    undo: () => {
+      const entry = undo();
+      return entry
+        ? { content: entry.content, cursor: { line: 0, char: entry.selectionStart } }
+        : null;
+    },
+    redo: () => {
+      const entry = redo();
+      return entry
+        ? { content: entry.content, cursor: { line: 0, char: entry.selectionStart } }
+        : null;
+    },
+    applyHistoryState: (state) => applyHistoryEntry(state.content, state.cursor.char),
+    onExecuteAction: executeEditorAction,
+  });
 
   useEffect(() => {
     if (!isActive) return;
@@ -1709,6 +1597,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     registerLineElement,
     handleLineMouseDown,
     setVisibleHover,
+    isDraggingRef.current,
   ]);
 
   // 行号渲染

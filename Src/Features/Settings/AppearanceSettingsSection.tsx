@@ -13,18 +13,26 @@ interface AppearanceSettingsSectionProps {
   accentTheme: AccentThemeId;
   intensity: GlassIntensity;
   liquidTexture: boolean;
+  boldText: boolean;
+  interfaceFontSize: "compact" | "default" | "comfortable" | "large";
   onAccentThemeChange: (accent: AccentThemeId) => void;
   onIntensityChange: (intensity: GlassIntensity) => void;
   onLiquidTextureChange: (enabled: boolean) => void;
+  onBoldTextChange: (enabled: boolean) => void;
+  onInterfaceFontSizeChange: (size: "compact" | "default" | "comfortable" | "large") => void;
 }
 
 export function AppearanceSettingsSection({
   accentTheme,
   intensity,
   liquidTexture,
+  boldText,
+  interfaceFontSize,
   onAccentThemeChange,
   onIntensityChange,
   onLiquidTextureChange,
+  onBoldTextChange,
+  onInterfaceFontSizeChange,
 }: AppearanceSettingsSectionProps) {
   const { t } = useLocale();
   const themeLabel = (id: AccentThemeId) => t(`settings.themes.${id}` as I18nKey);
@@ -180,6 +188,65 @@ export function AppearanceSettingsSection({
             <SettingResetButton
               label={t("settings.reset")}
               onReset={() => onLiquidTextureChange(false)}
+            />
+          </div>
+        </div>
+        <div
+          data-setting-id="boldText"
+          className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
+        >
+          <div className="min-w-0 pr-2">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              {t("settings.appearanceSection.boldText")}
+            </span>
+            <p className="mt-0.5 text-[12px] leading-5 text-[var(--color-text-muted)]">
+              {t("settings.appearanceSection.boldTextDescription")}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Switch
+              checked={boldText}
+              onCheckedChange={onBoldTextChange}
+              aria-label={t("settings.appearanceSection.boldText")}
+            />
+            <SettingResetButton
+              label={t("settings.reset")}
+              onReset={() => onBoldTextChange(false)}
+            />
+          </div>
+        </div>
+        <div
+          data-setting-id="interfaceFontSize"
+          className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
+        >
+          <div className="min-w-0 pr-2">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              {t("settings.appearanceSection.interfaceFontSize")}
+            </span>
+            <p className="mt-0.5 text-[12px] leading-5 text-[var(--color-text-muted)]">
+              {t("settings.appearanceSection.interfaceFontSizeDescription")}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Select
+              value={interfaceFontSize}
+              onChange={(value) =>
+                onInterfaceFontSizeChange(value as "compact" | "default" | "comfortable" | "large")
+              }
+              className="w-[140px]"
+              options={[
+                { value: "compact", label: t("settings.appearanceSection.fontSizeCompact") },
+                { value: "default", label: t("settings.appearanceSection.fontSizeDefault") },
+                {
+                  value: "comfortable",
+                  label: t("settings.appearanceSection.fontSizeComfortable"),
+                },
+                { value: "large", label: t("settings.appearanceSection.fontSizeLarge") },
+              ]}
+            />
+            <SettingResetButton
+              label={t("settings.reset")}
+              onReset={() => onInterfaceFontSizeChange("default")}
             />
           </div>
         </div>

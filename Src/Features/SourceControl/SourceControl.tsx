@@ -31,7 +31,6 @@ export const SourceControl = React.memo(function SourceControl() {
   const [commitMsg, setCommitMsg] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [statusError, setStatusError] = useState<string | null>(null);
   const [branch, setBranch] = useState("");
   const [branches, setBranches] = useState<GitBranch[]>([]);
   const [hasRemote, setHasRemote] = useState(false);
@@ -62,8 +61,6 @@ export const SourceControl = React.memo(function SourceControl() {
     try {
       if (background) setIsRefreshing(true);
       const fullStatus = await GitIPC.getFullStatus(path);
-
-      setStatusError(null);
       setIsRepo(fullStatus.is_repo);
       setFiles(fullStatus.files);
       setBranch(fullStatus.branch);
@@ -88,7 +85,6 @@ export const SourceControl = React.memo(function SourceControl() {
       EventBus.emit("git:changes-count", fullStatus.files.length);
     } catch (error) {
       console.error("Git status failed", error);
-      setStatusError(String(error));
       if (!background) showToast(`Git 状态读取失败：${error}`, "error");
     } finally {
       if (background) setIsRefreshing(false);
@@ -104,7 +100,6 @@ export const SourceControl = React.memo(function SourceControl() {
         const repoExists = await GitIPC.checkIsRepo(path);
         setRepoPath(path);
         setIsRepo(repoExists);
-        setStatusError(null);
 
         if (repoExists) {
           await fetchStatus(path, background);
@@ -131,7 +126,6 @@ export const SourceControl = React.memo(function SourceControl() {
         }
       } catch (error) {
         console.error("Git repo check failed", error);
-        setStatusError(String(error));
         if (!background) showToast(`Git 仓库检查失败：${error}`, "error");
       } finally {
         setIsLoading(false);
@@ -509,12 +503,6 @@ export const SourceControl = React.memo(function SourceControl() {
           </Tooltip>
         }
       />
-
-      {statusError && (
-        <div className="mx-[var(--PanelPaddingX)] mb-3 rounded-xl border border-[var(--StatusError)]/30 bg-[var(--StatusError)]/10 px-3 py-2 text-[12px] text-[var(--StatusError)]">
-          Git 状态读取失败：{statusError}
-        </div>
-      )}
 
       <div className="flex items-center gap-1 mx-[var(--PanelPaddingX)] mb-3 shrink-0">
         <button

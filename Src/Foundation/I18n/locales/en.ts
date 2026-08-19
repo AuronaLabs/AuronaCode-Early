@@ -76,6 +76,15 @@ export const en: LocaleMessages = {
     searchPlaceholder: "Search…",
     searchNoResults: "No results",
     recoveryRestored: "Restored local edit snapshot",
+    recoverySnapshotTitle: "Unsaved Local Snapshot",
+    recoverySnapshotMessage: "Detected unsaved recovery snapshot for {file}. Restore it?",
+    restoreAction: "Restore",
+    ignoreAction: "Ignore",
+    syncErrorTitle: "Document Sync Failed",
+    syncErrorMessage:
+      "Document synchronization failed. Saving has been blocked to protect unsynchronized content.",
+    copyLocalContentAction: "Copy Local Content",
+    reloadFromDiskAction: "Reload from Disk",
     reloadedFromDisk: "Reloaded the file from disk",
     copiedLocalContent: "Copied current local content",
     reloadFailed: "Reload failed: {message}",
@@ -385,6 +394,11 @@ export const en: LocaleMessages = {
         description:
           "Converts a 12,000-line document with CJK and emoji to UTF-16 offsets and scans characters",
       },
+      wasm: {
+        label: "WASM Extension Engine",
+        description:
+          "Benchmarks package validation, Wasmtime JIT compilation, and sandboxed markdown execution",
+      },
     },
     details: {
       ipcRoundtrip:
@@ -618,6 +632,14 @@ export const en: LocaleMessages = {
       intensityLight: "Light",
       intensityMedium: "Medium",
       intensityHeavy: "Heavy",
+      boldText: "Bold Text",
+      boldTextDescription: "Enhance overall interface typography weight for stronger readability",
+      interfaceFontSize: "Interface Font Size",
+      interfaceFontSizeDescription: "Scale the base typography dimension of the entire workspace",
+      fontSizeCompact: "Compact (12px)",
+      fontSizeDefault: "Default (13px)",
+      fontSizeComfortable: "Comfortable (14px)",
+      fontSizeLarge: "Large (15px)",
     },
     themes: {
       aurora: "Aurora Blue",
@@ -761,6 +783,14 @@ export const en: LocaleMessages = {
       materialIntensity: {
         title: "Material Intensity",
         description: "Glass blur, transparency and card depth",
+      },
+      boldText: {
+        title: "Bold Text",
+        description: "Enhance overall interface typography weight",
+      },
+      interfaceFontSize: {
+        title: "Interface Font Size",
+        description: "Scale base workspace typography dimension",
       },
       hoverEnabled: { title: "Hover Information", description: "Show types and docs on symbols" },
       hoverDelayMs: {
@@ -914,6 +944,10 @@ export const en: LocaleMessages = {
     revoke: "Revoke",
     renderError: "Preview rendering failed",
     noEditor: "Open a Markdown document to preview it here",
+    noActiveEditor: "No Active Document",
+    nonMarkdownFile: "Non-Markdown Document",
+    markdownOnlyPrompt:
+      "This extension only provides live preview for Markdown files (.md, .markdown)",
     largeDocument: "Large document: preview refresh rate reduced",
     viewFailed: "Extension view failed to load",
     permissionRequired: "This extension needs access to the current editor content",

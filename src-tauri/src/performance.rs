@@ -520,6 +520,78 @@ pub async fn get_performance_environment(
     .map_err(|error| format!("Environment inspection task failed: {error}"))?
 }
 
+fn run_wasm_benchmark(cancelled: &AtomicBool) -> Result<Vec<PerformanceBenchmarkResult>, String> {
+    ensure_not_cancelled(cancelled)?;
+    let mut results = Vec::new();
+    let sample_markdown = "# Aurona Performance Benchmark\n\n| Item | Value |\n|---|---|\n| WASM | Speed |\n\n> Quote block with **bold** text and `inline code`.\n\n```rust\nfn main() { println!(\"hello\"); }\n```\n".repeat(4);
+
+    let package_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("resources")
+        .join("extensions")
+        .join("aurona.markdown.aurx");
+    let package_bytes = fs::read(&package_path)
+        .map_err(|error| format!("无法读取基准测试扩展包: {error}"))?;
+
+    // 1. WASM 包校验与解析
+    let started = Instant::now();
+    for _ in 0..10 {
+        ensure_not_cancelled(cancelled)?;
+        crate::extensions::aurx::open_package(&package_bytes)
+            .map_err(|e| format!("打开扩展包失败: {e}"))?;
+    }
+    results.push(benchmark_result(
+        "wasm-package-open",
+        "WASM 扩展包解包与校验",
+        started,
+        10,
+        "解包并验证内置 AURX ZIP 归档及 Manifest 元数据",
+    ));
+
+    // 2. WASM 模块编译
+    let pkg = crate::extensions::aurx::open_package(&package_bytes)
+        .map_err(|error| format!("无法打开基准测试扩展包: {error}"))?;
+    let started = Instant::now();
+    ensure_not_cancelled(cancelled)?;
+    let runtime = crate::extensions::runtime::ExtensionRuntime::new(
+        &pkg.wasm,
+        crate::extensions::runtime::ExtensionLimits::default(),
+    )?;
+    results.push(benchmark_result(
+        "wasm-component-compile",
+        "WASM 组件 JIT 编译",
+        started,
+        1,
+        "使用 Wasmtime Cranelift 编译 WASM 字节码组件",
+    ));
+
+    // 3. 扩展渲染执行
+    let started = Instant::now();
+    for _ in 0..5 {
+        ensure_not_cancelled(cancelled)?;
+        let env = crate::extensions::runtime::ContextEnvironment {
+            theme: "coral-sunset".to_string(),
+            accent_color: "coral".to_string(),
+            color_scheme: "dark".to_string(),
+            locale: "zh-CN".to_string(),
+            font_weight: "normal".to_string(),
+            font_size: "default".to_string(),
+            app_version: "0.3.13".to_string(),
+            platform: "windows".to_string(),
+        };
+        let context = crate::extensions::runtime::ExtensionContext::new(None, env);
+        runtime.render(context, sample_markdown.clone())?;
+    }
+    results.push(benchmark_result(
+        "wasm-render-execution",
+        "WASM 沙箱渲染执行",
+        started,
+        5,
+        "实例化沙箱并执行 Markdown 解析与 Fuel 预算控制",
+    ));
+
+    Ok(results)
+}
+
 #[tauri::command]
 pub async fn run_performance_benchmark(
     kind: String,
@@ -556,6 +628,12 @@ pub async fn run_performance_benchmark(
             tokio::task::spawn_blocking(move || run_encoding_benchmark(&cancelled))
                 .await
                 .map_err(|error| format!("Encoding benchmark task failed: {error}"))?
+        }
+        "wasm" => {
+            let cancelled = cancelled.clone();
+            tokio::task::spawn_blocking(move || run_wasm_benchmark(&cancelled))
+                .await
+                .map_err(|error| format!("WASM benchmark task failed: {error}"))?
         }
         _ => Err(format!("Unknown performance benchmark: {kind}")),
     };
@@ -685,7 +763,7 @@ pub async fn save_performance_baseline(
 mod tests {
     use super::{
         run_editor_benchmark, run_encoding_benchmark, run_filesystem_benchmark,
-        run_search_benchmark, SEARCH_FILE_COUNT,
+        run_search_benchmark, run_wasm_benchmark, SEARCH_FILE_COUNT,
     };
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
@@ -723,6 +801,14 @@ mod tests {
         let cancelled = AtomicBool::new(false);
         let results =
             run_encoding_benchmark(&cancelled).expect("encoding benchmark should complete");
+        assert_eq!(results.len(), 3);
+        assert!(results.iter().all(|result| result.status == "ok"));
+    }
+
+    #[test]
+    fn wasm_benchmark_exercises_package_and_runtime() {
+        let cancelled = AtomicBool::new(false);
+        let results = run_wasm_benchmark(&cancelled).expect("wasm benchmark should complete");
         assert_eq!(results.len(), 3);
         assert!(results.iter().all(|result| result.status == "ok"));
     }

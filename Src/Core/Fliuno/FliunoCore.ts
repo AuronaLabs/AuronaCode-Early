@@ -477,7 +477,7 @@ export async function searchFliuno(context: FliunoCoreContext): Promise<FliunoCo
       );
       for (const item of response.results.slice(0, 300)) {
         const title = fileBaseName(item.file_path);
-        const description = `:${item.line_number} · ${item.match_text.trim().slice(0, 80)}`;
+        const description = item.match_text.trimStart().slice(0, 120);
         let titleRanges: Array<[number, number]> = [];
         let descriptionRanges: Array<[number, number]> = [];
         let score = 0;
@@ -487,7 +487,7 @@ export async function searchFliuno(context: FliunoCoreContext): Promise<FliunoCo
           try {
             const flags = context.contentCaseSensitive ? "" : "i";
             const matcher = new RegExp(query, flags);
-            const match = matcher.exec(item.match_text);
+            const match = matcher.exec(description);
             if (match?.index !== undefined) {
               descriptionRanges = [[match.index, match.index + Math.max(1, match[0].length)]];
             }
@@ -496,8 +496,8 @@ export async function searchFliuno(context: FliunoCoreContext): Promise<FliunoCo
           }
         } else {
           const match = matchQuery(query, [
-            { text: item.file_path, weight: 0.7, surface: "description" },
-            { text: item.match_text, weight: 0.9, surface: "description" },
+            { text: title, weight: 0.5, surface: "title" },
+            { text: description, weight: 0.9, surface: "description" },
           ]);
           if (!match) continue;
           score = match.score;
