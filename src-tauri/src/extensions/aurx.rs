@@ -36,6 +36,29 @@ pub struct ExtensionManifest {
     pub runtime: RuntimeEntry,
     pub sidebar: SidebarEntry,
     pub view: ViewEntry,
+    #[serde(default)]
+    pub marketplace: Option<MarketplaceMetadata>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketplaceMetadata {
+    #[serde(default)]
+    pub categories: Vec<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub author: Option<String>,
+    #[serde(default)]
+    pub homepage: Option<String>,
+    #[serde(default)]
+    pub repository: Option<String>,
+    #[serde(default)]
+    pub license: Option<String>,
+    #[serde(default)]
+    pub rating: Option<f32>,
+    #[serde(default)]
+    pub downloads: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -372,6 +395,7 @@ pub(crate) fn valid_manifest_for_tests() -> ExtensionManifest {
         view: ViewEntry {
             entry: "ui/index.html".to_string(),
         },
+        marketplace: None,
     }
 }
 
@@ -608,5 +632,28 @@ mod tests {
         bytes[wasm_magic + 4] ^= 0xff;
         let result = open_package(&bytes);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn parses_marketplace_metadata() {
+        let mut manifest = valid_manifest();
+        manifest.marketplace = Some(MarketplaceMetadata {
+            categories: vec!["Tools".to_string()],
+            tags: vec!["editor".to_string()],
+            author: Some("Aurona".to_string()),
+            homepage: Some("https://aurona.dev".to_string()),
+            repository: None,
+            license: Some("MIT".to_string()),
+            rating: Some(4.9),
+            downloads: Some(1024),
+        });
+
+        let json = serde_json::to_string(&manifest).expect("serialize");
+        let parsed: ExtensionManifest = serde_json::from_str(&json).expect("deserialize");
+        assert!(parsed.marketplace.is_some());
+        let m = parsed.marketplace.unwrap();
+        assert_eq!(m.categories, vec!["Tools"]);
+        assert_eq!(m.author.as_deref(), Some("Aurona"));
+        assert_eq!(m.downloads, Some(1024));
     }
 }

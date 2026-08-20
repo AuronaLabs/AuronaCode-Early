@@ -192,6 +192,14 @@ function main() {
       icon: "assets/icon.svg",
     },
     view: { entry: "ui/index.html" },
+    marketplace: {
+      categories: ["Compatibility", "Developer Tools", "Transpilers"],
+      tags: ["vscode", "compat", "transpiler", "wasm", "runtime"],
+      author: "Aurona Code Team",
+      homepage: "https://github.com/AuronaLabs/AuronaCode-Early",
+      repository: "https://github.com/AuronaLabs/AuronaCode-Early",
+      license: "MIT",
+    },
   };
   const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 

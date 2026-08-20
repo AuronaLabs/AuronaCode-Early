@@ -71,7 +71,7 @@ jobs:
         shell: bash
         run: |
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          if [[ "$RELEASE_TAG" != "v$PACKAGE_VERSION" ]]; then
+          if [[ "$RELEASE_TAG" != "v$PACKAGE_VERSION" && "$RELEASE_TAG" != "v$PACKAGE_VERSION"-* ]]; then
             echo "Tag $RELEASE_TAG does not match package version v$PACKAGE_VERSION"
             exit 1
           fi
@@ -158,6 +158,19 @@ jobs:
         env:
           GITHUB_REF_NAME: ${{ env.RELEASE_TAG }}
 
+      - name: Detect release channel
+        shell: bash
+        run: |
+          if [[ "${{ env.RELEASE_TAG }}" =~ -pioneer\. ]]; then
+            echo "IS_PRERELEASE=true" >> "$GITHUB_ENV"
+            echo "AURONA_CHANNEL=pioneer" >> "$GITHUB_ENV"
+            echo "VITE_AURONA_CHANNEL=pioneer" >> "$GITHUB_ENV"
+          else
+            echo "IS_PRERELEASE=false" >> "$GITHUB_ENV"
+            echo "AURONA_CHANNEL=stable" >> "$GITHUB_ENV"
+            echo "VITE_AURONA_CHANNEL=stable" >> "$GITHUB_ENV"
+          fi
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -165,6 +178,8 @@ jobs:
           AURONA_ACCOUNT_CLIENT_ID: ${{ secrets.AURONA_ACCOUNT_CLIENT_ID }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          AURONA_CHANNEL: ${{ env.AURONA_CHANNEL }}
+          VITE_AURONA_CHANNEL: ${{ env.VITE_AURONA_CHANNEL }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
           releaseName: Aurona Code ${{ env.RELEASE_TAG }}
@@ -172,7 +187,7 @@ jobs:
           args: ${{ matrix.settings.args }}
           releaseBody: ${{ env.RELEASE_BODY }}
           releaseDraft: true
-          prerelease: false
+          prerelease: ${{ env.IS_PRERELEASE == 'true' }}
 
       - name: Validate bundled macOS runtime
         if: runner.os == 'macOS'

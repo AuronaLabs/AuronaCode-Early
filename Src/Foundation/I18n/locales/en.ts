@@ -17,6 +17,8 @@ export const en: LocaleMessages = {
     retry: "Retry",
     copy: "Copy",
     close: "Close",
+    confirm: "Confirm",
+    ok: "OK",
   },
   fliuno: {
     quickPlaceholder: "Search commands, files or settings…",
@@ -608,7 +610,59 @@ export const en: LocaleMessages = {
       sourceControl: "Source Control",
       accountCloud: "Aurona Account",
       system: "Storage",
+      featureFlags: "Feature Flags",
       advanced: "Advanced",
+    },
+    featureFlags: {
+      sectionDesc:
+        "Inspect the physical build release channel and manage cutting-edge experimental features.",
+      channelSelectionTitle: "Release Channel",
+      channelStableTitle: "Stable Production Release",
+      channelStableDesc:
+        "This build belongs to the stable production channel. Rock-solid and tested for enterprise engineering.",
+      channelPioneerTitle: "Pioneer Stage",
+      channelPioneerDesc:
+        "Join the Pioneer Stage preview channel to receive bleeding-edge features and experimental architecture by default.",
+      pioneerUpdateCheckDesc:
+        "Check for Pioneer Stage preview builds and automatically upgrade to stable releases.",
+      resetDefaults: "Reset to Defaults",
+      availableFlags: "Registered Feature Flags",
+      totalCount: "Flags Available",
+      experimentalConfirmTitle: "Enable Experimental Feature",
+      experimentalConfirmDesc:
+        "This feature is in an early experimental stage and might affect stability. Are you sure you want to enable it?",
+      editorMinimap: {
+        title: "Code Minimap",
+        desc: "High-performance Canvas 2D code minimap with interactive draggable viewport slider.",
+      },
+      editorBracketPair: {
+        title: "Bracket Pair Colorization & Guides",
+        desc: "6-tier rainbow bracket nesting and vertical dashed scope indentation guides.",
+      },
+      editorCodeFolding: {
+        title: "Code Folding Engine",
+        desc: "Indent-aware code folding tree with gutter chevrons and inline placeholder capsules.",
+      },
+      editorSmoothCaret: {
+        title: "Smooth Caret Animation",
+        desc: "Smooth CSS interpolation transition for multi-cursor and primary caret movement.",
+      },
+      editorOccurrence: {
+        title: "Selection Occurrence Highlighting",
+        desc: "Subtle full-viewport highlighting for all identical identifier occurrences upon selection.",
+      },
+      asciiFastMetrics: {
+        title: "ASCII Fast Metrics Table",
+        desc: "O(1) precomputed lookup table for ASCII 0~127 character metrics to boost layout throughput.",
+      },
+      vscodeCompat: {
+        title: "VSCode Compatibility Transpiler",
+        desc: "Transpile VSCode extension API scripts into Aurona native OOP calls within WASM sandbox.",
+      },
+      marketplacePreview: {
+        title: "Aurona Marketplace Early Preview",
+        desc: "Unlock early exploration interface for Aurona Marketplace and extension registry.",
+      },
     },
     editorSection: {
       title: "Editor Settings",

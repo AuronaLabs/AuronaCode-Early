@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { type DeclarativeUIRoot, isDeclarativeUI } from "../../Foundation/Types/ExtensionUI";
+import { DeclarativeUIRenderer } from "./Declarative/DeclarativeUIRenderer";
 
 export interface ExtensionRenderState {
   html: string;
@@ -10,6 +12,7 @@ interface ExtensionViewHostProps {
   viewHtml: string;
   theme: string;
   renderState: ExtensionRenderState | null;
+  onAction?: (actionId: string, payload?: unknown) => void;
 }
 
 const RENDER_SLOT = "<!--AURONA_RENDER_SLOT-->";
@@ -24,30 +27,54 @@ function escapeHtml(text: string): string {
     .replaceAll("'", "&#39;");
 }
 
+function tryParseDeclarativeUI(raw: string): DeclarativeUIRoot | null {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (isDeclarativeUI(parsed)) {
+      return parsed;
+    }
+  } catch {
+    // 不是有效 JSON
+  }
+  return null;
+}
+
 /**
- * 将扩展 AURX HTML 模板与宿主渲染数据组合
- *
- * 强制注入宿主实时主题属性 (data-theme) 与透明背景样式，
- * 杜绝任何浏览器默认 iframe 白底瑕疵。
+ * 统一扩展视图宿主：支持【官方原生声明式组件】与【自定义 Webview 容器】双模自适应渲染
  */
-export function ExtensionViewHost({ viewHtml, theme, renderState }: ExtensionViewHostProps) {
+export function ExtensionViewHost({
+  viewHtml,
+  theme,
+  renderState,
+  onAction,
+}: ExtensionViewHostProps) {
+  // 1. 检查是否为模式 A：官方原生声明式组件 (Declarative UI)
+  const declarativeUI = useMemo(() => {
+    if (renderState?.html) {
+      const parsed = tryParseDeclarativeUI(renderState.html);
+      if (parsed) return parsed;
+    }
+    return tryParseDeclarativeUI(viewHtml);
+  }, [renderState?.html, viewHtml]);
+
+  // 2. 模式 B：自定义 Webview 容器 (Custom Webview Host)
   const composed = useMemo(() => {
+    if (declarativeUI) return "";
     const html = renderState?.html ?? "";
     const diagnostics = renderState?.diagnostics ?? [];
     const status = diagnostics.length > 0 ? escapeHtml(diagnostics.join(" · ")) : "";
     const effectiveTheme = theme === "dark" ? "dark" : "light";
 
-    // 1. 替换或注入 <html data-theme="..."> 属性
     let result = viewHtml;
     if (result.includes("<html")) {
       result = result.replace(/<html([^>]*)>/i, (_match, rest) => {
-        // 清除旧的 data-theme 属性并注入最新值
         const cleaned = rest.replace(/data-theme=["'][^"']*["']/i, "").trim();
         return `<html ${cleaned} data-theme="${effectiveTheme}" style="color-scheme: ${effectiveTheme}; background: transparent;">`;
       });
     }
 
-    // 2. 在 </head> 之前注入强制透明与色彩方案防御样式
     const transparentStyle = `<style>html, body { background: transparent !important; color-scheme: ${effectiveTheme}; }</style>`;
     if (result.includes("</head>")) {
       result = result.replace("</head>", `${transparentStyle}</head>`);
@@ -55,9 +82,17 @@ export function ExtensionViewHost({ viewHtml, theme, renderState }: ExtensionVie
       result = transparentStyle + result;
     }
 
-    // 3. 填充渲染内容与状态条槽位
     return result.replace(RENDER_SLOT, html).replace(STATUS_SLOT, status);
-  }, [viewHtml, theme, renderState]);
+  }, [declarativeUI, viewHtml, theme, renderState]);
+
+  // 如果是官方原生声明式组件模式，直接由 React 现代拟物组件树驱动渲染
+  if (declarativeUI) {
+    return (
+      <div className="h-full w-full overflow-y-auto overflow-x-hidden bg-transparent">
+        <DeclarativeUIRenderer ui={declarativeUI} onAction={onAction} />
+      </div>
+    );
+  }
 
   return (
     // biome-ignore lint/a11y/useIframeTitle: sandboxed plugin frame uses aria-label; native title is forbidden by the material boundary

@@ -20,6 +20,7 @@ pub struct ExtensionDescriptor {
     pub display_title: Option<HashMap<String, String>>,
     pub sidebar_icon: String,
     pub view_entry: String,
+    pub marketplace: Option<super::aurx::MarketplaceMetadata>,
 }
 
 impl ExtensionDescriptor {
@@ -37,6 +38,7 @@ impl ExtensionDescriptor {
             display_title: manifest.sidebar.display_title.clone(),
             sidebar_icon: manifest.sidebar.icon.clone(),
             view_entry: manifest.view.entry.clone(),
+            marketplace: manifest.marketplace.clone(),
         }
     }
 }

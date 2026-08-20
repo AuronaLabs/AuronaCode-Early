@@ -1,4 +1,6 @@
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { FoldedPlaceholder } from "../Folding/FoldedPlaceholder";
+import type { OccurrenceMatch } from "../MultiCursor/useSelectionOccurrence";
 import {
   type EditorLayoutMetrics,
   measureEditorText,
@@ -35,6 +37,9 @@ interface EditorLineProps {
   isComposing: boolean;
   compositionText: string;
   layout: EditorLayoutMetrics;
+  isFoldedStart?: boolean;
+  onToggleFold?: (line: number) => void;
+  occurrences?: OccurrenceMatch[];
 }
 
 export const EditorLine = React.memo(function EditorLine({
@@ -58,12 +63,16 @@ export const EditorLine = React.memo(function EditorLine({
   isComposing,
   compositionText,
   layout,
+  isFoldedStart,
+  onToggleFold,
+  occurrences,
 }: EditorLineProps) {
   const lineRef = useRef<HTMLButtonElement | null>(null);
   const [renderedSelection, setRenderedSelection] = useState<{
     left: number;
     width: number;
   } | null>(null);
+
   const setLineRef = useCallback(
     (element: HTMLButtonElement | null) => {
       lineRef.current = element;
@@ -71,6 +80,7 @@ export const EditorLine = React.memo(function EditorLine({
     },
     [idx, registerLineElement],
   );
+
   // 1. 独立计算本行的切分片段
   const segments = useMemo(() => {
     return segmentLine(
@@ -146,7 +156,27 @@ export const EditorLine = React.memo(function EditorLine({
     return null;
   }, [selection, idx, lineText, layout, renderedSelection]);
 
-  // 3. 处理鼠标事件与诊断提示
+  // 3. 缩进引导线计算
+  const indentGuides = useMemo(() => {
+    const leadingSpaces = lineText.search(/\S/);
+    if (leadingSpaces <= 0) return null;
+    const count = Math.floor(leadingSpaces / layout.tabSize);
+    const guides = [];
+    const spaceWidth = measureEditorText(" ", layout);
+    for (let i = 1; i <= count; i++) {
+      const left = layout.contentInsetX + i * layout.tabSize * spaceWidth;
+      guides.push(
+        <span
+          key={`guide-${i}`}
+          className="absolute top-0 bottom-0 border-l border-[var(--border-subtle)]/40 pointer-events-none"
+          style={{ left: `${left}px` }}
+        />,
+      );
+    }
+    return guides;
+  }, [lineText, layout]);
+
+  // 4. 处理鼠标事件与诊断提示
   const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!isDragging) {
       const charIndex = textIndexAtPoint(idx, e.currentTarget, e.clientX, e.clientY);
@@ -218,7 +248,7 @@ export const EditorLine = React.memo(function EditorLine({
       onMouseDown={(e) => onMouseDown(idx, e)}
       onMouseMove={handleMouseMove}
       onMouseLeave={onMouseLeave}
-      className={`editor-line relative block w-full border-0 bg-transparent text-left select-none cursor-text font-mono text-[var(--color-text-primary)] whitespace-pre transition-colors duration-150 ${
+      className={`editor-line relative block w-full border-0 bg-transparent text-left select-none cursor-text font-mono text-[var(--color-text-primary)] whitespace-pre transition-colors duration-100 ${
         isCurrent
           ? "bg-[var(--EditorActiveLineBg)] shadow-[inset_0_1px_0_var(--EditorActiveLineBorder),_inset_0_-1px_0_var(--EditorActiveLineBorder)]"
           : ""
@@ -232,7 +262,24 @@ export const EditorLine = React.memo(function EditorLine({
         tabSize: layout.tabSize,
       }}
     >
+      {indentGuides}
       {selectionLayer}
+
+      {/* 相同标识符 Occurrence 微高亮 */}
+      {occurrences
+        ?.filter((occ) => occ.line === idx)
+        .map((occ) => {
+          const left =
+            layout.contentInsetX + measureEditorText(lineText.substring(0, occ.startChar), layout);
+          const width = measureEditorText(lineText.substring(occ.startChar, occ.endChar), layout);
+          return (
+            <span
+              key={`occ-${occ.startChar}-${occ.endChar}`}
+              className="absolute top-0 bottom-0 hl-occurrence pointer-events-none z-0"
+              style={{ left: `${left}px`, width: `${width}px` }}
+            />
+          );
+        })}
 
       <span data-editor-text-content className="relative z-10">
         {segments.length === 0 ? (
@@ -245,6 +292,9 @@ export const EditorLine = React.memo(function EditorLine({
           ))
         )}
       </span>
+
+      {/* 折叠省略号占位符 */}
+      {isFoldedStart && onToggleFold && <FoldedPlaceholder onClick={() => onToggleFold(idx)} />}
 
       {isCurrent && isComposing && compositionText && (
         <span

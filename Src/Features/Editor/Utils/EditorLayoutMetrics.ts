@@ -68,41 +68,22 @@ export function readEditorLayoutMetrics(element: HTMLElement): EditorLayoutMetri
   };
 }
 
-function expandTabs(text: string, tabSize: number): string {
-  let column = 0;
-  let expanded = "";
-  const boundaries = getGraphemeBoundaries(text);
-  for (let index = 1; index < boundaries.length; index += 1) {
-    const character = text.slice(boundaries[index - 1], boundaries[index]);
-    if (character === "\t") {
-      const spaces = tabSize - (column % tabSize);
-      expanded += " ".repeat(spaces);
-      column += spaces;
-    } else {
-      expanded += character;
-      column += 1;
-    }
-  }
-  return expanded;
-}
+import { FontMetricsCache } from "../Performance/FontMetricsCache";
 
 export function measureEditorText(text: string, metrics: EditorLayoutMetrics): number {
   const measurementContext = getMeasurementContext();
-  if (!measurementContext) return expandTabs(text, metrics.tabSize).length * metrics.fontSize * 0.6;
-  measurementContext.font = `${metrics.fontSize}px ${metrics.fontFamily}`;
-  const tabWidth = measurementContext.measureText(" ".repeat(metrics.tabSize)).width;
-  let width = 0;
-  const boundaries = getGraphemeBoundaries(text);
-  for (let index = 1; index < boundaries.length; index += 1) {
-    const character = text.slice(boundaries[index - 1], boundaries[index]);
-    if (character === "\t" && tabWidth > 0) {
-      const remainder = width % tabWidth;
-      width += remainder < 0.01 ? tabWidth : tabWidth - remainder;
-    } else {
-      width += measurementContext.measureText(character).width;
-    }
-  }
-  return width;
+  const fallback = (char: string, fontKey: string) => {
+    if (!measurementContext) return metrics.fontSize * 0.6;
+    measurementContext.font = fontKey;
+    return measurementContext.measureText(char).width;
+  };
+
+  return FontMetricsCache.getInstance().measureTextFast(
+    text,
+    metrics.fontFamily,
+    metrics.fontSize,
+    fallback,
+  );
 }
 
 /** UTF-16 boundaries safe for caret, selection and editing operations. */
@@ -164,18 +145,21 @@ export function editorTextIndexAtX(
   metrics: EditorLayoutMetrics,
 ): number {
   if (relativeX <= 0) return 0;
-  const boundaries = getGraphemeBoundaries(text);
-  const totalWidth = measureEditorText(text, metrics);
-  if (relativeX >= totalWidth) return text.length;
+  const measurementContext = getMeasurementContext();
+  const fallback = (char: string, fontKey: string) => {
+    if (!measurementContext) return metrics.fontSize * 0.6;
+    measurementContext.font = fontKey;
+    return measurementContext.measureText(char).width;
+  };
 
-  for (let index = 1; index < boundaries.length; index += 1) {
-    const previous = boundaries[index - 1];
-    const next = boundaries[index];
-    const previousWidth = measureEditorText(text.slice(0, previous), metrics);
-    const nextWidth = measureEditorText(text.slice(0, next), metrics);
-    if (relativeX < (previousWidth + nextWidth) / 2) return previous;
-  }
-  return text.length;
+  const rawIndex = FontMetricsCache.getInstance().charIndexAtXFast(
+    text,
+    relativeX,
+    metrics.fontFamily,
+    metrics.fontSize,
+    fallback,
+  );
+  return snapToGraphemeBoundary(text, rawIndex);
 }
 
 type DomCaretRangeDocument = Document & {

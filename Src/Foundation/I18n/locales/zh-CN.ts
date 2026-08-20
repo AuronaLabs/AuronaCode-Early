@@ -15,6 +15,8 @@ export const zhCN = {
     retry: "重试",
     copy: "复制",
     close: "关闭",
+    confirm: "确认",
+    ok: "确定",
   },
   fliuno: {
     quickPlaceholder: "搜索命令、文件或设置…",
@@ -591,7 +593,55 @@ export const zhCN = {
       sourceControl: "源代码管理",
       accountCloud: "Aurona 账户",
       system: "空间管理",
+      featureFlags: "特性开关",
       advanced: "高级",
+    },
+    featureFlags: {
+      sectionDesc: "查看当前产品物理发行渠道，并细粒度控制前沿特性开关与实验性功能。",
+      channelSelectionTitle: "更新分发渠道",
+      channelStableTitle: "Stable 正式稳定版",
+      channelStableDesc: "当前构建属于正式生产通道，坚如磐石，默认仅启用经过严苛验证的工业级能力。",
+      channelPioneerTitle: "先锋计划",
+      channelPioneerDesc: "加入先锋计划尝鲜通道，默认开启最新研发的试验性前沿架构与黑科技。",
+      pioneerUpdateCheckDesc: "检查先锋计划开发预览版并在正式版发布时自动升级",
+      resetDefaults: "恢复推荐默认",
+      availableFlags: "可用特性开关列表",
+      totalCount: "项已注册特性",
+      experimentalConfirmTitle: "开启实验性特性确认",
+      experimentalConfirmDesc:
+        "该特性处于早期实验阶段，可能会影响编辑器的响应速度或稳定性。确定要强制开启吗？",
+      editorMinimap: {
+        title: "代码小地图 (Minimap)",
+        desc: "在编辑器右侧渲染 Canvas 2D 高性能代码缩略小地图与滑动视口。",
+      },
+      editorBracketPair: {
+        title: "彩虹括号与作用域引导线",
+        desc: "6 色嵌套括号彩虹着色，光标邻近成对高亮与垂直虚线引导线。",
+      },
+      editorCodeFolding: {
+        title: "代码折叠引擎 (Code Folding)",
+        desc: "基于缩进级别的代码块折叠，行号槽折叠三角与行内折叠胶囊。",
+      },
+      editorSmoothCaret: {
+        title: "光标平滑插值动画 (Smooth Caret)",
+        desc: "多光标与主光标移动时启用平滑 CSS 缓动插值过渡。",
+      },
+      editorOccurrence: {
+        title: "相同标识符全视口微高亮",
+        desc: "双击或选中任意单词时，视口内所有相同的标识符自动呈现柔和微高亮。",
+      },
+      asciiFastMetrics: {
+        title: "ASCII 字符 O(1) 查表加速",
+        desc: "构建 ASCII 0~127 字符度量常数级快表，大幅削减 Canvas 度量开销。",
+      },
+      vscodeCompat: {
+        title: "VSCode 兼容转译层",
+        desc: "支持将 VSCode 扩展 API 解析转译为 Aurona 原生面向对象调用栈并在沙箱执行。",
+      },
+      marketplacePreview: {
+        title: "Aurona Marketplace 早期预览",
+        desc: "开启 Aurona Marketplace 在线插件市场与扩展元数据早期探索入口。",
+      },
     },
     editorSection: {
       title: "编辑器设置",

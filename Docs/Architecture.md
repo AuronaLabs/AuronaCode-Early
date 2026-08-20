@@ -65,8 +65,11 @@ Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代化轻�
 - **Linker 预编译缓存**：初始化时预缓存 WASM Linker，启用速度优化等级，冷启动与渲染极其迅速；
 - **官方内置三大扩展矩阵**：
   1. **`aurona.markdown` (Markdown 实时预览)**：绑定编辑器流式解析渲染；
-  2. **`aurona.planner` (任务与测试看板)**：独立运行，集成 Tabler 矢量图标 SDK，工作区安全持久化；
+  2. **`aurona.planner` (任务与测试看板)**：独立运行，集成 Tabler 矢量图标 SDK 与官方原生组件，工作区安全持久化；
   3. **`aurona.vscode-compat` (VSCode 兼容转译层)**：提供核心 VSCode API 模拟与 Node.js 安全沙箱；
+- **扩展 UI 双模演进体系 (Dual UI Architecture)**：
+  - **模式 A：官方原生声明式组件 (Declarative Native UI)**：直接使用 Aurona 官方 React 现代拟物组件库（`Select`、`Switch`、`Card`、`Button`、`Input`、`ProgressBar`），零额外体积开销；
+  - **模式 B：自定义 Webview 容器 (Custom Webview Host)**：全自主渲染 HTML/CSS/Canvas 视图；
 - **多层安全防线**：
   - **Fuel 燃料消耗上限**：防范插件内部无限死循环；
   - **Memory 内存限制**：严格限制单个插件的线性内存上限；

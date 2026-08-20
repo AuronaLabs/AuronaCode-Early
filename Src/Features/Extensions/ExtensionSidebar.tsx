@@ -11,12 +11,7 @@ import { SIDEBAR_EXTENSIONS } from "../../Shared/Constants/Sidebar";
 import { useExtensionStore } from "../../State/useExtensionStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Button } from "../../UI/Components/Button";
-import {
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuRoot,
-  DropdownMenuTrigger,
-} from "../../UI/Components/DropdownMenu";
+import { Select } from "../../UI/Components/Select";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { resolveExtensionName } from "./ExtensionUtils";
@@ -42,6 +37,78 @@ const CATEGORIES = [
   { name: "设计", color: "bg-pink-400" },
 ];
 
+const VSCODE_SAMPLE_SCRIPTS = [
+  {
+    name: "官方原生声明式组件",
+    script: JSON.stringify({
+      mode: "declarative",
+      title: "官方原生拟物组件示例",
+      description: "插件直接声明式复用 Aurona 官方 Select、Switch、Card 与 Button 组件",
+      components: [
+        {
+          type: "card",
+          id: "card_main",
+          title: "扩展配置中心",
+          subtitle: "Declarative Component System v1.0",
+          children: [
+            {
+              type: "select",
+              id: "targetChannel",
+              label: "目标渠道",
+              value: "pioneer",
+              options: [
+                { label: "Stable 正式稳定版", value: "stable" },
+                { label: "Pioneer 先锋计划", value: "pioneer" },
+              ],
+            },
+            {
+              type: "switch",
+              id: "autoSync",
+              label: "自动同步状态",
+              description: "开启后自动持久化至本地存储",
+              checked: true,
+            },
+            {
+              type: "input",
+              id: "tokenInput",
+              label: "访问令牌 (Token)",
+              placeholder: "输入插件安全令牌...",
+              inputType: "password",
+            },
+            {
+              type: "progress",
+              id: "compatProgress",
+              label: "API 兼容就绪度",
+              progress: 98.5,
+            },
+            {
+              type: "button",
+              id: "btnSave",
+              label: "保存并应用配置",
+              variant: "primary",
+              action: "config:save",
+            },
+          ],
+        },
+      ],
+    }),
+  },
+  {
+    name: "命令与窗口交互",
+    script: `vscode.commands.registerCommand("extension.sayHello", () => {
+  vscode.window.showInformationMessage("Hello from VSCode Compat Layer!");
+});
+vscode.window.showWarningMessage("API Compatibility verified.");`,
+  },
+  {
+    name: "文件系统与剪贴板",
+    script: `const uri = vscode.Uri.file("/workspace/README.md");
+vscode.workspace.fs.readFile(uri).then(content => {
+  vscode.env.clipboard.writeText("Read " + content.length + " bytes");
+});`,
+  },
+];
+
 function currentTheme(): string {
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
@@ -64,10 +131,13 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
   const isStandalone = extensionId === "aurona.planner" || extensionId === "aurona.vscode-compat";
   const isPlanner = extensionId === "aurona.planner";
+  const isVsCodeCompat = extensionId === "aurona.vscode-compat";
 
   const [view, setView] = useState<ExtensionViewPayload | null>(null);
   const [viewFailed, setViewFailed] = useState(false);
-  const [editorPermission, setEditorPermission] = useState<ExtensionPermissionState>("unknown");
+  const [editorPermission, setEditorPermission] = useState<ExtensionPermissionState>(
+    isStandalone ? "granted" : "unknown",
+  );
   const [renderState, setRenderState] = useState<ExtensionRenderState | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
 
@@ -77,6 +147,9 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   const [newTaskCategory, setNewTaskCategory] = useState("开发");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "completed">("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // VSCode Compat 专属状态
+  const [compatScript, setCompatScript] = useState("");
 
   const latestDocument = useRef<{ content: string; version: number } | null>(null);
   const debounceTimer = useRef<number | null>(null);
@@ -134,7 +207,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
   const refresh = useCallback(async () => {
     if (isStandalone) {
-      latestDocument.current = { content: "", version: Date.now() };
+      latestDocument.current = { content: compatScript, version: Date.now() };
       await runRender(latestDocument.current);
       return;
     }
@@ -158,7 +231,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
       latestDocument.current = { content: record.content, version: record.version };
       await runRender(latestDocument.current);
     }
-  }, [isStandalone, runRender]);
+  }, [isStandalone, compatScript, runRender]);
 
   // Planner: 添加新任务
   const handleAddNewTask = useCallback(() => {
@@ -188,25 +261,65 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
       content: JSON.stringify(updated),
       version: Date.now(),
     });
-    if (activePath) {
-      void desktopFileSystem.writeTextFile(activePath, JSON.stringify(updated, null, 2));
-    }
-    showToast("已清理所有已完成任务", "info");
-  }, [tasks, runRender, activePath]);
+  }, [tasks, runRender]);
 
+  // VSCode Compat: 运行示例或自定义脚本转译
+  const handleRunCompatSample = useCallback(
+    (script: string) => {
+      setCompatScript(script);
+      void runRender({
+        content: script,
+        version: Date.now(),
+      });
+    },
+    [runRender],
+  );
+
+  // 1. 初始化读取插件基础视图与 Planner 初始任务
   useEffect(() => {
     let cancelled = false;
+    setViewFailed(false);
     void (async () => {
       try {
-        const loaded = await useExtensionStore.getState().viewFor(extensionId);
-        if (!cancelled) setView(loaded ?? null);
+        const payload = await useExtensionStore.getState().viewFor(extensionId);
+        if (!cancelled && payload) {
+          setView(payload);
+        }
       } catch {
         if (!cancelled) setViewFailed(true);
       }
+
+      // Planner: 尝试读取工作区现有 planner.json
+      if (isPlanner) {
+        try {
+          const exists = await desktopFileSystem.exists(".aurona/planner.json");
+          if (exists) {
+            const raw = await desktopFileSystem.readTextFile(".aurona/planner.json");
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              setTasks(parsed);
+            }
+          }
+        } catch {
+          // 初始化时无 planner.json 属正常
+        }
+      }
     })();
+    return () => {
+      cancelled = true;
+    };
+  }, [extensionId, isPlanner]);
+
+  // 2. 监听权限状态
+  useEffect(() => {
+    if (isStandalone) {
+      setEditorPermission("granted");
+      return;
+    }
+    let cancelled = false;
+    const permissionName = "editor.current.read";
     void (async () => {
       try {
-        const permissionName = isStandalone ? "workspace.read" : "editor.current.read";
         const permState = await useExtensionStore
           .getState()
           .permissionFor(extensionId, permissionName);
@@ -225,11 +338,10 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
     };
   }, [extensionId, isStandalone, refresh]);
 
+  // 3. 独立插件初次自动渲染与编辑器文档变更订阅
   useEffect(() => {
     if (isStandalone) {
-      if (editorPermission === "granted") {
-        void refresh();
-      }
+      void refresh();
       return;
     }
 
@@ -277,7 +389,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   }, [renderError, t]);
 
   const name = resolveExtensionName(descriptor, locale) || extensionId;
-  const isPermissionGranted = editorPermission === "granted";
+  const isPermissionGranted = isStandalone || editorPermission === "granted";
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
@@ -331,6 +443,30 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
         </div>
       </div>
 
+      {/* VSCode Compat 专属操作栏 */}
+      {isVsCodeCompat && (
+        <div className="mx-2.5 mb-2 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/60 p-2 shadow-sm backdrop-blur-md">
+            <span className="text-[11.5px] font-medium text-[var(--color-text-primary)]">
+              转译示例测试
+            </span>
+            <div className="flex items-center gap-1">
+              {VSCODE_SAMPLE_SCRIPTS.map((sample) => (
+                <Button
+                  key={sample.name}
+                  size="sm"
+                  variant="secondary"
+                  className="h-6 px-2 text-[10.5px]"
+                  onClick={() => handleRunCompatSample(sample.script)}
+                >
+                  {sample.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Planner 专属功能操作栏 */}
       {isPlanner && isPermissionGranted && (
         <div className="mx-2.5 mb-2 flex flex-col gap-2">
@@ -347,86 +483,68 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               className="min-w-0 flex-1 bg-transparent px-2 text-[12px] text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-muted)]"
             />
 
-            {/* 现代拟物分类选择菜单 */}
-            <DropdownMenuRoot>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="flex h-6.5 items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--material-surface)] px-2 text-[11px] font-medium text-[var(--color-text-primary)] shadow-sm hover:bg-[var(--color-surface-2)]"
-                >
-                  <span
-                    className={`size-2 rounded-full ${
-                      CATEGORIES.find((c) => c.name === newTaskCategory)?.color ?? "bg-blue-400"
-                    }`}
-                  />
-                  <span>{newTaskCategory}</span>
-                  <Icons.ChevronDown size={11} className="text-[var(--color-text-muted)]" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-28 p-1">
-                {CATEGORIES.map((cat) => (
-                  <DropdownMenuItem
-                    key={cat.name}
-                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-[11px]"
-                    onClick={() => setNewTaskCategory(cat.name)}
-                  >
-                    <span className={`size-2 rounded-full ${cat.color}`} />
-                    <span>{cat.name}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenuRoot>
+            {/* 官方原生拟物分类选择器 */}
+            <div className="w-24 shrink-0">
+              <Select
+                value={newTaskCategory}
+                onChange={(val) => setNewTaskCategory(val)}
+                options={CATEGORIES.map((c) => ({
+                  label: c.name,
+                  value: c.name,
+                }))}
+                className="h-7 min-w-[90px] text-[11px] px-2 py-0"
+              />
+            </div>
 
             <Button
               size="sm"
-              variant="glass"
-              className="h-6.5 rounded-lg px-2.5 text-[11px]"
               onClick={handleAddNewTask}
+              disabled={!newTaskTitle.trim()}
+              className="h-7 shrink-0 px-2.5 text-[11px]"
             >
               <Icons.Plus size={13} className="mr-0.5" />
               添加
             </Button>
           </div>
 
-          {/* 状态筛选药丸与搜索 */}
+          {/* 筛选与搜索 */}
           <div className="flex items-center justify-between gap-1.5 px-0.5">
-            <div className="flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)]/40 p-0.5 text-[11px]">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setStatusFilter("all")}
-                className={`rounded-md px-2 py-0.5 transition-all ${
+                className={`rounded-lg px-2 py-0.5 text-[11px] font-medium transition-all ${
                   statusFilter === "all"
-                    ? "bg-[var(--color-surface-1)] font-semibold text-[var(--color-text-highlight)] shadow-sm"
+                    ? "bg-[var(--color-surface-3)] text-[var(--color-text-highlight)] shadow-sm"
                     : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                 }`}
               >
-                全部
+                全部 ({tasks.length})
               </button>
               <button
                 type="button"
                 onClick={() => setStatusFilter("pending")}
-                className={`rounded-md px-2 py-0.5 transition-all ${
+                className={`rounded-lg px-2 py-0.5 text-[11px] font-medium transition-all ${
                   statusFilter === "pending"
-                    ? "bg-[var(--color-surface-1)] font-semibold text-[var(--color-text-highlight)] shadow-sm"
+                    ? "bg-[var(--color-surface-3)] text-[var(--color-text-highlight)] shadow-sm"
                     : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                 }`}
               >
-                进行中
+                待办 ({tasks.filter((t) => !t.completed).length})
               </button>
               <button
                 type="button"
                 onClick={() => setStatusFilter("completed")}
-                className={`rounded-md px-2 py-0.5 transition-all ${
+                className={`rounded-lg px-2 py-0.5 text-[11px] font-medium transition-all ${
                   statusFilter === "completed"
-                    ? "bg-[var(--color-surface-1)] font-semibold text-[var(--color-text-highlight)] shadow-sm"
+                    ? "bg-[var(--color-surface-3)] text-[var(--color-text-highlight)] shadow-sm"
                     : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                 }`}
               >
-                已完成
+                已完成 ({tasks.filter((t) => t.completed).length})
               </button>
             </div>
 
-            {/* 快速搜索过滤 */}
             <div className="flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)]/40 px-2 py-0.5">
               <Icons.Search size={11} className="text-[var(--color-text-muted)]" />
               <input
@@ -443,7 +561,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
       {/* 核心内卡片容器：带边距与圆角矩形，内容完全居中对齐 */}
       <div className="relative mx-2.5 mb-2.5 flex min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/30 shadow-[inset_0_1px_1px_var(--material-inset)]">
-        {!isPermissionGranted ? (
+        {!isStandalone && !isPermissionGranted ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-6 text-center">
             <div className="flex size-10 items-center justify-center rounded-xl bg-[var(--material-surface)] text-[var(--color-text-muted)]">
               <Icons.InfoCircle size={22} stroke={1.5} />
@@ -491,6 +609,9 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
             viewHtml={view.html}
             theme={currentTheme()}
             renderState={renderState}
+            onAction={(actionId) => {
+              showToast(`组件交互: ${actionId}`, "info");
+            }}
           />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center px-4 text-center text-xs text-[var(--color-text-muted)]">

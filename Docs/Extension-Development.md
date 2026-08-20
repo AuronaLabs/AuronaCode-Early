@@ -63,6 +63,19 @@ my-extension.aurx
 
 ---
 
+## 2.1 扩展 UI 双模演进体系 (Dual UI Modes)
+
+Aurona Code 支持两种插件界面构建范式，插件开发者可根据需求自由选择：
+
+1. **官方原生拟物组件模式 (Declarative Native UI)**：
+   - 插件直接复用 Aurona 宿主提供的官方 React 现代拟物组件库（`Select`、`Button`、`Switch`、`Card`、`Tag`、`GlassContainer`）；
+   - **优势**：开箱即用，100% 继承工作台当前主题色彩、毛玻璃渐变与流动光效，体积零额外开销。
+2. **自定义 Webview 容器模式 (Custom Webview Host)**：
+   - 插件通过 WASM / HTML 契约完全自主绘制 HTML/CSS/Canvas 视图；
+   - **优势**：极高自由度，适合 Markdown 实时富文本渲染、图表绘制、复杂游戏或自研 UI 引擎。
+
+---
+
 ## 3. 从零创建新扩展流程
 
 ### 3.1 创建 Rust 扩展工程

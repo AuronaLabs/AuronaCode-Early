@@ -192,6 +192,14 @@ function main() {
       icon: "assets/icon.svg",
     },
     view: { entry: "ui/index.html" },
+    marketplace: {
+      categories: ["Productivity", "Project Management"],
+      tags: ["planner", "kanban", "tasks", "todo", "productivity"],
+      author: "Aurona Code Team",
+      homepage: "https://github.com/AuronaLabs/AuronaCode-Early",
+      repository: "https://github.com/AuronaLabs/AuronaCode-Early",
+      license: "MIT",
+    },
   };
   const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 

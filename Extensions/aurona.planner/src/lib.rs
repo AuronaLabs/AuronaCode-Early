@@ -5,9 +5,11 @@ wit_bindgen::generate!({
     world: "aurona-extension",
 });
 
-/// Aurona 插件 SDK 门面
+/// Aurona 官方面向对象 SDK
 pub mod sdk {
-    use super::aurona::extensions::context::{self, Environment, WorkspaceInfo};
+    use super::aurona::extensions::context::{
+        self, EditorSnapshot, Environment, FileEntry, SelectionRange, WorkspaceInfo,
+    };
 
     pub struct Aurona;
 
@@ -20,6 +22,26 @@ pub mod sdk {
         #[inline]
         pub fn workspace() -> WorkspaceService {
             WorkspaceService
+        }
+
+        #[inline]
+        pub fn editor() -> EditorService {
+            EditorService
+        }
+
+        #[inline]
+        pub fn window() -> WindowService {
+            WindowService
+        }
+
+        #[inline]
+        pub fn commands() -> CommandService {
+            CommandService
+        }
+
+        #[inline]
+        pub fn clipboard() -> ClipboardService {
+            ClipboardService
         }
 
         #[inline]
@@ -50,6 +72,52 @@ pub mod sdk {
         pub fn write_file(&self, path: &str, content: &str) -> Result<bool, String> {
             context::write_workspace_file(path, content)
         }
+
+        #[inline]
+        pub fn list_files(&self, directory: &str, max_count: u32) -> Result<Vec<FileEntry>, String> {
+            context::list_workspace_files(directory, max_count)
+        }
+    }
+
+    pub struct EditorService;
+
+    impl EditorService {
+        #[inline]
+        pub fn snapshot(&self) -> EditorSnapshot {
+            context::get_editor_snapshot()
+        }
+
+        #[inline]
+        pub fn selection(&self) -> Option<SelectionRange> {
+            context::get_editor_selection()
+        }
+    }
+
+    pub struct WindowService;
+
+    impl WindowService {
+        #[inline]
+        pub fn show_info(&self, message: &str) -> Result<bool, String> {
+            context::show_notification("info", message)
+        }
+    }
+
+    pub struct CommandService;
+
+    impl CommandService {
+        #[inline]
+        pub fn execute(&self, command_id: &str, args: &[String]) -> Result<String, String> {
+            context::execute_command(command_id, args)
+        }
+    }
+
+    pub struct ClipboardService;
+
+    impl ClipboardService {
+        #[inline]
+        pub fn write(&self, text: &str) -> Result<bool, String> {
+            context::write_clipboard(text)
+        }
     }
 
     pub struct LoggerService;
@@ -70,16 +138,8 @@ pub mod sdk {
 
     impl IconService {
         #[inline]
-        pub fn get(&self, name: &str) -> &'static str {
-            match name {
-                "check" => "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"20 6 9 17 4 12\"/></svg>",
-                "clipboard" => "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2\"/><rect x=\"8\" y=\"2\" width=\"8\" height=\"4\" rx=\"1\" ry=\"1\"/></svg>",
-                "trash" => "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 6h18\"/><path d=\"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6\"/><path d=\"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2\"/></svg>",
-                "plus" => "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>",
-                "calendar" => "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"/><line x1=\"16\" y1=\"2\" x2=\"16\" y2=\"6\"/><line x1=\"8\" y1=\"2\" x2=\"8\" y2=\"6\"/><line x1=\"3\" y1=\"10\" x2=\"21\" y2=\"10\"/></svg>",
-                "filter" => "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polygon points=\"22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3\"/></svg>",
-                _ => "",
-            }
+        pub fn get(&self, name: &str) -> Option<String> {
+            context::get_icon_svg(name)
         }
     }
 }
@@ -275,8 +335,8 @@ fn render_planner_html(tasks: &[TaskItem], locale: &str) -> RenderOutput {
         "Quickly add tasks above. Progress is automatically saved to <code>.aurona/planner.json</code>."
     };
 
-    let icon_clipboard = Aurona::icons().get("clipboard");
-    let icon_check = Aurona::icons().get("check");
+    let icon_clipboard = Aurona::icons().get("clipboard").unwrap_or_default();
+    let icon_check = Aurona::icons().get("check").unwrap_or_default();
 
     let mut html = String::new();
     html.push_str("<div class=\"planner-container\">");
@@ -333,7 +393,7 @@ fn render_planner_html(tasks: &[TaskItem], locale: &str) -> RenderOutput {
             } else {
                 "task-item pending"
             };
-            let check_rendered = if task.completed { icon_check } else { "" };
+            let check_rendered = if task.completed { icon_check.as_str() } else { "" };
             let title_escaped = html_escape(&task.title);
             let category_escaped = html_escape(&task.category);
 

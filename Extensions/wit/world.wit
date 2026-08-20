@@ -98,6 +98,18 @@ interface context {
 
   /// Returns official Tabler SVG content by icon name (e.g. "check", "trash", "clipboard").
   get-icon-svg: func(name: string) -> option<string>;
+
+  /// Executes an Aurona Code built-in or extension command.
+  execute-command: func(command-id: string, arguments: list<string>) -> result<string, string>;
+
+  /// Sets a temporary status bar message with auto-dismiss timeout in milliseconds.
+  set-status-message: func(message: string, timeout-ms: u32) -> result<bool, string>;
+
+  /// Inserts text into current active editor at primary cursor position.
+  insert-editor-text: func(text: string) -> result<bool, string>;
+
+  /// Reveals specified line number in current active editor viewport.
+  reveal-editor-line: func(line: u32) -> result<bool, string>;
 }
 
 /// The extension's render contract.

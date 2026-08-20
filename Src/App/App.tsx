@@ -7,6 +7,7 @@ import { PlatformService } from "../Foundation/Platform";
 import { AppShell } from "../Layout/AppShell";
 import { WorkspaceView } from "../Layout/Workspace";
 import { isRunnable } from "../Shared/Constants/RunConfig";
+import { useFeatureFlagStore } from "../State/useFeatureFlagStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
 import { useGlassStore } from "../UI/Core/GlassManager";
 
@@ -15,6 +16,7 @@ export default function App() {
     let disposed = false;
     let disposeMacMenu: (() => void) | undefined;
     let unsubscribeWorkbench: (() => void) | undefined;
+    void useFeatureFlagStore.getState().initialize();
     useGlassStore.getState().applyToDOM();
     const themeObserver = new MutationObserver(() => {
       useGlassStore.getState().applyToDOM();

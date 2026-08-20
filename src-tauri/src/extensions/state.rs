@@ -194,7 +194,10 @@ impl ExtensionState {
 }
 
 fn is_builtin_extension(extension_id: &str) -> bool {
-    extension_id == "aurona.markdown"
+    matches!(
+        extension_id,
+        "aurona.markdown" | "aurona.planner" | "aurona.vscode-compat"
+    )
 }
 
 impl Default for ExtensionState {

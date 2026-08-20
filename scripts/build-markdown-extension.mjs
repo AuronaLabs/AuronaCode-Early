@@ -192,6 +192,14 @@ function main() {
       icon: "assets/icon.svg",
     },
     view: { entry: "ui/index.html" },
+    marketplace: {
+      categories: ["Programming Languages", "Formatters"],
+      tags: ["markdown", "preview", "gfm", "wasm"],
+      author: "Aurona Code Team",
+      homepage: "https://github.com/AuronaLabs/AuronaCode-Early",
+      repository: "https://github.com/AuronaLabs/AuronaCode-Early",
+      license: "MIT",
+    },
   };
   const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 

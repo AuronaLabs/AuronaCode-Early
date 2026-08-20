@@ -2,6 +2,17 @@ import { invokeDesktop } from "../Desktop/Transport";
 
 export type ExtensionPermissionState = "unknown" | "granted" | "denied";
 
+export interface ExtensionMarketplaceInfo {
+  categories?: string[];
+  tags?: string[];
+  author?: string;
+  homepage?: string;
+  repository?: string;
+  license?: string;
+  rating?: number;
+  downloads?: number;
+}
+
 export interface ExtensionDescriptor {
   id: string;
   name: string;
@@ -14,6 +25,7 @@ export interface ExtensionDescriptor {
   displayTitle?: Record<string, string>;
   sidebarIcon: string;
   viewEntry: string;
+  marketplace?: ExtensionMarketplaceInfo;
 }
 
 export interface ExtensionViewPayload {

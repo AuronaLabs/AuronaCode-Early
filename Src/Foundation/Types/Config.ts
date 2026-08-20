@@ -70,4 +70,6 @@ export interface UserConfig {
   languageServers?: Record<string, LanguageServerConfiguration>;
   languageFeatures?: LanguageFeaturePreferences;
   debug?: DebugPreferences;
+  releaseChannel?: "stable" | "pioneer";
+  featureFlags?: Record<string, boolean>;
 }

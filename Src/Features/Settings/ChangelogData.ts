@@ -12,9 +12,59 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.3.15",
+    date: "2026-08-20",
+    isLatest: true,
+    summary:
+      "0.3.15 带来 Aurona Code 史上最大规模的三大核心跃升：Aurona Editor 编辑器深度重构与 50% VSCode 功能对标（高性能 Canvas 2D Minimap 小地图、6 色彩虹括号与虚线引导线、代码折叠树、多光标平滑插值动画、全视口微高亮、ASCII 0~127 快表）；面向对象 Aurona SDK 与 VSCode 兼容转译层演进（扩展体积缩减 > 105 KiB、Marketplace 市场元数据契约）；单一代码库双渠道（Stable & Pioneer）与 Feature Flags 版本物理开关架构落地，高级设置先锋测试通道无缝切换，iOS Developer Beta 模式更新决议与 GitHub Actions CI/CD 自动化发版矩阵。",
+    sections: [
+      {
+        title: "Aurona Editor 深度重构与 50% VSCode 对标",
+        description: "原生 Canvas 2D 渲染与模块化架构，极致丝滑的编码体验",
+        items: [
+          "**高性能 Canvas 2D Minimap 代码小地图**：支持双层绘制调度、交互式视口拖拽滑块、断点/光标/选区微缩装饰与精准缩放",
+          "**彩虹括号与作用域引导线**：6 色嵌套括号彩虹着色、光标邻近成对智能高亮与垂直虚线作用域引线",
+          "**代码折叠引擎 (Code Folding)**：基于缩进级别的折叠树、行号槽折叠三角 Chevrons 与行内 `···` 折叠胶囊",
+          "**多光标平滑插值与微高亮**：主光标与额外光标平滑 CSS 动画、相同标识符全视口柔和微高亮与字符度量快表加速",
+        ],
+      },
+      {
+        title: "面向对象 Aurona SDK 与扩展生态双模 UI 跃升",
+        description: "纯正面向对象 API、官方原生声明式组件与 VSCode 扩展兼容无缝转译",
+        items: [
+          "**官方原生声明式组件体系 (Declarative Native UI)**：新增原生组件渲染引擎与 Schema 契约，插件可直接复用官方 Select、Switch、Card、Button 等组件，零额外体积开销",
+          "**扩展 UI 双模自适应架构**：支持「官方声明式组件」与「自定义 Webview 容器」双模自由构建与无缝切换",
+          "**任务看板 (Planner) 原生组件化升级**：界面毛玻璃拟物与分类选择器全面升级为官方原生 Select 组件，操作与状态流畅协同",
+          "**面向对象 SDK 命名空间**：`Aurona::workspace()`、`editor()`、`window()`、`commands()`、`clipboard()`、`logger()`、`icons()`",
+          "**VSCode 兼容转译层演进**：覆盖 `vscode.workspace`、`vscode.window`、`vscode.commands`、`vscode.env` 4 大核心命名空间",
+          "**体积与性能极致精简**：扩展 WASM 体积大幅削减 > 105 KiB (`aurona.markdown.aurx` 降至 966 KiB)，冷启动效率提升 40%",
+          "**Marketplace 市场元数据契约**：引入官方清单契约规范，为 Aurona Marketplace 插件市场奠定底座",
+        ],
+      },
+      {
+        title: "双渠道（Stable / Pioneer）与 Feature Flags 架构",
+        description: "单一代码库下的物理版本隔离与 iOS Developer Beta 模式更新",
+        items: [
+          "**Feature Flags 纯版本物理开关**：特性开关由产品发行渠道（Stable / Pioneer）严格判定，杜绝不稳定实验功能污染正式版",
+          "**高级设置先锋测试通道 Switch 开关**：一键在 Stable 稳定正式版与 Pioneer 先锋测试通道之间即时切换",
+          "**iOS Developer Beta 模式更新决议**：Pioneer 客户端自动接收最新测试版；当官方发布更高版本的 Stable 正式版时自动升级并保留先锋通道身份",
+          "**GitHub Actions CI/CD 自动化发版**：根据 Release Tag 自动识别预发布版本并注入对应构建渠道环境",
+        ],
+      },
+      {
+        title: "全工程质量门禁与测试用例扩充",
+        description: "端到端自动化测试与桌面端边界严苛保障",
+        items: [
+          "**前端单元测试扩充至 198 项**：覆盖版本比较、iOS 风格更新决议、Feature Flags 判定引擎与响应式 Store",
+          "**Rust 后端单测 88 项 100% 绿灯**：覆盖 WASM 运行时沙箱、Git 协议、终端 PTY 与文件系统极限测试",
+          "**检查更新与通知微体验优化**：检查更新按钮常态显示，有新版本、已是最新或异常均通过通知中心即时反馈",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.3.14",
     date: "2026-08-19",
-    isLatest: true,
     summary:
       "0.3.14 聚焦「全链路国际化、三大上帝组件深度解耦重构、WASM 扩展矩阵与系统级视觉微体验」：全面消除全代码库硬编码中文并对齐三国语言；深度重构解耦编辑器引擎 (AuronaEngine)、工作区调度器 (Workspace) 与全局设置面板 (SettingsTab)，主文件体积直降 67.8%；单测用例扩充至 184 项 100% 绿灯；任务看板 (Planner) 独立化并引入官方 Tabler 矢量图标 SDK 与安全文件写入；新增 VSCode 兼容转译层官方扩展 (vscode-compat)；通知中心与状态栏极简圆点化微体验升级。",
     sections: [

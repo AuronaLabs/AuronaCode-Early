@@ -10,30 +10,32 @@
       --bg: transparent;
       --fg: #0f172a;
       --muted: #64748b;
-      --card-bg: rgba(0, 0, 0, 0.03);
-      --card-border: rgba(0, 0, 0, 0.07);
-      --card-hover: rgba(0, 0, 0, 0.06);
-      --stat-bg: rgba(0, 0, 0, 0.025);
+      --card-bg: rgba(0, 0, 0, 0.025);
+      --card-border: rgba(0, 0, 0, 0.06);
+      --card-hover: rgba(0, 0, 0, 0.05);
+      --stat-bg: rgba(0, 0, 0, 0.02);
       --accent: #0284c7;
+      --accent-glow: rgba(2, 132, 199, 0.12);
       --accent-done: #16a34a;
       --accent-pending: #d97706;
-      --progress-bg: rgba(0, 0, 0, 0.08);
+      --progress-bg: rgba(0, 0, 0, 0.06);
       --radius: 12px;
-      --badge-cat: rgba(0, 0, 0, 0.06);
+      --badge-cat: rgba(0, 0, 0, 0.05);
     }
     :root[data-theme="dark"] {
       --bg: transparent;
       --fg: #e6edf3;
       --muted: #8b949e;
-      --card-bg: rgba(255, 255, 255, 0.04);
-      --card-border: rgba(255, 255, 255, 0.08);
-      --card-hover: rgba(255, 255, 255, 0.07);
-      --stat-bg: rgba(255, 255, 255, 0.03);
+      --card-bg: rgba(255, 255, 255, 0.035);
+      --card-border: rgba(255, 255, 255, 0.07);
+      --card-hover: rgba(255, 255, 255, 0.06);
+      --stat-bg: rgba(255, 255, 255, 0.025);
       --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.15);
       --accent-done: #4ade80;
       --accent-pending: #fbbf24;
-      --progress-bg: rgba(255, 255, 255, 0.08);
-      --badge-cat: rgba(255, 255, 255, 0.08);
+      --progress-bg: rgba(255, 255, 255, 0.06);
+      --badge-cat: rgba(255, 255, 255, 0.07);
     }
     * {
       box-sizing: border-box;
@@ -52,65 +54,71 @@
       user-select: none;
     }
     body {
-      padding: 12px;
+      padding: 10px;
     }
     .planner-container {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       min-height: 100%;
     }
     .planner-header {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: var(--radius);
-      padding: 12px;
-      backdrop-filter: blur(12px);
+      padding: 10px 12px;
+      backdrop-filter: blur(16px);
+      transition: all 0.2s ease;
     }
     .planner-header-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
     .planner-title {
       font-size: 13px;
       font-weight: 600;
       letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
     .progress-badge {
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 600;
       color: var(--accent);
-      background: rgba(56, 189, 248, 0.12);
+      background: var(--accent-glow);
       border: 1px solid rgba(56, 189, 248, 0.2);
-      padding: 2px 7px;
+      padding: 1.5px 7px;
       border-radius: 999px;
     }
     .planner-stats-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 10px;
+      gap: 6px;
+      margin-bottom: 8px;
     }
     .stat-box {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 6px;
+      padding: 5px 4px;
       border-radius: 8px;
       background: var(--stat-bg);
       border: 1px solid var(--card-border);
+      transition: all 0.2s ease;
     }
     .stat-num {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       line-height: 1.2;
+      font-variant-numeric: tabular-nums;
     }
     .stat-label {
-      font-size: 10px;
+      font-size: 9.5px;
       color: var(--muted);
-      margin-top: 2px;
+      margin-top: 1px;
     }
     .stat-done .stat-num {
       color: var(--accent-done);
@@ -125,7 +133,7 @@
     }
     .progress-track {
       flex: 1;
-      height: 6px;
+      height: 5px;
       background: var(--progress-bg);
       border-radius: 999px;
       overflow: hidden;
@@ -134,7 +142,7 @@
       height: 100%;
       background: linear-gradient(90deg, var(--accent), var(--accent-done));
       border-radius: 999px;
-      transition: width 0.3s ease;
+      transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .planner-empty-wrapper {
       flex: 1;
@@ -142,11 +150,11 @@
       align-items: center;
       justify-content: center;
       width: 100%;
-      min-height: 280px;
+      min-height: 260px;
     }
     .planner-empty {
       width: 100%;
-      padding: 28px 16px;
+      padding: 24px 16px;
       text-align: center;
       display: flex;
       flex-direction: column;
@@ -157,30 +165,31 @@
       border-radius: var(--radius);
     }
     .empty-icon-svg {
-      width: 34px;
-      height: 34px;
+      width: 32px;
+      height: 32px;
       stroke: var(--muted);
-      opacity: 0.6;
+      opacity: 0.55;
       margin-bottom: 8px;
     }
     .empty-title {
-      font-size: 13.5px;
+      font-size: 13px;
       font-weight: 600;
       color: var(--fg);
       opacity: 0.9;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       text-align: center;
     }
     .empty-text {
-      font-size: 11.5px;
+      font-size: 11px;
       color: var(--muted);
       line-height: 1.6;
-      max-width: 240px;
+      max-width: 220px;
       text-align: center;
       margin: 0 auto;
     }
     .empty-text code {
-      font-family: monospace;
+      font-family: 'JetBrains Mono', Consolas, monospace;
+      font-size: 10.5px;
       padding: 1px 4px;
       background: var(--card-bg);
       border: 1px solid var(--card-border);
@@ -189,113 +198,80 @@
     .task-list {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
     }
     .task-item {
       display: flex;
       align-items: flex-start;
       gap: 8px;
-      padding: 8px 10px;
+      padding: 7px 9px;
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-radius: var(--radius);
-      transition: all 0.15s ease;
+      border-radius: 8px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
     }
     .task-item:hover {
       background: var(--card-hover);
       border-color: rgba(128, 128, 128, 0.2);
+      transform: translateY(-1px);
     }
-    .checkbox {
-      width: 16px;
-      height: 16px;
-      border-radius: 5px;
-      border: 1.5px solid var(--muted);
-      display: flex;
+    .task-checkbox-mock {
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 11px;
-      font-weight: 700;
-      color: #fff;
+      width: 15px;
+      height: 15px;
+      margin-top: 1.5px;
+      border-radius: 4px;
+      border: 1.25px solid var(--muted);
+      color: white;
       flex-shrink: 0;
-      margin-top: 2px;
       transition: all 0.15s ease;
     }
-    .checkbox svg {
-      width: 12px;
-      height: 12px;
-      stroke: currentColor;
-    }
-    .task-item.completed .checkbox {
+    .task-item.completed .task-checkbox-mock {
       background: var(--accent-done);
       border-color: var(--accent-done);
+    }
+    .task-checkbox-mock svg {
+      width: 10px;
+      height: 10px;
+      stroke: currentColor;
     }
     .task-content {
       flex: 1;
       min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .task-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
     }
     .task-title {
-      font-size: 12.5px;
+      font-size: 12px;
       font-weight: 500;
+      color: var(--fg);
       word-break: break-word;
+      line-height: 1.35;
+      transition: all 0.15s ease;
     }
     .task-item.completed .task-title {
       text-decoration: line-through;
       color: var(--muted);
+      opacity: 0.75;
     }
-    .task-meta {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 4px;
-    }
-    .badge {
+    .task-category-pill {
       font-size: 9.5px;
-      padding: 1px 6px;
+      padding: 1px 5px;
       border-radius: 4px;
-      font-weight: 500;
-      line-height: 1.2;
-    }
-    /* 分类色彩胶囊 */
-    .badge-test {
-      background: rgba(168, 85, 247, 0.14);
-      color: #c084fc;
-      border: 1px solid rgba(168, 85, 247, 0.25);
-    }
-    .badge-dev {
-      background: rgba(59, 130, 246, 0.14);
-      color: #60a5fa;
-      border: 1px solid rgba(59, 130, 246, 0.25);
-    }
-    .badge-doc {
-      background: rgba(16, 185, 129, 0.14);
-      color: #34d399;
-      border: 1px solid rgba(16, 185, 129, 0.25);
-    }
-    .badge-opt {
-      background: rgba(245, 158, 11, 0.14);
-      color: #fbbf24;
-      border: 1px solid rgba(245, 158, 11, 0.25);
-    }
-    .badge-design {
-      background: rgba(236, 72, 153, 0.14);
-      color: #f472b6;
-      border: 1px solid rgba(236, 72, 153, 0.25);
-    }
-    .badge-default {
       background: var(--badge-cat);
       color: var(--muted);
-    }
-    .priority-high {
-      background: rgba(239, 68, 68, 0.15);
-      color: #ef4444;
-    }
-    .priority-normal {
-      background: rgba(107, 114, 128, 0.15);
-      color: #9ca3af;
-    }
-    .priority-low {
-      background: rgba(107, 114, 128, 0.1);
-      color: #6b7280;
+      white-space: nowrap;
+      border: 1px solid var(--card-border);
     }
   </style>
 </head>

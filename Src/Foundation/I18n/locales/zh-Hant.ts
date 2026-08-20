@@ -17,6 +17,8 @@ export const zhHant: LocaleMessages = {
     retry: "重試",
     copy: "複製",
     close: "關閉",
+    confirm: "確認",
+    ok: "確定",
   },
   fliuno: {
     quickPlaceholder: "搜尋命令、檔案或設定…",
@@ -594,7 +596,55 @@ export const zhHant: LocaleMessages = {
       sourceControl: "原始碼管理",
       accountCloud: "Aurona 帳戶",
       system: "空間管理",
+      featureFlags: "功能開關",
       advanced: "進階",
+    },
+    featureFlags: {
+      sectionDesc: "檢視當前產品實體發行管道，並細粒度控制前沿特性開關與實驗性功能。",
+      channelSelectionTitle: "更新發行管道",
+      channelStableTitle: "Stable 正式穩定版",
+      channelStableDesc: "當前組建屬於正式生產通道，堅如磐石，預設僅啟用經過嚴格驗證的工業級功能。",
+      channelPioneerTitle: "先鋒計畫",
+      channelPioneerDesc: "加入先鋒計畫搶鮮通道，預設開啟最新研發的實驗性前沿架構與黑科技。",
+      pioneerUpdateCheckDesc: "檢查先鋒計畫開發預覽版並在正式版發布時自動升級",
+      resetDefaults: "恢復推薦預設",
+      availableFlags: "可用功能開關列表",
+      totalCount: "項已註冊功能",
+      experimentalConfirmTitle: "開啟實驗性功能確認",
+      experimentalConfirmDesc:
+        "該功能處於早期實驗階段，可能會影響編輯器的回應速度或穩定性。確定要強制開啟嗎？",
+      editorMinimap: {
+        title: "程式碼小地圖 (Minimap)",
+        desc: "在編輯器右側轉譯 Canvas 2D 高效能程式碼縮圖小地圖與滑動視口。",
+      },
+      editorBracketPair: {
+        title: "彩虹括號與作用域引導線",
+        desc: "6 色嵌套括號彩虹著色，游標鄰近成對醒目提示與垂直虛線引導線。",
+      },
+      editorCodeFolding: {
+        title: "程式碼摺疊引擎 (Code Folding)",
+        desc: "基於縮排層級的程式碼區塊摺疊，行號槽摺疊三角與行內摺疊膠囊。",
+      },
+      editorSmoothCaret: {
+        title: "游標平滑插值動畫 (Smooth Caret)",
+        desc: "多游標與主游標移動時啟用平滑 CSS 緩動插值過渡。",
+      },
+      editorOccurrence: {
+        title: "相同識別碼全視口微醒目提示",
+        desc: "按兩下或選取任意單字時，視口內所有相同的識別碼自動呈現柔和微醒目提示。",
+      },
+      asciiFastMetrics: {
+        title: "ASCII 字元 O(1) 查表加速",
+        desc: "建置 ASCII 0~127 字元度量常數級快表，大幅減少 Canvas 度量開銷。",
+      },
+      vscodeCompat: {
+        title: "VSCode 相容轉譯層",
+        desc: "支援將 VSCode 擴充 API 解析轉譯為 Aurona 原生面向對象呼叫堆疊並在沙箱執行。",
+      },
+      marketplacePreview: {
+        title: "Aurona Marketplace 早期預覽",
+        desc: "開啟 Aurona Marketplace 線上擴充市集與擴充元資料早期探索入口。",
+      },
     },
     editorSection: {
       title: "編輯器設定",

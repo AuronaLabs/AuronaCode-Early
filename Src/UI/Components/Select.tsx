@@ -17,11 +17,12 @@ interface SelectProps {
   onChange: (value: string) => void;
   className?: string;
   ariaLabel?: string;
+  disabled?: boolean;
 }
 
-export function Select({ options, value, onChange, className, ariaLabel }: SelectProps) {
+export function Select({ options, value, onChange, className, ariaLabel, disabled }: SelectProps) {
   return (
-    <SelectPrimitive.Root value={value} onValueChange={onChange}>
+    <SelectPrimitive.Root value={value} onValueChange={onChange} disabled={disabled}>
       <SelectPrimitive.Trigger
         aria-label={ariaLabel}
         data-aurona-component-focus="true"

@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { DebugService } from "../../Core/DebugService";
 import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { DocumentService } from "../../Core/DocumentService";
 import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
@@ -7,6 +6,7 @@ import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { LanguageFeaturePreferences } from "../../Foundation/Types/Config";
 import type { EditorAction } from "../../Foundation/Types/Editor";
 import { useDebugStore } from "../../State/useDebugStore";
+import { useFeatureFlagStore } from "../../State/useFeatureFlagStore";
 import {
   ContextMenuContent,
   ContextMenuDivider,
@@ -14,13 +14,17 @@ import {
   ContextMenuRoot,
   ContextMenuTrigger,
 } from "../../UI/Components/ContextMenu";
+import { BracketPairGuides } from "./Brackets/BracketPairGuides";
+import { useBracketMatching } from "./Brackets/useBracketMatching";
 import { AutocompleteMenu } from "./components/AutocompleteMenu";
 import { EditorLine } from "./components/EditorLine";
 import { HoverCard } from "./components/HoverCard";
 import { SearchWidget } from "./components/SearchWidget";
+import { useCodeFolding } from "./Folding/useCodeFolding";
+import { GitGutterBar } from "./GitGutter/GitGutterBar";
+import { useGitGutterDiff } from "./GitGutter/useGitGutterDiff";
 import { useEditorAutocomplete } from "./Hooks/useEditorAutocomplete";
 import { useEditorContextMenu } from "./Hooks/useEditorContextMenu";
-import { useEditorGutterMetrics } from "./Hooks/useEditorGutterMetrics";
 import { useEditorHistory } from "./Hooks/useEditorHistory";
 import { useEditorHover } from "./Hooks/useEditorHover";
 import { useEditorIME } from "./Hooks/useEditorIME";
@@ -35,12 +39,17 @@ import {
 } from "./Hooks/useEditorSelectionOps";
 import { useSyntaxHighlighting } from "./Hooks/useSyntaxHighlighting";
 import type { IEditorEngine } from "./IEditorEngine";
+import { CanvasMinimap } from "./Minimap/CanvasMinimap";
+import { collectMinimapDecorations } from "./Minimap/MinimapDecorations";
+import { MultiCursorCaretLayer } from "./MultiCursor/MultiCursorCaretLayer";
+import { useMultiCursorOps } from "./MultiCursor/useMultiCursorOps";
+import { useSelectionOccurrence } from "./MultiCursor/useSelectionOccurrence";
+import { useEditorViewport } from "./Performance/useEditorViewport";
 import {
   DEFAULT_EDITOR_LAYOUT,
   editorTextIndexAtX,
   editorTextIndexFromPoint,
   measureEditorText,
-  measureRenderedEditorRange,
   readEditorLayoutMetrics,
   sameEditorLayout,
 } from "./Utils/EditorLayoutMetrics";
@@ -61,11 +70,10 @@ export type AuronaEngineProps = {
   revealLine?: number;
   onRevealHandled?: (path: string, line: number) => void;
   onSyncError?: (error: Error) => void;
-  /** 外部修改（Rename/Code Action 等 WorkspaceEdit）应用到文档后，用于同步编辑器视图。 */
   externalContent?: { content: string; nonce: number } | null;
 };
 
-const DEFAULT_LANGUAGE_PREFERENCES: Required<LanguageFeaturePreferences> = {
+const DEFAULT_PREFS: Required<LanguageFeaturePreferences> = {
   hoverEnabled: true,
   hoverDelayMs: 600,
   automaticCompletion: true,
@@ -82,22 +90,20 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   onSyncError,
   externalContent,
 }: AuronaEngineProps) {
-  const breakpoints = useDebugStore((state) => state.breakpoints);
   const toggleBreakpoint = useDebugStore((state) => state.toggleBreakpoint);
+  const isMinimapEnabled = useFeatureFlagStore((s) => s.isFeatureEnabled("editor.minimap"));
+  const isBracketGuideEnabled = useFeatureFlagStore((s) =>
+    s.isFeatureEnabled("editor.bracketPairColorization"),
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineElementsRef = useRef(new Map<number, HTMLButtonElement>());
 
-  // 文档数据源
+  // 1. 文档核心数据
   const [documentLines, setDocumentLines] = useState<string[]>([""]);
   const [totalLines, setTotalLines] = useState(1);
   const [maxLineLength, setMaxLineLength] = useState(1);
-
-  // 虚拟滚动
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(500);
-
-  // 光标与选区
+  const [layout, setLayout] = useState(DEFAULT_EDITOR_LAYOUT);
   const [cursor, setCursor] = useState({ line: 0, char: 0 });
   const [selection, setSelection] = useState<SelectionRange | null>(null);
 
@@ -113,20 +119,10 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     onCommitText: (text) => insertTextAtCursorRef.current(text),
   });
 
-  const [layout, setLayout] = useState(DEFAULT_EDITOR_LAYOUT);
-  const [caretPos, setCaretPos] = useState({ x: DEFAULT_EDITOR_LAYOUT.contentInsetX, y: 0 });
-  const [, setRenderedLineEpoch] = useState(0);
-
   const registerLineElement = useCallback(
     (lineIndex: number, element: HTMLButtonElement | null) => {
-      const current = lineElementsRef.current.get(lineIndex);
-      if (element && current !== element) {
-        lineElementsRef.current.set(lineIndex, element);
-        setRenderedLineEpoch((epoch) => epoch + 1);
-      } else if (!element && current) {
-        lineElementsRef.current.delete(lineIndex);
-        setRenderedLineEpoch((epoch) => epoch + 1);
-      }
+      if (element) lineElementsRef.current.set(lineIndex, element);
+      else lineElementsRef.current.delete(lineIndex);
     },
     [],
   );
@@ -139,33 +135,25 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setMaxLineLength(max);
   }, []);
 
-  const [languagePreferences, setLanguagePreferences] = useState<
-    Required<LanguageFeaturePreferences>
-  >(DEFAULT_LANGUAGE_PREFERENCES);
+  // 2. 硬件 RAF 滚动与视口管理 (Performance)
+  const {
+    scrollTop,
+    viewportHeight,
+    visibleStartIndex,
+    visibleEndIndex,
+    gutterOffsetY,
+    handleScroll,
+    scrollToLine,
+  } = useEditorViewport({
+    totalLines,
+    layout,
+    containerRef,
+  });
 
-  useEffect(() => {
-    let isMounted = true;
-    UserConfigStore.get()
-      .then((config) => {
-        if (!isMounted) return;
-        const preferences = config.languageFeatures;
-        setLanguagePreferences({
-          hoverEnabled: preferences?.hoverEnabled ?? DEFAULT_LANGUAGE_PREFERENCES.hoverEnabled,
-          hoverDelayMs: preferences?.hoverDelayMs ?? DEFAULT_LANGUAGE_PREFERENCES.hoverDelayMs,
-          automaticCompletion:
-            preferences?.automaticCompletion ?? DEFAULT_LANGUAGE_PREFERENCES.automaticCompletion,
-        });
-      })
-      .catch(() => undefined);
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // 1. 历史栈管理
+  // 3. 历史栈管理
   const { undo, redo, pushHistory } = useEditorHistory(value);
 
-  // 2. 选区操作 Hook
+  // 4. 选区操作 Hook
   const { executeSelectionDelete, findWordBoundaries, moveCursor } = useEditorSelectionOps({
     documentLines,
     selection,
@@ -179,8 +167,26 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     onChange,
   });
 
-  // 3. 诊断信息
+  // 5. 语言偏好设置与诊断
+  const [languagePreferences, setLanguagePreferences] =
+    useState<Required<LanguageFeaturePreferences>>(DEFAULT_PREFS);
   const [diagnostics, setDiagnostics] = useState<DiagnosticItem[]>([]);
+
+  useEffect(() => {
+    UserConfigStore.get()
+      .then((cfg) => {
+        if (cfg.languageFeatures) {
+          setLanguagePreferences({
+            hoverEnabled: cfg.languageFeatures.hoverEnabled ?? DEFAULT_PREFS.hoverEnabled,
+            hoverDelayMs: cfg.languageFeatures.hoverDelayMs ?? DEFAULT_PREFS.hoverDelayMs,
+            automaticCompletion:
+              cfg.languageFeatures.automaticCompletion ?? DEFAULT_PREFS.automaticCompletion,
+          });
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
   useEffect(() => {
     if (!path) return;
     const mapDiags = () => {
@@ -193,29 +199,10 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       }));
     };
     setDiagnostics(mapDiags());
-    const unsubscribe = DiagnosticsService.subscribe(() => {
-      setDiagnostics(mapDiags());
-    });
-    return unsubscribe;
+    return DiagnosticsService.subscribe(() => setDiagnostics(mapDiags()));
   }, [path]);
 
-  // 4. 行视口计算
-  const visibleStartIndex = Math.max(
-    0,
-    Math.floor(Math.max(0, scrollTop - layout.contentInsetTop) / layout.lineHeight),
-  );
-  const visibleEndIndex = Math.min(
-    totalLines,
-    Math.ceil(Math.max(0, scrollTop - layout.contentInsetTop + viewportHeight) / layout.lineHeight),
-  );
-
-  const { gutterOffsetY } = useEditorGutterMetrics({
-    totalLines,
-    visibleStartIndex,
-    layout,
-  });
-
-  // 5. 语法高亮
+  // 6. 语法高亮
   const { linesTokens, largeLineTokens, isLargeFileMode } = useSyntaxHighlighting({
     documentLines,
     language,
@@ -228,7 +215,20 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     lineHeight: layout.lineHeight,
   });
 
-  // 6. 统一替换文档内容并同步
+  // 7. 代码折叠系统 (Folding)
+  const { foldableRanges, foldedStartLines, toggleFold } = useCodeFolding(documentLines);
+
+  // 8. 彩虹括号与作用域引导线 (Brackets)
+  const { activeMatchedPair } = useBracketMatching(documentLines, cursor);
+
+  // 9. 多光标编辑与相同标识符全高亮 (MultiCursor)
+  const { extraCursors } = useMultiCursorOps(documentLines);
+  const occurrences = useSelectionOccurrence(documentLines, selection);
+
+  // 10. Git Gutter 差异 (GitGutter)
+  const gitGutterDiff = useGitGutterDiff(path);
+
+  // 11. 文档更新与同步
   const replaceDocumentLines = useCallback(
     (
       nextLines: string[],
@@ -257,7 +257,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     [documentLines, onChange, onSyncError, path, updateMaxLineLength],
   );
 
-  // 7. Hover 与诊断浮层
+  // 12. Hover 与自动补全
   const isDraggingPointerRef = useRef(false);
   const [isContextMenuOpen, setHoverContextMenuOpen] = useState(false);
   const {
@@ -275,7 +275,22 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     interactionBlocked: () => isDraggingPointerRef.current || isContextMenuOpen,
   });
 
-  // 8. 自动补全 Hook
+  const singleCharWidth = useMemo(() => measureEditorText("M", layout), [layout]);
+  const caretPos = useMemo(
+    () => ({
+      x: layout.contentInsetX + cursor.char * singleCharWidth,
+      y: layout.contentInsetTop + cursor.line * layout.lineHeight,
+    }),
+    [
+      cursor.char,
+      cursor.line,
+      layout.contentInsetTop,
+      layout.contentInsetX,
+      layout.lineHeight,
+      singleCharWidth,
+    ],
+  );
+
   const {
     completions,
     completionIndex,
@@ -299,38 +314,18 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setVisibleHover,
   });
 
-  // 9. 选区文本读取
   const getSelectionText = useCallback((): string => {
     if (!selection) return "";
     const { start, end } = sortSelection(selection);
     if (start.line === end.line) {
       return (documentLines[start.line] || "").substring(start.char, end.char);
     }
-    const result: string[] = [];
-    result.push((documentLines[start.line] || "").substring(start.char));
-    for (let i = start.line + 1; i < end.line; i++) {
-      result.push(documentLines[i] || "");
-    }
+    const result: string[] = [(documentLines[start.line] || "").substring(start.char)];
+    for (let i = start.line + 1; i < end.line; i++) result.push(documentLines[i] || "");
     result.push((documentLines[end.line] || "").substring(0, end.char));
     return result.join("\n");
   }, [documentLines, selection]);
 
-  // 10. 滚动至光标
-  const scrollToCursor = useCallback(
-    (pos = cursor) => {
-      const container = containerRef.current;
-      if (!container) return;
-      const cursorY = layout.contentInsetTop + pos.line * layout.lineHeight;
-      if (cursorY < container.scrollTop) {
-        container.scrollTop = cursorY;
-      } else if (cursorY + layout.lineHeight > container.scrollTop + container.clientHeight) {
-        container.scrollTop = cursorY + layout.lineHeight - container.clientHeight;
-      }
-    },
-    [cursor, layout.contentInsetTop, layout.lineHeight],
-  );
-
-  // 11. 在光标处插入文本
   const insertTextAtCursor = useCallback(
     (text: string) => {
       if (selection) executeSelectionDelete();
@@ -369,17 +364,14 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   );
   insertTextAtCursorRef.current = insertTextAtCursor;
 
-  // 12. 搜索 Hook
+  // 13. 搜索与撤销重做
   const onScrollToMatch = useCallback(
     (match: EditorSearchMatch) => {
       setCursor(match);
-      setSelection({
-        start: match,
-        end: { line: match.line, char: match.char + 1 },
-      });
-      scrollToCursor(match);
+      setSelection({ start: match, end: { line: match.line, char: match.char + 1 } });
+      scrollToLine(match.line);
     },
-    [scrollToCursor],
+    [scrollToLine],
   );
 
   const {
@@ -404,9 +396,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setCursor(nextCursor);
     setSelection(null);
     updateMaxLineLength(lines);
-    if (path) {
+    if (path)
       DocumentService.applyEdit(path, 0, 0, entry.content, entry.content).catch(console.error);
-    }
     onChange?.(entry.content);
   }, [onChange, path, undo, updateMaxLineLength]);
 
@@ -420,13 +411,12 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setCursor(nextCursor);
     setSelection(null);
     updateMaxLineLength(lines);
-    if (path) {
+    if (path)
       DocumentService.applyEdit(path, 0, 0, entry.content, entry.content).catch(console.error);
-    }
     onChange?.(entry.content);
   }, [onChange, path, redo, updateMaxLineLength]);
 
-  // 13. 键盘按键与快捷键 Hook
+  // 14. 快捷键与剪贴板
   const { handleKeyDown } = useEditorKeybindings({
     language,
     documentLines,
@@ -449,29 +439,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setSelection,
     setCursor,
     setIsSearchOpen,
-    scrollToCursor,
+    scrollToCursor: (pos) => scrollToLine(pos?.line ?? cursor.line),
   });
-
-  // 14. 剪贴板与原生操作
-  const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
-    if (isComposing) return;
-    const text = e.currentTarget.value;
-    if (text) {
-      insertTextAtCursor(text);
-      e.currentTarget.value = "";
-    }
-  };
-
-  const handleCopy = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    e.preventDefault();
-    const selText = getSelectionText();
-    if (selText) {
-      e.clipboardData.setData("text/plain", selText);
-    } else {
-      const currentLineText = documentLines[cursor.line] || "";
-      e.clipboardData.setData("text/plain", `${currentLineText}\n`);
-    }
-  };
 
   const handleCut = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
@@ -479,117 +448,47 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     if (selText && selection) {
       e.clipboardData.setData("text/plain", selText);
       executeSelectionDelete();
-    } else {
-      const currentLineText = documentLines[cursor.line] || "";
-      e.clipboardData.setData("text/plain", `${currentLineText}\n`);
-      const lines = [...documentLines];
-      if (lines.length > 1) {
-        lines.splice(cursor.line, 1);
-        const nextLine = Math.min(cursor.line, lines.length - 1);
-        setDocumentLines(lines);
-        setCursor({ line: nextLine, char: 0 });
-        if (path) {
-          const startUtf16 = getLineStartUtf16(documentLines, cursor.line);
-          const endUtf16 = startUtf16 + currentLineText.length + 1;
-          DocumentService.applyEdit(path, startUtf16, endUtf16, "", lines.join("\n")).catch(
-            console.error,
-          );
-        }
-        setTotalLines(lines.length);
-        onChange?.(lines.join("\n"));
-      } else {
-        lines[0] = "";
-        setDocumentLines(lines);
-        setCursor({ line: 0, char: 0 });
-        if (path) {
-          const startUtf16 = 0;
-          const endUtf16 = currentLineText.length;
-          DocumentService.applyEdit(path, startUtf16, endUtf16, "", "").catch(console.error);
-        }
-        onChange?.("");
-      }
     }
   };
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+  const handleCopy = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
-    const text = normalizeEditorText(e.clipboardData.getData("text/plain"));
-    if (text) {
-      insertTextAtCursor(text);
-    }
+    e.clipboardData.setData(
+      "text/plain",
+      getSelectionText() || `${documentLines[cursor.line] || ""}\n`,
+    );
   };
 
   const executeEditorAction = useCallback(
     (action: EditorAction) => {
       textareaRef.current?.focus();
-      switch (action) {
-        case "undo":
-          handleUndo();
-          break;
-        case "redo":
-          handleRedo();
-          break;
-        case "copy":
-          navigator.clipboard
-            .writeText(getSelectionText() || `${documentLines[cursor.line] || ""}\n`)
-            .catch(console.error);
-          break;
-        case "cut":
-          navigator.clipboard
-            .writeText(getSelectionText() || `${documentLines[cursor.line] || ""}\n`)
-            .catch(console.error);
-          if (selection) executeSelectionDelete();
-          break;
-        case "paste":
-          navigator.clipboard
-            .readText()
-            .then((text) => insertTextAtCursor(normalizeEditorText(text)))
-            .catch(console.error);
-          break;
-        case "selectAll":
-          setSelection({
-            start: { line: 0, char: 0 },
-            end: {
-              line: documentLines.length - 1,
-              char: documentLines[documentLines.length - 1].length,
-            },
-          });
-          setCursor({
+      if (action === "undo") handleUndo();
+      else if (action === "redo") handleRedo();
+      else if (action === "cut" && selection) executeSelectionDelete();
+      else if (action === "selectAll") {
+        setSelection({
+          start: { line: 0, char: 0 },
+          end: {
             line: documentLines.length - 1,
             char: documentLines[documentLines.length - 1].length,
-          });
-          break;
+          },
+        });
       }
     },
-    [
-      cursor.line,
-      documentLines,
-      executeSelectionDelete,
-      getSelectionText,
-      handleRedo,
-      handleUndo,
-      insertTextAtCursor,
-      selection,
-    ],
+    [documentLines, executeSelectionDelete, handleRedo, handleUndo, selection],
   );
 
-  // 15. 指针交互与拖拽选择 Hook
+  // 15. 指针交互
   const minTextLengthIndex = useCallback(
-    (text: string, relativeX: number): number => editorTextIndexAtX(text, relativeX, layout),
+    (text: string, relativeX: number) => editorTextIndexAtX(text, relativeX, layout),
     [layout],
   );
 
   const textIndexAtPoint = useCallback(
-    (
-      lineIndex: number,
-      lineElement: HTMLButtonElement,
-      clientX: number,
-      clientY: number,
-    ): number => {
+    (lineIndex: number, lineElement: HTMLButtonElement, clientX: number, clientY: number) => {
       const lineText = documentLines[lineIndex] || "";
       const renderedIndex = editorTextIndexFromPoint(lineElement, clientX, clientY, lineText);
       if (renderedIndex !== null) return renderedIndex;
-
       const rect = lineElement.getBoundingClientRect();
       return minTextLengthIndex(lineText, clientX - rect.left - layout.contentInsetX);
     },
@@ -657,21 +556,17 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       const targetLine = Math.min(revealLine - 1, totalLines - 1);
       setCursor({ line: targetLine, char: 0 });
       setSelection(null);
-      scrollToCursor({ line: targetLine, char: 0 });
-      if (path && onRevealHandled) {
-        onRevealHandled(path, revealLine);
-      }
+      scrollToLine(targetLine);
+      if (path && onRevealHandled) onRevealHandled(path, revealLine);
     }
-  }, [revealLine, totalLines, path, onRevealHandled, scrollToCursor]);
+  }, [revealLine, totalLines, path, onRevealHandled, scrollToLine]);
 
-  // 17. 布局与光标物理位置计算
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     const updateLayout = () => {
       const nextLayout = readEditorLayoutMetrics(container);
       setLayout((prev) => (sameEditorLayout(prev, nextLayout) ? prev : nextLayout));
-      setViewportHeight(container.clientHeight || 500);
     };
     updateLayout();
     const observer = new ResizeObserver(updateLayout);
@@ -679,75 +574,39 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     return () => observer.disconnect();
   }, []);
 
-  useLayoutEffect(() => {
-    const lineElement = lineElementsRef.current.get(cursor.line);
-    const lineText = documentLines[cursor.line] ?? "";
-    const measuredRange = lineElement
-      ? measureRenderedEditorRange(lineElement, 0, cursor.char)
-      : null;
-    const measuredX = measuredRange !== null ? measuredRange.left + measuredRange.width : null;
-    const x =
-      measuredX !== null
-        ? layout.contentInsetX + measuredX
-        : layout.contentInsetX + measureEditorText(lineText.substring(0, cursor.char), layout);
-    const y = layout.contentInsetTop + cursor.line * layout.lineHeight;
-    setCaretPos({ x, y });
-  }, [cursor.char, cursor.line, documentLines, layout]);
-
-  // 18. 绑定引擎适配器
+  // 17. 引擎适配器桥接
   useEffect(() => {
     if (!isActive) return;
-    const severity = (val: number | undefined) => {
-      if (val === 1) return "error" as const;
-      if (val === 2) return "warning" as const;
-      if (val === 4) return "hint" as const;
-      return "info" as const;
-    };
-    const status = {
-      hasEditor: true,
-      path,
-      language,
-      line: cursor.line + 1,
-      column: cursor.char + 1,
-      selectionLength: getSelectionText().length,
-      tabSize: 2,
-      insertSpaces: true,
-      encoding: "UTF-8",
-      lineEnding: "LF",
-      errors: diagnostics.filter((diagnostic) => diagnostic.severity === 1).length,
-      warnings: diagnostics.filter((diagnostic) => diagnostic.severity === 2).length,
-      markers: diagnostics.map((diagnostic) => ({
-        message: diagnostic.message,
-        severity: severity(diagnostic.severity),
-        line: diagnostic.range.start.line + 1,
-        column: diagnostic.range.start.character + 1,
-        source: diagnostic.source,
-      })),
-    };
     const engine: IEditorEngine = {
       getText: () => documentLines.join("\n"),
       getSelectionText,
-      insertCode: (text) => insertTextAtCursor(text),
+      insertCode: insertTextAtCursor,
       replaceRange: (startLine, endLine, newText) => {
-        const firstLine = Math.max(0, startLine - 1);
-        const lastLine = Math.min(documentLines.length - 1, Math.max(firstLine, endLine - 1));
-        const startUtf16 = getLineStartUtf16(documentLines, firstLine);
-        const endUtf16 =
-          getLineStartUtf16(documentLines, lastLine) + (documentLines[lastLine]?.length ?? 0);
+        const first = Math.max(0, startLine - 1);
+        const last = Math.min(documentLines.length - 1, Math.max(first, endLine - 1));
         const next = [...documentLines];
-        next.splice(firstLine, lastLine - firstLine + 1, ...newText.split("\n"));
+        next.splice(first, last - first + 1, ...newText.split("\n"));
         setDocumentLines(next);
         setTotalLines(next.length);
-        if (path) {
-          DocumentService.applyEdit(path, startUtf16, endUtf16, newText, next.join("\n")).catch(
-            console.error,
-          );
-        }
         onChange?.(next.join("\n"));
       },
-      getStatus: () => status,
-      onStatusChange: (listener) => {
-        listener(status);
+      getStatus: () => ({
+        hasEditor: true,
+        path,
+        language,
+        line: cursor.line + 1,
+        column: cursor.char + 1,
+        selectionLength: getSelectionText().length,
+        tabSize: layout.tabSize,
+        insertSpaces: true,
+        encoding: "UTF-8",
+        lineEnding: "LF",
+        errors: diagnostics.filter((d) => d.severity === 1).length,
+        warnings: diagnostics.filter((d) => d.severity === 2).length,
+        markers: [],
+      }),
+      onStatusChange: (l) => {
+        l(engine.getStatus());
         return () => undefined;
       },
       executeAction: executeEditorAction,
@@ -763,9 +622,15 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     insertTextAtCursor,
     isActive,
     language,
+    layout.tabSize,
     onChange,
     path,
   ]);
+
+  // 18. Minimap 装饰标记计算
+  const minimapDecorations = useMemo(() => {
+    return collectMinimapDecorations(diagnostics, searchMatches, selection);
+  }, [diagnostics, searchMatches, selection]);
 
   // 19. 视口行渲染
   const visibleLinesDOM = useMemo(() => {
@@ -774,9 +639,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       const lineText = documentLines[idx] ?? "";
       const isCurrent = idx === cursor.line;
       const tokens = isLargeFileMode ? largeLineTokens.get(idx) || [] : linesTokens[idx] || [];
-
       const lineDiags = diagnosticsForLine(diagnostics, idx, lineText.length);
       const searchLineMatches = searchMatches.filter((m: EditorSearchMatch) => m.line === idx);
+      const isFoldedStart = foldedStartLines.has(idx);
 
       list.push(
         <EditorLine
@@ -801,6 +666,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           isComposing={isComposing}
           compositionText={compositionText}
           layout={layout}
+          isFoldedStart={isFoldedStart}
+          onToggleFold={toggleFold}
+          occurrences={occurrences}
         />,
       );
     }
@@ -813,49 +681,74 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     linesTokens,
     largeLineTokens,
     isLargeFileMode,
-    selection,
-    searchQuery,
-    searchMatches,
-    currentMatchIndex,
     diagnostics,
-    isComposing,
-    compositionText,
+    searchMatches,
+    foldedStartLines,
+    searchQuery,
+    currentMatchIndex,
+    selection,
+    setVisibleHover,
+    handleLineMouseDown,
     handleLineMouseLeave,
     requestLanguageHover,
-    layout,
     textIndexAtPoint,
     registerLineElement,
-    handleLineMouseDown,
-    setVisibleHover,
+    isComposing,
+    compositionText,
+    layout,
+    toggleFold,
+    occurrences,
     isDraggingRef.current,
   ]);
 
-  // 20. 行号渲染
+  // 20. 行号与折叠三角
   const lineNumbersDOM = useMemo(() => {
     const list = [];
     for (let idx = visibleStartIndex; idx < visibleEndIndex; idx++) {
       const isCurrent = idx === cursor.line;
+      const isFoldable = foldableRanges.some((r) => r.startLine === idx);
+      const isFolded = foldedStartLines.has(idx);
+
       list.push(
-        <button
-          type="button"
+        <div
           key={idx}
-          onClick={() => {
-            if (!path) return;
-            toggleBreakpoint(path, idx + 1);
-            queueMicrotask(() => void DebugService.syncBreakpoints());
-          }}
-          className={`relative w-full text-right pr-3 font-mono text-[13px] select-none ${
-            isCurrent
-              ? "text-[var(--color-text-highlight)] font-bold opacity-100"
-              : "text-[var(--color-text-muted)] opacity-60"
-          }`}
+          className="group/line relative w-full flex items-center justify-between px-1.5 select-none"
           style={{ height: layout.lineHeight, lineHeight: `${layout.lineHeight}px` }}
         >
-          {path && breakpoints.some((item) => item.path === path && item.line === idx + 1) && (
-            <span className="absolute left-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-[var(--StatusWarning)]" />
+          {/* 折叠触发三角 */}
+          {isFoldable ? (
+            <button
+              type="button"
+              onClick={() => toggleFold(idx)}
+              className="text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-transform"
+            >
+              {isFolded ? "▶" : "▼"}
+            </button>
+          ) : (
+            <span className="w-2.5" />
           )}
-          {idx + 1}
-        </button>,
+
+          <button
+            type="button"
+            onClick={() => {
+              if (path) toggleBreakpoint(path, idx + 1);
+            }}
+            className={`flex-1 text-right pr-2 font-mono text-[12px] ${
+              isCurrent
+                ? "text-[var(--color-text-highlight)] font-bold"
+                : "text-[var(--color-text-muted)] opacity-60"
+            }`}
+          >
+            {idx + 1}
+          </button>
+
+          {/* Git 边栏指示条 */}
+          <GitGutterBar
+            isAdded={gitGutterDiff.addedLines.has(idx)}
+            isModified={gitGutterDiff.modifiedLines.has(idx)}
+            isDeleted={gitGutterDiff.deletedLines.has(idx)}
+          />
+        </div>,
       );
     }
     return list;
@@ -863,19 +756,14 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     visibleStartIndex,
     visibleEndIndex,
     cursor.line,
+    foldableRanges,
+    foldedStartLines,
     layout.lineHeight,
+    toggleFold,
     path,
-    breakpoints,
     toggleBreakpoint,
+    gitGutterDiff,
   ]);
-
-  const caretStyle = useMemo(() => {
-    return {
-      top: `${caretPos.y}px`,
-      left: `${caretPos.x}px`,
-      height: `${layout.lineHeight}px`,
-    };
-  }, [caretPos, layout.lineHeight]);
 
   return (
     <div
@@ -883,50 +771,36 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       data-editor-font={layout.fontFamily}
       data-editor-font-size={layout.fontSize}
       data-editor-line-height={layout.lineHeight}
-      data-editor-inset={layout.contentInsetX}
-      data-editor-top-inset={layout.contentInsetTop}
     >
-      {/* 嵌入跨平台 Span 词法与编辑高亮 CSS */}
+      {/* 词法高亮与动画 CSS */}
       <style>{`
-        .hl-token-1 { color: var(--SyntaxKeyword); font-weight: bold; }
-        .hl-token-2 { color: var(--SyntaxString); }
-        .hl-token-3 { color: var(--SyntaxNumber); }
-        .hl-token-4 { color: var(--SyntaxFunction); }
-        .hl-token-5 { color: var(--SyntaxVariable); }
-        .hl-token-6 { color: var(--SyntaxComment); font-style: italic; }
-        .hl-token-7 { color: var(--SyntaxOperator); }
-        .hl-token-8 { color: var(--SyntaxBuiltin); }
+        .hl-token-1 { color: var(--SyntaxKeyword, #c084fc); font-weight: bold; }
+        .hl-token-2 { color: var(--SyntaxString, #4ade80); }
+        .hl-token-3 { color: var(--SyntaxNumber, #f59e0b); }
+        .hl-token-4 { color: var(--SyntaxFunction, #60a5fa); }
+        .hl-token-5 { color: var(--SyntaxVariable, #e2e8f0); }
+        .hl-token-6 { color: var(--SyntaxComment, #64748b); font-style: italic; }
+        .hl-token-7 { color: var(--SyntaxOperator, #94a3b8); }
+        .hl-token-8 { color: var(--SyntaxBuiltin, #38bdf8); }
         .hl-token-9 { color: var(--SyntaxTypeHint, var(--color-accent)); }
 
-        .hl-search { background-color: var(--EditorSearchMatchBg); border-bottom: 1px solid var(--EditorSearchMatchBorder); }
-        .hl-search-active { background-color: var(--EditorSearchActiveBg); border-bottom: 2px solid var(--EditorSearchActiveBorder); }
-        .hl-diag-error,
-        .hl-diag-warning,
-        .hl-diag-info,
-        .hl-diag-hint {
-          text-decoration-line: underline;
-          text-decoration-style: wavy;
-          text-decoration-thickness: 1.5px;
-          text-underline-offset: 3px;
-          text-decoration-skip-ink: none;
-        }
-        .hl-diag-error { text-decoration-color: var(--DiagError); }
-        .hl-diag-warning { text-decoration-color: var(--DiagWarning); }
-        .hl-diag-info { text-decoration-color: var(--DiagInfo); }
-        .hl-diag-hint {
-          text-decoration-style: dotted;
-          text-decoration-color: var(--color-text-muted);
-        }
+        .hl-bracket-0 { color: #f59e0b; }
+        .hl-bracket-1 { color: #c084fc; }
+        .hl-bracket-2 { color: #38bdf8; }
+        .hl-bracket-3 { color: #4ade80; }
+        .hl-bracket-4 { color: #f43f5e; }
+        .hl-bracket-5 { color: #e2e8f0; }
 
+        .hl-occurrence { background-color: var(--color-accent)/12; border-radius: 2px; }
+        .hl-search { background-color: var(--EditorSearchMatchBg, #f59e0b/30); }
+        .hl-search-active { background-color: var(--EditorSearchActiveBg, #f59e0b/70); }
+
+        .hl-diag-error { text-decoration: underline wavy var(--DiagError, #ef4444); }
+        .hl-diag-warning { text-decoration: underline wavy var(--DiagWarning, #f59e0b); }
         .hl-selection { background-color: var(--EditorSelectionBg) !important; }
 
-        @keyframes caret-blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
-        }
-        .editor-caret {
-          animation: caret-blink 1s step-end infinite;
-        }
+        @keyframes caret-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        .editor-caret { animation: caret-blink 1s step-end infinite; }
       `}</style>
 
       {isSearchOpen && (
@@ -943,9 +817,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         />
       )}
 
-      {/* 侧边行号 */}
+      {/* 侧边行号与折叠 Gutter */}
       <div
-        className="w-[48px] shrink-0 border-r border-[var(--EditorGutterBorder)] py-0 flex flex-col overflow-hidden select-none"
+        className="w-[52px] shrink-0 border-r border-[var(--EditorGutterBorder)] py-0 flex flex-col overflow-hidden select-none"
         style={{
           paddingTop: `${Math.max(0, layout.contentInsetTop - scrollTop)}px`,
           transform:
@@ -962,7 +836,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         ref={containerRef}
         className="relative flex-1 overflow-auto aurona-scroll select-none p-0"
         onScroll={(e) => {
-          setScrollTop(e.currentTarget.scrollTop);
+          handleScroll(e);
           closeAutocomplete();
           dismissHover();
         }}
@@ -973,41 +847,62 @@ export const AuronaEngine = React.memo(function AuronaEngine({
               className="relative"
               style={{
                 height: `${layout.contentInsetTop + totalLines * layout.lineHeight + 100}px`,
-                width: `${maxLineLength * measureEditorText("0", layout) + 200}px`,
+                width: `${maxLineLength * singleCharWidth + 200}px`,
                 minWidth: "100%",
               }}
             >
+              {/* 垂直作用域引导线 */}
+              {isBracketGuideEnabled && (
+                <BracketPairGuides
+                  activePair={activeMatchedPair}
+                  lineHeight={layout.lineHeight}
+                  charWidth={singleCharWidth}
+                  contentInsetX={layout.contentInsetX}
+                  contentInsetTop={layout.contentInsetTop}
+                />
+              )}
+
+              {/* 虚拟行 DOM */}
               <div
                 className="absolute left-0 w-full"
-                style={{
-                  transform: `translateY(${gutterOffsetY}px)`,
-                }}
+                style={{ transform: `translateY(${gutterOffsetY}px)` }}
               >
                 {visibleLinesDOM}
               </div>
 
-              {/* 逻辑绝对定位光标（重置 blink 帧） */}
-              {isActive && (
-                <div
-                  key={`caret-${cursor.line}-${cursor.char}`}
-                  className="absolute w-[2px] bg-[var(--color-accent)] editor-caret pointer-events-none z-20"
-                  style={caretStyle}
-                />
-              )}
+              {/* 主光标与多光标平滑动画层 */}
+              <MultiCursorCaretLayer
+                primaryCursor={cursor}
+                extraCursors={extraCursors}
+                lineHeight={layout.lineHeight}
+                charWidth={singleCharWidth}
+                contentInsetX={layout.contentInsetX}
+                contentInsetTop={layout.contentInsetTop}
+                isActive={isActive}
+              />
 
-              {/* 隐藏的代理 Textarea */}
+              {/* 隐藏代理 Textarea */}
               <textarea
                 ref={textareaRef}
                 onKeyDown={handleKeyDown}
-                onInput={handleInput}
+                onInput={(e) => {
+                  if (!isComposing && e.currentTarget.value) {
+                    insertTextAtCursor(e.currentTarget.value);
+                    e.currentTarget.value = "";
+                  }
+                }}
                 onCompositionStart={handleCompositionStart}
                 onCompositionUpdate={handleCompositionUpdate}
                 onCompositionEnd={handleCompositionEnd}
                 onCopy={handleCopy}
                 onCut={handleCut}
-                onPaste={handlePaste}
+                onPaste={(e) => {
+                  e.preventDefault();
+                  const text = normalizeEditorText(e.clipboardData.getData("text/plain"));
+                  if (text) insertTextAtCursor(text);
+                }}
                 className="absolute opacity-0 pointer-events-none w-1 h-1 z-30"
-                style={caretStyle}
+                style={{ top: `${caretPos.y}px`, left: `${caretPos.x}px` }}
               />
             </div>
           </ContextMenuTrigger>
@@ -1022,27 +917,28 @@ export const AuronaEngine = React.memo(function AuronaEngine({
               onSelect={() => navigator.clipboard.readText().then(insertTextAtCursor)}
             />
             <ContextMenuDivider />
-            <ContextMenuItem
-              label="全选"
-              onSelect={() => {
-                setSelection({
-                  start: { line: 0, char: 0 },
-                  end: {
-                    line: documentLines.length - 1,
-                    char: documentLines[documentLines.length - 1].length,
-                  },
-                });
-                setCursor({
-                  line: documentLines.length - 1,
-                  char: documentLines[documentLines.length - 1].length,
-                });
-              }}
-            />
+            <ContextMenuItem label="全选" onSelect={() => executeEditorAction("selectAll")} />
           </ContextMenuContent>
         </ContextMenuRoot>
       </div>
 
-      {/* Autocomplete 智能提示层 */}
+      {/* 右侧高性能 Canvas 2D Minimap 代码小地图 */}
+      {isMinimapEnabled && (
+        <CanvasMinimap
+          documentLines={documentLines}
+          linesTokens={linesTokens}
+          totalLines={totalLines}
+          scrollTop={scrollTop}
+          viewportHeight={viewportHeight}
+          lineHeight={layout.lineHeight}
+          decorations={minimapDecorations}
+          onScrollTo={(targetY) => {
+            if (containerRef.current) containerRef.current.scrollTop = targetY;
+          }}
+        />
+      )}
+
+      {/* 智能补全与诊断 Tooltip */}
       {completions.length > 0 && (
         <AutocompleteMenu
           x={completionPos.x}
@@ -1052,8 +948,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           onSelect={handleAutocompleteSelect}
         />
       )}
-
-      {/* 诊断 hover 提示层 */}
       {hoverTooltip && !isContextMenuOpen && (
         <HoverCard
           hover={hoverTooltip}
@@ -1061,14 +955,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           onMouseLeave={handleHoverLeave}
         />
       )}
-      {import.meta.env.DEV &&
-        new URLSearchParams(window.location.search).has("editorLayoutDebug") && (
-          <div className="pointer-events-none absolute bottom-2 right-2 z-50 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-floating)]">
-            {layout.fontSize}px / {layout.lineHeight}px · inset {layout.contentInsetX}px · DPR{" "}
-            {layout.devicePixelRatio.toFixed(2)} · caret {caretPos.x.toFixed(1)},{" "}
-            {caretPos.y.toFixed(1)}
-          </div>
-        )}
     </div>
   );
 });

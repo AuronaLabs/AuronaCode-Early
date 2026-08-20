@@ -407,6 +407,30 @@ impl aurona::extensions::context::Host for ExtensionContext {
             _ => None,
         }
     }
+
+    fn execute_command(&mut self, command_id: String, _arguments: Vec<String>) -> Result<String, String> {
+        eprintln!("[aurona-command] execute: {command_id}");
+        Ok("ok".to_string())
+    }
+
+    fn set_status_message(&mut self, message: String, _timeout_ms: u32) -> Result<bool, String> {
+        eprintln!("[aurona-status-message] {message}");
+        Ok(true)
+    }
+
+    fn insert_editor_text(&mut self, _text: String) -> Result<bool, String> {
+        if self.editor_permission != ContextPermissionState::Granted {
+            return Err("缺少 editor.current.read 权限".to_string());
+        }
+        Ok(true)
+    }
+
+    fn reveal_editor_line(&mut self, _line: u32) -> Result<bool, String> {
+        if self.editor_permission != ContextPermissionState::Granted {
+            return Err("缺少 editor.current.read 权限".to_string());
+        }
+        Ok(true)
+    }
 }
 
 pub struct ExtensionRuntime {

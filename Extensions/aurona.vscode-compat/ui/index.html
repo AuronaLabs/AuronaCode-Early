@@ -161,12 +161,41 @@
     .command-title {
       font-size: 12px;
       font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ns-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', Consolas, monospace;
+      font-size: 9.5px;
+      font-weight: 600;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+    .command-id {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 4px;
     }
     .command-id code {
       font-family: 'JetBrains Mono', Consolas, monospace;
       font-size: 10.5px;
       color: var(--accent);
-      opacity: 0.85;
+      opacity: 0.9;
+    }
+    .status-tag {
+      font-size: 9.5px;
+      padding: 1px 4px;
+      border-radius: 4px;
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+      border: 1px solid rgba(34, 197, 94, 0.25);
     }
     .log-terminal {
       background: var(--terminal-bg);
