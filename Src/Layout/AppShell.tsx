@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NotificationService } from "../Core/NotificationService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EventBus } from "../Foundation/EventBus";
+import { useLocale } from "../Foundation/I18n";
 import {
   extensionSidebarId,
   SIDEBAR_DEBUG,
@@ -16,6 +17,12 @@ import {
 import { useExtensionStore } from "../State/useExtensionStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
 import { ActivitySquare } from "../UI/Components/ActivitySquare";
+import {
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuRoot,
+  ContextMenuTrigger,
+} from "../UI/Components/ContextMenu";
 import { ToastContainer } from "../UI/Feedback/Toast";
 import { UpdateModal } from "../UI/Feedback/UpdateModal";
 import { Fliuno } from "../UI/Fliuno/Fliuno";
@@ -40,12 +47,20 @@ function ExtensionActivityIcon({ extensionId }: { extensionId: string }) {
 }
 
 export function AppShell({ Children }: AppShellProps) {
+  const { t, locale } = useLocale();
   const activeSidebar = useWorkbenchStore((state) => state.activeSidebar);
   const setActiveSidebar = useWorkbenchStore((state) => state.setActiveSidebar);
   const extensionDescriptors = useExtensionStore((state) => state.descriptors);
+  const hiddenExtensionIds = useExtensionStore((state) => state.hiddenExtensionIds);
+  const hideExtension = useExtensionStore((state) => state.hideExtension);
   const [gitChangeCount, setGitChangeCount] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(
     NotificationService.getUnreadCount(),
+  );
+
+  const visibleDescriptors = useMemo(
+    () => extensionDescriptors.filter((d) => !hiddenExtensionIds.includes(d.id)),
+    [extensionDescriptors, hiddenExtensionIds],
   );
 
   useEffect(() => {
@@ -63,34 +78,53 @@ export function AppShell({ Children }: AppShellProps) {
   }, []);
 
   const activityItems: Array<{
-    label: string;
+    id: string;
+    title: string;
     icon: ReactNode;
     badge: boolean;
     commandId?: string;
   }> = [
-    { label: SIDEBAR_EXPLORER, icon: <Icons.Files size={22} stroke={1.5} />, badge: false },
     {
-      label: SIDEBAR_FLIUNO,
+      id: SIDEBAR_EXPLORER,
+      title: t("sidebar.explorer"),
+      icon: <Icons.Files size={22} stroke={1.5} />,
+      badge: false,
+    },
+    {
+      id: SIDEBAR_FLIUNO,
+      title: t("sidebar.search"),
       icon: <Icons.Search size={22} stroke={1.5} />,
       badge: false,
       commandId: "workbench.action.openFliunoWorkspace",
     },
     {
-      label: SIDEBAR_SOURCE_CONTROL,
+      id: SIDEBAR_SOURCE_CONTROL,
+      title: t("sidebar.sourceControl"),
       icon: <Icons.Git size={22} stroke={1.5} />,
       badge: gitChangeCount > 0,
     },
-    { label: SIDEBAR_OUTLINE, icon: <Icons.List size={22} stroke={1.5} />, badge: false },
-    { label: SIDEBAR_DEBUG, icon: <Icons.Debug size={22} stroke={1.5} />, badge: false },
     {
-      label: SIDEBAR_EXTENSIONS,
+      id: SIDEBAR_OUTLINE,
+      title: t("sidebar.outline"),
+      icon: <Icons.List size={22} stroke={1.5} />,
+      badge: false,
+    },
+    {
+      id: SIDEBAR_DEBUG,
+      title: t("sidebar.debug"),
+      icon: <Icons.Debug size={22} stroke={1.5} />,
+      badge: false,
+    },
+    {
+      id: SIDEBAR_EXTENSIONS,
+      title: t("sidebar.extensions"),
       icon: <Icons.Extensions size={22} stroke={1.5} />,
       badge: false,
     },
   ];
 
-  const toggleActivity = (label: string) => {
-    const nextSidebar = activeSidebar === label ? null : label;
+  const toggleActivity = (id: string) => {
+    const nextSidebar = activeSidebar === id ? null : id;
     setActiveSidebar(nextSidebar);
   };
 
@@ -114,39 +148,61 @@ export function AppShell({ Children }: AppShellProps) {
           <div className="flex flex-1 flex-col gap-1.5 w-full items-center">
             {activityItems.map((item) => (
               <ActivitySquare
-                key={item.label}
-                active={activeSidebar === item.label}
+                key={item.id}
+                active={activeSidebar === item.id}
                 onClick={() => {
                   if (item.commandId) {
                     void CommandRegistry.execute(item.commandId);
                   } else {
-                    toggleActivity(item.label);
+                    toggleActivity(item.id);
                   }
                 }}
-                title={item.label}
+                title={item.title}
                 icon={item.icon}
                 badge={item.badge}
               />
             ))}
-            {extensionDescriptors.length > 0 ? (
+            {visibleDescriptors.length > 0 ? (
               <div className="my-1 h-px w-8 bg-[var(--border-subtle)]" aria-hidden="true" />
             ) : null}
-            {extensionDescriptors.map((descriptor) => (
-              <ActivitySquare
-                key={extensionSidebarId(descriptor.id)}
-                active={activeSidebar === extensionSidebarId(descriptor.id)}
-                onClick={() => toggleActivity(extensionSidebarId(descriptor.id))}
-                title={descriptor.name}
-                icon={<ExtensionActivityIcon extensionId={descriptor.id} />}
-              />
-            ))}
+            {visibleDescriptors.map((descriptor) => {
+              const extTitle =
+                descriptor.displayName?.[locale] ?? descriptor.sidebarTitle ?? descriptor.name;
+              const sidebarId = extensionSidebarId(descriptor.id);
+              return (
+                <ContextMenuRoot key={sidebarId}>
+                  <ContextMenuTrigger asChild>
+                    <div>
+                      <ActivitySquare
+                        active={activeSidebar === sidebarId}
+                        onClick={() => toggleActivity(sidebarId)}
+                        title={extTitle}
+                        icon={<ExtensionActivityIcon extensionId={descriptor.id} />}
+                      />
+                    </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem
+                      label={t("sidebar.hideExtension")}
+                      icon={<Icons.Close size={14} />}
+                      onSelect={() => {
+                        hideExtension(descriptor.id);
+                        if (activeSidebar === sidebarId) {
+                          setActiveSidebar(null);
+                        }
+                      }}
+                    />
+                  </ContextMenuContent>
+                </ContextMenuRoot>
+              );
+            })}
           </div>
 
           <div className="flex flex-col gap-1.5 mt-auto w-full items-center">
             <ActivitySquare
               active={activeSidebar === SIDEBAR_NOTIFICATIONS}
               onClick={() => toggleActivity(SIDEBAR_NOTIFICATIONS)}
-              title={SIDEBAR_NOTIFICATIONS}
+              title={t("sidebar.notifications")}
               icon={<Icons.Bell size={22} stroke={1.5} />}
               badge={unreadNotifications > 0}
             />
@@ -161,7 +217,7 @@ export function AppShell({ Children }: AppShellProps) {
                   }
                 });
               }}
-              title="设置"
+              title={t("sidebar.settings")}
               icon={<Icons.Settings size={22} stroke={1.5} />}
             />
           </div>

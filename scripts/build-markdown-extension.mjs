@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +16,16 @@ const wasmPath = join(
 const outputDir = join(root, "src-tauri", "resources", "extensions");
 const outputPath = join(outputDir, "aurona.markdown.aurx");
 
+function findVcvars64() {
+  const candidates = [
+    "D:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat",
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat",
+    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat",
+    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat",
+  ];
+  return candidates.find((p) => existsSync(p));
+}
+
 function buildGuest() {
   const manifestPath = join(guestDir, "Cargo.toml");
   const lockPath = join(guestDir, "Cargo.lock");
@@ -28,26 +38,49 @@ function buildGuest() {
     "--release",
   ];
   if (existsSync(lockPath)) args.push("--locked");
+
+  const remapFlags = [
+    `--remap-path-prefix=${guestDir}=/aurona-markdown`,
+    `--remap-path-prefix=${root}=/aurona`,
+  ];
+  const env = {
+    ...process.env,
+    CARGO_ENCODED_RUSTFLAGS: [
+      process.env.CARGO_ENCODED_RUSTFLAGS || "",
+      ...remapFlags,
+    ]
+      .filter(Boolean)
+      .join("\x1f"),
+  };
+
   try {
-    execFileSync("cargo", args, { stdio: "inherit" });
+    execFileSync("cargo", args, { stdio: "inherit", env });
   } catch (firstError) {
+    if (process.platform === "win32") {
+      const vcvars = findVcvars64();
+      if (vcvars) {
+        console.log(`检测到 VS BuildTools 环境: ${vcvars}，正在激活环境编译...`);
+        try {
+          execSync(`"${vcvars}" && cargo ${args.map((a) => `"${a}"`).join(" ")}`, {
+            stdio: "inherit",
+            env,
+          });
+          return;
+        } catch (vcvarsErr) {
+          console.warn("使用 vcvars 编译仍有异常:", vcvarsErr);
+        }
+      }
+    }
     console.warn("WASM 目标 wasm32-wasip2 编译未就绪，尝试通过 rustup 自动补充 target...");
     try {
       execFileSync("rustup", ["target", "add", "wasm32-wasip2"], { stdio: "inherit" });
-      execFileSync("cargo", args, { stdio: "inherit" });
+      execFileSync("cargo", args, { stdio: "inherit", env });
     } catch (secondError) {
       if (existsSync(outputPath)) {
         console.warn("未能重新编译 WASM，但检测到已存在扩展归档，将继续使用现有产物并执行校验。");
         return;
       }
-      if (process.platform === "win32" && /link\.exe|msvc/i.test(String(firstError))) {
-        console.error(
-          "Windows 下需要 Visual Studio Build Tools 环境：\n" +
-            '  cmd /c call "D:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat" && pnpm run build:markdown',
-        );
-      } else {
-        console.error(`WASM 构建失败: ${secondError}`);
-      }
+      console.error(`WASM 构建失败: ${secondError}`);
       process.exit(1);
     }
   }
@@ -162,11 +195,14 @@ function main() {
   };
   const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 
+  const normalizedView = view.replace(/\r\n/g, "\n");
+  const normalizedIcon = icon.replace(/\r\n/g, "\n");
+
   const aurx = zipStore([
     ["manifest.json", manifestBytes],
     ["extension.wasm", wasm],
-    ["ui/index.html", Buffer.from(view, "utf8")],
-    ["assets/icon.svg", Buffer.from(icon, "utf8")],
+    ["ui/index.html", Buffer.from(normalizedView, "utf8")],
+    ["assets/icon.svg", Buffer.from(normalizedIcon, "utf8")],
   ]);
 
   mkdirSync(outputDir, { recursive: true });

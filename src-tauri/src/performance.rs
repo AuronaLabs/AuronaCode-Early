@@ -529,8 +529,8 @@ fn run_wasm_benchmark(cancelled: &AtomicBool) -> Result<Vec<PerformanceBenchmark
         .join("resources")
         .join("extensions")
         .join("aurona.markdown.aurx");
-    let package_bytes = fs::read(&package_path)
-        .map_err(|error| format!("无法读取基准测试扩展包: {error}"))?;
+    let package_bytes =
+        fs::read(&package_path).map_err(|error| format!("无法读取基准测试扩展包: {error}"))?;
 
     // 1. WASM 包校验与解析
     let started = Instant::now();

@@ -334,10 +334,10 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
             <Icons.FileCode size={40} stroke={1} />
           </div>
           <h3 className="text-[16px] font-semibold text-[var(--color-text-highlight)] mb-2">
-            无法显示此文件
+            {t("editor.binaryWarningTitle")}
           </h3>
           <p className="text-[13px] text-[var(--color-text-muted)] mb-8 max-w-[420px] leading-relaxed">
-            该文件可能是二进制文件，或使用了暂不支持的文本编码强行在编辑器中打开可能会导致乱码或性能问题
+            {t("editor.binaryWarningMessage")}
           </p>
           <button
             type="button"
@@ -347,7 +347,7 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
             }}
             className="px-6 py-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white rounded-lg font-medium transition-colors cursor-pointer"
           >
-            仍然强制打开
+            {t("editor.forceOpenAction")}
           </button>
         </div>
       ) : (

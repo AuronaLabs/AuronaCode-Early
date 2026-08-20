@@ -1,86 +1,61 @@
 <div align="center">
-  <img src="public/logo.png" alt="Aurona Code" width="112" />
+  <img src="public/logo.png" alt="Aurona Code" width="104" />
   <h1>Aurona Code</h1>
-  <p><strong>写代码这件事，值得一个更舒服的角落</strong></p>
+  <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.3.13-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.3.14-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
+    <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
   </p>
 </div>
 
-Aurona Code 是一款正在快速成长的桌面代码编辑器。它没有套用现成的网页内核，而是用 Rust 与自研编辑器引擎，从零搭一个「更安静、更克制、也更顺手」的开发角落。
+---
 
-> [!IMPORTANT]
-> Aurona Code 仍处于早期快速迭代阶段。它已经可以支撑日常编辑、文件管理、Git、终端、Python/TypeScript 语言服务与基础调试，但生态和成熟度还不能和耕耘多年的编辑器相比。请为重要项目保留版本控制和备份，也欢迎你参与进来，把它打磨成想要的样子。
+Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造「更轻量、更克制、更具触感美学」的沉浸式编码工作台。
 
-## 它和主流编辑器有什么不一样？
+> [!NOTE]
+> Aurona Code 处于快速演进阶段。已具备日常编辑、多语言 LSP、Git 流程、集成终端与 WASM 扩展能力。欢迎体验与共建！
 
-我们尽量不吹牛，说点实在的对比：
+---
 
-| 维度 | Aurona Code | VS Code 等主流编辑器 |
-| --- | --- | --- |
-| 编辑器内核 | 自研 AuronaEngine + Rust Rope，不依赖 Monaco/Electron | 成熟内核，插件生态庞大 |
-| 资源占用 | 面向轻量的桌面原生路径，目标是更小的启动与内存占用 | 功能全面，但通常更重 |
-| 语言能力 | 内置 Python / TypeScript 语言服务，正在逐步扩展 | 支持的语言和工具非常广泛 |
-| 插件生态 | WASM Component Model 扩展底座已引入（详见 [扩展开发指南](Docs/AURX-Extension-Development.md)） | 海量扩展 |
-| 隐私与账号 | 无遥测、无云端依赖，Aurona Account 完全可选 | 各家策略不同 |
-| 开源程度 | AGPL-3.0，仓库、文档与决策过程开放 | 部分开源 |
+## 🌟 核心特性
 
-一句话：**它不是来打败谁的，而是想证明「编辑器也可以长成另一种样子」**。现在的它还很年轻，恰好是参与和影响它成长的最好时机。
+- ⚡ **自研纯粹内核**：自研 `AuronaEngine` 虚拟滚动视口 + Rust `Ropey` 字符绳底座，轻量敏捷；
+- 🎨 **现代拟物美学**：8 套定制双色渐变主题 × 浅色/深色自适应，毛玻璃微边框与沉浸式圆角；
+- 🧩 **WASM 沙箱扩展生态**：基于 `Wasmtime 47.x` 与 WASI P2 契约，支持高安全隔离与近原生性能；
+- 🔍 **Fliuno 统一搜索**：命令、文件、符号、设置与内容一键直达，键盘优先导航；
+- 💻 **集成透明终端**：基于 `portable-pty` 与 `xterm.js`，与主题卡片背景浑然一体；
+- 🌐 **全链路国际化**：简体中文 (zh-CN)、繁體中文 (zh-Hant) 与 English 实时无缝切换；
+- 🛡️ **安全沙箱与零遥测**：严格的文件系统工作区边界防御，无任何隐私上传与行为监控。
 
-## 现在能做什么
+---
 
-- 写代码：自研编辑器、虚拟视口、语法高亮，Python 与 TypeScript 的补全、Hover、诊断开箱即用；
-- 管项目：文件树、Git 常用流程、Fliuno 统一搜索（命令/文件/设置/符号/内容）、集成终端；
-- 调试入门：断点、调用栈与变量查看；
-- 扩展能力：WASM 沙箱扩展底座与 Markdown 实时预览插件，提供 iOS 风格的面向对象 SDK（详见 [扩展实战指南](Docs/AURX-Extension-Development.md) 与 [SDK 参考手册](Docs/AURX-SDK-Reference.md)）；
-- 长得好看：8 套双色渐变主题、深浅色模式、粗体显示、界面字号缩放、玻璃质感与可选的「流光」动效；
-- 账户能力：可选的 Aurona Account 登录，头像与身份信息会出现在状态栏；
-- 语言：简体中文、繁體中文 (Beta) 与 English (Beta)，切换即时生效并持久化。
+## 📦 官方内置扩展矩阵 (.aurx)
 
-## 当前能力
+Aurona Code 现已内置三款基于 WASM Component 的官方扩展：
 
-| 领域 | 状态 | 当前实现 |
-| --- | --- | --- |
-| 编辑器 | 已实现核心闭环 | AuronaEngine、Rust Rope、UTF-16 编辑、虚拟视口、Worker/Rust 高亮、撤销/重做、搜索/补全/Hover/诊断与 LSP 基础能力 |
-| 文档可靠性 | 已实现基础保护 | revision、原子批次、磁盘指纹、临时文件替换、恢复快照和冲突拒绝覆盖 |
-| 工作区 | 已实现 | 文件树、标签页、打开/保存、新建/重命名/删除、布局持久化、文件定位；文件操作由 Rust 授权会话与规范化路径校验 |
-| Fliuno 统一搜索 | 已实现 | Quick 悬浮搜索 + Workspace 页面共用一套引擎；命令、文件、设置、符号与内容可搜，键盘优先；旧全局搜索已下线 |
-| Git | 已实现常用流程 | 状态、暂存/取消暂存、提交、历史、提交 Diff、分支管理、Fetch/Pull/Push；子进程纳入受保护进程组 |
-| 终端 | 已实现 | 基于 `portable-pty` 与 xterm.js 的本地 PTY 终端 |
-| Fliuno 与命令系统 | 已实现命令范围 | 命令、文件、设置、符号与内容统一可搜；标题栏菜单、快捷键和 macOS 菜单共享命令 ID |
-| 语言服务与调试 | 已实现基础闭环 | Python/TypeScript 语言服务、Hover/补全/诊断、DAP 会话、断点与变量查看 |
-| 扩展系统 | 已实现底座 | WASM Component 沙箱、AURX 包格式、细粒度权限管理、Markdown 预览扩展及开发指南 |
-| Aurona Account | 已启用官方账户 | OAuth 2.1/OIDC、PKCE S256、动态本机回调、系统凭据库；开发与正式使用同一公开客户端 |
-| 桌面更新 | 已实现代码路径 | 自动检查、手动检查、下载与安装；仍需随每次真实 Release 验证签名和更新链 |
-| 主题与界面 | 已实现 | 8 套双色渐变主题 × 浅色/深色、拟物强度、界面密度、Aurona Material 语义 token 与「流光」动效 |
-| 性能测试 | 已实现 | 七项基准（IPC/UI 帧调度/文件系统/编辑器内核/搜索/编码转换/WASM 引擎）、统计摘要、保存/删除/导出与本地排行 |
-| 跨平台 | 构建已配置 | Windows、macOS、Linux CI；实际发布质量仍需逐平台和 DPI 手工验证 |
+| 扩展名称 | 扩展 ID | 运行模式 | 特性描述 |
+| :--- | :--- | :--- | :--- |
+| **Markdown 实时预览** | `aurona.markdown` | 编辑器绑定 | 实时监听当前 Markdown 并以极速流式渲染，排版精准优雅 |
+| **任务与测试看板** | `aurona.planner` | 独立运行 | 独立任务管理插件，集成 Tabler 矢量图标 SDK，数据安全持久化于工作区 |
+| **VSCode 兼容转译层** | `aurona.vscode-compat` | 独立运行 | 提供 VSCode API 模拟与 Node 安全沙箱，共用转译并执行 VSCode 扩展 |
 
-### 尚未实现或尚未完整闭环
+---
 
-- 插件市场与第三方不受信任扩展安装中心。
-- AI Command Center、云服务、协作服务和遥测上传。
-- 完整的实时外部文件监听与统一冲突处理界面。
-- 完整的多编辑器分栏、自定义编辑器运行时和全量文档投影 LRU。
-- 覆盖全部 LSP、Worker 和异步请求的统一 revision 失效协议。
-
-这些内容属于未来候选，不应被视为已交付功能。
-
-## 架构概览
+## 🏗️ 系统架构
 
 ```text
-React UI / Features
-  ├── AuronaEngine (自研虚拟视口编辑器)
+React UI / Features (React 19)
+  ├── AuronaEngine (自研虚拟视口编辑器 Hook 体系: Selection, Keybindings, Autocomplete)
   ├── Fliuno (统一搜索与命令中心)
-  ├── Workspace / Layout (ActivityBar, Sidebar, Panels)
+  ├── Workspace / Layout (ActivityBar, Sidebar, Modals, Bottom Panels)
   ├── Extensions View Host (Sandboxed Plugin WebView)
   └── Foundation (I18n, EventBus, IPC Bridge)
         │
-        ▼ (Tauri IPC)
-Rust Core
+        ▼ (Tauri 2 Typed IPC)
+Rust Core Runtime (aurona_code_lib)
   ├── EditorEngine (Ropey, Revision, Highlights, Undo/Redo)
   ├── ExtensionRuntime (Wasmtime 47.x, Component Model, Fuel/Memory Limit)
   ├── Workspace / FileSystem (Security boundary verification)
@@ -89,22 +64,52 @@ Rust Core
   └── Performance / Diagnostics (Benchmarks & Telemetry)
 ```
 
-## 快速上手与本地开发
+---
 
+## 🚀 快速上手与本地开发
+
+### 1. 环境准备
+- [Node.js](https://nodejs.org/) (>= 22.x) 与 [pnpm](https://pnpm.io/) (>= 11.x)
+- [Rust](https://rustup.rs/) (>= 1.95.0)，并安装 WASM 目标：
+  ```bash
+  rustup target add wasm32-wasip2
+  ```
+
+### 2. 构建与运行
 ```bash
-# 1. 安装依赖
+# 1. 安装前端与构建依赖
 pnpm install
 
-# 2. 准备内置工具链与扩展包
+# 2. 准备内置工具链与三大扩展
 pnpm run prepare:toolchains
 pnpm run prepare:extensions
 
-# 3. 启动开发环境
-pnpm run dev
+# 3. 启动桌面端开发热重载
+pnpm run tauri:dev
+```
+
+### 3. 质量门禁与测试指令
+```bash
+pnpm run format         # 自动格式化前端代码 (Biome)
+pnpm run typecheck      # TypeScript 类型检查
+pnpm run check          # Biome 代码规范检查
+pnpm run smoke          # 发布元数据烟雾检查
+pnpm run test:frontend  # 运行前端 Vitest 单元测试 (184 项)
+pnpm run test:rust      # 运行 Rust 核心单元测试
 ```
 
 ---
 
-## 许可证
+## 📚 官方文档索引
 
-本项目采用 [AGPL-3.0](LICENSE) 许可证开源。
+- [系统全景架构设计](docs/Architecture.md)
+- [WASM 扩展开发实战指南](docs/Extension-Development.md)
+- [Extension SDK 参考手册](docs/Extension-SDK-Reference.md)
+- [设计哲学与材质规范](docs/Design-Principles.md)
+- [产品愿景与演进路线](docs/Product-Vision.md)
+
+---
+
+## 📄 许可证
+
+本项目采用 [AGPL-3.0](LICENSE) 开源协议。

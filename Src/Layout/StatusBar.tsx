@@ -8,6 +8,7 @@ import { GetLanguageFromPath } from "../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../State/useEditorStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
 import { AccountAvatar } from "../UI/Components/AccountAvatar";
+import { Tooltip } from "../UI/Feedback/Tooltip";
 
 const formatLanguage = (language: string) => {
   const labels: Record<string, string> = {
@@ -102,17 +103,22 @@ export function StatusBar() {
               {editorStatus.insertSpaces ? t("statusBar.spaces") : "Tab"}: {editorStatus.tabSize}
             </span>
             <span className="cursor-default truncate">{formatLanguage(activeLanguage)}</span>
-            <button
-              type="button"
-              onClick={() => setActiveBottomPanel("output")}
-              aria-label={languageServer?.lastError ?? t("statusBar.lspOutputLabel")}
-              className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 hover:bg-[var(--material-interactive-hover)]"
+            <Tooltip
+              content={getLspTooltip(activeLanguage, languageServer)}
+              placement="top"
+              delay={200}
             >
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${languageServerStatusColor(languageServer?.status)}`}
-              />
-              <span>{languageServerStatusLabel(languageServer?.status)}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setActiveBottomPanel("output")}
+                aria-label={getLspTooltip(activeLanguage, languageServer)}
+                className="flex h-5 w-5 items-center justify-center rounded-md hover:bg-[var(--material-interactive-hover)] cursor-pointer"
+              >
+                <span
+                  className={`h-2 w-2 rounded-full transition-all ${languageServerStatusColor(languageServer?.status)}`}
+                />
+              </button>
+            </Tooltip>
           </>
         )}
       </div>
@@ -120,24 +126,38 @@ export function StatusBar() {
   );
 }
 
-function languageServerStatusLabel(status?: LanguageServerInfo["status"]): string {
-  if (!status) return LocaleService.translate("statusBar.lspNotConfigured");
-  return {
-    stopped: LocaleService.translate("statusBar.lspStopped"),
-    starting: LocaleService.translate("statusBar.lspStarting"),
-    initializing: LocaleService.translate("statusBar.lspInitializing"),
-    running: LocaleService.translate("statusBar.lspRunning"),
-    restarting: LocaleService.translate("statusBar.lspRestarting"),
-    failed: LocaleService.translate("statusBar.lspFailed"),
-    stopping: LocaleService.translate("statusBar.lspStopping"),
-  }[status];
+function getLspTooltip(activeLanguage: string, languageServer?: LanguageServerInfo | null): string {
+  const languageName = formatLanguage(activeLanguage);
+  if (!languageServer || languageServer.status === "stopped") {
+    return `${languageName}: ${LocaleService.translate("statusBar.lspTooltipStopped")}`;
+  }
+  if (languageServer.status === "running") {
+    return `${languageName}: ${LocaleService.translate("statusBar.lspTooltipRunning")}`;
+  }
+  if (languageServer.status === "failed") {
+    return languageServer.lastError
+      ? `${languageName}: ${languageServer.lastError}`
+      : `${languageName}: ${LocaleService.translate("statusBar.lspTooltipFailed")}`;
+  }
+  if (
+    languageServer.status === "starting" ||
+    languageServer.status === "initializing" ||
+    languageServer.status === "restarting"
+  ) {
+    return `${languageName}: ${LocaleService.translate("statusBar.lspTooltipStarting")}`;
+  }
+  return `${languageName}: ${LocaleService.translate("statusBar.lspTooltipNotConfigured")}`;
 }
 
 function languageServerStatusColor(status?: LanguageServerInfo["status"]): string {
-  if (status === "running") return "bg-[var(--StatusSuccess)]";
-  if (status === "failed") return "bg-[var(--StatusError)]";
-  if (status === "starting" || status === "initializing" || status === "restarting") {
-    return "bg-[var(--StatusWarning)] animate-pulse";
+  if (status === "running") {
+    return "bg-[var(--StatusSuccess)] shadow-[0_0_6px_var(--StatusSuccess)]";
   }
-  return "bg-[var(--color-text-muted)]";
+  if (status === "failed") {
+    return "bg-[var(--StatusError)] shadow-[0_0_6px_var(--StatusError)]";
+  }
+  if (status === "starting" || status === "initializing" || status === "restarting") {
+    return "bg-[var(--StatusWarning)] animate-pulse shadow-[0_0_6px_var(--StatusWarning)]";
+  }
+  return "bg-zinc-400/80 dark:bg-zinc-500/80";
 }

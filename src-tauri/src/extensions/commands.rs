@@ -57,7 +57,11 @@ fn permission_to_string(state: &ContextPermissionState) -> &'static str {
 }
 
 #[tauri::command]
-pub fn extensions_list(state: State<ExtensionState>) -> Vec<ExtensionDescriptor> {
+pub fn extensions_list(
+    app: tauri::AppHandle,
+    state: State<ExtensionState>,
+) -> Vec<ExtensionDescriptor> {
+    state.scan_extensions(&app);
     state.descriptors()
 }
 

@@ -78,6 +78,15 @@ describe("useExtensionStore", () => {
     expect(setPermissionMock).toHaveBeenCalledWith("aurona.markdown", "editor.current.read", true);
   });
 
+  it("hides and restores extensions", () => {
+    useExtensionStore.setState({ hiddenExtensionIds: [] });
+    useExtensionStore.getState().hideExtension("aurona.markdown");
+    expect(useExtensionStore.getState().hiddenExtensionIds).toContain("aurona.markdown");
+
+    useExtensionStore.getState().restoreExtension("aurona.markdown");
+    expect(useExtensionStore.getState().hiddenExtensionIds).not.toContain("aurona.markdown");
+  });
+
   it("does not re-initialize once initialized", async () => {
     listMock.mockResolvedValue([descriptor]);
     await useExtensionStore.getState().initialize();

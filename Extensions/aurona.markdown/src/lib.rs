@@ -80,6 +80,12 @@ pub mod sdk {
             context::read_workspace_file(path)
         }
 
+        /// 安全写入工作区文件（需授权 workspace.read/write）
+        #[inline]
+        pub fn write_file(&self, path: &str, content: &str) -> Result<bool, String> {
+            context::write_workspace_file(path, content)
+        }
+
         /// 安全列出工作区目录（需授权 workspace.read）
         #[inline]
         pub fn list_files(&self, directory: &str, max_count: u32) -> Result<Vec<FileEntry>, String> {
@@ -124,6 +130,15 @@ pub mod sdk {
         #[inline]
         pub fn request(&self, permission: &str) -> PermissionState {
             context::request_permission(permission)
+        }
+    }
+
+    /// 矢量图标服务
+    pub struct IconService;
+    impl IconService {
+        #[inline]
+        pub fn get(&self, name: &str) -> Option<String> {
+            context::get_icon_svg(name)
         }
     }
 }

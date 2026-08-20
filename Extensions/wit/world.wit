@@ -69,6 +69,10 @@ interface context {
   /// the host against the workspace boundary.
   read-workspace-file: func(path: string) -> result<string, string>;
 
+  /// Safely writes a text file inside the current workspace when `workspace.read`
+  /// or write permission is granted. Enforces workspace boundary and path sanitization.
+  write-workspace-file: func(path: string, content: string) -> result<bool, string>;
+
   /// Lists entries in a workspace directory (relative to workspace root) when
   /// `workspace.read` is granted. The host enforces workspace boundary and max count limit.
   list-workspace-files: func(directory: string, max-count: u32) -> result<list<file-entry>, string>;
@@ -82,6 +86,18 @@ interface context {
 
   /// Sends a structured log message to the host standard logger for extension diagnostics.
   log: func(level: string, message: string);
+
+  /// Shows a notification toast message in the host UI (info / warn / error / success).
+  show-notification: func(level: string, message: string) -> result<bool, string>;
+
+  /// Writes text content safely into the system clipboard.
+  write-clipboard: func(text: string) -> result<bool, string>;
+
+  /// Reads text content from the system clipboard.
+  read-clipboard: func() -> result<string, string>;
+
+  /// Returns official Tabler SVG content by icon name (e.g. "check", "trash", "clipboard").
+  get-icon-svg: func(name: string) -> option<string>;
 }
 
 /// The extension's render contract.

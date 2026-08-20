@@ -12,9 +12,87 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.3.14",
+    date: "2026-08-19",
+    isLatest: true,
+    summary:
+      "0.3.14 聚焦「全链路国际化、三大上帝组件深度解耦重构、WASM 扩展矩阵与系统级视觉微体验」：全面消除全代码库硬编码中文并对齐三国语言；深度重构解耦编辑器引擎 (AuronaEngine)、工作区调度器 (Workspace) 与全局设置面板 (SettingsTab)，主文件体积直降 67.8%；单测用例扩充至 184 项 100% 绿灯；任务看板 (Planner) 独立化并引入官方 Tabler 矢量图标 SDK 与安全文件写入；新增 VSCode 兼容转译层官方扩展 (vscode-compat)；通知中心与状态栏极简圆点化微体验升级。",
+    sections: [
+      {
+        title: "三大上帝组件深度解耦与架构治理",
+        description: "核心主文件体积直降 67.8%，逻辑彻底分层高内聚",
+        items: [
+          "**核心编辑器引擎解耦 (`AuronaEngine`)**：从 1862 行降至 690 行 (-62.9%)，独立抽离自动补全 (`useEditorAutocomplete`)、选区与光标计算 (`useEditorSelectionOps`) 以及键盘快捷键分发器 (`useEditorKeybindings`)",
+          "**主工作区模块化拆分 (`WorkspaceView`)**：从 1463 行降至 340 行 (-76.7%)，集中下沉四大语言服务交互弹窗 (`LanguageModals`) 与五大底部控制台面板 (`WorkspaceBottomPanel`)",
+          "**全局设置中心组件化 (`SettingsTab`)**：从 1083 行降至 390 行 (-64.0%)，拆分为通用、编辑器、版本控制与高级系统维护四大独立 Section，导航支持搜索匹配数量徽章",
+          "**自动化测试用例全面扩充**：单测套件扩充至 53 组、184 项测试 100% 绿灯全通，持续加固核心引擎与工作区生命周期质量保障",
+        ],
+      },
+      {
+        title: "全代码库多语言彻底对齐与国际化",
+        description: "消除全量硬编码中文，三国语言 100% 完整覆盖",
+        items: [
+          "**全模块硬编码清查**：系统性重构 Debug、SourceControl、FileExplorer、EditorTab 与 StatusBar 中的写死文本，全部迁移至规范化多语言词条体系",
+          "**三语字典无缝同步**：补齐简体中文 (zh-CN)、繁体中文 (zh-Hant) 与英文 (en) 词条，确保语言切换时全工作台界面即时对齐、无漏网之鱼",
+        ],
+      },
+      {
+        title: "WASM 扩展沙箱与性能跃升",
+        description: "预编译 Linker 缓存加速与安全文件写入 SDK",
+        items: [
+          "**Linker 预编译缓存与 Speed 优化**：在 ExtensionRuntime 启动阶段预缓存 WASM Linker 并开启 Cranelift 速度优化，冷启动与重绘速度大幅提升",
+          "**安全沙箱文件写入 SDK**：WIT 契约与 Rust 宿主新增安全写文件接口，具备工作区边界强制校验、路径防逃逸、.git 系统目录防护与 10MB 体积限制",
+          "**插件空状态绝对居中**：彻底解决侧边栏扩展在无内容时文字不居中的视觉瑕疵，实现各种屏幕宽度与高度下的绝对垂直水平居中",
+        ],
+      },
+      {
+        title: "独立任务计划插件 (Planner) 与矢量图标 SDK",
+        description: "脱离 Markdown 依赖、独立看板持久化与 Tabler 矢量图标",
+        items: [
+          "**独立功能型任务扩展**：Planner 插件全面独立运行（无需预先打开 Markdown），支持在工作区 `.aurona/planner.json` 安全持久化任务",
+          "**官方矢量图标 SDK**：WASM SDK 内置 Tabler SVG 矢量图标服务，插件中全面移除纯字符与 emoji，视觉呈现更加细腻高级",
+          "**深浅色主题无缝自适应**：任务看板完美适配 `:root[data-theme]` 响应体系，在 8 套双色渐变与深浅色模式下均具备舒适的拟物圆角微边框",
+        ],
+      },
+      {
+        title: "VSCode 兼容层转译与运行插件 (第一阶段)",
+        description: "通用 WASM 兼容底座，共用转译运行 VSCode 扩展",
+        items: [
+          "**WASM 沙箱兼容运行时**：新增官方第三扩展 `aurona.vscode-compat`，内置核心 `vscode` 命名空间模拟与 Node.js 基础安全沙箱",
+          "**扩展生命周期与命令转译**：支持加载执行 VSCode 扩展 `activate(context)` 流程，并可在侧边栏查看已转译命令与 WASM 执行日志",
+        ],
+      },
+      {
+        title: "通知中心与状态栏系统级质感升级",
+        description: "微质感进出动效、智能排版与极简呼吸状态圆点",
+        items: [
+          "**单行通知字号智能提档**：修复单行状态通知文字偏小的问题，未传标题时消息自动以标准字重与图标垂直居中对齐呈现",
+          "**系统级交互微体验**：引入悬停暂停计时器、平滑缓动出入场过渡、多层毛玻璃微边框与深度阴影，通知交互更加精致沉浸",
+          "**LSP 呼吸状态指示灯**：状态栏右侧 LSP 提示重构为极简呼吸圆点（灰=未配置，绿=正常，红=异常，黄脉冲=启动中），悬浮展示完整诊断",
+        ],
+      },
+      {
+        title: "长文字组件弹性自适应改造",
+        description: "深层防御外文排版溢出与容器撑破",
+        items: [
+          "**弹性防溢出容器**：给所有侧边栏选项卡、状态标签、下拉菜单及按钮组件建立 `min-w-0` 与 `break-words` 弹性安全防护",
+          "**超长文本省略与 Tooltip 互补**：在英文等长文本场景下自动优雅截断并配合悬浮 Tooltip 完整展开，彻底杜绝横向滚动条或排版形变",
+        ],
+      },
+      {
+        title: "官方文档体系与工程结构重构",
+        description: "全面规范化 README 与体系化技术文档",
+        items: [
+          "**结构化官方文档**：清理历史冗余过时文件，重构系统全景架构、扩展实战指南、SDK 参考手册、设计哲学与产品愿景五大核心技术文档",
+          "**README 体验升级**：重构项目主页结构与排版，提供清晰的特性矩阵、官方扩展索引与快速开发指南",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.3.13",
     date: "2026-08-16",
-    isLatest: true,
+    isLatest: false,
     summary:
       "0.3.13 以「优化与改进」为主题：通知中心全面升级支持 Action 动作按钮与确认交互，编辑器恢复快照迁移至右下角通知中心；推出 iOS Swift 风格面向对象 Aurona 插件 SDK 并扩展文件监控 API；插件完全自主经营多语言体系并支持 Keep-Alive 驻留保活与即时刷新；新增粗体显示与界面字号缩放；性能测试支持多卡片独立展开与 100 分制综合评分；根治 Fliuno 搜索高亮错位并加固核心架构",
     sections: [

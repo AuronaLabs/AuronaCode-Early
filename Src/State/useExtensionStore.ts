@@ -6,12 +6,16 @@ import {
   type ExtensionViewPayload,
 } from "../Foundation/IPC/ExtensionCommands";
 
+const HIDDEN_EXTENSIONS_STORAGE_KEY = "aurona:hidden-extensions";
+
 interface ExtensionStoreState {
   descriptors: ExtensionDescriptor[];
+  hiddenExtensionIds: string[];
   views: Record<string, ExtensionViewPayload | undefined>;
   permissions: Record<string, ExtensionPermissionState | undefined>;
   initialized: boolean;
   initialize(): Promise<void>;
+  refresh(): Promise<void>;
   viewFor(extensionId: string): Promise<ExtensionViewPayload | undefined>;
   permissionFor(extensionId: string, permission: string): Promise<ExtensionPermissionState>;
   setPermission(
@@ -19,24 +23,56 @@ interface ExtensionStoreState {
     permission: string,
     granted: boolean,
   ): Promise<ExtensionPermissionState>;
+  hideExtension(extensionId: string): void;
+  restoreExtension(extensionId: string): void;
 }
 
 const permissionKey = (extensionId: string, permission: string) => `${extensionId}:${permission}`;
 
+function loadHiddenExtensions(): string[] {
+  try {
+    const raw = localStorage.getItem(HIDDEN_EXTENSIONS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHiddenExtensions(ids: string[]): void {
+  try {
+    localStorage.setItem(HIDDEN_EXTENSIONS_STORAGE_KEY, JSON.stringify(ids));
+  } catch {
+    // 忽略存储异常
+  }
+}
+
 export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
   descriptors: [],
+  hiddenExtensionIds: loadHiddenExtensions(),
   views: {},
   permissions: {},
   initialized: false,
 
   async initialize() {
     if (get().initialized) return;
+    await get().refresh();
+  },
+
+  async refresh() {
     try {
       const descriptors = await ExtensionIPC.list();
-      set({ descriptors, initialized: true });
+      set({
+        descriptors,
+        hiddenExtensionIds: loadHiddenExtensions(),
+        initialized: true,
+      });
       for (const descriptor of descriptors) {
-        void get()
-          .viewFor(descriptor.id)
+        void ExtensionIPC.getView(descriptor.id)
+          .then((view) => {
+            set((state) => ({ views: { ...state.views, [descriptor.id]: view } }));
+          })
           .catch(() => undefined);
       }
     } catch {
@@ -44,12 +80,13 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
     }
   },
 
-  async viewFor(extensionId) {
+  viewFor(extensionId) {
     const cached = get().views[extensionId];
-    if (cached) return cached;
-    const view = await ExtensionIPC.getView(extensionId);
-    set((state) => ({ views: { ...state.views, [extensionId]: view } }));
-    return view;
+    if (cached) return Promise.resolve(cached);
+    return ExtensionIPC.getView(extensionId).then((view) => {
+      set((state) => ({ views: { ...state.views, [extensionId]: view } }));
+      return view;
+    });
   },
 
   async permissionFor(extensionId, permission) {
@@ -72,5 +109,22 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
       },
     }));
     return state;
+  },
+
+  hideExtension(extensionId) {
+    set((state) => {
+      if (state.hiddenExtensionIds.includes(extensionId)) return state;
+      const next = [...state.hiddenExtensionIds, extensionId];
+      saveHiddenExtensions(next);
+      return { hiddenExtensionIds: next };
+    });
+  },
+
+  restoreExtension(extensionId) {
+    set((state) => {
+      const next = state.hiddenExtensionIds.filter((id) => id !== extensionId);
+      saveHiddenExtensions(next);
+      return { hiddenExtensionIds: next };
+    });
   },
 }));

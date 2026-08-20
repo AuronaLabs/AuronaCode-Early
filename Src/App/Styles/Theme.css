@@ -1044,10 +1044,12 @@ button {
   }
 }
 
-/* xterm's canvas is transparent; the host must remain transparent in both themes. */
+/* xterm's canvas is transparent; the host and viewport must remain transparent in both themes. */
+.terminal-host,
 .terminal-host .xterm,
 .terminal-host .xterm-viewport,
 .terminal-host .xterm-screen,
+.terminal-host .xterm-screen canvas,
 .terminal-host .xterm-helper-textarea {
   background: transparent;
   background-color: transparent;

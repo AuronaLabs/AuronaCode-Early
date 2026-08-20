@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'none';" />
+  <title>Aurona Planner</title>
+  <style>
+    :root, :root[data-theme="light"] {
+      --bg: transparent;
+      --fg: #0f172a;
+      --muted: #64748b;
+      --card-bg: rgba(0, 0, 0, 0.03);
+      --card-border: rgba(0, 0, 0, 0.07);
+      --card-hover: rgba(0, 0, 0, 0.06);
+      --stat-bg: rgba(0, 0, 0, 0.025);
+      --accent: #0284c7;
+      --accent-done: #16a34a;
+      --accent-pending: #d97706;
+      --progress-bg: rgba(0, 0, 0, 0.08);
+      --radius: 12px;
+      --badge-cat: rgba(0, 0, 0, 0.06);
+    }
+    :root[data-theme="dark"] {
+      --bg: transparent;
+      --fg: #e6edf3;
+      --muted: #8b949e;
+      --card-bg: rgba(255, 255, 255, 0.04);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-hover: rgba(255, 255, 255, 0.07);
+      --stat-bg: rgba(255, 255, 255, 0.03);
+      --accent: #38bdf8;
+      --accent-done: #4ade80;
+      --accent-pending: #fbbf24;
+      --progress-bg: rgba(255, 255, 255, 0.08);
+      --badge-cat: rgba(255, 255, 255, 0.08);
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      height: 100%;
+      min-height: 100%;
+      position: relative;
+      background: transparent !important;
+      color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      user-select: none;
+    }
+    body {
+      padding: 12px;
+    }
+    .planner-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 100%;
+    }
+    .planner-header {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 12px;
+      backdrop-filter: blur(12px);
+    }
+    .planner-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .planner-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .progress-badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      padding: 2px 7px;
+      border-radius: 999px;
+    }
+    .planner-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .stat-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 6px;
+      border-radius: 8px;
+      background: var(--stat-bg);
+      border: 1px solid var(--card-border);
+    }
+    .stat-num {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .stat-label {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .stat-done .stat-num {
+      color: var(--accent-done);
+    }
+    .stat-pending .stat-num {
+      color: var(--accent-pending);
+    }
+    .progress-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .progress-track {
+      flex: 1;
+      height: 6px;
+      background: var(--progress-bg);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-done));
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+    .planner-empty-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 280px;
+    }
+    .planner-empty {
+      width: 100%;
+      padding: 28px 16px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--card-bg);
+      border: 1px dashed var(--card-border);
+      border-radius: var(--radius);
+    }
+    .empty-icon-svg {
+      width: 34px;
+      height: 34px;
+      stroke: var(--muted);
+      opacity: 0.6;
+      margin-bottom: 8px;
+    }
+    .empty-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--fg);
+      opacity: 0.9;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+    .empty-text {
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 240px;
+      text-align: center;
+      margin: 0 auto;
+    }
+    .empty-text code {
+      font-family: monospace;
+      padding: 1px 4px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+    }
+    .task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .task-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      transition: all 0.15s ease;
+    }
+    .task-item:hover {
+      background: var(--card-hover);
+      border-color: rgba(128, 128, 128, 0.2);
+    }
+    .checkbox {
+      width: 16px;
+      height: 16px;
+      border-radius: 5px;
+      border: 1.5px solid var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+      margin-top: 2px;
+      transition: all 0.15s ease;
+    }
+    .checkbox svg {
+      width: 12px;
+      height: 12px;
+      stroke: currentColor;
+    }
+    .task-item.completed .checkbox {
+      background: var(--accent-done);
+      border-color: var(--accent-done);
+    }
+    .task-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .task-title {
+      font-size: 12.5px;
+      font-weight: 500;
+      word-break: break-word;
+    }
+    .task-item.completed .task-title {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+    .task-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .badge {
+      font-size: 9.5px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+      line-height: 1.2;
+    }
+    /* 分类色彩胶囊 */
+    .badge-test {
+      background: rgba(168, 85, 247, 0.14);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.25);
+    }
+    .badge-dev {
+      background: rgba(59, 130, 246, 0.14);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.25);
+    }
+    .badge-doc {
+      background: rgba(16, 185, 129, 0.14);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+    .badge-opt {
+      background: rgba(245, 158, 11, 0.14);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+    .badge-design {
+      background: rgba(236, 72, 153, 0.14);
+      color: #f472b6;
+      border: 1px solid rgba(236, 72, 153, 0.25);
+    }
+    .badge-default {
+      background: var(--badge-cat);
+      color: var(--muted);
+    }
+    .priority-high {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+    }
+    .priority-normal {
+      background: rgba(107, 114, 128, 0.15);
+      color: #9ca3af;
+    }
+    .priority-low {
+      background: rgba(107, 114, 128, 0.1);
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <!--AURONA_RENDER_SLOT-->
+</body>
+</html>

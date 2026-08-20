@@ -172,11 +172,9 @@ export function DebugPanel() {
                 </div>
                 <div>
                   <div className="font-medium text-[var(--color-text-primary)]">
-                    打开可调试的代码文件
+                    {t("debug.openDebuggableFile")}
                   </div>
-                  <p className="mt-1">
-                    Aurona 会识别项目并生成可编辑的启动配置，无需手工创建基础配置
-                  </p>
+                  <p className="mt-1">{t("debug.openDebuggableFileDesc")}</p>
                 </div>
               </div>
             )}
@@ -921,16 +919,16 @@ function DebugContextEmpty({ hasFile }: { hasFile: boolean }) {
             </>
           ) : (
             <>
-              打开一个代码文件
+              {t("debug.openFileToDebug")}
               <br />
-              运行和调试工具会在这里自动就绪
+              {t("debug.toolsReadyHint")}
             </>
           )}
         </p>
       </div>
       <div className="relative z-10 flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--color-accent)_16%,var(--border-subtle))] bg-[var(--material-panel)] px-3 py-1 text-[11px] font-medium text-[var(--color-text-muted)]">
         <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
-        等待代码上下文
+        {t("debug.waitingContext")}
       </div>
     </div>
   );

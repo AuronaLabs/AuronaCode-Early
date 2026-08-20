@@ -510,14 +510,14 @@ export const SourceControl = React.memo(function SourceControl() {
           className={`relative flex h-[28px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 ${activeTab === "changes" ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
           onClick={() => setActiveTab("changes")}
         >
-          <Icons.GitBranch size={13} /> 更改
+          <Icons.GitBranch size={13} /> {t("sourceControl.changesTab")}
         </button>
         <button
           type="button"
           className={`relative flex h-[28px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 ${activeTab === "history" ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
           onClick={() => setActiveTab("history")}
         >
-          <Icons.History size={13} /> 历史
+          <Icons.History size={13} /> {t("sourceControl.historyTab")}
         </button>
       </div>
 
@@ -537,7 +537,7 @@ export const SourceControl = React.memo(function SourceControl() {
           />
         ) : (
           <div className="flex h-7 min-w-0 flex-1 items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 text-[11.5px] text-[var(--color-text-muted)]">
-            尚无提交分支
+            {t("sourceControl.noBranch")}
           </div>
         )}
         <Tooltip content={t("sourceControl.createBranch")} delay={300}>
@@ -635,7 +635,7 @@ export const SourceControl = React.memo(function SourceControl() {
                   className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-4 py-2 text-[13px] font-medium text-[var(--color-text-highlight)] transition-colors hover:bg-[var(--material-interactive-active)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Icons.Checks size={16} stroke={2} />
-                  提交
+                  {t("sourceControl.commitAction")}
                 </button>
               </div>
             </div>
@@ -651,9 +651,12 @@ export const SourceControl = React.memo(function SourceControl() {
               >
                 <div className={cn(glassListHeaderStyles, "justify-between")}>
                   <span className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-wider text-[var(--StatusError)]">
-                    <Icons.AlertTriangle size={14} /> 冲突 ({conflictedFiles.length})
+                    <Icons.AlertTriangle size={14} /> {t("sourceControl.conflicts")} (
+                    {conflictedFiles.length})
                   </span>
-                  <span className="text-[10px] text-[var(--color-text-muted)]">解决后暂存文件</span>
+                  <span className="text-[10px] text-[var(--color-text-muted)]">
+                    {t("sourceControl.stageAfterResolve")}
+                  </span>
                 </div>
                 <div className="aurona-scroll min-h-0 overflow-y-auto overflow-x-hidden p-2">
                   {conflictedFiles.map(renderFileCard)}
@@ -682,7 +685,7 @@ export const SourceControl = React.memo(function SourceControl() {
                       className={`text-[var(--color-text-muted)] transition-transform ${!stagedExpanded ? "-rotate-90" : ""}`}
                     />
                     <span className="text-[12.5px] font-bold text-[var(--color-text-highlight)] uppercase tracking-wider">
-                      已暂存 ({stagedFiles.length})
+                      {t("sourceControl.staged")} ({stagedFiles.length})
                     </span>
                   </button>
                   <Tooltip content={t("sourceControl.unstageAll")} delay={300}>
@@ -729,7 +732,7 @@ export const SourceControl = React.memo(function SourceControl() {
                       className={`text-[var(--color-text-muted)] transition-transform ${!unstagedExpanded ? "-rotate-90" : ""}`}
                     />
                     <span className="text-[12.5px] font-bold text-[var(--color-text-highlight)] uppercase tracking-wider">
-                      更改 ({unstagedFiles.length})
+                      {t("sourceControl.changes")} ({unstagedFiles.length})
                     </span>
                   </button>
                   {unstagedFiles.length > 0 && (
@@ -740,9 +743,9 @@ export const SourceControl = React.memo(function SourceControl() {
                           event.stopPropagation();
                           stageAll();
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-accent-text)] hover:bg-[var(--color-accent)] transition-all flex items-center justify-center"
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-all flex items-center justify-center"
                       >
-                        <Icons.Checks size={14} />
+                        <Icons.Plus size={14} />
                       </button>
                     </Tooltip>
                   )}
@@ -770,7 +773,7 @@ export const SourceControl = React.memo(function SourceControl() {
                 "p-4 text-center text-[12px] text-[var(--color-text-muted)] rounded-2xl z-10 mt-2",
               )}
             >
-              尚未找到提交记录
+              {t("sourceControl.noCommits")}
             </div>
           ) : (
             <div className="flex flex-col gap-3 mt-2 relative z-10">
@@ -862,12 +865,12 @@ export const SourceControl = React.memo(function SourceControl() {
               {t("common.cancel")}
             </Button>
             <Button variant="danger" onClick={() => void confirmDiscardFile()}>
-              放弃更改
+              {t("workspace.discardChanges")}
             </Button>
           </>
         }
       >
-        将永久放弃 <strong>{discardTarget?.path}</strong> 的未暂存更改。这个操作无法撤销
+        {t("sourceControl.discardFile")}: <strong>{discardTarget?.path}</strong>
       </Modal>
     </div>
   );

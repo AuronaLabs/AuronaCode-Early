@@ -353,8 +353,11 @@ pub(crate) fn valid_manifest_for_tests() -> ExtensionManifest {
         package_version: 1,
         id: "aurona.markdown".to_string(),
         name: "Markdown Preview".to_string(),
+        display_name: None,
         publisher: "aurona".to_string(),
         version: "0.1.0".to_string(),
+        description: None,
+        display_description: None,
         engine: EngineRequirement {
             aurona_code: ">=0.3.12".to_string(),
         },
@@ -363,6 +366,7 @@ pub(crate) fn valid_manifest_for_tests() -> ExtensionManifest {
         },
         sidebar: SidebarEntry {
             title: "Markdown".to_string(),
+            display_title: None,
             icon: "assets/icon.svg".to_string(),
         },
         view: ViewEntry {

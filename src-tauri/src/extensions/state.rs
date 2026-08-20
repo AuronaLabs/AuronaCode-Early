@@ -29,29 +29,7 @@ impl ExtensionState {
 
     /// Discovers bundled AURX packages and loads persisted permissions.
     pub fn initialize(&self, app: &AppHandle) -> Result<usize, String> {
-        let mut candidate_roots = Vec::new();
-        if let Ok(resource_dir) = app.path().resource_dir() {
-            candidate_roots.push(resource_dir.join("extensions"));
-            candidate_roots.push(resource_dir.join("resources").join("extensions"));
-        }
-        candidate_roots.push(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("resources")
-                .join("extensions"),
-        );
-
-        let mut loaded = 0usize;
-        for dir in candidate_roots {
-            if dir.is_dir() {
-                if let Ok(count) = self.registry.load_directory(&dir) {
-                    loaded += count;
-                    if loaded > 0 {
-                        break;
-                    }
-                }
-            }
-        }
-
+        let loaded = self.scan_extensions(app);
         let config_dir = app
             .path()
             .app_local_data_dir()
@@ -62,6 +40,32 @@ impl ExtensionState {
             .lock()
             .map_err(|_| "扩展状态锁已损坏".to_string())? = Some(config_dir);
         Ok(loaded)
+    }
+
+    /// 扫描并汇聚所有候选路径下的 .aurx 扩展包（优先源码资源目录）
+    pub fn scan_extensions(&self, app: &AppHandle) -> usize {
+        let mut candidate_roots = Vec::new();
+        // 1. 源码工程目录优先（开发与热更新支持）
+        candidate_roots.push(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("resources")
+                .join("extensions"),
+        );
+        // 2. 打包后的资源目录
+        if let Ok(resource_dir) = app.path().resource_dir() {
+            candidate_roots.push(resource_dir.join("extensions"));
+            candidate_roots.push(resource_dir.join("resources").join("extensions"));
+        }
+
+        let mut loaded = 0usize;
+        for dir in candidate_roots {
+            if dir.is_dir() {
+                if let Ok(count) = self.registry.load_directory(&dir) {
+                    loaded += count;
+                }
+            }
+        }
+        loaded
     }
 
     pub fn descriptors(&self) -> Vec<super::registry::ExtensionDescriptor> {

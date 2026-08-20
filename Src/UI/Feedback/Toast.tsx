@@ -70,75 +70,84 @@ export function ToastContainer() {
 
   return (
     <div className="fixed bottom-[calc(var(--StatusBarHeight)+16px)] right-6 z-[100] flex flex-col-reverse gap-3 pointer-events-none max-w-sm w-full">
-      {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          className="pointer-events-auto relative flex flex-col gap-2.5 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)]/90 p-3.5 backdrop-blur-[var(--glass-blur-floating)] shadow-2xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group"
-        >
-          <div className="flex items-start gap-3">
-            <div
-              className={`flex items-center justify-center h-8 w-8 rounded-xl shrink-0 mt-0.5 ${
-                toast.type === "success"
-                  ? "bg-[var(--StatusSuccess)]/15 text-[var(--StatusSuccess)]"
-                  : toast.type === "error"
-                    ? "bg-[var(--StatusError)]/15 text-[var(--StatusError)]"
-                    : toast.type === "warning"
-                      ? "bg-[var(--StatusWarning)]/15 text-[var(--StatusWarning)]"
-                      : toast.type === "confirm"
-                        ? "bg-[var(--color-accent)]/15 text-[var(--color-accent)]"
-                        : "bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] text-[var(--color-accent)]"
-              }`}
-            >
-              {toast.type === "success" && <Icons.Checks size={16} stroke={2} />}
-              {toast.type === "error" && <Icons.Close size={16} stroke={2} />}
-              {toast.type === "warning" && <Icons.AlertTriangle size={16} stroke={2} />}
-              {toast.type === "confirm" && <Icons.InfoCircle size={17} stroke={2} />}
-              {toast.type === "info" && <Icons.Info size={16} stroke={2} />}
-            </div>
-
-            <div className="flex-1 min-w-0 pr-5">
-              {toast.title && (
-                <div className="text-[13px] font-semibold text-[var(--color-text-highlight)] leading-snug select-none mb-0.5">
-                  {toast.title}
-                </div>
-              )}
-              <div className="text-[12px] text-[var(--color-text-primary)] leading-relaxed select-none break-words">
-                {toast.message}
+      {toasts.map((toast) => {
+        const hasTitle = Boolean(toast.title);
+        return (
+          <div
+            key={toast.id}
+            className="pointer-events-auto relative flex flex-col gap-2.5 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)]/95 p-3.5 backdrop-blur-[var(--glass-blur-floating)] shadow-2xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group"
+          >
+            <div className={`flex ${hasTitle ? "items-start" : "items-center"} gap-3`}>
+              <div
+                className={`flex items-center justify-center h-8 w-8 rounded-xl shrink-0 ${
+                  toast.type === "success"
+                    ? "bg-[var(--StatusSuccess)]/15 text-[var(--StatusSuccess)]"
+                    : toast.type === "error"
+                      ? "bg-[var(--StatusError)]/15 text-[var(--StatusError)]"
+                      : toast.type === "warning"
+                        ? "bg-[var(--StatusWarning)]/15 text-[var(--StatusWarning)]"
+                        : toast.type === "confirm"
+                          ? "bg-[var(--color-accent)]/15 text-[var(--color-accent)]"
+                          : "bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] text-[var(--color-accent)]"
+                }`}
+              >
+                {toast.type === "success" && <Icons.Checks size={16} stroke={2} />}
+                {toast.type === "error" && <Icons.Close size={16} stroke={2} />}
+                {toast.type === "warning" && <Icons.AlertTriangle size={16} stroke={2} />}
+                {toast.type === "confirm" && <Icons.InfoCircle size={17} stroke={2} />}
+                {toast.type === "info" && <Icons.Info size={16} stroke={2} />}
               </div>
-            </div>
 
-            <button
-              type="button"
-              onClick={() => dismissToast(toast.id)}
-              className="absolute right-2.5 top-2.5 p-1 rounded-lg opacity-60 hover:opacity-100 hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-all cursor-pointer"
-              title="关闭通知"
-            >
-              <Icons.Close size={13} stroke={2} />
-            </button>
-          </div>
-
-          {toast.actions && toast.actions.length > 0 && (
-            <div className="flex items-center justify-end gap-2 pt-1 border-t border-[var(--border-subtle)]/60 mt-1">
-              {toast.actions.map((action) => (
-                <button
-                  key={action.label}
-                  type="button"
-                  onClick={() => void handleActionClick(toast.id, action)}
-                  className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all cursor-pointer select-none ${
-                    action.primary || action.variant === "primary"
-                      ? "bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white shadow-sm"
-                      : action.variant === "danger"
-                        ? "bg-[var(--StatusError)]/15 text-[var(--StatusError)] hover:bg-[var(--StatusError)]/25"
-                        : "bg-[var(--material-interactive-hover)] text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-active)]"
-                  }`}
+              <div className="flex-1 min-w-0 pr-5">
+                {hasTitle && (
+                  <div className="text-[13.5px] font-semibold text-[var(--color-text-highlight)] leading-snug select-none mb-0.5">
+                    {toast.title}
+                  </div>
+                )}
+                <div
+                  className={`${
+                    hasTitle
+                      ? "text-[12.5px] text-[var(--color-text-primary)]"
+                      : "text-[13px] font-medium text-[var(--color-text-highlight)]"
+                  } leading-relaxed select-none break-words [overflow-wrap:anywhere]`}
                 >
-                  {action.label}
-                </button>
-              ))}
+                  {toast.message}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => dismissToast(toast.id)}
+                className="absolute right-2.5 top-2.5 p-1 rounded-lg opacity-60 hover:opacity-100 hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-all cursor-pointer"
+                title="关闭通知"
+              >
+                <Icons.Close size={13} stroke={2} />
+              </button>
             </div>
-          )}
-        </div>
-      ))}
+
+            {toast.actions && toast.actions.length > 0 && (
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-[var(--border-subtle)]/60 mt-1">
+                {toast.actions.map((action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={() => void handleActionClick(toast.id, action)}
+                    className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all cursor-pointer select-none ${
+                      action.primary || action.variant === "primary"
+                        ? "bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white shadow-sm"
+                        : action.variant === "danger"
+                          ? "bg-[var(--StatusError)]/15 text-[var(--StatusError)] hover:bg-[var(--StatusError)]/25"
+                          : "bg-[var(--material-interactive-hover)] text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-active)]"
+                    }`}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

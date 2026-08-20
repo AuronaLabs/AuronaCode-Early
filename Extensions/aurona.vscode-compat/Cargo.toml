@@ -1,0 +1,17 @@
+[package]
+name = "aurona-vscode-compat"
+version = "0.1.0"
+description = "Aurona VSCode extension compatibility and translation runtime (WASM component guest)"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.58"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
+panic = "abort"

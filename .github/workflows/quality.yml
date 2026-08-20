@@ -35,6 +35,8 @@ jobs:
       - run: pnpm run check:materials
       - run: pnpm run verify:toolchains:contract
       - run: pnpm run verify:markdown
+      - run: pnpm run verify:planner
+      - run: pnpm run verify:vscode-compat
       - run: pnpm run smoke
       - run: pnpm run test:frontend
       - run: pnpm run build
@@ -52,10 +54,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.95.0
+        # 扩展使用 wasm32-wasip2 target 编译
       - run: rustup target add wasm32-wasip2
       - uses: swatinem/rust-cache@v2
         with:
-          workspaces: ./Extensions/aurona.markdown
+          workspaces: |
+            ./Extensions/aurona.markdown
+            ./Extensions/aurona.planner
+            ./Extensions/aurona.vscode-compat
       - uses: pnpm/action-setup@v4
         with:
           version: 11.13.0
@@ -66,8 +72,11 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run prepare:extensions
-      - name: Committed AURX must match the reproducible rebuild
-        run: git diff --exit-code -- src-tauri/resources/extensions/aurona.markdown.aurx
+      - name: Verify extension integrity and package contract
+        run: |
+          pnpm run verify:markdown
+          pnpm run verify:planner
+          pnpm run verify:vscode-compat
 
   rust:
     name: Rust (${{ matrix.os }})

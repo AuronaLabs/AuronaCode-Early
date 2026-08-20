@@ -19,6 +19,7 @@ pub use exports::aurona::extensions::render::{RenderInput, RenderOutput};
 const DEFAULT_MEMORY_BYTES: usize = 64 * 1024 * 1024;
 const DEFAULT_FUEL: u64 = 10_000_000;
 const MAX_WORKSPACE_READ_BYTES: u64 = 4 * 1024 * 1024;
+const MAX_WORKSPACE_WRITE_BYTES: usize = 10 * 1024 * 1024;
 const MAX_WORKSPACE_LIST_ENTRIES: u32 = 1000;
 
 #[derive(Debug, Clone, Copy)]
@@ -209,6 +210,61 @@ impl aurona::extensions::context::Host for ExtensionContext {
         std::fs::read_to_string(&resolved).map_err(|error| format!("读取文件 {path} 失败: {error}"))
     }
 
+    fn write_workspace_file(&mut self, path: String, content: String) -> Result<bool, String> {
+        if self.workspace_permission != ContextPermissionState::Granted {
+            return Err("workspace.write or workspace.read is not granted".to_string());
+        }
+        let root = self
+            .workspace_root
+            .as_ref()
+            .ok_or_else(|| "尚未打开工作区".to_string())?;
+
+        let requested = Path::new(&path);
+        let mut safe = true;
+        for component in requested.components() {
+            match component {
+                Component::ParentDir
+                | Component::RootDir
+                | Component::Prefix(_)
+                | Component::CurDir => {
+                    safe = false;
+                    break;
+                }
+                Component::Normal(_) => {}
+            }
+        }
+        if !safe || requested.is_absolute() {
+            return Err(format!("不允许写入工作区外的路径: {path}"));
+        }
+
+        // 禁止写入 .git 等敏感目录
+        for part in requested.iter() {
+            let part_str = part.to_string_lossy();
+            if part_str.eq_ignore_ascii_case(".git") {
+                return Err(format!("禁止修改系统版本控制目录: {path}"));
+            }
+        }
+
+        if content.len() > MAX_WORKSPACE_WRITE_BYTES {
+            return Err(format!("写入内容过大（超过 10MB 限制）: {path}"));
+        }
+
+        let canonical_root = root
+            .canonicalize()
+            .map_err(|error| format!("无法解析工作区根目录 {}: {error}", root.display()))?;
+
+        let target_path = canonical_root.join(requested);
+        if let Some(parent) = target_path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|error| format!("创建父目录失败 {}: {error}", parent.display()))?;
+        }
+
+        std::fs::write(&target_path, content.as_bytes())
+            .map_err(|error| format!("写入文件 {path} 失败: {error}"))?;
+
+        Ok(true)
+    }
+
     fn list_workspace_files(
         &mut self,
         directory: String,
@@ -243,9 +299,10 @@ impl aurona::extensions::context::Host for ExtensionContext {
         let target_dir = if directory.is_empty() || directory == "." {
             canonical_root.clone()
         } else {
-            canonical_root.join(dir_path).canonicalize().map_err(|error| {
-                format!("无法解析工作区目录 {directory}: {error}")
-            })?
+            canonical_root
+                .join(dir_path)
+                .canonicalize()
+                .map_err(|error| format!("无法解析工作区目录 {directory}: {error}"))?
         };
 
         if !target_dir.starts_with(&canonical_root) {
@@ -325,11 +382,37 @@ impl aurona::extensions::context::Host for ExtensionContext {
     fn log(&mut self, level: String, message: String) {
         eprintln!("[aurona-extension][{level}] {message}");
     }
+
+    fn show_notification(&mut self, level: String, message: String) -> Result<bool, String> {
+        eprintln!("[aurona-notification][{level}] {message}");
+        Ok(true)
+    }
+
+    fn write_clipboard(&mut self, _text: String) -> Result<bool, String> {
+        Ok(true)
+    }
+
+    fn read_clipboard(&mut self) -> Result<String, String> {
+        Ok(String::new())
+    }
+
+    fn get_icon_svg(&mut self, name: String) -> Option<String> {
+        match name.as_str() {
+            "check" => Some("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"20 6 9 17 4 12\"/></svg>".to_string()),
+            "trash" => Some("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 6h18\"/><path d=\"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6\"/><path d=\"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2\"/></svg>".to_string()),
+            "plus" => Some("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>".to_string()),
+            "clipboard" => Some("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2\"/><rect x=\"8\" y=\"2\" width=\"8\" height=\"4\" rx=\"1\" ry=\"1\"/></svg>".to_string()),
+            "calendar" => Some("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"/><line x1=\"16\" y1=\"2\" x2=\"16\" y2=\"6\"/><line x1=\"8\" y1=\"2\" x2=\"8\" y2=\"6\"/><line x1=\"3\" y1=\"10\" x2=\"21\" y2=\"10\"/></svg>".to_string()),
+            "code" => Some("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"16 18 22 12 16 6\"/><polyline points=\"8 6 2 12 8 18\"/></svg>".to_string()),
+            _ => None,
+        }
+    }
 }
 
 pub struct ExtensionRuntime {
     engine: Engine,
     component: wasmtime::component::Component,
+    linker: Linker<ExtensionContext>,
     limits: ExtensionLimits,
 }
 
@@ -337,13 +420,24 @@ impl ExtensionRuntime {
     pub fn new(component_bytes: &[u8], limits: ExtensionLimits) -> Result<Self, String> {
         let mut config = Config::new();
         config.consume_fuel(true);
+        config.cranelift_opt_level(wasmtime::OptLevel::Speed);
+        config.parallel_compilation(true);
+
         let engine =
             Engine::new(&config).map_err(|error| format!("Wasmtime 引擎初始化失败: {error}"))?;
         let component = wasmtime::component::Component::new(&engine, component_bytes)
             .map_err(|error| format!("WASM 组件无效: {error}"))?;
+
+        let mut linker = Linker::new(&engine);
+        wasmtime_wasi::p2::add_to_linker_sync(&mut linker)
+            .map_err(|error| format!("链接扩展 WASI 兜底失败: {error}"))?;
+        AuronaExtension::add_to_linker::<_, HasSelf<_>>(&mut linker, |state| state)
+            .map_err(|error| format!("链接扩展宿主上下文失败: {error}"))?;
+
         Ok(Self {
             engine,
             component,
+            linker,
             limits,
         })
     }
@@ -366,13 +460,7 @@ impl ExtensionRuntime {
             .set_fuel(10_000_000)
             .map_err(|error| format!("设置实例化燃料失败: {error}"))?;
 
-        let mut linker = Linker::new(&self.engine);
-        wasmtime_wasi::p2::add_to_linker_sync(&mut linker)
-            .map_err(|error| format!("链接扩展 WASI 兜底失败: {error}"))?;
-        AuronaExtension::add_to_linker::<_, HasSelf<_>>(&mut linker, |state| state)
-            .map_err(|error| format!("链接扩展宿主上下文失败: {error}"))?;
-
-        let instance = AuronaExtension::instantiate(&mut store, &self.component, &linker)
+        let instance = AuronaExtension::instantiate(&mut store, &self.component, &self.linker)
             .map_err(|error| format!("实例化扩展失败: {error:#}"))?;
         store
             .set_fuel(self.limits.fuel)
@@ -514,6 +602,41 @@ mod tests {
     }
 
     #[test]
+    fn write_workspace_file_enforces_safety() {
+        let temp = std::env::temp_dir().join(format!("aurona-ext-write-{}", std::process::id()));
+        std::fs::create_dir_all(&temp).unwrap();
+        let mut host = test_context(Some(temp.clone()));
+        host.workspace_permission = ContextPermissionState::Granted;
+
+        // 正常写入根目录下与子目录下文件
+        assert_eq!(
+            host.write_workspace_file(
+                ".aurona/planner.json".to_string(),
+                "{\"tasks\":[]}".to_string()
+            ),
+            Ok(true)
+        );
+        assert!(temp.join(".aurona").join("planner.json").exists());
+        let content = std::fs::read_to_string(temp.join(".aurona").join("planner.json")).unwrap();
+        assert_eq!(content, "{\"tasks\":[]}");
+
+        // 拒绝路径逃逸
+        assert!(host
+            .write_workspace_file("../escape.txt".to_string(), "bad".to_string())
+            .is_err());
+        assert!(host
+            .write_workspace_file("C:\\Windows\\system.txt".to_string(), "bad".to_string())
+            .is_err());
+
+        // 拒绝写入 .git 系统敏感目录
+        assert!(host
+            .write_workspace_file(".git/config".to_string(), "bad".to_string())
+            .is_err());
+
+        std::fs::remove_dir_all(&temp).ok();
+    }
+
+    #[test]
     fn environment_reports_metadata() {
         let mut context = test_context(None);
         context.environment.app_version = "0.3.13".to_string();
@@ -527,8 +650,7 @@ mod tests {
 
     #[test]
     fn workspace_info_and_list_files_requires_grant() {
-        let temp =
-            std::env::temp_dir().join(format!("aurona-ext-list-{}", std::process::id()));
+        let temp = std::env::temp_dir().join(format!("aurona-ext-list-{}", std::process::id()));
         std::fs::create_dir_all(&temp).unwrap();
         std::fs::write(temp.join("a.md"), b"test").unwrap();
         std::fs::create_dir(temp.join("sub")).unwrap();
@@ -536,7 +658,7 @@ mod tests {
         let mut host = test_context(Some(temp.clone()));
         host.workspace_name = Some("MyWorkspace".to_string());
         host.workspace_permission = ContextPermissionState::Denied;
-        
+
         let info = host.get_workspace_info();
         assert!(!info.has_workspace);
         assert_eq!(info.name, None);

@@ -38,7 +38,7 @@ python manager.py
 - Rust 是持久文档权威。编辑、保存、revision 或恢复相关变更必须同时考虑 UTF-16、CRLF、IME 和数据安全。
 - `Src/Extension` 当前只是命令注册，不是插件运行时。
 
-详细说明见 [Architecture.md](../Docs/Architecture.md) 和 [FileTree.md](../Docs/FileTree.md)。
+详细说明见 [Architecture.md](../docs/Architecture.md) 和 [Extension-Development.md](../docs/Extension-Development.md)。
 
 ## 建议工作流
 
