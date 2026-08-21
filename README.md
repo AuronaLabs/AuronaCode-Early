@@ -4,7 +4,7 @@
   <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.3.16-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-pioneer.1-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
@@ -16,7 +16,7 @@
 Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造轻量、克制且具触感美学的沉浸式编码工作台。
 
 > [!NOTE]
-> **V0.3.16 是 Aurona Code 0.3.x 大版本的最终收官之作**。标志着自研纯粹内核、WASM Component 扩展沙箱、Aurona Marketplace 沉浸式市场以及 VSCode 兼容转译层三大里程碑的全面达成与架构定型。欢迎体验与共建！
+> **Aurona Code 正式开启 0.4.0 演进周期！** 当前版本为 **V0.4.0-pioneer.1** 先锋测试版，Pioneer 先锋尝鲜机制与双渠道物理 Feature Flags 架构已全面上线，欢迎体验与共建！
 
 ---
 
@@ -99,22 +99,22 @@ pnpm run format         # 自动格式化前端代码 (Biome)
 pnpm run typecheck      # TypeScript 类型检查
 pnpm run check          # Biome 代码规范检查
 pnpm run smoke          # 发布元数据烟雾检查
-pnpm run test:frontend  # 运行前端 Vitest 单元测试 (184 项)
-pnpm run test:rust      # 运行 Rust 核心单元测试
+pnpm run test:frontend  # 运行前端 Vitest 单元测试 (204 项)
+pnpm run test:rust      # 运行 Rust 核心单元测试 (89 项)
 ```
 
 ---
 
-## 📚 官方文档索引
+## 官方文档索引
 
-- [系统全景架构设计](docs/Architecture.md)
-- [WASM 扩展开发实战指南](docs/Extension-Development.md)
-- [Extension SDK 参考手册](docs/Extension-SDK-Reference.md)
-- [设计哲学与材质规范](docs/Design-Principles.md)
-- [产品愿景与演进路线](docs/Product-Vision.md)
+- [系统全景架构设计](Docs/Architecture.md)
+- [WASM 扩展开发实战指南](Docs/Extension-Development.md)
+- [Extension SDK 参考手册](Docs/Extension-SDK-Reference.md)
+- [设计哲学与材质规范](Docs/Design-Principles.md)
+- [产品愿景与演进路线](Docs/Product-Vision.md)
 
 ---
 
-## 📄 许可证
+## 许可证
 
 本项目采用 [AGPL-3.0](LICENSE) 开源协议。

@@ -3,6 +3,7 @@ import { CommandRegistry } from "../../Extension/CommandRegistry";
 import { desktopApp, desktopWindow } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
+import { isPioneerBuild } from "../../Foundation/Release/ReleaseChannel";
 import { isRunnable } from "../../Shared/Constants/RunConfig";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import {
@@ -23,6 +24,7 @@ export function TitleBar() {
   const { t } = useLocale();
   const [isMaximized, setIsMaximized] = useState(false);
   const [hasUpdate, setHasUpdate] = useState(false);
+  const [isPioneer, setIsPioneer] = useState(isPioneerBuild());
   const isTerminalOpen = useWorkbenchStore((state) => state.isBottomPanelOpen);
   const activeFilePath = useWorkbenchStore((state) => {
     const tab = state.tabs.find((item) => item.id === state.activeTabId);
@@ -31,6 +33,12 @@ export function TitleBar() {
 
   useEffect(() => {
     appWindow.isMaximized().then(setIsMaximized);
+
+    void desktopApp.getVersion().then((ver) => {
+      if (isPioneerBuild(ver)) {
+        setIsPioneer(true);
+      }
+    });
 
     const unlisten = appWindow.onResized(async () => {
       setIsMaximized(await appWindow.isMaximized());
@@ -57,11 +65,29 @@ export function TitleBar() {
       className="flex h-[var(--TitleBarHeight)] shrink-0 select-none items-center justify-between bg-transparent text-[var(--color-text-primary)] text-[13px] relative z-30"
     >
       <div className="flex h-full items-center pl-4 gap-3 min-w-0">
-        <div
-          className="pointer-events-none text-[15px] text-[var(--color-text-highlight)] flex items-center shrink-0"
-          style={{ fontFamily: "'Righteous', sans-serif", fontWeight: 400, letterSpacing: "0.8px" }}
-        >
-          Aurona Code
+        <div className="pointer-events-none flex items-center shrink-0 gap-1.5">
+          <span
+            className="text-[15px] text-[var(--color-text-highlight)]"
+            style={{
+              fontFamily: "'Righteous', sans-serif",
+              fontWeight: 400,
+              letterSpacing: "0.8px",
+            }}
+          >
+            Aurona Code
+          </span>
+          {isPioneer && (
+            <span
+              className="text-[15px] font-normal bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 dark:from-sky-400 dark:via-cyan-300 dark:to-indigo-400 bg-clip-text text-transparent select-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_0_8px_rgba(56,189,248,0.25)]"
+              style={{
+                fontFamily: "'Righteous', sans-serif",
+                fontWeight: 400,
+                letterSpacing: "0.8px",
+              }}
+            >
+              Pioneer
+            </span>
+          )}
         </div>
         <MenubarRoot className="flex h-full items-center space-x-0.5 min-w-0">
           <MenubarMenu>

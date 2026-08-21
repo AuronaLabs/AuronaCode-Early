@@ -3,6 +3,7 @@ import {
   type AvailableRemoteVersion,
   compareAuronaVersions,
   getBuildChannel,
+  isPioneerBuild,
   parseAuronaVersion,
   resolveTargetUpdateVersion,
 } from "./ReleaseChannel";
@@ -87,5 +88,13 @@ describe("ReleaseChannel & Version Model", () => {
   it("reports default build channel as stable when no environment override exists", () => {
     const channel = getBuildChannel();
     expect(channel).toBe("stable");
+  });
+
+  it("correctly identifies pioneer build versions", () => {
+    expect(isPioneerBuild("0.4.0-pioneer.1")).toBe(true);
+    expect(isPioneerBuild("v0.4.0-pioneer.2")).toBe(true);
+    expect(isPioneerBuild("0.4.0")).toBe(false);
+    expect(isPioneerBuild("0.3.16")).toBe(false);
+    expect(isPioneerBuild("0.4.0-beta.1")).toBe(false);
   });
 });

@@ -33,6 +33,20 @@ export function getBuildChannel(): ReleaseChannel {
 }
 
 /**
+ * 判定指定版本或当前构建版本是否属于 Pioneer 先锋构建版本（物理版本，非运行时配置）
+ */
+export function isPioneerBuild(versionStr?: string): boolean {
+  if (getBuildChannel() === "pioneer") {
+    return true;
+  }
+  if (versionStr) {
+    const parsed = parseAuronaVersion(versionStr);
+    return parsed.isPreRelease && parsed.preReleaseTag === "pioneer";
+  }
+  return false;
+}
+
+/**
  * 解析 Aurona Code 版本号字符串（支持语义化版本与 pioneer 预发布标识）
  * 示例：
  * - "0.4.0" -> { major: 0, minor: 4, patch: 0, isPreRelease: false }

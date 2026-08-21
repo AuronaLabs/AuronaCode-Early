@@ -12,9 +12,35 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.4.0-pioneer.1",
+    date: "2026-08-22",
+    isLatest: true,
+    summary:
+      "Aurona Code 正式步入 0.4.0 时代！首个先锋测试版 V0.4.0-pioneer.1 标志着 Pioneer 先锋尝鲜机制的正式上线与全链路闭环：验证先锋渠道构建打包、版本判定与 iOS Developer Beta 模式自动升级决策；首个物理 Feature Flag 上线——当运行 Pioneer 构建版本时，顶部栏 Aurona Code 紧随精致先锋专属徽标（全语言统一为英文 Pioneer）；优化 TitleBar 顶部空间与关于页面先锋状态展示，开启 0.4.0 全新先锋演进征程！",
+    sections: [
+      {
+        title: "Pioneer 先锋机制首发上线与版本物理标识",
+        description: "双渠道架构闭环，严格区分物理构建版本与运行时更新通道偏好",
+        items: [
+          "**Pioneer 先锋版本专属顶部徽标**：仅当安装包本身为 Pioneer 预发布构建时，TitleBar 顶部栏 Aurona Code 标题右侧呈现与 Logo 同字体、同大小的自适应流光微渐变 `Pioneer` 徽标",
+          "**全语言环境统一英文展示**：无论系统语言切换至简体中文、繁體中文还是英文，顶部徽标一律统一且固定显示为英文 `Pioneer`",
+          "**双渠道物理隔离与 Feature Flags 联动**：构建期物理渠道注入，彻底隔离先锋特性与正式版稳定架构",
+        ],
+      },
+      {
+        title: "先锋测试渠道升级决议与细节打磨",
+        description: "全链路验证 Pre-release 自动升级决策与界面空间留白优化",
+        items: [
+          "**iOS Developer Beta 模式升级判定验证**：Pioneer 客户端自动匹配最新 `-pioneer.x` 预发布版本，并在官方发布更高版本 Stable 正式版时自动升级且保留先锋身份",
+          "**TitleBar 顶部菜单栏呼吸感优化**：微调 Logo 与文件/编辑/运行菜单之间的间距留白，视觉排版更为协调自然",
+          "**双端全量质量门禁验证**：全量通过 Rust 89 项单测与前端 203 项单测，为 0.4.0 先锋演进奠定可靠基石",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.3.16",
     date: "2026-08-21",
-    isLatest: true,
     summary:
       "V0.3.16 作为 Aurona Code 0.3.x 整个大版本的终极收官之作，标志着自研纯粹内核、WASM Component 扩展沙箱、Aurona Marketplace 沉浸式市场与 VSCode 兼容转译层三大里程碑的全面达成与架构定型：Aurona SDK (v1) 人性化第一代标准接口正式定型（扩充 Fliuno 统一搜索贡献、沙箱键值 Storage、交互式 Dialog 弹窗，打破死板开发限制）；VSCode 兼容转译层升级为底层核心能力，内置标准 VSCode Demo 扩展工程与真实的 .vsix 格式包，实现原生 WASM 沙箱零开销即时转译执行；插件页面全面升级为现代拟物毛玻璃「Aurona Marketplace (插件市场)」（实时流线型检索、分类筛选、右侧大页面 Tab 详情页与本地已安装管理）；全局右键菜单系统完全恢复；设置中心新增「插件与扩展」独立管理板块，提供各应用独立的细粒度权限控制与 Marketplace 远程/本地测试源自由配置。",
     sections: [
