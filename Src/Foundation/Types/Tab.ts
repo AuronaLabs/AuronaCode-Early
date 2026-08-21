@@ -9,7 +9,8 @@ export type TabType =
   | "performance"
   | "notifications"
   | "diff"
-  | "fliuno";
+  | "fliuno"
+  | "extension";
 
 export type TabItem = {
   id: string;

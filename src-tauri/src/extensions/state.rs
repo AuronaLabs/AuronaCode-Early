@@ -89,8 +89,17 @@ impl ExtensionState {
         let package = self
             .package(id)
             .ok_or_else(|| format!("扩展不存在: {id}"))?;
+        let wasm_bytes = if package.wasm.is_empty() {
+            if let Some(compat_pkg) = self.package("aurona.vscode-compat") {
+                compat_pkg.wasm.clone()
+            } else {
+                package.wasm.clone()
+            }
+        } else {
+            package.wasm.clone()
+        };
         let runtime = Arc::new(ExtensionRuntime::new(
-            &package.wasm,
+            &wasm_bytes,
             ExtensionLimits::default(),
         )?);
         self.runtimes
@@ -196,7 +205,7 @@ impl ExtensionState {
 fn is_builtin_extension(extension_id: &str) -> bool {
     matches!(
         extension_id,
-        "aurona.markdown" | "aurona.planner" | "aurona.vscode-compat"
+        "aurona.markdown" | "aurona.planner" | "aurona.vscode-compat" | "vscode-demo"
     )
 }
 

@@ -351,6 +351,97 @@ pub fn open_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, Strin
     }))
 }
 
+#[derive(Debug, Deserialize)]
+struct VsCodePackageJson {
+    name: String,
+    #[serde(rename = "displayName")]
+    display_name: Option<String>,
+    publisher: Option<String>,
+    version: Option<String>,
+    description: Option<String>,
+}
+
+/// 解析与加载标准 VSCode 插件包 (.vsix)
+pub fn open_vsix_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, String> {
+    if archive_bytes.len() as u64 > MAX_ARCHIVE_BYTES {
+        return Err(format!("VSIX 包超过大小上限: {} bytes", archive_bytes.len()));
+    }
+    let reader = Cursor::new(archive_bytes);
+    let mut archive =
+        ZipArchive::new(reader).map_err(|error| format!("VSIX 不是有效的 ZIP 归档: {error}"))?;
+
+    let mut pkg_json_str = None;
+    for i in 0..archive.len() {
+        if let Ok(mut entry) = archive.by_index(i) {
+            let name = entry.name().to_string();
+            if name == "extension/package.json" || name == "package.json" {
+                let mut buf = String::new();
+                if entry.read_to_string(&mut buf).is_ok() {
+                    pkg_json_str = Some(buf);
+                    break;
+                }
+            }
+        }
+    }
+
+    let pkg: VsCodePackageJson = if let Some(raw) = pkg_json_str {
+        serde_json::from_str(&raw).map_err(|e| format!("解析 VSIX package.json 失败: {e}"))?
+    } else {
+        return Err("VSIX 缺少 extension/package.json".to_string());
+    };
+
+    let id = if pkg.name.starts_with("vscode-") {
+        pkg.name.clone()
+    } else {
+        format!("vscode-{}", pkg.name.to_lowercase().replace('_', "-"))
+    };
+    let display_title = pkg.display_name.clone().unwrap_or_else(|| pkg.name.clone());
+    let mut disp_map = HashMap::new();
+    disp_map.insert("zh-CN".to_string(), display_title.clone());
+    disp_map.insert("en".to_string(), display_title.clone());
+
+    let manifest = ExtensionManifest {
+        package_version: 1,
+        id,
+        name: pkg.name,
+        display_name: Some(disp_map.clone()),
+        publisher: pkg.publisher.unwrap_or_else(|| "vscode-community".to_string()),
+        version: pkg.version.unwrap_or_else(|| "1.0.0".to_string()),
+        description: pkg.description.clone(),
+        display_description: pkg.description.map(|d| {
+            let mut m = HashMap::new();
+            m.insert("zh-CN".to_string(), d.clone());
+            m.insert("en".to_string(), d);
+            m
+        }),
+        engine: EngineRequirement {
+            aurona_code: ">=0.3.16".to_string(),
+        },
+        runtime: RuntimeEntry {
+            component: "extension.wasm".to_string(),
+        },
+        sidebar: SidebarEntry {
+            title: display_title,
+            display_title: Some(disp_map),
+            icon: "assets/icon.svg".to_string(),
+        },
+        view: ViewEntry {
+            entry: "ui/index.html".to_string(),
+        },
+        marketplace: None,
+    };
+
+    let icon_svg = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/></svg>"#.to_string();
+    let view_html = r#"<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'none';"></head><body><!--AURONA_RENDER_SLOT--></body></html>"#.to_string();
+
+    Ok(Arc::new(ExtensionPackage {
+        manifest,
+        wasm: Vec::new(),
+        view_html,
+        icon_svg,
+    }))
+}
+
 #[cfg(test)]
 pub(crate) fn zip_store_for_tests(entries: &[(&str, &[u8])]) -> Vec<u8> {
     use std::io::Write;

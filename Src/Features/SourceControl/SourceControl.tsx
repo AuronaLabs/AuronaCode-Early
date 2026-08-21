@@ -765,7 +765,7 @@ export const SourceControl = React.memo(function SourceControl() {
           </div>
         </>
       ) : (
-        <div className="flex-1 overflow-y-auto aurona-scroll px-3 pb-4">
+        <div className="flex-1 overflow-y-auto aurona-scroll px-[var(--PanelPaddingX)] pb-4">
           {commits.length === 0 ? (
             <div
               className={cn(

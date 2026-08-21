@@ -118,8 +118,10 @@ export function ToastContainer() {
               <button
                 type="button"
                 onClick={() => dismissToast(toast.id)}
-                className="absolute right-2.5 top-2.5 p-1 rounded-lg opacity-60 hover:opacity-100 hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-all cursor-pointer"
-                title="关闭通知"
+                className={`absolute right-2.5 ${
+                  hasTitle ? "top-2.5" : "top-1/2 -translate-y-1/2"
+                } p-1 rounded-lg opacity-60 hover:opacity-100 hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-all cursor-pointer`}
+                aria-label="关闭通知"
               >
                 <Icons.Close size={13} stroke={2} />
               </button>

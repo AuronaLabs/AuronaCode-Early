@@ -1,7 +1,7 @@
 {
   "name": "aurona-code",
   "private": true,
-  "version": "0.3.15",
+  "version": "0.3.16",
   "packageManager": "pnpm@11.13.0",
   "type": "module",
   "scripts": {
@@ -16,7 +16,8 @@
     "verify:planner": "node scripts/verify-planner-extension.mjs",
     "build:vscode-compat": "node scripts/build-vscode-compat-extension.mjs",
     "verify:vscode-compat": "node scripts/verify-vscode-compat-extension.mjs",
-    "prepare:extensions": "pnpm run build:markdown && pnpm run verify:markdown && pnpm run build:planner && pnpm run verify:planner && pnpm run build:vscode-compat && pnpm run verify:vscode-compat",
+    "build:vscode-demo": "node scripts/build-vscode-demo-extension.mjs",
+    "prepare:extensions": "pnpm run build:markdown && pnpm run verify:markdown && pnpm run build:planner && pnpm run verify:planner && pnpm run build:vscode-compat && pnpm run verify:vscode-compat && pnpm run build:vscode-demo",
     "typecheck": "tsc --noEmit",
     "check": "biome ci Src",
     "check:boundaries": "node scripts/check-desktop-boundaries.mjs",

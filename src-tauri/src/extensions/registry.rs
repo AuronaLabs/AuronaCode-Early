@@ -59,7 +59,12 @@ impl ExtensionRegistry {
     pub fn load_file(&self, path: &Path) -> Result<Arc<ExtensionPackage>, String> {
         let bytes = std::fs::read(path)
             .map_err(|error| format!("读取扩展包失败 {}: {error}", path.display()))?;
-        let package = open_package(&bytes)?;
+        let is_vsix = path.extension().is_some_and(|ext| ext == "vsix");
+        let package = if is_vsix {
+            super::aurx::open_vsix_package(&bytes)?
+        } else {
+            open_package(&bytes)?
+        };
         let id = package.id().to_string();
         self.packages
             .lock()
@@ -80,7 +85,7 @@ impl ExtensionRegistry {
             let path = entry.path();
             if path
                 .extension()
-                .is_some_and(|extension| extension == "aurx")
+                .is_some_and(|extension| extension == "aurx" || extension == "vsix")
             {
                 self.load_file(&path)?;
                 loaded += 1;

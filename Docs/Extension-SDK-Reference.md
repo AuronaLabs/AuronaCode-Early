@@ -116,6 +116,48 @@ logger.warn("检测到性能警告");
 logger.error("解析文件失败");
 ```
 
+### 1.9 Fliuno 统一搜索贡献服务 (`Aurona::fliuno()`)
+允许扩展向全局 Fliuno 搜索面板贡献自定义命令与快捷项（需用户授权 `fliuno.search` 权限）：
+```rust
+let fliuno = Aurona::fliuno();
+
+let ok = fliuno.contribute(vec![
+    FliunoItem {
+        id: "my-action".into(),
+        title: "格式化代码片段".into(),
+        subtitle: Some("使用自研格式化引擎".into()),
+        icon: Some("code".into()),
+        action: "formatSnippet".into(),
+    }
+]);
+```
+
+### 1.10 沙箱持久化存储 (`Aurona::storage()`)
+每个扩展享有独立的本地沙箱键值存储，告别手动文件读写：
+```rust
+let storage = Aurona::storage();
+
+// 写入数据
+storage.set("user_preference", "{\"compact\":true}");
+
+// 读取数据
+let pref: Option<String> = storage.get("user_preference")?;
+
+// 删除数据与列出键名
+storage.delete("old_key");
+let keys: Vec<String> = storage.list_keys()?;
+```
+
+### 1.11 交互式弹窗服务 (`Aurona::dialog()`)
+```rust
+let dialog = Aurona::dialog();
+
+// 弹出确认对话框
+if dialog.confirm("清空任务列表", "确定要清空所有已完成任务吗？此操作不可撤销。")? {
+    // 用户点击了确认
+}
+```
+
 ---
 
 ## 2. Aurona Marketplace 市场清单规范 (`manifest.json`)

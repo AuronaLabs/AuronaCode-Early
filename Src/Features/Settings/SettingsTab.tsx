@@ -20,6 +20,7 @@ import { AdvancedSettingsSection } from "./AdvancedSettingsSection";
 import { AppearanceSettingsSection } from "./AppearanceSettingsSection";
 import { DebugSettings } from "./DebugSettings";
 import { EditorSettingsSection } from "./EditorSettingsSection";
+import { ExtensionsSettingsSection } from "./ExtensionsSettingsSection";
 import { type Density, GeneralSettingsSection } from "./GeneralSettingsSection";
 import { LanguageServiceSettings } from "./LanguageServiceSettings";
 import { SourceControlSettingsSection } from "./SourceControlSettingsSection";
@@ -33,6 +34,7 @@ export type SettingsSection =
   | "terminalRun"
   | "sourceControl"
   | "accountCloud"
+  | "extensions"
   | "system"
   | "advanced";
 
@@ -44,6 +46,7 @@ const CATEGORY_TO_SECTION: Record<SettingCategory, SettingsSection> = {
   terminalRun: "terminalRun",
   sourceControl: "sourceControl",
   accountCloud: "accountCloud",
+  extensions: "extensions",
   system: "system",
   advanced: "advanced",
 };
@@ -64,6 +67,7 @@ const SECTION_META: Array<{
   { id: "terminalRun", labelKey: "settings.categories.terminalRun", Icon: Icons.Terminal },
   { id: "sourceControl", labelKey: "settings.categories.sourceControl", Icon: Icons.Git },
   { id: "accountCloud", labelKey: "settings.categories.accountCloud", Icon: Icons.User },
+  { id: "extensions", labelKey: "settings.categories.extensions", Icon: Icons.Extensions },
   { id: "system", labelKey: "settings.categories.system", Icon: Icons.Database },
   { id: "advanced", labelKey: "settings.categories.advanced", Icon: Icons.Settings },
 ];
@@ -386,6 +390,8 @@ export function SettingsTab() {
         return <SourceControlSettingsSection />;
       case "accountCloud":
         return <AccountSettings />;
+      case "extensions":
+        return <ExtensionsSettingsSection />;
       case "system":
         return (
           <div className="flex w-full max-w-3xl flex-col gap-6">

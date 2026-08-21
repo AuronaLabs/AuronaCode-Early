@@ -12,9 +12,57 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.3.16",
+    date: "2026-08-21",
+    isLatest: true,
+    summary:
+      "V0.3.16 作为 Aurona Code 0.3.x 整个大版本的终极收官之作，标志着自研纯粹内核、WASM Component 扩展沙箱、Aurona Marketplace 沉浸式市场与 VSCode 兼容转译层三大里程碑的全面达成与架构定型：Aurona SDK (v1) 人性化第一代标准接口正式定型（扩充 Fliuno 统一搜索贡献、沙箱键值 Storage、交互式 Dialog 弹窗，打破死板开发限制）；VSCode 兼容转译层升级为底层核心能力，内置标准 VSCode Demo 扩展工程与真实的 .vsix 格式包，实现原生 WASM 沙箱零开销即时转译执行；插件页面全面升级为现代拟物毛玻璃「Aurona Marketplace (插件市场)」（实时流线型检索、分类筛选、右侧大页面 Tab 详情页与本地已安装管理）；全局右键菜单系统完全恢复；设置中心新增「插件与扩展」独立管理板块，提供各应用独立的细粒度权限控制与 Marketplace 远程/本地测试源自由配置。",
+    sections: [
+      {
+        title: "Aurona SDK (v1) 人性化第一代标准接口定型",
+        description: "明确标定 SDK Contract Version 1，极大扩充开发自由度与高阶能力",
+        items: [
+          "**SDK v1 契约固化与向下兼容保护**：标定 `Aurona::version() -> 1`，为后续 0.4.x / 1.0.x 演进奠定坚不可摧的兼容基石",
+          "**Fliuno 统一搜索贡献服务 (`Aurona::fliuno()`)**：扩展可向全局 Fliuno 搜索面板贡献自定义命令与快捷项，并受 `fliuno.search` 权限严密防滥用保护",
+          "**独立沙箱持久化存储 (`Aurona::storage()`)**：提供开箱即用的安全键值持久化，告别手动文件读写，隔离存储每个扩展的数据",
+          "**现代交互式弹窗服务 (`Aurona::dialog()`)**：支持原生毛玻璃确认对话框与用户交互",
+          "**彻底解放插件开发限制**：解除固定文件名与单一源码约束，支持多 Rust 模块自由组织与自定义资源打包",
+        ],
+      },
+      {
+        title: "VSCode 兼容转译层转为底层核心能力 & 真实 .vsix 扩展验证",
+        description: "深度兼容 VSCode 生态标准，支持 .vsix 包原生解析转译与执行",
+        items: [
+          "**VSCode 常用 API 深度扩充**：新增 `vscode.languages` (Hover / Completion)、`vscode.ExtensionContext` (subscriptions / globalState)、`vscode.EventEmitter` 事件分发与 `onDidChangeTextDocument` 监听",
+          "**官方 VSCode Demo 插件工程**：在 `Extensions/vscode.demo` 建立标准 VSCode 插件并打包出真实 `vscode-demo.vsix`",
+          "**运行时自动转译与展示**：底层 WASM 兼容层原生解包并即时转译 `.vsix`，侧边栏与活动栏完美协作，插件体系真正意义上可工作",
+        ],
+      },
+      {
+        title: "插件页面正式升级为「Aurona Marketplace」& 右键菜单系统全面修复",
+        description: "全新极简单排流线型插件市场、标准毛玻璃卡片排版与全局交互修复",
+        items: [
+          "**全局右键菜单事件系统全面修复**：修复 contextmenu 事件冒泡流，彻底恢复文件资源管理器、编辑区视口、标签栏等全部右键菜单功能",
+          "**标准毛玻璃卡片排版**：全面统一为系统标准 GlassContainer 材质，移除生硬黑边框，去除冗余 AURX 标签与权限按钮，统一“安装”主操作",
+          "**VSCode 风格右侧大页面 Tab 详情页**：主工作区专属 Tab 路由，集成轻量原生 Markdown 渲染引擎（完美排版标题、代码块、表格、引用等），设置为不可复制模式",
+          "**真实远程市场 API 通信与智能自适应**：自动顺次探测 `/api/extensions` 与 `/extensions`，透明展示实时数据源状态，彻底杜绝 404",
+        ],
+      },
+      {
+        title: "设置中心新增「插件与扩展」专属管理板块",
+        description: "细粒度权限控制、沙箱数据重置与 Marketplace 服务器端配置",
+        items: [
+          "**应用独立细粒度权限开关**：每个插件可单独开启/关闭活动编辑器读取、工作区文件读写、Fliuno 搜索注入与剪贴板访问",
+          "**Marketplace 服务器源自由配置**：支持官方源 (https://marketplace.aurona.cc/api)、本地调试源 (http://127.0.0.1:5219/api) 与自定义单行输入，提供一键重置与连接测试",
+          "**插件存储一键重置**：支持单独重置指定扩展的沙箱数据，保障应用干净可控",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.3.15",
     date: "2026-08-20",
-    isLatest: true,
+    isLatest: false,
     summary:
       "0.3.15 带来 Aurona Code 史上最大规模的三大核心跃升：Aurona Editor 编辑器深度重构与 50% VSCode 功能对标（高性能 Canvas 2D Minimap 小地图、6 色彩虹括号与虚线引导线、代码折叠树、多光标平滑插值动画、全视口微高亮、ASCII 0~127 快表）；面向对象 Aurona SDK 与 VSCode 兼容转译层演进（扩展体积缩减 > 105 KiB、Marketplace 市场元数据契约）；单一代码库双渠道（Stable & Pioneer）与 Feature Flags 版本物理开关架构落地，高级设置先锋测试通道无缝切换，iOS Developer Beta 模式更新决议与 GitHub Actions CI/CD 自动化发版矩阵。",
     sections: [

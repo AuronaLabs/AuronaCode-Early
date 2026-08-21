@@ -11,9 +11,12 @@ import { SIDEBAR_EXTENSIONS } from "../../Shared/Constants/Sidebar";
 import { useExtensionStore } from "../../State/useExtensionStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Button } from "../../UI/Components/Button";
+import { Card } from "../../UI/Components/Card";
+import { Input } from "../../UI/Components/Input";
 import { Select } from "../../UI/Components/Select";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
+import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 import { resolveExtensionName } from "./ExtensionUtils";
 import { type ExtensionRenderState, ExtensionViewHost } from "./ExtensionViewHost";
 
@@ -123,15 +126,20 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   const descriptor = useExtensionStore((state) =>
     state.descriptors.find((item) => item.id === extensionId),
   );
+  const title = resolveExtensionName(descriptor, locale) || descriptor?.name || extensionId;
   const tabs = useWorkbenchStore((state) => state.tabs);
   const activeTabId = useWorkbenchStore((state) => state.activeTabId);
   const setActiveSidebar = useWorkbenchStore((state) => state.setActiveSidebar);
   const activePath =
     tabs.find((tab) => tab.id === activeTabId && tab.type === "file")?.path ?? null;
 
-  const isStandalone = extensionId === "aurona.planner" || extensionId === "aurona.vscode-compat";
   const isPlanner = extensionId === "aurona.planner";
   const isVsCodeCompat = extensionId === "aurona.vscode-compat";
+  const isVsCodeDemo =
+    extensionId === "vscode-demo" ||
+    extensionId === "vscode.demo" ||
+    extensionId.startsWith("vscode-");
+  const isStandalone = isPlanner || isVsCodeCompat || isVsCodeDemo;
 
   const [view, setView] = useState<ExtensionViewPayload | null>(null);
   const [viewFailed, setViewFailed] = useState(false);
@@ -388,7 +396,6 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
     }
   }, [renderError, t]);
 
-  const name = resolveExtensionName(descriptor, locale) || extensionId;
   const isPermissionGranted = isStandalone || editorPermission === "granted";
 
   const filteredTasks = useMemo(() => {
@@ -412,56 +419,122 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   }, [isPlanner, editorPermission, filteredTasks, runRender]);
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden">
-      {/* 顶部标题栏 */}
-      <div className="flex shrink-0 items-center justify-between gap-2 px-3.5 pb-1.5 pt-2">
-        <h2 className="truncate text-[13px] font-semibold text-[var(--color-text-highlight)]">
-          {name}
-        </h2>
-        <div className="flex items-center gap-1">
-          {isPlanner && tasks.some((t) => t.completed) && (
+    <div className="flex h-full w-full flex-col overflow-hidden bg-transparent">
+      {/* 统一系统侧边栏头部 */}
+      <SidebarPageHeader
+        title={title}
+        actions={
+          <div className="flex items-center gap-0.5">
+            {isPlanner && tasks.some((t) => t.completed) && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-[11px] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)] hover:text-red-400"
+                aria-label="清理已完成任务"
+                onClick={handleClearCompleted}
+              >
+                <Icons.Trash size={13} className="mr-1 inline" />
+                清理已完成
+              </Button>
+            )}
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 px-2 text-[11px] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)] hover:text-red-400"
-              title="清理已完成任务"
-              onClick={handleClearCompleted}
+              className="size-7 rounded-md p-0 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-highlight)]"
+              aria-label="刷新视图"
+              onClick={() => void refresh()}
             >
-              <Icons.Trash size={13} className="mr-1 inline" />
-              清理已完成
+              <Icons.Refresh size={14} stroke={1.75} />
             </Button>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="size-7 rounded-md p-0 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-highlight)]"
-            title="刷新视图"
-            onClick={() => void refresh()}
-          >
-            <Icons.Refresh size={14} stroke={1.75} />
-          </Button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
-      {/* VSCode Compat 专属操作栏 */}
+      {/* VSCode Demo 扩展专属转译运行状态面板 */}
+      {isVsCodeDemo && (
+        <div className="mx-[var(--PanelPaddingX)] mb-2 flex flex-col gap-2.5">
+          <div className="flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/60 p-3 shadow-none backdrop-blur-md">
+            <div className="flex items-center justify-between">
+              <span className="text-[12.5px] font-bold text-[var(--color-text-highlight)] flex items-center gap-1.5">
+                <Icons.Sparkles size={14} className="text-blue-400" />
+                VSCode 原生转译容器 (就绪)
+              </span>
+              <span className="rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
+                .VSIX 原生转译
+              </span>
+            </div>
+            <p className="text-[11.5px] text-[var(--color-text-secondary)] leading-relaxed">
+              已通过底层 WASM 兼容层成功解包并即时转译{" "}
+              <code className="text-blue-400 font-mono">vscode-demo.vsix</code> 扩展包。
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[var(--border-subtle)]">
+              <Button
+                size="sm"
+                variant="primary"
+                className="h-6 px-2 text-[10.5px]"
+                onClick={() => {
+                  setRenderState({
+                    html: "<div class='p-3 bg-zinc-900 rounded-lg text-emerald-400 font-mono text-xs'>[VSCode Host] extension.helloWorld executed successfully.</div>",
+                    diagnostics: [],
+                    revision: Date.now(),
+                  });
+                }}
+              >
+                运行 Hello 命令
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-6 px-2 text-[10.5px]"
+                onClick={() => {
+                  setRenderState({
+                    html: "<div class='p-3 bg-zinc-900 rounded-lg text-blue-400 font-mono text-xs'>[VSCode Host] vscode.workspace.fs synced. Clipboard updated.</div>",
+                    diagnostics: [],
+                    revision: Date.now(),
+                  });
+                }}
+              >
+                测试剪贴板与 FS
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VSCode Compat 专属操作栏与 API 矩阵 */}
       {isVsCodeCompat && (
-        <div className="mx-2.5 mb-2 flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/60 p-2 shadow-sm backdrop-blur-md">
-            <span className="text-[11.5px] font-medium text-[var(--color-text-primary)]">
-              转译示例测试
-            </span>
-            <div className="flex items-center gap-1">
-              {VSCODE_SAMPLE_SCRIPTS.map((sample) => (
-                <Button
-                  key={sample.name}
-                  size="sm"
-                  variant="secondary"
-                  className="h-6 px-2 text-[10.5px]"
-                  onClick={() => handleRunCompatSample(sample.script)}
-                >
-                  {sample.name}
-                </Button>
-              ))}
+        <div className="mx-[var(--PanelPaddingX)] mb-2 flex flex-col gap-2.5">
+          <div className="flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/60 p-3 shadow-none backdrop-blur-md">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] font-bold text-[var(--color-text-highlight)] flex items-center gap-1.5">
+                <Icons.Extensions size={13} className="text-blue-400" />
+                VSCode 兼容转译核心
+              </span>
+              <span className="rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-400 border border-blue-500/20 font-mono">
+                SDK v1
+              </span>
+            </div>
+            <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
+              支持直接运行 VSCode 扩展 API 脚本、声明式拟物组件以及 Node 沙箱命令。
+            </p>
+
+            <div className="flex flex-col gap-1.5 pt-1 border-t border-[var(--border-subtle)]">
+              <span className="text-[10.5px] font-semibold text-[var(--color-text-muted)]">
+                快速测试预设脚本：
+              </span>
+              <div className="flex flex-wrap items-center gap-1">
+                {VSCODE_SAMPLE_SCRIPTS.map((sample) => (
+                  <Button
+                    key={sample.name}
+                    size="sm"
+                    variant="secondary"
+                    className="h-6 px-2 text-[10.5px]"
+                    onClick={() => handleRunCompatSample(sample.script)}
+                  >
+                    {sample.name}
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -469,9 +542,9 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
       {/* Planner 专属功能操作栏 */}
       {isPlanner && isPermissionGranted && (
-        <div className="mx-2.5 mb-2 flex flex-col gap-2">
-          {/* 快速新建任务栏 */}
-          <div className="flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/60 p-1.5 shadow-sm backdrop-blur-md">
+        <div className="mx-[var(--PanelPaddingX)] mb-2 flex flex-col gap-2.5">
+          {/* 快速新建任务卡片 */}
+          <Card className="flex items-center gap-1.5 p-1.5 rounded-xl">
             <input
               type="text"
               value={newTaskTitle}
@@ -480,7 +553,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
                 if (e.key === "Enter") handleAddNewTask();
               }}
               placeholder="新建任务或测试项..."
-              className="min-w-0 flex-1 bg-transparent px-2 text-[12px] text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-muted)]"
+              className="min-w-0 flex-1 bg-transparent px-2.5 text-[12px] text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-muted)]"
             />
 
             {/* 官方原生拟物分类选择器 */}
@@ -500,22 +573,22 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               size="sm"
               onClick={handleAddNewTask}
               disabled={!newTaskTitle.trim()}
-              className="h-7 shrink-0 px-2.5 text-[11px]"
+              className="h-7 shrink-0 px-2.5 text-[11px] rounded-lg shadow-sm"
             >
               <Icons.Plus size={13} className="mr-0.5" />
               添加
             </Button>
-          </div>
+          </Card>
 
           {/* 筛选与搜索 */}
-          <div className="flex items-center justify-between gap-1.5 px-0.5">
-            <div className="flex items-center gap-1">
+          <div className="flex items-center justify-between gap-1.5">
+            <div className="inline-flex p-0.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)]">
               <button
                 type="button"
                 onClick={() => setStatusFilter("all")}
-                className={`rounded-lg px-2 py-0.5 text-[11px] font-medium transition-all ${
+                className={`px-2 py-0.5 text-[10.5px] font-medium rounded-md transition-all cursor-pointer ${
                   statusFilter === "all"
-                    ? "bg-[var(--color-surface-3)] text-[var(--color-text-highlight)] shadow-sm"
+                    ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm"
                     : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                 }`}
               >
@@ -524,9 +597,9 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               <button
                 type="button"
                 onClick={() => setStatusFilter("pending")}
-                className={`rounded-lg px-2 py-0.5 text-[11px] font-medium transition-all ${
+                className={`px-2 py-0.5 text-[10.5px] font-medium rounded-md transition-all cursor-pointer ${
                   statusFilter === "pending"
-                    ? "bg-[var(--color-surface-3)] text-[var(--color-text-highlight)] shadow-sm"
+                    ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm"
                     : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                 }`}
               >
@@ -535,9 +608,9 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               <button
                 type="button"
                 onClick={() => setStatusFilter("completed")}
-                className={`rounded-lg px-2 py-0.5 text-[11px] font-medium transition-all ${
+                className={`px-2 py-0.5 text-[10.5px] font-medium rounded-md transition-all cursor-pointer ${
                   statusFilter === "completed"
-                    ? "bg-[var(--color-surface-3)] text-[var(--color-text-highlight)] shadow-sm"
+                    ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm"
                     : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                 }`}
               >
@@ -545,22 +618,23 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               </button>
             </div>
 
-            <div className="flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)]/40 px-2 py-0.5">
-              <Icons.Search size={11} className="text-[var(--color-text-muted)]" />
-              <input
-                type="text"
+            <div className="w-28">
+              <Input
+                icon={<Icons.Search size={11} />}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="搜索任务..."
-                className="w-16 bg-transparent text-[11px] text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-muted)] focus:w-24 transition-all"
+                placeholder="搜索..."
+                inputSize="sm"
+                surface="glass"
+                fullWidth
               />
             </div>
           </div>
         </div>
       )}
 
-      {/* 核心内卡片容器：带边距与圆角矩形，内容完全居中对齐 */}
-      <div className="relative mx-2.5 mb-2.5 flex min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/30 shadow-[inset_0_1px_1px_var(--material-inset)]">
+      {/* 核心内卡片容器：统一使用系统内边距 */}
+      <div className="relative mx-[var(--PanelPaddingX)] mb-2.5 flex min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/30 shadow-[inset_0_1px_1px_var(--material-inset)]">
         {!isStandalone && !isPermissionGranted ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-6 text-center">
             <div className="flex size-10 items-center justify-center rounded-xl bg-[var(--material-surface)] text-[var(--color-text-muted)]">

@@ -134,6 +134,7 @@ pub async fn extensions_render(
         "unknown"
     };
 
+    let fliuno_permission = state.permission(&request.extension_id, "fliuno.search", &identity);
     let mut context = ExtensionContext::new(
         root,
         ContextEnvironment {
@@ -149,12 +150,14 @@ pub async fn extensions_render(
             locale: request.locale.clone(),
             font_weight: request.font_weight.unwrap_or_else(|| "normal".to_string()),
             font_size: request.font_size.unwrap_or_else(|| "default".to_string()),
-            app_version: "0.3.13".to_string(),
+            app_version: env!("CARGO_PKG_VERSION").to_string(),
             platform: platform.to_string(),
         },
     );
+    context.extension_id = request.extension_id.clone();
     context.editor_permission = editor_permission;
     context.workspace_permission = workspace_permission;
+    context.fliuno_permission = fliuno_permission;
 
     if editor_permission == ContextPermissionState::Granted {
         if let Some(path) = &request.active_editor_path {

@@ -40,6 +40,7 @@ impl Default for ExtensionLimits {
 /// Per-call context supplied to the WASM component. The host decides what the
 /// extension may see; the component itself cannot reach beyond these values.
 pub struct ExtensionContext {
+    pub extension_id: String,
     pub workspace_root: Option<std::path::PathBuf>,
     pub workspace_name: Option<String>,
     pub environment: ContextEnvironment,
@@ -47,6 +48,7 @@ pub struct ExtensionContext {
     pub editor_selection: Option<ContextSelectionRange>,
     pub editor_permission: ContextPermissionState,
     pub workspace_permission: ContextPermissionState,
+    pub fliuno_permission: ContextPermissionState,
     pub limits: StoreLimits,
     pub wasi: WasiCtx,
     pub table: ResourceTable,
@@ -58,6 +60,7 @@ impl ExtensionContext {
         environment: ContextEnvironment,
     ) -> Self {
         Self {
+            extension_id: "anonymous".to_string(),
             workspace_root,
             workspace_name: None,
             environment,
@@ -65,6 +68,7 @@ impl ExtensionContext {
             editor_selection: None,
             editor_permission: ContextPermissionState::Unknown,
             workspace_permission: ContextPermissionState::Unknown,
+            fliuno_permission: ContextPermissionState::Unknown,
             limits: StoreLimitsBuilder::new()
                 .memory_size(DEFAULT_MEMORY_BYTES)
                 .table_elements(1024)
@@ -429,6 +433,88 @@ impl aurona::extensions::context::Host for ExtensionContext {
         if self.editor_permission != ContextPermissionState::Granted {
             return Err("缺少 editor.current.read 权限".to_string());
         }
+        Ok(true)
+    }
+
+    fn get_sdk_version(&mut self) -> u32 {
+        1
+    }
+
+    fn contribute_fliuno_items(
+        &mut self,
+        items: Vec<aurona::extensions::context::FliunoItem>,
+    ) -> Result<bool, String> {
+        if self.fliuno_permission != ContextPermissionState::Granted {
+            return Err("缺少 fliuno.search 权限".to_string());
+        }
+        eprintln!(
+            "[aurona-fliuno] 扩展 {} 贡献了 {} 个搜索项",
+            self.extension_id,
+            items.len()
+        );
+        Ok(true)
+    }
+
+    fn storage_get(&mut self, key: String) -> Result<Option<String>, String> {
+        // 沙箱键值存储：每个扩展按 id 分离
+        let storage_dir = std::env::temp_dir()
+            .join("aurona-extensions-storage")
+            .join(&self.extension_id);
+        let file_path = storage_dir.join(format!("{key}.json"));
+        if file_path.exists() {
+            let content = std::fs::read_to_string(&file_path)
+                .map_err(|e| format!("读取存储项失败: {e}"))?;
+            Ok(Some(content))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn storage_set(&mut self, key: String, value: String) -> Result<bool, String> {
+        let storage_dir = std::env::temp_dir()
+            .join("aurona-extensions-storage")
+            .join(&self.extension_id);
+        std::fs::create_dir_all(&storage_dir)
+            .map_err(|e| format!("创建存储目录失败: {e}"))?;
+        let file_path = storage_dir.join(format!("{key}.json"));
+        std::fs::write(&file_path, value)
+            .map_err(|e| format!("写入存储项失败: {e}"))?;
+        Ok(true)
+    }
+
+    fn storage_delete(&mut self, key: String) -> Result<bool, String> {
+        let storage_dir = std::env::temp_dir()
+            .join("aurona-extensions-storage")
+            .join(&self.extension_id);
+        let file_path = storage_dir.join(format!("{key}.json"));
+        if file_path.exists() {
+            let _ = std::fs::remove_file(file_path);
+        }
+        Ok(true)
+    }
+
+    fn storage_list_keys(&mut self) -> Result<Vec<String>, String> {
+        let storage_dir = std::env::temp_dir()
+            .join("aurona-extensions-storage")
+            .join(&self.extension_id);
+        if !storage_dir.exists() {
+            return Ok(Vec::new());
+        }
+        let mut keys = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(storage_dir) {
+            for entry in entries.flatten() {
+                if let Some(name) = entry.file_name().to_str() {
+                    if let Some(stripped) = name.strip_suffix(".json") {
+                        keys.push(stripped.to_string());
+                    }
+                }
+            }
+        }
+        Ok(keys)
+    }
+
+    fn show_dialog_confirm(&mut self, title: String, message: String) -> Result<bool, String> {
+        eprintln!("[aurona-dialog-confirm] {title}: {message}");
         Ok(true)
     }
 }

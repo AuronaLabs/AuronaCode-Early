@@ -8,6 +8,7 @@ export type SettingCategory =
   | "terminalRun"
   | "sourceControl"
   | "accountCloud"
+  | "extensions"
   | "system"
   | "advanced";
 
@@ -40,6 +41,7 @@ export const SETTING_CATEGORY_KEYS: Record<SettingCategory, I18nKey> = {
   terminalRun: "settings.categories.terminalRun",
   sourceControl: "settings.categories.sourceControl",
   accountCloud: "settings.categories.accountCloud",
+  extensions: "settings.categories.extensions",
   system: "settings.categories.system",
   advanced: "settings.categories.advanced",
 };

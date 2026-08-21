@@ -42,11 +42,22 @@ interface context {
     size-bytes: u64,
   }
 
+  record fliuno-item {
+    id: string,
+    title: string,
+    subtitle: option<string>,
+    icon: option<string>,
+    action: string,
+  }
+
   enum permission-state {
     unknown,
     granted,
     denied,
   }
+
+  /// Returns the current SDK Contract version (1).
+  get-sdk-version: func() -> u32;
 
   get-environment: func() -> environment;
 
@@ -110,6 +121,24 @@ interface context {
 
   /// Reveals specified line number in current active editor viewport.
   reveal-editor-line: func(line: u32) -> result<bool, string>;
+
+  /// Contributes custom quick items into Fliuno Search (requires fliuno.search permission).
+  contribute-fliuno-items: func(items: list<fliuno-item>) -> result<bool, string>;
+
+  /// Reads an entry from the extension's dedicated isolated storage sandbox.
+  storage-get: func(key: string) -> result<option<string>, string>;
+
+  /// Writes an entry into the extension's dedicated isolated storage sandbox.
+  storage-set: func(key: string, value: string) -> result<bool, string>;
+
+  /// Deletes an entry from the extension's dedicated isolated storage sandbox.
+  storage-delete: func(key: string) -> result<bool, string>;
+
+  /// Lists all keys stored in the extension's dedicated isolated storage sandbox.
+  storage-list-keys: func() -> result<list<string>, string>;
+
+  /// Displays an interactive modal confirmation dialog with the user.
+  show-dialog-confirm: func(title: string, message: string) -> result<bool, string>;
 }
 
 /// The extension's render contract.
@@ -130,4 +159,3 @@ world aurona-extension {
   import context;
   export render;
 }
-

@@ -36,14 +36,28 @@ type AppShellProps = {
 
 function ExtensionActivityIcon({ extensionId }: { extensionId: string }) {
   const icon = useExtensionStore((state) => state.views[extensionId]?.icon);
-  if (!icon) return <Icons.Extensions size={22} stroke={1.5} />;
-  return (
-    <span
-      className="flex size-[22px] items-center justify-center [&>svg]:size-full [&>svg]:stroke-current"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: extension icon SVG is verified at package build time
-      dangerouslySetInnerHTML={{ __html: icon }}
-    />
-  );
+  if (icon) {
+    return (
+      <span
+        className="flex size-[22px] items-center justify-center [&>svg]:size-full [&>svg]:stroke-current"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: extension icon SVG is verified at package build time
+        dangerouslySetInnerHTML={{ __html: icon }}
+      />
+    );
+  }
+  if (extensionId === "aurona.markdown") {
+    return <Icons.FileMd size={22} stroke={1.5} />;
+  }
+  if (extensionId === "aurona.planner") {
+    return <Icons.List size={22} stroke={1.5} />;
+  }
+  if (extensionId === "aurona.vscode-compat") {
+    return <Icons.FileCode size={22} stroke={1.5} />;
+  }
+  if (extensionId.startsWith("vscode-") || extensionId.includes("vscode")) {
+    return <Icons.Sparkles size={22} stroke={1.5} />;
+  }
+  return <Icons.Extensions size={22} stroke={1.5} />;
 }
 
 export function AppShell({ Children }: AppShellProps) {

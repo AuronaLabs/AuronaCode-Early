@@ -72,4 +72,5 @@ export interface UserConfig {
   debug?: DebugPreferences;
   releaseChannel?: "stable" | "pioneer";
   featureFlags?: Record<string, boolean>;
+  marketplaceServerUrl?: string;
 }

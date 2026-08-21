@@ -64,17 +64,17 @@ function RootApp() {
     };
 
     const onContextMenu = (e: MouseEvent) => {
-      // 阻止 webview 原生右键菜单，自定义 contextmenu 由组件自行处理
+      // 阻止 webview 浏览器默认右键菜单（在冒泡阶段阻止，允许 Radix UI ContextMenu 正常捕获）
       e.preventDefault();
     };
 
     window.addEventListener("keydown", onKeyDown, { capture: true });
-    window.addEventListener("contextmenu", onContextMenu, { capture: true });
+    window.addEventListener("contextmenu", onContextMenu);
 
     return () => {
       EventBus.off("app:reboot", onReboot);
       window.removeEventListener("keydown", onKeyDown, { capture: true });
-      window.removeEventListener("contextmenu", onContextMenu, { capture: true });
+      window.removeEventListener("contextmenu", onContextMenu);
     };
   }, []);
 

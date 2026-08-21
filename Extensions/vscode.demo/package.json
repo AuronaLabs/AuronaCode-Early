@@ -1,0 +1,39 @@
+{
+  "name": "vscode-demo",
+  "displayName": "Aurona VSCode Bridge Demo",
+  "description": "Standard VSCode extension transpiled and executed natively by Aurona Code WASM Sandbox",
+  "version": "1.0.0",
+  "publisher": "aurona-labs",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Productivity"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vscodeDemo.helloWorld",
+        "title": "VSCode Demo: Say Hello in Aurona"
+      },
+      {
+        "command": "vscodeDemo.showStatus",
+        "title": "VSCode Demo: Update Status Bar"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "vscode-demo-explorer",
+          "title": "VSCode Bridge",
+          "icon": "icon.svg"
+        }
+      ]
+    }
+  }
+}

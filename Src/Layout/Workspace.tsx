@@ -54,6 +54,11 @@ const DebugPanel = lazy(() =>
 const DiffViewer = lazy(() =>
   import("../Features/SourceControl/DiffViewer").then((m) => ({ default: m.DiffViewer })),
 );
+const MarketplaceDetailPage = lazy(() =>
+  import("../Features/Extensions/Marketplace/MarketplaceDetailPage").then((m) => ({
+    default: m.MarketplaceDetailPage,
+  })),
+);
 
 function renderTabContent(
   tab: TabItem,
@@ -84,6 +89,8 @@ function renderTabContent(
     content = isActive ? <PerformanceBenchmarkPage /> : null;
   } else if (tab.type === "diff" && tab.path) {
     content = isActive ? <DiffViewer diffTarget={tab.path} /> : null;
+  } else if (tab.type === "extension" && tab.path) {
+    content = isActive ? <MarketplaceDetailPage extensionId={tab.path} /> : null;
   }
   return <Suspense fallback={<div className="w-full h-full bg-transparent" />}>{content}</Suspense>;
 }
