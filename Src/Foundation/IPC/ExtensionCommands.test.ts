@@ -19,7 +19,7 @@ describe("ExtensionCommands", () => {
     });
 
     await ExtensionIPC.render({
-      extensionId: "aurona.markdown",
+      extensionId: "auronalabs.markdown",
       markdown: "# Hello",
       activeEditorPath: "C:\\repo\\README.md",
       theme: "dark",
@@ -28,7 +28,7 @@ describe("ExtensionCommands", () => {
 
     expect(invokeDesktopMock).toHaveBeenCalledWith("extensions_render", {
       request: {
-        extensionId: "aurona.markdown",
+        extensionId: "auronalabs.markdown",
         markdown: "# Hello",
         activeEditorPath: "C:\\repo\\README.md",
         theme: "dark",
@@ -39,9 +39,9 @@ describe("ExtensionCommands", () => {
 
   it("keeps scalar permission arguments camelCase", async () => {
     invokeDesktopMock.mockResolvedValue("granted");
-    await ExtensionIPC.setPermission("aurona.markdown", "editor.current.read", true);
+    await ExtensionIPC.setPermission("auronalabs.markdown", "editor.current.read", true);
     expect(invokeDesktopMock).toHaveBeenCalledWith("extensions_set_permission", {
-      extensionId: "aurona.markdown",
+      extensionId: "auronalabs.markdown",
       permission: "editor.current.read",
       granted: true,
     });

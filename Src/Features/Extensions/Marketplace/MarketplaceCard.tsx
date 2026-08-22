@@ -1,5 +1,6 @@
 import { useLocale } from "../../../Foundation/I18n";
 import { cn } from "../../../Shared/Utils/cn";
+import { AccountAvatar } from "../../../UI/Components/AccountAvatar";
 import { Button } from "../../../UI/Components/Button";
 import { Card } from "../../../UI/Components/Card";
 import { Icons } from "../../../UI/Icons/IconManager";
@@ -9,11 +10,18 @@ import type { MarketplaceExtensionItem } from "./MarketplaceService";
 interface MarketplaceCardProps {
   item: MarketplaceExtensionItem;
   onOpenDetail: (item: MarketplaceExtensionItem) => void;
+  onInstall: (item: MarketplaceExtensionItem) => void;
+  onUninstall: (item: MarketplaceExtensionItem) => void;
   onOpenSettings?: (extensionId: string) => void;
   onOpenSidebar?: (extensionId: string) => void;
 }
 
-export function MarketplaceCard({ item, onOpenDetail }: MarketplaceCardProps) {
+export function MarketplaceCard({
+  item,
+  onOpenDetail,
+  onInstall,
+  onUninstall,
+}: MarketplaceCardProps) {
   const { t, locale } = useLocale();
 
   const title = item.displayName?.[locale] ?? item.name;
@@ -54,9 +62,17 @@ export function MarketplaceCard({ item, onOpenDetail }: MarketplaceCardProps) {
               )}
             </div>
 
-            <span className="truncate text-[11px] text-[var(--color-text-muted)] mt-0.5">
-              {item.publisher} · v{item.version}
-            </span>
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)] mt-0.5 min-w-0">
+              <AccountAvatar
+                name={item.publisher}
+                picture={item.publisherAvatar ?? null}
+                size={13}
+                className="shrink-0"
+              />
+              <span className="truncate">
+                {item.publisher} · v{item.version}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -74,23 +90,60 @@ export function MarketplaceCard({ item, onOpenDetail }: MarketplaceCardProps) {
             {item.downloads >= 1000 ? `${(item.downloads / 1000).toFixed(1)}k` : item.downloads}
           </span>
           <span className="flex items-center gap-1">
-            <Icons.Sparkles size={11} className="text-amber-400" />
-            {item.rating.toFixed(1)}
+            {item.reviewCount && item.reviewCount > 0 ? (
+              <>
+                <Icons.Sparkles size={11} className="text-amber-400" />
+                {item.rating.toFixed(1)}
+              </>
+            ) : (
+              <span className="text-[var(--color-text-muted)]">暂未定级</span>
+            )}
           </span>
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Button
-            size="sm"
-            variant="primary"
-            className="h-6 px-3 text-[10.5px] rounded-lg shadow-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenDetail(item);
-            }}
-          >
-            {t("extensions.install")}
-          </Button>
+          {item.updateAvailable ? (
+            <Button
+              size="sm"
+              variant="primary"
+              className="h-6 px-3 text-[10.5px] rounded-lg shadow-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onInstall(item);
+              }}
+            >
+              更新
+            </Button>
+          ) : item.installed ? (
+            <>
+              <span className="group-hover:hidden text-[10.5px] px-2 py-0.5 rounded-md bg-[var(--material-interactive-active)] text-[var(--color-text-muted)] border border-[var(--border-subtle)] font-medium">
+                {t("extensions.installed")}
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="hidden group-hover:inline-flex h-6 px-3 text-[10.5px] rounded-lg text-red-400 hover:text-red-300"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUninstall(item);
+                }}
+              >
+                卸载
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              variant="primary"
+              className="h-6 px-3 text-[10.5px] rounded-lg shadow-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onInstall(item);
+              }}
+            >
+              {t("extensions.install")}
+            </Button>
+          )}
         </div>
       </div>
     </Card>

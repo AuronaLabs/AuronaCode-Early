@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Aurona Code",
   "mainBinaryName": "Aurona Code",
-  "version": "0.4.0-pioneer.1",
+  "version": "0.4.0-pioneer.2",
   "identifier": "com.aurona.code",
   "build": {
     "features": [
@@ -63,7 +63,13 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
-    "targets": "all",
+    "targets": [
+      "nsis",
+      "app",
+      "dmg",
+      "deb",
+      "appimage"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -77,9 +83,6 @@
       "resources/extensions/": "extensions/"
     },
     "windows": {
-      "wix": {
-        "language": "zh-CN"
-      },
       "nsis": {
         "installMode": "perMachine",
         "displayLanguageSelector": false,

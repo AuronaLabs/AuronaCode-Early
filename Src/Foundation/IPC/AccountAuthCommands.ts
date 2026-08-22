@@ -55,6 +55,9 @@ export const AccountAuthIPC = {
   refresh(): Promise<AccountAuthStatus> {
     return invokeDesktop("account_auth_refresh");
   },
+  accessToken(): Promise<string | null> {
+    return invokeDesktop("account_auth_access_token");
+  },
   restore(): Promise<AccountAuthStatus> {
     return invokeDesktop("account_auth_restore");
   },

@@ -22,6 +22,7 @@ import IconClearAll from "@tabler/icons-react/dist/esm/icons/IconClearAll.mjs";
 import IconCloudDownload from "@tabler/icons-react/dist/esm/icons/IconCloudDownload.mjs";
 import IconCloudUpload from "@tabler/icons-react/dist/esm/icons/IconCloudUpload.mjs";
 import IconCommand from "@tabler/icons-react/dist/esm/icons/IconCommand.mjs";
+import IconCompass from "@tabler/icons-react/dist/esm/icons/IconCompass.mjs";
 import IconCopy from "@tabler/icons-react/dist/esm/icons/IconCopy.mjs";
 import IconCrop11 from "@tabler/icons-react/dist/esm/icons/IconCrop11.mjs";
 import IconDatabase from "@tabler/icons-react/dist/esm/icons/IconDatabase.mjs";
@@ -52,6 +53,7 @@ import IconMarkdown from "@tabler/icons-react/dist/esm/icons/IconMarkdown.mjs";
 import IconMenu2 from "@tabler/icons-react/dist/esm/icons/IconMenu2.mjs";
 import IconMinus from "@tabler/icons-react/dist/esm/icons/IconMinus.mjs";
 import IconMoon from "@tabler/icons-react/dist/esm/icons/IconMoon.mjs";
+import IconPackage from "@tabler/icons-react/dist/esm/icons/IconPackage.mjs";
 import IconPalette from "@tabler/icons-react/dist/esm/icons/IconPalette.mjs";
 import IconPhoto from "@tabler/icons-react/dist/esm/icons/IconPhoto.mjs";
 import IconPlayerPause from "@tabler/icons-react/dist/esm/icons/IconPlayerPause.mjs";
@@ -62,6 +64,7 @@ import IconPuzzle from "@tabler/icons-react/dist/esm/icons/IconPuzzle.mjs";
 import IconRefresh from "@tabler/icons-react/dist/esm/icons/IconRefresh.mjs";
 import IconSearch from "@tabler/icons-react/dist/esm/icons/IconSearch.mjs";
 import IconSettings from "@tabler/icons-react/dist/esm/icons/IconSettings.mjs";
+import IconShieldCheck from "@tabler/icons-react/dist/esm/icons/IconShieldCheck.mjs";
 import IconSparkles from "@tabler/icons-react/dist/esm/icons/IconSparkles.mjs";
 import IconSquares from "@tabler/icons-react/dist/esm/icons/IconSquares.mjs";
 import IconStack2 from "@tabler/icons-react/dist/esm/icons/IconStack2.mjs";
@@ -93,6 +96,8 @@ export const Icons = {
   Trash: IconTrash,
   Database: IconDatabase,
   Extensions: IconPuzzle,
+  Compass: IconCompass,
+  Package: IconPackage,
 
   FileTs: IconBrandTypescript,
   FileJs: IconBrandJavascript,
@@ -161,4 +166,5 @@ export const Icons = {
   Typography: IconTypography,
   Asterisk: IconAsterisk,
   Download: IconDownload,
+  ShieldCheck: IconShieldCheck,
 };

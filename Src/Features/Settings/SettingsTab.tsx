@@ -146,6 +146,9 @@ export function SettingsTab() {
     "compact" | "default" | "comfortable" | "large"
   >("default");
 
+  const [muteNonCriticalToasts, setMuteNonCriticalToasts] = useState(false);
+  const [toastDuration, setToastDuration] = useState(4000);
+
   const [editorFontSize, setEditorFontSize] = useState("14");
   const [editorLineHeight, setEditorLineHeight] = useState("24");
   const [editorTabSize, setEditorTabSize] = useState("2");
@@ -181,6 +184,9 @@ export function SettingsTab() {
       } else {
         document.documentElement.removeAttribute("data-font-size");
       }
+
+      setMuteNonCriticalToasts(config.muteNonCriticalToasts ?? false);
+      setToastDuration(config.toastDuration ?? 4000);
 
       const savedEditorFont = config.editorFontSize?.toString() || "14";
       const savedEditorLineHeight = config.editorLineHeight?.toString() || "24";
@@ -247,6 +253,16 @@ export function SettingsTab() {
     void UserConfigStore.set({ interfaceFontSize: size });
   };
 
+  const handleMuteNonCriticalChange = (muted: boolean) => {
+    setMuteNonCriticalToasts(muted);
+    void UserConfigStore.set({ muteNonCriticalToasts: muted });
+  };
+
+  const handleToastDurationChange = (duration: number) => {
+    setToastDuration(duration);
+    void UserConfigStore.set({ toastDuration: duration });
+  };
+
   const navigateTo = useCallback((section: SettingsSection) => {
     setActiveSection(section);
     setSettingsQuery("");
@@ -305,11 +321,11 @@ export function SettingsTab() {
             >
               <Icons.Search size={28} className="text-[var(--color-text-muted)] opacity-60 mb-2" />
               <p className="text-[13px] text-[var(--color-text-muted)]">
-                未找到与 "{settingsQuery}" 相关的设置
+                未找到与 &quot;{settingsQuery}&quot; 相关的设置
               </p>
             </GlassContainer>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {searchResults.map((item) => {
                 const targetSection = CATEGORY_TO_SECTION[item.category];
                 return (
@@ -317,7 +333,7 @@ export function SettingsTab() {
                     key={item.id}
                     type="button"
                     onClick={() => {
-                      setActiveSection(targetSection);
+                      navigateTo(targetSection);
                       setRevealTarget({ settingId: item.id, nonce: Date.now() });
                     }}
                     className="flex flex-col gap-1 p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] hover:bg-[var(--material-interactive-hover)] text-left transition-colors"
@@ -350,8 +366,12 @@ export function SettingsTab() {
           <GeneralSettingsSection
             theme={theme}
             density={density}
+            muteNonCriticalToasts={muteNonCriticalToasts}
+            toastDuration={toastDuration}
             onThemeChange={handleThemeChange}
             onDensityChange={handleDensityChange}
+            onMuteNonCriticalChange={handleMuteNonCriticalChange}
+            onToastDurationChange={handleToastDurationChange}
           />
         );
       case "appearance":

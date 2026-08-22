@@ -23,7 +23,7 @@ vi.mock("../Foundation/IPC/ExtensionCommands", () => ({
 import { useExtensionStore } from "./useExtensionStore";
 
 const descriptor = {
-  id: "aurona.markdown",
+  id: "auronalabs.markdown",
   name: "Markdown Preview",
   publisher: "aurona",
   version: "0.1.0",
@@ -49,7 +49,7 @@ describe("useExtensionStore", () => {
 
     await useExtensionStore.getState().initialize();
     await vi.waitFor(() => {
-      expect(useExtensionStore.getState().views["aurona.markdown"]).toBeDefined();
+      expect(useExtensionStore.getState().views["auronalabs.markdown"]).toBeDefined();
     });
     expect(useExtensionStore.getState().descriptors).toEqual([descriptor]);
     expect(listMock).toHaveBeenCalledOnce();
@@ -57,8 +57,8 @@ describe("useExtensionStore", () => {
 
   it("caches views per extension", async () => {
     getViewMock.mockResolvedValue({ html: "<html></html>", icon: "<svg></svg>" });
-    const first = await useExtensionStore.getState().viewFor("aurona.markdown");
-    const second = await useExtensionStore.getState().viewFor("aurona.markdown");
+    const first = await useExtensionStore.getState().viewFor("auronalabs.markdown");
+    const second = await useExtensionStore.getState().viewFor("auronalabs.markdown");
     expect(first).toEqual(second);
     expect(getViewMock).toHaveBeenCalledOnce();
   });
@@ -68,23 +68,29 @@ describe("useExtensionStore", () => {
     setPermissionMock.mockResolvedValue("granted");
 
     expect(
-      await useExtensionStore.getState().permissionFor("aurona.markdown", "editor.current.read"),
+      await useExtensionStore
+        .getState()
+        .permissionFor("auronalabs.markdown", "editor.current.read"),
     ).toBe("unknown");
     expect(
       await useExtensionStore
         .getState()
-        .setPermission("aurona.markdown", "editor.current.read", true),
+        .setPermission("auronalabs.markdown", "editor.current.read", true),
     ).toBe("granted");
-    expect(setPermissionMock).toHaveBeenCalledWith("aurona.markdown", "editor.current.read", true);
+    expect(setPermissionMock).toHaveBeenCalledWith(
+      "auronalabs.markdown",
+      "editor.current.read",
+      true,
+    );
   });
 
   it("hides and restores extensions", () => {
     useExtensionStore.setState({ hiddenExtensionIds: [] });
-    useExtensionStore.getState().hideExtension("aurona.markdown");
-    expect(useExtensionStore.getState().hiddenExtensionIds).toContain("aurona.markdown");
+    useExtensionStore.getState().hideExtension("auronalabs.markdown");
+    expect(useExtensionStore.getState().hiddenExtensionIds).toContain("auronalabs.markdown");
 
-    useExtensionStore.getState().restoreExtension("aurona.markdown");
-    expect(useExtensionStore.getState().hiddenExtensionIds).not.toContain("aurona.markdown");
+    useExtensionStore.getState().restoreExtension("auronalabs.markdown");
+    expect(useExtensionStore.getState().hiddenExtensionIds).not.toContain("auronalabs.markdown");
   });
 
   it("does not re-initialize once initialized", async () => {

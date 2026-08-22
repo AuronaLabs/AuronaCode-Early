@@ -14,6 +14,7 @@ import { Button } from "../../UI/Components/Button";
 import { Card } from "../../UI/Components/Card";
 import { Input } from "../../UI/Components/Input";
 import { Select } from "../../UI/Components/Select";
+import { GlassContainer } from "../../UI/Core/GlassManager";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
@@ -133,7 +134,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   const activePath =
     tabs.find((tab) => tab.id === activeTabId && tab.type === "file")?.path ?? null;
 
-  const isPlanner = extensionId === "aurona.planner";
+  const isPlanner = extensionId === "auronalabs.planner";
   const isVsCodeCompat = extensionId === "aurona.vscode-compat";
   const isVsCodeDemo =
     extensionId === "vscode-demo" ||
@@ -146,6 +147,8 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   const [editorPermission, setEditorPermission] = useState<ExtensionPermissionState>(
     isStandalone ? "granted" : "unknown",
   );
+  const [permissionLoaded, setPermissionLoaded] = useState(isStandalone);
+  const [permissionPromptOpen, setPermissionPromptOpen] = useState(false);
   const [renderState, setRenderState] = useState<ExtensionRenderState | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
 
@@ -333,6 +336,8 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
           .permissionFor(extensionId, permissionName);
         if (!cancelled) {
           setEditorPermission(permState);
+          setPermissionLoaded(true);
+          setPermissionPromptOpen(permState === "unknown");
           if (permState === "granted") {
             void refresh();
           }
@@ -398,6 +403,25 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
   const isPermissionGranted = isStandalone || editorPermission === "granted";
 
+  const resolvePermission = useCallback(
+    async (mode: "once" | "always" | "deny") => {
+      try {
+        const nextState =
+          mode === "once"
+            ? await ExtensionIPC.setSessionPermission(extensionId, "editor.current.read", true)
+            : await useExtensionStore
+                .getState()
+                .setPermission(extensionId, "editor.current.read", mode === "always");
+        setEditorPermission(nextState);
+        setPermissionPromptOpen(false);
+        if (nextState === "granted") void refresh();
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "权限设置失败", "warning");
+      }
+    },
+    [extensionId, refresh],
+  );
+
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
       if (statusFilter === "pending" && t.completed) return false;
@@ -420,6 +444,57 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-transparent">
+      {permissionPromptOpen && permissionLoaded && !isStandalone && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-[var(--glass-blur-base)] transition-all animate-in fade-in duration-200">
+          <GlassContainer
+            layer="floating"
+            className="w-full max-w-[280px] rounded-2xl p-5 shadow-[var(--shadow-overlay)] flex flex-col items-center text-center animate-in zoom-in-95 duration-200"
+          >
+            {/* 顶部居中极简图标 */}
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--color-accent)] border border-[var(--border-subtle)] mb-3 shadow-inner">
+              <Icons.ShieldCheck size={24} stroke={1.75} />
+            </div>
+
+            {/* 居中标题 */}
+            <h3 className="text-[14px] font-semibold text-[var(--color-text-highlight)] tracking-tight leading-snug px-1">
+              允许 “{title}” 访问当前文档？
+            </h3>
+
+            {/* 极简说明 */}
+            <p className="text-[12px] text-[var(--color-text-secondary)] leading-relaxed mt-1.5 mb-4 px-1">
+              扩展需要读取活动编辑器中的内容以生成实时渲染与分析。
+            </p>
+
+            {/* 三个 iOS 风格极简按钮 */}
+            <div className="flex w-full flex-col gap-2">
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => void resolvePermission("once")}
+                className="h-8.5 w-full text-[12px] font-semibold rounded-xl"
+              >
+                仅本次允许
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => void resolvePermission("always")}
+                className="h-8.5 w-full text-[12px] font-medium rounded-xl"
+              >
+                始终允许
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => void resolvePermission("deny")}
+                className="h-8 w-full text-[12px] text-[var(--color-text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-xl"
+              >
+                拒绝
+              </Button>
+            </div>
+          </GlassContainer>
+        </div>
+      )}
       {/* 统一系统侧边栏头部 */}
       <SidebarPageHeader
         title={title}

@@ -219,6 +219,10 @@ impl AccountAuthService {
         self.runtime.lock().await.status.clone()
     }
 
+    pub async fn access_token(&self) -> Option<String> {
+        self.runtime.lock().await.access_token.clone()
+    }
+
     pub async fn start<R: Runtime>(
         self: &Arc<Self>,
         app: &AppHandle<R>,
@@ -1040,6 +1044,13 @@ pub async fn account_auth_refresh(
         state.0.fail(error.clone()).await;
     }
     result
+}
+
+#[tauri::command]
+pub async fn account_auth_access_token(
+    state: tauri::State<'_, AccountAuthState>,
+) -> Result<Option<String>, AccountAuthError> {
+    Ok(state.0.access_token().await)
 }
 
 #[tauri::command]

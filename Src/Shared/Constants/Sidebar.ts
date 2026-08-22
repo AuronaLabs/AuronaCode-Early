@@ -7,7 +7,7 @@ export const SIDEBAR_DEBUG = "运行和调试";
 export const SIDEBAR_EXTENSIONS = "扩展";
 /** 0.3.9 之前的旧侧边栏「全局搜索」状态，用于持久化状态迁移。 */
 export const LEGACY_SIDEBAR_SEARCH = "全局搜索";
-/** 扩展 Sidebar 的活动状态前缀，例如 extension:aurona.markdown。 */
+/** 扩展 Sidebar 的活动状态前缀，例如 extension:auronalabs.markdown。 */
 export const EXTENSION_SIDEBAR_PREFIX = "extension:";
 export const extensionSidebarId = (extensionId: string) =>
   `${EXTENSION_SIDEBAR_PREFIX}${extensionId}`;

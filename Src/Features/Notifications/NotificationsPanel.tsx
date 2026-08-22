@@ -11,6 +11,9 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
   const [notifications, setNotifications] = useState<NotificationItem[]>(
     NotificationService.getHistory(),
   );
+  const [filterType, setFilterType] = useState<"all" | "info" | "warning" | "error" | "success">(
+    "all",
+  );
 
   useEffect(() => {
     NotificationService.markAllAsRead();
@@ -25,9 +28,14 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
     NotificationService.clearAll();
   };
 
+  const filteredNotifications = notifications.filter((item) => {
+    if (filterType === "all") return true;
+    if (filterType === "info") return item.type === "info" || item.type === "confirm";
+    return item.type === filterType;
+  });
+
   return (
-    <div className="flex flex-col h-full w-full bg-transparent">
-      {}
+    <div className="flex flex-col h-full w-full bg-transparent select-none">
       <SidebarPageHeader
         title={t("notifications.title")}
         actions={
@@ -36,7 +44,7 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
               <button
                 type="button"
                 onClick={handleClear}
-                className="p-1.5 hover:bg-[var(--material-interactive-hover)] rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-colors"
+                className="p-1.5 hover:bg-[var(--material-interactive-hover)] rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-colors cursor-pointer"
               >
                 <Icons.Checks size={14} />
               </button>
@@ -45,9 +53,49 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
         }
       />
 
-      {}
+      {/* 分类筛选标签栏 */}
+      {notifications.length > 0 && (
+        <div className="flex items-center gap-1 px-3 pb-2.5 overflow-x-auto no-scrollbar shrink-0">
+          {(
+            [
+              { id: "all", label: "全部", icon: null },
+              { id: "info", label: "提示", icon: <Icons.Info size={11} /> },
+              { id: "warning", label: "警告", icon: <Icons.AlertTriangle size={11} /> },
+              { id: "error", label: "错误", icon: <Icons.Close size={11} /> },
+              { id: "success", label: "成功", icon: <Icons.Checks size={11} /> },
+            ] as const
+          ).map((cat) => {
+            const count =
+              cat.id === "all"
+                ? notifications.length
+                : cat.id === "info"
+                  ? notifications.filter((n) => n.type === "info" || n.type === "confirm").length
+                  : notifications.filter((n) => n.type === cat.id).length;
+
+            if (count === 0 && cat.id !== "all" && filterType !== cat.id) return null;
+
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setFilterType(cat.id)}
+                className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  filterType === cat.id
+                    ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] border border-[var(--border-subtle)]"
+                    : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-hover)] border border-transparent"
+                }`}
+              >
+                {cat.icon}
+                <span>{cat.label}</span>
+                {count > 0 && <span className="opacity-60 text-[10px]">({count})</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex flex-col flex-1 overflow-y-auto aurona-scroll px-3 pb-4">
-        {notifications.length === 0 ? (
+        {filteredNotifications.length === 0 ? (
           <div className="relative flex flex-1 flex-col items-center justify-center gap-5 overflow-hidden px-5 text-center">
             <div className="pointer-events-none absolute h-44 w-44 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] blur-3xl" />
             <div className="relative">
@@ -58,12 +106,18 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
             </div>
             <div className="relative z-10 space-y-2">
               <h3 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
-                {t("notifications.emptyTitle")}
+                {filterType === "all" ? t("notifications.emptyTitle") : "暂无此类通知"}
               </h3>
               <p className="text-[12px] leading-relaxed text-[var(--color-text-muted)]">
-                {t("notifications.emptyHintA")}
-                <br />
-                {t("notifications.emptyHintB")}
+                {filterType === "all" ? (
+                  <>
+                    {t("notifications.emptyHintA")}
+                    <br />
+                    {t("notifications.emptyHintB")}
+                  </>
+                ) : (
+                  "当前分类下没有相关通知记录"
+                )}
               </p>
             </div>
             <div className="relative z-10 flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--color-accent)_16%,var(--border-subtle))] bg-[var(--material-panel)] px-3 py-1 text-[11px] font-medium text-[var(--color-text-muted)]">
@@ -72,8 +126,8 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-2 mt-2">
-            {notifications.map((item) => {
+          <div className="flex flex-col gap-2 mt-1">
+            {filteredNotifications.map((item) => {
               const Icon =
                 item.type === "success"
                   ? Icons.Checks

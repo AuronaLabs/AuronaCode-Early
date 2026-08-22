@@ -526,9 +526,9 @@ fn run_wasm_benchmark(cancelled: &AtomicBool) -> Result<Vec<PerformanceBenchmark
     let sample_markdown = "# Aurona Performance Benchmark\n\n| Item | Value |\n|---|---|\n| WASM | Speed |\n\n> Quote block with **bold** text and `inline code`.\n\n```rust\nfn main() { println!(\"hello\"); }\n```\n".repeat(4);
 
     let package_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("resources")
-        .join("extensions")
-        .join("aurona.markdown.aurx");
+        .join("..")
+        .join("MarketplacePackages")
+        .join("auronalabs.markdown.aurx");
     let package_bytes =
         fs::read(&package_path).map_err(|error| format!("无法读取基准测试扩展包: {error}"))?;
 

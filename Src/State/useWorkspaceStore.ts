@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { DiagnosticsService } from "../Core/DiagnosticsService";
 import { FileSystemService } from "../Core/FileSystemService";
+import type { SettingCategory } from "../Core/Settings/SettingRegistry";
+import type { SettingsSection } from "../Features/Settings/SettingsTab";
 import { EventBus } from "../Foundation/EventBus";
 import { type I18nKey, LocaleService } from "../Foundation/I18n";
 import { EditorIPC } from "../Foundation/IPC/EditorCommands";
@@ -39,6 +41,7 @@ export interface WorkbenchState {
   clearPendingReveal(path: string, line: number): void;
   openFile(path: string): void;
   openTab(tab: TabItem): void;
+  openSettings(section?: string, settingId?: string): void;
   closeTab(tab: TabItem): void;
   closeTabById(id: string): void;
   updateTabs(updater: (tabs: TabItem[]) => TabItem[]): void;
@@ -194,6 +197,27 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       activeTabId: tab.id,
     }));
     persistWorkbench(get());
+  },
+  openSettings: (section, settingId) => {
+    get().openTab({
+      id: "settings",
+      type: "settings",
+      title: LocaleService.translate("settings.title"),
+      titleKey: "settings.title",
+    });
+    if (section || settingId) {
+      setTimeout(() => {
+        if (section) {
+          EventBus.emit("settings:nav", section as SettingsSection);
+        }
+        if (settingId) {
+          EventBus.emit("settings:reveal", {
+            category: (section ?? "general") as SettingCategory,
+            settingId,
+          });
+        }
+      }, 50);
+    }
   },
   closeTab: (tab) => {
     if (tab.isDirty) {

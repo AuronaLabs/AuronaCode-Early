@@ -66,6 +66,24 @@ pub fn extensions_list(
 }
 
 #[tauri::command]
+pub fn extensions_install(
+    app: tauri::AppHandle,
+    state: State<ExtensionState>,
+    archive_bytes: Vec<u8>,
+) -> Result<ExtensionDescriptor, String> {
+    state.install_package(&app, &archive_bytes)
+}
+
+#[tauri::command]
+pub fn extensions_uninstall(
+    app: tauri::AppHandle,
+    state: State<ExtensionState>,
+    extension_id: String,
+) -> Result<(), String> {
+    state.uninstall_package(&app, &extension_id)
+}
+
+#[tauri::command]
 pub fn extensions_get_view(
     state: State<ExtensionState>,
     extension_id: String,
@@ -102,6 +120,20 @@ pub fn extensions_set_permission(
     let root = workspace.root()?;
     let identity = workspace_identity(root.as_deref());
     let next = state.set_permission(&extension_id, &permission, &identity, granted);
+    Ok(permission_to_string(&next).to_string())
+}
+
+#[tauri::command]
+pub fn extensions_set_session_permission(
+    state: State<ExtensionState>,
+    workspace: State<WorkspaceState>,
+    extension_id: String,
+    permission: String,
+    granted: bool,
+) -> Result<String, String> {
+    let root = workspace.root()?;
+    let identity = workspace_identity(root.as_deref());
+    let next = state.set_session_permission(&extension_id, &permission, &identity, granted);
     Ok(permission_to_string(&next).to_string())
 }
 

@@ -223,18 +223,7 @@ export function FliunoWorkspacePage() {
         }
         break;
       case "openSettings":
-        workbench.openTab({
-          id: "settings",
-          type: "settings",
-          title: t("settings.title"),
-          titleKey: "settings.title",
-        });
-        if (result.settingCategory) {
-          EventBus.emit("settings:reveal", {
-            category: result.settingCategory,
-            settingId: result.settingId,
-          });
-        }
+        workbench.openSettings(result.settingCategory, result.settingId);
         break;
       case "revealSymbol":
       case "revealContent":

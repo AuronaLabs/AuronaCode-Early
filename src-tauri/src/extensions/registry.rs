@@ -87,8 +87,12 @@ impl ExtensionRegistry {
                 .extension()
                 .is_some_and(|extension| extension == "aurx" || extension == "vsix")
             {
-                self.load_file(&path)?;
-                loaded += 1;
+                let package = self.load_file(&path)?;
+                if is_removed_legacy_extension(package.id()) {
+                    self.remove(package.id());
+                } else {
+                    loaded += 1;
+                }
             }
         }
         Ok(loaded)
@@ -114,6 +118,17 @@ impl ExtensionRegistry {
             .ok()
             .and_then(|guard| guard.get(id).cloned())
     }
+
+    pub fn remove(&self, id: &str) -> bool {
+        self.packages
+            .lock()
+            .map(|mut guard| guard.remove(id).is_some())
+            .unwrap_or(false)
+    }
+}
+
+fn is_removed_legacy_extension(id: &str) -> bool {
+    matches!(id, "aurona.markdown" | "aurona.planner")
 }
 
 impl Default for ExtensionRegistry {
@@ -154,13 +169,13 @@ mod tests {
     fn discovers_bundled_packages() {
         let temp = std::env::temp_dir().join(format!("aurona-ext-registry-{}", std::process::id()));
         std::fs::create_dir_all(&temp).unwrap();
-        let path = write_package(&temp, "aurona.markdown.aurx", None);
+        let path = write_package(&temp, "auronalabs.markdown.aurx", None);
         let registry = ExtensionRegistry::new();
         registry.load_file(&path).unwrap();
         let descriptors = registry.descriptors();
         assert_eq!(descriptors.len(), 1);
-        assert_eq!(descriptors[0].id, "aurona.markdown");
-        assert!(registry.package("aurona.markdown").is_some());
+        assert_eq!(descriptors[0].id, "auronalabs.markdown");
+        assert!(registry.package("auronalabs.markdown").is_some());
         std::fs::remove_dir_all(&temp).ok();
     }
 
@@ -169,7 +184,7 @@ mod tests {
         let temp =
             std::env::temp_dir().join(format!("aurona-ext-registry-dir-{}", std::process::id()));
         std::fs::create_dir_all(&temp).unwrap();
-        write_package(&temp, "aurona.markdown.aurx", None);
+        write_package(&temp, "auronalabs.markdown.aurx", None);
         std::fs::write(temp.join("notes.txt"), b"ignored").unwrap();
         let registry = ExtensionRegistry::new();
         let count = registry.load_directory(&temp).unwrap();
@@ -196,7 +211,7 @@ mod tests {
         std::fs::create_dir_all(&temp).unwrap();
         let path = write_package(
             &temp,
-            "aurona.markdown.aurx",
+            "auronalabs.markdown.aurx",
             Some(json!({ "id": "evil.id" })),
         );
         let registry = ExtensionRegistry::new();

@@ -91,6 +91,7 @@ export interface EventMap {
     | "terminalRun"
     | "sourceControl"
     | "accountCloud"
+    | "extensions"
     | "system"
     | "advanced";
   "settings:reveal": { category: SettingCategory; settingId?: string };

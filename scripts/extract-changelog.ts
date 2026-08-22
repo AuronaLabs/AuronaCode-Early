@@ -36,7 +36,7 @@ body += `
 
 本版本为全平台提供自动化构建产物，请从下方 **Assets** 列表中选择适合您系统的安装包：
 
-* **Windows 客户端**：请下载 \`.msi\` 或 \`.exe\` 文件（仅支持 Windows 10/11，不支持 Windows 7）
+* **Windows 客户端**：请下载 \`.exe\` 安装程序（仅支持 Windows 10/11，不支持 Windows 7）
 * **macOS 客户端**：请下载 \`.dmg\` 或 \`.app.tar.gz\` 文件
 * **Linux 客户端**：请下载 \`.AppImage\` 或 \`.deb\` 文件
 

@@ -78,19 +78,19 @@ function renderTabContent(
       />
     );
   } else if (tab.type === "about") {
-    content = isActive ? <AboutTab /> : null;
+    content = <AboutTab />;
   } else if (tab.type === "settings") {
-    content = isActive ? <SettingsTab /> : null;
+    content = <SettingsTab />;
   } else if (tab.type === "fliuno") {
-    content = isActive ? <FliunoWorkspacePage /> : null;
+    content = <FliunoWorkspacePage />;
   } else if (tab.type === "changelog") {
-    content = isActive ? <ChangelogTab /> : null;
+    content = <ChangelogTab />;
   } else if (tab.type === "performance") {
-    content = isActive ? <PerformanceBenchmarkPage /> : null;
+    content = <PerformanceBenchmarkPage />;
   } else if (tab.type === "diff" && tab.path) {
-    content = isActive ? <DiffViewer diffTarget={tab.path} /> : null;
+    content = <DiffViewer diffTarget={tab.path} />;
   } else if (tab.type === "extension" && tab.path) {
-    content = isActive ? <MarketplaceDetailPage extensionId={tab.path} /> : null;
+    content = <MarketplaceDetailPage extensionId={tab.path} />;
   }
   return <Suspense fallback={<div className="w-full h-full bg-transparent" />}>{content}</Suspense>;
 }
@@ -282,9 +282,13 @@ export function WorkspaceView() {
                 {tabs.map((tab) => (
                   <div
                     key={tab.id}
-                    className="absolute inset-0 h-full w-full"
+                    className="absolute inset-0 h-full w-full isolate"
                     style={{
-                      visibility: activeTabId === tab.id ? "visible" : "hidden",
+                      // Keep the React tree mounted so page state survives, but remove
+                      // inactive Canvas/WebView layers from composition completely.
+                      // `visibility: hidden` keeps those layers alive and can leave a
+                      // stale frame visible while the next tab is painted.
+                      display: activeTabId === tab.id ? "block" : "none",
                       pointerEvents: activeTabId === tab.id ? "auto" : "none",
                     }}
                   >

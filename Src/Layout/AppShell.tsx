@@ -45,12 +45,6 @@ function ExtensionActivityIcon({ extensionId }: { extensionId: string }) {
       />
     );
   }
-  if (extensionId === "aurona.markdown") {
-    return <Icons.FileMd size={22} stroke={1.5} />;
-  }
-  if (extensionId === "aurona.planner") {
-    return <Icons.List size={22} stroke={1.5} />;
-  }
   if (extensionId === "aurona.vscode-compat") {
     return <Icons.FileCode size={22} stroke={1.5} />;
   }

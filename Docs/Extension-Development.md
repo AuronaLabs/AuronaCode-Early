@@ -53,13 +53,19 @@ my-extension.aurx
 
 ---
 
-## 2. 官方三大内置扩展解析
+## 2. Marketplace 扩展与内置兼容内核
 
 | 扩展 ID | 扩展名称 | 运行模式 | 核心能力 |
 | :--- | :--- | :--- | :--- |
-| `aurona.markdown` | **Markdown 实时预览** | 编辑器绑定 | 实时监听当前激活的 Markdown 文档并极速流式渲染为精美 HTML |
-| `aurona.planner` | **任务与测试计划看板** | 独立运行 | 独立任务管理看板，支持分类/优先级，自动安全持久化到 `.aurona/planner.json` |
-| `aurona.vscode-compat` | **VSCode 兼容转译层** | 独立运行 | 提供 VSCode API 模拟层与 Node 安全沙箱，共用转译并执行 VSCode 插件 |
+| `auronalabs.markdown` | **Markdown 预览** | Marketplace 扩展 | 实时监听当前激活的 Markdown 文档并极速流式渲染为精美 HTML |
+| `auronalabs.planner` | **任务面板** | Marketplace 扩展 | 独立任务管理看板，支持分类/优先级，自动安全持久化到 `.aurona/planner.json` |
+| `aurona.vscode-compat` | **VSCode 兼容内核** | 应用内置运行时 | 提供 VSCode API 模拟层与 Node 安全沙箱；不作为可安装、可卸载或侧边栏扩展展示 |
+
+### 2.1 Marketplace 元数据与权限
+
+- Marketplace 扩展的名称、描述、版本、权限、文件大小与更新日志由 Marketplace API 作为唯一权威来源，Aurona Code 会缓存最后一次成功同步的结果以支持离线浏览。
+- `.aurx` 内的 `manifest.json` 仍是包完整性、运行时与非 Marketplace 本地引用的依据，但不会覆盖 Marketplace 详情页的数据。
+- 当扩展首次请求敏感能力时，Aurona Code 显示授权弹窗；用户可选择仅允许一次、始终允许或拒绝。一次性许可仅在本次应用进程中有效。
 
 ---
 

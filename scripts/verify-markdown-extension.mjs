@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { crc32 } from "node:zlib";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const aurxPath = join(root, "src-tauri", "resources", "extensions", "aurona.markdown.aurx");
+const aurxPath = join(root, "MarketplacePackages", "auronalabs.markdown.aurx");
 const EXPECTED = ["manifest.json", "extension.wasm", "ui/index.html", "assets/icon.svg"];
 
 function readEntries(data) {
@@ -55,7 +55,7 @@ function main() {
   }
 
   const manifest = JSON.parse(entries.find((entry) => entry.name === "manifest.json").content.toString("utf8"));
-  if (manifest.packageVersion !== 1 || manifest.id !== "aurona.markdown") {
+  if (manifest.packageVersion !== 1 || manifest.id !== "auronalabs.markdown" || manifest.publisher !== "auronalabs") {
     throw new Error("AURX manifest 无效");
   }
   const wasm = entries.find((entry) => entry.name === "extension.wasm").content;
@@ -74,7 +74,7 @@ function main() {
     throw new Error("插件图标无效");
   }
 
-  console.log(`aurona.markdown.aurx 校验通过: ${aurxPath} (${data.length} bytes)`);
+  console.log(`auronalabs.markdown.aurx 校验通过: ${aurxPath} (${data.length} bytes)`);
 }
 
 main();

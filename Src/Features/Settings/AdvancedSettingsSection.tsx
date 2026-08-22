@@ -20,12 +20,6 @@ export function AdvancedSettingsSection() {
   const handleChannelSwitch = async (enabled: boolean) => {
     const nextChannel = enabled ? "pioneer" : "stable";
     await setChannel(nextChannel);
-    showToast(
-      enabled
-        ? t("settings.featureFlags.channelPioneerTitle")
-        : t("settings.featureFlags.channelStableTitle"),
-      "info",
-    );
   };
 
   const handleCheckUpdate = async () => {

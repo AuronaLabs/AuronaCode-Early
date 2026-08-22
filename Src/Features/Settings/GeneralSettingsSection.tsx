@@ -1,6 +1,7 @@
 import { type Locale, useLocale } from "../../Foundation/I18n";
 import { Select } from "../../UI/Components/Select";
 import { SettingResetButton } from "../../UI/Components/SettingResetButton";
+import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { Icons } from "../../UI/Icons/IconManager";
 
@@ -9,15 +10,23 @@ export type Density = "compact" | "default" | "regular" | "comfortable";
 export interface GeneralSettingsSectionProps {
   theme: "light" | "dark" | "system";
   density: Density;
+  muteNonCriticalToasts?: boolean;
+  toastDuration?: number;
   onThemeChange: (newTheme: "light" | "dark" | "system") => void;
   onDensityChange: (next: Density) => void;
+  onMuteNonCriticalChange?: (muted: boolean) => void;
+  onToastDurationChange?: (duration: number) => void;
 }
 
 export function GeneralSettingsSection({
   theme,
   density,
+  muteNonCriticalToasts = false,
+  toastDuration = 4000,
   onThemeChange,
   onDensityChange,
+  onMuteNonCriticalChange,
+  onToastDurationChange,
 }: GeneralSettingsSectionProps) {
   const { locale, setLocale, t } = useLocale();
 
@@ -54,7 +63,7 @@ export function GeneralSettingsSection({
                   aria-pressed={theme === mode}
                   key={mode}
                   onClick={() => onThemeChange(mode)}
-                  className={`flex min-w-0 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-[background-color,border-color,color,box-shadow] duration-150 sm:min-w-[104px] ${
+                  className={`flex min-w-0 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-[background-color,border-color,color,box-shadow] duration-150 sm:min-w-[104px] cursor-pointer ${
                     theme === mode
                       ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] backdrop-blur-[var(--glass-blur-elevated)]"
                       : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
@@ -140,6 +149,68 @@ export function GeneralSettingsSection({
               ]}
             />
             <SettingResetButton label={t("settings.reset")} onReset={() => setLocale("zh-CN")} />
+          </div>
+        </div>
+      </GlassContainer>
+
+      {/* 通知中心与弹窗设置卡片 */}
+      <div className="flex flex-col gap-2 pt-2">
+        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
+          {t("settings.notificationsTitle")}
+        </h3>
+        <p className="text-[13px] text-[var(--color-text-muted)]">
+          {t("settings.notificationsDescription")}
+        </p>
+      </div>
+
+      <GlassContainer layer="elevated" className="overflow-hidden rounded-2xl">
+        <div
+          data-setting-id="muteNonCritical"
+          className="flex items-center justify-between gap-4 p-5"
+        >
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              {t("settings.muteNonCritical")}
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)] max-w-lg">
+              {t("settings.muteNonCriticalDesc")}
+            </span>
+          </div>
+          <Switch
+            checked={muteNonCriticalToasts}
+            onCheckedChange={(checked) => onMuteNonCriticalChange?.(checked)}
+            aria-label={t("settings.muteNonCritical")}
+          />
+        </div>
+
+        <div
+          data-setting-id="toastDuration"
+          className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
+        >
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              {t("settings.toastDuration")}
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
+              {t("settings.toastDurationDesc")}
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Select
+              value={String(toastDuration)}
+              onChange={(value) => onToastDurationChange?.(Number(value))}
+              className="w-[160px]"
+              options={[
+                { value: "2500", label: t("settings.durationFast") },
+                { value: "4000", label: t("settings.durationNormal") },
+                { value: "6000", label: t("settings.durationSlow") },
+                { value: "8000", label: t("settings.durationManual") },
+              ]}
+            />
+            <SettingResetButton
+              label={t("settings.reset")}
+              onReset={() => onToastDurationChange?.(4000)}
+            />
           </div>
         </div>
       </GlassContainer>

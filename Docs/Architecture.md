@@ -63,10 +63,13 @@ Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代化轻�
 
 - **Wasmtime 47.x 强隔离**：扩展编译为 `wasm32-wasip2` 组件，运行在完全受控的 WASM 虚拟机中；
 - **Linker 预编译缓存**：初始化时预缓存 WASM Linker，启用速度优化等级，冷启动与渲染极其迅速；
-- **官方内置三大扩展矩阵**：
-  1. **`aurona.markdown` (Markdown 实时预览)**：绑定编辑器流式解析渲染；
-  2. **`aurona.planner` (任务与测试看板)**：独立运行，集成 Tabler 矢量图标 SDK 与官方原生组件，工作区安全持久化；
-  3. **`aurona.vscode-compat` (VSCode 兼容转译层)**：提供核心 VSCode API 模拟与 Node.js 安全沙箱；
+- **扩展矩阵**：
+  1. **`auronalabs.markdown` (Markdown 预览)**：Marketplace 扩展，安装包与展示元数据由 Marketplace 分发并缓存；
+  2. **`auronalabs.planner` (任务面板)**：Marketplace 扩展，独立运行并安全持久化；
+  3. **`aurona.vscode-compat` (VSCode 兼容内核)**：保留为应用内置运行时，不进入扩展侧边栏，提供核心 VSCode API 模拟与 Node.js 安全沙箱；
+- **元数据权威性**：Marketplace 扩展详情优先读取在线 Marketplace，其次读取本地同步缓存；包内 manifest 仅作为非 Marketplace 本地扩展的说明来源。
+- **授权边界**：首次使用编辑器读取等敏感能力时显示应用内授权弹窗。永久许可按“扩展 + 权限 + 工作区”持久化；一次性许可仅存在于当前进程。
+- **Tab Keep-Alive**：工作区页保留已打开 Tab 的 React 树；非活动页通过 `display: none` 移出合成和绘制树，避免透明 Canvas/WebView 在切换时遗留帧，同时不丢失页面状态。
 - **扩展 UI 双模演进体系 (Dual UI Architecture)**：
   - **模式 A：官方原生声明式组件 (Declarative Native UI)**：直接使用 Aurona 官方 React 现代拟物组件库（`Select`、`Switch`、`Card`、`Button`、`Input`、`ProgressBar`），零额外体积开销；
   - **模式 B：自定义 Webview 容器 (Custom Webview Host)**：全自主渲染 HTML/CSS/Canvas 视图；

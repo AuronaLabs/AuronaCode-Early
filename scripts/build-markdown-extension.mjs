@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { crc32 } from "node:zlib";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const guestDir = join(root, "Extensions", "aurona.markdown");
+const guestDir = join(root, "Extensions", "auronalabs.markdown");
 const wasmPath = join(
   guestDir,
   "target",
@@ -13,8 +13,8 @@ const wasmPath = join(
   "release",
   "aurona_markdown.wasm",
 );
-const outputDir = join(root, "src-tauri", "resources", "extensions");
-const outputPath = join(outputDir, "aurona.markdown.aurx");
+const outputDir = join(root, "MarketplacePackages");
+const outputPath = join(outputDir, "auronalabs.markdown.aurx");
 
 function findVcvars64() {
   const candidates = [
@@ -40,7 +40,7 @@ function buildGuest() {
   if (existsSync(lockPath)) args.push("--locked");
 
   const remapFlags = [
-    `--remap-path-prefix=${guestDir}=/aurona-markdown`,
+    `--remap-path-prefix=${guestDir}=/auronalabs-markdown`,
     `--remap-path-prefix=${root}=/aurona`,
   ];
   const env = {
@@ -165,8 +165,9 @@ function main() {
 
   const manifest = {
     packageVersion: 1,
-    id: "aurona.markdown",
-    name: "Markdown Preview",
+    id: "auronalabs.markdown",
+    name: "Markdown 预览",
+    displayName: { "zh-CN": "Markdown 预览", "zh-Hant": "Markdown 預覽", en: "Markdown Preview" },
     displayName: {
       "zh-CN": "Markdown 预览",
       "zh-Hant": "Markdown 預覽",
@@ -178,9 +179,11 @@ function main() {
       "zh-Hant": "即時轉譯 Markdown 文件並提供結構化大綱與診斷",
       en: "Live Markdown preview with structured outline and diagnostics",
     },
-    publisher: "aurona",
+    publisher: "auronalabs",
     version: "0.1.0",
     engine: { auronaCode: ">=0.3.12" },
+    permissions: [],
+    changelog: "首个公开版本：提供实时 Markdown 渲染、结构大纲和诊断信息。",
     runtime: { component: "extension.wasm" },
     sidebar: {
       title: "Markdown",
@@ -201,6 +204,12 @@ function main() {
       license: "MIT",
     },
   };
+  manifest.displayName = { "zh-CN": "Markdown 预览", "zh-Hant": "Markdown 預覽", en: "Markdown Preview" };
+  manifest.displayDescription = {
+    "zh-CN": "实时渲染 Markdown 文档，提供结构大纲和诊断信息",
+    "zh-Hant": "即時呈現 Markdown 文件，提供結構大綱與診斷資訊",
+    en: "Live Markdown preview with structured outline and diagnostics",
+  };
   const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 
   const normalizedView = view.replace(/\r\n/g, "\n");
@@ -217,7 +226,7 @@ function main() {
   writeFileSync(outputPath, aurx);
 
   const kilobytes = (aurx.length / 1024).toFixed(1);
-  console.log(`aurona.markdown.aurx 构建完成: ${aurx.length} bytes (${kilobytes} KiB)`);
+  console.log(`auronalabs.markdown.aurx 构建完成: ${aurx.length} bytes (${kilobytes} KiB)`);
   console.log(`输出: ${outputPath}`);
 }
 

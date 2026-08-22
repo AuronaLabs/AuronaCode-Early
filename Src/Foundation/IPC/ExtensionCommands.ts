@@ -62,6 +62,14 @@ export const ExtensionIPC = {
     return invokeDesktop("extensions_list");
   },
 
+  install(archiveBytes: number[]): Promise<ExtensionDescriptor> {
+    return invokeDesktop("extensions_install", { archiveBytes });
+  },
+
+  uninstall(extensionId: string): Promise<void> {
+    return invokeDesktop("extensions_uninstall", { extensionId });
+  },
+
   getView(extensionId: string): Promise<ExtensionViewPayload> {
     return invokeDesktop("extensions_get_view", { extensionId });
   },
@@ -76,6 +84,18 @@ export const ExtensionIPC = {
     granted: boolean,
   ): Promise<ExtensionPermissionState> {
     return invokeDesktop("extensions_set_permission", {
+      extensionId,
+      permission,
+      granted,
+    });
+  },
+
+  setSessionPermission(
+    extensionId: string,
+    permission: string,
+    granted: boolean,
+  ): Promise<ExtensionPermissionState> {
+    return invokeDesktop("extensions_set_session_permission", {
       extensionId,
       permission,
       granted,

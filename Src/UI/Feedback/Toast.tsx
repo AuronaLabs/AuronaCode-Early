@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
+import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { Icons } from "../Icons/IconManager";
 
 export type ToastType = "info" | "success" | "warning" | "error" | "confirm";
@@ -33,13 +34,24 @@ export function ToastContainer() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   useEffect(() => {
-    const handleToast = (payload: Omit<ToastMessage, "id"> & { id?: string }) => {
+    const handleToast = async (payload: Omit<ToastMessage, "id"> & { id?: string }) => {
+      const config = await UserConfigStore.get();
+      const isCritical =
+        payload.type === "error" ||
+        payload.type === "warning" ||
+        Boolean(payload.actions && payload.actions.length > 0);
+
+      // 若启用了静音非重要通知且当前通知非关键级别，则不弹出右下角 Toast
+      if (config.muteNonCriticalToasts && !isCritical) {
+        return;
+      }
+
       const id = payload.id || Date.now().toString() + Math.random().toString();
-      const defaultDuration = payload.actions && payload.actions.length > 0 ? null : 4000;
+      const defaultDuration =
+        payload.actions && payload.actions.length > 0 ? null : (config.toastDuration ?? 4000);
       const duration = payload.duration !== undefined ? payload.duration : defaultDuration;
 
       setToasts((prev) => {
-        // 如果相同 id 已经存在，更新它；否则新增
         const filtered = prev.filter((item) => item.id !== id);
         return [...filtered, { ...payload, id, duration }];
       });
@@ -51,7 +63,7 @@ export function ToastContainer() {
       }
     };
 
-    return EventBus.on("app:toast", handleToast);
+    return EventBus.on("app:toast", (p) => void handleToast(p));
   }, []);
 
   const dismissToast = (id: string) => {

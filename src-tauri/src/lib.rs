@@ -14,8 +14,9 @@ mod search;
 use commands::dap_cmds::DapState;
 pub use commands::lsp_cmds::LspState;
 use extensions::commands::{
-    extensions_get_permission, extensions_get_view, extensions_list, extensions_render,
-    extensions_set_permission,
+    extensions_get_permission, extensions_get_view, extensions_install, extensions_list,
+    extensions_render, extensions_set_permission, extensions_set_session_permission,
+    extensions_uninstall,
 };
 use extensions::state::ExtensionState;
 use tauri::Manager;
@@ -50,11 +51,15 @@ pub fn run() {
             extensions_get_view,
             extensions_get_permission,
             extensions_set_permission,
+            extensions_set_session_permission,
             extensions_render,
+            extensions_install,
+            extensions_uninstall,
             account_auth::account_auth_status,
             account_auth::account_auth_start,
             account_auth::account_auth_cancel,
             account_auth::account_auth_refresh,
+            account_auth::account_auth_access_token,
             account_auth::account_auth_restore,
             account_auth::account_auth_logout,
             account_auth::account_auth_shutdown,

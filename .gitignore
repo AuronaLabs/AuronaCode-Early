@@ -36,6 +36,14 @@ src-tauri/resources/toolchains/*
 # Built-in extension build artifacts
 Extensions/*/target/
 
+# Extension packages protection (only keep built-in compat runtime)
+src-tauri/resources/extensions/*.aurx
+!src-tauri/resources/extensions/aurona.vscode-compat.aurx
+
+# Marketplace upload packages
+MarketplacePackages/*.aurx
+
+
 # Python (manager.py artifacts)
 __pycache__/
 *.py[cod]

@@ -4,6 +4,7 @@ import type {
   ExtensionDescriptor,
   ExtensionPermissionState,
 } from "../../Foundation/IPC/ExtensionCommands";
+import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { useExtensionStore } from "../../State/useExtensionStore";
 import { Button } from "../../UI/Components/Button";
 import { Card } from "../../UI/Components/Card";
@@ -165,11 +166,14 @@ export function ExtensionsSettingsSection() {
 
   const [marketplaceUrl, setMarketplaceUrl] = useState(DEFAULT_MARKETPLACE_URL);
   const [isTestingUrl, setIsTestingUrl] = useState(false);
+  const [vscodeCompatEnabled, setVscodeCompatEnabled] = useState(true);
 
   useEffect(() => {
     void (async () => {
       const url = await MarketplaceService.getServerUrl();
       setMarketplaceUrl(url);
+      const config = await UserConfigStore.get();
+      setVscodeCompatEnabled(config.vscodeCompatEnabled !== false);
     })();
   }, []);
 
@@ -229,6 +233,12 @@ export function ExtensionsSettingsSection() {
     }
   };
 
+  const handleVscodeCompatToggle = async (enabled: boolean) => {
+    setVscodeCompatEnabled(enabled);
+    await UserConfigStore.set({ vscodeCompatEnabled: enabled });
+    showToast(enabled ? "VSCode 兼容内核已启用" : "VSCode 兼容内核已停用", "info");
+  };
+
   return (
     <div className="flex flex-col gap-6 w-full max-w-3xl">
       <div className="flex flex-col gap-2">
@@ -286,7 +296,7 @@ export function ExtensionsSettingsSection() {
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSaveMarketplaceUrl(marketplaceUrl);
             }}
-            placeholder="https://marketplace.aurona.cc/ 或 http://127.0.0.1:5218/"
+            placeholder="https://marketplace.aurona.cc/ 或 http://127.0.0.1:5219/api"
             fullWidth
             inputSize="default"
             className="flex-1 font-mono"
@@ -301,7 +311,31 @@ export function ExtensionsSettingsSection() {
         </div>
       </Card>
 
-      {/* 2. 已安装扩展的独立权限矩阵 */}
+      {/* 2. VSCode 兼容内核：内置运行时，不作为侧边栏扩展 */}
+      <Card className="p-4 rounded-2xl flex items-center justify-between gap-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-400">
+            <Icons.FileCode size={17} />
+          </span>
+          <div className="flex flex-col gap-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[13.5px] font-bold text-[var(--color-text-highlight)]">
+                VSCode 兼容内核
+              </span>
+              <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded">
+                内置
+              </span>
+            </div>
+            <span className="text-[11.5px] leading-relaxed text-[var(--color-text-muted)]">
+              为 VSIX 扩展提供 vscode API 兼容运行时。它随 Aurona Code
+              内置，不显示在侧边栏，也不能从 Marketplace 卸载。
+            </span>
+          </div>
+        </div>
+        <Switch checked={vscodeCompatEnabled} onCheckedChange={handleVscodeCompatToggle} />
+      </Card>
+
+      {/* 3. 已安装扩展的独立权限矩阵 */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h4 className="text-[14px] font-bold text-[var(--color-text-highlight)]">

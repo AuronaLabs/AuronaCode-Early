@@ -132,31 +132,29 @@ impl aurona::extensions::context::Host for ExtensionContext {
 
     fn get_editor_selection(&mut self) -> Option<ContextSelectionRange> {
         if self.editor_permission == ContextPermissionState::Granted {
-            self.editor_selection.clone()
+            self.editor_selection
         } else {
             None
         }
     }
 
     fn get_workspace_info(&mut self) -> ContextWorkspaceInfo {
-        if self.workspace_permission == ContextPermissionState::Granted
-            && self.workspace_root.is_some()
-        {
-            let root = self.workspace_root.as_ref().unwrap();
-            let root_name = root
-                .file_name()
-                .map(|name| name.to_string_lossy().to_string());
-            ContextWorkspaceInfo {
-                has_workspace: true,
-                name: self.workspace_name.clone().or_else(|| root_name.clone()),
-                root_name,
+        if self.workspace_permission == ContextPermissionState::Granted {
+            if let Some(root) = self.workspace_root.as_ref() {
+                let root_name = root
+                    .file_name()
+                    .map(|name| name.to_string_lossy().to_string());
+                return ContextWorkspaceInfo {
+                    has_workspace: true,
+                    name: self.workspace_name.clone().or_else(|| root_name.clone()),
+                    root_name,
+                };
             }
-        } else {
-            ContextWorkspaceInfo {
-                has_workspace: false,
-                name: None,
-                root_name: None,
-            }
+        }
+        ContextWorkspaceInfo {
+            has_workspace: false,
+            name: None,
+            root_name: None,
         }
     }
 
@@ -412,7 +410,11 @@ impl aurona::extensions::context::Host for ExtensionContext {
         }
     }
 
-    fn execute_command(&mut self, command_id: String, _arguments: Vec<String>) -> Result<String, String> {
+    fn execute_command(
+        &mut self,
+        command_id: String,
+        _arguments: Vec<String>,
+    ) -> Result<String, String> {
         eprintln!("[aurona-command] execute: {command_id}");
         Ok("ok".to_string())
     }
@@ -462,8 +464,8 @@ impl aurona::extensions::context::Host for ExtensionContext {
             .join(&self.extension_id);
         let file_path = storage_dir.join(format!("{key}.json"));
         if file_path.exists() {
-            let content = std::fs::read_to_string(&file_path)
-                .map_err(|e| format!("读取存储项失败: {e}"))?;
+            let content =
+                std::fs::read_to_string(&file_path).map_err(|e| format!("读取存储项失败: {e}"))?;
             Ok(Some(content))
         } else {
             Ok(None)
@@ -474,11 +476,9 @@ impl aurona::extensions::context::Host for ExtensionContext {
         let storage_dir = std::env::temp_dir()
             .join("aurona-extensions-storage")
             .join(&self.extension_id);
-        std::fs::create_dir_all(&storage_dir)
-            .map_err(|e| format!("创建存储目录失败: {e}"))?;
+        std::fs::create_dir_all(&storage_dir).map_err(|e| format!("创建存储目录失败: {e}"))?;
         let file_path = storage_dir.join(format!("{key}.json"));
-        std::fs::write(&file_path, value)
-            .map_err(|e| format!("写入存储项失败: {e}"))?;
+        std::fs::write(&file_path, value).map_err(|e| format!("写入存储项失败: {e}"))?;
         Ok(true)
     }
 
@@ -612,7 +612,7 @@ mod tests {
     fn component_bytes() -> Vec<u8> {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/resources/extensions/aurona.markdown.aurx"
+            "/../MarketplacePackages/auronalabs.markdown.aurx"
         );
         let bytes = std::fs::read(path).expect("committed AURX missing");
         crate::extensions::aurx::open_package(&bytes)

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -14,6 +14,7 @@ pub struct ExtensionState {
     registry: ExtensionRegistry,
     runtimes: Mutex<HashMap<String, Arc<ExtensionRuntime>>>,
     permissions: Mutex<HashMap<String, ContextPermissionState>>,
+    session_permissions: Mutex<HashSet<String>>,
     config_dir: Mutex<Option<PathBuf>>,
 }
 
@@ -23,6 +24,7 @@ impl ExtensionState {
             registry: ExtensionRegistry::new(),
             runtimes: Mutex::new(HashMap::new()),
             permissions: Mutex::new(HashMap::new()),
+            session_permissions: Mutex::new(HashSet::new()),
             config_dir: Mutex::new(None),
         }
     }
@@ -56,6 +58,9 @@ impl ExtensionState {
             candidate_roots.push(resource_dir.join("extensions"));
             candidate_roots.push(resource_dir.join("resources").join("extensions"));
         }
+        if let Ok(local_data_dir) = app.path().app_local_data_dir() {
+            candidate_roots.push(local_data_dir.join("extensions"));
+        }
 
         let mut loaded = 0usize;
         for dir in candidate_roots {
@@ -74,6 +79,59 @@ impl ExtensionState {
 
     pub fn package(&self, id: &str) -> Option<Arc<ExtensionPackage>> {
         self.registry.package(id)
+    }
+
+    pub fn install_package(
+        &self,
+        app: &AppHandle,
+        archive_bytes: &[u8],
+    ) -> Result<super::registry::ExtensionDescriptor, String> {
+        let package = super::aurx::open_package(archive_bytes)?;
+        let id = package.id().to_string();
+        if is_builtin_extension(&id) {
+            return Err(format!("内置扩展不能覆盖安装: {id}"));
+        }
+        let extension_dir = app
+            .path()
+            .app_local_data_dir()
+            .map_err(|error| format!("无法定位扩展目录: {error}"))?
+            .join("extensions");
+        std::fs::create_dir_all(&extension_dir)
+            .map_err(|error| format!("无法创建扩展目录: {error}"))?;
+        let target = extension_dir.join(format!("{id}.aurx"));
+        std::fs::write(&target, archive_bytes)
+            .map_err(|error| format!("无法保存扩展安装包: {error}"))?;
+        self.registry.load_file(&target)?;
+        self.runtimes
+            .lock()
+            .map_err(|_| "扩展运行时状态锁定失败".to_string())?
+            .remove(&id);
+        self.descriptors()
+            .into_iter()
+            .find(|descriptor| descriptor.id == id)
+            .ok_or_else(|| format!("扩展安装后未能注册: {id}"))
+    }
+
+    pub fn uninstall_package(&self, app: &AppHandle, id: &str) -> Result<(), String> {
+        if is_builtin_extension(id) {
+            return Err(format!("内置扩展不能卸载: {id}"));
+        }
+        let extension_dir = app
+            .path()
+            .app_local_data_dir()
+            .map_err(|error| format!("无法定位扩展目录: {error}"))?
+            .join("extensions");
+        let target = extension_dir.join(format!("{id}.aurx"));
+        if !target.exists() {
+            return Err(format!("未找到已安装扩展: {id}"));
+        }
+        std::fs::remove_file(&target).map_err(|error| format!("无法卸载扩展安装包: {error}"))?;
+        self.runtimes
+            .lock()
+            .map_err(|_| "扩展运行时状态锁定失败".to_string())?
+            .remove(id);
+        self.registry.remove(id);
+        Ok(())
     }
 
     pub fn runtime_for(&self, id: &str) -> Result<Arc<ExtensionRuntime>, String> {
@@ -124,6 +182,14 @@ impl ExtensionState {
         {
             return state;
         }
+        let session_granted = self
+            .session_permissions
+            .lock()
+            .map(|guard| guard.contains(&key))
+            .unwrap_or(false);
+        if session_granted {
+            return ContextPermissionState::Granted;
+        }
         if is_builtin_extension(extension_id) && permission == "editor.current.read" {
             return ContextPermissionState::Granted;
         }
@@ -148,6 +214,30 @@ impl ExtensionState {
         }
         self.persist_permissions();
         state
+    }
+
+    /// Grants a permission only for the current Aurona Code process. The grant
+    /// is intentionally excluded from the persisted permission file.
+    pub fn set_session_permission(
+        &self,
+        extension_id: &str,
+        permission: &str,
+        workspace_identity: &str,
+        granted: bool,
+    ) -> ContextPermissionState {
+        let key = permission_key(extension_id, permission, workspace_identity);
+        if let Ok(mut guard) = self.session_permissions.lock() {
+            if granted {
+                guard.insert(key);
+            } else {
+                guard.remove(&key);
+            }
+        }
+        if granted {
+            ContextPermissionState::Granted
+        } else {
+            ContextPermissionState::Denied
+        }
     }
 
     fn load_permissions(&self, config_dir: &std::path::Path) {
@@ -203,10 +293,7 @@ impl ExtensionState {
 }
 
 fn is_builtin_extension(extension_id: &str) -> bool {
-    matches!(
-        extension_id,
-        "aurona.markdown" | "aurona.planner" | "aurona.vscode-compat" | "vscode-demo"
-    )
+    matches!(extension_id, "aurona.vscode-compat" | "vscode-demo")
 }
 
 impl Default for ExtensionState {
@@ -234,7 +321,7 @@ mod tests {
         let state = ExtensionState::new();
         // 官方内置扩展默认获得 editor.current.read 权限
         assert_eq!(
-            state.permission("aurona.markdown", "editor.current.read", "ws-a"),
+            state.permission("aurona.vscode-compat", "editor.current.read", "ws-a"),
             ContextPermissionState::Granted
         );
         // 未知权限或非内置扩展默认保持 Unknown
@@ -253,9 +340,9 @@ mod tests {
             ContextPermissionState::Unknown
         );
 
-        state.set_permission("aurona.markdown", "editor.current.read", "ws-a", false);
+        state.set_permission("aurona.vscode-compat", "editor.current.read", "ws-a", false);
         assert_eq!(
-            state.permission("aurona.markdown", "editor.current.read", "ws-a"),
+            state.permission("aurona.vscode-compat", "editor.current.read", "ws-a"),
             ContextPermissionState::Denied
         );
     }
@@ -264,12 +351,12 @@ mod tests {
     fn workspace_read_permission_is_independent() {
         let state = ExtensionState::new();
         assert_eq!(
-            state.permission("aurona.markdown", "workspace.read", "ws-a"),
+            state.permission("aurona.vscode-compat", "workspace.read", "ws-a"),
             ContextPermissionState::Unknown
         );
-        state.set_permission("aurona.markdown", "workspace.read", "ws-a", true);
+        state.set_permission("aurona.vscode-compat", "workspace.read", "ws-a", true);
         assert_eq!(
-            state.permission("aurona.markdown", "workspace.read", "ws-a"),
+            state.permission("aurona.vscode-compat", "workspace.read", "ws-a"),
             ContextPermissionState::Granted
         );
     }

@@ -73,4 +73,8 @@ export interface UserConfig {
   releaseChannel?: "stable" | "pioneer";
   featureFlags?: Record<string, boolean>;
   marketplaceServerUrl?: string;
+  /** Keep the built-in VSCode compatibility runtime available for VSIX extensions. */
+  vscodeCompatEnabled?: boolean;
+  muteNonCriticalToasts?: boolean;
+  toastDuration?: number;
 }

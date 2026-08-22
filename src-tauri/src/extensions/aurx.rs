@@ -364,7 +364,10 @@ struct VsCodePackageJson {
 /// 解析与加载标准 VSCode 插件包 (.vsix)
 pub fn open_vsix_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, String> {
     if archive_bytes.len() as u64 > MAX_ARCHIVE_BYTES {
-        return Err(format!("VSIX 包超过大小上限: {} bytes", archive_bytes.len()));
+        return Err(format!(
+            "VSIX 包超过大小上限: {} bytes",
+            archive_bytes.len()
+        ));
     }
     let reader = Cursor::new(archive_bytes);
     let mut archive =
@@ -405,7 +408,9 @@ pub fn open_vsix_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, 
         id,
         name: pkg.name,
         display_name: Some(disp_map.clone()),
-        publisher: pkg.publisher.unwrap_or_else(|| "vscode-community".to_string()),
+        publisher: pkg
+            .publisher
+            .unwrap_or_else(|| "vscode-community".to_string()),
         version: pkg.version.unwrap_or_else(|| "1.0.0".to_string()),
         description: pkg.description.clone(),
         display_description: pkg.description.map(|d| {
@@ -465,7 +470,7 @@ pub(crate) fn zip_store_for_tests(entries: &[(&str, &[u8])]) -> Vec<u8> {
 pub(crate) fn valid_manifest_for_tests() -> ExtensionManifest {
     ExtensionManifest {
         package_version: 1,
-        id: "aurona.markdown".to_string(),
+        id: "auronalabs.markdown".to_string(),
         name: "Markdown Preview".to_string(),
         display_name: None,
         publisher: "aurona".to_string(),
@@ -581,7 +586,7 @@ mod tests {
     #[test]
     fn opens_valid_package() {
         let package = open_package(&valid_package_bytes()).unwrap();
-        assert_eq!(package.id(), "aurona.markdown");
+        assert_eq!(package.id(), "auronalabs.markdown");
         assert_eq!(package.view_html, "<html><body>view</body></html>");
     }
 

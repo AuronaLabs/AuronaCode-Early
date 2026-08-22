@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { crc32 } from "node:zlib";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const guestDir = join(root, "Extensions", "aurona.planner");
+const guestDir = join(root, "Extensions", "auronalabs.planner");
 const wasmPath = join(
   guestDir,
   "target",
@@ -13,8 +13,8 @@ const wasmPath = join(
   "release",
   "aurona_planner.wasm",
 );
-const outputDir = join(root, "src-tauri", "resources", "extensions");
-const outputPath = join(outputDir, "aurona.planner.aurx");
+const outputDir = join(root, "MarketplacePackages");
+const outputPath = join(outputDir, "auronalabs.planner.aurx");
 
 function findVcvars64() {
   const candidates = [
@@ -40,7 +40,7 @@ function buildGuest() {
   if (existsSync(lockPath)) args.push("--locked");
 
   const remapFlags = [
-    `--remap-path-prefix=${guestDir}=/aurona-planner`,
+    `--remap-path-prefix=${guestDir}=/auronalabs-planner`,
     `--remap-path-prefix=${root}=/aurona`,
   ];
   const env = {
@@ -165,8 +165,9 @@ function main() {
 
   const manifest = {
     packageVersion: 1,
-    id: "aurona.planner",
-    name: "Task & Test Planner",
+    id: "auronalabs.planner",
+    name: "任务面板",
+    displayName: { "zh-CN": "任务面板", "zh-Hant": "任務面板", en: "Task Panel" },
     displayName: {
       "zh-CN": "任务计划",
       "zh-Hant": "任務計劃",
@@ -178,9 +179,11 @@ function main() {
       "zh-Hant": "視覺化任務計劃與測試用例清單看板",
       en: "Visual task planner and test case checklist for Aurona Code",
     },
-    publisher: "aurona",
+    publisher: "auronalabs",
     version: "0.1.0",
     engine: { auronaCode: ">=0.3.12" },
+    permissions: ["workspace.read", "workspace.readwrite", "clipboard.write"],
+    changelog: "首个公开版本：提供任务清单持久化、任务状态管理和剪贴板交互。",
     runtime: { component: "extension.wasm" },
     sidebar: {
       title: "Planner",
@@ -201,6 +204,12 @@ function main() {
       license: "MIT",
     },
   };
+  manifest.displayName = { "zh-CN": "任务面板", "zh-Hant": "任務面板", en: "Task Panel" };
+  manifest.displayDescription = {
+    "zh-CN": "可视化任务规划和测试用例清单",
+    "zh-Hant": "可視化任務規劃與測試案例清單",
+    en: "Visual task planner and test case checklist for Aurona Code",
+  };
   const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 
   const normalizedView = view.replace(/\r\n/g, "\n");
@@ -217,7 +226,7 @@ function main() {
   writeFileSync(outputPath, aurx);
 
   const kilobytes = (aurx.length / 1024).toFixed(1);
-  console.log(`aurona.planner.aurx 构建完成: ${aurx.length} bytes (${kilobytes} KiB)`);
+  console.log(`auronalabs.planner.aurx 构建完成: ${aurx.length} bytes (${kilobytes} KiB)`);
   console.log(`输出: ${outputPath}`);
 }
 

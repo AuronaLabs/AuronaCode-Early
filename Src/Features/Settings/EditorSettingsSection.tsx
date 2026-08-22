@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
@@ -28,6 +29,14 @@ export function EditorSettingsSection({
   setEditorWordWrap,
 }: EditorSettingsSectionProps) {
   const { t } = useLocale();
+  const [editorMinimap, setEditorMinimap] = useState(false);
+  const [cursorSmoothCaret, setCursorSmoothCaret] = useState(true);
+
+  useEffect(() => {
+    UserConfigStore.get().then((config) => {
+      setEditorMinimap(config.editorMinimap ?? false);
+    });
+  }, []);
 
   const resetEditorFontSize = () => {
     setEditorFontSize("14");
@@ -52,6 +61,20 @@ export function EditorSettingsSection({
     setEditorWordWrap("on");
     void UserConfigStore.set({ editorWordWrap: "on" });
     EventBus.emit("settings:editor-changed");
+  };
+
+  const handleMinimapChange = (checked: boolean) => {
+    setEditorMinimap(checked);
+    void UserConfigStore.set({ editorMinimap: checked });
+    EventBus.emit("settings:editor-changed");
+  };
+
+  const handleCursorSmoothChange = (checked: boolean) => {
+    setCursorSmoothCaret(checked);
+    document.documentElement.style.setProperty(
+      "--EditorCursorSmooth",
+      checked ? "smooth" : "normal",
+    );
   };
 
   return (
@@ -172,7 +195,7 @@ export function EditorSettingsSection({
           <div className="flex shrink-0 items-center gap-2">
             <Switch
               checked={editorWordWrap === "on"}
-              onCheckedChange={(checked) => {
+              onChange={(checked) => {
                 const val = checked ? "on" : "off";
                 setEditorWordWrap(val);
                 void UserConfigStore.set({ editorWordWrap: val });
@@ -183,7 +206,10 @@ export function EditorSettingsSection({
           </div>
         </div>
 
-        <div data-setting-id="editorMinimap" className="flex items-center justify-between p-5">
+        <div
+          data-setting-id="editorMinimap"
+          className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]"
+        >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.editorSection.minimap")}
@@ -192,9 +218,39 @@ export function EditorSettingsSection({
               {t("settings.editorSection.minimapDescription")}
             </span>
           </div>
-          <span className="rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-[12px] text-[var(--color-text-muted)]">
-            {t("settings.editorSection.unavailable")}
-          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <Switch
+              checked={editorMinimap}
+              onCheckedChange={handleMinimapChange}
+              aria-label={t("settings.editorSection.minimap")}
+            />
+            <SettingResetButton
+              label={t("settings.reset")}
+              onReset={() => handleMinimapChange(false)}
+            />
+          </div>
+        </div>
+
+        <div data-setting-id="editorSmoothCaret" className="flex items-center justify-between p-5">
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              平滑光标呼吸动画 (Smooth Caret)
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
+              开启后光标输入与跳转将展现灵动柔和的渐变微动效果
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Switch
+              checked={cursorSmoothCaret}
+              onCheckedChange={handleCursorSmoothChange}
+              aria-label="平滑光标呼吸动画"
+            />
+            <SettingResetButton
+              label={t("settings.reset")}
+              onReset={() => handleCursorSmoothChange(true)}
+            />
+          </div>
         </div>
       </GlassContainer>
     </div>
