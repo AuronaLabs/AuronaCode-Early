@@ -351,6 +351,7 @@ pub fn open_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, Strin
     }))
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Default, Deserialize)]
 struct VsCodeContributes {
     #[serde(default)]
@@ -363,6 +364,7 @@ struct VsCodeContributes {
     themes: Vec<serde_json::Value>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct VsCodePackageJson {
     name: String,
