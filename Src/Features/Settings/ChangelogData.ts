@@ -12,9 +12,86 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-    version: "V0.4.0-pioneer.2",
+    version: "V0.4.0-pioneer.3",
     date: "2026-08-22",
     isLatest: true,
+    summary:
+      "V0.4.0-pioneer.3 带来了重磅的 Corona+ 核心架构审查与扩展生态深度基础设施升级：上线全新的全局动态状态栏注册表 StatusBarRegistry，支持核心、LSP 与扩展插件声明式动态挂载状态胶囊；完整实现 VS Code 兼容扩展宿主 VSCodeExtensionHost，涵盖 window、commands、workspace、env 与 Uri 等全套标准 API；落地官方原生 Aurona SDK v1.1 运行时，打通文档编辑、沙箱存储与模态交互；Fliuno 全局检索新增扩展搜索分类与动态 Provider 注入能力；事件总线全面升级单点故障隔离与一次性监听自动注销机制；WASM 扩展安装引入 SHA-256 哈希强校验；扩展安装与私有存储彻底隔离至 APPDATA 目录；空间管理全面升级并接入 pioneer-latest 自动化双通道更新流。",
+    sections: [
+      {
+        title: "全局动态状态栏系统 (StatusBarRegistry)",
+        description: "彻底解耦状态栏硬编码，提供现代化的声明式条目注册机制",
+        items: [
+          "**动态条目生命周期管理**：支持向状态栏左侧与右侧动态注册状态胶囊项，支持优先级排序、Tooltip 悬浮提示与点击动作绑定",
+          "**响应式变更通知**：内置精确响应式订阅管道，状态栏条目文案、图标与可见性变更即时完成视图同步",
+          "**多系统无缝挂载**：LSP 状态指示、Git 分支、调试会话与第三方扩展均可无冲突并存与协同呈现",
+        ],
+      },
+      {
+        title: "VS Code 兼容扩展宿主 (VSCodeExtensionHost)",
+        description: "告别样板空壳，为 VSIX 扩展提供完整的现代 API 运行时环境",
+        items: [
+          "**核心命名空间全量覆盖**：实现 `vscode.window`、`vscode.commands`、`vscode.workspace` 与 `vscode.env` 全套 API",
+          "**标准编辑器与交互能力**：支持 `activeTextEditor` 选区/文本编辑、`showQuickPick`、`showInformationMessage` 与系统剪贴板原生读写",
+          "**标准类型与工厂函数**：提供 `Uri`、`Position`、`Range`、`Selection` 与 `DiagnosticSeverity` 等标准类型工具",
+        ],
+      },
+      {
+        title: "官方原生 Aurona SDK v1.1 运行时宿主",
+        description: "为 WASM 扩展与原生插件提供高能、类型安全的开发体验",
+        items: [
+          "**文档与文本编辑矩阵**：`aurona.workspace` 提供文档状态读取、批量差异替换、保存与文件打开能力",
+          "**沙箱数据持久化存储**：`aurona.storage` 自动映射至系统 APPDATA 独立目录，数据与主程序绝对隔离",
+          "**声明式 UI 与命令交互**：`aurona.ui` 与 `aurona.commands` 支持拟物 Toast、状态栏胶囊与快捷命令注册",
+        ],
+      },
+      {
+        title: "Fliuno 全局检索扩展动态 Provider 架构",
+        description: "让扩展插件拥有直接向全局搜索注入动态内容的能力",
+        items: [
+          "**动态搜索源注册**：扩展可通过 SDK 动态注册自定义检索源，Fliuno 在搜索时并发聚合扩展结果",
+          "**专属扩展搜索 Scope**：支持 `!` 快捷前缀与扩展过滤标签，秒级直达插件提供的专属动作与内容",
+        ],
+      },
+      {
+        title: "Corona+ 核心架构审查与事件总线韧性加固",
+        description: "对自 0.2.x 延续至今的基础设施进行全方位防御性加固",
+        items: [
+          "**事件总线异常隔离防护**：EventBus 派发循环增加单点故障隔离保护，单个组件监听器抛出异常不再中断全局事件流",
+          "**一次性监听器自动注销**：新增 `EventBus.once()` 机制，在单次触发后自动注销自清理，杜绝临时回调函数的闭包内存泄漏",
+          "**文档生命周期竞态治理**：强化 DocumentService 在快速切换与关闭文件时的悬挂异步同步清理，确保保存状态精确复位",
+        ],
+      },
+      {
+        title: "WASM 扩展安装 SHA-256 端到端哈希强校验",
+        description: "构建从下载到物理写入的完整安全验证防线",
+        items: [
+          "**二进制流哈希比对**：Rust 核心安装引擎实时计算扩展包 SHA-256 摘要，与服务端响应头及元数据期望值进行严格比对",
+          "**防篡改与损坏拦截**：哈希不匹配时立即终止安装并报错告警，坚决杜绝恶意篡改或网络传输损坏的扩展包写入磁盘",
+        ],
+      },
+      {
+        title: "数据与本体彻底解耦及空间管理全面升级",
+        description: "落实 APPDATA 数据主权，提供直观易用的存储管理",
+        items: [
+          "**程序本体 100% 纯净**：所有扩展包、沙箱私有存储、权限配置与运行时缓存统一保存在系统 `AppLocalData` 目录，安装目录保持只读",
+          "**扩展沙箱私有存储管理**：空间管理新增「插件沙箱私有存储」独立分类与容量进度条，支持一键安全清理插件本地缓存",
+          "**一键打开本地数据目录**：顶部新增快捷入口，一键调起系统文件资源管理器定位到应用数据主目录",
+        ],
+      },
+      {
+        title: "Tauri 生产打包 CSP 放行与 pioneer-latest 自动更新通道",
+        description: "打通线上多通道更新与网络请求安全防线",
+        items: [
+          "**CSP 安全白名单放行**：放行市场接口、账户认证、GitHub Release 下载与本地回环端点，解决打包后网络请求拦截问题",
+          "**pioneer-latest 自动同步工作流**：GitHub Actions 构建先锋版本时自动同步至固定先锋发布通道，实现双通道无缝平滑升级",
+        ],
+      },
+    ],
+  },
+  {
+    version: "V0.4.0-pioneer.2",
+    date: "2026-08-22",
     summary:
       "V0.4.0-pioneer.2 迎来了先锋通道的核心功能跃升与多项底层能力闭环：新增扩展包物理安装与卸载全生命周期引擎，打通从市场下载、本地解压存储、运行时热加载与版本升级的完整流程；接入 Aurona Account OAuth/OIDC 认证协议与本地 Loopback 回调机制，打通跨端收藏与真实用户评价；彻底重构多页面 Tab Keep-Alive 保活机制，页面切换不再丢失任何输入与滚动状态；设置中心全面支持 Deep Link 锚点跳转与平滑高亮导航；通知中心支持多分类筛选与免打扰静音模式；全新上线 0.4.x 系列专属 Splash 启动背景；权限提示弹窗全面重构为 iOS 极简拟物毛玻璃设计；Aurona Marketplace 界面重构并全量对接搜索、详情、权限清单、安全评分与评价互动等全部端点；移除繁体中文与英文 Beta 标识，扩充 Minimap 与平滑光标配置，持续打磨沉浸纯粹的现代开发体验。",
     sections: [

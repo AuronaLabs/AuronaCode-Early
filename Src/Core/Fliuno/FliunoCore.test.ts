@@ -356,4 +356,30 @@ describe("FliunoSearchSession", () => {
     await expect(pending).resolves.toEqual([]);
     expect(mocks.workspace.cancel).toHaveBeenCalled();
   });
+
+  it("searches and returns results from dynamic ExtensionFliunoRegistry providers", async () => {
+    const { ExtensionFliunoRegistry } = await import("../../Features/Extensions/SDK/AuronaSDKHost");
+    const unregister = ExtensionFliunoRegistry.register({
+      id: "test.search.ext",
+      title: "Ext Snippets",
+      search: (q) => [
+        {
+          id: "snippet-1",
+          title: `Snippet: ${q}`,
+          detail: "Code snippet detail",
+          onSelect: () => {},
+        },
+      ],
+    });
+
+    const results = await searchFliuno(
+      baseContext({
+        scope: "extensions",
+        query: "rust",
+      }),
+    );
+
+    expect(results.some((r) => r.title === "Snippet: rust" && r.kind === "extension")).toBe(true);
+    unregister();
+  });
 });

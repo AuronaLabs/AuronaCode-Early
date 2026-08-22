@@ -63,6 +63,7 @@ const SCOPE_OPTIONS: Array<{ id: FliunoScope; labelKey: I18nKey }> = [
   { id: "settings", labelKey: "common.setting" },
   { id: "symbols", labelKey: "common.symbol" },
   { id: "content", labelKey: "common.content" },
+  { id: "extensions", labelKey: "extensions.sidebarTitle" },
 ];
 
 export function FliunoWorkspacePage() {
@@ -240,6 +241,11 @@ export function FliunoWorkspacePage() {
           const targetLine = result.targetLine ?? 1;
           workbench.requestReveal(result.targetPath, targetLine);
           NavigationHistory.record({ path: result.targetPath, line: targetLine });
+        }
+        break;
+      case "customExtension":
+        if (result.onSelect) {
+          void result.onSelect();
         }
         break;
     }

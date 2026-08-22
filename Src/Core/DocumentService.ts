@@ -171,9 +171,11 @@ class DocumentServiceImpl {
     if (!record) return;
     this.patch(path, { openState: "closing" });
     try {
-      await LspClient.getInstance().didClose(record.languageId, path);
-      await EditorIPC.close(path, force);
       this.languageSyncs.delete(path);
+      await LspClient.getInstance()
+        .didClose(record.languageId, path)
+        .catch(() => undefined);
+      await EditorIPC.close(path, force);
       this.documents.delete(path);
       this.emit(path);
     } catch (error) {

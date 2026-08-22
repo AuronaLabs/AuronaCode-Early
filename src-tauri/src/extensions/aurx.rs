@@ -351,6 +351,18 @@ pub fn open_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, Strin
     }))
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct VsCodeContributes {
+    #[serde(default)]
+    commands: Vec<serde_json::Value>,
+    #[serde(default)]
+    languages: Vec<serde_json::Value>,
+    #[serde(default)]
+    snippets: Vec<serde_json::Value>,
+    #[serde(default)]
+    themes: Vec<serde_json::Value>,
+}
+
 #[derive(Debug, Deserialize)]
 struct VsCodePackageJson {
     name: String,
@@ -359,6 +371,16 @@ struct VsCodePackageJson {
     publisher: Option<String>,
     version: Option<String>,
     description: Option<String>,
+    #[serde(default)]
+    categories: Vec<String>,
+    #[serde(default)]
+    keywords: Vec<String>,
+    #[serde(default)]
+    homepage: Option<String>,
+    #[serde(default)]
+    license: Option<String>,
+    #[serde(default)]
+    contributes: Option<VsCodeContributes>,
 }
 
 /// 解析与加载标准 VSCode 插件包 (.vsix)
@@ -403,6 +425,11 @@ pub fn open_vsix_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, 
     disp_map.insert("zh-CN".to_string(), display_title.clone());
     disp_map.insert("en".to_string(), display_title.clone());
 
+    let mut categories = pkg.categories.clone();
+    if categories.is_empty() {
+        categories.push("VS Code Compat".to_string());
+    }
+
     let manifest = ExtensionManifest {
         package_version: 1,
         id,
@@ -420,7 +447,7 @@ pub fn open_vsix_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, 
             m
         }),
         engine: EngineRequirement {
-            aurona_code: ">=0.3.16".to_string(),
+            aurona_code: ">=0.4.0".to_string(),
         },
         runtime: RuntimeEntry {
             component: "extension.wasm".to_string(),
@@ -433,7 +460,16 @@ pub fn open_vsix_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, 
         view: ViewEntry {
             entry: "ui/index.html".to_string(),
         },
-        marketplace: None,
+        marketplace: Some(MarketplaceMetadata {
+            categories,
+            tags: pkg.keywords,
+            author: None,
+            homepage: pkg.homepage,
+            repository: None,
+            license: pkg.license,
+            rating: Some(5.0),
+            downloads: Some(0),
+        }),
     };
 
     let icon_svg = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/></svg>"#.to_string();

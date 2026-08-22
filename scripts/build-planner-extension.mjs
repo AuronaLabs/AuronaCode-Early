@@ -6,13 +6,7 @@ import { crc32 } from "node:zlib";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const guestDir = join(root, "Extensions", "auronalabs.planner");
-const wasmPath = join(
-  guestDir,
-  "target",
-  "wasm32-wasip2",
-  "release",
-  "aurona_planner.wasm",
-);
+const wasmPath = join(guestDir, "target", "wasm32-wasip2", "release", "aurona_planner.wasm");
 const outputDir = join(root, "MarketplacePackages");
 const outputPath = join(outputDir, "auronalabs.planner.aurx");
 
@@ -29,14 +23,7 @@ function findVcvars64() {
 function buildGuest() {
   const manifestPath = join(guestDir, "Cargo.toml");
   const lockPath = join(guestDir, "Cargo.lock");
-  const args = [
-    "build",
-    "--manifest-path",
-    manifestPath,
-    "--target",
-    "wasm32-wasip2",
-    "--release",
-  ];
+  const args = ["build", "--manifest-path", manifestPath, "--target", "wasm32-wasip2", "--release"];
   if (existsSync(lockPath)) args.push("--locked");
 
   const remapFlags = [
@@ -45,10 +32,7 @@ function buildGuest() {
   ];
   const env = {
     ...process.env,
-    CARGO_ENCODED_RUSTFLAGS: [
-      process.env.CARGO_ENCODED_RUSTFLAGS || "",
-      ...remapFlags,
-    ]
+    CARGO_ENCODED_RUSTFLAGS: [process.env.CARGO_ENCODED_RUSTFLAGS || "", ...remapFlags]
       .filter(Boolean)
       .join("\x1f"),
   };

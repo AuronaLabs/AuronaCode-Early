@@ -4,7 +4,7 @@
   <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-pioneer.2-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-pioneer.3-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
@@ -16,7 +16,7 @@
 Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造轻量、克制且具触感美学的沉浸式编码工作台。
 
 > [!NOTE]
-> **Aurona Code 正式开启 0.4.0 演进周期！** 当前版本为 **V0.4.0-pioneer.2** 先锋测试版，Pioneer 先锋尝鲜机制与双渠道物理 Feature Flags 架构已全面上线，欢迎体验与共建！
+> **Aurona Code 正式开启 0.4.0 演进周期！** 当前版本为 **V0.4.0-pioneer.3** 先锋测试版，Pioneer 先锋尝鲜机制与双渠道物理 Feature Flags 架构已全面上线，欢迎体验与共建！
 
 ---
 

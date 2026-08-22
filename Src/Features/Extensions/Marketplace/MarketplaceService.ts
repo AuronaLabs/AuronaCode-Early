@@ -644,8 +644,9 @@ export const MarketplaceService = {
     const url = await this.getDownloadUrl(id, version);
     const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
     if (!response.ok) throw new Error(`下载安装包失败 (${response.status})`);
+    const sha256 = response.headers.get("X-Aurona-Extension-Sha256") || undefined;
     const bytes = Array.from(new Uint8Array(await response.arrayBuffer()));
-    const descriptor = await ExtensionIPC.install(bytes);
+    const descriptor = await ExtensionIPC.install(bytes, sha256);
     return descriptor;
   },
 

@@ -62,8 +62,8 @@ export const ExtensionIPC = {
     return invokeDesktop("extensions_list");
   },
 
-  install(archiveBytes: number[]): Promise<ExtensionDescriptor> {
-    return invokeDesktop("extensions_install", { archiveBytes });
+  install(archiveBytes: number[], expectedSha256?: string): Promise<ExtensionDescriptor> {
+    return invokeDesktop("extensions_install", { archiveBytes, expectedSha256 });
   },
 
   uninstall(extensionId: string): Promise<void> {

@@ -144,6 +144,8 @@ pub fn run() {
             commands::ipc::clear_performance_baseline,
             commands::ipc::clear_other_app_data,
             commands::ipc::clear_editor_recovery,
+            commands::ipc::open_app_data_folder,
+            commands::ipc::clear_extension_storage,
             commands::ipc::mark_splashscreen_shown,
             commands::ipc::close_splashscreen,
             editor::open_editor_file,

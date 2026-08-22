@@ -36,8 +36,11 @@ function readEntries(data) {
     const name = data.subarray(position + 46, position + 46 + nameLength).toString("utf8");
 
     const localHeaderSize = 30 + data.readUInt16LE(localOffset + 26);
-    const content = data.subarray(localOffset + localHeaderSize, localOffset + localHeaderSize + size);
-    if ((crc32(content) >>> 0) !== crc) {
+    const content = data.subarray(
+      localOffset + localHeaderSize,
+      localOffset + localHeaderSize + size,
+    );
+    if (crc32(content) >>> 0 !== crc) {
       throw new Error(`CRC 校验失败: ${name}`);
     }
     entries.push({ name, content });
@@ -54,7 +57,9 @@ function main() {
     throw new Error(`AURX 文件列表不符: ${names.join(", ")}`);
   }
 
-  const manifest = JSON.parse(entries.find((entry) => entry.name === "manifest.json").content.toString("utf8"));
+  const manifest = JSON.parse(
+    entries.find((entry) => entry.name === "manifest.json").content.toString("utf8"),
+  );
   if (manifest.packageVersion !== 1 || manifest.id !== "aurona.vscode-compat") {
     throw new Error("AURX manifest 无效");
   }

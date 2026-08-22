@@ -6,13 +6,7 @@ import { crc32 } from "node:zlib";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const guestDir = join(root, "Extensions", "aurona.vscode-compat");
-const wasmPath = join(
-  guestDir,
-  "target",
-  "wasm32-wasip2",
-  "release",
-  "aurona_vscode_compat.wasm",
-);
+const wasmPath = join(guestDir, "target", "wasm32-wasip2", "release", "aurona_vscode_compat.wasm");
 const outputDir = join(root, "src-tauri", "resources", "extensions");
 const outputPath = join(outputDir, "aurona.vscode-compat.aurx");
 
@@ -29,14 +23,7 @@ function findVcvars64() {
 function buildGuest() {
   const manifestPath = join(guestDir, "Cargo.toml");
   const lockPath = join(guestDir, "Cargo.lock");
-  const args = [
-    "build",
-    "--manifest-path",
-    manifestPath,
-    "--target",
-    "wasm32-wasip2",
-    "--release",
-  ];
+  const args = ["build", "--manifest-path", manifestPath, "--target", "wasm32-wasip2", "--release"];
   if (existsSync(lockPath)) args.push("--locked");
 
   const remapFlags = [
@@ -45,10 +32,7 @@ function buildGuest() {
   ];
   const env = {
     ...process.env,
-    CARGO_ENCODED_RUSTFLAGS: [
-      process.env.CARGO_ENCODED_RUSTFLAGS || "",
-      ...remapFlags,
-    ]
+    CARGO_ENCODED_RUSTFLAGS: [process.env.CARGO_ENCODED_RUSTFLAGS || "", ...remapFlags]
       .filter(Boolean)
       .join("\x1f"),
   };
@@ -172,7 +156,8 @@ function main() {
       "zh-Hant": "VSCode 相容層",
       en: "VSCode Compat",
     },
-    description: "Shared WASM translation and execution runtime for VSCode extensions in Aurona Code",
+    description:
+      "Shared WASM translation and execution runtime for VSCode extensions in Aurona Code",
     displayDescription: {
       "zh-CN": "Aurona Code 的 VSCode 扩展共用 WASM 转译与运行容器（第一阶段）",
       "zh-Hant": "Aurona Code 的 VSCode 擴充共用 WASM 轉譯與執行容器（第一階段）",

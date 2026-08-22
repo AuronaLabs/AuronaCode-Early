@@ -105,6 +105,8 @@ pub struct StorageBreakdown {
     pub performance_bytes: u64,
     pub cache_bytes: u64,
     pub errlog_bytes: u64,
+    pub extension_bytes: u64,
+    pub extension_storage_bytes: u64,
     pub other_app_data_bytes: u64,
 }
 
@@ -136,6 +138,8 @@ pub async fn get_storage_breakdown(app: tauri::AppHandle) -> Result<StorageBreak
         let performance_bytes = file_size(&app_dir.join("performance-baseline.json"))?;
         let cache_bytes = get_dir_size(&app_dir.join("EBWebView")).unwrap_or(0);
         let errlog_bytes = get_dir_size(&app_dir.join("errlogs")).unwrap_or(0);
+        let extension_bytes = get_dir_size(&app_dir.join("extensions")).unwrap_or(0);
+        let extension_storage_bytes = get_dir_size(&app_dir.join("extension-storage")).unwrap_or(0);
         let log_bytes = get_dir_size(&log_dir).unwrap_or(0);
         let accounted = config_bytes
             .saturating_add(workspace_bytes)
@@ -143,6 +147,8 @@ pub async fn get_storage_breakdown(app: tauri::AppHandle) -> Result<StorageBreak
             .saturating_add(performance_bytes)
             .saturating_add(cache_bytes)
             .saturating_add(errlog_bytes)
+            .saturating_add(extension_bytes)
+            .saturating_add(extension_storage_bytes)
             .saturating_add(log_bytes);
         let other_app_data_bytes = app_data_bytes.saturating_sub(accounted);
         Ok(StorageBreakdown {
@@ -154,6 +160,8 @@ pub async fn get_storage_breakdown(app: tauri::AppHandle) -> Result<StorageBreak
             performance_bytes,
             cache_bytes,
             errlog_bytes,
+            extension_bytes,
+            extension_storage_bytes,
             other_app_data_bytes,
         })
     })
@@ -319,4 +327,48 @@ pub async fn close_splashscreen(
         let _ = splashscreen.close();
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn open_app_data_folder(app: tauri::AppHandle) -> Result<(), String> {
+    let path = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("Failed to get app local data dir: {error}"))?;
+    tokio::task::spawn_blocking(move || {
+        #[cfg(target_os = "windows")]
+        {
+            let _ = std::process::Command::new("explorer").arg(&path).spawn();
+        }
+        #[cfg(target_os = "macos")]
+        {
+            let _ = std::process::Command::new("open").arg(&path).spawn();
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let _ = std::process::Command::new("xdg-open").arg(&path).spawn();
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Open folder task failed: {e}"))?
+}
+
+#[tauri::command]
+pub async fn clear_extension_storage(app: tauri::AppHandle) -> Result<u64, String> {
+    let path = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("Failed to get app local data dir: {error}"))?
+        .join("extension-storage");
+    tokio::task::spawn_blocking(move || {
+        let size = get_dir_size(&path).unwrap_or(0);
+        if path.exists() {
+            let _ = fs::remove_dir_all(&path);
+            let _ = fs::create_dir_all(&path);
+        }
+        Ok(size)
+    })
+    .await
+    .map_err(|e| format!("Clear extension storage task failed: {e}"))?
 }

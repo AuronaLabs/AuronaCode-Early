@@ -1,6 +1,6 @@
-import type { SettingCategory } from "../../Core/Settings/SettingRegistry";
 import type { UpdateInfo, UpdateProgress } from "../Desktop";
 import type { DebugPreferences } from "../Types/Config";
+import type { SettingCategory } from "../Types/Settings";
 import type { TabItem } from "../Types/Tab";
 import type { TerminalInstance } from "../Types/Terminal";
 
@@ -113,6 +113,9 @@ class EventBusImpl {
     [K in keyof EventMap]?: EventCallback<EventMap[K]>[];
   };
 
+  /**
+   * 注册持久事件监听器
+   */
   on<K extends keyof EventMap>(event: K, callback: EventCallback<EventMap[K]>): () => void {
     if (!this.listeners[event]) {
       this.listeners[event] = [];
@@ -121,6 +124,20 @@ class EventBusImpl {
     return () => this.off(event, callback);
   }
 
+  /**
+   * 注册一次性事件监听器，触发后自动销毁，防止内存泄漏
+   */
+  once<K extends keyof EventMap>(event: K, callback: EventCallback<EventMap[K]>): () => void {
+    const onceWrapper: EventCallback<EventMap[K]> = (payload) => {
+      this.off(event, onceWrapper);
+      callback(payload);
+    };
+    return this.on(event, onceWrapper);
+  }
+
+  /**
+   * 注销指定事件监听器
+   */
   off<K extends keyof EventMap>(event: K, callback: EventCallback<EventMap[K]>): void {
     const listeners = this.listeners[event];
     if (!listeners) return;
@@ -128,10 +145,18 @@ class EventBusImpl {
     if (index >= 0) listeners.splice(index, 1);
   }
 
+  /**
+   * 派发系统级事件，具备单点故障异常隔离保护
+   */
   emit<K extends keyof EventMap>(event: K, payload?: EventMap[K]): void {
-    [...(this.listeners[event] ?? [])].forEach((callback) => {
-      callback(payload as EventMap[K]);
-    });
+    const currentListeners = [...(this.listeners[event] ?? [])];
+    for (const callback of currentListeners) {
+      try {
+        callback(payload as EventMap[K]);
+      } catch (error) {
+        console.error(`[EventBus] 事件 ${String(event)} 处理器执行异常:`, error);
+      }
+    }
   }
 }
 

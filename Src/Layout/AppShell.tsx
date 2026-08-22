@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { NotificationService } from "../Core/NotificationService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
+import { FliunoModal as Fliuno } from "../Features/Fliuno/FliunoModal";
 import { EventBus } from "../Foundation/EventBus";
 import { useLocale } from "../Foundation/I18n";
 import {
@@ -25,7 +26,6 @@ import {
 } from "../UI/Components/ContextMenu";
 import { ToastContainer } from "../UI/Feedback/Toast";
 import { UpdateModal } from "../UI/Feedback/UpdateModal";
-import { Fliuno } from "../UI/Fliuno/Fliuno";
 import { Icons } from "../UI/Icons/IconManager";
 import { StatusBar } from "./StatusBar";
 import { TitleBar } from "./TitleBar/TitleBar";

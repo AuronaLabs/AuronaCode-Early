@@ -814,9 +814,11 @@ export const en: LocaleMessages = {
       description: "Monitor and clean the disk space used by Aurona Code by real directories",
       localDataUsed: "local data used",
       appDataDir: "App local data directory",
+      openAppDataDir: "Open Data Directory",
       note: "Entries above map to real files and folders in the app local data directory; WebView cache is rebuilt automatically, while configuration, workspace state and recovery snapshots are core data, so clear them with care",
       detailsTitle: "Storage Breakdown & Cleanup",
       groupCore: "Core Data",
+      groupExtensions: "Extensions",
       groupCache: "Cache",
       groupLogs: "Logs",
       groupOther: "Other",
@@ -838,6 +840,11 @@ export const en: LocaleMessages = {
           name: "Editor Recovery Snapshots",
           description:
             "Used to recover unsaved documents after an abnormal close; clear only if you no longer need them",
+        },
+        extensionStorage: {
+          name: "Extension Sandbox Storage",
+          description:
+            "Private key-value storage and cache written by WASM extensions in local APPDATA",
         },
         cache: {
           name: "WebView Rendering Cache",
@@ -866,6 +873,7 @@ export const en: LocaleMessages = {
         configCleared: "User configuration cleared. Restore defaults after a restart",
         workspaceCleared: "Workspace state cleared. Layout resets after a restart",
         recoveryCleared: "Editor recovery snapshots cleared",
+        extensionStorageCleared: "Extension sandbox storage cleared",
         cacheCleared: "WebView cache cleared. It rebuilds on next launch",
         logsCleared: "App logs cleared",
         errlogsCleared: "Error logs cleared",

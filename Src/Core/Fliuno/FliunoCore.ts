@@ -13,8 +13,16 @@ import {
   type SettingCategory,
   searchSettings,
 } from "../Settings/SettingRegistry";
+import { ExtensionFliunoRegistry } from "./ExtensionFliunoRegistry";
 
-export type FliunoScope = "all" | "commands" | "files" | "settings" | "symbols" | "content";
+export type FliunoScope =
+  | "all"
+  | "commands"
+  | "files"
+  | "settings"
+  | "symbols"
+  | "content"
+  | "extensions";
 
 export interface ParsedFliunoQuery {
   scope: FliunoScope;
@@ -36,6 +44,9 @@ export function parseFliunoQuery(value: string, selectedScope: FliunoScope): Par
   if (trimmed.startsWith(":")) {
     return { scope: "content", query: trimmed.slice(1).trimStart(), explicitScope: true };
   }
+  if (trimmed.startsWith("!")) {
+    return { scope: "extensions", query: trimmed.slice(1).trimStart(), explicitScope: true };
+  }
   return { scope: selectedScope, query: value.trim(), explicitScope: false };
 }
 
@@ -44,6 +55,7 @@ const PREFIX_SCOPE: Record<string, FliunoScope> = {
   "@": "files",
   "#": "symbols",
   ":": "content",
+  "!": "extensions",
 };
 
 /**
@@ -225,7 +237,13 @@ export function fuzzyScore(value: string, query: string): number {
   return total;
 }
 
-export type FliunoCoreResultKind = "command" | "file" | "setting" | "symbol" | "content";
+export type FliunoCoreResultKind =
+  | "command"
+  | "file"
+  | "setting"
+  | "symbol"
+  | "content"
+  | "extension";
 
 export interface FliunoCoreResult {
   id: string;
@@ -236,12 +254,19 @@ export interface FliunoCoreResult {
   recent: boolean;
   titleRanges: Array<[number, number]>;
   descriptionRanges: Array<[number, number]>;
-  action: "openFile" | "executeCommand" | "openSettings" | "revealSymbol" | "revealContent";
+  action:
+    | "openFile"
+    | "executeCommand"
+    | "openSettings"
+    | "revealSymbol"
+    | "revealContent"
+    | "customExtension";
   targetPath?: string;
   targetLine?: number;
   commandId?: string;
   settingId?: string;
   settingCategory?: SettingCategory;
+  onSelect?: () => void | Promise<void>;
 }
 
 export interface FliunoCoreContext {
@@ -521,6 +546,40 @@ export async function searchFliuno(context: FliunoCoreContext): Promise<FliunoCo
       }
     } catch {
       // 内容搜索失败时静默跳过。
+    }
+  }
+
+  if (context.scope === "all" || context.scope === "extensions") {
+    const providers = ExtensionFliunoRegistry.getProviders();
+    for (const provider of providers) {
+      try {
+        const customItems = await provider.search(query);
+        for (const item of customItems) {
+          const match = query
+            ? matchQuery(query, [
+                { text: item.title, weight: 1, surface: "title" },
+                { text: item.detail ?? "", weight: 0.6, surface: "description" },
+              ])
+            : { score: 50, titleRanges: [], descriptionRanges: [] };
+
+          if (match) {
+            results.push({
+              id: `extension:${provider.id}:${item.id}`,
+              kind: "extension",
+              title: item.title,
+              description: item.detail ?? provider.title,
+              score: match.score + 20,
+              recent: false,
+              titleRanges: match.titleRanges,
+              descriptionRanges: match.descriptionRanges,
+              action: "customExtension",
+              onSelect: item.onSelect,
+            });
+          }
+        }
+      } catch (err) {
+        console.error(`[Fliuno] 扩展 Provider ${provider.id} 检索失败:`, err);
+      }
     }
   }
 

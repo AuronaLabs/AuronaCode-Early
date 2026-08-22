@@ -33,7 +33,7 @@ import {
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../../State/useEditorStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
-import { Icons } from "../Icons/IconManager";
+import { Icons } from "../../UI/Icons/IconManager";
 
 const FLIUNO_COMMAND_ID = "workbench.action.openFliuno";
 
@@ -60,17 +60,18 @@ function HighlightedText({ text, ranges }: { text: string; ranges: Array<[number
 const scopeOptions: Array<{
   id: FliunoScope;
   labelKey: I18nKey;
-  icon: "Search" | "Command" | "Files" | "Settings" | "Sparkles" | "Search";
+  icon: "Search" | "Command" | "Files" | "Settings" | "Sparkles" | "Extensions";
 }> = [
   { id: "all", labelKey: "fliuno.scopeAll", icon: "Search" },
   { id: "commands", labelKey: "common.command", icon: "Command" },
   { id: "files", labelKey: "common.file", icon: "Files" },
   { id: "settings", labelKey: "common.setting", icon: "Settings" },
   { id: "symbols", labelKey: "common.symbol", icon: "Sparkles" },
+  { id: "extensions", labelKey: "extensions.sidebarTitle", icon: "Extensions" },
   { id: "content", labelKey: "common.content", icon: "Search" },
 ];
 
-export function Fliuno() {
+export function FliunoModal() {
   const { t } = useLocale();
   const sessionRef = useRef<FliunoSearchSession | null>(null);
   if (!sessionRef.current) sessionRef.current = new FliunoSearchSession();
@@ -277,6 +278,11 @@ export function Fliuno() {
           const targetLine = result.targetLine ?? 1;
           workbench.requestReveal(result.targetPath, targetLine);
           NavigationHistory.record({ path: result.targetPath, line: targetLine });
+        }
+        break;
+      case "customExtension":
+        if (result.onSelect) {
+          void result.onSelect();
         }
         break;
     }
@@ -600,6 +606,9 @@ export function Fliuno() {
                   {"#"} {t("common.symbol")}
                 </span>
                 <span>
+                  {"!"} {t("extensions.sidebarTitle")}
+                </span>
+                <span>
                   {":"} {t("common.content")}
                 </span>
               </span>
@@ -621,6 +630,8 @@ function ResultIcon({ kind }: { kind: FliunoCoreResult["kind"] }) {
       return <Icons.Settings size={15} stroke={1.7} />;
     case "symbol":
       return <Icons.Sparkles size={15} stroke={1.7} />;
+    case "extension":
+      return <Icons.Extensions size={15} stroke={1.7} />;
     case "content":
       return <Icons.Search size={15} stroke={1.7} />;
   }

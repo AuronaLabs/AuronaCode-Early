@@ -85,7 +85,22 @@ impl ExtensionState {
         &self,
         app: &AppHandle,
         archive_bytes: &[u8],
+        expected_sha256: Option<&str>,
     ) -> Result<super::registry::ExtensionDescriptor, String> {
+        if let Some(expected) = expected_sha256 {
+            let expected_clean = expected.trim();
+            if !expected_clean.is_empty() {
+                use sha2::{Digest, Sha256};
+                let mut hasher = Sha256::new();
+                hasher.update(archive_bytes);
+                let actual = format!("{:x}", hasher.finalize());
+                if !actual.eq_ignore_ascii_case(expected_clean) {
+                    return Err(format!(
+                        "扩展包 SHA-256 安全校验失败: 期望 [{expected_clean}], 实际 [{actual}]"
+                    ));
+                }
+            }
+        }
         let package = super::aurx::open_package(archive_bytes)?;
         let id = package.id().to_string();
         if is_builtin_extension(&id) {

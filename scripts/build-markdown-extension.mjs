@@ -6,13 +6,7 @@ import { crc32 } from "node:zlib";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const guestDir = join(root, "Extensions", "auronalabs.markdown");
-const wasmPath = join(
-  guestDir,
-  "target",
-  "wasm32-wasip2",
-  "release",
-  "aurona_markdown.wasm",
-);
+const wasmPath = join(guestDir, "target", "wasm32-wasip2", "release", "aurona_markdown.wasm");
 const outputDir = join(root, "MarketplacePackages");
 const outputPath = join(outputDir, "auronalabs.markdown.aurx");
 
@@ -29,14 +23,7 @@ function findVcvars64() {
 function buildGuest() {
   const manifestPath = join(guestDir, "Cargo.toml");
   const lockPath = join(guestDir, "Cargo.lock");
-  const args = [
-    "build",
-    "--manifest-path",
-    manifestPath,
-    "--target",
-    "wasm32-wasip2",
-    "--release",
-  ];
+  const args = ["build", "--manifest-path", manifestPath, "--target", "wasm32-wasip2", "--release"];
   if (existsSync(lockPath)) args.push("--locked");
 
   const remapFlags = [
@@ -45,10 +32,7 @@ function buildGuest() {
   ];
   const env = {
     ...process.env,
-    CARGO_ENCODED_RUSTFLAGS: [
-      process.env.CARGO_ENCODED_RUSTFLAGS || "",
-      ...remapFlags,
-    ]
+    CARGO_ENCODED_RUSTFLAGS: [process.env.CARGO_ENCODED_RUSTFLAGS || "", ...remapFlags]
       .filter(Boolean)
       .join("\x1f"),
   };
@@ -204,7 +188,11 @@ function main() {
       license: "MIT",
     },
   };
-  manifest.displayName = { "zh-CN": "Markdown 预览", "zh-Hant": "Markdown 預覽", en: "Markdown Preview" };
+  manifest.displayName = {
+    "zh-CN": "Markdown 预览",
+    "zh-Hant": "Markdown 預覽",
+    en: "Markdown Preview",
+  };
   manifest.displayDescription = {
     "zh-CN": "实时渲染 Markdown 文档，提供结构大纲和诊断信息",
     "zh-Hant": "即時呈現 Markdown 文件，提供結構大綱與診斷資訊",

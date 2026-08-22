@@ -27,9 +27,7 @@ if (contractOnly) {
   process.exit(0);
 }
 
-const packageMetadata = JSON.parse(
-  await readFile(join(repositoryRoot, "package.json"), "utf8"),
-);
+const packageMetadata = JSON.parse(await readFile(join(repositoryRoot, "package.json"), "utf8"));
 const manifest = JSON.parse(await readFile(join(toolchainsRoot, "manifest.json"), "utf8"));
 const runtimeName = process.platform === "win32" ? "node.exe" : "node";
 const runtimePath = join(toolchainsRoot, "runtime", runtimeName);
@@ -68,12 +66,7 @@ if (isMacUniversal) {
   ) {
     throw new Error("Universal macOS runtime manifest must declare arm64 and x64");
   }
-  await execFile("lipo", [
-    runtimePath,
-    "-verify_arch",
-    "arm64",
-    "x86_64",
-  ]);
+  await execFile("lipo", [runtimePath, "-verify_arch", "arm64", "x86_64"]);
 }
 
 const { stdout: runtimeVersionOutput } = await execFile(runtimePath, ["--version"]);

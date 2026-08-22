@@ -206,3 +206,38 @@ jobs:
           test -n "$(find src-tauri/target -path '*/bundle/appimage/*.AppImage' -print -quit)"
           test -n "$(find src-tauri/target -path '*/bundle/deb/*.deb' -print -quit)"
           src-tauri/resources/toolchains/runtime/node --version
+
+  sync-pioneer:
+    name: Sync Pioneer Latest Channel
+    needs: [preflight, release]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    if: contains(github.ref_name, '-pioneer.') || (github.event_name == 'workflow_dispatch' && contains(inputs.tag, '-pioneer.'))
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Sync assets to pioneer-latest release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ env.RELEASE_TAG }}"
+          echo "Syncing Pioneer release $TAG to pioneer-latest channel..."
+          mkdir -p /tmp/pioneer-assets
+          gh release download "$TAG" --dir /tmp/pioneer-assets --pattern "*" || true
+
+          if gh release view pioneer-latest >/dev/null 2>&1; then
+            echo "Updating existing pioneer-latest release..."
+            gh release upload pioneer-latest /tmp/pioneer-assets/* --clobber
+            gh release edit pioneer-latest --title "Aurona Code Pioneer Latest ($TAG)" --notes "Latest pre-release track: $TAG" --prerelease=true
+          else
+            echo "Creating new pioneer-latest release..."
+            gh release create pioneer-latest /tmp/pioneer-assets/* \
+              --title "Aurona Code Pioneer Latest ($TAG)" \
+              --notes "Latest pre-release track: $TAG" \
+              --prerelease=true
+          fi

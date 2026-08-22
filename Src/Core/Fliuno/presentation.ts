@@ -5,6 +5,7 @@ export const SECTION_ORDER: FliunoCoreResultKind[] = [
   "file",
   "setting",
   "symbol",
+  "extension",
   "content",
 ];
 

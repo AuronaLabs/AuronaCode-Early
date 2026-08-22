@@ -1,6 +1,7 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { AccountService } from "../Core/AccountService";
 import { type LanguageServerInfo, LspClient } from "../Core/Language/LspClient";
+import { type StatusBarItemHandle, StatusBarRegistry } from "../Core/StatusBar/StatusBarRegistry";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EventBus } from "../Foundation/EventBus";
 import { LocaleService, useLocale } from "../Foundation/I18n";
@@ -35,8 +36,43 @@ const formatLanguage = (language: string) => {
   return labels[language] ?? language;
 };
 
+function DynamicStatusBarItem({ item }: { item: StatusBarItemHandle }) {
+  const handleClick = useCallback(() => {
+    if (item.onClick) {
+      void item.onClick();
+    } else if (item.command) {
+      void CommandRegistry.execute(item.command);
+    }
+  }, [item]);
+
+  const content = (
+    <button
+      type="button"
+      onClick={handleClick}
+      className={`flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors cursor-pointer hover:bg-[var(--material-interactive-hover)] ${item.className || ""}`}
+    >
+      <span>{item.text}</span>
+    </button>
+  );
+
+  if (item.tooltip) {
+    return (
+      <Tooltip content={item.tooltip} placement="top" delay={200}>
+        {content}
+      </Tooltip>
+    );
+  }
+
+  return content;
+}
+
 export function StatusBar() {
   const { t } = useLocale();
+  useSyncExternalStore(
+    StatusBarRegistry.subscribe,
+    StatusBarRegistry.getSnapshot,
+    StatusBarRegistry.getSnapshot,
+  );
   const account = useSyncExternalStore(
     AccountService.subscribe,
     () => AccountService.getSnapshot(),
@@ -56,6 +92,9 @@ export function StatusBar() {
   const accountDisplayName =
     signedInProfile?.preferredUsername || signedInProfile?.name || t("account.defaultDisplayName");
 
+  const leftItems = StatusBarRegistry.getLeftItems();
+  const rightItems = StatusBarRegistry.getRightItems();
+
   useEffect(() => {
     const client = LspClient.getInstance();
     const update = () => setLanguageServer(client.getState(activeLanguage));
@@ -65,7 +104,7 @@ export function StatusBar() {
 
   return (
     <footer className="flex h-[var(--StatusBarHeight)] shrink-0 items-center bg-transparent px-4 text-xs text-[var(--color-text-muted)] font-medium overflow-hidden">
-      <div className="flex items-center gap-4 min-w-0">
+      <div className="flex items-center gap-3 min-w-0">
         <span className="cursor-default truncate">
           {editorStatus.errors} {t("statusBar.errors")}, {editorStatus.warnings}{" "}
           {t("statusBar.warnings")}
@@ -78,8 +117,14 @@ export function StatusBar() {
               : ""}
           </span>
         )}
+        {leftItems.map((item) => (
+          <DynamicStatusBarItem key={item.id} item={item} />
+        ))}
       </div>
-      <div className="ml-auto hidden sm:flex items-center gap-4 min-w-0">
+      <div className="ml-auto hidden sm:flex items-center gap-3 min-w-0">
+        {rightItems.map((item) => (
+          <DynamicStatusBarItem key={item.id} item={item} />
+        ))}
         {signedInProfile && (
           <button
             type="button"
@@ -87,7 +132,7 @@ export function StatusBar() {
               void CommandRegistry.execute("workbench.action.openSettings");
               EventBus.emit("settings:nav", "accountCloud");
             }}
-            className="flex max-w-[180px] items-center gap-2 rounded-md px-1.5 py-0.5 hover:bg-[var(--material-interactive-hover)]"
+            className="flex max-w-[180px] items-center gap-2 rounded-md px-1.5 py-0.5 hover:bg-[var(--material-interactive-hover)] cursor-pointer"
           >
             <AccountAvatar name={accountDisplayName} picture={signedInProfile.picture} size={20} />
             <span className="max-w-[120px] truncate text-[var(--color-text-highlight)]">

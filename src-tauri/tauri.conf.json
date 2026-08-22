@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Aurona Code",
   "mainBinaryName": "Aurona Code",
-  "version": "0.4.0-pioneer.2",
+  "version": "0.4.0-pioneer.3",
   "identifier": "com.aurona.code",
   "build": {
     "features": [
@@ -46,7 +46,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https://account.aurona.cc; connect-src ipc: http://ipc.localhost http://tauri.localhost",
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https:; img-src 'self' data: blob: https: http://127.0.0.1:*; connect-src ipc: http://ipc.localhost http://tauri.localhost https://tauri.localhost https://marketplace.aurona.cc https://auth.aurona.cc https://account.aurona.cc https://github.com https://api.github.com https://objects.githubusercontent.com https://release-assets.githubusercontent.com http://127.0.0.1:* http://localhost:*",
       "dangerousDisableAssetCspModification": [
         "style-src"
       ]
@@ -56,6 +56,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVGRjQxOURGODdCQ0I1MzIKUldReXRieUgzeG4wNzFtWi8vMXZxbVNvbC9aeXhjU2VuYlM4bVQrS3ZUeW1VdEdvRzBwRnlsQlIK",
       "endpoints": [
+        "https://github.com/AuronaLabs/AuronaCode-Early/releases/download/pioneer-latest/latest.json",
         "https://github.com/AuronaLabs/AuronaCode-Early/releases/latest/download/latest.json"
       ]
     }

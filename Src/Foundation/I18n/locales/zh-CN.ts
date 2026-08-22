@@ -788,9 +788,11 @@ export const zhCN = {
       description: "按真实目录监控并清理 Aurona Code 占用的磁盘空间",
       localDataUsed: "本地数据已使用",
       appDataDir: "应用本地数据目录",
+      openAppDataDir: "打开数据目录",
       note: "以上条目对应应用本地数据目录中的真实文件与文件夹；WebView 缓存清理后由 WebView2 自动重建，配置、工作区状态与恢复快照属于核心数据，请谨慎清理",
       detailsTitle: "存储细分与清理",
       groupCore: "核心数据",
+      groupExtensions: "插件与扩展",
       groupCache: "缓存",
       groupLogs: "日志",
       groupOther: "其他",
@@ -810,6 +812,10 @@ export const zhCN = {
         recovery: {
           name: "编辑器恢复快照",
           description: "异常关闭后用于恢复未保存文档；确认不需要恢复内容再清理",
+        },
+        extensionStorage: {
+          name: "插件沙箱私有存储",
+          description: "WASM 插件运行时写入本地 APPDATA 的键值缓存与状态数据",
         },
         cache: {
           name: "WebView 渲染缓存",
@@ -836,6 +842,7 @@ export const zhCN = {
         configCleared: "用户配置文件已清除，重启后恢复默认",
         workspaceCleared: "工作区状态已清理，重启后将重置布局",
         recoveryCleared: "编辑器恢复快照已清理",
+        extensionStorageCleared: "插件私有存储缓存已清理",
         cacheCleared: "WebView 缓存已清理，下次启动会自动重建",
         logsCleared: "运行日志已清理",
         errlogsCleared: "错误日志已清理",

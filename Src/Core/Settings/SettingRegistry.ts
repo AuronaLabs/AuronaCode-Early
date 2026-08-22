@@ -1,16 +1,7 @@
 import type { I18nKey } from "../../Foundation/I18n";
+import type { SettingCategory, SettingType } from "../../Foundation/Types/Settings";
 
-export type SettingCategory =
-  | "general"
-  | "appearance"
-  | "editor"
-  | "codeIntelligence"
-  | "terminalRun"
-  | "sourceControl"
-  | "accountCloud"
-  | "extensions"
-  | "system"
-  | "advanced";
+export type { SettingCategory, SettingType };
 
 /**
  * Registry 的职责边界：
@@ -19,7 +10,6 @@ export type SettingCategory =
  *   不登记为 Setting，避免产生假的 source of truth。
  * 设置 UI 与 Fliuno Settings Provider 都以本注册表为搜索数据源。
  */
-export type SettingType = "boolean" | "number" | "string" | "select";
 
 export interface SettingDefinition {
   id: string;
@@ -343,4 +333,64 @@ registerSetting({
   type: "select",
   defaultValue: "info",
   experimental: true,
+});
+
+registerSetting({
+  id: "pioneerChannel",
+  category: "general",
+  titleKey: "settings.featureFlags.channelPioneerTitle",
+  descriptionKey: "settings.featureFlags.channelPioneerDesc",
+  keywords: ["pioneer", "channel", "先锋", "先锋计划", "测试版", "预发布", "尝鲜", "beta"],
+  type: "boolean",
+  defaultValue: false,
+});
+
+registerSetting({
+  id: "editorCursorSmoothCaret",
+  category: "editor",
+  titleKey: "settings.featureFlags.editorSmoothCaret.title",
+  descriptionKey: "settings.featureFlags.editorSmoothCaret.desc",
+  keywords: ["cursor", "caret", "smooth", "光标", "平滑光标", "光标动画", "动画"],
+  type: "boolean",
+  defaultValue: true,
+});
+
+registerSetting({
+  id: "editorCodeFolding",
+  category: "editor",
+  titleKey: "settings.featureFlags.editorCodeFolding.title",
+  descriptionKey: "settings.featureFlags.editorCodeFolding.desc",
+  keywords: ["folding", "code", "折叠", "代码折叠"],
+  type: "boolean",
+  defaultValue: true,
+});
+
+registerSetting({
+  id: "muteNonCritical",
+  category: "general",
+  titleKey: "settings.muteNonCritical",
+  descriptionKey: "settings.muteNonCriticalDesc",
+  keywords: ["notification", "quiet", "mute", "通知", "静音", "免打扰", "消息"],
+  type: "boolean",
+  defaultValue: false,
+});
+
+registerSetting({
+  id: "toastDuration",
+  category: "general",
+  titleKey: "settings.toastDuration",
+  descriptionKey: "settings.toastDurationDesc",
+  keywords: ["toast", "duration", "time", "通知时长", "停留时间", "弹窗时长"],
+  type: "select",
+  defaultValue: "normal",
+});
+
+registerSetting({
+  id: "storageManagement",
+  category: "system",
+  titleKey: "settings.storage.title",
+  descriptionKey: "settings.storage.description",
+  keywords: ["storage", "disk", "cache", "appdata", "空间", "存储", "缓存", "空间管理", "清理"],
+  type: "boolean",
+  defaultValue: true,
 });

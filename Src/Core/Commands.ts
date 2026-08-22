@@ -4,7 +4,7 @@ import { LocaleService } from "../Foundation/I18n";
 import { AppLifecycleIPC } from "../Foundation/IPC/AppLifecycleCommands";
 import { PlatformService } from "../Foundation/Platform";
 import { handleSmartRun } from "../Shared/Constants/RunConfig";
-import { SIDEBAR_DEBUG } from "../Shared/Constants/Sidebar";
+import { SIDEBAR_DEBUG, SIDEBAR_EXTENSIONS } from "../Shared/Constants/Sidebar";
 import { useDebugStore } from "../State/useDebugStore";
 import { useEditorStore } from "../State/useEditorStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
@@ -372,6 +372,58 @@ export function registerWorkbenchCommands(): () => void {
           title: LocaleService.translate("settings.title"),
           titleKey: "settings.title",
         }),
+    }),
+    CommandRegistry.register({
+      id: "workbench.action.openMarketplace",
+      title: "打开扩展市场",
+      category: "工作台",
+      categoryKey: "commandCategories.workbench",
+      handler: () => useWorkbenchStore.getState().setActiveSidebar(SIDEBAR_EXTENSIONS),
+    }),
+    CommandRegistry.register({
+      id: "workbench.action.openStorageSettings",
+      title: "打开空间管理设置",
+      category: "工作台",
+      categoryKey: "commandCategories.workbench",
+      handler: () => {
+        useWorkbenchStore.getState().openTab({
+          id: "settings",
+          type: "settings",
+          title: LocaleService.translate("settings.title"),
+          titleKey: "settings.title",
+        });
+        EventBus.emit("settings:nav", "system");
+      },
+    }),
+    CommandRegistry.register({
+      id: "workbench.action.openAccountSettings",
+      title: "打开 Aurona 账户设置",
+      category: "工作台",
+      categoryKey: "commandCategories.workbench",
+      handler: () => {
+        useWorkbenchStore.getState().openTab({
+          id: "settings",
+          type: "settings",
+          title: LocaleService.translate("settings.title"),
+          titleKey: "settings.title",
+        });
+        EventBus.emit("settings:nav", "accountCloud");
+      },
+    }),
+    CommandRegistry.register({
+      id: "workbench.action.openExtensionsSettings",
+      title: "打开插件与扩展设置",
+      category: "工作台",
+      categoryKey: "commandCategories.workbench",
+      handler: () => {
+        useWorkbenchStore.getState().openTab({
+          id: "settings",
+          type: "settings",
+          title: LocaleService.translate("settings.title"),
+          titleKey: "settings.title",
+        });
+        EventBus.emit("settings:nav", "extensions");
+      },
     }),
     CommandRegistry.register({
       id: "workbench.action.navigation.back",

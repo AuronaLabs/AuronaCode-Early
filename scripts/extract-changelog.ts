@@ -3,9 +3,9 @@ import fs from "fs";
 import path from "path";
 
 const tag = process.env.GITHUB_REF_NAME || "v0.0.0";
-const version = tag.toLowerCase().replace('v', '');
+const version = tag.toLowerCase().replace("v", "");
 
-const entry = CHANGELOG_DATA.find(e => e.version.toLowerCase().replace('v', '') === version);
+const entry = CHANGELOG_DATA.find((e) => e.version.toLowerCase().replace("v", "") === version);
 
 let body = ``;
 
@@ -17,15 +17,15 @@ if (!entry) {
     body += `${entry.summary}\n\n`;
   }
 
-  entry.sections.forEach(sec => {
+  entry.sections.forEach((sec) => {
     body += `### ${sec.title}\n`;
     if (sec.description) body += `${sec.description}\n`;
     if (sec.items) {
-      sec.items.forEach(item => {
+      sec.items.forEach((item) => {
         body += `- ${item}\n`;
       });
     }
-    body += '\n';
+    body += "\n";
   });
 }
 
@@ -43,7 +43,7 @@ body += `
 > **提示**：Aurona Code 持续致力于提供极速、安全的轻量化开发体验。如果您在当前版本遇到问题，欢迎前往 Issues 提交反馈。
 `;
 
-fs.writeFileSync(path.join(process.cwd(), 'RELEASE_BODY.md'), body, 'utf-8');
+fs.writeFileSync(path.join(process.cwd(), "RELEASE_BODY.md"), body, "utf-8");
 console.log("[Success] Extracted changelog to RELEASE_BODY.md");
 
 if (process.env.GITHUB_ENV) {

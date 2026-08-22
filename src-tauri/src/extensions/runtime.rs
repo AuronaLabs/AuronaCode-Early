@@ -43,6 +43,7 @@ pub struct ExtensionContext {
     pub extension_id: String,
     pub workspace_root: Option<std::path::PathBuf>,
     pub workspace_name: Option<String>,
+    pub data_dir: Option<std::path::PathBuf>,
     pub environment: ContextEnvironment,
     pub editor_snapshot: Option<ContextEditorSnapshot>,
     pub editor_selection: Option<ContextSelectionRange>,
@@ -63,6 +64,7 @@ impl ExtensionContext {
             extension_id: "anonymous".to_string(),
             workspace_root,
             workspace_name: None,
+            data_dir: None,
             environment,
             editor_snapshot: None,
             editor_selection: None,
@@ -77,6 +79,16 @@ impl ExtensionContext {
                 .build(),
             wasi: WasiCtxBuilder::new().build(),
             table: ResourceTable::new(),
+        }
+    }
+
+    pub fn get_storage_dir(&self) -> std::path::PathBuf {
+        if let Some(dir) = &self.data_dir {
+            dir.join("extension-storage").join(&self.extension_id)
+        } else {
+            std::env::temp_dir()
+                .join("aurona-extensions-storage")
+                .join(&self.extension_id)
         }
     }
 
@@ -439,7 +451,7 @@ impl aurona::extensions::context::Host for ExtensionContext {
     }
 
     fn get_sdk_version(&mut self) -> u32 {
-        1
+        2
     }
 
     fn contribute_fliuno_items(
@@ -458,10 +470,8 @@ impl aurona::extensions::context::Host for ExtensionContext {
     }
 
     fn storage_get(&mut self, key: String) -> Result<Option<String>, String> {
-        // 沙箱键值存储：每个扩展按 id 分离
-        let storage_dir = std::env::temp_dir()
-            .join("aurona-extensions-storage")
-            .join(&self.extension_id);
+        // 沙箱键值存储：每个扩展按 id 分离保存在 APPDATA 下
+        let storage_dir = self.get_storage_dir();
         let file_path = storage_dir.join(format!("{key}.json"));
         if file_path.exists() {
             let content =
@@ -473,9 +483,7 @@ impl aurona::extensions::context::Host for ExtensionContext {
     }
 
     fn storage_set(&mut self, key: String, value: String) -> Result<bool, String> {
-        let storage_dir = std::env::temp_dir()
-            .join("aurona-extensions-storage")
-            .join(&self.extension_id);
+        let storage_dir = self.get_storage_dir();
         std::fs::create_dir_all(&storage_dir).map_err(|e| format!("创建存储目录失败: {e}"))?;
         let file_path = storage_dir.join(format!("{key}.json"));
         std::fs::write(&file_path, value).map_err(|e| format!("写入存储项失败: {e}"))?;
@@ -483,9 +491,7 @@ impl aurona::extensions::context::Host for ExtensionContext {
     }
 
     fn storage_delete(&mut self, key: String) -> Result<bool, String> {
-        let storage_dir = std::env::temp_dir()
-            .join("aurona-extensions-storage")
-            .join(&self.extension_id);
+        let storage_dir = self.get_storage_dir();
         let file_path = storage_dir.join(format!("{key}.json"));
         if file_path.exists() {
             let _ = std::fs::remove_file(file_path);
@@ -494,9 +500,7 @@ impl aurona::extensions::context::Host for ExtensionContext {
     }
 
     fn storage_list_keys(&mut self) -> Result<Vec<String>, String> {
-        let storage_dir = std::env::temp_dir()
-            .join("aurona-extensions-storage")
-            .join(&self.extension_id);
+        let storage_dir = self.get_storage_dir();
         if !storage_dir.exists() {
             return Ok(Vec::new());
         }

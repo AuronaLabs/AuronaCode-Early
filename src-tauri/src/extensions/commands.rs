@@ -70,8 +70,9 @@ pub fn extensions_install(
     app: tauri::AppHandle,
     state: State<ExtensionState>,
     archive_bytes: Vec<u8>,
+    expected_sha256: Option<String>,
 ) -> Result<ExtensionDescriptor, String> {
-    state.install_package(&app, &archive_bytes)
+    state.install_package(&app, &archive_bytes, expected_sha256.as_deref())
 }
 
 #[tauri::command]
@@ -139,6 +140,7 @@ pub fn extensions_set_session_permission(
 
 #[tauri::command]
 pub async fn extensions_render(
+    app: tauri::AppHandle,
     state: State<'_, ExtensionState>,
     workspace: State<'_, WorkspaceState>,
     editor: State<'_, EditorState>,
@@ -187,6 +189,7 @@ pub async fn extensions_render(
         },
     );
     context.extension_id = request.extension_id.clone();
+    context.data_dir = app.path().app_local_data_dir().ok();
     context.editor_permission = editor_permission;
     context.workspace_permission = workspace_permission;
     context.fliuno_permission = fliuno_permission;

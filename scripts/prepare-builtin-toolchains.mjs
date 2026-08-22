@@ -9,9 +9,7 @@ import { build } from "esbuild";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputRoot = join(repositoryRoot, "src-tauri", "resources", "toolchains");
-const packageMetadata = JSON.parse(
-  await readFile(join(repositoryRoot, "package.json"), "utf8"),
-);
+const packageMetadata = JSON.parse(await readFile(join(repositoryRoot, "package.json"), "utf8"));
 const execFile = promisify(execFileCallback);
 const targetTriple = process.env.TAURI_ENV_TARGET_TRIPLE ?? "";
 const isMacUniversal = targetTriple === "universal-apple-darwin";

@@ -19,6 +19,8 @@ interface StorageBreakdown {
   performanceBytes: number;
   cacheBytes: number;
   errlogBytes: number;
+  extensionBytes: number;
+  extensionStorageBytes: number;
   otherAppDataBytes: number;
 }
 
@@ -29,16 +31,18 @@ type ClearTarget =
   | "cache"
   | "logs"
   | "errlogs"
+  | "extensionStorage"
   | "performance"
   | "other";
 
-type StorageGroup = "core" | "cache" | "logs" | "other";
+type StorageGroup = "core" | "extensions" | "cache" | "logs" | "other";
 
 const ROW_GROUP: Record<ClearTarget, StorageGroup> = {
   config: "core",
   workspace: "core",
   recovery: "core",
   performance: "core",
+  extensionStorage: "extensions",
   cache: "cache",
   logs: "logs",
   errlogs: "logs",
@@ -47,6 +51,7 @@ const ROW_GROUP: Record<ClearTarget, StorageGroup> = {
 
 const GROUP_META: Array<{ id: StorageGroup; color: string; nameKey: I18nKey }> = [
   { id: "core", color: "bg-[var(--StatusSuccess)]/85", nameKey: "settings.storage.groupCore" },
+  { id: "extensions", color: "bg-emerald-500/85", nameKey: "settings.storage.groupExtensions" },
   { id: "cache", color: "bg-sky-500/85", nameKey: "settings.storage.groupCache" },
   { id: "logs", color: "bg-fuchsia-500/85", nameKey: "settings.storage.groupLogs" },
   { id: "other", color: "bg-[var(--color-accent)]", nameKey: "settings.storage.groupOther" },
@@ -61,6 +66,8 @@ const EMPTY_BREAKDOWN: StorageBreakdown = {
   performanceBytes: 0,
   cacheBytes: 0,
   errlogBytes: 0,
+  extensionBytes: 0,
+  extensionStorageBytes: 0,
   otherAppDataBytes: 0,
 };
 
@@ -111,6 +118,10 @@ export function StorageSettingsSection() {
         case "recovery":
           await StorageIPC.clearEditorRecovery();
           showToast(t("settings.storage.toasts.recoveryCleared"), "success");
+          break;
+        case "extensionStorage":
+          await StorageIPC.clearExtensionStorage();
+          showToast(t("settings.storage.toasts.extensionStorageCleared"), "success");
           break;
         case "cache":
           await StorageIPC.clearWebviewCache();
@@ -178,6 +189,13 @@ export function StorageSettingsSection() {
       danger: true,
     },
     {
+      id: "extensionStorage",
+      name: t("settings.storage.rows.extensionStorage.name"),
+      file: "extension-storage/",
+      description: t("settings.storage.rows.extensionStorage.description"),
+      raw: sizes.extensionStorageBytes,
+    },
+    {
       id: "cache",
       name: t("settings.storage.rows.cache.name"),
       file: "EBWebView/",
@@ -224,9 +242,25 @@ export function StorageSettingsSection() {
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
-          {t("settings.storage.title")}
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
+            {t("settings.storage.title")}
+          </h3>
+          <Button
+            variant="glass"
+            className="h-8 px-3 text-[12px] flex items-center gap-1.5"
+            onClick={async () => {
+              try {
+                await StorageIPC.openAppDataFolder();
+              } catch (err) {
+                showToast(String(err), "error");
+              }
+            }}
+          >
+            <Icons.FolderOpen size={14} />
+            <span>{t("settings.storage.openAppDataDir")}</span>
+          </Button>
+        </div>
         <p className="text-[13px] text-[var(--color-text-muted)]">
           {t("settings.storage.description")}
         </p>
