@@ -40,8 +40,8 @@ Extensions/*/target/
 src-tauri/resources/extensions/*.aurx
 !src-tauri/resources/extensions/aurona.vscode-compat.aurx
 
-# Marketplace upload packages
-MarketplacePackages/*.aurx
+# Marketplace upload packages (keep release artifacts local only)
+MarketplacePackages/
 
 
 # Python (manager.py artifacts)
