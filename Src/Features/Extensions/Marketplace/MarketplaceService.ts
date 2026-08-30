@@ -1,5 +1,10 @@
 import { AccountAuthIPC } from "../../../Foundation/IPC/AccountAuthCommands";
 import { type ExtensionDescriptor, ExtensionIPC } from "../../../Foundation/IPC/ExtensionCommands";
+import {
+  type InstalledToolchainSummary,
+  LanguageServerIPC,
+  type ToolchainsOverview,
+} from "../../../Foundation/IPC/LanguageServerCommands";
 import { UserConfigStore } from "../../../Foundation/Storage/UserConfigStore";
 
 export const DEFAULT_MARKETPLACE_URL = "https://marketplace.aurona.cc/api";
@@ -84,8 +89,27 @@ export interface ReviewsResponse {
   data: ReviewItem[];
 }
 
+export interface LspMetadataItem {
+  languages: string[];
+  runtimeType: string;
+  minRuntimeVersion?: string;
+  entry: string;
+  execMode?: "module" | "commonjs" | "binary";
+  defaultArgs?: string[];
+  defaultSettings?: Record<string, unknown>;
+}
+
+export interface RuntimeMetadataItem {
+  runtimeType: string;
+  runtimeVersion: string;
+  platform?: string;
+  architecture?: string;
+  binaryPath: string;
+}
+
 export interface MarketplaceExtensionItem {
   id: string;
+  kind?: "extension" | "lsp" | "runtime";
   name: string;
   displayName: Record<string, string>;
   publisher: string;
@@ -103,12 +127,14 @@ export interface MarketplaceExtensionItem {
   readme?: string;
   installed?: boolean;
   enabled?: boolean;
-  packageType: "aurx" | "vsix";
+  packageType: "aurx" | "vsix" | "aurlsp";
   reviewCount?: number;
   starCount?: number;
   securityScore?: number;
   permissions?: PermissionItem[];
   rawPermissions?: string[];
+  lspMetadata?: LspMetadataItem;
+  runtimeMetadata?: RuntimeMetadataItem;
   license?: string;
   fileSize?: string;
   changelog?: string;
@@ -152,6 +178,8 @@ export function descriptorToMarketplaceItem(
       "zh-CN": descriptor.description || "",
       en: descriptor.description || "",
     },
+    readme: descriptor.readme,
+    changelog: descriptor.changelog,
     category: "Developer Tools",
     tags: ["installed", "local"],
     downloads: 0,
@@ -222,8 +250,30 @@ function normalizeExtension(raw: Record<string, unknown>): MarketplaceExtensionI
     ? (raw.publishedVersions as PublishedVersionItem[])
     : undefined;
 
+  const rawKind = String(raw.kind || "").toLowerCase();
+  const kind: "extension" | "lsp" | "runtime" =
+    rawKind === "lsp" ? "lsp" : rawKind === "runtime" ? "runtime" : "extension";
+
+  const lspMetadata =
+    typeof raw.lspMetadata === "object" && raw.lspMetadata !== null
+      ? (raw.lspMetadata as LspMetadataItem)
+      : undefined;
+
+  const runtimeMetadata =
+    typeof raw.runtimeMetadata === "object" && raw.runtimeMetadata !== null
+      ? (raw.runtimeMetadata as RuntimeMetadataItem)
+      : undefined;
+
+  const packageType =
+    raw.packageType === "vsix"
+      ? "vsix"
+      : raw.packageType === "aurlsp" || kind === "lsp"
+        ? "aurlsp"
+        : "aurx";
+
   return {
     id: String(raw.id || raw.name || ""),
+    kind,
     name: String(raw.name || raw.id || ""),
     displayName: displayNameMap,
     publisher: publisherName,
@@ -231,7 +281,7 @@ function normalizeExtension(raw: Record<string, unknown>): MarketplaceExtensionI
     version: String(raw.version || "未知版本"),
     description: String(raw.description || ""),
     displayDescription: displayDescMap,
-    category: String(raw.category || "Developer Tools"),
+    category: String(raw.category || (kind === "lsp" ? "LSP" : "Developer Tools")),
     tags: Array.isArray(raw.tags) ? raw.tags.map(String) : [],
     downloads: typeof raw.downloads === "number" ? raw.downloads : 0,
     rating:
@@ -245,12 +295,14 @@ function normalizeExtension(raw: Record<string, unknown>): MarketplaceExtensionI
     changelog: typeof raw.changelog === "string" ? raw.changelog : undefined,
     installed: Boolean(raw.installed),
     enabled: raw.enabled !== false,
-    packageType: raw.packageType === "vsix" ? "vsix" : "aurx",
+    packageType,
     reviewCount: typeof raw.reviewCount === "number" ? raw.reviewCount : 0,
     starCount: typeof raw.starCount === "number" ? raw.starCount : 0,
     securityScore: typeof raw.securityScore === "number" ? raw.securityScore : undefined,
     permissions,
     rawPermissions,
+    lspMetadata,
+    runtimeMetadata,
     license: typeof raw.license === "string" ? raw.license : undefined,
     fileSize: typeof raw.fileSize === "string" ? raw.fileSize : undefined,
     downloadUrl: typeof raw.downloadUrl === "string" ? raw.downloadUrl : undefined,
@@ -270,10 +322,8 @@ async function requestCandidateUrls<T>(
 
   if (cleanBase.endsWith("/api") || cleanBase.includes("/api/")) {
     candidateUrls.push(`${cleanBase}/${cleanPath}`);
-    candidateUrls.push(`${cleanBase.replace(/\/api\/?$/, "")}/${cleanPath}`);
   } else {
     candidateUrls.push(`${cleanBase}/api/${cleanPath}`);
-    candidateUrls.push(`${cleanBase}/${cleanPath}`);
   }
 
   for (const urlStr of candidateUrls) {
@@ -294,7 +344,7 @@ async function requestCandidateUrls<T>(
         return { data: json, url: urlStr };
       }
     } catch {
-      // 尝试下一个候选地址
+      // 静默处理网络不可达
     }
   }
 
@@ -656,5 +706,134 @@ export const MarketplaceService = {
 
   async uninstallExtension(id: string): Promise<void> {
     await ExtensionIPC.uninstall(id);
+  },
+
+  /**
+   * 从 Marketplace 查询 LSP 语言服务包
+   */
+  async fetchLspServers(language?: string): Promise<MarketplaceExtensionItem[]> {
+    const serverUrl = await this.getServerUrl();
+    let path = "extensions?kind=lsp";
+    if (language) {
+      path += `&language=${encodeURIComponent(language)}`;
+    }
+    const res = await requestCandidateUrls<Record<string, unknown>>(serverUrl, path);
+    if (!res?.data) return [];
+    const list = Array.isArray(res.data)
+      ? res.data
+      : Array.isArray(res.data?.data)
+        ? res.data.data
+        : [];
+    return (list as Record<string, unknown>[]).map(normalizeExtension);
+  },
+
+  /**
+   * 获取共享基础运行时下载绝对 URL
+   */
+  async getRuntimeDownloadUrl(runtimeType = "node"): Promise<string> {
+    const serverUrl = await this.getServerUrl();
+    const cleanBase = serverUrl.trim().replace(/\/+$/, "");
+    const base =
+      cleanBase.endsWith("/api") || cleanBase.includes("/api/") ? cleanBase : `${cleanBase}/api`;
+    return `${base}/runtimes/${encodeURIComponent(runtimeType)}/download`;
+  },
+
+  /**
+   * 确保本地 APPDATA 已就绪指定类型的共享运行时 (默认 node)
+   * 若未就绪，自动通过 Rust 原生异步流式下载官方公共基础运行时包并解压安装
+   */
+  async ensureSharedRuntime(
+    runtimeType = "node",
+    onProgress?: (progress: number, stage: string) => void,
+  ): Promise<void> {
+    if (runtimeType !== "node") return;
+    try {
+      const overview = await LanguageServerIPC.listToolchains();
+      const hasNode = overview.runtimes.some((r) => r.runtimeType === "node");
+      if (hasNode) return;
+    } catch {
+      // 忽略
+    }
+
+    const downloadId = `runtime_${runtimeType}_${Date.now()}`;
+    const runtimeUrl = await this.getRuntimeDownloadUrl(runtimeType);
+
+    let unsub: (() => void) | undefined;
+    if (onProgress) {
+      unsub = await LanguageServerIPC.onDownloadProgress((p) => {
+        if (p.downloadId === downloadId) {
+          onProgress(p.percentage, p.stage);
+        }
+      });
+    }
+
+    try {
+      await LanguageServerIPC.installToolchainFromUrl(downloadId, runtimeUrl);
+    } catch {
+      // 回退尝试常规扩展下载接口
+      const fallbackUrl = await this.getDownloadUrl("auronalabs.runtime-node");
+      await LanguageServerIPC.installToolchainFromUrl(downloadId, fallbackUrl);
+    } finally {
+      if (unsub) unsub();
+    }
+  },
+
+  /**
+   * 一键安装 LSP 语言服务包 (流式异步下载，0 内存压力)
+   */
+  async installLspServer(
+    id: string,
+    version?: string,
+    onProgress?: (progress: number, stage: string) => void,
+  ): Promise<InstalledToolchainSummary> {
+    // 1. 获取该 LSP 详情与依赖的运行时
+    const detail = await this.fetchExtensionDetail(id);
+    const reqRuntime = detail?.lspMetadata?.runtimeType || "node";
+
+    // 2. 如果需要共享 Node 运行时，先确保本地 APPDATA 已就绪
+    if (reqRuntime === "node") {
+      await this.ensureSharedRuntime("node", onProgress);
+    }
+
+    // 3. 下载并安装 LSP 语言服务归档包
+    const downloadId = `lsp_${id}_${Date.now()}`;
+    const downloadUrl = await this.getDownloadUrl(id, version);
+
+    let unsub: (() => void) | undefined;
+    if (onProgress) {
+      unsub = await LanguageServerIPC.onDownloadProgress((p) => {
+        if (p.downloadId === downloadId) {
+          onProgress(p.percentage, p.stage);
+        }
+      });
+    }
+
+    try {
+      const result = await LanguageServerIPC.installToolchainFromUrl(downloadId, downloadUrl);
+      return result;
+    } finally {
+      if (unsub) unsub();
+    }
+  },
+
+  /**
+   * 卸载已安装的 LSP 语言服务
+   */
+  async uninstallLspServer(id: string): Promise<void> {
+    await LanguageServerIPC.uninstallToolchain(id);
+  },
+
+  /**
+   * 列出本地所有已安装的工具链与共享运行时
+   */
+  async listInstalledToolchains(): Promise<ToolchainsOverview> {
+    return LanguageServerIPC.listToolchains();
+  },
+
+  /**
+   * 卸载本地指定的共享运行时
+   */
+  async uninstallSharedRuntime(runtimeType: string): Promise<void> {
+    await LanguageServerIPC.uninstallToolchainRuntime(runtimeType);
   },
 };

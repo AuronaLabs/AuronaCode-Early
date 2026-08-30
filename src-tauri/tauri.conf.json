@@ -2,14 +2,14 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Aurona Code",
   "mainBinaryName": "Aurona Code",
-  "version": "0.4.0-pioneer.3",
+  "version": "0.4.0-pioneer.4",
   "identifier": "com.aurona.code",
   "build": {
     "features": [
       "aurona-account"
     ],
-    "beforeDevCommand": "pnpm run prepare:toolchains && pnpm run prepare:extensions && pnpm run dev",
-    "beforeBuildCommand": "pnpm run prepare:toolchains && pnpm run verify:toolchains && pnpm run prepare:extensions && pnpm run build",
+    "beforeDevCommand": "pnpm run prepare:extensions && pnpm run dev",
+    "beforeBuildCommand": "pnpm run prepare:extensions && pnpm run build",
     "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../Dist"
   },
@@ -80,7 +80,6 @@
     ],
     "license": "../LICENSE",
     "resources": {
-      "resources/toolchains/": "toolchains/",
       "resources/extensions/": "extensions/"
     },
     "windows": {

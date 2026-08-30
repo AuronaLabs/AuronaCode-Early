@@ -10,6 +10,7 @@ mod platform;
 mod process_service;
 mod pty;
 mod search;
+pub mod toolchains;
 
 use commands::dap_cmds::DapState;
 pub use commands::lsp_cmds::LspState;
@@ -114,6 +115,12 @@ pub fn run() {
             commands::lsp_cmds::lsp_call,
             commands::lsp_cmds::lsp_call_with_id,
             commands::lsp_cmds::lsp_cancel,
+            commands::lsp_cmds::lsp_toolchain_status,
+            commands::lsp_cmds::lsp_toolchain_install,
+            commands::lsp_cmds::lsp_toolchain_install_url,
+            commands::lsp_cmds::lsp_toolchain_list,
+            commands::lsp_cmds::lsp_toolchain_uninstall,
+            commands::lsp_cmds::lsp_toolchain_uninstall_runtime,
             commands::dap_cmds::dap_start,
             commands::dap_cmds::dap_request,
             commands::dap_cmds::dap_status,
@@ -146,6 +153,7 @@ pub fn run() {
             commands::ipc::clear_editor_recovery,
             commands::ipc::open_app_data_folder,
             commands::ipc::clear_extension_storage,
+            commands::ipc::clear_toolchains,
             commands::ipc::mark_splashscreen_shown,
             commands::ipc::close_splashscreen,
             editor::open_editor_file,

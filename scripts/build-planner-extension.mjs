@@ -132,6 +132,12 @@ function zipStore(entries) {
 }
 
 function main() {
+  if (!existsSync(join(guestDir, "Cargo.toml"))) {
+    if (existsSync(outputPath)) {
+      console.log(`[build:planner] 源码目录不在本工作区，但产物已存在 (${outputPath})，直接跳过构建。`);
+      return;
+    }
+  }
   buildGuest();
 
   const wasm = readFileSync(wasmPath);
@@ -164,10 +170,10 @@ function main() {
       en: "Visual task planner and test case checklist for Aurona Code",
     },
     publisher: "auronalabs",
-    version: "0.1.0",
+    version: "0.1.2",
     engine: { auronaCode: ">=0.3.12" },
     permissions: ["workspace.read", "workspace.readwrite", "clipboard.write"],
-    changelog: "首个公开版本：提供任务清单持久化、任务状态管理和剪贴板交互。",
+    changelog: "v0.1.2: 升级现代双行筛选排版（状态与优先级分离）、全新原地安全授权系统，全语言本地化增强。",
     runtime: { component: "extension.wasm" },
     sidebar: {
       title: "Planner",
@@ -188,10 +194,10 @@ function main() {
       license: "MIT",
     },
   };
-  manifest.displayName = { "zh-CN": "任务面板", "zh-Hant": "任務面板", en: "Task Panel" };
+  manifest.displayName = { "zh-CN": "任务计划", "zh-Hant": "任務計劃", en: "Task Planner" };
   manifest.displayDescription = {
-    "zh-CN": "可视化任务规划和测试用例清单",
-    "zh-Hant": "可視化任務規劃與測試案例清單",
+    "zh-CN": "可视化任务规划与测试用例清单看板",
+    "zh-Hant": "視覺化任務計劃與測試案例清單看板",
     en: "Visual task planner and test case checklist for Aurona Code",
   };
   const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");

@@ -21,6 +21,7 @@ interface StorageBreakdown {
   errlogBytes: number;
   extensionBytes: number;
   extensionStorageBytes: number;
+  toolchainBytes: number;
   otherAppDataBytes: number;
 }
 
@@ -32,10 +33,11 @@ type ClearTarget =
   | "logs"
   | "errlogs"
   | "extensionStorage"
+  | "toolchains"
   | "performance"
   | "other";
 
-type StorageGroup = "core" | "extensions" | "cache" | "logs" | "other";
+type StorageGroup = "core" | "extensions" | "toolchains" | "cache" | "logs" | "other";
 
 const ROW_GROUP: Record<ClearTarget, StorageGroup> = {
   config: "core",
@@ -43,6 +45,7 @@ const ROW_GROUP: Record<ClearTarget, StorageGroup> = {
   recovery: "core",
   performance: "core",
   extensionStorage: "extensions",
+  toolchains: "toolchains",
   cache: "cache",
   logs: "logs",
   errlogs: "logs",
@@ -52,6 +55,11 @@ const ROW_GROUP: Record<ClearTarget, StorageGroup> = {
 const GROUP_META: Array<{ id: StorageGroup; color: string; nameKey: I18nKey }> = [
   { id: "core", color: "bg-[var(--StatusSuccess)]/85", nameKey: "settings.storage.groupCore" },
   { id: "extensions", color: "bg-emerald-500/85", nameKey: "settings.storage.groupExtensions" },
+  {
+    id: "toolchains",
+    color: "bg-indigo-500/85",
+    nameKey: "settings.storage.groupToolchains" as I18nKey,
+  },
   { id: "cache", color: "bg-sky-500/85", nameKey: "settings.storage.groupCache" },
   { id: "logs", color: "bg-fuchsia-500/85", nameKey: "settings.storage.groupLogs" },
   { id: "other", color: "bg-[var(--color-accent)]", nameKey: "settings.storage.groupOther" },
@@ -68,6 +76,7 @@ const EMPTY_BREAKDOWN: StorageBreakdown = {
   errlogBytes: 0,
   extensionBytes: 0,
   extensionStorageBytes: 0,
+  toolchainBytes: 0,
   otherAppDataBytes: 0,
 };
 
@@ -122,6 +131,10 @@ export function StorageSettingsSection() {
         case "extensionStorage":
           await StorageIPC.clearExtensionStorage();
           showToast(t("settings.storage.toasts.extensionStorageCleared"), "success");
+          break;
+        case "toolchains":
+          await StorageIPC.clearToolchains();
+          showToast("已清理所有语言服务与共享运行时缓存", "success");
           break;
         case "cache":
           await StorageIPC.clearWebviewCache();
@@ -194,6 +207,13 @@ export function StorageSettingsSection() {
       file: "extension-storage/",
       description: t("settings.storage.rows.extensionStorage.description"),
       raw: sizes.extensionStorageBytes,
+    },
+    {
+      id: "toolchains",
+      name: "语言服务与共享运行时",
+      file: "toolchains/",
+      description: "已安装的官方/第三方 LSP 语言服务包及共享 Node.js 运行时环境",
+      raw: sizes.toolchainBytes,
     },
     {
       id: "cache",

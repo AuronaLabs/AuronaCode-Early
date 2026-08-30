@@ -21,6 +21,8 @@ export interface ExtensionDescriptor {
   version: string;
   description?: string;
   displayDescription?: Record<string, string>;
+  readme?: string;
+  changelog?: string;
   sidebarTitle: string;
   displayTitle?: Record<string, string>;
   sidebarIcon: string;

@@ -1,5 +1,6 @@
 import { useLocale } from "../../../Foundation/I18n";
 import { cn } from "../../../Shared/Utils/cn";
+import { useInstallProgressStore } from "../../../State/useInstallProgressStore";
 import { AccountAvatar } from "../../../UI/Components/AccountAvatar";
 import { Button } from "../../../UI/Components/Button";
 import { Card } from "../../../UI/Components/Card";
@@ -23,9 +24,13 @@ export function MarketplaceCard({
   onUninstall,
 }: MarketplaceCardProps) {
   const { t, locale } = useLocale();
+  const installTask = useInstallProgressStore((state) => state.tasks[item.id]);
 
   const title = item.displayName?.[locale] ?? item.name;
   const description = item.displayDescription?.[locale] ?? item.description;
+  const isInstalling = Boolean(
+    installTask && installTask.stage !== "completed" && installTask.stage !== "failed",
+  );
 
   return (
     <Card
@@ -47,21 +52,13 @@ export function MarketplaceCard({
 
           {/* 主信息 */}
           <div className="flex flex-col min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="truncate text-[13px] font-semibold text-[var(--color-text-highlight)] group-hover:text-blue-400 transition-colors">
                 {title}
               </span>
-              {item.verified && (
-                <span
-                  role="img"
-                  aria-label={t("extensions.officialVerified")}
-                  className="text-blue-400 flex items-center shrink-0"
-                >
-                  <Icons.Check size={13} stroke={2.5} />
-                </span>
-              )}
             </div>
 
+            {/* 作者与版本行 */}
             <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)] mt-0.5 min-w-0">
               <AccountAvatar
                 name={item.publisher}
@@ -76,8 +73,8 @@ export function MarketplaceCard({
           </div>
         </div>
 
-        {/* 描述 */}
-        <p className="text-[11.5px] text-[var(--color-text-secondary)] line-clamp-2 leading-relaxed">
+        {/* 简介 */}
+        <p className="text-[11.5px] leading-relaxed text-[var(--color-text-muted)] line-clamp-2 w-full text-left">
           {description}
         </p>
       </button>
@@ -87,22 +84,30 @@ export function MarketplaceCard({
         <div className="flex items-center gap-2 text-[10.5px] text-[var(--color-text-muted)]">
           <span className="flex items-center gap-1">
             <Icons.Download size={11} />
-            {item.downloads >= 1000 ? `${(item.downloads / 1000).toFixed(1)}k` : item.downloads}
+            {item.downloads >= 10000
+              ? `${(item.downloads / 10000).toFixed(1)}w`
+              : item.downloads >= 1000
+                ? `${(item.downloads / 1000).toFixed(1)}k`
+                : item.downloads > 0
+                  ? item.downloads
+                  : t("extensions.noDownloads")}
           </span>
-          <span className="flex items-center gap-1">
-            {item.reviewCount && item.reviewCount > 0 ? (
-              <>
-                <Icons.Sparkles size={11} className="text-amber-400" />
-                {item.rating.toFixed(1)}
-              </>
-            ) : (
-              <span className="text-[var(--color-text-muted)]">暂未定级</span>
-            )}
-          </span>
+          {item.reviewCount && item.reviewCount > 0 ? (
+            <span className="flex items-center gap-1">
+              <Icons.Sparkles size={11} className="text-amber-400" />
+              {item.rating.toFixed(1)}
+            </span>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-1.5">
-          {item.updateAvailable ? (
+          {isInstalling ? (
+            /* 圆形平滑进度环 */
+            <CircularProgress
+              percentage={installTask?.progress || 0}
+              message={installTask?.message || "正在安装..."}
+            />
+          ) : item.updateAvailable ? (
             <Button
               size="sm"
               variant="primary"
@@ -147,5 +152,43 @@ export function MarketplaceCard({
         </div>
       </div>
     </Card>
+  );
+}
+
+function CircularProgress({ percentage, message }: { percentage: number; message: string }) {
+  const radius = 8;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div className="flex items-center gap-1.5 px-1 py-0.5">
+      <div className="relative size-5.5 flex items-center justify-center">
+        <svg className="size-5.5 -rotate-90" viewBox="0 0 24 24" role="img" aria-label={message}>
+          <title>{message}</title>
+          <circle
+            cx="12"
+            cy="12"
+            r={radius}
+            className="stroke-[var(--border-subtle)]"
+            strokeWidth="3"
+            fill="transparent"
+          />
+          <circle
+            cx="12"
+            cy="12"
+            r={radius}
+            className="stroke-blue-400 transition-all duration-150"
+            strokeWidth="3"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            fill="transparent"
+          />
+        </svg>
+      </div>
+      <span className="text-[10px] font-mono text-blue-400 font-medium min-w-[24px] text-right">
+        {Math.round(percentage)}%
+      </span>
+    </div>
   );
 }

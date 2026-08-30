@@ -10,6 +10,47 @@ export interface LanguageServerStartRequest {
   settings: unknown;
 }
 
+export interface LanguageToolchainStatus {
+  language: string;
+  isLspInstalled: boolean;
+  installedLspId?: string | null;
+  installedLspVersion?: string | null;
+  requiredRuntimeType?: string | null;
+  isRuntimeReady: boolean;
+}
+
+export interface InstalledToolchainSummary {
+  id: string;
+  name: string;
+  version: string;
+  languages: string[];
+  runtimeType: string;
+  installPath: string;
+  diskSizeBytes: number;
+}
+
+export interface InstalledRuntimeSummary {
+  runtimeType: string;
+  version: string;
+  binaryPath: string;
+  diskSizeBytes: number;
+}
+
+export interface ToolchainsOverview {
+  servers: InstalledToolchainSummary[];
+  runtimes: InstalledRuntimeSummary[];
+  totalBytes: number;
+}
+
+export interface ToolchainDownloadProgress {
+  downloadId: string;
+  stage: "downloading" | "extracting" | "completed" | "failed";
+  downloadedBytes: number;
+  totalBytes: number;
+  percentage: number;
+  message?: string;
+}
+
 export const LanguageServerIPC = {
   fileUri(path: string): Promise<string> {
     return invokeDesktop("lsp_file_uri", { path });
@@ -66,6 +107,45 @@ export const LanguageServerIPC = {
 
   cancel(language: string, id: number): Promise<void> {
     return invokeDesktop("lsp_cancel", { language, id });
+  },
+
+  toolchainStatus(language: string): Promise<LanguageToolchainStatus> {
+    return invokeDesktop("lsp_toolchain_status", { language });
+  },
+
+  installToolchain(
+    archiveBytes: number[],
+    expectedSha256?: string,
+  ): Promise<InstalledToolchainSummary> {
+    return invokeDesktop("lsp_toolchain_install", { archiveBytes, expectedSha256 });
+  },
+
+  installToolchainFromUrl(
+    downloadId: string,
+    url: string,
+    expectedSha256?: string,
+  ): Promise<InstalledToolchainSummary> {
+    return invokeDesktop("lsp_toolchain_install_url", {
+      downloadId,
+      url,
+      expectedSha256,
+    });
+  },
+
+  listToolchains(): Promise<ToolchainsOverview> {
+    return invokeDesktop("lsp_toolchain_list");
+  },
+
+  uninstallToolchain(id: string): Promise<void> {
+    return invokeDesktop("lsp_toolchain_uninstall", { id });
+  },
+
+  uninstallToolchainRuntime(runtimeType: string): Promise<void> {
+    return invokeDesktop("lsp_toolchain_uninstall_runtime", { runtimeType });
+  },
+
+  onDownloadProgress(listener: (payload: ToolchainDownloadProgress) => void): Promise<() => void> {
+    return listenDesktop("toolchain://download_progress", listener);
   },
 
   onDiagnostics<Payload>(listener: (payload: Payload) => void): Promise<() => void> {

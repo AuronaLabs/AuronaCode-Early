@@ -55,16 +55,21 @@ my-extension.aurx
 
 ## 2. Marketplace 扩展与内置兼容内核
 
-| 扩展 ID | 扩展名称 | 运行模式 | 核心能力 |
+| 扩展 ID | 扩展名称 | 运行模式 / 资产类型 | 核心能力 |
 | :--- | :--- | :--- | :--- |
-| `auronalabs.markdown` | **Markdown 预览** | Marketplace 扩展 | 实时监听当前激活的 Markdown 文档并极速流式渲染为精美 HTML |
-| `auronalabs.planner` | **任务面板** | Marketplace 扩展 | 独立任务管理看板，支持分类/优先级，自动安全持久化到 `.aurona/planner.json` |
+| `auronalabs.markdown` | **Markdown 预览** | Marketplace `.aurx` 扩展 | 实时监听当前激活的 Markdown 文档并极速流式渲染为精美 HTML |
+| `auronalabs.planner` | **任务面板** | Marketplace `.aurx` 扩展 | 独立任务管理看板，支持分类/优先级，自动安全持久化到 `.aurona/planner.json` |
+| `auronalabs.lsp-pyright` | **Python 语言服务** | Marketplace LSP 包 | 基于 Microsoft Pyright 的 Python 3.x 静态类型检查与智能语义服务 |
+| `auronalabs.lsp-typescript` | **TypeScript 语言服务** | Marketplace LSP 包 | 基于 typescript-language-server 的前端全栈代码智能服务 |
+| `auronalabs.runtime-node` | **官方共享运行时** | 共享环境包 (`.zip`) | Node.js 22.22.0 LTS 隔离基础运行时，供所有 Node-based LSP 共享使用 |
 | `aurona.vscode-compat` | **VSCode 兼容内核** | 应用内置运行时 | 提供 VSCode API 模拟层与 Node 安全沙箱；不作为可安装、可卸载或侧边栏扩展展示 |
 
-### 2.1 Marketplace 元数据与权限
+### 2.1 Marketplace 元数据、LSP 分发与权限规范
 
-- Marketplace 扩展的名称、描述、版本、权限、文件大小与更新日志由 Marketplace API 作为唯一权威来源，Aurona Code 会缓存最后一次成功同步的结果以支持离线浏览。
-- `.aurx` 内的 `manifest.json` 仍是包完整性、运行时与非 Marketplace 本地引用的依据，但不会覆盖 Marketplace 详情页的数据。
+- **LSP 语言服务托管**：Marketplace 统一托管 WASM 扩展与 LSP 工具链包，按需下载并在 APPDATA 运行。
+- **共享环境协同检测**：依赖 Node.js 的 LSP 服务在安装时将协同检测 `auronalabs.runtime-node`，免去重复下载。
+- **权限安全生命周期**：扩展卸载时系统将彻底清除该扩展所有已授权的工作区权限与持久化记录。
+- **权威元数据驱动**：Marketplace 扩展与 LSP 的名称、描述、版本、权限、文件大小与更新日志由 Marketplace API 作为权威来源，Aurona Code 负责缓存与离线可用性。
 - 当扩展首次请求敏感能力时，Aurona Code 显示授权弹窗；用户可选择仅允许一次、始终允许或拒绝。一次性许可仅在本次应用进程中有效。
 
 ---

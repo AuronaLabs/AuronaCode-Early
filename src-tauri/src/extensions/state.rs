@@ -146,6 +146,18 @@ impl ExtensionState {
             .map_err(|_| "扩展运行时状态锁定失败".to_string())?
             .remove(id);
         self.registry.remove(id);
+
+        // 卸载扩展时，立即撤销并清除该扩展的所有权限授权记录
+        if let Ok(mut guard) = self.permissions.lock() {
+            let prefix = format!("{id}:");
+            guard.retain(|k, _| !k.starts_with(&prefix) && k != id);
+        }
+        if let Ok(mut guard) = self.session_permissions.lock() {
+            let prefix = format!("{id}:");
+            guard.retain(|k| !k.starts_with(&prefix) && k != id);
+        }
+        self.persist_permissions();
+
         Ok(())
     }
 

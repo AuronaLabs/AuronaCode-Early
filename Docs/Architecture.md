@@ -119,3 +119,19 @@ Src/
 - **扩展运行时**：Wasmtime 实例池管理、Host API 派发与 APPDATA 路径注入；
 - **系统接口桥接**：PTY 伪终端守护、LSP 子进程通信、真实系统剪贴板与文件系统监控；
 - **数据管理**：递归计算 APPDATA 真实物理占用，提供一键安全清理。
+
+---
+
+## 6. LSP 语言服务按需架构与共享运行时池 (Shared Runtime & Streaming Pipeline)
+
+### 6.1 彻底解耦与按需分发
+- **剔除主程序预置二进制**：主程序彻底不预装庞大的 Node.js 运行时与语言服务器，安装包体积大幅削减；
+- **语言服务市场化分发**：官方 TypeScript、Pyright 等语言服务转为标准市场包，由客户端按需从 Aurona Marketplace 动态拉取。
+
+### 6.2 共享公共运行时池 (Shared Node Runtime Pool)
+- **单套运行时全局复用**：所有基于 Node.js 的 LSP 服务统一共享 APPDATA 中的单套精简公共运行时（`auronalabs.runtime-node`），杜绝重复占用磁盘空间；
+- **智能依赖检测与确认**：安装依赖 Node 的 LSP 时，前端自动检测共享环境就绪状态，缺失时弹出依赖确认弹窗并协同下载。
+
+### 6.3 异步流式下载流水线 (Streaming Download Pipeline)
+- **防 OOM 内存保护**：Rust 端采用 `reqwest::Response::chunk()` 流式边下边写临时文件，彻底消灭全量内存缓冲造成的内存溢出；
+- **实时进度事件广播**：通过 `toolchain://download_progress` IPC 通道向前端广播阶段与已下载百分比，驱动侧边栏微型环形进度与详情页科技感长条流光进度条。

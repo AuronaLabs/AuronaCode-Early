@@ -4,7 +4,7 @@
   <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-pioneer.3-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-pioneer.4-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
@@ -16,36 +16,39 @@
 Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造轻量、克制且具触感美学的沉浸式编码工作台。
 
 > [!NOTE]
-> **Aurona Code 正式开启 0.4.0 演进周期！** 当前版本为 **V0.4.0-pioneer.3** 先锋测试版，Pioneer 先锋尝鲜机制与双渠道物理 Feature Flags 架构已全面上线，欢迎体验与共建！
+> **Aurona Code 正式开启 0.4.0 演进周期！** 当前版本为 **V0.4.0-pioneer.4** 先锋测试版，LSP 语言服务彻底解耦、共享公共运行时池 (Shared Node Runtime Pool) 与全新重构的 Marketplace 扩展市场已全面上线！
 
 ---
 
 ## 核心特性
 
 - **自研纯粹内核与 Canvas 2D Minimap**：自研 `AuronaEngine` 虚拟滚动视口 + 交互式代码小地图 + 彩虹嵌套括号与代码折叠。
+- **语言服务解耦与共享运行时池**：主程序彻底剔除臃肿的预置工具链二进制；LSP 语言服务全部转为市场化动态按需加载，单套 Node.js 共享运行时池跨语言服务复用。
+- **异步流式下载彻底防 OOM 崩溃**：Rust 端采用 `reqwest::Response::chunk()` 流式分块落盘，多线程异步非阻塞，根除大文件下载导致的内存崩溃与 UI 掉帧。
 - **页面状态常驻保活 (Tab Keep-Alive)**：设置、扩展市场、关于及 Fliuno 等内置标签页采用常驻挂载与绘制隔离机制，切换页面不丢失任何输入与滚动状态。
 - **Aurona Account 账号认证**：基于标准 OIDC/PKCE 协议的桌面端账号登录与令牌自动续期，打通跨端收藏与真实用户评价。
-- **设置中心快速定位 (Deep Link)**：支持从全局搜索与快捷命令直接直达具体设置项，并触发平滑滚动与高亮动画。
-- **通知中心分类与静音免打扰**：支持按系统、扩展、更新等多维度筛选通知，并支持非重要通知静音免打扰与弹窗停留时长自定义。
-- **Aurona Marketplace 插件市场**：统一使用 Marketplace 元数据与本地缓存；支持直接安装、悬停卸载、版本更新、权限清单审查、安全审计评分、星标收藏与真实评价互动。
+- **Aurona Marketplace 插件市场**：沉浸式毛玻璃详情页、一键复制 Identifier、更新与卸载分离操作、WASI 0.2 沙箱权限审查、安全审计评分、设备维度下载量统计与真实评价互动。
 - **面向对象 SDK v1 与 VSCode 转译层**：固化 SDK v1 契约（Fliuno 搜索注入、沙箱 Storage、Dialog 交互），支持标准 `.vsix` 扩展原生解包转译运行。
 - **双渠道与 Feature Flags 架构**：Stable 正式版与 Pioneer 先锋测试通道无缝切换，iOS Developer Beta 模式分发。
 - **Fliuno 统一搜索**：命令、文件、符号、设置与内容一键直达，键盘优先导航。
 - **集成透明终端**：基于 `portable-pty` 与 `xterm.js`，与主题卡片背景浑然一体。
 - **全链路国际化**：简体中文 (zh-CN)、繁體中文 (zh-Hant) 与 English 实时无缝切换。
-- **iOS 风格权限与零遥测**：插件首次请求敏感能力时可选择仅允许一次、始终允许或拒绝；一次性许可不会写入磁盘。
+- **权限安全生命周期**：卸载插件立即彻底销毁并持久化清除所有授权，严格保护用户工作区数据。
 
 ---
 
-## 官方扩展与演示矩阵
+## 官方扩展与语言服务矩阵
 
-Aurona Code 使用 Marketplace 分发 WASM 扩展，并内置 VSCode 兼容运行内核：
+Aurona Code 使用 Marketplace 分发 WASM 扩展、语言服务包与公共基础运行时：
 
-| 扩展名称 | 扩展 ID | 打包格式 | 特性描述 |
+| 资产名称 | 唯一标识符 ID | 资产类型 | 特性描述 |
 | :--- | :--- | :--- | :--- |
-| **Markdown 预览** | `auronalabs.markdown` | Marketplace `.aurx` | 从 Marketplace 安装；名称、版本、权限与更新日志以 Marketplace 为准 |
-| **任务面板** | `auronalabs.planner` | Marketplace `.aurx` | 从 Marketplace 安装；支持直接安装、更新与卸载 |
-| **VSCode 兼容内核** | `aurona.vscode-compat` | 内置运行时 | 不显示为侧边栏插件；为 VSIX 提供 API 转译与安全沙箱 |
+| **Markdown 预览** | `auronalabs.markdown` | WASM 扩展包 (`.aurx`) | 实时双向同步预览、结构化大纲树、GFM 规范支持 |
+| **任务面板** | `auronalabs.planner` | WASM 扩展包 (`.aurx`) | 敏捷看板、多级任务清单、测试用例追踪、Markdown 导出 |
+| **Python 语言服务** | `auronalabs.lsp-pyright` | LSP 语言服务包 | 基于 Pyright，提供 Python 3.x 静态类型检查与智能补全 |
+| **TypeScript / JS 语言服务** | `auronalabs.lsp-typescript` | LSP 语言服务包 | 基于 TS Language Server，提供全栈代码智能与重构 |
+| **Node.js 官方公共运行时** | `auronalabs.runtime-node` | 共享运行时包 (`.zip`) | Node.js 22.22.0 LTS 隔离环境，供所有 Node-based LSP 共享复用 |
+| **VSCode 兼容内核** | `aurona.vscode-compat` | 内置运行时 | 为标准 `.vsix` 扩展提供 API 转译与安全沙箱 |
 | **VSCode Bridge Demo** | `vscode-demo` | `.vsix` (Standard) | 官方标准 VSCode 插件包，由底层兼容层原生转译执行 |
 
 > **全新 UI 双模架构 (Dual UI Modes)**：插件开发者可自由选择**「官方原生声明式组件模式 (Declarative Native UI)」**（直接复用官方 Select、Switch、Card、Button 等组件，零额外体积开销）或**「自定义 Webview 容器模式 (Custom Webview Host)」**（完全自主绘制 HTML/CSS/Canvas 视图）。

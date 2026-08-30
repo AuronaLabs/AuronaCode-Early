@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DocumentService } from "../../Core/DocumentService";
-import { desktopFileSystem } from "../../Foundation/Desktop";
 import { useLocale } from "../../Foundation/I18n";
 import {
   ExtensionIPC,
   type ExtensionPermissionState,
   type ExtensionViewPayload,
 } from "../../Foundation/IPC/ExtensionCommands";
-import { SIDEBAR_EXTENSIONS } from "../../Shared/Constants/Sidebar";
 import { useExtensionStore } from "../../State/useExtensionStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Button } from "../../UI/Components/Button";
@@ -20,18 +18,18 @@ import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 import { resolveExtensionName } from "./ExtensionUtils";
 import { type ExtensionRenderState, ExtensionViewHost } from "./ExtensionViewHost";
+import {
+  type PlannerDocument,
+  type PlannerPriority,
+  PlannerService,
+  type PlannerStatus,
+  type PlannerTask,
+  toPlannerPayload,
+} from "./Planner/PlannerService";
 
 const LARGE_DOCUMENT_BYTES = 512 * 1024;
 const RENDER_DEBOUNCE_MS = 80;
 const LARGE_DOCUMENT_DEBOUNCE_MS = 350;
-
-export interface PlannerTask {
-  id: string;
-  title: string;
-  category: string;
-  priority: string;
-  completed: boolean;
-}
 
 const CATEGORIES = [
   { name: "开发", color: "bg-blue-400" },
@@ -130,7 +128,6 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   const title = resolveExtensionName(descriptor, locale) || descriptor?.name || extensionId;
   const tabs = useWorkbenchStore((state) => state.tabs);
   const activeTabId = useWorkbenchStore((state) => state.activeTabId);
-  const setActiveSidebar = useWorkbenchStore((state) => state.setActiveSidebar);
   const activePath =
     tabs.find((tab) => tab.id === activeTabId && tab.type === "file")?.path ?? null;
 
@@ -156,8 +153,10 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   const [tasks, setTasks] = useState<PlannerTask[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskCategory, setNewTaskCategory] = useState("开发");
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "completed">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | PlannerStatus>("all");
+  const [priorityFilter, setPriorityFilter] = useState<"all" | PlannerPriority>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [plannerSaveError, setPlannerSaveError] = useState<string | null>(null);
 
   // VSCode Compat 专属状态
   const [compatScript, setCompatScript] = useState("");
@@ -245,34 +244,49 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   }, [isStandalone, compatScript, runRender]);
 
   // Planner: 添加新任务
+  const persistPlannerTasks = useCallback(
+    async (nextTasks: PlannerTask[]) => {
+      const document: PlannerDocument = { schemaVersion: 2, tasks: nextTasks };
+      try {
+        await PlannerService.save(document);
+        setPlannerSaveError(null);
+      } catch (error) {
+        setPlannerSaveError(error instanceof Error ? error.message : String(error));
+      }
+      void runRender({ content: toPlannerPayload(document), version: Date.now() });
+    },
+    [runRender],
+  );
+
   const handleAddNewTask = useCallback(() => {
     const trimmed = newTaskTitle.trim();
     if (!trimmed) return;
+    const timestamp = new Date().toISOString();
     const newTask: PlannerTask = {
-      id: `task_${Date.now()}`,
+      id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       title: trimmed,
       category: newTaskCategory,
+      description: "",
+      status: "todo",
       priority: "normal",
+      tags: [],
+      order: Date.now(),
+      createdAt: timestamp,
+      updatedAt: timestamp,
       completed: false,
     };
     const updated = [newTask, ...tasks];
     setTasks(updated);
     setNewTaskTitle("");
-    void runRender({
-      content: JSON.stringify(updated),
-      version: Date.now(),
-    });
-  }, [newTaskTitle, newTaskCategory, tasks, runRender]);
+    void persistPlannerTasks(updated);
+  }, [newTaskTitle, newTaskCategory, persistPlannerTasks, tasks]);
 
   // Planner: 清理已完成任务
   const handleClearCompleted = useCallback(() => {
     const updated = tasks.filter((t) => !t.completed);
     setTasks(updated);
-    void runRender({
-      content: JSON.stringify(updated),
-      version: Date.now(),
-    });
-  }, [tasks, runRender]);
+    void persistPlannerTasks(updated);
+  }, [persistPlannerTasks, tasks]);
 
   // VSCode Compat: 运行示例或自定义脚本转译
   const handleRunCompatSample = useCallback(
@@ -303,13 +317,10 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
       // Planner: 尝试读取工作区现有 planner.json
       if (isPlanner) {
         try {
-          const exists = await desktopFileSystem.exists(".aurona/planner.json");
-          if (exists) {
-            const raw = await desktopFileSystem.readTextFile(".aurona/planner.json");
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-              setTasks(parsed);
-            }
+          const result = await PlannerService.load();
+          if (!cancelled) {
+            setTasks(result.document.tasks);
+            if (result.migrated) await PlannerService.save(result.document);
           }
         } catch {
           // 初始化时无 planner.json 属正常
@@ -424,20 +435,25 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
-      if (statusFilter === "pending" && t.completed) return false;
-      if (statusFilter === "completed" && !t.completed) return false;
+      if (statusFilter !== "all" && t.status !== statusFilter) return false;
+      if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        return t.title.toLowerCase().includes(query) || t.category.toLowerCase().includes(query);
+        return (
+          t.title.toLowerCase().includes(query) ||
+          t.category.toLowerCase().includes(query) ||
+          t.description.toLowerCase().includes(query) ||
+          t.tags.some((tag) => tag.toLowerCase().includes(query))
+        );
       }
       return true;
     });
-  }, [tasks, statusFilter, searchQuery]);
+  }, [priorityFilter, searchQuery, statusFilter, tasks]);
 
   useEffect(() => {
     if (!isPlanner || editorPermission !== "granted") return;
     void runRender({
-      content: JSON.stringify(filteredTasks),
+      content: toPlannerPayload({ schemaVersion: 2, tasks: filteredTasks }),
       version: Date.now(),
     });
   }, [isPlanner, editorPermission, filteredTasks, runRender]);
@@ -515,11 +531,11 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
             <Button
               size="sm"
               variant="ghost"
-              className="size-7 rounded-md p-0 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-highlight)]"
+              className="size-8 rounded-lg p-0 text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
               aria-label="刷新视图"
               onClick={() => void refresh()}
             >
-              <Icons.Refresh size={14} stroke={1.75} />
+              <Icons.Refresh size={15} stroke={1.75} />
             </Button>
           </div>
         }
@@ -655,15 +671,16 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
             </Button>
           </Card>
 
-          {/* 筛选与搜索 */}
-          <div className="flex items-center justify-between gap-1.5">
-            <div className="inline-flex p-0.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)]">
+          {/* 筛选与搜索 (两行现代排版) */}
+          <div className="flex flex-col gap-2">
+            {/* 第一行：状态切换分段按钮 (3 列平分) */}
+            <div className="grid grid-cols-3 gap-1 p-0.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/80 shadow-2xs">
               <button
                 type="button"
                 onClick={() => setStatusFilter("all")}
-                className={`px-2 py-0.5 text-[10.5px] font-medium rounded-md transition-all cursor-pointer ${
+                className={`py-1 text-[11.5px] font-medium rounded-lg transition-all cursor-pointer text-center ${
                   statusFilter === "all"
-                    ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm"
+                    ? "bg-[var(--color-surface-3)] text-[var(--color-text-highlight)] shadow-xs font-semibold"
                     : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                 }`}
               >
@@ -671,10 +688,10 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               </button>
               <button
                 type="button"
-                onClick={() => setStatusFilter("pending")}
-                className={`px-2 py-0.5 text-[10.5px] font-medium rounded-md transition-all cursor-pointer ${
-                  statusFilter === "pending"
-                    ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm"
+                onClick={() => setStatusFilter("todo")}
+                className={`py-1 text-[11.5px] font-medium rounded-lg transition-all cursor-pointer text-center ${
+                  statusFilter === "todo"
+                    ? "bg-[var(--color-surface-3)] text-[var(--color-text-highlight)] shadow-xs font-semibold"
                     : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                 }`}
               >
@@ -682,10 +699,10 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               </button>
               <button
                 type="button"
-                onClick={() => setStatusFilter("completed")}
-                className={`px-2 py-0.5 text-[10.5px] font-medium rounded-md transition-all cursor-pointer ${
-                  statusFilter === "completed"
-                    ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] shadow-sm"
+                onClick={() => setStatusFilter("done")}
+                className={`py-1 text-[11.5px] font-medium rounded-lg transition-all cursor-pointer text-center ${
+                  statusFilter === "done"
+                    ? "bg-[var(--color-surface-3)] text-[var(--color-text-highlight)] shadow-xs font-semibold"
                     : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                 }`}
               >
@@ -693,37 +710,75 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               </button>
             </div>
 
-            <div className="w-28">
-              <Input
-                icon={<Icons.Search size={11} />}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="搜索..."
-                inputSize="sm"
-                surface="glass"
-                fullWidth
-              />
+            {/* 第二行：优先级选择器 + 搜索框 */}
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <Select
+                  value={priorityFilter}
+                  onChange={(value) => setPriorityFilter(value as "all" | PlannerPriority)}
+                  options={[
+                    { label: "全部优先级", value: "all" },
+                    { label: "高优先级", value: "high" },
+                    { label: "普通优先级", value: "normal" },
+                    { label: "低优先级", value: "low" },
+                  ]}
+                  className="h-[28px] w-full min-w-0 text-[11.5px] px-2.5 py-0.5 rounded-lg border-[var(--border-subtle)] bg-[var(--material-surface)]"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <Input
+                  icon={<Icons.Search size={12} />}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="搜索任务..."
+                  inputSize="sm"
+                  surface="glass"
+                  fullWidth
+                />
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {/* 核心内卡片容器：统一使用系统内边距 */}
+      {isPlanner && plannerSaveError && (
+        <div className="mx-[var(--PanelPaddingX)] mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
+          Planner 保存失败：{plannerSaveError}
+        </div>
+      )}
       <div className="relative mx-[var(--PanelPaddingX)] mb-2.5 flex min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/30 shadow-[inset_0_1px_1px_var(--material-inset)]">
         {!isStandalone && !isPermissionGranted ? (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-6 text-center">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-[var(--material-surface)] text-[var(--color-text-muted)]">
-              <Icons.InfoCircle size={22} stroke={1.5} />
+          <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-6 text-center animate-in fade-in duration-200">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--color-accent)] border border-[var(--border-subtle)] shadow-inner">
+              <Icons.ShieldCheck size={26} stroke={1.75} />
             </div>
-            <span className="text-[13px] font-medium text-[var(--color-text-primary)]">
-              {t("extensions.permissionTitle")}
-            </span>
-            <p className="max-w-[220px] text-[11px] leading-relaxed text-[var(--color-text-muted)]">
-              {t("extensions.editorReadDescription")}
-            </p>
-            <Button size="sm" className="mt-2" onClick={() => setActiveSidebar(SIDEBAR_EXTENSIONS)}>
-              {t("extensions.sidebarTitle")}
-            </Button>
+            <div className="flex flex-col gap-1 max-w-[240px]">
+              <span className="text-[13.5px] font-bold text-[var(--color-text-highlight)]">
+                需要访问当前文档权限
+              </span>
+              <p className="text-[11.5px] leading-relaxed text-[var(--color-text-secondary)]">
+                “{title}” 需要读取活动编辑器中的内容以生成实时渲染与结构大纲。
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 w-full max-w-[200px] mt-2">
+              <Button
+                size="sm"
+                variant="primary"
+                className="h-8 text-[12px] font-semibold rounded-xl w-full"
+                onClick={() => void resolvePermission("always")}
+              >
+                立即授权 (始终允许)
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-8 text-[12px] rounded-xl w-full"
+                onClick={() => void resolvePermission("once")}
+              >
+                仅本次允许
+              </Button>
+            </div>
           </div>
         ) : viewFailed ? (
           <div className="flex h-full w-full flex-col items-center justify-center px-4 text-center text-xs text-[var(--color-text-muted)]">

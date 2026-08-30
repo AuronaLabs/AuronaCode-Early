@@ -1,15 +1,20 @@
 import IconAlertTriangle from "@tabler/icons-react/dist/esm/icons/IconAlertTriangle.mjs";
 import IconArrowRight from "@tabler/icons-react/dist/esm/icons/IconArrowRight.mjs";
 import IconArrowRightBar from "@tabler/icons-react/dist/esm/icons/IconArrowRightBar.mjs";
+import IconArrowUp from "@tabler/icons-react/dist/esm/icons/IconArrowUp.mjs";
 import IconAsterisk from "@tabler/icons-react/dist/esm/icons/IconAsterisk.mjs";
 import IconBell from "@tabler/icons-react/dist/esm/icons/IconBell.mjs";
 import IconBraces from "@tabler/icons-react/dist/esm/icons/IconBraces.mjs";
+import IconBrandCpp from "@tabler/icons-react/dist/esm/icons/IconBrandCpp.mjs";
 import IconBrandCss3 from "@tabler/icons-react/dist/esm/icons/IconBrandCss3.mjs";
 import IconBrandGithub from "@tabler/icons-react/dist/esm/icons/IconBrandGithub.mjs";
+import IconBrandGolang from "@tabler/icons-react/dist/esm/icons/IconBrandGolang.mjs";
 import IconBrandHtml5 from "@tabler/icons-react/dist/esm/icons/IconBrandHtml5.mjs";
 import IconBrandJavascript from "@tabler/icons-react/dist/esm/icons/IconBrandJavascript.mjs";
 import IconBrandPython from "@tabler/icons-react/dist/esm/icons/IconBrandPython.mjs";
+import IconBrandRust from "@tabler/icons-react/dist/esm/icons/IconBrandRust.mjs";
 import IconBrandTypescript from "@tabler/icons-react/dist/esm/icons/IconBrandTypescript.mjs";
+import IconBrandVue from "@tabler/icons-react/dist/esm/icons/IconBrandVue.mjs";
 import IconBug from "@tabler/icons-react/dist/esm/icons/IconBug.mjs";
 import IconCheck from "@tabler/icons-react/dist/esm/icons/IconCheck.mjs";
 import IconChecks from "@tabler/icons-react/dist/esm/icons/IconChecks.mjs";
@@ -102,6 +107,10 @@ export const Icons = {
   FileTs: IconBrandTypescript,
   FileJs: IconBrandJavascript,
   FilePy: IconBrandPython,
+  FileRust: IconBrandRust,
+  FileCpp: IconBrandCpp,
+  FileGo: IconBrandGolang,
+  FileVue: IconBrandVue,
   FileCss: IconBrandCss3,
   FileHtml: IconBrandHtml5,
   FileJson: IconJson,
@@ -126,8 +135,10 @@ export const Icons = {
   FolderPlus: IconFolderPlus,
   Refresh: IconRefresh,
   ArrowRight: IconArrowRight,
+  ArrowUp: IconArrowUp,
 
   FileCode: IconFileCode,
+  Code: IconFileCode,
   Save: IconDeviceFloppy,
 
   Github: IconBrandGithub,

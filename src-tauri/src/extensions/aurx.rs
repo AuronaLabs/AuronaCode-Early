@@ -32,6 +32,10 @@ pub struct ExtensionManifest {
     pub description: Option<String>,
     #[serde(default)]
     pub display_description: Option<HashMap<String, String>>,
+    #[serde(default)]
+    pub readme: Option<String>,
+    #[serde(default)]
+    pub changelog: Option<String>,
     pub engine: EngineRequirement,
     pub runtime: RuntimeEntry,
     pub sidebar: SidebarEntry,
@@ -448,6 +452,8 @@ pub fn open_vsix_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, 
             m.insert("en".to_string(), d);
             m
         }),
+        readme: None,
+        changelog: None,
         engine: EngineRequirement {
             aurona_code: ">=0.4.0".to_string(),
         },
@@ -515,6 +521,8 @@ pub(crate) fn valid_manifest_for_tests() -> ExtensionManifest {
         version: "0.1.0".to_string(),
         description: None,
         display_description: None,
+        readme: None,
+        changelog: None,
         engine: EngineRequirement {
             aurona_code: ">=0.3.12".to_string(),
         },

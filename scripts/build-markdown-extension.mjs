@@ -132,6 +132,12 @@ function zipStore(entries) {
 }
 
 function main() {
+  if (!existsSync(join(guestDir, "Cargo.toml"))) {
+    if (existsSync(outputPath)) {
+      console.log(`[build:markdown] 源码目录不在本工作区，但产物已存在 (${outputPath})，直接跳过构建。`);
+      return;
+    }
+  }
   buildGuest();
 
   const wasm = readFileSync(wasmPath);
@@ -164,17 +170,17 @@ function main() {
       en: "Live Markdown preview with structured outline and diagnostics",
     },
     publisher: "auronalabs",
-    version: "0.1.0",
+    version: "0.1.2",
     engine: { auronaCode: ">=0.3.12" },
-    permissions: [],
-    changelog: "首个公开版本：提供实时 Markdown 渲染、结构大纲和诊断信息。",
+    permissions: ["editor.current.read"],
+    changelog: "v0.1.2: 适配全新非侵入式原地权限系统，升级三语国际化 (i18n)，全面提升大文档实时渲染性能。",
     runtime: { component: "extension.wasm" },
     sidebar: {
       title: "Markdown",
       displayTitle: {
-        "zh-CN": "Markdown",
-        "zh-Hant": "Markdown",
-        en: "Markdown",
+        "zh-CN": "Markdown 预览",
+        "zh-Hant": "Markdown 預覽",
+        en: "Markdown Preview",
       },
       icon: "assets/icon.svg",
     },
@@ -194,7 +200,7 @@ function main() {
     en: "Markdown Preview",
   };
   manifest.displayDescription = {
-    "zh-CN": "实时渲染 Markdown 文档，提供结构大纲和诊断信息",
+    "zh-CN": "实时渲染 Markdown 文档，提供结构大纲与诊断信息",
     "zh-Hant": "即時呈現 Markdown 文件，提供結構大綱與診斷資訊",
     en: "Live Markdown preview with structured outline and diagnostics",
   };

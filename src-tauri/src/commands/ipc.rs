@@ -107,6 +107,7 @@ pub struct StorageBreakdown {
     pub errlog_bytes: u64,
     pub extension_bytes: u64,
     pub extension_storage_bytes: u64,
+    pub toolchain_bytes: u64,
     pub other_app_data_bytes: u64,
 }
 
@@ -140,6 +141,7 @@ pub async fn get_storage_breakdown(app: tauri::AppHandle) -> Result<StorageBreak
         let errlog_bytes = get_dir_size(&app_dir.join("errlogs")).unwrap_or(0);
         let extension_bytes = get_dir_size(&app_dir.join("extensions")).unwrap_or(0);
         let extension_storage_bytes = get_dir_size(&app_dir.join("extension-storage")).unwrap_or(0);
+        let toolchain_bytes = get_dir_size(&app_dir.join("toolchains")).unwrap_or(0);
         let log_bytes = get_dir_size(&log_dir).unwrap_or(0);
         let accounted = config_bytes
             .saturating_add(workspace_bytes)
@@ -149,6 +151,7 @@ pub async fn get_storage_breakdown(app: tauri::AppHandle) -> Result<StorageBreak
             .saturating_add(errlog_bytes)
             .saturating_add(extension_bytes)
             .saturating_add(extension_storage_bytes)
+            .saturating_add(toolchain_bytes)
             .saturating_add(log_bytes);
         let other_app_data_bytes = app_data_bytes.saturating_sub(accounted);
         Ok(StorageBreakdown {
@@ -162,6 +165,7 @@ pub async fn get_storage_breakdown(app: tauri::AppHandle) -> Result<StorageBreak
             errlog_bytes,
             extension_bytes,
             extension_storage_bytes,
+            toolchain_bytes,
             other_app_data_bytes,
         })
     })
@@ -370,5 +374,24 @@ pub async fn clear_extension_storage(app: tauri::AppHandle) -> Result<u64, Strin
         Ok(size)
     })
     .await
-    .map_err(|e| format!("Clear extension storage task failed: {e}"))?
+    .map_err(|error| format!("Clear extension storage failed: {error}"))?
+}
+
+#[tauri::command]
+pub async fn clear_toolchains(app: tauri::AppHandle) -> Result<u64, String> {
+    let path = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("Failed to get app local data dir: {error}"))?
+        .join("toolchains");
+    tokio::task::spawn_blocking(move || {
+        let size = get_dir_size(&path).unwrap_or(0);
+        if path.exists() {
+            let _ = fs::remove_dir_all(&path);
+            let _ = fs::create_dir_all(&path);
+        }
+        Ok(size)
+    })
+    .await
+    .map_err(|error| format!("Clear toolchains failed: {error}"))?
 }

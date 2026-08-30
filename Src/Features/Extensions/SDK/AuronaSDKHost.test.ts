@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import { createAuronaSDKHost, ExtensionFliunoRegistry } from "./AuronaSDKHost";
 
 describe("AuronaSDKHost", () => {
-  it("provides complete Aurona SDK interface with storage and ui", async () => {
+  it("provides complete Aurona SDK interface with storage, ui and permissions", async () => {
     const sdk = createAuronaSDKHost("test.aurona.ext");
-    expect(sdk.version).toBe("1.1.0");
-    expect(sdk.env.sdkVersion).toBe("1.1.0");
+    expect(sdk.version).toBe("2.0.0");
+    expect(sdk.env.sdkVersion).toBe("2.0.0");
+    expect(typeof sdk.permissions.check).toBe("function");
+    expect(typeof sdk.permissions.request).toBe("function");
+    expect(typeof sdk.permissions.revoke).toBe("function");
 
     // 存储读写
     await sdk.storage.set("theme_mode", "glass_dark");

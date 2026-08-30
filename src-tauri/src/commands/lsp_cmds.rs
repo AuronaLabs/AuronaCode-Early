@@ -4,10 +4,12 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
-use tauri::{Manager, State};
+use tauri::State;
 
 fn file_path_to_uri(path: &str) -> Result<String, String> {
-    url::Url::from_file_path(Path::new(path))
+    let clean_path = path.replace('/', "\\");
+    let p = Path::new(&clean_path);
+    url::Url::from_file_path(p)
         .map(|uri| uri.to_string())
         .map_err(|_| format!("Unable to convert file path to LSP URI: {path}"))
 }
@@ -69,6 +71,7 @@ struct LanguageServerLaunch {
 pub struct LspState {
     pub clients: tokio::sync::Mutex<HashMap<String, Arc<lsp::LspClient>>>,
     launches: tokio::sync::Mutex<HashMap<String, LanguageServerLaunch>>,
+    opened_docs: tokio::sync::Mutex<std::collections::HashSet<String>>,
 }
 
 impl LspState {
@@ -76,6 +79,7 @@ impl LspState {
         Self {
             clients: tokio::sync::Mutex::new(HashMap::new()),
             launches: tokio::sync::Mutex::new(HashMap::new()),
+            opened_docs: tokio::sync::Mutex::new(std::collections::HashSet::new()),
         }
     }
 }
@@ -116,46 +120,6 @@ fn node_compatible_path(path: &Path) -> PathBuf {
     path.to_path_buf()
 }
 
-fn resolve_bundled_node_server(
-    app_handle: &tauri::AppHandle,
-    relative_entry: &[&str],
-    server_name: &str,
-) -> Result<(String, PathBuf), String> {
-    let runtime_name = if cfg!(windows) { "node.exe" } else { "node" };
-    let mut toolchain_roots = Vec::new();
-    if let Ok(resource_dir) = app_handle.path().resource_dir() {
-        toolchain_roots.push(resource_dir.join("toolchains"));
-    }
-    toolchain_roots.push(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("resources")
-            .join("toolchains"),
-    );
-
-    for root in &toolchain_roots {
-        let runtime = root.join("runtime").join(runtime_name);
-        let mut entry = root.clone();
-        for segment in relative_entry {
-            entry.push(segment);
-        }
-        if runtime.is_file() && entry.is_file() {
-            return Ok((
-                node_compatible_path(&runtime).to_string_lossy().to_string(),
-                node_compatible_path(&entry),
-            ));
-        }
-    }
-
-    let searched = toolchain_roots
-        .iter()
-        .map(|root| root.display().to_string())
-        .collect::<Vec<_>>()
-        .join(", ");
-    Err(format!(
-        "Built-in {server_name} resources are unavailable. Searched: {searched}. Reinstall Aurona Code or configure an explicit language server command"
-    ))
-}
-
 async fn get_client(state: &State<'_, LspState>, language: &str) -> Option<Arc<lsp::LspClient>> {
     state
         .clients
@@ -171,78 +135,80 @@ fn resolve_builtin_launch(
     app_handle: &tauri::AppHandle,
 ) -> Result<LanguageServerLaunch, String> {
     let canonical = canonical_language(language).to_string();
-    let mut environment = options.env.clone();
+    let environment = options.env.clone();
     let (command, args) = if let Some(command) = options.command {
         (command, options.args)
     } else {
-        match canonical.as_str() {
-            "typescript" => {
-                if let Some(cli) = resolve_workspace_node_package_entry(
-                    options.workspace_root.as_deref(),
-                    &["typescript-language-server", "lib", "cli.mjs"],
-                ) {
-                    (
-                        "node".to_string(),
-                        vec![cli.to_string_lossy().to_string(), "--stdio".to_string()],
-                    )
-                } else {
-                    let (runtime, cli) = resolve_bundled_node_server(
-                        app_handle,
-                        &["typescript-language-server", "cli.mjs"],
-                        "TypeScript Language Server",
-                    )?;
-                    environment.insert(
-                        "AURONA_LSP_ENTRY".to_string(),
-                        cli.to_string_lossy().to_string(),
-                    );
-                    (
-                        runtime,
-                        vec![
-                            "--input-type=module".to_string(),
-                            "-e".to_string(),
-                            "import('node:url').then(({pathToFileURL})=>import(pathToFileURL(process.env.AURONA_LSP_ENTRY).href))".to_string(),
-                            "--".to_string(),
-                            "aurona-lsp-entry".to_string(),
-                            "--stdio".to_string(),
-                        ],
-                    )
+        // 1. 优先检查当前工作区是否自带 LSP 依赖 (例如项目内 pnpm install typescript-language-server)
+        let workspace_cli = match canonical.as_str() {
+            "typescript" => resolve_workspace_node_package_entry(
+                options.workspace_root.as_deref(),
+                &["typescript-language-server", "lib", "cli.mjs"],
+            ),
+            "python" => resolve_workspace_node_package_entry(
+                options.workspace_root.as_deref(),
+                &["pyright", "langserver.index.js"],
+            ),
+            _ => None,
+        };
+
+        if let Some(cli) = workspace_cli {
+            // 工作区已有 node_modules 依赖，优先使用共享 node 运行时或系统 node
+            let runtime_bin = crate::toolchains::find_shared_node_runtime(app_handle)
+                .map(|p| node_compatible_path(&p).to_string_lossy().to_string())
+                .unwrap_or_else(|| "node".to_string());
+            (
+                runtime_bin,
+                vec![cli.to_string_lossy().to_string(), "--stdio".to_string()],
+            )
+        } else if let Some((manifest, lsp_dir)) =
+            crate::toolchains::find_installed_lsp_for_language(app_handle, &canonical)
+        {
+            // 2. 命中 APPDATA 中从 Marketplace 下载的官方/第三方 LSP 包
+            if manifest.runtime.runtime_type == "node" {
+                let runtime = crate::toolchains::find_shared_node_runtime(app_handle)
+                    .ok_or_else(|| format!("NO_RUNTIME_INSTALLED:node:{}", manifest.id))?;
+
+                let entry_path = lsp_dir.join(&manifest.runtime.entry);
+                if !entry_path.is_file() {
+                    return Err(format!("LSP 入口文件丢失: {}", entry_path.display()));
                 }
+
+                let entry_str = node_compatible_path(&entry_path)
+                    .to_string_lossy()
+                    .to_string();
+                let mut cmd_args = vec![entry_str];
+
+                let default_args = manifest
+                    .command
+                    .as_ref()
+                    .map(|c| c.args.clone())
+                    .unwrap_or_else(|| vec!["--stdio".to_string()]);
+                cmd_args.extend(default_args);
+
+                (
+                    node_compatible_path(&runtime).to_string_lossy().to_string(),
+                    cmd_args,
+                )
+            } else {
+                // native 二进制运行模式
+                let bin_path = lsp_dir.join(&manifest.runtime.entry);
+                let default_args = manifest
+                    .command
+                    .as_ref()
+                    .map(|c| c.args.clone())
+                    .unwrap_or_default();
+                (bin_path.to_string_lossy().to_string(), default_args)
             }
-            "rust" => ("rust-analyzer".to_string(), Vec::new()),
-            "python" => {
-                if let Some(cli) = resolve_workspace_node_package_entry(
-                    options.workspace_root.as_deref(),
-                    &["pyright", "langserver.index.js"],
-                ) {
-                    (
-                        "node".to_string(),
-                        vec![cli.to_string_lossy().to_string(), "--stdio".to_string()],
-                    )
-                } else {
-                    let (runtime, cli) = resolve_bundled_node_server(
-                        app_handle,
-                        &["pyright", "langserver.index.cjs"],
-                        "Pyright Language Server",
-                    )?;
-                    environment.insert(
-                        "AURONA_LSP_ENTRY".to_string(),
-                        cli.to_string_lossy().to_string(),
-                    );
-                    (
-                        runtime,
-                        vec![
-                            "-e".to_string(),
-                            "require(process.env.AURONA_LSP_ENTRY)".to_string(),
-                            "--".to_string(),
-                            "aurona-lsp-entry".to_string(),
-                            "--stdio".to_string(),
-                        ],
-                    )
-                }
+        } else {
+            // 3. 本地未安装针对该语言的工具链，返回标准可机器识别的未安装状态
+            match canonical.as_str() {
+                "rust" => ("rust-analyzer".to_string(), Vec::new()),
+                _ => return Err(format!("NO_LSP_INSTALLED:{canonical}")),
             }
-            _ => return Err(format!("No language server is configured for {language}")),
         }
     };
+
     if command.trim().is_empty() {
         return Err("Language server command must not be empty".to_string());
     }
@@ -411,14 +377,17 @@ pub async fn lsp_start(
 
 #[tauri::command]
 pub async fn lsp_stop(language: String, state: State<'_, LspState>) -> Result<(), String> {
-    let client = state
-        .clients
-        .lock()
-        .await
-        .remove(canonical_language(&language));
+    let key = canonical_language(&language);
+    let client = state.clients.lock().await.remove(key);
     if let Some(client) = client {
         client.shutdown().await;
     }
+    let prefix = format!("{key}:");
+    state
+        .opened_docs
+        .lock()
+        .await
+        .retain(|k| !k.starts_with(&prefix));
     Ok(())
 }
 
@@ -439,6 +408,12 @@ pub async fn lsp_restart(
     if let Some(client) = state.clients.lock().await.remove(&key) {
         client.shutdown().await;
     }
+    let prefix = format!("{key}:");
+    state
+        .opened_docs
+        .lock()
+        .await
+        .retain(|k| !k.starts_with(&prefix));
     start_launch(launch, app_handle, &state).await
 }
 
@@ -460,6 +435,7 @@ pub async fn lsp_status(state: State<'_, LspState>) -> Result<Vec<LanguageServer
 
 #[tauri::command]
 pub async fn lsp_stop_all(state: State<'_, LspState>) -> Result<(), String> {
+    state.opened_docs.lock().await.clear();
     let clients = state
         .clients
         .lock()
@@ -482,12 +458,16 @@ pub async fn lsp_did_open(
     state: State<'_, LspState>,
 ) -> Result<(), String> {
     if let Some(client) = get_client(&state, &language).await {
+        let uri = file_path_to_uri(&path)?;
+        let doc_key = format!("{}:{}", canonical_language(&language), &uri);
+        state.opened_docs.lock().await.insert(doc_key);
+
         client
             .notify(
                 "textDocument/didOpen",
                 serde_json::json!({
                     "textDocument": {
-                        "uri": file_path_to_uri(&path)?,
+                        "uri": uri,
                         "languageId": language,
                         "version": version,
                         "text": text
@@ -508,12 +488,35 @@ pub async fn lsp_did_change(
     state: State<'_, LspState>,
 ) -> Result<(), String> {
     if let Some(client) = get_client(&state, &language).await {
+        let uri = file_path_to_uri(&path)?;
+        let doc_key = format!("{}:{}", canonical_language(&language), &uri);
+        let is_opened = state.opened_docs.lock().await.contains(&doc_key);
+
+        if !is_opened {
+            // 如果尚未发送过 didOpen，先行发送一次以确保语言服务器初始化资源，避免 Unexpected resource 异常
+            state.opened_docs.lock().await.insert(doc_key);
+            let _ = client
+                .notify(
+                    "textDocument/didOpen",
+                    serde_json::json!({
+                        "textDocument": {
+                            "uri": uri,
+                            "languageId": language,
+                            "version": version,
+                            "text": text
+                        }
+                    }),
+                )
+                .await;
+            return Ok(());
+        }
+
         client
             .notify(
                 "textDocument/didChange",
                 serde_json::json!({
                     "textDocument": {
-                        "uri": file_path_to_uri(&path)?,
+                        "uri": uri,
                         "version": version
                     },
                     "contentChanges": [{ "text": text }]
@@ -532,8 +535,9 @@ pub async fn lsp_did_save(
     state: State<'_, LspState>,
 ) -> Result<(), String> {
     if let Some(client) = get_client(&state, &language).await {
+        let uri = file_path_to_uri(&path)?;
         let mut params = serde_json::json!({
-            "textDocument": { "uri": file_path_to_uri(&path)? }
+            "textDocument": { "uri": uri }
         });
         if let Some(text) = text {
             params["text"] = serde_json::Value::String(text);
@@ -550,14 +554,21 @@ pub async fn lsp_did_close(
     state: State<'_, LspState>,
 ) -> Result<(), String> {
     if let Some(client) = get_client(&state, &language).await {
-        client
-            .notify(
-                "textDocument/didClose",
-                serde_json::json!({
-                    "textDocument": { "uri": file_path_to_uri(&path)? }
-                }),
-            )
-            .await?;
+        let uri = file_path_to_uri(&path)?;
+        let doc_key = format!("{}:{}", canonical_language(&language), &uri);
+        let was_opened = state.opened_docs.lock().await.remove(&doc_key);
+
+        // 仅当此前确已对该语言服务器发送过 didOpen 时，才向服务器派发 didClose，彻底避免 "Trying to close not opened document" 报错
+        if was_opened {
+            let _ = client
+                .notify(
+                    "textDocument/didClose",
+                    serde_json::json!({
+                        "textDocument": { "uri": uri }
+                    }),
+                )
+                .await;
+        }
     }
     Ok(())
 }
@@ -599,6 +610,91 @@ pub async fn lsp_cancel(
         .await
         .ok_or_else(|| format!("Language server for {language} is not running"))?;
     client.cancel(id).await
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LanguageToolchainStatus {
+    pub language: String,
+    pub is_lsp_installed: bool,
+    pub installed_lsp_id: Option<String>,
+    pub installed_lsp_version: Option<String>,
+    pub required_runtime_type: Option<String>,
+    pub is_runtime_ready: bool,
+}
+
+#[tauri::command]
+pub fn lsp_toolchain_status(app: tauri::AppHandle, language: String) -> LanguageToolchainStatus {
+    let canonical = canonical_language(&language);
+    let lsp_match = crate::toolchains::find_installed_lsp_for_language(&app, canonical);
+    let (is_lsp_installed, installed_lsp_id, installed_lsp_version, req_runtime) = match &lsp_match
+    {
+        Some((m, _)) => (
+            true,
+            Some(m.id.clone()),
+            Some(m.version.clone()),
+            Some(m.runtime.runtime_type.clone()),
+        ),
+        None => (false, None, None, None),
+    };
+
+    let is_runtime_ready = match req_runtime.as_deref() {
+        Some("node") => crate::toolchains::find_shared_node_runtime(&app).is_some(),
+        Some("native") => true,
+        _ => true,
+    };
+
+    LanguageToolchainStatus {
+        language: canonical.to_string(),
+        is_lsp_installed,
+        installed_lsp_id,
+        installed_lsp_version,
+        required_runtime_type: req_runtime,
+        is_runtime_ready,
+    }
+}
+
+#[tauri::command]
+pub fn lsp_toolchain_install(
+    app: tauri::AppHandle,
+    archive_bytes: Vec<u8>,
+    expected_sha256: Option<String>,
+) -> Result<crate::toolchains::InstalledToolchainSummary, String> {
+    crate::toolchains::install_toolchain_archive(&app, &archive_bytes, expected_sha256.as_deref())
+}
+
+#[tauri::command]
+pub async fn lsp_toolchain_install_url(
+    app: tauri::AppHandle,
+    download_id: String,
+    url: String,
+    expected_sha256: Option<String>,
+) -> Result<crate::toolchains::InstalledToolchainSummary, String> {
+    crate::toolchains::install_toolchain_from_url(app, download_id, url, expected_sha256).await
+}
+
+#[tauri::command]
+pub fn lsp_toolchain_list(app: tauri::AppHandle) -> crate::toolchains::ToolchainsOverview {
+    crate::toolchains::list_all_installed_toolchains(&app)
+}
+
+#[tauri::command]
+pub async fn lsp_toolchain_uninstall(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || crate::toolchains::uninstall_toolchain_server(&app, &id))
+        .await
+        .map_err(|e| format!("执行卸载任务失败: {e}"))?
+}
+
+#[tauri::command]
+pub async fn lsp_toolchain_uninstall_runtime(
+    app: tauri::AppHandle,
+    runtime_type: String,
+) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        crate::toolchains::uninstall_toolchain_runtime(&app, &runtime_type)
+    })
+    .await
+    .map_err(|e| format!("执行卸载运行时任务失败: {e}"))?
 }
 
 #[cfg(test)]
