@@ -7,8 +7,9 @@ use std::time::Duration;
 use tauri::State;
 
 fn file_path_to_uri(path: &str) -> Result<String, String> {
-    let clean_path = path.replace('/', "\\");
-    let p = Path::new(&clean_path);
+    // url crate handles both Windows (drive letters, backslashes, UNC) and
+    // POSIX paths natively; normalizing separators here would break Unix.
+    let p = Path::new(path);
     url::Url::from_file_path(p)
         .map(|uri| uri.to_string())
         .map_err(|_| format!("Unable to convert file path to LSP URI: {path}"))
