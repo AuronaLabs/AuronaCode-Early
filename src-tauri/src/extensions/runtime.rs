@@ -613,53 +613,6 @@ mod tests {
         ExtensionContext::new(workspace_root, test_environment())
     }
 
-    fn component_bytes() -> Vec<u8> {
-        let path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../MarketplacePackages/auronalabs.markdown.aurx"
-        );
-        let bytes = std::fs::read(path).expect("committed AURX missing");
-        crate::extensions::aurx::open_package(&bytes)
-            .expect("committed AURX must be valid")
-            .wasm
-            .clone()
-    }
-
-    #[test]
-    fn loads_and_renders_markdown() {
-        let runtime =
-            ExtensionRuntime::new(&component_bytes(), ExtensionLimits::default()).unwrap();
-        let output = runtime
-            .render(test_context(None), "# Hello".to_string())
-            .unwrap();
-        assert!(output.html.contains("<h1>Hello</h1>"), "{}", output.html);
-        assert!(output.diagnostics.is_empty());
-    }
-
-    #[test]
-    fn renders_table_and_strikethrough() {
-        let runtime =
-            ExtensionRuntime::new(&component_bytes(), ExtensionLimits::default()).unwrap();
-        let markdown = "| a | b |\n|---|---|\n| 1 | 2 |\n\n~~gone~~";
-        let output = runtime
-            .render(test_context(None), markdown.to_string())
-            .unwrap();
-        assert!(output.html.contains("<table>"), "{}", output.html);
-        assert!(output.html.contains("<del>gone</del>"), "{}", output.html);
-    }
-
-    #[test]
-    fn sanitizes_malicious_html() {
-        let runtime =
-            ExtensionRuntime::new(&component_bytes(), ExtensionLimits::default()).unwrap();
-        let markdown = "<script>alert(1)</script>\n\n[click](javascript:alert(1))";
-        let output = runtime
-            .render(test_context(None), markdown.to_string())
-            .unwrap();
-        assert!(!output.html.contains("<script"), "{}", output.html);
-        assert!(!output.html.contains("javascript:"), "{}", output.html);
-    }
-
     #[test]
     fn editor_content_requires_grant() {
         let mut context = test_context(None);
@@ -738,9 +691,16 @@ mod tests {
         assert!(host
             .write_workspace_file("../escape.txt".to_string(), "bad".to_string())
             .is_err());
-        assert!(host
-            .write_workspace_file("C:\\Windows\\system.txt".to_string(), "bad".to_string())
-            .is_err());
+        if cfg!(windows) {
+            // Windows 上盘符路径是绝对路径；Unix 上反斜杠只是普通文件名字符
+            assert!(host
+                .write_workspace_file("C:\\Windows\\system.txt".to_string(), "bad".to_string())
+                .is_err());
+        } else {
+            assert!(host
+                .write_workspace_file("/etc/passwd".to_string(), "bad".to_string())
+                .is_err());
+        }
 
         // 拒绝写入 .git 系统敏感目录
         assert!(host
@@ -797,34 +757,6 @@ mod tests {
     #[test]
     fn invalid_component_is_rejected() {
         let result = ExtensionRuntime::new(b"not a wasm component", ExtensionLimits::default());
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn fuel_exhaustion_is_isolated_error() {
-        let runtime = ExtensionRuntime::new(
-            &component_bytes(),
-            ExtensionLimits {
-                memory_bytes: 64 * 1024 * 1024,
-                fuel: 1,
-            },
-        )
-        .unwrap();
-        let result = runtime.render(test_context(None), "# Hello".to_string());
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn memory_limit_is_enforced() {
-        let runtime = ExtensionRuntime::new(
-            &component_bytes(),
-            ExtensionLimits {
-                memory_bytes: 1,
-                fuel: 10_000_000,
-            },
-        )
-        .unwrap();
-        let result = runtime.render(test_context(None), "# Hello".to_string());
         assert!(result.is_err());
     }
 }

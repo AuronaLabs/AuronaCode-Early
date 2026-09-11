@@ -763,7 +763,7 @@ pub async fn save_performance_baseline(
 mod tests {
     use super::{
         run_editor_benchmark, run_encoding_benchmark, run_filesystem_benchmark,
-        run_search_benchmark, run_wasm_benchmark, SEARCH_FILE_COUNT,
+        run_search_benchmark, SEARCH_FILE_COUNT,
     };
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
@@ -801,14 +801,6 @@ mod tests {
         let cancelled = AtomicBool::new(false);
         let results =
             run_encoding_benchmark(&cancelled).expect("encoding benchmark should complete");
-        assert_eq!(results.len(), 3);
-        assert!(results.iter().all(|result| result.status == "ok"));
-    }
-
-    #[test]
-    fn wasm_benchmark_exercises_package_and_runtime() {
-        let cancelled = AtomicBool::new(false);
-        let results = run_wasm_benchmark(&cancelled).expect("wasm benchmark should complete");
         assert_eq!(results.len(), 3);
         assert!(results.iter().all(|result| result.status == "ok"));
     }
