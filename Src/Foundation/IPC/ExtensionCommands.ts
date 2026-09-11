@@ -1,4 +1,5 @@
 import { invokeDesktop } from "../Desktop/Transport";
+import { canonicalExtensionId } from "../Types/ExtensionId";
 
 export type ExtensionPermissionState = "unknown" | "granted" | "denied";
 
@@ -69,15 +70,20 @@ export const ExtensionIPC = {
   },
 
   uninstall(extensionId: string): Promise<void> {
-    return invokeDesktop("extensions_uninstall", { extensionId });
+    return invokeDesktop("extensions_uninstall", {
+      extensionId: canonicalExtensionId(extensionId),
+    });
   },
 
   getView(extensionId: string): Promise<ExtensionViewPayload> {
-    return invokeDesktop("extensions_get_view", { extensionId });
+    return invokeDesktop("extensions_get_view", { extensionId: canonicalExtensionId(extensionId) });
   },
 
   getPermission(extensionId: string, permission: string): Promise<ExtensionPermissionState> {
-    return invokeDesktop("extensions_get_permission", { extensionId, permission });
+    return invokeDesktop("extensions_get_permission", {
+      extensionId: canonicalExtensionId(extensionId),
+      permission,
+    });
   },
 
   setPermission(
@@ -86,7 +92,7 @@ export const ExtensionIPC = {
     granted: boolean,
   ): Promise<ExtensionPermissionState> {
     return invokeDesktop("extensions_set_permission", {
-      extensionId,
+      extensionId: canonicalExtensionId(extensionId),
       permission,
       granted,
     });
@@ -98,13 +104,15 @@ export const ExtensionIPC = {
     granted: boolean,
   ): Promise<ExtensionPermissionState> {
     return invokeDesktop("extensions_set_session_permission", {
-      extensionId,
+      extensionId: canonicalExtensionId(extensionId),
       permission,
       granted,
     });
   },
 
   render(request: ExtensionRenderRequest): Promise<ExtensionRenderResponse> {
-    return invokeDesktop("extensions_render", { request });
+    return invokeDesktop("extensions_render", {
+      request: { ...request, extensionId: canonicalExtensionId(request.extensionId) },
+    });
   },
 };

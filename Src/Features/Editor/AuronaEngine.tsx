@@ -791,9 +791,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         .hl-bracket-4 { color: #f43f5e; }
         .hl-bracket-5 { color: #e2e8f0; }
 
-        .hl-occurrence { background-color: var(--color-accent)/12; border-radius: 2px; }
-        .hl-search { background-color: var(--EditorSearchMatchBg, #f59e0b/30); }
-        .hl-search-active { background-color: var(--EditorSearchActiveBg, #f59e0b/70); }
+        .hl-occurrence { background-color: color-mix(in srgb, var(--color-accent) 12%, transparent); border-radius: 2px; }
+        .hl-search { background-color: var(--EditorSearchMatchBg, rgba(245, 158, 11, 0.3)); }
+        .hl-search-active { background-color: var(--EditorSearchActiveBg, rgba(245, 158, 11, 0.7)); }
 
         .hl-diag-error { text-decoration: underline wavy var(--DiagError, #ef4444); }
         .hl-diag-warning { text-decoration: underline wavy var(--DiagWarning, #f59e0b); }

@@ -17,7 +17,7 @@ const buttonVariants = cva(
         ghost:
           "bg-transparent text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]",
         glass:
-          "border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-highlight)] backdrop-blur-[var(--glass-blur-elevated)] hover:bg-[var(--material-interactive-hover)]",
+          "border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-highlight)] backdrop-blur-[var(--glass-blur-raised)] hover:bg-[var(--material-interactive-hover)]",
       },
       size: {
         default: "h-8 px-4 py-1.5",

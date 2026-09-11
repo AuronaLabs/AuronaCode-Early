@@ -32,8 +32,8 @@ export function DeclarativeUIRenderer({ ui, onAction }: DeclarativeUIRendererPro
         return (
           <GlassContainer
             key={card.id ?? `card_${index}`}
-            layer="elevated"
-            className="p-4 rounded-xl flex flex-col gap-3 border border-[var(--color-glass-border)] bg-[var(--color-glass-surface)]/60 backdrop-blur-md"
+            layer="raised"
+            className="flex flex-col gap-3 rounded-xl p-4"
           >
             {card.title && (
               <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2 mb-1">
@@ -141,7 +141,7 @@ export function DeclarativeUIRenderer({ ui, onAction }: DeclarativeUIRendererPro
                 updateState(comp.id, e.target.value);
                 onAction?.(`input:${comp.id}`, e.target.value);
               }}
-              className="h-8 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/60 px-3 text-[12px] text-[var(--color-text-primary)] outline-none transition-all placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-border-active)]"
+              className="h-8 w-full rounded-xl border border-[var(--color-border)] bg-[var(--material-panel)] px-3 text-[12px] text-[var(--color-text-primary)] outline-none transition-all placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]"
             />
           </div>
         );
@@ -170,9 +170,9 @@ export function DeclarativeUIRenderer({ ui, onAction }: DeclarativeUIRendererPro
         const variants: Record<string, string> = {
           title: "text-[14px] font-bold text-[var(--color-text-highlight)]",
           subtitle: "text-[12.5px] font-semibold text-[var(--color-text-primary)]",
-          body: "text-[12px] text-[var(--color-text-secondary)] leading-relaxed",
+          body: "text-[12px] text-[var(--color-text-muted)] leading-relaxed",
           caption: "text-[11px] text-[var(--color-text-muted)]",
-          code: "text-[11.5px] font-mono bg-[var(--color-bg-tertiary)] px-1.5 py-0.5 rounded text-[var(--color-text-primary)]",
+          code: "text-[11.5px] font-mono bg-[var(--material-panel)] px-1.5 py-0.5 rounded text-[var(--color-text-primary)]",
         };
         return (
           <div key={comp.id ?? `text_${index}`} className={variants[comp.variant ?? "body"]}>
@@ -192,7 +192,7 @@ export function DeclarativeUIRenderer({ ui, onAction }: DeclarativeUIRendererPro
                 </span>
               </div>
             )}
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--material-panel)]">
               <div
                 className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 transition-all duration-300"
                 style={{ width: `${Math.min(100, Math.max(0, comp.progress))}%` }}

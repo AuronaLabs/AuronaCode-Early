@@ -41,7 +41,7 @@ export function GeneralSettingsSection({
         </p>
       </div>
 
-      <GlassContainer layer="elevated" className="overflow-hidden rounded-2xl">
+      <GlassContainer layer="raised" className="overflow-hidden">
         <div
           data-setting-id="theme"
           className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"
@@ -55,7 +55,7 @@ export function GeneralSettingsSection({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <fieldset className="grid w-full grid-cols-3 gap-1 rounded-2xl border border-[var(--border-subtle)] bg-[var(--material-panel)] p-1.5 shadow-[inset_0_1px_1px_var(--material-inset)] backdrop-blur-[var(--glass-blur-base)] sm:w-auto">
+            <fieldset className="grid w-full grid-cols-3 gap-1 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--material-panel)] p-1.5 shadow-[inset_0_1px_1px_var(--material-inset)] sm:w-auto">
               <legend className="sr-only">{t("settings.theme")}</legend>
               {(["system", "light", "dark"] as const).map((mode) => (
                 <button
@@ -65,7 +65,7 @@ export function GeneralSettingsSection({
                   onClick={() => onThemeChange(mode)}
                   className={`flex min-w-0 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-[background-color,border-color,color,box-shadow] duration-150 sm:min-w-[104px] cursor-pointer ${
                     theme === mode
-                      ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)] backdrop-blur-[var(--glass-blur-elevated)]"
+                      ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
                       : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
                   }`}
                 >
@@ -163,7 +163,7 @@ export function GeneralSettingsSection({
         </p>
       </div>
 
-      <GlassContainer layer="elevated" className="overflow-hidden rounded-2xl">
+      <GlassContainer layer="raised" className="overflow-hidden">
         <div
           data-setting-id="muteNonCritical"
           className="flex items-center justify-between gap-4 p-5"

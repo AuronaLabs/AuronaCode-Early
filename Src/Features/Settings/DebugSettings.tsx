@@ -165,7 +165,7 @@ function Group({
         <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">{title}</h3>
         <p className="text-[13px] leading-relaxed text-[var(--color-text-muted)]">{description}</p>
       </div>
-      <GlassContainer layer="elevated" className="mt-1 overflow-hidden rounded-2xl">
+      <GlassContainer layer="raised" className="mt-1 overflow-hidden">
         {children}
       </GlassContainer>
     </section>

@@ -13,6 +13,7 @@ import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { cn } from "../../Shared/Utils/cn";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Button } from "../../UI/Components/Button";
+import { EmptyState } from "../../UI/Components/EmptyState";
 import { glassListHeaderStyles, glassListRowStyles } from "../../UI/Components/GlassList";
 import { Modal } from "../../UI/Components/Modal";
 import { Select } from "../../UI/Components/Select";
@@ -424,14 +425,12 @@ export const SourceControl = React.memo(function SourceControl() {
 
   if (!repoPath) {
     return (
-      <div className="flex flex-col h-full w-full items-center justify-center p-6 bg-transparent text-center gap-4">
-        <Icons.Folder size={48} stroke={1} className="text-[var(--color-text-muted)] opacity-50" />
-        <p className="text-[13px] text-[var(--color-text-primary)] leading-relaxed">
-          尚未打开任何工作区
-          <br />
-          请先在资源管理器中打开一个文件夹
-        </p>
-      </div>
+      <EmptyState
+        className="h-full"
+        icon={<Icons.Folder size={27} stroke={1.45} />}
+        title="尚未打开任何工作区"
+        description="请先在资源管理器中打开一个文件夹"
+      />
     );
   }
 
@@ -448,26 +447,21 @@ export const SourceControl = React.memo(function SourceControl() {
             </>
           }
         />
-        <div className="flex flex-col flex-1 items-center justify-center p-6 text-center gap-6">
-          <div className="flex flex-col items-center gap-2">
-            <Icons.GitBranch
-              size={48}
-              stroke={1}
-              className="text-[var(--color-text-muted)] opacity-50"
-            />
-            <p className="text-[13px] text-[var(--color-text-primary)] leading-relaxed mt-2">
-              当前文件夹尚未初始化 Git 仓库
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleInit}
-            className="px-6 py-2.5 bg-[var(--color-accent)] hover:opacity-90 text-[var(--color-accent-text)] text-[13px] font-bold rounded-xl transition-all flex items-center gap-2"
-          >
-            <Icons.Plus size={16} stroke={2.5} />
-            初始化 Git 仓库
-          </button>
-        </div>
+        <EmptyState
+          className="flex-1"
+          icon={<Icons.GitBranch size={27} stroke={1.45} />}
+          title="当前文件夹尚未初始化 Git 仓库"
+          actions={
+            <button
+              type="button"
+              onClick={handleInit}
+              className="flex items-center gap-2 rounded-xl bg-[var(--color-accent)] px-5 py-2.5 text-[13px] font-bold text-[var(--color-accent-text)] transition-all hover:opacity-90 active:scale-[0.98]"
+            >
+              <Icons.Plus size={16} stroke={2.5} />
+              初始化 Git 仓库
+            </button>
+          }
+        />
       </div>
     );
   }
@@ -615,7 +609,7 @@ export const SourceControl = React.memo(function SourceControl() {
           <div className="mt-2 shrink-0 px-[var(--PanelPaddingX)] pb-4">
             <div
               className={cn(
-                glassVariants({ layer: "elevated" }),
+                glassVariants({ layer: "raised" }),
                 "relative flex flex-col gap-3 rounded-2xl p-3 transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)]",
               )}
             >
@@ -769,7 +763,7 @@ export const SourceControl = React.memo(function SourceControl() {
           {commits.length === 0 ? (
             <div
               className={cn(
-                glassVariants({ layer: "elevated" }),
+                glassVariants({ layer: "raised" }),
                 "p-4 text-center text-[12px] text-[var(--color-text-muted)] rounded-2xl z-10 mt-2",
               )}
             >

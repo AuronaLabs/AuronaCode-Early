@@ -26,7 +26,12 @@ vi.mock("../Foundation/Storage/WorkspaceStore", () => ({
   },
 }));
 
-import { filePathIdentity, useWorkbenchStore } from "./useWorkspaceStore";
+import {
+  canonicalizeExtensionContainerId,
+  filePathIdentity,
+  migrateWorkbenchExtensionTabs,
+  useWorkbenchStore,
+} from "./useWorkspaceStore";
 
 describe("workbench file identity", () => {
   beforeEach(() => {
@@ -82,5 +87,53 @@ describe("workbench file identity", () => {
     store.closeTab(tab);
 
     expect(DiagnosticsService.get(uri)).toBeUndefined();
+  });
+
+  it("migrates legacy extension tabs and keeps a canonical duplicate", () => {
+    const tabs = migrateWorkbenchExtensionTabs([
+      {
+        id: "extension:aurona.markdown",
+        type: "extension",
+        title: "Legacy Markdown",
+        path: "aurona.markdown",
+      },
+      {
+        id: "extension:auronalabs.markdown",
+        type: "extension",
+        title: "Markdown Preview",
+        path: "auronalabs.markdown",
+      },
+    ]);
+
+    expect(tabs).toEqual([
+      {
+        id: "extension:auronalabs.markdown",
+        type: "extension",
+        title: "Markdown Preview",
+        path: "auronalabs.markdown",
+      },
+    ]);
+    expect(canonicalizeExtensionContainerId("extension:aurona.planner")).toBe(
+      "extension:auronalabs.planner",
+    );
+  });
+
+  it("canonicalizes legacy extension tabs opened after startup", () => {
+    useWorkbenchStore.getState().openTab({
+      id: "extension:aurona.markdown",
+      type: "extension",
+      title: "Markdown Preview",
+      path: "aurona.markdown",
+    });
+
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      activeTabId: "extension:auronalabs.markdown",
+      tabs: [
+        {
+          id: "extension:auronalabs.markdown",
+          path: "auronalabs.markdown",
+        },
+      ],
+    });
   });
 });

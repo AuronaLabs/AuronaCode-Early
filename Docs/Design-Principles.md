@@ -1,5 +1,12 @@
 # Aurona Code 设计哲学与材质系统规范
 
+## Pioneer 5 表面与交互约束
+
+- 视觉表面只分为 `base`、`raised`、`overlay` 三层。材质强度和液态纹理只能调整透明度与模糊，不得创建新的页面层级。
+- 页面分组优先使用无框 section、divider 和标题层级；Card 只用于重复项目、弹窗和确实需要边界的工具。
+- 每个工作流必须有唯一主入口。LSP 与 Runtime 的安装、版本和生命周期全部位于 Marketplace 的 `Toolchains` 模式。
+- 输入与远程副作用分离：draft query 只做本地过滤，提交 query 才请求网络，旧响应不得覆盖新状态。
+
 ## 1. 核心设计哲学
 
 1. **安静与克制 (Quiet & Focused)**：

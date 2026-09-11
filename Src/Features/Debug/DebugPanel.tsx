@@ -5,6 +5,7 @@ import { LocaleService, useLocale } from "../../Foundation/I18n";
 import { type DebugBreakpoint, type DebugVariable, useDebugStore } from "../../State/useDebugStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Button } from "../../UI/Components/Button";
+import { EmptyState } from "../../UI/Components/EmptyState";
 import {
   GlassList,
   glassListHeaderStyles,
@@ -166,17 +167,11 @@ export function DebugPanel() {
               </div>
             )}
             {!debug.configurations.length && !debug.error && (
-              <div className="flex flex-col items-center gap-3 px-7 py-10 text-center text-[11px] leading-5 text-[var(--color-text-muted)]">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--color-text-muted)]">
-                  <Icons.Debug size={22} stroke={1.4} />
-                </div>
-                <div>
-                  <div className="font-medium text-[var(--color-text-primary)]">
-                    {t("debug.openDebuggableFile")}
-                  </div>
-                  <p className="mt-1">{t("debug.openDebuggableFileDesc")}</p>
-                </div>
-              </div>
+              <EmptyState
+                icon={<Icons.Debug size={27} stroke={1.45} />}
+                title={t("debug.openDebuggableFile")}
+                description={t("debug.openDebuggableFileDesc")}
+              />
             )}
 
             <GlassList className="mx-[var(--PanelPaddingX)] mt-2">
@@ -898,39 +893,27 @@ function WatchSection() {
 function DebugContextEmpty({ hasFile }: { hasFile: boolean }) {
   const { t } = useLocale();
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-5 overflow-hidden px-6 text-center">
-      <div className="pointer-events-none absolute h-44 w-44 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] blur-3xl" />
-      <div className="relative">
-        <div className="absolute inset-0 scale-125 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] blur-xl" />
-        <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-accent)_22%,var(--border-subtle))] bg-[var(--material-surface)] text-[var(--color-accent)]">
-          <Icons.Debug size={27} stroke={1.45} />
-        </div>
-      </div>
-      <div className="relative z-10 space-y-2">
-        <h3 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
-          {hasFile ? t("debug.currentFileNoDebug") : t("debug.readyToDebug")}
-        </h3>
-        <p className="text-[12px] leading-relaxed text-[var(--color-text-muted)]">
-          {hasFile ? (
-            <>
-              {t("debug.switchToSupportedFile")}
-              <br />
-              {t("debug.autoMatchConfig")}
-            </>
-          ) : (
-            <>
-              {t("debug.openFileToDebug")}
-              <br />
-              {t("debug.toolsReadyHint")}
-            </>
-          )}
-        </p>
-      </div>
-      <div className="relative z-10 flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--color-accent)_16%,var(--border-subtle))] bg-[var(--material-panel)] px-3 py-1 text-[11px] font-medium text-[var(--color-text-muted)]">
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
-        {t("debug.waitingContext")}
-      </div>
-    </div>
+    <EmptyState
+      className="min-h-0 flex-1"
+      icon={<Icons.Debug size={27} stroke={1.45} />}
+      title={hasFile ? t("debug.currentFileNoDebug") : t("debug.readyToDebug")}
+      description={
+        hasFile ? (
+          <>
+            {t("debug.switchToSupportedFile")}
+            <br />
+            {t("debug.autoMatchConfig")}
+          </>
+        ) : (
+          <>
+            {t("debug.openFileToDebug")}
+            <br />
+            {t("debug.toolsReadyHint")}
+          </>
+        )
+      }
+      badge={t("debug.waitingContext")}
+    />
   );
 }
 

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { canonicalExtensionId, migrateExtensionRecords } from "../Features/Extensions/ExtensionId";
 import {
   type ExtensionDescriptor,
   ExtensionIPC,
@@ -35,7 +36,14 @@ function loadHiddenExtensions(): string[] {
     const raw = localStorage.getItem(HIDDEN_EXTENSIONS_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    const ids = [
+      ...new Set(
+        parsed.filter((id): id is string => typeof id === "string").map(canonicalExtensionId),
+      ),
+    ];
+    if (JSON.stringify(ids) !== JSON.stringify(parsed)) saveHiddenExtensions(ids);
+    return ids;
   } catch {
     return [];
   }
@@ -110,9 +118,13 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
       // Keep its package in the Rust registry so VSIX execution can use it, but do
       // not expose it as an installable/sidebar descriptor.
       const descriptors = Array.isArray(remoteDescriptors)
-        ? remoteDescriptors.filter((descriptor) => descriptor.id !== VSCODE_COMPAT_EXTENSION_ID)
+        ? migrateExtensionRecords(remoteDescriptors)
+            .filter((descriptor) => descriptor.id !== VSCODE_COMPAT_EXTENSION_ID)
+            .map((descriptor) => ({ ...descriptor, id: canonicalExtensionId(descriptor.id) }))
         : [];
-      set({ descriptors, hiddenExtensionIds: loadHiddenExtensions(), initialized: true });
+      const hiddenExtensionIds = loadHiddenExtensions();
+      saveHiddenExtensions(hiddenExtensionIds);
+      set({ descriptors, hiddenExtensionIds, initialized: true });
       for (const descriptor of descriptors) {
         void ExtensionIPC.getView(descriptor.id)
           .then((view) => set((state) => ({ views: { ...state.views, [descriptor.id]: view } })))
@@ -123,6 +135,7 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
     }
   },
   viewFor(extensionId) {
+    extensionId = canonicalExtensionId(extensionId);
     const cached = get().views[extensionId];
     if (cached) return Promise.resolve(cached);
     return ExtensionIPC.getView(extensionId).then((view) => {
@@ -131,6 +144,7 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
     });
   },
   async permissionFor(extensionId, permission) {
+    extensionId = canonicalExtensionId(extensionId);
     const state = await ExtensionIPC.getPermission(extensionId, permission);
     set((current) => ({
       permissions: { ...current.permissions, [permissionKey(extensionId, permission)]: state },
@@ -138,6 +152,7 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
     return state;
   },
   async setPermission(extensionId, permission, granted) {
+    extensionId = canonicalExtensionId(extensionId);
     const state = await ExtensionIPC.setPermission(extensionId, permission, granted);
     set((current) => ({
       permissions: { ...current.permissions, [permissionKey(extensionId, permission)]: state },
@@ -145,6 +160,7 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
     return state;
   },
   hideExtension(extensionId) {
+    extensionId = canonicalExtensionId(extensionId);
     set((state) => {
       if (state.hiddenExtensionIds.includes(extensionId)) return state;
       const next = [...state.hiddenExtensionIds, extensionId];
@@ -153,6 +169,7 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
     });
   },
   restoreExtension(extensionId) {
+    extensionId = canonicalExtensionId(extensionId);
     set((state) => {
       const next = state.hiddenExtensionIds.filter((id) => id !== extensionId);
       saveHiddenExtensions(next);

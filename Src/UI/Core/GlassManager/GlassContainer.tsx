@@ -8,7 +8,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 interface GlassContainerProps extends React.HTMLAttributes<HTMLDivElement> {
-  layer?: "base" | "elevated" | "floating";
+  layer?: "base" | "raised" | "overlay";
   interactive?: boolean;
 }
 

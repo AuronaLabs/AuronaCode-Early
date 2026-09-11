@@ -46,7 +46,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           className={cn(
             surface === "glass"
               ? cn(
-                  glassVariants({ layer: "elevated" }),
+                  glassVariants({ layer: "raised" }),
                   "focus-visible:border-[var(--color-text-muted)]/25 focus-visible:ring-2 focus-visible:ring-[var(--color-text-muted)]/25",
                 )
               : "border border-transparent bg-transparent shadow-none backdrop-blur-none focus-visible:border-transparent focus-visible:ring-0",

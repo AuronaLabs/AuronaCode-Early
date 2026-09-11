@@ -51,7 +51,7 @@ export function AdvancedSettingsSection() {
         </p>
       </div>
 
-      <GlassContainer layer="elevated" className="rounded-2xl overflow-hidden flex flex-col">
+      <GlassContainer layer="raised" className="overflow-hidden flex flex-col">
         {/* 1. 先锋计划开关 */}
         <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
           <div className="flex flex-col gap-1 pr-4">
@@ -95,14 +95,14 @@ export function AdvancedSettingsSection() {
           </Button>
         </div>
 
-        {/* 3. 出厂重置 */}
+        {/* 3. 初始化重置 */}
         <div className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
-              {t("workspace.discardChanges")}
+              {t("settings.resetApp")}
             </span>
             <span className="text-[12px] text-[var(--color-text-muted)]">
-              {t("workspace.unsavedHint")}
+              {t("settings.resetAppDescription")}
             </span>
           </div>
           <Button
@@ -121,11 +121,11 @@ export function AdvancedSettingsSection() {
               }
               await UserConfigStore.set({});
               await WorkspaceStore.set({});
-              showToast(t("settings.toast.remoteUpdated"), "success");
+              showToast(t("settings.toast.resetCompleted"), "success");
               setTimeout(() => window.location.reload(), 1000);
             }}
           >
-            {t("settings.reset")}
+            {t("settings.resetAppAction")}
           </Button>
         </div>
       </GlassContainer>

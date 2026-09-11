@@ -105,7 +105,7 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       className={cn(
-        glassVariants({ layer: "floating" }),
+        glassVariants({ layer: "overlay" }),
         "fixed z-[80] max-h-[320px] w-max min-w-[240px] max-w-[440px] overflow-y-auto rounded-xl p-3 font-sans text-[12px] text-[var(--color-text-primary)] aurona-scroll",
         hover.tone === "warning" && "border-amber-500/30",
         hover.tone === "error" && "border-red-500/30",

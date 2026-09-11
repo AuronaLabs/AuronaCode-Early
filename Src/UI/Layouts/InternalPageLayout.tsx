@@ -21,18 +21,14 @@ export function InternalPageLayout({
 }: InternalPageLayoutProps) {
   return (
     <div className="flex h-full w-full bg-transparent select-none text-[var(--color-text-primary)] overflow-hidden">
-      {}
       {sidebar && (
         <div className="w-64 flex-shrink-0 bg-transparent px-6 pb-10 pt-10 overflow-y-auto">
           {sidebar}
         </div>
       )}
 
-      {}
-      <div className="flex-1 flex flex-col px-10 pb-10 pt-10 overflow-y-auto aurona-scroll relative">
+      <div className="flex-1 flex flex-col px-10 pb-10 pt-10 overflow-y-auto aurona-scroll [scrollbar-gutter:stable] relative">
         <div className={`flex flex-col w-full ${maxWidth || "max-w-3xl"} mx-auto z-10 relative`}>
-          {}
-          {}
           {(title || icon || headerRight || titleRight) && (
             <div className="flex items-center justify-between mb-8 w-full gap-4 shrink-0">
               <div className="flex items-baseline gap-4">

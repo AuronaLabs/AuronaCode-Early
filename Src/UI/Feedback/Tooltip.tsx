@@ -162,7 +162,7 @@ export function Tooltip({ content, children, delay = 300, placement = "top" }: T
             role="tooltip"
             data-placement={position.placement}
             className={cn(
-              glassVariants({ layer: "floating" }),
+              glassVariants({ layer: "overlay" }),
               "fixed z-[9999] pointer-events-none max-w-72 rounded-xl px-3 py-2 text-[12px] font-medium leading-relaxed text-[var(--color-text-highlight)] animate-in fade-in zoom-in-95 duration-150",
             )}
             style={{ left: position.left, top: position.top }}

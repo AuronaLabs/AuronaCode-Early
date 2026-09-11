@@ -6,20 +6,20 @@ describe("glass intensity profiles", () => {
     expect(LIGHT_GLASS_PRESETS).toEqual({
       light: {
         base: "2px",
-        elevated: "4px",
-        floating: "8px",
+        raised: "4px",
+        overlay: "8px",
         opacityMultiplier: "1.15",
       },
       medium: {
         base: "4px",
-        elevated: "8px",
-        floating: "12px",
+        raised: "8px",
+        overlay: "12px",
         opacityMultiplier: "1.05",
       },
       heavy: {
         base: "8px",
-        elevated: "16px",
-        floating: "24px",
+        raised: "16px",
+        overlay: "24px",
         opacityMultiplier: "0.95",
       },
     });
@@ -28,14 +28,14 @@ describe("glass intensity profiles", () => {
   it("keeps the calibrated dark profiles independent from light mode", () => {
     expect(DARK_GLASS_PRESETS.light).toEqual({
       base: "8px",
-      elevated: "16px",
-      floating: "24px",
+      raised: "16px",
+      overlay: "24px",
       opacityMultiplier: "1.0",
     });
     expect(DARK_GLASS_PRESETS.medium).toEqual({
       base: "16px",
-      elevated: "24px",
-      floating: "40px",
+      raised: "24px",
+      overlay: "40px",
       opacityMultiplier: "0.6",
     });
   });
@@ -43,8 +43,8 @@ describe("glass intensity profiles", () => {
   it("provides a stronger new dark heavy profile", () => {
     expect(getGlassPreset("heavy", true)).toEqual({
       base: "24px",
-      elevated: "36px",
-      floating: "56px",
+      raised: "36px",
+      overlay: "56px",
       opacityMultiplier: "0.42",
     });
   });

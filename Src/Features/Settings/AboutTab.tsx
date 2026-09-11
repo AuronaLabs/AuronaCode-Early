@@ -64,7 +64,7 @@ export function AboutTab() {
 
         {/* System Info Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl mt-4">
-          <GlassContainer layer="elevated" className="flex flex-col gap-1.5 rounded-2xl p-5">
+          <GlassContainer layer="raised" className="flex flex-col gap-1.5 p-5">
             <div className="flex items-center gap-2 text-[var(--color-text-muted)] mb-2">
               <Icons.Monitor size={16} />
               <span className="text-[12px] font-medium uppercase tracking-wider">
@@ -79,7 +79,7 @@ export function AboutTab() {
             </span>
           </GlassContainer>
 
-          <GlassContainer layer="elevated" className="flex flex-col gap-1.5 rounded-2xl p-5">
+          <GlassContainer layer="raised" className="flex flex-col gap-1.5 p-5">
             <div className="flex items-center gap-2 text-[var(--color-text-muted)] mb-2">
               <Icons.Sparkles size={16} />
               <span className="text-[12px] font-medium uppercase tracking-wider">

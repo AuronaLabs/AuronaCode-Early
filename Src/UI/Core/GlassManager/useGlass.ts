@@ -23,8 +23,8 @@ export const useGlassStore = create<GlassStore>()(
         const preset = getGlassPreset(intensity, root.classList.contains("dark"));
 
         root.style.setProperty("--glass-blur-base", preset.base);
-        root.style.setProperty("--glass-blur-elevated", preset.elevated);
-        root.style.setProperty("--glass-blur-floating", preset.floating);
+        root.style.setProperty("--glass-blur-raised", preset.raised);
+        root.style.setProperty("--glass-blur-overlay", preset.overlay);
         root.style.setProperty("--GlassOpacity-Multiplier", preset.opacityMultiplier);
       },
     }),

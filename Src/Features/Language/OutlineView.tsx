@@ -65,15 +65,9 @@ export function OutlineView() {
       />
       <div className="min-h-0 flex-1 overflow-y-auto px-[var(--PanelPaddingX)] pb-3 no-scrollbar">
         {!activeFilePath || (status === "idle" && symbols.length === 0) ? (
-          <div className="relative flex h-full min-h-0 flex-col items-center justify-center gap-5 px-6 text-center">
-            <div className="pointer-events-none absolute h-44 w-44 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] blur-3xl" />
-            <div className="relative">
-              <div className="absolute inset-0 scale-125 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] blur-xl" />
-              <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-accent)_22%,var(--border-subtle))] bg-[var(--material-surface)] text-[var(--color-accent)]">
-                <Icons.List size={24} stroke={1.45} />
-              </div>
-            </div>
-            <div className="relative z-10 space-y-1.5">
+          <div className="flex h-full min-h-0 flex-col items-center justify-center gap-4 border-t border-[var(--border-subtle)] px-6 text-center">
+            <Icons.List size={22} className="text-[var(--color-text-muted)]" stroke={1.45} />
+            <div className="space-y-1.5">
               <h3 className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
                 {activeFilePath ? t("outline.noSymbols") : t("outline.title")}
               </h3>

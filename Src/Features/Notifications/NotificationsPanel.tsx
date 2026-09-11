@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { type NotificationItem, NotificationService } from "../../Core/NotificationService";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
+import { EmptyState } from "../../UI/Components/EmptyState";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
@@ -58,11 +59,23 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
         <div className="flex items-center gap-1 px-3 pb-2.5 overflow-x-auto no-scrollbar shrink-0">
           {(
             [
-              { id: "all", label: "全部", icon: null },
-              { id: "info", label: "提示", icon: <Icons.Info size={11} /> },
-              { id: "warning", label: "警告", icon: <Icons.AlertTriangle size={11} /> },
-              { id: "error", label: "错误", icon: <Icons.Close size={11} /> },
-              { id: "success", label: "成功", icon: <Icons.Checks size={11} /> },
+              { id: "all", label: t("notifications.filtersAll"), icon: null },
+              { id: "info", label: t("notifications.filtersInfo"), icon: <Icons.Info size={11} /> },
+              {
+                id: "warning",
+                label: t("notifications.filtersWarning"),
+                icon: <Icons.AlertTriangle size={11} />,
+              },
+              {
+                id: "error",
+                label: t("notifications.filtersError"),
+                icon: <Icons.Close size={11} />,
+              },
+              {
+                id: "success",
+                label: t("notifications.filtersSuccess"),
+                icon: <Icons.Checks size={11} />,
+              },
             ] as const
           ).map((cat) => {
             const count =
@@ -96,35 +109,27 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
 
       <div className="flex flex-col flex-1 overflow-y-auto aurona-scroll px-3 pb-4">
         {filteredNotifications.length === 0 ? (
-          <div className="relative flex flex-1 flex-col items-center justify-center gap-5 overflow-hidden px-5 text-center">
-            <div className="pointer-events-none absolute h-44 w-44 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] blur-3xl" />
-            <div className="relative">
-              <div className="absolute inset-0 scale-125 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] blur-xl" />
-              <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-accent)_22%,var(--border-subtle))] bg-[var(--material-surface)] text-[var(--color-accent)]">
-                <Icons.Bell size={27} stroke={1.45} />
-              </div>
-            </div>
-            <div className="relative z-10 space-y-2">
-              <h3 className="text-[14px] font-semibold text-[var(--color-text-highlight)]">
-                {filterType === "all" ? t("notifications.emptyTitle") : "暂无此类通知"}
-              </h3>
-              <p className="text-[12px] leading-relaxed text-[var(--color-text-muted)]">
-                {filterType === "all" ? (
-                  <>
-                    {t("notifications.emptyHintA")}
-                    <br />
-                    {t("notifications.emptyHintB")}
-                  </>
-                ) : (
-                  "当前分类下没有相关通知记录"
-                )}
-              </p>
-            </div>
-            <div className="relative z-10 flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--color-accent)_16%,var(--border-subtle))] bg-[var(--material-panel)] px-3 py-1 text-[11px] font-medium text-[var(--color-text-muted)]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
-              {t("notifications.allRead")}
-            </div>
-          </div>
+          <EmptyState
+            className="flex-1"
+            icon={<Icons.Bell size={27} stroke={1.45} />}
+            title={
+              filterType === "all"
+                ? t("notifications.emptyTitle")
+                : t("notifications.filteredEmptyTitle")
+            }
+            description={
+              filterType === "all" ? (
+                <>
+                  {t("notifications.emptyHintA")}
+                  <br />
+                  {t("notifications.emptyHintB")}
+                </>
+              ) : (
+                t("notifications.filteredEmptyHint")
+              )
+            }
+            badge={t("notifications.allRead")}
+          />
         ) : (
           <div className="flex flex-col gap-2 mt-1">
             {filteredNotifications.map((item) => {
@@ -151,7 +156,7 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
               return (
                 <div
                   key={item.id}
-                  className="flex gap-3 bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] border border-[var(--border-subtle)] rounded-2xl p-3 z-10 hover:border-[var(--border-overlay)] transition-all group relative"
+                  className="group relative z-10 flex gap-3 border-b border-[var(--border-subtle)] p-3 transition-colors hover:bg-[var(--material-interactive-hover)]"
                 >
                   <div
                     className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full ${bgColor}`}

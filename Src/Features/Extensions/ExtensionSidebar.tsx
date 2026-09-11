@@ -463,7 +463,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
       {permissionPromptOpen && permissionLoaded && !isStandalone && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-[var(--glass-blur-base)] transition-all animate-in fade-in duration-200">
           <GlassContainer
-            layer="floating"
+            layer="overlay"
             className="w-full max-w-[280px] rounded-2xl p-5 shadow-[var(--shadow-overlay)] flex flex-col items-center text-center animate-in zoom-in-95 duration-200"
           >
             {/* 顶部居中极简图标 */}
@@ -473,12 +473,12 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
             {/* 居中标题 */}
             <h3 className="text-[14px] font-semibold text-[var(--color-text-highlight)] tracking-tight leading-snug px-1">
-              允许 “{title}” 访问当前文档？
+              {t("extensions.permissionPromptTitle").replace("{name}", title)}
             </h3>
 
             {/* 极简说明 */}
-            <p className="text-[12px] text-[var(--color-text-secondary)] leading-relaxed mt-1.5 mb-4 px-1">
-              扩展需要读取活动编辑器中的内容以生成实时渲染与分析。
+            <p className="text-[12px] text-[var(--color-text-muted)] leading-relaxed mt-1.5 mb-4 px-1">
+              {t("extensions.permissionPromptDescription")}
             </p>
 
             {/* 三个 iOS 风格极简按钮 */}
@@ -489,7 +489,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
                 onClick={() => void resolvePermission("once")}
                 className="h-8.5 w-full text-[12px] font-semibold rounded-xl"
               >
-                仅本次允许
+                {t("extensions.permissionAllowOnce")}
               </Button>
               <Button
                 size="sm"
@@ -497,7 +497,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
                 onClick={() => void resolvePermission("always")}
                 className="h-8.5 w-full text-[12px] font-medium rounded-xl"
               >
-                始终允许
+                {t("extensions.permissionAllowAlways")}
               </Button>
               <Button
                 size="sm"
@@ -505,7 +505,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
                 onClick={() => void resolvePermission("deny")}
                 className="h-8 w-full text-[12px] text-[var(--color-text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-xl"
               >
-                拒绝
+                {t("extensions.deny")}
               </Button>
             </div>
           </GlassContainer>
@@ -554,7 +554,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
                 .VSIX 原生转译
               </span>
             </div>
-            <p className="text-[11.5px] text-[var(--color-text-secondary)] leading-relaxed">
+            <p className="text-[11.5px] text-[var(--color-text-muted)] leading-relaxed">
               已通过底层 WASM 兼容层成功解包并即时转译{" "}
               <code className="text-blue-400 font-mono">vscode-demo.vsix</code> 扩展包。
             </p>
@@ -605,7 +605,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
                 SDK v1
               </span>
             </div>
-            <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
+            <p className="text-[11px] text-[var(--color-text-muted)] leading-relaxed">
               支持直接运行 VSCode 扩展 API 脚本、声明式拟物组件以及 Node 沙箱命令。
             </p>
 

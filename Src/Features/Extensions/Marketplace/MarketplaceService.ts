@@ -6,6 +6,7 @@ import {
   type ToolchainsOverview,
 } from "../../../Foundation/IPC/LanguageServerCommands";
 import { UserConfigStore } from "../../../Foundation/Storage/UserConfigStore";
+import { canonicalExtensionId, migrateExtensionRecords } from "../ExtensionId";
 
 export const DEFAULT_MARKETPLACE_URL = "https://marketplace.aurona.cc/api";
 export const LOCAL_DEV_MARKETPLACE_URL = "http://127.0.0.1:5219/api";
@@ -13,6 +14,56 @@ export const LOCAL_DEV_MARKETPLACE_URL = "http://127.0.0.1:5219/api";
 let cachedMarketplaceToken: string | null = null;
 let cachedAuronaAccessToken: string | null = null;
 const MARKETPLACE_CACHE_KEY = "aurona.marketplace.catalog.v1";
+
+export interface MarketplaceRequestOptions {
+  signal?: AbortSignal;
+}
+
+export type MarketplaceRequestInput = MarketplaceRequestOptions | AbortSignal;
+
+function inputSignal(input?: MarketplaceRequestInput): AbortSignal | undefined {
+  if (!input) return undefined;
+  if (typeof AbortSignal !== "undefined" && input instanceof AbortSignal) return input;
+  return "signal" in input ? input.signal : undefined;
+}
+
+function absoluteMarketplaceUrl(baseUrl: string, value: string): string {
+  try {
+    return new URL(value, baseUrl).toString();
+  } catch {
+    return value;
+  }
+}
+
+export function isAbortError(error: unknown): boolean {
+  return (
+    (typeof DOMException !== "undefined" &&
+      error instanceof DOMException &&
+      error.name === "AbortError") ||
+    (error instanceof Error && error.name === "AbortError")
+  );
+}
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const externalSignal = init.signal;
+  if (externalSignal?.aborted) {
+    throw externalSignal.reason ?? new DOMException("The request was aborted", "AbortError");
+  }
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  const forwardAbort = () => controller.abort(externalSignal?.reason);
+  externalSignal?.addEventListener("abort", forwardAbort, { once: true });
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    globalThis.clearTimeout(timeout);
+    externalSignal?.removeEventListener("abort", forwardAbort);
+  }
+}
 
 function compareVersions(left: string, right: string): number {
   const parse = (value: string) => {
@@ -31,9 +82,16 @@ function readCachedCatalog(): MarketplaceExtensionItem[] {
   try {
     const raw = localStorage.getItem(MARKETPLACE_CACHE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed)
-      ? parsed.filter((item) => item?.id !== "aurona.markdown" && item?.id !== "aurona.planner")
-      : [];
+    if (!Array.isArray(parsed)) return [];
+    const records = parsed.filter((item) => item && typeof item.id === "string");
+    const migrated = migrateExtensionRecords(records);
+    if (
+      migrated.length !== records.length ||
+      migrated.some((item, index) => item.id !== records[index]?.id)
+    ) {
+      writeCachedCatalog(migrated);
+    }
+    return migrated;
   } catch {
     return [];
   }
@@ -101,10 +159,13 @@ export interface LspMetadataItem {
 
 export interface RuntimeMetadataItem {
   runtimeType: string;
-  runtimeVersion: string;
+  runtimeVersion?: string;
   platform?: string;
   architecture?: string;
-  binaryPath: string;
+  binaryPath?: string;
+  fileSize?: string;
+  sha256?: string;
+  downloadUrl?: string;
 }
 
 export interface MarketplaceExtensionItem {
@@ -118,8 +179,8 @@ export interface MarketplaceExtensionItem {
   displayDescription: Record<string, string>;
   category: string;
   tags: string[];
-  downloads: number;
-  rating: number;
+  downloads?: number;
+  rating?: number;
   icon?: string;
   publisherAvatar?: string;
   verified?: boolean;
@@ -144,6 +205,8 @@ export interface MarketplaceExtensionItem {
   isStarred?: boolean;
   installedVersion?: string;
   updateAvailable?: boolean;
+  /** Present only for locally discovered toolchains; never treated as market metadata. */
+  localToolchain?: InstalledToolchainSummary;
 }
 
 export type MarketplaceSourceStatus = "online" | "offline";
@@ -161,14 +224,32 @@ export interface MarketplaceRankingResult {
   newlyAdded: MarketplaceExtensionItem[];
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function extractMarketplaceItems(value: unknown): Record<string, unknown>[] | null {
+  if (Array.isArray(value)) {
+    return value.every(isRecord) ? value : null;
+  }
+  if (!isRecord(value)) return null;
+  const data = value.data;
+  if (Array.isArray(data)) return data.every(isRecord) ? data : null;
+  if (isRecord(data) && Array.isArray(data.items)) {
+    return data.items.every(isRecord) ? data.items : null;
+  }
+  return null;
+}
+
 /**
  * 将本地加载/安装的 ExtensionDescriptor 转为统一的 Marketplace 展示对象
  */
 export function descriptorToMarketplaceItem(
   descriptor: ExtensionDescriptor,
 ): MarketplaceExtensionItem {
+  const id = canonicalExtensionId(descriptor.id);
   return {
-    id: descriptor.id,
+    id,
     name: descriptor.name,
     displayName: descriptor.displayName || { "zh-CN": descriptor.name, en: descriptor.name },
     publisher: descriptor.publisher || "Local",
@@ -182,21 +263,14 @@ export function descriptorToMarketplaceItem(
     changelog: descriptor.changelog,
     category: "Developer Tools",
     tags: ["installed", "local"],
-    downloads: 0,
-    rating: 0,
     icon: undefined,
     verified: true,
     installed: true,
     enabled: true,
     packageType:
       descriptor.id.startsWith("vscode-") || descriptor.id.endsWith(".vsix") ? "vsix" : "aurx",
-    reviewCount: 0,
-    starCount: 0,
-    securityScore: 100,
     permissions: [],
     rawPermissions: [],
-    license: undefined,
-    fileSize: "Local",
   };
 }
 
@@ -272,7 +346,7 @@ function normalizeExtension(raw: Record<string, unknown>): MarketplaceExtensionI
         : "aurx";
 
   return {
-    id: String(raw.id || raw.name || ""),
+    id: canonicalExtensionId(String(raw.id || raw.name || "")),
     kind,
     name: String(raw.name || raw.id || ""),
     displayName: displayNameMap,
@@ -283,11 +357,11 @@ function normalizeExtension(raw: Record<string, unknown>): MarketplaceExtensionI
     displayDescription: displayDescMap,
     category: String(raw.category || (kind === "lsp" ? "LSP" : "Developer Tools")),
     tags: Array.isArray(raw.tags) ? raw.tags.map(String) : [],
-    downloads: typeof raw.downloads === "number" ? raw.downloads : 0,
+    downloads: typeof raw.downloads === "number" ? raw.downloads : undefined,
     rating:
       typeof raw.rating === "number" && typeof raw.reviewCount === "number" && raw.reviewCount > 0
         ? raw.rating
-        : 0,
+        : undefined,
     icon: typeof raw.icon === "string" ? raw.icon : undefined,
     verified: isVerified,
     featured: Boolean(raw.featured),
@@ -296,15 +370,20 @@ function normalizeExtension(raw: Record<string, unknown>): MarketplaceExtensionI
     installed: Boolean(raw.installed),
     enabled: raw.enabled !== false,
     packageType,
-    reviewCount: typeof raw.reviewCount === "number" ? raw.reviewCount : 0,
-    starCount: typeof raw.starCount === "number" ? raw.starCount : 0,
+    reviewCount: typeof raw.reviewCount === "number" ? raw.reviewCount : undefined,
+    starCount: typeof raw.starCount === "number" ? raw.starCount : undefined,
     securityScore: typeof raw.securityScore === "number" ? raw.securityScore : undefined,
     permissions,
     rawPermissions,
     lspMetadata,
     runtimeMetadata,
     license: typeof raw.license === "string" ? raw.license : undefined,
-    fileSize: typeof raw.fileSize === "string" ? raw.fileSize : undefined,
+    fileSize:
+      typeof raw.fileSize === "string"
+        ? raw.fileSize
+        : typeof raw.fileSizeFormatted === "string"
+          ? raw.fileSizeFormatted
+          : undefined,
     downloadUrl: typeof raw.downloadUrl === "string" ? raw.downloadUrl : undefined,
     publishedVersions,
     updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : undefined,
@@ -328,22 +407,26 @@ async function requestCandidateUrls<T>(
 
   for (const urlStr of candidateUrls) {
     try {
-      const res = await fetch(urlStr, {
-        cache: "no-store",
-        ...options,
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          ...(options?.headers || {}),
+      const res = await fetchWithTimeout(
+        urlStr,
+        {
+          cache: "no-store",
+          ...options,
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            ...(options?.headers || {}),
+          },
         },
-        signal: AbortSignal.timeout(3000),
-      });
+        3000,
+      );
 
       if (res.ok) {
         const json = await res.json();
         return { data: json, url: urlStr };
       }
-    } catch {
+    } catch (error) {
+      if (options?.signal?.aborted) throw error;
       // 静默处理网络不可达
     }
   }
@@ -418,11 +501,14 @@ export const MarketplaceService = {
     query?: string,
     category?: string,
     installedDescriptors: ExtensionDescriptor[] = [],
+    options: MarketplaceRequestInput = {},
   ): Promise<MarketplaceFetchResult> {
+    const signal = inputSignal(options);
+    if (signal?.aborted) throw new DOMException("The request was aborted", "AbortError");
     const serverUrl = await this.getServerUrl();
     let items: MarketplaceExtensionItem[] = [];
     let source: MarketplaceSourceStatus = "offline";
-    let offlineReason: MarketplaceFetchResult["offlineReason"];
+    let offlineReason: MarketplaceFetchResult["offlineReason"] = "server-unreachable";
 
     const cleanBase = serverUrl.trim().replace(/\/+$/, "");
     const candidateUrls: string[] = [];
@@ -435,43 +521,56 @@ export const MarketplaceService = {
       candidateUrls.push(`${cleanBase}/extensions`);
     }
 
-    let successResponse: Response | null = null;
+    let successUrl: string | undefined;
 
     for (const urlStr of candidateUrls) {
       try {
         const urlObj = new URL(urlStr);
         if (query) urlObj.searchParams.set("query", query);
         if (category && category !== "All") urlObj.searchParams.set("category", category);
+        // Toolchains share the catalog transport with Discover. The server
+        // hides Runtime records by default, so request them explicitly once.
+        urlObj.searchParams.set("includeRuntime", "true");
 
-        const res = await fetch(urlObj.toString(), {
-          headers: { Accept: "application/json" },
-          cache: "no-store",
-          signal: AbortSignal.timeout(2500),
-        });
+        const res = await fetchWithTimeout(
+          urlObj.toString(),
+          {
+            headers: { Accept: "application/json" },
+            cache: "no-store",
+            signal,
+          },
+          2500,
+        );
 
         if (res.ok) {
-          successResponse = res;
-          break;
+          let payload: unknown;
+          try {
+            payload = await res.json();
+          } catch {
+            offlineReason = "invalid-response";
+            continue;
+          }
+          const list = extractMarketplaceItems(payload);
+          if (list) {
+            successUrl = urlStr;
+            items = list.map(normalizeExtension);
+            break;
+          }
+          offlineReason = "invalid-response";
+          continue;
         }
         offlineReason = "invalid-response";
-      } catch {
+      } catch (error) {
+        if (signal?.aborted) throw error;
         offlineReason = "server-unreachable";
         // 继续尝试下一个候选地址
       }
     }
 
-    if (successResponse) {
+    if (successUrl) {
       source = "online";
       offlineReason = undefined;
-      try {
-        const json = await successResponse.json();
-        const list = Array.isArray(json) ? json : Array.isArray(json?.data) ? json.data : [];
-        items = list.map(normalizeExtension);
-        writeCachedCatalog(items);
-      } catch {
-        items = [];
-        offlineReason = "invalid-response";
-      }
+      writeCachedCatalog(items);
     } else {
       source = "offline";
       items = readCachedCatalog();
@@ -479,10 +578,10 @@ export const MarketplaceService = {
 
     // 同步本地已安装状态
     const installedById = new Map(
-      installedDescriptors.map((descriptor) => [descriptor.id, descriptor]),
+      installedDescriptors.map((descriptor) => [canonicalExtensionId(descriptor.id), descriptor]),
     );
     items = items.map((item) => {
-      const installed = installedById.get(item.id);
+      const installed = installedById.get(canonicalExtensionId(item.id));
       return {
         ...item,
         installed: Boolean(installed) || item.installed,
@@ -523,6 +622,7 @@ export const MarketplaceService = {
    * 获取指定扩展的完整详情信息
    */
   async fetchExtensionDetail(id: string): Promise<MarketplaceExtensionItem | null> {
+    id = canonicalExtensionId(id);
     const serverUrl = await this.getServerUrl();
     const res = await requestCandidateUrls<Record<string, unknown>>(
       serverUrl,
@@ -543,6 +643,7 @@ export const MarketplaceService = {
    * 获取扩展的评价与评论列表
    */
   async fetchReviews(id: string): Promise<ReviewsResponse | null> {
+    id = canonicalExtensionId(id);
     const serverUrl = await this.getServerUrl();
     const authHeaders = await marketplaceAuthHeaders(serverUrl);
     const res = await requestCandidateUrls<ReviewsResponse>(
@@ -554,6 +655,36 @@ export const MarketplaceService = {
     return res.data;
   },
 
+  /** Reads the existing Runtime endpoint without inventing missing metadata. */
+  async fetchRuntimeMetadata(runtimeType: string): Promise<RuntimeMetadataItem | null> {
+    const serverUrl = await this.getServerUrl();
+    const res = await requestCandidateUrls<Record<string, unknown>>(
+      serverUrl,
+      `runtimes/${encodeURIComponent(runtimeType)}/latest`,
+    );
+    if (!res?.data) return null;
+    const raw = isRecord(res.data.data) ? res.data.data : res.data;
+    if (!isRecord(raw)) return null;
+    return {
+      runtimeType:
+        typeof raw.runtimeType === "string" && raw.runtimeType.trim()
+          ? raw.runtimeType
+          : runtimeType,
+      runtimeVersion: typeof raw.version === "string" ? raw.version : undefined,
+      fileSize:
+        typeof raw.fileSizeFormatted === "string"
+          ? raw.fileSizeFormatted
+          : typeof raw.fileSize === "string"
+            ? raw.fileSize
+            : undefined,
+      sha256: typeof raw.sha256 === "string" ? raw.sha256 : undefined,
+      downloadUrl:
+        typeof raw.downloadUrl === "string"
+          ? absoluteMarketplaceUrl(res.url, raw.downloadUrl)
+          : undefined,
+    };
+  },
+
   /**
    * 提交扩展评分与评价
    */
@@ -563,6 +694,7 @@ export const MarketplaceService = {
     body: string,
     token?: string,
   ): Promise<{ success: boolean; message?: string; review?: ReviewItem }> {
+    id = canonicalExtensionId(id);
     const serverUrl = await this.getServerUrl();
     const headers: Record<string, string> = token
       ? { Authorization: `Bearer ${token}` }
@@ -590,6 +722,7 @@ export const MarketplaceService = {
     id: string,
     reviewId: string,
   ): Promise<{ success: boolean; helpfulCount?: number }> {
+    id = canonicalExtensionId(id);
     const serverUrl = await this.getServerUrl();
     const headers = await marketplaceAuthHeaders(serverUrl);
     const res = await requestCandidateUrls<{ success: boolean; helpfulCount?: number }>(
@@ -607,6 +740,7 @@ export const MarketplaceService = {
    * 查询扩展星标收藏状态
    */
   async checkStarStatus(id: string): Promise<{ isStarred: boolean; starCount: number }> {
+    id = canonicalExtensionId(id);
     const serverUrl = await this.getServerUrl();
     const headers = await marketplaceAuthHeaders(serverUrl);
     const res = await requestCandidateUrls<{
@@ -627,6 +761,7 @@ export const MarketplaceService = {
     id: string,
     token?: string,
   ): Promise<{ isStarred: boolean; starCount: number; success: boolean }> {
+    id = canonicalExtensionId(id);
     const serverUrl = await this.getServerUrl();
     const headers: Record<string, string> = token
       ? { Authorization: `Bearer ${token}` }
@@ -678,6 +813,7 @@ export const MarketplaceService = {
    * 获取指定扩展包下载真实绝对 URL
    */
   async getDownloadUrl(id: string, version?: string): Promise<string> {
+    id = canonicalExtensionId(id);
     const serverUrl = await this.getServerUrl();
     const cleanBase = serverUrl.trim().replace(/\/+$/, "");
     const base =
@@ -691,6 +827,7 @@ export const MarketplaceService = {
   },
 
   async installExtension(id: string, version?: string): Promise<ExtensionDescriptor> {
+    id = canonicalExtensionId(id);
     const url = await this.getDownloadUrl(id, version);
     const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
     if (!response.ok) throw new Error(`下载安装包失败 (${response.status})`);
@@ -705,7 +842,7 @@ export const MarketplaceService = {
   },
 
   async uninstallExtension(id: string): Promise<void> {
-    await ExtensionIPC.uninstall(id);
+    await ExtensionIPC.uninstall(canonicalExtensionId(id));
   },
 
   /**
@@ -736,6 +873,38 @@ export const MarketplaceService = {
     const base =
       cleanBase.endsWith("/api") || cleanBase.includes("/api/") ? cleanBase : `${cleanBase}/api`;
     return `${base}/runtimes/${encodeURIComponent(runtimeType)}/download`;
+  },
+
+  async installRuntime(
+    id: string,
+    version?: string,
+    onProgress?: (progress: number, stage: string) => void,
+  ): Promise<InstalledToolchainSummary> {
+    id = canonicalExtensionId(id);
+    const detail = await this.fetchExtensionDetail(id);
+    const metadata = detail?.runtimeMetadata;
+    const runtimeType = metadata?.runtimeType ?? id;
+    const serverUrl = await this.getServerUrl();
+    const metadataDownloadUrl = metadata?.downloadUrl ?? detail?.downloadUrl;
+    const downloadUrl = metadataDownloadUrl
+      ? absoluteMarketplaceUrl(serverUrl, metadataDownloadUrl)
+      : await this.getDownloadUrl(id, version);
+    const downloadId = `runtime_${runtimeType}_${Date.now()}`;
+    let unsub: (() => void) | undefined;
+    if (onProgress) {
+      unsub = await LanguageServerIPC.onDownloadProgress((progress) => {
+        if (progress.downloadId === downloadId) onProgress(progress.percentage, progress.stage);
+      });
+    }
+    try {
+      return await LanguageServerIPC.installToolchainFromUrl(
+        downloadId,
+        downloadUrl,
+        metadata?.sha256,
+      );
+    } finally {
+      unsub?.();
+    }
   },
 
   /**
@@ -786,6 +955,7 @@ export const MarketplaceService = {
     version?: string,
     onProgress?: (progress: number, stage: string) => void,
   ): Promise<InstalledToolchainSummary> {
+    id = canonicalExtensionId(id);
     // 1. 获取该 LSP 详情与依赖的运行时
     const detail = await this.fetchExtensionDetail(id);
     const reqRuntime = detail?.lspMetadata?.runtimeType || "node";
@@ -820,7 +990,7 @@ export const MarketplaceService = {
    * 卸载已安装的 LSP 语言服务
    */
   async uninstallLspServer(id: string): Promise<void> {
-    await LanguageServerIPC.uninstallToolchain(id);
+    await LanguageServerIPC.uninstallToolchain(canonicalExtensionId(id));
   },
 
   /**

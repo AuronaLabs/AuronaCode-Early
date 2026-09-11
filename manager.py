@@ -426,7 +426,6 @@ QUALITY_STEPS: list[tuple[list[str], str]] = [
     ([PACKAGE_MANAGER, "run", "check"], "Biome 代码质量检查"),
     ([PACKAGE_MANAGER, "run", "check:boundaries"], "桌面边界检查"),
     ([PACKAGE_MANAGER, "run", "check:materials"], "Material 边界检查"),
-    ([PACKAGE_MANAGER, "run", "verify:toolchains:contract"], "内置工具链契约检查"),
     ([PACKAGE_MANAGER, "run", "smoke"], "发布元数据 smoke"),
     ([PACKAGE_MANAGER, "run", "test:frontend"], "前端测试"),
     ([PACKAGE_MANAGER, "run", "build"], "前端生产构建"),

@@ -63,6 +63,7 @@ export interface UserConfig {
   editorTabSize?: number;
   editorWordWrap?: "on" | "off" | "wordWrapColumn" | "bounded";
   editorMinimap?: boolean;
+  editorCursorSmoothCaret?: boolean;
 
   terminalFontSize?: number;
   terminalCursorBlink?: boolean;

@@ -378,6 +378,40 @@ pub async fn clear_extension_storage(app: tauri::AppHandle) -> Result<u64, Strin
 }
 
 #[tauri::command]
+pub async fn clear_extension_storage_for(
+    app: tauri::AppHandle,
+    extension_id: String,
+) -> Result<u64, String> {
+    // The extension id becomes a single directory name below extension-storage;
+    // reject anything that could escape that directory.
+    if extension_id.is_empty()
+        || extension_id.len() > 128
+        || extension_id.contains(['\\', '/', ':', '*'])
+        || extension_id == ".."
+        || extension_id.contains("..")
+    {
+        return Err(format!("Invalid extension id: {extension_id}"));
+    }
+    let path = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("Failed to get app local data dir: {error}"))?
+        .join("extension-storage")
+        .join(extension_id);
+    tokio::task::spawn_blocking(move || {
+        if !path.exists() {
+            return Ok(0);
+        }
+        let size = get_dir_size(&path).unwrap_or(0);
+        fs::remove_dir_all(&path)
+            .map_err(|error| format!("Clear extension storage failed: {error}"))?;
+        Ok(size)
+    })
+    .await
+    .map_err(|error| format!("Clear extension storage failed: {error}"))?
+}
+
+#[tauri::command]
 pub async fn clear_toolchains(app: tauri::AppHandle) -> Result<u64, String> {
     let path = app
         .path()

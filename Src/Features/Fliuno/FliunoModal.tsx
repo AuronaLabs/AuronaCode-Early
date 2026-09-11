@@ -33,6 +33,7 @@ import {
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../../State/useEditorStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { EmptyState } from "../../UI/Components/EmptyState";
 import { Icons } from "../../UI/Icons/IconManager";
 
 const FLIUNO_COMMAND_ID = "workbench.action.openFliuno";
@@ -46,7 +47,7 @@ function HighlightedText({ text, ranges }: { text: string; ranges: Array<[number
     parts.push(
       <mark
         key={`${start}-${end}`}
-        className="rounded-[2px] bg-[var(--color-accent)]/25 text-[var(--color-text-highlight)]"
+        className="rounded-[2px] bg-[color-mix(in_srgb,var(--color-accent)_25%,transparent)] text-[var(--color-text-highlight)]"
       >
         {text.slice(start, end)}
       </mark>,
@@ -344,7 +345,7 @@ export function FliunoModal() {
       <section
         data-testid="fliuno-surface"
         aria-label={t("fliuno.surfaceLabel")}
-        className={`relative grid w-full max-w-[720px] overflow-hidden border border-[var(--border-overlay)] bg-[var(--material-panel)] backdrop-blur-[var(--glass-blur-floating)] transition-[border-radius] duration-200 ${
+        className={`relative grid w-full max-w-[720px] overflow-hidden border border-[var(--border-overlay)] bg-[var(--material-panel)] backdrop-blur-[var(--glass-blur-overlay)] transition-[border-radius] duration-200 ${
           hasQuery ? "rounded-[20px]" : "rounded-[18px]"
         }`}
       >
@@ -554,25 +555,20 @@ export function FliunoModal() {
                   })}
                 </div>
               ) : (
-                <div className="flex min-h-[210px] flex-col items-center justify-center gap-3 px-6 text-center">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--color-text-muted)]">
-                    <Icons.Search size={20} />
-                  </span>
-                  <div>
-                    <div className="text-[12px] font-medium text-[var(--color-text-primary)]">
-                      {!workspaceRoot && parsedQuery.scope !== "commands"
-                        ? t("fliuno.noWorkspace")
-                        : fileIndexState === "error"
-                          ? (fileIndexError ?? t("common.noResults"))
-                          : parsedQuery.query
-                            ? t("common.noResults")
-                            : t("fliuno.emptyHint")}
-                    </div>
-                    <div className="mt-1 max-w-[420px] text-[10px] text-[var(--color-text-muted)]">
-                      {parsedQuery.query ? t("common.tryShorter") : ""}
-                    </div>
-                  </div>
-                </div>
+                <EmptyState
+                  className="min-h-[210px]"
+                  icon={<Icons.Search size={24} stroke={1.5} />}
+                  title={
+                    !workspaceRoot && parsedQuery.scope !== "commands"
+                      ? t("fliuno.noWorkspace")
+                      : fileIndexState === "error"
+                        ? (fileIndexError ?? t("common.noResults"))
+                        : parsedQuery.query
+                          ? t("common.noResults")
+                          : t("fliuno.emptyHint")
+                  }
+                  description={parsedQuery.query ? t("common.tryShorter") : undefined}
+                />
               )}
             </div>
 

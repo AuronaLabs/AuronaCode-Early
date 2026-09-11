@@ -112,11 +112,18 @@
 
   /* Aurona Material System */
   --material-canvas: var(--AppBg);
-  --material-chrome: var(--GlassSurface-Base);
-  --material-panel: var(--GlassSurface-Base);
-  --material-surface: var(--GlassSurface-Elevated);
-  --material-overlay: var(--GlassSurface-Floating);
-  --material-modal: var(--GlassSurface-Floating);
+  /* The only application surface hierarchy: canvas, base, raised, overlay. */
+  --surface-base: var(--GlassSurface-Base);
+  --surface-raised: var(--GlassSurface-Elevated);
+  --surface-overlay: var(--GlassSurface-Floating);
+  --material-chrome: var(--surface-base);
+  --material-panel: var(--surface-base);
+  --material-surface: var(--surface-raised);
+  --material-overlay: var(--surface-overlay);
+  --material-modal: var(--surface-overlay);
+  /* Legacy surface ladder kept as aliases so mixed usages resolve to real layers. */
+  --color-surface-2: var(--surface-base);
+  --color-surface-3: var(--surface-raised);
   --material-interactive: transparent;
   --material-interactive-hover: var(--GlassHover);
   --material-interactive-active: var(--GlassActive);
@@ -129,6 +136,9 @@
   --radius-control: 8px;
   --radius-surface: 12px;
   --radius-overlay: 16px;
+  --surface-blur-base: var(--glass-blur-base);
+  --surface-blur-raised: var(--glass-blur-raised);
+  --surface-blur-overlay: var(--glass-blur-overlay);
   --control-height-sm: 28px;
   --control-height-md: 32px;
   --focus-ring: 0 0 0 2px color-mix(in srgb, var(--AccentPrimary) 55%, transparent);
@@ -242,9 +252,17 @@
   --SyntaxVariable: #b7791f;
   --SyntaxComment: #a0aec0;
   --SyntaxOperator: #4a5568;
+  --SyntaxBuiltin: #0e7490;
+  --SyntaxTypeHint: #2563eb;
   --DiagError: #ef4444;
   --DiagWarning: #f59e0b;
   --DiagInfo: #3b82f6;
+
+  /* Git diff markers (minimap / gutter). Alias the semantic status palette so
+     custom accents keep the additions/modifications/deletions consistent. */
+  --GitAdded: var(--StatusSuccess);
+  --GitModified: var(--StatusInfo);
+  --GitDeleted: var(--StatusError);
 
   /* Aurora（默认）Light Atmosphere：天空与极光，中心保持安静。 */
   --RGB-BackgroundGlow-Primary: 96, 148, 240;
@@ -439,6 +457,8 @@
   --DiagWarning: #fbbf24;
   --DiagInfo: #60a5fa;
   --SyntaxOperator: #cbd5e1;
+  --SyntaxBuiltin: #38bdf8;
+  --SyntaxTypeHint: #60a5fa;
 
   /* Aurora（默认）Dark Atmosphere：深蓝夜空，避免电竞蓝黑。 */
   --RGB-BackgroundGlow-Primary: 58, 130, 218;

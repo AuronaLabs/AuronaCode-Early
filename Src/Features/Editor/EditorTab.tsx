@@ -374,7 +374,7 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
             </>
           )}
           {isSaving && (
-            <div className="absolute right-3 bottom-3 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-1.5 text-[12px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-floating)]">
+            <div className="absolute right-3 bottom-3 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-1.5 text-[12px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-overlay)]">
               正在保存...
             </div>
           )}

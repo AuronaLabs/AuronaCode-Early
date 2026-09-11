@@ -1,14 +1,14 @@
 import { cva } from "class-variance-authority";
 
 export const glassVariants = cva(
-  "border border-[var(--border-subtle)] transition-[background-color,border-color,box-shadow,transform] duration-300",
+  "rounded-[var(--radius-surface)] border border-[var(--border-subtle)] transition-[background-color,border-color,box-shadow,transform] duration-300",
   {
     variants: {
       layer: {
-        base: "bg-[var(--material-panel)] backdrop-blur-[var(--glass-blur-base)]",
-        elevated: "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)]",
-        floating:
-          "bg-[var(--material-overlay)] backdrop-blur-[var(--glass-blur-floating)] shadow-[var(--shadow-overlay)]",
+        base: "bg-[var(--surface-base)] backdrop-blur-[var(--surface-blur-base)]",
+        raised: "bg-[var(--surface-raised)] backdrop-blur-[var(--surface-blur-raised)]",
+        overlay:
+          "rounded-[var(--radius-overlay)] bg-[var(--surface-overlay)] backdrop-blur-[var(--surface-blur-overlay)] shadow-[var(--shadow-overlay)]",
       },
       interactive: {
         true: "hover:bg-[var(--material-interactive-hover)] active:scale-[0.98]",

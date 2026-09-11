@@ -85,10 +85,10 @@ export function SourceControlSettingsSection() {
 
       {!repoPath ? (
         <GlassContainer
-          layer="elevated"
-          className="mt-2 flex max-w-md flex-col items-center justify-center gap-4 rounded-2xl p-6 text-center"
+          layer="raised"
+          className="mt-2 flex max-w-md flex-col items-center justify-center gap-4 p-6 text-center"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-surface)] border border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
             <Icons.Git size={22} />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -101,10 +101,7 @@ export function SourceControlSettingsSection() {
           </div>
         </GlassContainer>
       ) : (
-        <GlassContainer
-          layer="elevated"
-          className="mt-2 flex max-w-3xl flex-col overflow-hidden rounded-2xl"
-        >
+        <GlassContainer layer="raised" className="mt-2 flex max-w-3xl flex-col overflow-hidden">
           <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
               <Icons.Git size={18} />

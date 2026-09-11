@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
-import { useLocale } from "../../Foundation/I18n";
+import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import type {
   ExtensionDescriptor,
   ExtensionPermissionState,
 } from "../../Foundation/IPC/ExtensionCommands";
+import { StorageIPC } from "../../Foundation/IPC/StorageCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { useExtensionStore } from "../../State/useExtensionStore";
 import { Button } from "../../UI/Components/Button";
 import { Card } from "../../UI/Components/Card";
 import { Input } from "../../UI/Components/Input";
 import { Switch } from "../../UI/Components/Switch";
+import { GlassContainer } from "../../UI/Core/GlassManager";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { resolveExtensionName } from "../Extensions/ExtensionUtils";
@@ -20,40 +22,40 @@ import {
 
 interface PermissionItemDef {
   key: string;
-  name: string;
-  desc: string;
+  nameKey: I18nKey;
+  descKey: I18nKey;
 }
 
 const PERMISSION_DEFS: PermissionItemDef[] = [
   {
     key: "editor.current.read",
-    name: "读取活动编辑器文档",
-    desc: "允许扩展读取当前激活文件的文本内容与选区范围（如 Markdown 预览）",
+    nameKey: "settings.extensionsSettings.permEditorRead",
+    descKey: "settings.extensionsSettings.permEditorReadDesc",
   },
   {
     key: "workspace.read",
-    name: "读取工作区文件",
-    desc: "允许扩展在当前工作区沙箱范围内检索并读取文件",
+    nameKey: "settings.extensionsSettings.permWorkspaceRead",
+    descKey: "settings.extensionsSettings.permWorkspaceReadDesc",
   },
   {
     key: "workspace.write",
-    name: "修改工作区文件",
-    desc: "允许扩展在工作区目录内安全创建或修改文件（如 Planner 任务持久化）",
+    nameKey: "settings.extensionsSettings.permWorkspaceWrite",
+    descKey: "settings.extensionsSettings.permWorkspaceWriteDesc",
   },
   {
     key: "fliuno.search",
-    name: "Fliuno 搜索注入",
-    desc: "允许扩展向 Fliuno 全局搜索面板贡献自定义快捷条目与操作",
+    nameKey: "settings.extensionsSettings.permFliunoSearch",
+    descKey: "settings.extensionsSettings.permFliunoSearchDesc",
   },
   {
     key: "clipboard.access",
-    name: "系统剪贴板访问",
-    desc: "允许扩展向系统剪贴板安全写入或读取文本",
+    nameKey: "settings.extensionsSettings.permClipboard",
+    descKey: "settings.extensionsSettings.permClipboardDesc",
   },
 ];
 
 function ExtensionPermissionCard({ descriptor }: { descriptor: ExtensionDescriptor }) {
-  const { locale } = useLocale();
+  const { locale, t } = useLocale();
   const title = resolveExtensionName(descriptor, locale) || descriptor.name;
   const permissionFor = useExtensionStore((state) => state.permissionFor);
   const setPermission = useExtensionStore((state) => state.setPermission);
@@ -83,7 +85,10 @@ function ExtensionPermissionCard({ descriptor }: { descriptor: ExtensionDescript
     try {
       const nextState = await setPermission(descriptor.id, permKey, granted);
       setPermStates((prev) => ({ ...prev, [permKey]: nextState }));
-      showToast(`${title} 权限已更新`, "info");
+      showToast(
+        t("settings.extensionsSettings.permissionUpdatedToast").replace("{name}", title),
+        "info",
+      );
     } catch (err) {
       showToast(err instanceof Error ? err.message : String(err), "error");
     }
@@ -92,25 +97,38 @@ function ExtensionPermissionCard({ descriptor }: { descriptor: ExtensionDescript
   const handleResetStorage = async () => {
     setIsResetting(true);
     try {
-      showToast(`已重置 ${title} 的本地独立存储`, "success");
+      const clearedBytes = await StorageIPC.clearExtensionStorageFor(descriptor.id);
+      if (clearedBytes > 0) {
+        showToast(
+          t("settings.extensionsSettings.storageResetToast").replace("{name}", title),
+          "success",
+        );
+      } else {
+        showToast(
+          t("settings.extensionsSettings.storageResetEmptyToast").replace("{name}", title),
+          "info",
+        );
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : String(err), "error");
     } finally {
       setIsResetting(false);
     }
   };
 
   return (
-    <Card className="p-4 rounded-2xl flex flex-col gap-3">
+    <Card className="flex flex-col gap-3 p-5">
       <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-7 items-center justify-center rounded-xl bg-blue-500/15 text-blue-400">
+          <span className="flex size-8 items-center justify-center rounded-xl bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
             <Icons.Extensions size={16} />
           </span>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <span className="text-[13.5px] font-bold text-[var(--color-text-highlight)]">
+              <span className="text-[14px] font-bold text-[var(--color-text-highlight)]">
                 {title}
               </span>
-              <span className="text-[10px] text-[var(--color-text-muted)] bg-[var(--color-surface-3)] px-1.5 py-0.5 rounded font-mono">
+              <span className="rounded border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-text-muted)]">
                 {descriptor.id}
               </span>
             </div>
@@ -122,30 +140,30 @@ function ExtensionPermissionCard({ descriptor }: { descriptor: ExtensionDescript
 
         <Button
           size="sm"
-          variant="secondary"
+          variant="ghost"
           disabled={isResetting}
           onClick={handleResetStorage}
-          className="h-7 text-[11px] px-2.5 text-[var(--color-text-muted)] hover:text-red-400"
+          className="h-7 px-2.5 text-[11px] text-[var(--StatusError)]"
         >
           <Icons.Trash size={12} className="mr-1 inline" />
-          重置存储
+          {t("settings.extensionsSettings.resetStorage")}
         </Button>
       </div>
 
-      <div className="flex flex-col gap-2.5 pt-1">
+      <div className="flex flex-col pt-1">
         {PERMISSION_DEFS.map((def) => {
           const isGranted = permStates[def.key] === "granted";
           return (
             <div
               key={def.key}
-              className="flex items-center justify-between py-1 px-1 rounded-lg hover:bg-[var(--color-surface-2)]/40 transition-colors"
+              className="flex items-center justify-between gap-4 border-b border-[var(--border-subtle)] px-1 py-2.5 last:border-b-0"
             >
               <div className="flex flex-col gap-0.5 pr-4">
-                <span className="text-[12px] font-medium text-[var(--color-text-primary)]">
-                  {def.name}
+                <span className="text-[12.5px] font-medium text-[var(--color-text-primary)]">
+                  {t(def.nameKey)}
                 </span>
-                <span className="text-[10.5px] text-[var(--color-text-muted)] leading-relaxed">
-                  {def.desc}
+                <span className="text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+                  {t(def.descKey)}
                 </span>
               </div>
               <Switch
@@ -180,13 +198,13 @@ export function ExtensionsSettingsSection() {
   const handleSaveMarketplaceUrl = async (url: string) => {
     setMarketplaceUrl(url);
     await MarketplaceService.setServerUrl(url);
-    showToast("Marketplace 服务器配置已保存", "success");
+    showToast(t("settings.extensionsSettings.marketplaceUrlSaved"), "success");
   };
 
   const handleResetToDefault = async () => {
     setMarketplaceUrl(DEFAULT_MARKETPLACE_URL);
     await MarketplaceService.setServerUrl(DEFAULT_MARKETPLACE_URL);
-    showToast("已重置回 Marketplace 官方源", "success");
+    showToast(t("settings.extensionsSettings.marketplaceUrlReset"), "success");
   };
 
   const handleTestConnection = async () => {
@@ -222,12 +240,15 @@ export function ExtensionsSettingsSection() {
       }
 
       if (connected) {
-        showToast(`Marketplace 市场通信正常 (${statusText})`, "success");
+        showToast(
+          t("settings.extensionsSettings.marketplaceReachable").replace("{status}", statusText),
+          "success",
+        );
       } else {
-        showToast("未能连接到指定的市场服务器，请检查地址是否正确", "warning");
+        showToast(t("settings.extensionsSettings.marketplaceUnreachable"), "warning");
       }
     } catch {
-      showToast("无法连接到市场服务器", "warning");
+      showToast(t("settings.extensionsSettings.marketplaceConnectFailed"), "warning");
     } finally {
       setIsTestingUrl(false);
     }
@@ -236,29 +257,34 @@ export function ExtensionsSettingsSection() {
   const handleVscodeCompatToggle = async (enabled: boolean) => {
     setVscodeCompatEnabled(enabled);
     await UserConfigStore.set({ vscodeCompatEnabled: enabled });
-    showToast(enabled ? "VSCode 兼容内核已启用" : "VSCode 兼容内核已停用", "info");
+    showToast(
+      enabled
+        ? t("settings.extensionsSettings.vscodeCompatEnabledToast")
+        : t("settings.extensionsSettings.vscodeCompatDisabledToast"),
+      "info",
+    );
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-3xl">
+    <div className="flex w-full max-w-3xl flex-col gap-6">
       <div className="flex flex-col gap-2">
         <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
           {t("settings.categories.extensions")}
         </h3>
         <p className="text-[13px] text-[var(--color-text-muted)]">
-          管理 Aurona Marketplace 扩展源、不同应用的独立权限分配与沙箱数据隔离
+          {t("settings.extensionsSettings.description")}
         </p>
       </div>
 
       {/* 1. Marketplace 服务器源配置 */}
-      <Card className="p-4 rounded-2xl flex flex-col gap-3">
-        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2.5">
+      <Card className="flex flex-col gap-3 p-5">
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
           <div className="flex flex-col gap-0.5">
-            <span className="text-[13.5px] font-bold text-[var(--color-text-highlight)]">
-              Aurona Marketplace 服务地址
+            <span className="text-[14px] font-bold text-[var(--color-text-highlight)]">
+              {t("settings.extensionsSettings.marketplaceUrlTitle")}
             </span>
             <span className="text-[11.5px] text-[var(--color-text-muted)]">
-              配置远程扩展市场通信端点（离线或无法连通时自动切换至内置官方精选库）
+              {t("settings.extensionsSettings.marketplaceUrlDescription")}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -266,23 +292,23 @@ export function ExtensionsSettingsSection() {
               size="sm"
               variant="ghost"
               onClick={handleResetToDefault}
-              className="h-7 text-[11.5px] px-2.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)]"
+              className="h-7 px-2.5 text-[11.5px] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)]"
             >
               <Icons.Refresh size={12} className="mr-1 inline" />
-              重置为官方源
+              {t("settings.extensionsSettings.resetToOfficial")}
             </Button>
             <Button
               size="sm"
               variant="secondary"
               disabled={isTestingUrl}
               onClick={handleTestConnection}
-              className="h-7 text-[11.5px] px-3"
+              className="h-7 px-3 text-[11.5px]"
             >
               <Icons.Sparkles
                 size={12}
-                className={`mr-1 inline ${isTestingUrl ? "animate-spin text-blue-400" : ""}`}
+                className={`mr-1 inline ${isTestingUrl ? "animate-spin text-[var(--color-accent)]" : ""}`}
               />
-              测试连接
+              {t("settings.extensionsSettings.testConnection")}
             </Button>
           </div>
         </div>
@@ -303,32 +329,31 @@ export function ExtensionsSettingsSection() {
           />
           <Button
             size="sm"
-            className="h-7 text-[11.5px] px-3"
+            className="h-7 px-3 text-[11.5px]"
             onClick={() => handleSaveMarketplaceUrl(marketplaceUrl)}
           >
-            保存
+            {t("common.save")}
           </Button>
         </div>
       </Card>
 
       {/* 2. VSCode 兼容内核：内置运行时，不作为侧边栏扩展 */}
-      <Card className="p-4 rounded-2xl flex items-center justify-between gap-4">
-        <div className="flex items-start gap-3 min-w-0">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-400">
+      <Card className="flex items-center justify-between gap-4 p-5">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
             <Icons.FileCode size={17} />
           </span>
-          <div className="flex flex-col gap-1 min-w-0">
+          <div className="flex min-w-0 flex-col gap-1">
             <div className="flex items-center gap-2">
-              <span className="text-[13.5px] font-bold text-[var(--color-text-highlight)]">
-                VSCode 兼容内核
+              <span className="text-[14px] font-bold text-[var(--color-text-highlight)]">
+                {t("settings.extensionsSettings.vscodeCompatTitle")}
               </span>
-              <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded">
-                内置
+              <span className="rounded border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-muted)]">
+                {t("settings.extensionsSettings.builtinBadge")}
               </span>
             </div>
             <span className="text-[11.5px] leading-relaxed text-[var(--color-text-muted)]">
-              为 VSIX 扩展提供 vscode API 兼容运行时。它随 Aurona Code
-              内置，不显示在侧边栏，也不能从 Marketplace 卸载。
+              {t("settings.extensionsSettings.vscodeCompatDescription")}
             </span>
           </div>
         </div>
@@ -339,14 +364,20 @@ export function ExtensionsSettingsSection() {
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h4 className="text-[14px] font-bold text-[var(--color-text-highlight)]">
-            已安装扩展与独立权限 ({descriptors.length})
+            {t("settings.extensionsSettings.installedTitle").replace(
+              "{count}",
+              String(descriptors.length),
+            )}
           </h4>
         </div>
 
         {descriptors.length === 0 ? (
-          <div className="p-8 text-center text-xs text-[var(--color-text-muted)]">
-            尚未安装任何扩展
-          </div>
+          <GlassContainer
+            layer="raised"
+            className="p-8 text-center text-xs text-[var(--color-text-muted)]"
+          >
+            {t("settings.extensionsSettings.noExtensions")}
+          </GlassContainer>
         ) : (
           descriptors.map((desc) => <ExtensionPermissionCard key={desc.id} descriptor={desc} />)
         )}

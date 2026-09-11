@@ -87,7 +87,7 @@ export function ToastContainer() {
         return (
           <div
             key={toast.id}
-            className="pointer-events-auto relative flex flex-col gap-2.5 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)]/95 p-3.5 backdrop-blur-[var(--glass-blur-floating)] shadow-2xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group"
+            className="pointer-events-auto relative flex flex-col gap-2.5 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)]/95 p-3.5 backdrop-blur-[var(--glass-blur-overlay)] shadow-2xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group"
           >
             <div className={`flex ${hasTitle ? "items-start" : "items-center"} gap-3`}>
               <div

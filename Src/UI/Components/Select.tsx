@@ -27,7 +27,7 @@ export function Select({ options, value, onChange, className, ariaLabel, disable
         aria-label={ariaLabel}
         data-aurona-component-focus="true"
         className={cn(
-          glassVariants({ layer: "elevated" }),
+          glassVariants({ layer: "raised" }),
           "flex h-8 min-w-[120px] cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-1.5 text-[13px] text-[var(--color-text-highlight)] outline-none transition-[background-color,border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-[var(--color-text-muted)]/40",
           className,
         )}
@@ -41,7 +41,7 @@ export function Select({ options, value, onChange, className, ariaLabel, disable
       <SelectPrimitive.Portal>
         <SelectPrimitive.Content
           className={cn(
-            glassVariants({ layer: "floating" }),
+            glassVariants({ layer: "overlay" }),
             "relative z-[9999] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl p-1 animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95",
           )}
           position="popper"

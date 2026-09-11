@@ -1,5 +1,9 @@
 # Aurona Code 扩展开发实战指南
 
+## Pioneer 5 UI 约束
+
+扩展 UI 继续复用 Aurona 的 `Button`、`Input`、`Select`、`Switch`、`Card` 和 `GlassContainer`。扩展不得通过页面级 class 创建新的 surface 层级、嵌套大卡片或依赖装饰性渐变表达结构；详情、设置和工具链状态应使用标题、分隔线与明确的 loading/empty/error 状态。
+
 Aurona Code 提供了基于 **WebAssembly Component Model (WASI P2)** 的现代插件系统。开发者可以使用 Rust 或转译脚本编写扩展，打包为 `.aurx` 归档并在沙箱中安全运行。
 
 ---

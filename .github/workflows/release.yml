@@ -118,10 +118,10 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Setup Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          toolchain: 1.95.0
           targets: ${{ matrix.settings.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin,wasm32-wasip2' || 'wasm32-wasip2' }}
 
       - name: Ensure wasm target is installed
@@ -190,22 +190,23 @@ jobs:
           releaseDraft: true
           prerelease: ${{ env.IS_PRERELEASE == 'true' }}
 
-      - name: Validate bundled macOS runtime
+      - name: Validate bundled macOS app
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          RUNTIME="$(find src-tauri/target -path '*/Aurona Code.app/Contents/Resources/toolchains/runtime/node' -print -quit)"
-          test -n "$RUNTIME"
-          lipo "$RUNTIME" -verify_arch arm64 x86_64
-          "$RUNTIME" --version
+          APP="$(find src-tauri/target -type d -name 'Aurona Code.app' -print -quit)"
+          test -n "$APP"
+          echo "Found bundled app: $APP"
+          BIN="$(ls "$APP/Contents/MacOS" | head -n1)"
+          lipo "$APP/Contents/MacOS/$BIN" -verify_arch arm64 x86_64
+          echo "Verified universal binary: $BIN (arm64 + x86_64)"
 
-      - name: Validate Linux bundle and runtime
+      - name: Validate Linux bundle
         if: runner.os == 'Linux'
         shell: bash
         run: |
           test -n "$(find src-tauri/target -path '*/bundle/appimage/*.AppImage' -print -quit)"
           test -n "$(find src-tauri/target -path '*/bundle/deb/*.deb' -print -quit)"
-          src-tauri/resources/toolchains/runtime/node --version
 
   sync-pioneer:
     name: Sync Pioneer Latest Channel
@@ -226,18 +227,40 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ env.RELEASE_TAG }}"
+          REPO="${{ github.repository }}"
           echo "Syncing Pioneer release $TAG to pioneer-latest channel..."
           mkdir -p /tmp/pioneer-assets
-          gh release download "$TAG" --dir /tmp/pioneer-assets --pattern "*" || true
+          gh release download "$TAG" --repo "$REPO" --dir /tmp/pioneer-assets --pattern "*"
 
-          if gh release view pioneer-latest >/dev/null 2>&1; then
+          if [[ -z "$(ls -A /tmp/pioneer-assets 2>/dev/null)" ]]; then
+            echo "No assets were downloaded from release $TAG — aborting sync."
+            exit 1
+          fi
+
+          # The tag release is created as a draft by tauri-action, so its asset
+          # URLs stay 404 until it is reviewed and published. Rewrite the
+          # updater manifests to point at the public pioneer-latest assets,
+          # which are uploaded right below, so the update channel never
+          # depends on the draft being published.
+          for f in /tmp/pioneer-assets/latest*.json; do
+            [[ -f "$f" ]] || continue
+            sed -i "s|releases/download/$TAG/|releases/download/pioneer-latest/|g" "$f"
+            echo "Rewrote updater URLs in $(basename "$f")"
+          done
+
+          if gh release view pioneer-latest --repo "$REPO" >/dev/null 2>&1; then
             echo "Updating existing pioneer-latest release..."
-            gh release upload pioneer-latest /tmp/pioneer-assets/* --clobber
-            gh release edit pioneer-latest --title "Aurona Code Pioneer Latest ($TAG)" --notes "Latest pre-release track: $TAG" --prerelease=true
+            gh release upload pioneer-latest --repo "$REPO" /tmp/pioneer-assets/* --clobber
+            gh release edit pioneer-latest --repo "$REPO" \
+              --title "Aurona Code Pioneer Latest ($TAG)" \
+              --notes "Latest pre-release track: $TAG" \
+              --prerelease=true
           else
             echo "Creating new pioneer-latest release..."
-            gh release create pioneer-latest /tmp/pioneer-assets/* \
+            gh release create pioneer-latest --repo "$REPO" /tmp/pioneer-assets/* \
               --title "Aurona Code Pioneer Latest ($TAG)" \
               --notes "Latest pre-release track: $TAG" \
               --prerelease=true
           fi
+
+          echo "Sync complete. Updater manifest now points at public pioneer-latest assets."

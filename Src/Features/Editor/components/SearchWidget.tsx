@@ -51,7 +51,7 @@ export function SearchWidget({
   return (
     <div
       className={cn(
-        glassVariants({ layer: "floating" }),
+        glassVariants({ layer: "overlay" }),
         "absolute top-4 right-8 z-50 flex items-center rounded-xl overflow-hidden h-10 font-sans transition-all w-[340px]",
       )}
     >

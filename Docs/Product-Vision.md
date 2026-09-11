@@ -1,5 +1,16 @@
 # Aurona Code 产品愿景与长期演进
 
+## Pioneer 5 收敛里程碑
+
+Pioneer 5 是一次产品表达收敛版本，冻结新的 SDK、Runtime、Marketplace 能力和页面入口，优先确保已有能力可被稳定、清晰地使用。
+
+- 工作台和内部页面使用 base、raised、overlay 三层 surface 语法；重复项目才使用 Card，页面分组使用 section、divider 和标题层级。
+- Marketplace 只有 Discover、Installed、Toolchains 三个并列模式。Toolchains 是 LSP 与 Runtime 安装、版本、启停、重启和卸载的唯一入口。
+- 搜索输入只筛选当前目录，Enter 或搜索动作才提交远程查询；取消的请求不会改变 offline 状态，也不能覆盖新结果。
+- 保留 Tab Keep-Alive 状态，但隐藏非活动 Canvas/WebView 的组成表面；动态模块失败必须提供可恢复操作。
+
+Pioneer 5 的验收重点是路径一致、数据真实、状态可恢复和视觉层级可扫描，而不是新增功能数量。
+
 ## 1. 为什么创立 Aurona Code？
 
 写代码这件事，值得一个更舒服、更安静、也更顺手的角落。

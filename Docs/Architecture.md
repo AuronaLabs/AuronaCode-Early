@@ -1,5 +1,14 @@
 # Aurona Code 核心架构指南 (Corona+ Architecture Specification)
 
+## Pioneer 5 交互收敛边界
+
+Pioneer 5 不新增 SDK、Runtime、Marketplace 后端或 IPC 命令。前端通过现有 `LanguageServerIPC`、`ToolchainsOverview` 和扩展清单表达既有能力。
+
+- `GlassContainer` 的 `base`、`raised`、`overlay` 是唯一视觉层级；`Card` 只承载重复项目，页面分组不再叠加容器。
+- Marketplace 的 `discover`、`installed`、`toolchains` 各自保存 query、filter、scrollTop 和 selected item；只有 Discover 的提交搜索会发起远程目录请求。
+- 本地 LSP/Runtime 行只显示 IPC 与安装 manifest 的事实。缺少版本、大小、SHA-256 或下载地址时显示“信息不可用”，不得用市场统计或另一处版本猜测。
+- Keep-Alive 仍由 Workspace 保持挂载，但非活动页面使用 `display: none` 移除 Canvas/WebView 组成表面。lazy chunk 失败由 `LazyChunkBoundary` 记录模块路径并提供重试/重新加载。
+
 Aurona Code 采用自主研发的 **Corona+ 架构**。该架构的设计哲学为：**安全隔离、极致渲染、开放兼容、数据主权**。
 
 系统基于 **Tauri 2 + React 19 + Rust + WASM Component Model (WASI P2)** 打造，彻底剔除了对 Electron 与 Monaco Editor 等重型框架的依赖，采用自研编辑器引擎（AuronaEngine），结合 **Radix UI** 无头交互组件与 **Tabler Icons** 纯净矢量图标体系，并以自研 **Glass 拟物毛玻璃材质系统** 构筑沉浸纯粹的现代桌面开发工作台。

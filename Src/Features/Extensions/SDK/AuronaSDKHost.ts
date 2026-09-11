@@ -625,7 +625,7 @@ export function createAuronaSDKHost(extensionId: string): AuronaSDK {
       locale: LocaleService.get(),
       sdkVersion: "2.0.0",
       appName: "Aurona Code",
-      appVersion: "0.4.0-pioneer.4",
+      appVersion: "0.4.0-pioneer.5",
       clipboard: {
         async readText(): Promise<string> {
           try {

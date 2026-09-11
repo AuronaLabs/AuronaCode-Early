@@ -3,7 +3,7 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use tauri::Manager;
 use zip::ZipArchive;
 
@@ -112,6 +112,63 @@ fn calculate_directory_size(path: &Path) -> u64 {
         }
     }
     total
+}
+
+fn runtime_binary_path(base: &Path, relative_path: &str) -> Option<PathBuf> {
+    let relative = Path::new(relative_path);
+    if relative.is_absolute()
+        || relative.components().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+            )
+        })
+    {
+        return None;
+    }
+    Some(base.join(relative))
+}
+
+fn installed_runtime_summary(
+    directory_runtime_type: &str,
+    directory_version: &str,
+    install_path: &Path,
+) -> InstalledRuntimeSummary {
+    let manifest = fs::read_to_string(install_path.join("manifest.json"))
+        .ok()
+        .and_then(|content| serde_json::from_str::<RuntimePackageManifest>(&content).ok());
+
+    let runtime_type = manifest
+        .as_ref()
+        .map(|value| value.runtime_type.as_str())
+        .filter(|value| !value.is_empty())
+        .unwrap_or(directory_runtime_type)
+        .to_string();
+    let version = manifest
+        .as_ref()
+        .map(|value| value.runtime_version.as_str())
+        .filter(|value| !value.is_empty())
+        .unwrap_or(directory_version)
+        .to_string();
+    let configured_binary = manifest
+        .as_ref()
+        .and_then(|value| runtime_binary_path(install_path, &value.binary_path));
+    let fallback_binary = if cfg!(windows) { "node.exe" } else { "node" };
+    let effective_binary = configured_binary.unwrap_or_else(|| {
+        let bin = install_path.join("bin").join(fallback_binary);
+        if bin.exists() {
+            bin
+        } else {
+            install_path.join(fallback_binary)
+        }
+    });
+
+    InstalledRuntimeSummary {
+        runtime_type,
+        version,
+        binary_path: effective_binary.to_string_lossy().to_string(),
+        disk_size_bytes: calculate_directory_size(install_path),
+    }
 }
 
 /// 在 APPDATA 共享运行时池中解析 Node.js 运行时可执行路径
@@ -600,21 +657,8 @@ pub fn list_all_installed_toolchains(app_handle: &tauri::AppHandle) -> Toolchain
                             let v_path = v_entry.path();
                             if v_path.is_dir() {
                                 let v_name = v_entry.file_name().to_string_lossy().to_string();
-                                let size = calculate_directory_size(&v_path);
-                                let exe_name = if cfg!(windows) { "node.exe" } else { "node" };
-                                let bin_p = v_path.join("bin").join(exe_name);
-                                let effective_bin = if bin_p.exists() {
-                                    bin_p.to_string_lossy().to_string()
-                                } else {
-                                    v_path.join(exe_name).to_string_lossy().to_string()
-                                };
-
-                                runtimes_res.push(InstalledRuntimeSummary {
-                                    runtime_type: r_type.clone(),
-                                    version: v_name,
-                                    binary_path: effective_bin,
-                                    disk_size_bytes: size,
-                                });
+                                runtimes_res
+                                    .push(installed_runtime_summary(&r_type, &v_name, &v_path));
                             }
                         }
                     }
@@ -655,4 +699,46 @@ pub fn uninstall_toolchain_runtime(
             .map_err(|e| format!("卸载共享运行时 {runtime_type} 失败: {e}"))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn installed_runtime_summary_reads_the_local_manifest() {
+        let directory = std::env::temp_dir().join(format!(
+            "aurona-runtime-summary-{}-{}",
+            std::process::id(),
+            rand::random::<u64>()
+        ));
+        std::fs::create_dir_all(directory.join("bin")).unwrap();
+        std::fs::write(
+            directory.join("manifest.json"),
+            r#"{
+              "schemaVersion": 1,
+              "kind": "runtime",
+              "id": "auronalabs.runtime-bun",
+              "version": "1.1.0",
+              "runtimeType": "bun",
+              "runtimeVersion": "1.1.0",
+              "binaryPath": "bin/bun"
+            }"#,
+        )
+        .unwrap();
+        std::fs::write(directory.join("bin").join("bun"), b"runtime").unwrap();
+
+        let summary = installed_runtime_summary("node", "directory-version", &directory);
+
+        assert_eq!(summary.runtime_type, "bun");
+        assert_eq!(summary.version, "1.1.0");
+        assert!(Path::new(&summary.binary_path).ends_with(Path::new("bin").join("bun")));
+        assert!(summary.disk_size_bytes > 0);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn runtime_manifest_cannot_escape_its_install_directory() {
+        assert!(runtime_binary_path(Path::new("runtime"), "../outside").is_none());
+    }
 }

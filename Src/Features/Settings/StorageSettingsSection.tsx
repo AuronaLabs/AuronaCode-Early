@@ -134,7 +134,7 @@ export function StorageSettingsSection() {
           break;
         case "toolchains":
           await StorageIPC.clearToolchains();
-          showToast("已清理所有语言服务与共享运行时缓存", "success");
+          showToast(t("settings.storage.toasts.toolchainsCleared"), "success");
           break;
         case "cache":
           await StorageIPC.clearWebviewCache();
@@ -210,9 +210,9 @@ export function StorageSettingsSection() {
     },
     {
       id: "toolchains",
-      name: "语言服务与共享运行时",
+      name: t("settings.storage.rows.toolchains.name"),
       file: "toolchains/",
-      description: "已安装的官方/第三方 LSP 语言服务包及共享 Node.js 运行时环境",
+      description: t("settings.storage.rows.toolchains.description"),
       raw: sizes.toolchainBytes,
     },
     {
@@ -286,7 +286,7 @@ export function StorageSettingsSection() {
         </p>
       </div>
 
-      <GlassContainer layer="elevated" className="flex flex-col gap-6 rounded-2xl p-6">
+      <GlassContainer layer="raised" className="flex flex-col gap-6 p-6">
         <div className="flex flex-col gap-2">
           <div className="flex items-end justify-between">
             <span className="text-[20px] font-extrabold tracking-tight text-[var(--color-text-highlight)] select-none">
@@ -347,7 +347,7 @@ export function StorageSettingsSection() {
           {t("settings.storage.detailsTitle")}
         </h4>
 
-        <GlassContainer layer="elevated" className="flex flex-col overflow-hidden rounded-2xl">
+        <GlassContainer layer="raised" className="flex flex-col overflow-hidden">
           {rows.map((row, index) => (
             <div
               key={row.id}

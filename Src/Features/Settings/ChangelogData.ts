@@ -12,9 +12,50 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.4.0-pioneer.5",
+    date: "2026-08-31",
+    isLatest: true,
+    summary:
+      "Pioneer 5 是一次界面与交互收敛版本：冻结新的 SDK、Runtime、Marketplace 能力和页面入口，统一 surface 层级，减少卡片与装饰，修正搜索请求竞态、工具链事实展示、设置导航和动态模块失败体验。",
+    sections: [
+      {
+        title: "统一工作台视觉层级",
+        description: "base、raised、overlay 三层表面令牌成为唯一的容器层级来源。",
+        items: [
+          "移除 Settings、Marketplace、Notifications、Outline 和底部面板中的大多数嵌套卡片、渐变和非必要模糊。",
+          "保留 Keep-Alive 状态模型，同时让非活动 Canvas/WebView 页面不再留下可见残留。",
+        ],
+      },
+      {
+        title: "Marketplace 三段模式与可靠搜索",
+        description: "Discover、Installed、Toolchains 分离职责并分别保存上下文。",
+        items: [
+          "输入阶段只做本地候选过滤，Enter 或搜索按钮才提交远程查询；新请求会取消旧请求。",
+          "本地 LSP 与 Runtime 只显示安装路径、版本、大小和运行状态等事实，不再伪造市场统计。",
+        ],
+      },
+      {
+        title: "Settings 与 Toolchains 主路径收敛",
+        description: "设置标题、导航状态和搜索定位共享同一 activeSection。",
+        items: [
+          "Code Intelligence 保留编辑偏好、诊断摘要和单一 Toolchains 入口，安装与生命周期管理集中到 Marketplace。",
+          "详情页首屏只承担概览、权限和一个动作，Reviews、Changelog、Versions 改为按需加载并支持重试。",
+        ],
+      },
+      {
+        title: "扩展迁移与动态模块保护",
+        description: "旧扩展 ID 在缓存、权限和 IPC 边界统一迁移到规范 ID。",
+        items: [
+          "lazy 模块加载失败时保留原始路径和日志，提供可重新创建 loader 的 Retry 以及页面 Reload 动作。",
+          "MarketplacePackages/ 继续作为本地产物目录，不重新进入 Aurona Code Git。",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.4.0-pioneer.4",
     date: "2026-08-22",
-    isLatest: true,
+    isLatest: false,
     summary:
       "V0.4.0-pioneer.4 迎来了重磅的语言服务架构革命、扩展生态深度跃升与现代微拟物体验进化：彻底取消主程序内置的 LSP 语言服务器与庞大运行时依赖，客户端安装包体积断崖式轻量化；构建全新的共享 Node.js 公共运行时池（Shared Node Runtime Pool），多语言服务全局共用单一运行时，彻底消除磁盘冗余；Rust 底层重构为异步流式下载，彻底根除 4GB 内存崩溃 (OOM)；Aurona Marketplace 详情页与主界面采用全新微拟物毛玻璃设计，控制栏与分类筛选防溢出弹性自适应；上线全新非侵入式原地权限系统，告别侧边栏跨页面跳转；官方原生扩展（Markdown 预览、Planner 任务计划）升级至 v0.1.2，Planner 重构为现代双行排版；Aurona 插件 SDK 升级至 v1.2.0 增设 permissions 原生模块；底层文件解压与删除全量异步化，彻底根除大插件加载与卸载卡顿。",
     sections: [

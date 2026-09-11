@@ -29,7 +29,7 @@ impl ExtensionDescriptor {
     fn from_package(package: &ExtensionPackage) -> Self {
         let manifest = &package.manifest;
         Self {
-            id: manifest.id.clone(),
+            id: canonical_extension_id(&manifest.id).to_string(),
             name: manifest.name.clone(),
             display_name: manifest.display_name.clone(),
             publisher: manifest.publisher.clone(),
@@ -69,11 +69,17 @@ impl ExtensionRegistry {
         } else {
             open_package(&bytes)?
         };
-        let id = package.id().to_string();
+        let id = canonical_extension_id(package.id()).to_string();
         self.packages
             .lock()
             .map_err(|_| "扩展注册表锁已损坏".to_string())?
-            .insert(id.clone(), package.clone());
+            .entry(id.clone())
+            .and_modify(|existing| {
+                if existing.id() != id && package.id() == id {
+                    *existing = package.clone();
+                }
+            })
+            .or_insert_with(|| package.clone());
         Ok(package)
     }
 
@@ -91,12 +97,8 @@ impl ExtensionRegistry {
                 .extension()
                 .is_some_and(|extension| extension == "aurx" || extension == "vsix")
             {
-                let package = self.load_file(&path)?;
-                if is_removed_legacy_extension(package.id()) {
-                    self.remove(package.id());
-                } else {
-                    loaded += 1;
-                }
+                let _package = self.load_file(&path)?;
+                loaded += 1;
             }
         }
         Ok(loaded)
@@ -117,6 +119,7 @@ impl ExtensionRegistry {
     }
 
     pub fn package(&self, id: &str) -> Option<Arc<ExtensionPackage>> {
+        let id = canonical_extension_id(id);
         self.packages
             .lock()
             .ok()
@@ -124,6 +127,7 @@ impl ExtensionRegistry {
     }
 
     pub fn remove(&self, id: &str) -> bool {
+        let id = canonical_extension_id(id);
         self.packages
             .lock()
             .map(|mut guard| guard.remove(id).is_some())
@@ -131,8 +135,12 @@ impl ExtensionRegistry {
     }
 }
 
-fn is_removed_legacy_extension(id: &str) -> bool {
-    matches!(id, "aurona.markdown" | "aurona.planner")
+pub fn canonical_extension_id(id: &str) -> &str {
+    match id {
+        "aurona.markdown" => "auronalabs.markdown",
+        "aurona.planner" => "auronalabs.planner",
+        _ => id,
+    }
 }
 
 impl Default for ExtensionRegistry {
@@ -180,6 +188,44 @@ mod tests {
         assert_eq!(descriptors.len(), 1);
         assert_eq!(descriptors[0].id, "auronalabs.markdown");
         assert!(registry.package("auronalabs.markdown").is_some());
+        std::fs::remove_dir_all(&temp).ok();
+    }
+
+    #[test]
+    fn canonical_package_wins_over_legacy_package_in_any_load_order() {
+        let temp =
+            std::env::temp_dir().join(format!("aurona-ext-registry-alias-{}", std::process::id()));
+        std::fs::create_dir_all(&temp).unwrap();
+        let canonical = write_package(
+            &temp,
+            "canonical.aurx",
+            Some(json!({ "id": "auronalabs.markdown", "name": "Canonical" })),
+        );
+        let legacy = write_package(
+            &temp,
+            "legacy.aurx",
+            Some(json!({ "id": "aurona.markdown", "name": "Legacy" })),
+        );
+
+        let registry = ExtensionRegistry::new();
+        registry.load_file(&legacy).unwrap();
+        registry.load_file(&canonical).unwrap();
+        assert_eq!(
+            registry
+                .package("auronalabs.markdown")
+                .unwrap()
+                .manifest
+                .name,
+            "Canonical"
+        );
+
+        let reverse = ExtensionRegistry::new();
+        reverse.load_file(&canonical).unwrap();
+        reverse.load_file(&legacy).unwrap();
+        assert_eq!(
+            reverse.package("aurona.markdown").unwrap().manifest.name,
+            "Canonical"
+        );
         std::fs::remove_dir_all(&temp).ok();
     }
 

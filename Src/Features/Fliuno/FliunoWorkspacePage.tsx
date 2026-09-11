@@ -25,6 +25,7 @@ import {
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../../State/useEditorStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { EmptyState } from "../../UI/Components/EmptyState";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 
@@ -293,7 +294,7 @@ export function FliunoWorkspacePage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 bg-transparent px-6 pb-3 pt-4">
-      <div className="flex h-12 shrink-0 items-center gap-3 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-panel)] px-4 backdrop-blur-[var(--glass-blur-floating)]">
+      <div className="flex h-12 shrink-0 items-center gap-3 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-panel)] px-4 backdrop-blur-[var(--glass-blur-overlay)]">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--color-accent)]/10 text-[var(--color-accent)]">
           <Icons.Search size={16} stroke={1.8} />
         </span>
@@ -414,7 +415,11 @@ export function FliunoWorkspacePage() {
 
       <div ref={resultsRef} className="min-h-0 flex-1 overflow-y-auto px-1 pb-2 aurona-scroll">
         {!workspaceRoot && (query || scope !== "commands") ? (
-          <EmptyState text={t("fliuno.noWorkspace")} />
+          <EmptyState
+            className="min-h-[240px]"
+            icon={<Icons.Search size={24} stroke={1.5} />}
+            title={t("fliuno.noWorkspace")}
+          />
         ) : grouped.length ? (
           <div className="flex flex-col gap-6">
             {grouped.map((group) => {
@@ -471,7 +476,11 @@ export function FliunoWorkspacePage() {
             })}
           </div>
         ) : (
-          <EmptyState text={query ? t("common.noResults") : t("fliuno.emptyHint")} />
+          <EmptyState
+            className="min-h-[240px]"
+            icon={<Icons.Search size={24} stroke={1.5} />}
+            title={query ? t("common.noResults") : t("fliuno.emptyHint")}
+          />
         )}
       </div>
 
@@ -581,17 +590,6 @@ function ContentRow({
         <HighlightedText text={result.description} ranges={result.descriptionRanges} />
       </span>
     </button>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 px-6 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--color-text-muted)]">
-        <Icons.Search size={22} />
-      </span>
-      <span className="text-[12px] text-[var(--color-text-primary)]">{text}</span>
-    </div>
   );
 }
 

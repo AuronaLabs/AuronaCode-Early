@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
 
 use super::aurx::ExtensionPackage;
-use super::registry::ExtensionRegistry;
+use super::registry::{canonical_extension_id, ExtensionRegistry};
 use super::runtime::{ContextPermissionState, ExtensionLimits, ExtensionRuntime};
 
 const PERMISSIONS_FILE: &str = "extensions-permissions.json";
@@ -36,11 +36,14 @@ impl ExtensionState {
             .path()
             .app_local_data_dir()
             .map_err(|error| format!("无法定位数据目录: {error}"))?;
-        self.load_permissions(&config_dir);
+        let config_dir_for_state = config_dir.clone();
         *self
             .config_dir
             .lock()
             .map_err(|_| "扩展状态锁已损坏".to_string())? = Some(config_dir);
+        if self.load_permissions(&config_dir_for_state) {
+            self.persist_permissions();
+        }
         Ok(loaded)
     }
 
@@ -102,7 +105,7 @@ impl ExtensionState {
             }
         }
         let package = super::aurx::open_package(archive_bytes)?;
-        let id = package.id().to_string();
+        let id = canonical_extension_id(package.id()).to_string();
         if is_builtin_extension(&id) {
             return Err(format!("内置扩展不能覆盖安装: {id}"));
         }
@@ -128,6 +131,7 @@ impl ExtensionState {
     }
 
     pub fn uninstall_package(&self, app: &AppHandle, id: &str) -> Result<(), String> {
+        let id = canonical_extension_id(id);
         if is_builtin_extension(id) {
             return Err(format!("内置扩展不能卸载: {id}"));
         }
@@ -162,6 +166,7 @@ impl ExtensionState {
     }
 
     pub fn runtime_for(&self, id: &str) -> Result<Arc<ExtensionRuntime>, String> {
+        let id = canonical_extension_id(id);
         if let Some(runtime) = self
             .runtimes
             .lock()
@@ -200,7 +205,11 @@ impl ExtensionState {
         permission: &str,
         workspace_identity: &str,
     ) -> ContextPermissionState {
-        let key = permission_key(extension_id, permission, workspace_identity);
+        let key = permission_key(
+            canonical_extension_id(extension_id),
+            permission,
+            workspace_identity,
+        );
         if let Some(state) = self
             .permissions
             .lock()
@@ -230,6 +239,7 @@ impl ExtensionState {
         workspace_identity: &str,
         granted: bool,
     ) -> ContextPermissionState {
+        let extension_id = canonical_extension_id(extension_id);
         let key = permission_key(extension_id, permission, workspace_identity);
         let state = if granted {
             ContextPermissionState::Granted
@@ -252,6 +262,7 @@ impl ExtensionState {
         workspace_identity: &str,
         granted: bool,
     ) -> ContextPermissionState {
+        let extension_id = canonical_extension_id(extension_id);
         let key = permission_key(extension_id, permission, workspace_identity);
         if let Ok(mut guard) = self.session_permissions.lock() {
             if granted {
@@ -267,24 +278,32 @@ impl ExtensionState {
         }
     }
 
-    fn load_permissions(&self, config_dir: &std::path::Path) {
+    fn load_permissions(&self, config_dir: &std::path::Path) -> bool {
         let path = config_dir.join(PERMISSIONS_FILE);
         let Ok(content) = std::fs::read_to_string(path) else {
-            return;
+            return false;
         };
         let Ok(values) = serde_json::from_str::<HashMap<String, String>>(&content) else {
-            return;
+            return false;
         };
-        if let Ok(mut guard) = self.permissions.lock() {
-            for (key, value) in values {
-                let state = match value.as_str() {
-                    "granted" => ContextPermissionState::Granted,
-                    "denied" => ContextPermissionState::Denied,
-                    _ => continue,
-                };
-                guard.insert(key, state);
+        let mut normalized = HashMap::new();
+        let mut migrated = false;
+        for (key, value) in values {
+            let state = match value.as_str() {
+                "granted" => ContextPermissionState::Granted,
+                "denied" => ContextPermissionState::Denied,
+                _ => continue,
+            };
+            let canonical_key = canonicalize_permission_key(&key);
+            migrated |= canonical_key != key;
+            if canonical_key == key || !normalized.contains_key(&canonical_key) {
+                normalized.insert(canonical_key, state);
             }
         }
+        if let Ok(mut guard) = self.permissions.lock() {
+            guard.extend(normalized);
+        }
+        migrated
     }
 
     fn persist_permissions(&self) {
@@ -323,6 +342,13 @@ fn is_builtin_extension(extension_id: &str) -> bool {
     matches!(extension_id, "aurona.vscode-compat" | "vscode-demo")
 }
 
+fn canonicalize_permission_key(key: &str) -> String {
+    let Some((extension_id, remainder)) = key.split_once(':') else {
+        return canonical_extension_id(key).to_string();
+    };
+    format!("{}:{remainder}", canonical_extension_id(extension_id))
+}
+
 impl Default for ExtensionState {
     fn default() -> Self {
         Self::new()
@@ -342,6 +368,18 @@ pub fn workspace_identity(root: Option<&std::path::Path>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn permission_keys_migrate_legacy_extension_ids() {
+        assert_eq!(
+            canonicalize_permission_key("aurona.markdown:editor.current.read:ws-a"),
+            "auronalabs.markdown:editor.current.read:ws-a"
+        );
+        assert_eq!(
+            canonicalize_permission_key("custom.extension"),
+            "custom.extension"
+        );
+    }
 
     #[test]
     fn permissions_are_scoped_by_workspace() {

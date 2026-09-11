@@ -89,7 +89,7 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
     <div
       ref={menuRef}
       className={cn(
-        glassVariants({ layer: "floating" }),
+        glassVariants({ layer: "overlay" }),
         "fixed z-50 rounded-xl overflow-hidden flex font-sans",
       )}
       style={{ left: position.left, top: position.top, maxHeight: "300px" }}

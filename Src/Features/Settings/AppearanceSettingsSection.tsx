@@ -58,7 +58,7 @@ export function AppearanceSettingsSection({
         </p>
       </div>
 
-      <GlassContainer layer="elevated" className="overflow-hidden rounded-2xl">
+      <GlassContainer layer="raised" className="overflow-hidden">
         <div data-setting-id="accentTheme" className="p-3 sm:p-4">
           <div className="mb-3 flex items-start justify-between gap-2 px-1">
             <div className="flex flex-col gap-1">
@@ -140,7 +140,7 @@ export function AppearanceSettingsSection({
         </p>
       </div>
 
-      <GlassContainer layer="elevated" className="overflow-hidden rounded-2xl">
+      <GlassContainer layer="raised" className="overflow-hidden">
         <div data-setting-id="materialIntensity" className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">

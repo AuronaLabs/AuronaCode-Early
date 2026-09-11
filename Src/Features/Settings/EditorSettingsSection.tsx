@@ -35,6 +35,12 @@ export function EditorSettingsSection({
   useEffect(() => {
     UserConfigStore.get().then((config) => {
       setEditorMinimap(config.editorMinimap ?? false);
+      const smooth = config.editorCursorSmoothCaret ?? true;
+      setCursorSmoothCaret(smooth);
+      document.documentElement.style.setProperty(
+        "--EditorCursorSmooth",
+        smooth ? "smooth" : "normal",
+      );
     });
   }, []);
 
@@ -71,6 +77,7 @@ export function EditorSettingsSection({
 
   const handleCursorSmoothChange = (checked: boolean) => {
     setCursorSmoothCaret(checked);
+    void UserConfigStore.set({ editorCursorSmoothCaret: checked });
     document.documentElement.style.setProperty(
       "--EditorCursorSmooth",
       checked ? "smooth" : "normal",
@@ -88,7 +95,7 @@ export function EditorSettingsSection({
         </p>
       </div>
 
-      <GlassContainer layer="elevated" className="rounded-2xl overflow-hidden flex flex-col">
+      <GlassContainer layer="raised" className="overflow-hidden flex flex-col">
         <div
           data-setting-id="editorFontSize"
           className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]"
@@ -234,17 +241,17 @@ export function EditorSettingsSection({
         <div data-setting-id="editorSmoothCaret" className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
-              平滑光标呼吸动画 (Smooth Caret)
+              {t("settings.featureFlags.editorSmoothCaret.title")}
             </span>
             <span className="text-[12px] text-[var(--color-text-muted)]">
-              开启后光标输入与跳转将展现灵动柔和的渐变微动效果
+              {t("settings.featureFlags.editorSmoothCaret.desc")}
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Switch
               checked={cursorSmoothCaret}
               onCheckedChange={handleCursorSmoothChange}
-              aria-label="平滑光标呼吸动画"
+              aria-label={t("settings.featureFlags.editorSmoothCaret.title")}
             />
             <SettingResetButton
               label={t("settings.reset")}

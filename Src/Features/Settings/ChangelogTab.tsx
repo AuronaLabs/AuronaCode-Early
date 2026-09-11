@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useLocale } from "../../Foundation/I18n";
+import { Card } from "../../UI/Components/Card";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
@@ -86,10 +87,7 @@ export function ChangelogTab() {
         {filteredData.map((release) => {
           const expanded = expandedVersions.has(release.version);
           return (
-            <div
-              key={release.version}
-              className="flex flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--material-surface)]"
-            >
+            <Card key={release.version} className="flex flex-col overflow-hidden">
               <button
                 type="button"
                 onClick={() => toggleVersion(release.version)}
@@ -133,8 +131,8 @@ export function ChangelogTab() {
                   {release.sections.map((section) => (
                     <GlassContainer
                       key={section.title}
-                      layer="elevated"
-                      className="flex flex-col gap-3 rounded-2xl p-5"
+                      layer="base"
+                      className="flex flex-col gap-3 p-5"
                     >
                       <div className="flex items-center gap-2.5">
                         <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-[var(--color-accent)]/10 text-[var(--color-accent)]">
@@ -166,7 +164,7 @@ export function ChangelogTab() {
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
           );
         })}
       </div>

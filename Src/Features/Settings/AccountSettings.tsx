@@ -105,8 +105,8 @@ export function AccountSettings() {
 
   return (
     <GlassContainer
-      layer="elevated"
-      className="flex min-h-[520px] w-full max-w-3xl flex-col overflow-hidden rounded-2xl"
+      layer="raised"
+      className="flex min-h-[520px] w-full max-w-3xl flex-col overflow-hidden"
     >
       {signedIn ? (
         <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center">
@@ -151,7 +151,7 @@ export function AccountSettings() {
         </div>
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center">
-          <div className="mb-7 grid size-20 place-items-center rounded-3xl border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-accent)]">
+          <div className="mb-7 grid size-20 place-items-center rounded-[var(--radius-surface)] border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-accent)]">
             <Icons.User size={36} stroke={1.5} />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-[var(--color-text-highlight)]">

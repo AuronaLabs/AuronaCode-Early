@@ -16,9 +16,9 @@ export function SettingsNavItem({ label, icon, active, badge, onClick }: Setting
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center justify-between px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all w-full",
+        "flex items-center justify-between px-3 py-2 text-[13px] font-medium transition-colors w-full rounded-[var(--radius-control)]",
         active
-          ? "bg-[var(--material-surface)] backdrop-blur-[var(--glass-blur-elevated)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold"
+          ? "bg-[var(--surface-raised)] border border-[var(--border-subtle)] text-[var(--color-text-highlight)] font-semibold"
           : "border border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)]",
       )}
     >

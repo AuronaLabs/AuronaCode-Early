@@ -1,5 +1,5 @@
 export type GlassIntensity = "light" | "medium" | "heavy";
-export type GlassLayer = "base" | "elevated" | "floating";
+export type GlassLayer = "base" | "raised" | "overlay";
 
 export interface GlassConfig {
   intensity: GlassIntensity;
@@ -7,28 +7,28 @@ export interface GlassConfig {
 
 export interface GlassPreset {
   base: string;
-  elevated: string;
-  floating: string;
+  raised: string;
+  overlay: string;
   opacityMultiplier: string;
 }
 
 export const LIGHT_GLASS_PRESETS: Record<GlassIntensity, GlassPreset> = {
   light: {
     base: "2px",
-    elevated: "4px",
-    floating: "8px",
+    raised: "4px",
+    overlay: "8px",
     opacityMultiplier: "1.15",
   },
   medium: {
     base: "4px",
-    elevated: "8px",
-    floating: "12px",
+    raised: "8px",
+    overlay: "12px",
     opacityMultiplier: "1.05",
   },
   heavy: {
     base: "8px",
-    elevated: "16px",
-    floating: "24px",
+    raised: "16px",
+    overlay: "24px",
     opacityMultiplier: "0.95",
   },
 };
@@ -39,20 +39,20 @@ export const LIGHT_GLASS_PRESETS: Record<GlassIntensity, GlassPreset> = {
 export const DARK_GLASS_PRESETS: Record<GlassIntensity, GlassPreset> = {
   light: {
     base: "8px",
-    elevated: "16px",
-    floating: "24px",
+    raised: "16px",
+    overlay: "24px",
     opacityMultiplier: "1.0",
   },
   medium: {
     base: "16px",
-    elevated: "24px",
-    floating: "40px",
+    raised: "24px",
+    overlay: "40px",
     opacityMultiplier: "0.6",
   },
   heavy: {
     base: "24px",
-    elevated: "36px",
-    floating: "56px",
+    raised: "36px",
+    overlay: "56px",
     opacityMultiplier: "0.42",
   },
 };

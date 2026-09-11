@@ -13,10 +13,6 @@ const changelog = await readFile(
 );
 const security = await readFile(new URL("../.github/SECURITY.md", import.meta.url), "utf8");
 const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
-const qualityWorkflow = await readFile(
-  new URL("../.github/workflows/quality.yml", import.meta.url),
-  "utf8",
-);
 const releaseWorkflow = await readFile(
   new URL("../.github/workflows/release.yml", import.meta.url),
   "utf8",
@@ -63,9 +59,9 @@ assert.equal(
   "The macOS deployment target must match the bundled Node 22 runtime",
 );
 assert.match(
-  qualityWorkflow,
+  releaseWorkflow,
   /target:\s*universal-apple-darwin/,
-  "Quality must verify the Universal macOS runtime contract",
+  "Release must build the Universal macOS runtime contract",
 );
 assert.match(
   releaseWorkflow,

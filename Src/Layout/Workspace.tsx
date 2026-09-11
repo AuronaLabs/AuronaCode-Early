@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { RecoveryCoordinator } from "../Core/Recovery/RecoveryCoordinator";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EditorTabBar } from "../Features/Editor/EditorTabBar";
@@ -33,28 +33,39 @@ import { Card } from "../UI/Components/Card";
 import { Modal } from "../UI/Components/Modal";
 import { PanelResizeHandle } from "../UI/Components/PanelResizeHandle";
 import { Icons } from "../UI/Icons/IconManager";
+import { LazyChunkBoundary, lazyChunk } from "./LazyChunkBoundary";
 
-const FileExplorer = lazy(() =>
+type FileExplorerProps = { onFileSelect: (path: string) => void };
+type EditorTabProps = {
+  path: string;
+  isActive: boolean;
+  revealLine?: number;
+  onRevealHandled?: (path: string, line: number) => void;
+};
+type DiffViewerProps = { diffTarget: string };
+type MarketplaceDetailPageProps = { extensionId: string };
+
+const FileExplorer = lazyChunk<FileExplorerProps>(() =>
   import("../Features/Explorer/FileExplorer").then((m) => ({ default: m.FileExplorer })),
 );
-const EditorTab = lazy(() =>
+const EditorTab = lazyChunk<EditorTabProps>(() =>
   import("../Features/Editor/EditorTab").then((m) => ({ default: m.EditorTab })),
 );
-const NotificationsPanel = lazy(() =>
+const NotificationsPanel = lazyChunk<Record<string, never>>(() =>
   import("../Features/Notifications/NotificationsPanel").then((m) => ({
     default: m.NotificationsPanel,
   })),
 );
-const SourceControl = lazy(() =>
+const SourceControl = lazyChunk<Record<string, never>>(() =>
   import("../Features/SourceControl/SourceControl").then((m) => ({ default: m.SourceControl })),
 );
-const DebugPanel = lazy(() =>
+const DebugPanel = lazyChunk<Record<string, never>>(() =>
   import("../Features/Debug/DebugPanel").then((m) => ({ default: m.DebugPanel })),
 );
-const DiffViewer = lazy(() =>
+const DiffViewer = lazyChunk<DiffViewerProps>(() =>
   import("../Features/SourceControl/DiffViewer").then((m) => ({ default: m.DiffViewer })),
 );
-const MarketplaceDetailPage = lazy(() =>
+const MarketplaceDetailPage = lazyChunk<MarketplaceDetailPageProps>(() =>
   import("../Features/Extensions/Marketplace/MarketplaceDetailPage").then((m) => ({
     default: m.MarketplaceDetailPage,
   })),
@@ -92,7 +103,17 @@ function renderTabContent(
   } else if (tab.type === "extension" && tab.path) {
     content = <MarketplaceDetailPage extensionId={tab.path} />;
   }
-  return <Suspense fallback={<div className="w-full h-full bg-transparent" />}>{content}</Suspense>;
+  const modulePath =
+    tab.type === "file"
+      ? "Src/Features/Editor/EditorTab.tsx"
+      : tab.type === "extension"
+        ? "Src/Features/Extensions/Marketplace/MarketplaceDetailPage.tsx"
+        : "workspace module";
+  return (
+    <LazyChunkBoundary modulePath={modulePath}>
+      <Suspense fallback={<div className="w-full h-full bg-transparent" />}>{content}</Suspense>
+    </LazyChunkBoundary>
+  );
 }
 
 export function WorkspaceView() {
@@ -173,30 +194,34 @@ export function WorkspaceView() {
           className="flex flex-1 flex-col min-h-0"
           style={{ display: activeSidebar === SIDEBAR_EXPLORER ? "flex" : "none" }}
         >
-          <Suspense
-            fallback={
-              <div className="p-4 text-[var(--color-text-muted)] text-xs">
-                {t("workspace.loadingExplorer")}
-              </div>
-            }
-          >
-            <FileExplorer onFileSelect={openFile} />
-          </Suspense>
+          <LazyChunkBoundary modulePath="Src/Features/Explorer/FileExplorer.tsx">
+            <Suspense
+              fallback={
+                <div className="p-4 text-[var(--color-text-muted)] text-xs">
+                  {t("workspace.loadingExplorer")}
+                </div>
+              }
+            >
+              <FileExplorer onFileSelect={openFile} />
+            </Suspense>
+          </LazyChunkBoundary>
         </div>
 
         <div
           className="flex flex-1 flex-col min-h-0"
           style={{ display: activeSidebar === SIDEBAR_SOURCE_CONTROL ? "flex" : "none" }}
         >
-          <Suspense
-            fallback={
-              <div className="p-4 text-[var(--color-text-muted)] text-xs">
-                {t("workspace.loadingGit")}
-              </div>
-            }
-          >
-            <SourceControl />
-          </Suspense>
+          <LazyChunkBoundary modulePath="Src/Features/SourceControl/SourceControl.tsx">
+            <Suspense
+              fallback={
+                <div className="p-4 text-[var(--color-text-muted)] text-xs">
+                  {t("workspace.loadingGit")}
+                </div>
+              }
+            >
+              <SourceControl />
+            </Suspense>
+          </LazyChunkBoundary>
         </div>
 
         <div
@@ -210,30 +235,34 @@ export function WorkspaceView() {
           className="flex flex-1 flex-col min-h-0"
           style={{ display: activeSidebar === SIDEBAR_NOTIFICATIONS ? "flex" : "none" }}
         >
-          <Suspense
-            fallback={
-              <div className="p-4 text-[var(--color-text-muted)] text-xs">
-                {t("workspace.loadingNotifications")}
-              </div>
-            }
-          >
-            <NotificationsPanel />
-          </Suspense>
+          <LazyChunkBoundary modulePath="Src/Features/Notifications/NotificationsPanel.tsx">
+            <Suspense
+              fallback={
+                <div className="p-4 text-[var(--color-text-muted)] text-xs">
+                  {t("workspace.loadingNotifications")}
+                </div>
+              }
+            >
+              <NotificationsPanel />
+            </Suspense>
+          </LazyChunkBoundary>
         </div>
 
         <div
           className="flex flex-1 flex-col min-h-0"
           style={{ display: activeSidebar === SIDEBAR_DEBUG ? "flex" : "none" }}
         >
-          <Suspense
-            fallback={
-              <div className="p-4 text-[var(--color-text-muted)] text-xs">
-                {t("workspace.loadingDebug")}
-              </div>
-            }
-          >
-            <DebugPanel />
-          </Suspense>
+          <LazyChunkBoundary modulePath="Src/Features/Debug/DebugPanel.tsx">
+            <Suspense
+              fallback={
+                <div className="p-4 text-[var(--color-text-muted)] text-xs">
+                  {t("workspace.loadingDebug")}
+                </div>
+              }
+            >
+              <DebugPanel />
+            </Suspense>
+          </LazyChunkBoundary>
         </div>
 
         <div

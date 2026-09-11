@@ -1,10 +1,11 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { DebugService } from "../../../Core/DebugService";
 import { collectProblems, DiagnosticsService } from "../../../Core/DiagnosticsService";
 import { type OutputChannelId, OutputService } from "../../../Core/OutputService";
 import { TerminalManager } from "../../../Core/TerminalService";
 import { EventBus } from "../../../Foundation/EventBus";
 import { useLocale } from "../../../Foundation/I18n";
+import { LazyChunkBoundary, lazyChunk } from "../../../Layout/LazyChunkBoundary";
 import { GetLanguageFromPath } from "../../../Shared/Utils/LanguageUtils";
 import { fileUriToPath } from "../../../Shared/Utils/UriUtils";
 import { useTerminalStore } from "../../../State/useTerminalStore";
@@ -22,7 +23,14 @@ import { Tooltip } from "../../../UI/Feedback/Tooltip";
 import { Icons } from "../../../UI/Icons/IconManager";
 import { LocationResultsPanel } from "../../Language/LocationResultsPanel";
 
-const TerminalView = lazy(() =>
+type TerminalViewProps = {
+  id: string;
+  isActive: boolean;
+  shellProfile?: import("../../../Core/TerminalService").ShellProfile;
+  cwd?: string;
+};
+
+const TerminalView = lazyChunk<TerminalViewProps>(() =>
   import("../../Terminal/TerminalView").then((module) => ({ default: module.TerminalView })),
 );
 
@@ -297,7 +305,7 @@ export function WorkspaceBottomPanel() {
         >
           {terminalStartupError && terminals.length === 0 && (
             <div className="absolute inset-0 z-10 flex items-center justify-center p-4">
-              <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)] p-5 text-center backdrop-blur-[var(--glass-blur-floating)]">
+              <div className="flex max-w-sm flex-col items-center gap-3 border-y border-[var(--border-subtle)] bg-[var(--surface-overlay)] p-5 text-center">
                 <Icons.AlertTriangle size={20} className="text-[var(--StatusWarning)]" />
                 <div className="text-[13px] font-medium text-[var(--color-text-highlight)]">
                   {t("terminal.failed")}
@@ -320,20 +328,22 @@ export function WorkspaceBottomPanel() {
                 zIndex: activeTerminalId === term.id ? 1 : 0,
               }}
             >
-              <Suspense
-                fallback={
-                  <div className="flex items-center justify-center w-full h-full text-[var(--color-text-muted)] text-xs">
-                    {t("terminal.starting")}
-                  </div>
-                }
-              >
-                <TerminalView
-                  id={term.id}
-                  isActive={activeBottomPanel === "terminal" && activeTerminalId === term.id}
-                  shellProfile={term.shell}
-                  cwd={term.cwd}
-                />
-              </Suspense>
+              <LazyChunkBoundary modulePath="Src/Features/Terminal/TerminalView.tsx">
+                <Suspense
+                  fallback={
+                    <div className="flex items-center justify-center w-full h-full text-[var(--color-text-muted)] text-xs">
+                      {t("terminal.starting")}
+                    </div>
+                  }
+                >
+                  <TerminalView
+                    id={term.id}
+                    isActive={activeBottomPanel === "terminal" && activeTerminalId === term.id}
+                    shellProfile={term.shell}
+                    cwd={term.cwd}
+                  />
+                </Suspense>
+              </LazyChunkBoundary>
             </div>
           ))}
         </div>

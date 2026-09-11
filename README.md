@@ -4,7 +4,7 @@
   <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-pioneer.4-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-pioneer.5-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
@@ -16,7 +16,7 @@
 Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造轻量、克制且具触感美学的沉浸式编码工作台。
 
 > [!NOTE]
-> **Aurona Code 正式开启 0.4.0 演进周期！** 当前版本为 **V0.4.0-pioneer.4** 先锋测试版，LSP 语言服务彻底解耦、共享公共运行时池 (Shared Node Runtime Pool) 与全新重构的 Marketplace 扩展市场已全面上线！
+> **Aurona Code Pioneer 5 收敛版本** 当前版本为 **V0.4.0-pioneer.5**。本版本冻结新的 SDK、Runtime 和 Marketplace 能力，集中收敛界面层级、搜索请求、Toolchains 路径与动态模块失败体验。
 
 ---
 
@@ -91,8 +91,7 @@ Rust Core Runtime (aurona_code_lib)
 # 1. 安装前端与构建依赖
 pnpm install
 
-# 2. 准备内置工具链与 VSCode 兼容运行时
-pnpm run prepare:toolchains
+# 2. 准备 VSCode 兼容运行时（语言服务按需在设置中安装）
 pnpm run prepare:extensions
 
 # 3. 启动桌面端开发热重载

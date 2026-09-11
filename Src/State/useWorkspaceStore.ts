@@ -8,8 +8,14 @@ import { type I18nKey, LocaleService } from "../Foundation/I18n";
 import { EditorIPC } from "../Foundation/IPC/EditorCommands";
 import { PlatformService } from "../Foundation/Platform";
 import { WorkspaceStore } from "../Foundation/Storage/WorkspaceStore";
+import { canonicalExtensionId } from "../Foundation/Types/ExtensionId";
 import type { TabItem } from "../Foundation/Types/Tab";
-import { LEGACY_SIDEBAR_SEARCH, SIDEBAR_EXPLORER } from "../Shared/Constants/Sidebar";
+import {
+  extensionIdFromSidebar,
+  extensionSidebarId,
+  LEGACY_SIDEBAR_SEARCH,
+  SIDEBAR_EXPLORER,
+} from "../Shared/Constants/Sidebar";
 import { pathToFileUri } from "../Shared/Utils/UriUtils";
 import { showToast } from "../UI/Feedback/Toast";
 
@@ -80,6 +86,67 @@ const deduplicateFileTabs = (tabs: TabItem[]) => {
   });
 };
 
+function extensionIdFromTab(tab: TabItem): string | null {
+  if (tab.type !== "extension") return null;
+  return tab.path ?? extensionIdFromSidebar(tab.id);
+}
+
+/** Migrate extension tabs written before the Aurona Labs publisher rename. */
+export function canonicalizeExtensionTab(tab: TabItem): TabItem {
+  const extensionId = extensionIdFromTab(tab);
+  if (!extensionId) return tab;
+  const canonicalId = canonicalExtensionId(extensionId);
+  if (canonicalId === extensionId) return tab;
+  return {
+    ...tab,
+    id: extensionSidebarId(canonicalId),
+    path: canonicalId,
+  };
+}
+
+/**
+ * Canonicalize and deduplicate legacy extension tabs without discarding an
+ * already-canonical record when both forms were persisted.
+ */
+export function migrateWorkbenchExtensionTabs(tabs: TabItem[]): TabItem[] {
+  const migrated: TabItem[] = [];
+  const extensionIndexById = new Map<string, number>();
+  const canonicalSourceById = new Map<string, boolean>();
+
+  for (const tab of tabs) {
+    const sourceId = extensionIdFromTab(tab);
+    const next = canonicalizeExtensionTab(tab);
+    if (next.type !== "extension" || !sourceId) {
+      migrated.push(next);
+      continue;
+    }
+
+    const canonicalSource = sourceId === canonicalExtensionId(sourceId);
+    const existingIndex = extensionIndexById.get(next.id);
+    if (existingIndex === undefined) {
+      extensionIndexById.set(next.id, migrated.length);
+      canonicalSourceById.set(next.id, canonicalSource);
+      migrated.push(next);
+      continue;
+    }
+
+    if (canonicalSource && !canonicalSourceById.get(next.id)) {
+      migrated[existingIndex] = next;
+      canonicalSourceById.set(next.id, true);
+    }
+  }
+
+  return migrated;
+}
+
+export function canonicalizeExtensionContainerId(id: string | null | undefined) {
+  if (!id) return id;
+  const extensionId = extensionIdFromSidebar(id);
+  if (!extensionId) return id;
+  const canonicalId = canonicalExtensionId(extensionId);
+  return canonicalId === extensionId ? id : extensionSidebarId(canonicalId);
+}
+
 const BUILTIN_TAB_TITLE_KEYS: Record<string, I18nKey> = {
   settings: "settings.title",
   changelog: "commands.openChangelog",
@@ -117,11 +184,11 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   pendingReveal: null,
 
   setActiveTabId: (id) => {
-    set({ activeTabId: id });
+    set({ activeTabId: canonicalizeExtensionContainerId(id) ?? null });
     persistWorkbench(get());
   },
   setActiveSidebar: (id) => {
-    set({ activeSidebar: id });
+    set({ activeSidebar: canonicalizeExtensionContainerId(id) ?? null });
     persistWorkbench(get());
   },
   setSidebarWidth: (width, persist = true) => {
@@ -162,6 +229,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     persistWorkbench(get());
   },
   closeTabById: (id) => {
+    id = canonicalizeExtensionContainerId(id) ?? id;
     set((state) => {
       const closing = state.tabs.find((tab) => tab.id === id);
       if (closing?.type === "file" && closing.path) {
@@ -187,6 +255,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     persistWorkbench(get());
   },
   openTab: (tab) => {
+    tab = canonicalizeExtensionTab(tab);
     if (!tab?.id || !tab.type || !tab.title) return;
     if (tab.type === "file" && tab.path) {
       get().openFile(tab.path);
@@ -231,17 +300,19 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
 export async function initializeWorkbenchStore(): Promise<() => void> {
   await WorkspaceStore.init();
   const saved = await WorkspaceStore.get();
-  const migratedSidebar =
-    saved.activeSidebar === LEGACY_SIDEBAR_SEARCH ? null : saved.activeSidebar;
+  const canonicalSidebar = canonicalizeExtensionContainerId(saved.activeSidebar);
+  const migratedSidebar = canonicalSidebar === LEGACY_SIDEBAR_SEARCH ? null : canonicalSidebar;
   const savedTabs = saved.openTabs ?? [];
-  const tabs = deduplicateFileTabs(savedTabs).map((tab) => {
+  const migratedTabs = migrateWorkbenchExtensionTabs(savedTabs);
+  const tabs = deduplicateFileTabs(migratedTabs).map((tab) => {
     const titleKey = BUILTIN_TAB_TITLE_KEYS[tab.id];
     if (!titleKey) return tab;
     return { ...tab, titleKey, title: LocaleService.translate(titleKey) };
   });
+  const canonicalActiveTabId = canonicalizeExtensionContainerId(saved.activeTabId);
   const savedActiveTab = savedTabs.find((tab) => tab.id === saved.activeTabId);
-  const activeTabId = tabs.some((tab) => tab.id === saved.activeTabId)
-    ? (saved.activeTabId ?? null)
+  const activeTabId = tabs.some((tab) => tab.id === canonicalActiveTabId)
+    ? (canonicalActiveTabId ?? null)
     : savedActiveTab?.path
       ? (findOpenFileTab(tabs, savedActiveTab.path)?.id ?? tabs.at(-1)?.id ?? null)
       : (tabs.at(-1)?.id ?? null);
@@ -259,6 +330,19 @@ export async function initializeWorkbenchStore(): Promise<() => void> {
       720,
     ),
   });
+
+  const didMigrateExtensionState =
+    migratedTabs.length !== savedTabs.length ||
+    migratedTabs.some((tab, index) => tab !== savedTabs[index]) ||
+    canonicalSidebar !== saved.activeSidebar ||
+    canonicalActiveTabId !== saved.activeTabId;
+  if (didMigrateExtensionState) {
+    await WorkspaceStore.set({
+      openTabs: tabs,
+      activeTabId,
+      activeSidebar: migratedSidebar ?? SIDEBAR_EXPLORER,
+    });
+  }
 
   const subscriptions = [
     EventBus.on("app:open-file", async () => {

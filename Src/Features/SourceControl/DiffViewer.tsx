@@ -154,7 +154,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
       <div className="flex h-full w-full items-center justify-center bg-transparent p-6 text-[var(--color-text-muted)]">
         <div
           className={cn(
-            glassVariants({ layer: "elevated" }),
+            glassVariants({ layer: "raised" }),
             "flex items-center gap-2.5 rounded-2xl px-5 py-3 text-[12px]",
           )}
         >
@@ -169,7 +169,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
       <div className="flex h-full w-full items-center justify-center bg-transparent p-6">
         <div
           className={cn(
-            glassVariants({ layer: "elevated" }),
+            glassVariants({ layer: "raised" }),
             "flex max-w-md flex-col items-center rounded-2xl px-8 py-7 text-[var(--DiagError)]",
           )}
         >
@@ -186,7 +186,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
       <div className="shrink-0 px-4 pt-4">
         <div
           className={cn(
-            glassVariants({ layer: "elevated" }),
+            glassVariants({ layer: "raised" }),
             "flex min-h-[68px] items-center justify-between gap-4 rounded-2xl px-4 py-3",
           )}
         >
@@ -256,10 +256,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
               return (
                 <div
                   key={`${file.oldName}-${file.newName}`}
-                  className={cn(
-                    glassVariants({ layer: "elevated" }),
-                    "overflow-hidden rounded-2xl",
-                  )}
+                  className={cn(glassVariants({ layer: "raised" }), "overflow-hidden rounded-2xl")}
                 >
                   <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--material-panel)] px-3 py-2.5 backdrop-blur-[var(--glass-blur-base)]">
                     <div className="flex min-w-0 items-center gap-2.5">
@@ -292,7 +289,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                         key={hunk.header}
                         className="flex flex-col border-b border-[var(--border-subtle)] last:border-b-0"
                       >
-                        <div className="border-b border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 py-1.5 text-[10.5px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-elevated)]">
+                        <div className="border-b border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 py-1.5 text-[10.5px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-raised)]">
                           {hunk.header}
                         </div>
                         <div className="flex w-full">

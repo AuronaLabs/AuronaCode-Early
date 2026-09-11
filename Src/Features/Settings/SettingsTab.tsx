@@ -10,9 +10,12 @@ import { EventBus } from "../../Foundation/EventBus";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { AccentThemeId } from "../../Foundation/Types/Config";
+import { cn } from "../../Shared/Utils/cn";
 import { Button } from "../../UI/Components/Button";
+import { EmptyState } from "../../UI/Components/EmptyState";
 import { SettingsNavItem } from "../../UI/Components/SettingsNavItem";
 import { GlassContainer, useGlassStore } from "../../UI/Core/GlassManager";
+import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
 import { AccountSettings } from "./AccountSettings";
@@ -72,6 +75,16 @@ const SECTION_META: Array<{
   { id: "advanced", labelKey: "settings.categories.advanced", Icon: Icons.Settings },
 ];
 
+export function getSettingsSectionTitleKey(section: SettingsSection): I18nKey {
+  return (
+    SECTION_META.find((item) => item.id === section)?.labelKey ?? "settings.categories.general"
+  );
+}
+
+export function sectionForSettingCategory(category: SettingCategory): SettingsSection {
+  return CATEGORY_TO_SECTION[category];
+}
+
 function applyDensity(next: Density) {
   const root = document.documentElement;
   if (next !== "default") {
@@ -106,7 +119,7 @@ export function SettingsTab() {
       setActiveSection(section);
     });
     const unsubReveal = EventBus.on("settings:reveal", ({ category, settingId }) => {
-      setActiveSection(CATEGORY_TO_SECTION[category]);
+      setActiveSection(sectionForSettingCategory(category));
       if (settingId) setRevealTarget({ settingId, nonce: Date.now() });
     });
     return () => {
@@ -297,13 +310,18 @@ export function SettingsTab() {
     });
   }, [activeSection, navigateTo, searchResults, settingsQuery, t]);
 
+  const activeSectionTitle = useMemo(
+    () => t(getSettingsSectionTitleKey(activeSection)),
+    [activeSection, t],
+  );
+
   const renderContent = () => {
     if (settingsQuery.trim()) {
       return (
         <div className="flex flex-col gap-4 w-full max-w-3xl">
           <div className="flex items-center justify-between">
             <h3 className="text-[14px] font-medium text-[var(--color-text-highlight)]">
-              {searchResults.length} 个匹配结果
+              {searchResults.length} {t("settings.searchResultsLabel")}
             </h3>
             <Button
               variant="glass"
@@ -315,19 +333,14 @@ export function SettingsTab() {
           </div>
 
           {searchResults.length === 0 ? (
-            <GlassContainer
-              layer="elevated"
-              className="flex flex-col items-center justify-center p-8 text-center rounded-2xl"
-            >
-              <Icons.Search size={28} className="text-[var(--color-text-muted)] opacity-60 mb-2" />
-              <p className="text-[13px] text-[var(--color-text-muted)]">
-                未找到与 &quot;{settingsQuery}&quot; 相关的设置
-              </p>
-            </GlassContainer>
+            <EmptyState
+              icon={<Icons.Search size={27} stroke={1.45} />}
+              title={t("settings.noSearchResults")}
+            />
           ) : (
             <div className="flex flex-col gap-3">
               {searchResults.map((item) => {
-                const targetSection = CATEGORY_TO_SECTION[item.category];
+                const targetSection = sectionForSettingCategory(item.category);
                 return (
                   <button
                     key={item.id}
@@ -336,7 +349,10 @@ export function SettingsTab() {
                       navigateTo(targetSection);
                       setRevealTarget({ settingId: item.id, nonce: Date.now() });
                     }}
-                    className="flex flex-col gap-1 p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] hover:bg-[var(--material-interactive-hover)] text-left transition-colors"
+                    className={cn(
+                      glassVariants({ layer: "raised", interactive: true }),
+                      "flex flex-col gap-1 p-4 text-left",
+                    )}
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
@@ -416,7 +432,7 @@ export function SettingsTab() {
         return (
           <div className="flex w-full max-w-3xl flex-col gap-6">
             <StorageSettingsSection />
-            <GlassContainer layer="elevated" className="overflow-hidden rounded-2xl">
+            <GlassContainer layer="raised" className="overflow-hidden">
               <div className="flex items-center justify-between gap-4 border-b border-[var(--border-subtle)] p-5">
                 <div className="min-w-0">
                   <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -482,7 +498,7 @@ export function SettingsTab() {
   );
 
   return (
-    <InternalPageLayout title={t("settings.categories.general")} sidebar={sidebarContent}>
+    <InternalPageLayout title={activeSectionTitle} sidebar={sidebarContent}>
       {renderContent()}
     </InternalPageLayout>
   );

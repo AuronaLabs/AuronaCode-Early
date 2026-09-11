@@ -1,19 +1,27 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LspClient } from "../../../Core/Language/LspClient";
+import { EventBus } from "../../../Foundation/EventBus";
 import { useLocale } from "../../../Foundation/I18n";
 import {
+  type InstalledRuntimeSummary,
+  type InstalledToolchainSummary,
   LanguageServerIPC,
   type ToolchainsOverview,
 } from "../../../Foundation/IPC/LanguageServerCommands";
+import { cn } from "../../../Shared/Utils/cn";
 import { useExtensionStore } from "../../../State/useExtensionStore";
 import { useInstallProgressStore } from "../../../State/useInstallProgressStore";
 import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
 import { Button } from "../../../UI/Components/Button";
-import { Input } from "../../../UI/Components/Input";
-import { Select } from "../../../UI/Components/Select";
+import { Card } from "../../../UI/Components/Card";
+import { EmptyState } from "../../../UI/Components/EmptyState";
+import { Select, type SelectOption } from "../../../UI/Components/Select";
+import { glassVariants } from "../../../UI/Core/GlassManager/variants";
 import { showToast } from "../../../UI/Feedback/Toast";
 import { Tooltip } from "../../../UI/Feedback/Tooltip";
 import { Icons } from "../../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../../UI/Layouts/SidebarPage";
+import { canonicalExtensionId } from "../ExtensionId";
 import { DependencyConfirmModal, type DependencyInfo } from "./DependencyConfirmModal";
 import { MarketplaceCard } from "./MarketplaceCard";
 import {
@@ -22,410 +30,884 @@ import {
   MarketplaceService,
   type MarketplaceSourceStatus,
 } from "./MarketplaceService";
+import {
+  createMarketplaceViewState,
+  type MarketplaceMode,
+  type MarketplaceModeState,
+  MarketplaceRequestCoordinator,
+  type MarketplaceViewState,
+  updateMarketplaceModeState,
+} from "./MarketplaceState";
+
+export type { MarketplaceMode, MarketplaceViewState } from "./MarketplaceState";
+
+function categoryOptions(
+  t: (
+    key:
+      | "extensions.allCategories"
+      | "extensions.categoryTrending"
+      | "extensions.badgeLsp"
+      | "extensions.categoryRuntime"
+      | "extensions.categoryProductivity"
+      | "extensions.categoryDevTools"
+      | "extensions.categoryFormatters"
+      | "extensions.categoryThemes",
+  ) => string,
+): SelectOption[] {
+  return [
+    { value: "All", label: t("extensions.allCategories") },
+    { value: "trending", label: t("extensions.categoryTrending") },
+    { value: "LSP", label: t("extensions.badgeLsp") },
+    { value: "Runtime", label: t("extensions.categoryRuntime") },
+    { value: "Productivity", label: t("extensions.categoryProductivity") },
+    { value: "Developer Tools", label: t("extensions.categoryDevTools") },
+    { value: "Formatters", label: t("extensions.categoryFormatters") },
+    { value: "Themes", label: t("extensions.categoryThemes") },
+  ];
+}
+
+function matchesQuery(item: MarketplaceExtensionItem, query: string): boolean {
+  const q = query.trim().toLocaleLowerCase();
+  if (!q) return true;
+  return [
+    item.id,
+    item.name,
+    item.description,
+    ...Object.values(item.displayName),
+    ...Object.values(item.displayDescription),
+    ...item.tags,
+    ...(item.lspMetadata?.languages ?? []),
+  ].some((value) => value.toLocaleLowerCase().includes(q));
+}
+
+export function localServerItem(
+  server: InstalledToolchainSummary,
+  runtimes: InstalledRuntimeSummary[],
+): MarketplaceExtensionItem {
+  const id = canonicalExtensionId(server.id);
+  const runtime = runtimes.find((item) => item.runtimeType === server.runtimeType);
+  return {
+    id,
+    kind: "lsp",
+    name: server.name,
+    displayName: { "zh-CN": server.name, "zh-Hant": server.name, en: server.name },
+    publisher: "Local",
+    version: server.version,
+    description: "",
+    displayDescription: { "zh-CN": "", "zh-Hant": "", en: "" },
+    category: "LSP",
+    tags: ["local", "lsp", ...server.languages],
+    installed: true,
+    enabled: true,
+    packageType: "aurlsp",
+    installedVersion: server.version,
+    fileSize: formatBytes(server.diskSizeBytes),
+    localToolchain: server,
+    lspMetadata: {
+      languages: server.languages,
+      runtimeType: server.runtimeType,
+      entry: server.installPath,
+    },
+    runtimeMetadata: runtime
+      ? {
+          runtimeType: runtime.runtimeType,
+          runtimeVersion: runtime.version,
+          binaryPath: runtime.binaryPath,
+          fileSize: formatBytes(runtime.diskSizeBytes),
+        }
+      : undefined,
+  };
+}
+
+function matchesRuntimeQuery(runtime: InstalledRuntimeSummary, query: string): boolean {
+  const normalized = query.trim().toLocaleLowerCase();
+  if (!normalized) return true;
+  return [runtime.runtimeType, runtime.version, runtime.binaryPath].some((value) =>
+    value.toLocaleLowerCase().includes(normalized),
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
 
 export function MarketplaceView() {
   const { t, locale } = useLocale();
   const descriptors = useExtensionStore((state) => state.descriptors);
+  const refreshExtensions = useExtensionStore((state) => state.refresh);
   const openTab = useWorkbenchStore((state) => state.openTab);
   const { setProgress, clearProgress } = useInstallProgressStore();
-
-  // 经典的两个菜单项：探索 Discover / 已安装 Installed
-  const [activeTab, setActiveTab] = useState<"discover" | "installed">("discover");
-  const [selectedFilter, setSelectedFilter] = useState("All");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [extensions, setExtensions] = useState<MarketplaceExtensionItem[]>([]);
-  const [installedToolchains, setInstalledToolchains] = useState<ToolchainsOverview | null>(null);
+  const [mode, setMode] = useState<MarketplaceMode>("discover");
+  const [viewState, setViewState] = useState<MarketplaceViewState>(createMarketplaceViewState);
+  const currentState = viewState[mode];
+  const [catalog, setCatalog] = useState<MarketplaceExtensionItem[]>([]);
+  const [toolchains, setToolchains] = useState<ToolchainsOverview | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [sourceStatus, setSourceStatus] = useState<MarketplaceSourceStatus>("online");
-  const [offlineReason, setOfflineReason] = useState<
-    "server-unreachable" | "invalid-response" | undefined
-  >();
-  const [installingId, setInstallingId] = useState<string | null>(null);
-
-  // 依赖安装弹窗状态
+  const [offlineReason, setOfflineReason] = useState<"server-unreachable" | "invalid-response">();
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [pendingInstallItem, setPendingInstallItem] = useState<MarketplaceExtensionItem | null>(
     null,
   );
+  const [runtimeDependency, setRuntimeDependency] = useState<DependencyInfo[]>([]);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [clientRevision, setClientRevision] = useState(0);
+  const requestCoordinator = useRef(new MarketplaceRequestCoordinator());
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const lspClient = useMemo(() => LspClient.getInstance(), []);
 
-  const categoryOptions = useMemo(
-    () => [
-      { value: "All", label: t("extensions.allCategories") },
-      { value: "trending", label: t("extensions.categoryTrending") },
-      { value: "LSP", label: t("extensions.badgeLsp") },
-      { value: "Productivity", label: t("extensions.categoryProductivity") },
-      { value: "Developer Tools", label: t("extensions.categoryDevTools") },
-      { value: "Formatters", label: t("extensions.categoryFormatters") },
-      { value: "Themes", label: t("extensions.categoryThemes") },
-    ],
-    [t],
+  const updateCurrentState = useCallback(
+    (patch: Partial<MarketplaceModeState>) => {
+      setViewState((state) => updateMarketplaceModeState(state, mode, patch));
+    },
+    [mode],
   );
 
-  const refreshCatalog = useCallback(async () => {
-    setIsLoading(true);
+  const loadToolchains = useCallback(async () => {
     try {
-      const categoryParam =
-        selectedFilter === "trending" || selectedFilter === "All" ? undefined : selectedFilter;
-      const [result, toolchains] = await Promise.all([
-        MarketplaceService.fetchMarketplace(searchQuery, categoryParam, descriptors),
-        LanguageServerIPC.listToolchains().catch(() => null),
-      ]);
-      // 市场大厅中彻底隐藏 runtime，只保留常规扩展与 LSP 服务
-      setExtensions(result.items.filter((it) => it.kind !== "runtime"));
-      setSourceStatus(result.source);
-      setOfflineReason(result.offlineReason);
-      if (toolchains) {
-        setInstalledToolchains(toolchains);
-      }
+      const next = await LanguageServerIPC.listToolchains();
+      setToolchains(next);
+      return next;
     } catch {
-      setSourceStatus("offline");
-      setOfflineReason("server-unreachable");
-    } finally {
-      setIsLoading(false);
+      return null;
     }
-  }, [searchQuery, selectedFilter, descriptors]);
+  }, []);
 
-  // 自动实时刷新
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void refreshCatalog();
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [refreshCatalog]);
+  const refreshCatalog = useCallback(async () => {
+    const request = requestCoordinator.current.begin();
+    const { controller } = request;
+    setIsLoading(true);
 
-  // 聚合已安装与远端市场数据
-  const displayedExtensions = useMemo(() => {
-    let list: MarketplaceExtensionItem[] = [];
-
-    if (activeTab === "installed") {
-      // 1. 已安装的常规扩展插件
-      const installedExts = descriptors.map(descriptorToMarketplaceItem);
-
-      // 2. 已安装的 LSP 工具链转换为市场卡片展示
-      const installedLspItems: MarketplaceExtensionItem[] = (
-        installedToolchains?.servers || []
-      ).map((srv) => ({
-        id: srv.id,
-        kind: "lsp",
-        name: srv.name,
-        displayName: { [locale]: srv.name, "zh-CN": srv.name, en: srv.name },
-        description: `已安装的智能语言感知服务 (${srv.languages.join(", ")})`,
-        displayDescription: {
-          [locale]: `已安装的智能语言感知服务 (${srv.languages.join(", ")})`,
-        },
-        version: srv.version,
-        publisher: "auronalabs",
-        verified: true,
-        installed: true,
-        category: "LSP",
-        tags: ["lsp", ...srv.languages],
-        packageType: "aurlsp",
-        downloads: 1000,
-        rating: 5,
-        reviewCount: 1,
-        lspMetadata: {
-          languages: srv.languages,
-          runtimeType: srv.runtimeType,
-          entry: srv.installPath,
-        },
-      }));
-
-      list = [...installedExts, ...installedLspItems];
-
-      if (searchQuery.trim()) {
-        const q = searchQuery.trim().toLowerCase();
-        list = list.filter(
-          (it) =>
-            it.name.toLowerCase().includes(q) ||
-            it.description.toLowerCase().includes(q) ||
-            it.lspMetadata?.languages?.some((lang) => lang.toLowerCase().includes(q)) ||
-            Object.values(it.displayName).some((name) => name.toLowerCase().includes(q)),
-        );
+    if (mode === "installed") {
+      try {
+        await refreshExtensions();
+      } finally {
+        if (requestCoordinator.current.isCurrent(request)) setIsLoading(false);
       }
-
-      if (selectedFilter !== "All" && selectedFilter !== "trending") {
-        list = list.filter((it) => it.category.toLowerCase() === selectedFilter.toLowerCase());
-      }
-    } else {
-      // 探索大厅：混搭常规插件与 LSP 语言服务
-      list = extensions.filter((it) => it.kind !== "runtime");
-
-      // 标记 LSP 本地是否已安装
-      if (installedToolchains?.servers) {
-        const installedLspIds = new Set(installedToolchains.servers.map((s) => s.id));
-        list = list.map((item) => {
-          if (item.kind === "lsp" && installedLspIds.has(item.id)) {
-            return { ...item, installed: true };
-          }
-          return item;
-        });
-      }
-
-      if (selectedFilter === "trending") {
-        list = [...list].sort((a, b) => b.downloads - a.downloads);
-      } else if (selectedFilter === "LSP") {
-        list = list.filter((it) => it.kind === "lsp");
-      }
-    }
-    return list;
-  }, [
-    extensions,
-    activeTab,
-    selectedFilter,
-    descriptors,
-    installedToolchains,
-    locale,
-    searchQuery,
-  ]);
-
-  const handleOpenDetailTab = (item: MarketplaceExtensionItem) => {
-    const title = item.displayName?.[locale] ?? item.name;
-    openTab({
-      id: `extension:${item.id}`,
-      type: "extension",
-      title,
-      path: item.id,
-    });
-  };
-
-  // 执行真正的安装操作
-  const executeInstall = async (item: MarketplaceExtensionItem) => {
-    if (installingId) return;
-    setInstallingId(item.id);
-    setProgress(item.id, "preparing", 5, "正在准备安装...");
-
-    try {
-      if (item.kind === "lsp" || item.id.startsWith("auronalabs.lsp-")) {
-        // 安装 LSP 语言服务包（流式异步下载与进度反馈）
-        await MarketplaceService.installLspServer(item.id, item.version, (percentage, stage) => {
-          const msg = stage === "downloading" ? "正在下载语言服务..." : "正在解压部署...";
-          setProgress(item.id, "downloading", percentage, msg);
-        });
-        setProgress(item.id, "completed", 100, "安装完成");
-        showToast(`${item.displayName?.[locale] ?? item.name} 语言服务已安装并就绪`, "info");
-      } else {
-        // 安装常规扩展插件
-        setProgress(item.id, "downloading", 40, "正在下载扩展包...");
-        await MarketplaceService.installExtension(item.id, item.version);
-        setProgress(item.id, "completed", 100, "安装完成");
-      }
-      await useExtensionStore.getState().refresh();
-      await refreshCatalog();
-      setTimeout(() => clearProgress(item.id), 1500);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "下载安装失败";
-      setProgress(item.id, "failed", 0, message);
-      showToast(message, "warning");
-      setTimeout(() => clearProgress(item.id), 3000);
-    } finally {
-      setInstallingId(null);
-    }
-  };
-
-  // 点击安装按钮时的入口判定（检测是否缺少 Node.js 运行时）
-  const handleInstallClick = (item: MarketplaceExtensionItem) => {
-    const isLsp = item.kind === "lsp" || item.id.startsWith("auronalabs.lsp-");
-    const reqRuntime = item.lspMetadata?.runtimeType || "node";
-    const hasNode = installedToolchains?.runtimes?.some((r) => r.runtimeType === "node") ?? false;
-
-    // 如果是 LSP 且依赖 node，但本地尚未就绪 node 运行时，弹出 Steam 风格附带环境安装弹窗
-    if (isLsp && reqRuntime === "node" && !hasNode) {
-      setPendingInstallItem(item);
-      setConfirmModalOpen(true);
       return;
     }
 
-    // 否则直接开始安装
+    // Toolchains are a local management surface. Search and filter changes
+    // refresh IPC state only; the remote catalog is loaded by Discover.
+    if (mode === "toolchains") {
+      try {
+        await loadToolchains();
+        if (requestCoordinator.current.isCurrent(request)) {
+          setSourceStatus("online");
+          setOfflineReason(undefined);
+        }
+      } finally {
+        if (requestCoordinator.current.isCurrent(request)) setIsLoading(false);
+      }
+      return;
+    }
+
+    const query = currentState.committedQuery.trim() || undefined;
+    const filter = currentState.filter;
+    const category = filter !== "All" && filter !== "trending" ? filter : undefined;
+    try {
+      const result = await MarketplaceService.fetchMarketplace(query, category, descriptors, {
+        signal: controller.signal,
+      });
+      if (!requestCoordinator.current.isCurrent(request)) return;
+      setSourceStatus(result.source);
+      setOfflineReason(result.offlineReason);
+      setCatalog(result.items);
+    } catch {
+      if (!requestCoordinator.current.isCurrent(request)) return;
+      setSourceStatus("offline");
+      setOfflineReason("server-unreachable");
+    } finally {
+      if (requestCoordinator.current.isCurrent(request)) setIsLoading(false);
+    }
+  }, [
+    currentState.committedQuery,
+    currentState.filter,
+    descriptors,
+    loadToolchains,
+    mode,
+    refreshExtensions,
+  ]);
+
+  useEffect(() => {
+    void refreshCatalog();
+    return () => requestCoordinator.current.abort();
+  }, [refreshCatalog]);
+
+  useEffect(() => {
+    const unsubscribe = EventBus.on(
+      "marketplace:navigate",
+      ({ mode: requestedMode, selectedId }) => {
+        const nextMode = requestedMode ?? "toolchains";
+        setMode(nextMode);
+        if (selectedId) {
+          setViewState((state) => updateMarketplaceModeState(state, nextMode, { selectedId }));
+        }
+      },
+    );
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = lspClient.subscribe(() => setClientRevision((value) => value + 1));
+    return unsubscribe;
+  }, [lspClient]);
+
+  // A mode switch must restore its saved offset even when two modes happen to
+  // have the same numeric scrollTop.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mode changes the active scroll context.
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (node) node.scrollTop = currentState.scrollTop;
+  }, [currentState.scrollTop, mode]);
+
+  const commitSearch = useCallback(() => {
+    updateCurrentState({ committedQuery: currentState.draftQuery });
+  }, [currentState.draftQuery, updateCurrentState]);
+
+  const handleOpenDetail = (item: MarketplaceExtensionItem) => {
+    updateCurrentState({ selectedId: item.id });
+    openTab({
+      id: `extension:${canonicalExtensionId(item.id)}`,
+      type: "extension",
+      title: item.displayName?.[locale] ?? item.name,
+      path: canonicalExtensionId(item.id),
+    });
+  };
+
+  const executeInstall = useCallback(
+    async (item: MarketplaceExtensionItem) => {
+      if (busyId) return;
+      setBusyId(item.id);
+      setProgress(item.id, "preparing", 5, t("extensions.installing"));
+      try {
+        if (item.kind === "runtime") {
+          await MarketplaceService.installRuntime(item.id, item.version, (progress, stage) => {
+            setProgress(
+              item.id,
+              stage === "extracting" ? "extracting" : "downloading",
+              progress,
+              stage,
+            );
+          });
+        } else if (item.kind === "lsp") {
+          await MarketplaceService.installLspServer(item.id, item.version, (progress, stage) => {
+            setProgress(
+              item.id,
+              stage === "extracting" ? "extracting" : "downloading",
+              progress,
+              stage,
+            );
+          });
+        } else {
+          await MarketplaceService.installExtension(item.id, item.version);
+        }
+        setProgress(item.id, "completed", 100, t("extensions.installCompleted"));
+        await refreshExtensions();
+        await loadToolchains();
+        await refreshCatalog();
+        window.setTimeout(() => clearProgress(item.id), 1200);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : t("extensions.installFailed");
+        setProgress(item.id, "failed", 0, message);
+        showToast(message, "warning");
+        window.setTimeout(() => clearProgress(item.id), 3000);
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [busyId, clearProgress, loadToolchains, refreshCatalog, refreshExtensions, setProgress, t],
+  );
+
+  const handleInstallClick = (item: MarketplaceExtensionItem) => {
+    if (item.kind === "lsp") {
+      const requiredRuntime = item.lspMetadata?.runtimeType;
+      const runtimeReady = requiredRuntime
+        ? toolchains?.runtimes.some((runtime) => runtime.runtimeType === requiredRuntime)
+        : true;
+      if (requiredRuntime && !runtimeReady) {
+        setPendingInstallItem(item);
+        setRuntimeDependency([]);
+        void loadRuntimeDependency(requiredRuntime);
+        setConfirmModalOpen(true);
+        return;
+      }
+    }
     void executeInstall(item);
   };
 
-  const handleUninstall = async (item: MarketplaceExtensionItem) => {
-    if (installingId) return;
-    setInstallingId(item.id);
-    try {
-      if (item.kind === "lsp" || item.id.startsWith("auronalabs.lsp-")) {
-        await MarketplaceService.uninstallLspServer(item.id);
-      } else {
-        await MarketplaceService.uninstallExtension(item.id);
+  const handleUninstall = useCallback(
+    async (item: MarketplaceExtensionItem) => {
+      if (busyId) return;
+      setBusyId(item.id);
+      try {
+        if (item.kind === "runtime") {
+          const runtimeType = item.runtimeMetadata?.runtimeType ?? item.id;
+          await MarketplaceService.uninstallSharedRuntime(runtimeType);
+        } else if (item.kind === "lsp") {
+          await MarketplaceService.uninstallLspServer(item.id);
+        } else {
+          await MarketplaceService.uninstallExtension(item.id);
+        }
+        await refreshExtensions();
+        await loadToolchains();
+        await refreshCatalog();
+        showToast(t("extensions.uninstallCompleted"), "info");
+      } catch (error) {
+        showToast(
+          error instanceof Error ? error.message : t("extensions.uninstallFailed"),
+          "warning",
+        );
+      } finally {
+        setBusyId(null);
       }
-      await useExtensionStore.getState().refresh();
-      await refreshCatalog();
-      showToast(`${item.displayName?.[locale] ?? item.name} 已卸载`, "info");
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "卸载失败", "warning");
-    } finally {
-      setInstallingId(null);
-    }
-  };
+    },
+    [busyId, loadToolchains, refreshCatalog, refreshExtensions, t],
+  );
 
-  const modalDependencies: DependencyInfo[] = useMemo(() => {
-    if (!pendingInstallItem) return [];
-    return [
-      {
-        name: "Node.js 官方公共基础运行时",
-        version: "20.18.0",
-        size: "35.2 MB",
-        type: "runtime",
-        description: "官方共享执行环境，用于运行 TypeScript、Pyright 等前端语言服务",
-      },
-    ];
-  }, [pendingInstallItem]);
+  const handleToolchainAction = useCallback(
+    async (server: InstalledToolchainSummary, action: "start" | "stop" | "restart") => {
+      const language = server.languages[0] || server.id;
+      if (busyId) return;
+      setBusyId(server.id);
+      try {
+        if (action === "start") await lspClient.startServer(language);
+        else if (action === "stop") await lspClient.stopServer(language);
+        else await lspClient.restartServer(language);
+        await loadToolchains();
+      } catch (error) {
+        showToast(
+          error instanceof Error ? error.message : t("extensions.toolchainActionFailed"),
+          "warning",
+        );
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [busyId, loadToolchains, lspClient, t],
+  );
+
+  const visibleExtensions = useMemo(() => {
+    const query = currentState.draftQuery;
+    if (mode === "installed") {
+      return descriptors
+        .map(descriptorToMarketplaceItem)
+        .filter((item) => matchesQuery(item, query))
+        .filter(
+          (item) =>
+            currentState.filter === "All" ||
+            item.category.toLowerCase() === currentState.filter.toLowerCase(),
+        );
+    }
+    if (mode === "discover") {
+      let items = catalog.filter((item) => item.kind !== "lsp" && item.kind !== "runtime");
+      if (currentState.filter === "trending")
+        items = [...items].sort((a, b) => (b.downloads ?? 0) - (a.downloads ?? 0));
+      return items.filter((item) => matchesQuery(item, query));
+    }
+    return catalog
+      .filter((item) => item.kind === "lsp" || item.kind === "runtime")
+      .filter(
+        (item) =>
+          currentState.filter === "All" ||
+          item.kind?.toLowerCase() === currentState.filter.toLowerCase(),
+      )
+      .filter((item) => matchesQuery(item, query));
+  }, [catalog, currentState.draftQuery, currentState.filter, descriptors, mode]);
+
+  const localServers = useMemo(() => {
+    if (currentState.filter !== "All" && currentState.filter !== "LSP") return [];
+    const runtimes = toolchains?.runtimes ?? [];
+    return (toolchains?.servers ?? [])
+      .map((server) => localServerItem(server, runtimes))
+      .filter((item) => matchesQuery(item, currentState.draftQuery));
+  }, [currentState.draftQuery, currentState.filter, toolchains?.runtimes, toolchains?.servers]);
+  const localRuntimes = useMemo(() => {
+    if (currentState.filter !== "All" && currentState.filter !== "Runtime") return [];
+    return (toolchains?.runtimes ?? []).filter((runtime) =>
+      matchesRuntimeQuery(runtime, currentState.draftQuery),
+    );
+  }, [currentState.draftQuery, currentState.filter, toolchains?.runtimes]);
+
+  const visibleSelectionIds = useMemo(
+    () =>
+      [
+        ...visibleExtensions.map((item) => item.id),
+        ...localServers.map((item) => item.id),
+        ...localRuntimes.map((runtime) => runtime.runtimeType),
+      ].join("\u0000"),
+    [localRuntimes, localServers, visibleExtensions],
+  );
+
+  useEffect(() => {
+    if (!currentState.selectedId || !visibleSelectionIds) return;
+    const selected = Array.from(
+      scrollRef.current?.querySelectorAll<HTMLElement>("[data-marketplace-item-id]") ?? [],
+    ).find((element) => element.dataset.marketplaceItemId === currentState.selectedId);
+    selected?.scrollIntoView?.({ block: "nearest" });
+  }, [currentState.selectedId, visibleSelectionIds]);
+
+  const loadRuntimeDependency = useCallback(
+    async (runtimeType: string) => {
+      const runtime = catalog.find(
+        (item) => item.kind === "runtime" && item.runtimeMetadata?.runtimeType === runtimeType,
+      );
+      const metadata =
+        runtime?.runtimeMetadata ?? (await MarketplaceService.fetchRuntimeMetadata(runtimeType));
+      if (!metadata) return;
+      setRuntimeDependency([
+        {
+          name: runtime?.name ?? metadata.runtimeType,
+          version: metadata.runtimeVersion,
+          size: metadata.fileSize,
+          type: "runtime",
+          description: t("extensions.runtimeDependencyDescription"),
+        },
+      ]);
+    },
+    [catalog, t],
+  );
+
+  const options = useMemo(() => {
+    const all = categoryOptions(t);
+    if (mode === "installed")
+      return all.filter((option) => option.value === "All" || option.value === "Developer Tools");
+    if (mode === "toolchains")
+      return all.filter(
+        (option) => option.value === "All" || option.value === "LSP" || option.value === "Runtime",
+      );
+    return all;
+  }, [mode, t]);
 
   return (
-    <div className="flex flex-col h-full w-full select-none bg-transparent text-[var(--color-text-primary)]">
-      {/* 附带依赖安装确认弹窗 */}
+    <div className="flex h-full w-full select-none flex-col bg-transparent text-[var(--color-text-primary)]">
       <DependencyConfirmModal
         isOpen={confirmModalOpen}
         targetName={pendingInstallItem?.displayName?.[locale] ?? pendingInstallItem?.name ?? ""}
         targetVersion={pendingInstallItem?.version}
-        targetType={pendingInstallItem?.kind === "lsp" ? "lsp" : "extension"}
-        dependencies={modalDependencies}
+        targetType="lsp"
+        dependencies={runtimeDependency}
         onConfirm={() => {
           setConfirmModalOpen(false);
-          if (pendingInstallItem) {
-            void executeInstall(pendingInstallItem);
-          }
+          if (pendingInstallItem) void executeInstall(pendingInstallItem);
         }}
         onCancel={() => {
           setConfirmModalOpen(false);
           setPendingInstallItem(null);
+          setRuntimeDependency([]);
         }}
       />
 
-      {/* 顶部标题栏 */}
       <SidebarPageHeader
-        title="Aurona Marketplace"
+        title={t("extensions.marketplaceTitle")}
         actions={
           <Tooltip content={t("extensions.refreshList")} delay={300}>
             <button
               type="button"
               onClick={() => void refreshCatalog()}
               disabled={isLoading}
-              className="flex size-8 items-center justify-center hover:bg-[var(--material-interactive-hover)] rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-colors cursor-pointer disabled:opacity-50"
+              className="flex size-8 items-center justify-center rounded-[var(--radius-control)] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-50"
               aria-label={t("extensions.refreshList")}
             >
               <Icons.Refresh
                 size={15}
-                stroke={1.75}
-                className={isLoading ? "animate-spin text-blue-400" : ""}
+                className={isLoading ? "animate-spin text-[var(--color-accent)]" : ""}
               />
             </button>
           </Tooltip>
         }
       />
 
-      {/* 搜索与分类控制区 */}
-      <div className="px-[var(--PanelPaddingX)] pt-1 pb-3 flex flex-col gap-2.5 bg-transparent">
-        {/* 搜索框 */}
-        <div className="relative flex items-center w-full">
-          <Input
-            icon={<Icons.Search size={13} />}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t("extensions.searchPlaceholder")}
-            fullWidth
-            inputSize="default"
-            surface="glass"
-          />
-          {searchQuery && (
+      <div className="flex flex-col gap-2 border-b border-[var(--border-subtle)] px-[var(--PanelPaddingX)] pb-3 pt-1">
+        <div className="flex min-w-0 items-center gap-1">
+          {(["discover", "installed", "toolchains"] as MarketplaceMode[]).map((nextMode) => (
             <button
               type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-pointer"
-            >
-              <Icons.Close size={12} />
-            </button>
-          )}
-        </div>
-
-        {/* 控制栏：探索 (Discover) / 已安装 (Installed) Git 同款独立菜单项 + 分类下拉选择器 */}
-        <div className="flex items-center gap-1.5 w-full min-w-0">
-          {/* 左侧：两个 Git 同款菜单按钮 (取消图标，纯文字) */}
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              className={`relative flex h-[28px] items-center justify-center rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 cursor-pointer ${
-                activeTab === "discover"
-                  ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
+              key={nextMode}
+              onClick={() => setMode(nextMode)}
+              aria-pressed={mode === nextMode}
+              className={`rounded-[var(--radius-control)] border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                mode === nextMode
+                  ? "border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--color-text-highlight)]"
                   : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
               }`}
-              onClick={() => setActiveTab("discover")}
             >
-              <span>{t("extensions.discover")}</span>
+              {t(`extensions.${nextMode}`)}
             </button>
-            <button
-              type="button"
-              className={`relative flex h-[28px] items-center justify-center rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 cursor-pointer ${
-                activeTab === "installed"
-                  ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
-                  : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
-              }`}
-              onClick={() => setActiveTab("installed")}
-            >
-              <span>{t("extensions.installed")}</span>
-            </button>
-          </div>
-
-          {/* 右侧：自适应防溢出分类选择器 */}
-          <div className="flex-1 min-w-0">
+          ))}
+          <div className="min-w-0 flex-1">
             <Select
-              value={selectedFilter}
-              onChange={(val) => setSelectedFilter(val)}
-              options={categoryOptions}
-              className="h-[28px] w-full min-w-0 text-[11.5px] px-2.5 py-0.5 rounded-lg border-[var(--border-subtle)] bg-[var(--material-surface)]"
+              value={currentState.filter}
+              onChange={(value) => updateCurrentState({ filter: value })}
+              options={options}
+              ariaLabel={t("extensions.category")}
+              className="h-7 w-full rounded-[var(--radius-control)] text-[11.5px]"
             />
           </div>
         </div>
+        <div
+          className={cn(
+            glassVariants({ layer: "raised" }),
+            "relative flex items-center rounded-2xl transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)]",
+          )}
+        >
+          <Icons.Search
+            size={14}
+            className="pointer-events-none absolute left-3.5 text-[var(--color-text-muted)]"
+          />
+          <input
+            data-aurona-input="embedded"
+            value={currentState.draftQuery}
+            onChange={(event) => updateCurrentState({ draftQuery: event.target.value })}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                commitSearch();
+              }
+            }}
+            placeholder={t("extensions.searchPlaceholder")}
+            className="h-10 w-full min-w-0 rounded-2xl bg-transparent pl-9 pr-3.5 text-[12.5px] text-[var(--color-text-highlight)] outline-none placeholder:text-[var(--color-text-muted)]"
+          />
+        </div>
       </div>
 
-      {/* 离线状态提示 */}
-      {sourceStatus === "offline" && activeTab === "discover" && (
-        <div className="mx-[var(--PanelPaddingX)] mb-2 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-[11px] text-amber-300">
-          Marketplace 当前离线，正在显示缓存数据。
+      {sourceStatus === "offline" && mode === "discover" && (
+        <div className="mx-[var(--PanelPaddingX)] mt-2 border-l-2 border-[var(--StatusWarning)] px-3 py-2 text-[11px] text-[var(--StatusWarning)]">
+          {t("extensions.offlineNotice")}{" "}
           {offlineReason === "invalid-response"
-            ? "服务地址返回了无效响应。"
-            : "请确认 Marketplace 服务已启动或网络可用。"}
+            ? t("extensions.offlineInvalidResponse")
+            : t("extensions.offlineUnavailable")}
         </div>
       )}
 
-      {/* 插件与 LSP 混搭列表区域 */}
-      <div className="flex-1 min-h-0 overflow-y-auto aurona-scroll px-[var(--PanelPaddingX)] pb-4 flex flex-col gap-2.5">
-        {isLoading && extensions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 gap-2 text-center text-[var(--color-text-muted)]">
-            <Icons.Refresh size={22} className="animate-spin text-blue-400 opacity-70" />
+      <div
+        ref={scrollRef}
+        onScroll={(event) => updateCurrentState({ scrollTop: event.currentTarget.scrollTop })}
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-[var(--PanelPaddingX)] pb-4 pt-3 aurona-scroll"
+      >
+        {isLoading && visibleExtensions.length === 0 && mode !== "installed" ? (
+          <div className="flex h-48 flex-col items-center justify-center gap-2 text-center text-[var(--color-text-muted)]">
+            <Icons.Refresh
+              size={22}
+              className="animate-spin text-[var(--color-accent)] opacity-70"
+            />
             <span className="text-[12px] font-medium">{t("extensions.loading")}</span>
           </div>
-        ) : displayedExtensions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 gap-2 text-center text-[var(--color-text-muted)]">
-            <Icons.Extensions size={28} className="opacity-40" />
-            <span className="text-[12.5px] font-medium">{t("extensions.emptyList")}</span>
-            <span className="text-[11px]">{t("extensions.emptyListHint")}</span>
-            {sourceStatus === "offline" && activeTab === "discover" && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="mt-2 h-7 text-[11px] px-3"
-                onClick={() => void refreshCatalog()}
-              >
-                <Icons.Refresh size={11} className="mr-1 inline" />
-                {t("extensions.refreshList")}
-              </Button>
-            )}
-          </div>
+        ) : mode === "toolchains" ? (
+          <ToolchainsPanel
+            servers={localServers}
+            runtimes={localRuntimes}
+            remoteItems={visibleExtensions}
+            selectedId={currentState.selectedId}
+            client={lspClient}
+            revision={clientRevision}
+            busyId={busyId}
+            onInstall={handleInstallClick}
+            onUninstall={handleUninstall}
+            onAction={handleToolchainAction}
+            onOpenDetail={handleOpenDetail}
+          />
+        ) : visibleExtensions.length === 0 ? (
+          <EmptyMarketplaceState
+            isOffline={sourceStatus === "offline"}
+            onRefresh={() => void refreshCatalog()}
+          />
         ) : (
           <div className="grid grid-cols-1 gap-2.5">
-            {displayedExtensions.map((item) => (
+            {visibleExtensions.map((item) => (
               <MarketplaceCard
                 key={item.id}
                 item={item}
-                onOpenDetail={(it) => handleOpenDetailTab(it)}
-                onInstall={(it) => handleInstallClick(it)}
-                onUninstall={(it) => void handleUninstall(it)}
+                selected={currentState.selectedId === item.id}
+                onOpenDetail={handleOpenDetail}
+                onInstall={handleInstallClick}
+                onUninstall={handleUninstall}
               />
             ))}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function EmptyMarketplaceState({
+  isOffline,
+  onRefresh,
+}: {
+  isOffline: boolean;
+  onRefresh: () => void;
+}) {
+  const { t } = useLocale();
+  return (
+    <EmptyState
+      className="h-48 flex-none"
+      icon={<Icons.Extensions size={27} stroke={1.45} />}
+      title={t("extensions.emptyList")}
+      description={t("extensions.emptyListHint")}
+      actions={
+        isOffline ? (
+          <Button variant="secondary" size="sm" onClick={onRefresh}>
+            <Icons.Refresh size={11} />
+            {t("extensions.refreshList")}
+          </Button>
+        ) : undefined
+      }
+    />
+  );
+}
+
+interface ToolchainsPanelProps {
+  servers: MarketplaceExtensionItem[];
+  runtimes: InstalledRuntimeSummary[];
+  remoteItems: MarketplaceExtensionItem[];
+  selectedId: string | null;
+  client: LspClient;
+  revision: number;
+  busyId: string | null;
+  onInstall: (item: MarketplaceExtensionItem) => void;
+  onUninstall: (item: MarketplaceExtensionItem) => void;
+  onAction: (server: InstalledToolchainSummary, action: "start" | "stop" | "restart") => void;
+  onOpenDetail: (item: MarketplaceExtensionItem) => void;
+}
+
+function ToolchainsPanel({
+  servers,
+  runtimes,
+  remoteItems,
+  selectedId,
+  client,
+  revision: _revision,
+  busyId,
+  onInstall,
+  onUninstall,
+  onAction,
+  onOpenDetail,
+}: ToolchainsPanelProps) {
+  const { t } = useLocale();
+  const installedIds = new Set(servers.map((server) => server.id));
+  const installedRuntimeTypes = new Set(runtimes.map((runtime) => runtime.runtimeType));
+  const remoteAvailable = remoteItems.filter((item) => {
+    if (item.kind === "lsp") {
+      return !installedIds.has(canonicalExtensionId(item.id)) || item.updateAvailable;
+    }
+    if (item.kind === "runtime") {
+      const runtimeType = item.runtimeMetadata?.runtimeType ?? item.id;
+      return !installedRuntimeTypes.has(runtimeType) || item.updateAvailable;
+    }
+    return false;
+  });
+  return (
+    <div className="flex flex-col gap-6">
+      <section className="flex flex-col gap-2.5">
+        <h3 className="text-[12px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+          {t("extensions.toolchainsServers")}
+        </h3>
+        {servers.length === 0 ? (
+          <p className="text-[12px] text-[var(--color-text-muted)]">
+            {t("extensions.noInstalledToolchains")}
+          </p>
+        ) : (
+          servers.map((item) => (
+            <InstalledServerRow
+              key={item.id}
+              item={item}
+              selected={selectedId === item.id}
+              client={client}
+              busyId={busyId}
+              onUninstall={onUninstall}
+              onAction={onAction}
+            />
+          ))
+        )}
+      </section>
+      {remoteAvailable.length > 0 && (
+        <section className="flex flex-col gap-2.5">
+          <h3 className="text-[12px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+            {t("extensions.availableToolchains")}
+          </h3>
+          {remoteAvailable.map((item) => (
+            <MarketplaceCard
+              key={item.id}
+              item={item}
+              selected={selectedId === item.id}
+              onOpenDetail={onOpenDetail}
+              onInstall={onInstall}
+              onUninstall={onUninstall}
+            />
+          ))}
+        </section>
+      )}
+      <section className="flex flex-col gap-2.5">
+        <h3 className="text-[12px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+          {t("extensions.toolchainsRuntimes")}
+        </h3>
+        {runtimes.length === 0 ? (
+          <p className="text-[12px] text-[var(--color-text-muted)]">
+            {t("extensions.noInstalledRuntimes")}
+          </p>
+        ) : (
+          runtimes.map((runtime) => (
+            <RuntimeRow
+              key={runtime.runtimeType}
+              runtime={runtime}
+              selected={selectedId === runtime.runtimeType}
+              busy={busyId === runtime.runtimeType}
+              onUninstall={() =>
+                onUninstall({
+                  id: runtime.runtimeType,
+                  kind: "runtime",
+                  name: runtime.runtimeType,
+                  displayName: { en: runtime.runtimeType },
+                  publisher: "Local",
+                  version: runtime.version,
+                  description: "",
+                  displayDescription: { en: "" },
+                  category: "Runtime",
+                  tags: [],
+                  installed: true,
+                  packageType: "aurx",
+                })
+              }
+            />
+          ))
+        )}
+      </section>
+    </div>
+  );
+}
+
+function InstalledServerRow({
+  item,
+  selected,
+  client,
+  busyId,
+  onUninstall,
+  onAction,
+}: {
+  item: MarketplaceExtensionItem;
+  selected: boolean;
+  client: LspClient;
+  busyId: string | null;
+  onUninstall: (item: MarketplaceExtensionItem) => void;
+  onAction: (server: InstalledToolchainSummary, action: "start" | "stop" | "restart") => void;
+}) {
+  const { t } = useLocale();
+  const language = item.lspMetadata?.languages?.[0] ?? item.id;
+  const state = client.getState(language);
+  const server = item.localToolchain;
+  return (
+    <Card
+      data-marketplace-item-id={item.id}
+      data-selected={selected || undefined}
+      className={`flex flex-col gap-2.5 p-3.5 transition-colors duration-150 hover:bg-[var(--material-interactive-hover)] ${
+        selected ? "border-[var(--color-accent)]" : ""
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-[13px] font-medium text-[var(--color-text-highlight)]">
+              {item.name}
+            </span>
+            <span className="font-mono text-[10px] text-[var(--color-text-muted)]">
+              v{item.version}
+            </span>
+          </div>
+          <div className="mt-1 text-[11px] text-[var(--color-text-muted)]">
+            {item.lspMetadata?.languages?.join(", ")} · {item.lspMetadata?.runtimeType} ·{" "}
+            {item.fileSize} · {item.lspMetadata?.entry}
+          </div>
+        </div>
+        <span className="shrink-0 text-[11px] text-[var(--color-text-muted)]">
+          {state?.status ?? t("extensions.stopped")}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {server &&
+          (state?.status === "running" ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={busyId === item.id}
+              onClick={() => onAction(server, "stop")}
+            >
+              {t("extensions.stop")}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={busyId === item.id}
+              onClick={() => onAction(server, "start")}
+            >
+              {t("extensions.start")}
+            </Button>
+          ))}
+        {server && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busyId === item.id}
+            onClick={() => onAction(server, "restart")}
+          >
+            {t("extensions.restart")}
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-[var(--StatusError)]"
+          disabled={busyId === item.id}
+          onClick={() => onUninstall(item)}
+        >
+          {t("extensions.uninstall")}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function RuntimeRow({
+  runtime,
+  selected,
+  busy,
+  onUninstall,
+}: {
+  runtime: InstalledRuntimeSummary;
+  selected: boolean;
+  busy: boolean;
+  onUninstall: () => void;
+}) {
+  const { t } = useLocale();
+  return (
+    <Card
+      data-marketplace-item-id={runtime.runtimeType}
+      data-selected={selected || undefined}
+      className={`flex items-center justify-between gap-3 p-3.5 transition-colors duration-150 hover:bg-[var(--material-interactive-hover)] ${
+        selected ? "border-[var(--color-accent)]" : ""
+      }`}
+    >
+      <div className="min-w-0">
+        <div className="text-[13px] font-medium text-[var(--color-text-highlight)]">
+          {runtime.runtimeType}
+        </div>
+        <div className="mt-1 text-[11px] text-[var(--color-text-muted)]">
+          v{runtime.version} · {formatBytes(runtime.diskSizeBytes)} · {runtime.binaryPath}
+        </div>
+      </div>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="shrink-0 text-[var(--StatusError)]"
+        disabled={busy}
+        onClick={onUninstall}
+      >
+        {t("extensions.uninstall")}
+      </Button>
+    </Card>
   );
 }
