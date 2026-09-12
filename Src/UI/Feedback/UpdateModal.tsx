@@ -3,6 +3,7 @@ import { UpdaterService } from "../../Core/UpdaterService";
 import type { UpdateInfo } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
+import { formatDisplayVersion } from "../../Foundation/Release/ReleaseChannel";
 import { Button } from "../Components/Button";
 import { Modal } from "../Components/Modal";
 import { Icons } from "../Icons/IconManager";
@@ -70,7 +71,7 @@ export function UpdateModal() {
       onClose={() => {
         if (!isUpdating) setIsOpen(false);
       }}
-      title={t("update.newVersion").replace("{version}", updateInfo.version)}
+      title={t("update.newVersion").replace("{version}", formatDisplayVersion(updateInfo.version))}
       icon={<Icons.Download className="text-[var(--color-accent)]" size={18} stroke={2} />}
       footer={
         <div className="flex w-full items-center justify-between">

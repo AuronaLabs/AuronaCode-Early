@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Aurona Code",
   "mainBinaryName": "Aurona Code",
-  "version": "0.4.0-pioneer.5",
+  "version": "0.4.0-pioneer.6",
   "identifier": "com.aurona.code",
   "build": {
     "features": [
@@ -85,9 +85,11 @@
     "windows": {
       "nsis": {
         "installMode": "perMachine",
-        "displayLanguageSelector": false,
+        "displayLanguageSelector": true,
         "languages": [
-          "SimpChinese"
+          "SimpChinese",
+          "TradChinese",
+          "English"
         ],
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico"

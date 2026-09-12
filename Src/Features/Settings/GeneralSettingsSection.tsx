@@ -12,10 +12,12 @@ export interface GeneralSettingsSectionProps {
   density: Density;
   muteNonCriticalToasts?: boolean;
   toastDuration?: number;
+  fliunoOpenMode?: "sidebar" | "editorTab";
   onThemeChange: (newTheme: "light" | "dark" | "system") => void;
   onDensityChange: (next: Density) => void;
   onMuteNonCriticalChange?: (muted: boolean) => void;
   onToastDurationChange?: (duration: number) => void;
+  onFliunoOpenModeChange?: (mode: "sidebar" | "editorTab") => void;
 }
 
 export function GeneralSettingsSection({
@@ -23,10 +25,12 @@ export function GeneralSettingsSection({
   density,
   muteNonCriticalToasts = false,
   toastDuration = 4000,
+  fliunoOpenMode = "sidebar",
   onThemeChange,
   onDensityChange,
   onMuteNonCriticalChange,
   onToastDurationChange,
+  onFliunoOpenModeChange,
 }: GeneralSettingsSectionProps) {
   const { locale, setLocale, t } = useLocale();
 
@@ -149,6 +153,35 @@ export function GeneralSettingsSection({
               ]}
             />
             <SettingResetButton label={t("settings.reset")} onReset={() => setLocale("zh-CN")} />
+          </div>
+        </div>
+
+        <div
+          data-setting-id="fliunoOpenMode"
+          className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
+        >
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              {t("settings.definitions.fliunoOpenMode.title")}
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
+              {t("settings.definitions.fliunoOpenMode.description")}
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Select
+              value={fliunoOpenMode}
+              onChange={(value) => onFliunoOpenModeChange?.(value as "sidebar" | "editorTab")}
+              className="w-[160px]"
+              options={[
+                { value: "sidebar", label: t("settings.fliunoOpenModeSidebar") },
+                { value: "editorTab", label: t("settings.fliunoOpenModeEditorTab") },
+              ]}
+            />
+            <SettingResetButton
+              label={t("settings.reset")}
+              onReset={() => onFliunoOpenModeChange?.("sidebar")}
+            />
           </div>
         </div>
       </GlassContainer>

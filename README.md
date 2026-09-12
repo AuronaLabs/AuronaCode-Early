@@ -4,7 +4,7 @@
   <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-pioneer.5-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-pioneer.6-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
@@ -16,7 +16,7 @@
 Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造轻量、克制且具触感美学的沉浸式编码工作台。
 
 > [!NOTE]
-> **Aurona Code Pioneer 5 收敛版本** 当前版本为 **V0.4.0-pioneer.5**。本版本冻结新的 SDK、Runtime 和 Marketplace 能力，集中收敛界面层级、搜索请求、Toolchains 路径与动态模块失败体验。
+> **Aurona Code Pioneer 6 首启体验版本** 当前版本为 **V0.4.0-pioneer.6**。本版本带来主程序内嵌的首启欢迎引导（OOBE）与安装器三语选择器，落地退出清理队列与 WebView 缓存生命周期治理，重构空间管理界面，并对 Release 构建与性能基准模型进行双向优化。
 
 ---
 
@@ -33,6 +33,7 @@ Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面�
 - **Fliuno 统一搜索**：命令、文件、符号、设置与内容一键直达，键盘优先导航。
 - **集成透明终端**：基于 `portable-pty` 与 `xterm.js`，与主题卡片背景浑然一体。
 - **全链路国际化**：简体中文 (zh-CN)、繁體中文 (zh-Hant) 与 English 实时无缝切换。
+- **首启欢迎引导 (OOBE) 与安装器多语言**：Windows 安装程序支持简体中文、繁體中文与 English 界面语言选择；首次启动主程序直接呈现全屏欢迎引导（欢迎 → 语言 → 外观主题 → 账户登录，可跳过），完整复用整套主题系统，完成直达工作台。
 - **权限安全生命周期**：卸载插件立即彻底销毁并持久化清除所有授权，严格保护用户工作区数据。
 
 ---
@@ -104,8 +105,8 @@ pnpm run format         # 自动格式化前端代码 (Biome)
 pnpm run typecheck      # TypeScript 类型检查
 pnpm run check          # Biome 代码规范检查
 pnpm run smoke          # 发布元数据烟雾检查
-pnpm run test:frontend  # 运行前端 Vitest 单元测试 (204 项)
-pnpm run test:rust      # 运行 Rust 核心单元测试 (89 项)
+pnpm run test:frontend  # 运行前端 Vitest 单元测试 (233 项)
+pnpm run test:rust      # 运行 Rust 核心单元测试 (86 项)
 ```
 
 ---

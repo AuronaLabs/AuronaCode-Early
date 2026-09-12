@@ -47,6 +47,16 @@ export interface WorkspaceState {
   bottomPanelHeight?: number;
 }
 
+export interface FliunoPreferences {
+  /** Fliuno workspace 打开位置：左侧侧边栏（默认）或编辑区标签页 */
+  openMode?: "sidebar" | "editorTab";
+}
+
+export interface CleanupPreferences {
+  /** 退出应用时自动清理 WebView/缓存目录（默认开启） */
+  clearCacheOnExit?: boolean;
+}
+
 export interface UserConfig {
   theme?: "light" | "dark" | "system";
   accentTheme?: AccentThemeId;
@@ -78,4 +88,6 @@ export interface UserConfig {
   vscodeCompatEnabled?: boolean;
   muteNonCriticalToasts?: boolean;
   toastDuration?: number;
+  fliuno?: FliunoPreferences;
+  cleanup?: CleanupPreferences;
 }

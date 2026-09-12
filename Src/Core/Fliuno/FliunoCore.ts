@@ -168,18 +168,24 @@ function matchToken(token: string, text: string): TokenMatch | null {
   let cursor = -1;
   let gaps = 0;
   let boundaries = 0;
+  let streak = 0;
   const ranges: Array<[number, number]> = [];
   for (const character of token) {
     const next = haystack.indexOf(character, cursor + 1);
     if (next < 0) return null;
-    if (cursor >= 0) gaps += next - cursor - 1;
+    if (cursor >= 0) {
+      gaps += next - cursor - 1;
+      streak = next === cursor + 1 ? streak + 1 : 0;
+    }
     boundaries += boundaryScore(text, next);
     ranges.push([next, next + 1]);
     cursor = next;
   }
   const coverage = token.length / Math.max(1, haystack.length);
   return {
-    score: 380 + boundaries * 12 - gaps * 1.1 - cursor * 0.08 + coverage * 30,
+    // streak：连续命中段奖励，让 "fileman" 与 "fileman…" 的局部连续前缀
+    // 优于散乱分布的同字符子序列。
+    score: 380 + boundaries * 12 - gaps * 1.1 + streak * 14 + coverage * 30,
     ranges,
   };
 }

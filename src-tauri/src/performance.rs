@@ -169,6 +169,53 @@ fn with_temporary_directory<T>(
     }
 }
 
+/// 按索引分块并行执行批处理基准：小文件 I/O 的真实吞吐依赖并发，单线程循环
+/// 会把 SSD 并行能力压成串行延迟。任意分块失败（含取消）即返回首个错误。
+fn parallel_for_each_index(
+    total: usize,
+    cancelled: &AtomicBool,
+    work: &(impl Fn(usize) -> Result<(), String> + Sync),
+) -> Result<(), String> {
+    if total == 0 {
+        return ensure_not_cancelled(cancelled);
+    }
+    let threads = std::thread::available_parallelism()
+        .map(|count| count.get())
+        .unwrap_or(1)
+        .clamp(1, 8)
+        .min(total);
+    let chunk = total.div_ceil(threads);
+    std::thread::scope(|scope| {
+        let mut first_error: Option<String> = None;
+        let mut handles = Vec::new();
+        for start in (0..total).step_by(chunk) {
+            let end = (start + chunk).min(total);
+            handles.push(scope.spawn(move || {
+                for index in start..end {
+                    ensure_not_cancelled(cancelled)?;
+                    work(index)?;
+                }
+                Ok(())
+            }));
+        }
+        for handle in handles {
+            match handle.join() {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) if first_error.is_none() => first_error = Some(error),
+                Ok(Err(_)) => {}
+                Err(_) if first_error.is_none() => {
+                    first_error = Some("Benchmark worker thread panicked".to_string())
+                }
+                Err(_) => {}
+            }
+        }
+        match first_error {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
+    })
+}
+
 fn run_filesystem_benchmark(
     cancelled: &AtomicBool,
 ) -> Result<Vec<PerformanceBenchmarkResult>, String> {
@@ -177,11 +224,10 @@ fn run_filesystem_benchmark(
         let mut results = Vec::new();
 
         let started = Instant::now();
-        for index in 0..SAMPLE_FILE_COUNT {
-            ensure_not_cancelled(cancelled)?;
+        parallel_for_each_index(SAMPLE_FILE_COUNT, cancelled, &|index| {
             fs::write(directory.join(format!("sample-{index:03}.txt")), &content)
-                .map_err(|error| format!("Unable to create benchmark file: {error}"))?;
-        }
+                .map_err(|error| format!("Unable to create benchmark file: {error}"))
+        })?;
         results.push(benchmark_result(
             "filesystem-create",
             "小文件创建",
@@ -191,13 +237,14 @@ fn run_filesystem_benchmark(
         ));
 
         let started = Instant::now();
-        let mut total_bytes = 0_u64;
-        for index in 0..SAMPLE_FILE_COUNT {
-            ensure_not_cancelled(cancelled)?;
+        let total_bytes = std::sync::atomic::AtomicU64::new(0);
+        parallel_for_each_index(SAMPLE_FILE_COUNT, cancelled, &|index| {
             let metadata = fs::metadata(directory.join(format!("sample-{index:03}.txt")))
                 .map_err(|error| format!("Unable to read benchmark metadata: {error}"))?;
-            total_bytes += metadata.len();
-        }
+            total_bytes.fetch_add(metadata.len(), Ordering::Relaxed);
+            Ok(())
+        })?;
+        let total_bytes = total_bytes.load(Ordering::Relaxed);
         results.push(benchmark_result(
             "filesystem-metadata",
             "文件元数据读取",
@@ -207,11 +254,11 @@ fn run_filesystem_benchmark(
         ));
 
         let started = Instant::now();
-        for index in 0..SAMPLE_FILE_COUNT {
-            ensure_not_cancelled(cancelled)?;
+        parallel_for_each_index(SAMPLE_FILE_COUNT, cancelled, &|index| {
             let _ = fs::read_to_string(directory.join(format!("sample-{index:03}.txt")))
                 .map_err(|error| format!("Unable to read benchmark file: {error}"))?;
-        }
+            Ok(())
+        })?;
         results.push(benchmark_result(
             "filesystem-read",
             "小文件读取",
@@ -221,14 +268,13 @@ fn run_filesystem_benchmark(
         ));
 
         let started = Instant::now();
-        for index in 0..SAMPLE_FILE_COUNT {
-            ensure_not_cancelled(cancelled)?;
+        parallel_for_each_index(SAMPLE_FILE_COUNT, cancelled, &|index| {
             fs::write(
                 directory.join(format!("sample-{index:03}.txt")),
                 format!("{content}{index}"),
             )
-            .map_err(|error| format!("Unable to write benchmark file: {error}"))?;
-        }
+            .map_err(|error| format!("Unable to write benchmark file: {error}"))
+        })?;
         results.push(benchmark_result(
             "filesystem-write",
             "小文件写入",
@@ -250,11 +296,10 @@ fn run_filesystem_benchmark(
         ));
 
         let started = Instant::now();
-        for index in 0..SAMPLE_FILE_COUNT {
-            ensure_not_cancelled(cancelled)?;
+        parallel_for_each_index(SAMPLE_FILE_COUNT, cancelled, &|index| {
             fs::remove_file(directory.join(format!("sample-{index:03}.txt")))
-                .map_err(|error| format!("Unable to delete benchmark file: {error}"))?;
-        }
+                .map_err(|error| format!("Unable to delete benchmark file: {error}"))
+        })?;
         results.push(benchmark_result(
             "filesystem-delete",
             "小文件删除",
@@ -529,8 +574,22 @@ fn run_wasm_benchmark(cancelled: &AtomicBool) -> Result<Vec<PerformanceBenchmark
         .join("..")
         .join("MarketplacePackages")
         .join("auronalabs.markdown.aurx");
-    let package_bytes =
-        fs::read(&package_path).map_err(|error| format!("无法读取基准测试扩展包: {error}"))?;
+    // 该路径仅存在于开发机（env! 在编译期固化）。正式安装包中没有源码树，
+    // 包缺失时优雅降级为一条错误结果行，而不是让整个 wasm 基准直接失败。
+    let package_bytes = match fs::read(&package_path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            return Ok(vec![PerformanceBenchmarkResult {
+                id: "wasm-unavailable".to_string(),
+                name: "WASM 沙箱基准".to_string(),
+                duration_ns: 0,
+                value: 0.0,
+                unit: "ops/s".to_string(),
+                status: "error".to_string(),
+                details: format!("基准扩展包不可用（{error}），已跳过 WASM 沙箱基准"),
+            }]);
+        }
+    };
 
     // 1. WASM 包校验与解析
     let started = Instant::now();

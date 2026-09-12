@@ -19,6 +19,7 @@ import {
   SIDEBAR_DEBUG,
   SIDEBAR_EXPLORER,
   SIDEBAR_EXTENSIONS,
+  SIDEBAR_FLIUNO,
   SIDEBAR_NOTIFICATIONS,
   SIDEBAR_OUTLINE,
   SIDEBAR_SOURCE_CONTROL,
@@ -149,6 +150,12 @@ export function WorkspaceView() {
     }
   }, [currentExtId]);
 
+  // Fliuno 侧栏面板：首次激活时挂载（避免启动时抢占焦点/预加载），之后保持存活
+  const [fliunoSidebarMounted, setFliunoSidebarMounted] = useState(false);
+  useEffect(() => {
+    if (activeSidebar === SIDEBAR_FLIUNO) setFliunoSidebarMounted(true);
+  }, [activeSidebar]);
+
   const workspaceRef = useRef<HTMLDivElement>(null);
   const editorColumnRef = useRef<HTMLDivElement>(null);
 
@@ -271,6 +278,15 @@ export function WorkspaceView() {
         >
           <ExtensionsPanel />
         </div>
+
+        {fliunoSidebarMounted && (
+          <div
+            className="flex flex-1 flex-col min-h-0"
+            style={{ display: activeSidebar === SIDEBAR_FLIUNO ? "flex" : "none" }}
+          >
+            <FliunoWorkspacePage variant="sidebar" />
+          </div>
+        )}
 
         {Array.from(mountedExtensions).map((extId) => (
           <div

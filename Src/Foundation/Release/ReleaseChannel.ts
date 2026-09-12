@@ -53,7 +53,7 @@ export function isPioneerBuild(versionStr?: string): boolean {
  * - "0.4.1-pioneer.1" -> { major: 0, minor: 4, patch: 1, isPreRelease: true, preReleaseTag: "pioneer", preReleaseIter: 1 }
  */
 export function parseAuronaVersion(versionStr: string): ParsedVersion {
-  const cleaned = versionStr.trim().replace(/^v/, "");
+  const cleaned = versionStr.trim().replace(/^[vV]/, "");
   const [corePart, prePart] = cleaned.split("-");
   const coreNums = corePart.split(".").map((n) => Number.parseInt(n, 10) || 0);
 
@@ -108,6 +108,29 @@ export function compareAuronaVersions(v1: string, v2: string): number {
   const iter1 = p1.preReleaseIter ?? 0;
   const iter2 = p2.preReleaseIter ?? 0;
   return iter1 - iter2;
+}
+
+/**
+ * 将内部版本号渲染为面向用户的展示文案
+ * 示例：
+ * - "0.4.0" -> "0.4.0"
+ * - "v0.4.0-pioneer.4" -> "0.4.0 Pioneer 4"
+ * - "0.5.0-beta.2" -> "0.5.0 Beta 2"
+ */
+export function formatDisplayVersion(versionStr: string): string {
+  const parsed = parseAuronaVersion(versionStr);
+  const core = `${parsed.major}.${parsed.minor}.${parsed.patch}`;
+  // 非法输入（如异步加载占位 "Loading..."）不强行渲染为 0.0.0
+  if (!/\d/.test(versionStr)) {
+    return versionStr;
+  }
+  if (!parsed.isPreRelease || !parsed.preReleaseTag) {
+    return core;
+  }
+  const tag = parsed.preReleaseTag.charAt(0).toUpperCase() + parsed.preReleaseTag.slice(1);
+  return parsed.preReleaseIter !== undefined
+    ? `${core} ${tag} ${parsed.preReleaseIter}`
+    : `${core} ${tag}`;
 }
 
 export interface AvailableRemoteVersion {

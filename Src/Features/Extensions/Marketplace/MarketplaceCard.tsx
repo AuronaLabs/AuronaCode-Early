@@ -37,9 +37,7 @@ export function MarketplaceCard({
     <Card
       data-marketplace-item-id={item.id}
       data-selected={selected || undefined}
-      className={`group relative flex flex-col justify-between gap-2.5 p-3 transition-colors duration-150 hover:bg-[var(--material-interactive-hover)] ${
-        selected ? "border-[var(--color-accent)] bg-[var(--surface-raised)]" : ""
-      }`}
+      className="group relative flex flex-col justify-between gap-2.5 p-3 transition-colors duration-150 hover:bg-[var(--material-interactive-hover)]"
     >
       <button
         type="button"

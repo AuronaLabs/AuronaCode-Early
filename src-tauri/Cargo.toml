@@ -1,6 +1,6 @@
 [package]
 name = "aurona_code"
-version = "0.4.0-pioneer.5"
+version = "0.4.0-pioneer.6"
 description = "Aurona Code Preview"
 authors = ["Aurona Team"]
 edition = "2021"
@@ -13,9 +13,17 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [profile.release]
 codegen-units = 1
 lto = true
-opt-level = "s"
+# 运行时性能优先于二进制体积：编辑器内核（rope/regex/wasmtime JIT）对 opt 级别敏感
+opt-level = 3
 strip = true
 panic = "abort"
+
+# 开发模式也保证依赖的运行时性能：性能基准、wasmtime JIT、搜索在 tauri:dev 下不失真
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.dev]
+opt-level = 1
 
 [build-dependencies]
 dotenvy = "0.15"

@@ -26,6 +26,7 @@ import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../../State/useEditorStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { EmptyState } from "../../UI/Components/EmptyState";
+import { FilterChips } from "../../UI/Components/FilterChips";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 
@@ -67,8 +68,14 @@ const SCOPE_OPTIONS: Array<{ id: FliunoScope; labelKey: I18nKey }> = [
   { id: "extensions", labelKey: "extensions.sidebarTitle" },
 ];
 
-export function FliunoWorkspacePage() {
+export function FliunoWorkspacePage({
+  variant = "page",
+}: {
+  /** page: 编辑区整页；sidebar: 左侧侧边栏紧凑卡片 */
+  variant?: "page" | "sidebar";
+}) {
   const { t } = useLocale();
+  const compact = variant === "sidebar";
   const sessionRef = useRef<FliunoSearchSession | null>(null);
   if (!sessionRef.current) sessionRef.current = new FliunoSearchSession();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -293,9 +300,23 @@ export function FliunoWorkspacePage() {
   const selectedResult = presentation.display[selectedIndex];
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 bg-transparent px-6 pb-3 pt-4">
-      <div className="flex h-12 shrink-0 items-center gap-3 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-panel)] px-4 backdrop-blur-[var(--glass-blur-overlay)]">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--color-accent)]/10 text-[var(--color-accent)]">
+    <div
+      className={
+        compact
+          ? "flex h-full min-h-0 flex-col gap-2.5 bg-transparent px-3 pb-2.5 pt-3"
+          : "flex h-full min-h-0 flex-col gap-3 bg-transparent px-6 pb-3 pt-4"
+      }
+    >
+      <div
+        className={`flex shrink-0 items-center border border-[var(--border-overlay)] bg-[var(--material-panel)] backdrop-blur-[var(--glass-blur-overlay)] ${
+          compact ? "h-10 gap-2 rounded-xl px-3" : "h-12 gap-3 rounded-2xl px-4"
+        }`}
+      >
+        <span
+          className={`flex shrink-0 items-center justify-center bg-[var(--color-accent)]/10 text-[var(--color-accent)] ${
+            compact ? "h-7 w-7 rounded-lg" : "h-8 w-8 rounded-xl"
+          }`}
+        >
           <Icons.Search size={16} stroke={1.8} />
         </span>
         <input
@@ -339,7 +360,9 @@ export function FliunoWorkspacePage() {
             }
           }}
           placeholder={t("fliuno.workspacePlaceholder")}
-          className="h-full min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-[14px] font-medium text-[var(--color-text-highlight)] outline-none ring-0 placeholder:font-normal placeholder:text-[var(--color-text-muted)] focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+          className={`h-full min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 font-medium text-[var(--color-text-highlight)] outline-none ring-0 placeholder:font-normal placeholder:text-[var(--color-text-muted)] focus:outline-none focus-visible:outline-none focus-visible:ring-0 ${
+            compact ? "text-[13px]" : "text-[14px]"
+          }`}
         />
         {query && (
           <button
@@ -358,23 +381,17 @@ export function FliunoWorkspacePage() {
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-1 px-1">
-        {SCOPE_OPTIONS.map((option) => {
-          const active = parsed.scope === option.id;
-          return (
-            <button
-              type="button"
-              key={option.id}
-              onClick={() => selectScope(option.id)}
-              className={`rounded-lg px-2.5 py-1.5 text-[10px] font-medium transition-colors ${
-                active
-                  ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
-                  : "text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-primary)]"
-              }`}
-            >
-              {t(option.labelKey)}
-            </button>
-          );
-        })}
+        <FilterChips
+          className="flex-wrap"
+          size={compact ? "sm" : "md"}
+          ariaLabel={t("fliuno.workspacePlaceholder")}
+          value={parsed.scope}
+          onChange={selectScope}
+          items={SCOPE_OPTIONS.map((option) => ({
+            id: option.id,
+            label: t(option.labelKey),
+          }))}
+        />
         {parsed.scope === "content" && (
           <>
             <span className="mx-1 h-4 w-px bg-[var(--border-subtle)]" />
@@ -416,12 +433,12 @@ export function FliunoWorkspacePage() {
       <div ref={resultsRef} className="min-h-0 flex-1 overflow-y-auto px-1 pb-2 aurona-scroll">
         {!workspaceRoot && (query || scope !== "commands") ? (
           <EmptyState
-            className="min-h-[240px]"
+            className={compact ? "min-h-[160px]" : "min-h-[240px]"}
             icon={<Icons.Search size={24} stroke={1.5} />}
             title={t("fliuno.noWorkspace")}
           />
         ) : grouped.length ? (
-          <div className="flex flex-col gap-6">
+          <div className={compact ? "flex flex-col gap-3" : "flex flex-col gap-6"}>
             {grouped.map((group) => {
               if (group.kind === "content") {
                 return (
@@ -456,7 +473,13 @@ export function FliunoWorkspacePage() {
               }
               return (
                 <section key={group.kind}>
-                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                  <div
+                    className={
+                      compact
+                        ? "flex flex-col gap-1"
+                        : "grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3"
+                    }
+                  >
                     {group.items.map((result) => {
                       const displayIndex = presentation.indexById.get(result.id) ?? 0;
                       return (
@@ -465,6 +488,7 @@ export function FliunoWorkspacePage() {
                           result={result}
                           displayIndex={displayIndex}
                           selected={displayIndex === selectedIndex}
+                          compact={compact}
                           onSelect={() => setSelectedIndex(displayIndex)}
                           onExecute={execute}
                         />
@@ -477,35 +501,37 @@ export function FliunoWorkspacePage() {
           </div>
         ) : (
           <EmptyState
-            className="min-h-[240px]"
+            className={compact ? "min-h-[160px]" : "min-h-[240px]"}
             icon={<Icons.Search size={24} stroke={1.5} />}
             title={query ? t("common.noResults") : t("fliuno.emptyHint")}
           />
         )}
       </div>
 
-      <footer className="flex shrink-0 items-center gap-4 px-1 text-[9px] text-[var(--color-text-muted)]">
-        <span className="flex items-center gap-1">
-          <kbd className="rounded border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5">
-            ↑↓
-          </kbd>
-          {t("common.search")}
-        </span>
-        <span className="flex items-center gap-1">
-          <kbd className="rounded border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5">
-            Enter
-          </kbd>
-          {t("common.open")}
-        </span>
-        <span className="ml-auto flex items-center gap-3">
-          <span>
-            {"#"} {t("common.symbol")}
+      {!compact && (
+        <footer className="flex shrink-0 items-center gap-4 px-1 text-[9px] text-[var(--color-text-muted)]">
+          <span className="flex items-center gap-1">
+            <kbd className="rounded border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5">
+              ↑↓
+            </kbd>
+            {t("common.search")}
           </span>
-          <span>
-            {":"} {t("common.content")}
+          <span className="flex items-center gap-1">
+            <kbd className="rounded border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5">
+              Enter
+            </kbd>
+            {t("common.open")}
           </span>
-        </span>
-      </footer>
+          <span className="ml-auto flex items-center gap-3">
+            <span>
+              {"#"} {t("common.symbol")}
+            </span>
+            <span>
+              {":"} {t("common.content")}
+            </span>
+          </span>
+        </footer>
+      )}
     </div>
   );
 }
@@ -514,15 +540,51 @@ function ResultCard({
   result,
   displayIndex,
   selected,
+  compact,
   onSelect,
   onExecute,
 }: {
   result: FliunoCoreResult;
   displayIndex: number;
   selected: boolean;
+  compact: boolean;
   onSelect: () => void;
   onExecute: (result: FliunoCoreResult) => void;
 }) {
+  if (compact) {
+    return (
+      <button
+        type="button"
+        data-result-id={result.id}
+        data-fliuno-workspace-index={displayIndex}
+        onClick={() => onExecute(result)}
+        onMouseMove={onSelect}
+        className={`flex items-center gap-2.5 rounded-lg border p-2 text-left transition-colors ${
+          selected
+            ? "border-transparent bg-[var(--material-interactive-active)]"
+            : "border-transparent hover:bg-[var(--material-interactive-hover)]"
+        }`}
+      >
+        <span
+          className={`grid size-7 shrink-0 place-items-center rounded-lg ${
+            result.kind === "command"
+              ? "bg-[var(--material-panel)] text-[var(--color-text-muted)]"
+              : "bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+          }`}
+        >
+          <ResultIcon kind={result.kind} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[12px] font-medium">
+            <HighlightedText text={result.title} ranges={result.titleRanges} />
+          </span>
+          <span className="block truncate text-[10px] text-[var(--color-text-muted)]">
+            <HighlightedText text={result.description} ranges={result.descriptionRanges} />
+          </span>
+        </span>
+      </button>
+    );
+  }
   return (
     <button
       type="button"

@@ -40,6 +40,7 @@ pub fn run() {
         .manage(account_auth::AccountAuthState::default())
         .manage(commands::fs::WorkspaceState::new())
         .manage(ExtensionState::new())
+        .manage(commands::ipc::ExitCleanupState::default())
         .setup(|app| {
             let state = app.state::<ExtensionState>();
             if let Err(error) = state.initialize(app.handle()) {
@@ -148,6 +149,7 @@ pub fn run() {
             commands::ipc::clear_app_logs,
             commands::ipc::clear_err_logs,
             commands::ipc::clear_webview_cache,
+            commands::ipc::set_exit_cleanup_enabled,
             commands::ipc::clear_performance_baseline,
             commands::ipc::clear_other_app_data,
             commands::ipc::clear_editor_recovery,
@@ -164,6 +166,19 @@ pub fn run() {
             editor::save_editor_file,
             editor::close_editor_file,
         ])
-        .run(tauri::generate_context!())
-        .expect("failed to run Aurona Code");
+        .build(tauri::generate_context!())
+        .expect("failed to build Aurona Code")
+        .run(|app, event| {
+            // 退出清理队列：所有窗口销毁后、进程结束前，清理 WebView 缓存目录。
+            // 有界等待（约 3 秒），避免退出后长时间滞留后台。
+            if let tauri::RunEvent::Exit = event {
+                let enabled = app
+                    .state::<commands::ipc::ExitCleanupState>()
+                    .enabled
+                    .load(std::sync::atomic::Ordering::SeqCst);
+                if enabled {
+                    commands::ipc::run_exit_cleanup(app);
+                }
+            }
+        });
 }

@@ -380,11 +380,25 @@ impl AccountAuthService {
         if !response.status().is_success() {
             let status = response.status();
             let detail = response.text().await.unwrap_or_default();
-            let _ = delete_refresh_token();
-            self.clear_session().await;
+            // 只有授权服务器明确判定 refresh token 失效（invalid_grant，惯例 400/401/403）
+            // 才允许清除本地凭据；临时性故障（5xx、限流、代理网关错误）必须保留 token，
+            // 否则一次网络抖动就会让用户永久掉线、重启即被要求重新走浏览器授权。
+            let token_rejected =
+                matches!(status.as_u16(), 400 | 401 | 403) || detail.contains("invalid_grant");
+            if token_rejected {
+                let _ = delete_refresh_token();
+                self.clear_session().await;
+                return Err(AccountAuthError::new(
+                    "refresh_rejected",
+                    "账户授权已失效，请重新登录",
+                    format!("token endpoint returned {status}: {detail}"),
+                    true,
+                ));
+            }
+            self.set_phase(AccountAuthPhase::SignedOut).await;
             return Err(AccountAuthError::new(
-                "refresh_rejected",
-                "账户授权已失效，请重新登录",
+                "refresh_unavailable",
+                "暂时无法恢复登录状态，请检查网络后重试",
                 format!("token endpoint returned {status}: {detail}"),
                 true,
             ));

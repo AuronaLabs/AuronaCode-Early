@@ -161,6 +161,7 @@ export function SettingsTab() {
 
   const [muteNonCriticalToasts, setMuteNonCriticalToasts] = useState(false);
   const [toastDuration, setToastDuration] = useState(4000);
+  const [fliunoOpenMode, setFliunoOpenMode] = useState<"sidebar" | "editorTab">("sidebar");
 
   const [editorFontSize, setEditorFontSize] = useState("14");
   const [editorLineHeight, setEditorLineHeight] = useState("24");
@@ -200,6 +201,7 @@ export function SettingsTab() {
 
       setMuteNonCriticalToasts(config.muteNonCriticalToasts ?? false);
       setToastDuration(config.toastDuration ?? 4000);
+      setFliunoOpenMode(config.fliuno?.openMode ?? "sidebar");
 
       const savedEditorFont = config.editorFontSize?.toString() || "14";
       const savedEditorLineHeight = config.editorLineHeight?.toString() || "24";
@@ -244,6 +246,13 @@ export function SettingsTab() {
     setDensity(next);
     applyDensity(next);
     void UserConfigStore.set({ density: next });
+  };
+
+  const handleFliunoOpenModeChange = (next: "sidebar" | "editorTab") => {
+    setFliunoOpenMode(next);
+    void UserConfigStore.get().then((config) =>
+      UserConfigStore.set({ fliuno: { ...config.fliuno, openMode: next } }),
+    );
   };
 
   const handleBoldTextChange = (enabled: boolean) => {
@@ -384,10 +393,12 @@ export function SettingsTab() {
             density={density}
             muteNonCriticalToasts={muteNonCriticalToasts}
             toastDuration={toastDuration}
+            fliunoOpenMode={fliunoOpenMode}
             onThemeChange={handleThemeChange}
             onDensityChange={handleDensityChange}
             onMuteNonCriticalChange={handleMuteNonCriticalChange}
             onToastDurationChange={handleToastDurationChange}
+            onFliunoOpenModeChange={handleFliunoOpenModeChange}
           />
         );
       case "appearance":

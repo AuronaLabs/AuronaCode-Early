@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  type BenchmarkResult,
   type BenchmarkSnapshot,
+  calculateCompositeScore,
   compareSemanticVersionsDescending,
   environmentKey,
   normalizeHistory,
@@ -57,5 +59,66 @@ describe("performance benchmark model", () => {
     versions.sort(compareSemanticVersionsDescending);
 
     expect(versions).toEqual(["0.3.0", "0.3.0-beta.2", "0.2.10", "0.2.9"]);
+  });
+
+  const result = (overrides: Partial<BenchmarkResult>): BenchmarkResult => ({
+    id: "filesystem-create",
+    name: "小文件创建",
+    durationNs: 0,
+    value: 1,
+    unit: "ops/s",
+    status: "ok",
+    details: "",
+    ...overrides,
+  });
+
+  it("scores batched operations by per-operation latency instead of total batch time", () => {
+    // 320 个文件耗时 100ms（吞吐 3200 ops/s）：旧模型按整段时长打地板分，新模型按单次耗时给分
+    const batch: BenchmarkSnapshot = {
+      ...snapshot(3),
+      results: {
+        filesystem: [
+          result({
+            durationNs: 100_000_000,
+            value: 3200,
+          }),
+        ],
+      },
+    };
+
+    expect(calculateCompositeScore(batch)).toBeGreaterThan(90);
+  });
+
+  it("keeps slow single operations and ui jitter clamped to the 60-100 band", () => {
+    const slowWasm: BenchmarkSnapshot = {
+      ...snapshot(3),
+      results: {
+        wasm: [
+          result({
+            id: "wasm-component-compile",
+            name: "WASM 组件 JIT 编译",
+            durationNs: 250_000_000,
+            value: 4,
+          }),
+        ],
+      },
+    };
+    const jitteryUi: BenchmarkSnapshot = {
+      ...snapshot(3),
+      results: {
+        ui: [
+          result({
+            id: "ui-frame-cadence",
+            name: "主线程帧间隔",
+            unit: "ms",
+            durationNs: 16_000_000,
+            statistics: { meanNs: 0, trimmedMeanNs: 0, p95Ns: 0, coefficientVariation: 30 },
+          }),
+        ],
+      },
+    };
+
+    expect(calculateCompositeScore(slowWasm)).toBe(60);
+    expect(calculateCompositeScore(jitteryUi)).toBe(60);
   });
 });

@@ -20,7 +20,15 @@ import { Icons } from "../../UI/Icons/IconManager";
 const appWindow = desktopWindow;
 const runCommand = (id: string) => void CommandRegistry.execute(id);
 
-export function TitleBar() {
+export function TitleBar({
+  showMenus = true,
+  onClose,
+}: {
+  /** 是否显示工作台菜单与工作台快捷入口（OOBE 等无工作台场景隐藏） */
+  showMenus?: boolean;
+  /** 覆盖默认的窗口关闭行为（如 OOBE 重游模式下仅收起引导层） */
+  onClose?: () => void;
+}) {
   const { t } = useLocale();
   const [isMaximized, setIsMaximized] = useState(false);
   const [hasUpdate, setHasUpdate] = useState(false);
@@ -89,187 +97,196 @@ export function TitleBar() {
             </span>
           )}
         </div>
-        <MenubarRoot className="flex h-full items-center space-x-0.5 min-w-0">
-          <MenubarMenu>
-            <MenubarTrigger>{t("menu.file")}</MenubarTrigger>
-            <MenubarContent>
-              <MenubarItem
-                label={t("menu.newFile")}
-                rightElement="Ctrl+N"
-                onSelect={() => runCommand("workbench.action.files.newFile")}
-              />
-              <MenubarItem
-                label={t("menu.newFolder")}
-                onSelect={() => runCommand("workbench.action.files.newFolder")}
-              />
-              <MenubarDivider />
-              <MenubarItem
-                label={t("menu.openFile")}
-                onSelect={() => runCommand("workbench.action.files.openFile")}
-              />
-              <MenubarItem
-                label={t("menu.openFolder")}
-                onSelect={() => runCommand("workbench.action.files.openFolder")}
-              />
-              <MenubarItem
-                label={t("menu.save")}
-                rightElement="Ctrl+S"
-                onSelect={() => runCommand("workbench.action.files.save")}
-              />
-              <MenubarDivider />
-              <MenubarItem
-                label={t("menu.exit")}
-                variant="danger"
-                onSelect={() => appWindow.close()}
-              />
-            </MenubarContent>
-          </MenubarMenu>
+        {showMenus && (
+          <MenubarRoot className="flex h-full items-center space-x-0.5 min-w-0">
+            <MenubarMenu>
+              <MenubarTrigger>{t("menu.file")}</MenubarTrigger>
+              <MenubarContent>
+                <MenubarItem
+                  label={t("menu.newFile")}
+                  rightElement="Ctrl+N"
+                  onSelect={() => runCommand("workbench.action.files.newFile")}
+                />
+                <MenubarItem
+                  label={t("menu.newFolder")}
+                  onSelect={() => runCommand("workbench.action.files.newFolder")}
+                />
+                <MenubarDivider />
+                <MenubarItem
+                  label={t("menu.openFile")}
+                  onSelect={() => runCommand("workbench.action.files.openFile")}
+                />
+                <MenubarItem
+                  label={t("menu.openFolder")}
+                  onSelect={() => runCommand("workbench.action.files.openFolder")}
+                />
+                <MenubarItem
+                  label={t("menu.save")}
+                  rightElement="Ctrl+S"
+                  onSelect={() => runCommand("workbench.action.files.save")}
+                />
+                <MenubarDivider />
+                <MenubarItem
+                  label={t("menu.exit")}
+                  variant="danger"
+                  onSelect={() => appWindow.close()}
+                />
+              </MenubarContent>
+            </MenubarMenu>
 
-          <MenubarMenu>
-            <MenubarTrigger>{t("menu.edit")}</MenubarTrigger>
-            <MenubarContent>
-              <MenubarItem
-                label={t("menu.undo")}
-                onSelect={() => runCommand("editor.action.undo")}
-              />
-              <MenubarItem
-                label={t("menu.redo")}
-                onSelect={() => runCommand("editor.action.redo")}
-              />
-              <MenubarDivider />
-              <MenubarItem label={t("menu.cut")} onSelect={() => runCommand("editor.action.cut")} />
-              <MenubarItem
-                label={t("menu.copy")}
-                onSelect={() => runCommand("editor.action.copy")}
-              />
-              <MenubarItem
-                label={t("menu.paste")}
-                onSelect={() => runCommand("editor.action.paste")}
-              />
-              <MenubarDivider />
-              <MenubarItem
-                label={t("menu.selectAll")}
-                onSelect={() => runCommand("editor.action.selectAll")}
-              />
-            </MenubarContent>
-          </MenubarMenu>
+            <MenubarMenu>
+              <MenubarTrigger>{t("menu.edit")}</MenubarTrigger>
+              <MenubarContent>
+                <MenubarItem
+                  label={t("menu.undo")}
+                  onSelect={() => runCommand("editor.action.undo")}
+                />
+                <MenubarItem
+                  label={t("menu.redo")}
+                  onSelect={() => runCommand("editor.action.redo")}
+                />
+                <MenubarDivider />
+                <MenubarItem
+                  label={t("menu.cut")}
+                  onSelect={() => runCommand("editor.action.cut")}
+                />
+                <MenubarItem
+                  label={t("menu.copy")}
+                  onSelect={() => runCommand("editor.action.copy")}
+                />
+                <MenubarItem
+                  label={t("menu.paste")}
+                  onSelect={() => runCommand("editor.action.paste")}
+                />
+                <MenubarDivider />
+                <MenubarItem
+                  label={t("menu.selectAll")}
+                  onSelect={() => runCommand("editor.action.selectAll")}
+                />
+              </MenubarContent>
+            </MenubarMenu>
 
-          <MenubarMenu>
-            <MenubarTrigger>{t("menu.run")}</MenubarTrigger>
-            <MenubarContent>
-              <MenubarItem
-                label={t("menu.runActive")}
-                onSelect={() => runCommand("workbench.action.runActiveFile")}
-              />
-            </MenubarContent>
-          </MenubarMenu>
+            <MenubarMenu>
+              <MenubarTrigger>{t("menu.run")}</MenubarTrigger>
+              <MenubarContent>
+                <MenubarItem
+                  label={t("menu.runActive")}
+                  onSelect={() => runCommand("workbench.action.runActiveFile")}
+                />
+              </MenubarContent>
+            </MenubarMenu>
 
-          <MenubarMenu>
-            <MenubarTrigger>{t("menu.help")}</MenubarTrigger>
-            <MenubarContent>
-              <MenubarItem
-                label={t("menu.forceRestart")}
-                onSelect={async () => {
-                  try {
-                    if (import.meta.env.DEV) {
-                      // Hide current main window
-                      await desktopWindow.hide();
-                      // Re-create splashscreen window
-                      desktopWindow.createSplash();
-                      // Wait a fraction of a second for the IPC command to reach Rust before destroying the JS context
-                      setTimeout(() => {
-                        window.location.reload();
-                      }, 100);
-                    } else {
-                      await desktopApp.relaunch();
+            <MenubarMenu>
+              <MenubarTrigger>{t("menu.help")}</MenubarTrigger>
+              <MenubarContent>
+                <MenubarItem
+                  label={t("menu.forceRestart")}
+                  onSelect={async () => {
+                    try {
+                      if (import.meta.env.DEV) {
+                        // Hide current main window
+                        await desktopWindow.hide();
+                        // Re-create splashscreen window
+                        desktopWindow.createSplash();
+                        // Wait a fraction of a second for the IPC command to reach Rust before destroying the JS context
+                        setTimeout(() => {
+                          window.location.reload();
+                        }, 100);
+                      } else {
+                        await desktopApp.relaunch();
+                      }
+                    } catch (e) {
+                      console.error("重启失败", e);
                     }
-                  } catch (e) {
-                    console.error("重启失败", e);
-                  }
-                }}
-              />
-              <MenubarItem
-                label={t("menu.performanceTest")}
-                onSelect={() => runCommand("workbench.action.openPerformance")}
-              />
-              <MenubarItem
-                label={t("menu.devtools")}
-                onSelect={() => {
-                  void CommandRegistry.execute("workbench.action.openDevtools").then((result) => {
-                    if (result.error) {
-                      EventBus.emit("app:toast", {
-                        type: "warning",
-                        message: result.error.message,
-                      });
-                    }
-                  });
-                }}
-              />
-              <MenubarDivider />
-              <MenubarItem
-                label={t("menu.changelog")}
-                onSelect={() => runCommand("workbench.action.openChangelog")}
-              />
-              <MenubarItem
-                label={t("menu.about")}
-                onSelect={() => runCommand("workbench.action.openAbout")}
-              />
-            </MenubarContent>
-          </MenubarMenu>
-        </MenubarRoot>
+                  }}
+                />
+                <MenubarItem
+                  label={t("menu.performanceTest")}
+                  onSelect={() => runCommand("workbench.action.openPerformance")}
+                />
+                <MenubarItem
+                  label={t("menu.devtools")}
+                  onSelect={() => {
+                    void CommandRegistry.execute("workbench.action.openDevtools").then((result) => {
+                      if (result.error) {
+                        EventBus.emit("app:toast", {
+                          type: "warning",
+                          message: result.error.message,
+                        });
+                      }
+                    });
+                  }}
+                />
+                <MenubarDivider />
+                <MenubarItem
+                  label={t("menu.changelog")}
+                  onSelect={() => runCommand("workbench.action.openChangelog")}
+                />
+                <MenubarItem
+                  label={t("menu.about")}
+                  onSelect={() => runCommand("workbench.action.openAbout")}
+                />
+              </MenubarContent>
+            </MenubarMenu>
+          </MenubarRoot>
+        )}
       </div>
 
       <div className="flex h-full items-center pr-3 gap-2 shrink-0">
-        <Tooltip content={t("fliuno.titleBarTooltip")} delay={300} placement="bottom">
-          <button
-            type="button"
-            className="mr-2 flex h-[26px] cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 text-[12px] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
-            onClick={() => runCommand("workbench.action.openFliuno")}
-          >
-            <Icons.Search size={14} stroke={1.8} />
-            Fliuno
-          </button>
-        </Tooltip>
+        {showMenus && (
+          <>
+            <Tooltip content={t("fliuno.titleBarTooltip")} delay={300} placement="bottom">
+              <button
+                type="button"
+                className="mr-2 flex h-[26px] cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 text-[12px] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+                onClick={() => runCommand("workbench.action.openFliuno")}
+              >
+                <Icons.Search size={14} stroke={1.8} />
+                Fliuno
+              </button>
+            </Tooltip>
 
-        {activeFilePath && isRunnable(activeFilePath) && (
-          <Tooltip content={t("titleBar.runActiveFile")} delay={300} placement="bottom">
-            <button
-              type="button"
-              className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-highlight)] transition-colors mr-2"
-              onClick={() => runCommand("workbench.action.runActiveFile")}
-            >
-              <Icons.Play size={16} stroke={2} />
-            </button>
-          </Tooltip>
-        )}
-
-        {hasUpdate && (
-          <Tooltip content={t("titleBar.updateAvailable")} delay={300} placement="bottom">
-            <button
-              type="button"
-              className="relative mr-1 flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg text-[var(--color-accent)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-accent-hover)]"
-              onClick={() => EventBus.emit("app:show-update-modal")}
-            >
-              <Icons.Download size={16} stroke={2} />
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full animate-pulse border border-white bg-[var(--StatusError)] dark:border-zinc-900"></span>
-            </button>
-          </Tooltip>
-        )}
-
-        <Tooltip content={t("titleBar.togglePanel")} delay={500} placement="bottom">
-          <button
-            type="button"
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
-            onClick={() => runCommand("workbench.action.togglePanel")}
-          >
-            {isTerminalOpen ? (
-              <Icons.BottomPanelFilled size={16} stroke={2} />
-            ) : (
-              <Icons.BottomPanel size={16} stroke={2} />
+            {activeFilePath && isRunnable(activeFilePath) && (
+              <Tooltip content={t("titleBar.runActiveFile")} delay={300} placement="bottom">
+                <button
+                  type="button"
+                  className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-highlight)] transition-colors mr-2"
+                  onClick={() => runCommand("workbench.action.runActiveFile")}
+                >
+                  <Icons.Play size={16} stroke={2} />
+                </button>
+              </Tooltip>
             )}
-          </button>
-        </Tooltip>
-        <div className="w-px h-[14px] bg-[var(--border-subtle)] mx-0.5" />
+
+            {hasUpdate && (
+              <Tooltip content={t("titleBar.updateAvailable")} delay={300} placement="bottom">
+                <button
+                  type="button"
+                  className="relative mr-1 flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg text-[var(--color-accent)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-accent-hover)]"
+                  onClick={() => EventBus.emit("app:show-update-modal")}
+                >
+                  <Icons.Download size={16} stroke={2} />
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full animate-pulse border border-white bg-[var(--StatusError)] dark:border-zinc-900"></span>
+                </button>
+              </Tooltip>
+            )}
+
+            <Tooltip content={t("titleBar.togglePanel")} delay={500} placement="bottom">
+              <button
+                type="button"
+                className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
+                onClick={() => runCommand("workbench.action.togglePanel")}
+              >
+                {isTerminalOpen ? (
+                  <Icons.BottomPanelFilled size={16} stroke={2} />
+                ) : (
+                  <Icons.BottomPanel size={16} stroke={2} />
+                )}
+              </button>
+            </Tooltip>
+            <div className="w-px h-[14px] bg-[var(--border-subtle)] mx-0.5" />
+          </>
+        )}
         <Tooltip content={t("titleBar.minimize")} delay={500} placement="bottom">
           <button
             type="button"
@@ -300,7 +317,7 @@ export function TitleBar() {
           <button
             type="button"
             className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--DiagError)] hover:text-white transition-colors"
-            onClick={() => appWindow.close()}
+            onClick={() => (onClose ? onClose() : void appWindow.close())}
           >
             <Icons.Close size={15} stroke={2} />
           </button>

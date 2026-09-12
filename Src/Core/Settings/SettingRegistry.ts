@@ -114,6 +114,26 @@ registerSetting({
 });
 
 registerSetting({
+  id: "fliunoOpenMode",
+  category: "general",
+  titleKey: "settings.definitions.fliunoOpenMode.title",
+  descriptionKey: "settings.definitions.fliunoOpenMode.description",
+  keywords: [
+    "fliuno",
+    "search",
+    "sidebar",
+    "editor",
+    "workspace",
+    "搜索",
+    "侧边栏",
+    "编辑区",
+    "入口",
+  ],
+  type: "select",
+  defaultValue: "sidebar",
+});
+
+registerSetting({
   id: "accentTheme",
   category: "appearance",
   titleKey: "settings.definitions.accentTheme.title",

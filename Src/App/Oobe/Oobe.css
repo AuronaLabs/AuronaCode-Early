@@ -1,0 +1,106 @@
+/* OOBE 欢迎引导：独立于主窗口的轻量样式，仅包含 Tailwind 覆盖不到的部分。 */
+
+/* 步骤内容进场：轻微上浮 + 淡入，符合系统级引导的克制节奏 */
+@keyframes oobe-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.oobe-step-enter {
+  animation: oobe-step-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 欢迎引导背景：完整复用主程序的应用背景（氛围场 + 基底渐变）。
+   注意 --AppBackground 是多层 layered background，必须走 background 简写，
+   不能作为 background-color 使用。 */
+.oobe-backdrop {
+  background: var(--AppBackground, var(--AppBg));
+}
+
+/* 背景光晕：固定氛围层，随主题变量联动（浅色系偏柔、深色系偏深邃） */
+.oobe-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      68% 58% at 18% -8%,
+      color-mix(in srgb, var(--AccentPrimary) 26%, transparent) 0%,
+      transparent 62%
+    ),
+    radial-gradient(
+      52% 44% at 86% 14%,
+      color-mix(in srgb, var(--StatusInfo) 14%, transparent) 0%,
+      transparent 65%
+    ),
+    radial-gradient(
+      60% 52% at 74% 112%,
+      color-mix(in srgb, var(--AccentPrimary) 12%, transparent) 0%,
+      transparent 60%
+    );
+}
+
+/* 品牌光圈：欢迎页 logo 背后的柔光 */
+.oobe-logo-halo {
+  position: absolute;
+  inset: -28px;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--AccentPrimary) 30%, transparent) 0%,
+    transparent 70%
+  );
+  filter: blur(14px);
+}
+
+/* 结束页：勾徽章弹入（轻微过冲，呈现"完成"的仪式感） */
+@keyframes oobe-ready-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.oobe-ready-pop {
+  animation: oobe-ready-pop 480ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* 结束页：accent 光环缓慢呼吸 */
+@keyframes oobe-ready-halo {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.08);
+  }
+}
+
+.oobe-ready-halo {
+  position: absolute;
+  inset: -26px;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-accent) 34%, transparent) 0%,
+    transparent 70%
+  );
+  filter: blur(16px);
+  animation: oobe-ready-halo 3.2s ease-in-out infinite;
+}

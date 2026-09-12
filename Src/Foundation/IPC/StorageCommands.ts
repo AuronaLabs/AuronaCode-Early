@@ -13,4 +13,6 @@ export const StorageIPC = {
   clearWebviewCache: () => invokeDesktop<void>("clear_webview_cache"),
   clearPerformanceBaseline: () => invokeDesktop<void>("clear_performance_baseline"),
   clearToolchains: () => invokeDesktop<number>("clear_toolchains"),
+  setExitCleanupEnabled: (enabled: boolean) =>
+    invokeDesktop<void>("set_exit_cleanup_enabled", { enabled }),
 };

@@ -9,13 +9,27 @@ export type UpdateCheckResult =
   | { status: "up-to-date" }
   | { status: "error"; error: string };
 
+/** 更新检查网络超时：超时后立即反馈错误，避免 UI 无限 loading */
+const UPDATE_CHECK_TIMEOUT_MS = 15_000;
+
 export const UpdaterService = {
   currentUpdate: null as UpdateInfo | null,
 
   async checkForUpdates(): Promise<UpdateCheckResult> {
     try {
       const channel = useFeatureFlagStore.getState().channel;
-      const update = await desktopUpdater.check();
+      let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+      const update = await Promise.race([
+        desktopUpdater.check(),
+        new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(
+            () => reject(new Error("update-check-timeout")),
+            UPDATE_CHECK_TIMEOUT_MS,
+          );
+        }),
+      ]).finally(() => {
+        if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
+      });
 
       if (update) {
         const parsed = parseAuronaVersion(update.version);
@@ -39,6 +53,10 @@ export const UpdaterService = {
       desktopUpdater.clear();
       return { status: "up-to-date" };
     } catch (cause) {
+      if (cause instanceof Error && cause.message === "update-check-timeout") {
+        Logger.error("Update check timed out");
+        return { status: "error", error: "timeout" };
+      }
       const error = cause instanceof Error ? cause.message : String(cause);
       Logger.error("Update check failed", cause);
       return { status: "error", error };

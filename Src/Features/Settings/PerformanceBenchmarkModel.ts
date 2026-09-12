@@ -111,6 +111,8 @@ export const compareSemanticVersionsDescending = (left: string, right: string) =
   return rightParts.prerelease.localeCompare(leftParts.prerelease, undefined, { numeric: true });
 };
 
+const clampScore = (score: number) => Math.max(60, Math.min(100, score));
+
 export function calculateCompositeScore(snapshot: BenchmarkSnapshot): number | null {
   const allResults = Object.values(snapshot.results)
     .flat()
@@ -121,19 +123,21 @@ export function calculateCompositeScore(snapshot: BenchmarkSnapshot): number | n
   let count = 0;
 
   for (const res of allResults) {
-    let itemScore = 85;
     const durationMs = res.durationNs / 1_000_000;
+    let itemScore: number;
     if (res.id === "ipc-roundtrip") {
-      itemScore = Math.max(60, Math.min(100, 100 - (durationMs - 0.05) * 30));
+      itemScore = clampScore(100 - (durationMs - 0.05) * 30);
     } else if (res.id === "ui-frame-cadence") {
       const cv = res.statistics?.coefficientVariation ?? 8;
-      itemScore = Math.max(60, Math.min(100, 100 - cv * 1.5));
-    } else if (res.id.startsWith("filesystem-")) {
-      itemScore = Math.max(60, Math.min(100, 100 - durationMs * 8));
-    } else if (res.id.startsWith("wasm-")) {
-      itemScore = Math.max(60, Math.min(100, 100 - durationMs * 4));
+      itemScore = clampScore(100 - cv * 1.5);
+    } else if (res.id === "search-content") {
+      // 全文搜索一次性覆盖整个语料，按整段耗时评估
+      itemScore = clampScore(100 - durationMs * 1);
     } else {
-      itemScore = Math.max(60, Math.min(100, 100 - durationMs * 5));
+      // 按单次操作耗时评分：批量基准不应因批量大而被整段时长惩罚
+      const perOpMs = res.unit === "ops/s" ? 1000 / Math.max(res.value, 1) : durationMs;
+      // WASM 编译/实例化本身是重操作，放慢斜率避免天花板效应
+      itemScore = clampScore(100 - perOpMs * (res.id.startsWith("wasm-") ? 1 : 2));
     }
     totalScore += itemScore;
     count += 1;

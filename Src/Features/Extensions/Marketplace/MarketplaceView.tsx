@@ -15,7 +15,7 @@ import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
 import { Button } from "../../../UI/Components/Button";
 import { Card } from "../../../UI/Components/Card";
 import { EmptyState } from "../../../UI/Components/EmptyState";
-import { Select, type SelectOption } from "../../../UI/Components/Select";
+import { FilterChips } from "../../../UI/Components/FilterChips";
 import { glassVariants } from "../../../UI/Core/GlassManager/variants";
 import { showToast } from "../../../UI/Feedback/Toast";
 import { Tooltip } from "../../../UI/Feedback/Tooltip";
@@ -53,7 +53,7 @@ function categoryOptions(
       | "extensions.categoryFormatters"
       | "extensions.categoryThemes",
   ) => string,
-): SelectOption[] {
+): { value: string; label: string }[] {
   return [
     { value: "All", label: t("extensions.allCategories") },
     { value: "trending", label: t("extensions.categoryTrending") },
@@ -157,6 +157,7 @@ export function MarketplaceView() {
   const [clientRevision, setClientRevision] = useState(0);
   const requestCoordinator = useRef(new MarketplaceRequestCoordinator());
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prevSourceStatusRef = useRef<MarketplaceSourceStatus>("online");
   const lspClient = useMemo(() => LspClient.getInstance(), []);
 
   const updateCurrentState = useCallback(
@@ -213,11 +214,20 @@ export function MarketplaceView() {
         signal: controller.signal,
       });
       if (!requestCoordinator.current.isCurrent(request)) return;
+      // 仅在 online → offline 转变时推送一次通知，避免每次刷新刷屏
+      if (result.source === "offline" && prevSourceStatusRef.current !== "offline") {
+        showToast(t("extensions.offlineNotice"), "warning");
+      }
+      prevSourceStatusRef.current = result.source;
       setSourceStatus(result.source);
       setOfflineReason(result.offlineReason);
       setCatalog(result.items);
     } catch {
       if (!requestCoordinator.current.isCurrent(request)) return;
+      if (prevSourceStatusRef.current !== "offline") {
+        showToast(t("extensions.offlineNotice"), "warning");
+      }
+      prevSourceStatusRef.current = "offline";
       setSourceStatus("offline");
       setOfflineReason("server-unreachable");
     } finally {
@@ -230,6 +240,7 @@ export function MarketplaceView() {
     loadToolchains,
     mode,
     refreshExtensions,
+    t,
   ]);
 
   useEffect(() => {
@@ -521,33 +532,23 @@ export function MarketplaceView() {
         }
       />
 
-      <div className="flex flex-col gap-2 border-b border-[var(--border-subtle)] px-[var(--PanelPaddingX)] pb-3 pt-1">
-        <div className="flex min-w-0 items-center gap-1">
-          {(["discover", "installed", "toolchains"] as MarketplaceMode[]).map((nextMode) => (
-            <button
-              type="button"
-              key={nextMode}
-              onClick={() => setMode(nextMode)}
-              aria-pressed={mode === nextMode}
-              className={`rounded-[var(--radius-control)] border px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                mode === nextMode
-                  ? "border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--color-text-highlight)]"
-                  : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
-              }`}
-            >
-              {t(`extensions.${nextMode}`)}
-            </button>
-          ))}
-          <div className="min-w-0 flex-1">
-            <Select
-              value={currentState.filter}
-              onChange={(value) => updateCurrentState({ filter: value })}
-              options={options}
-              ariaLabel={t("extensions.category")}
-              className="h-7 w-full rounded-[var(--radius-control)] text-[11.5px]"
-            />
-          </div>
-        </div>
+      <div className="flex flex-col gap-2 px-[var(--PanelPaddingX)] pb-3 pt-1">
+        <FilterChips
+          size="md"
+          ariaLabel={t("extensions.marketplaceTitle")}
+          value={mode}
+          onChange={setMode}
+          items={(["discover", "installed", "toolchains"] as MarketplaceMode[]).map((nextMode) => ({
+            id: nextMode,
+            label: t(`extensions.${nextMode}`),
+          }))}
+        />
+        <FilterChips
+          ariaLabel={t("extensions.category")}
+          value={currentState.filter}
+          onChange={(value) => updateCurrentState({ filter: value })}
+          items={options.map((option) => ({ id: option.value, label: option.label }))}
+        />
         <div
           className={cn(
             glassVariants({ layer: "raised" }),

@@ -1,10 +1,12 @@
 # Aurona Code 核心架构指南 (Corona+ Architecture Specification)
 
-## Pioneer 5 交互收敛边界
+## Pioneer 6 首启体验与生命周期边界
 
-Pioneer 5 不新增 SDK、Runtime、Marketplace 后端或 IPC 命令。前端通过现有 `LanguageServerIPC`、`ToolchainsOverview` 和扩展清单表达既有能力。
+Pioneer 6 聚焦首启体验与退出生命周期：新增主程序内嵌的欢迎引导覆盖层（OOBE）与安装器三语选择器，落地退出清理队列；不新增 SDK、Runtime 或 Marketplace 后端能力。前端通过现有 `LanguageServerIPC`、`ToolchainsOverview` 和扩展清单表达既有能力。
 
-- `GlassContainer` 的 `base`、`raised`、`overlay` 是唯一视觉层级；`Card` 只承载重复项目，页面分组不再叠加容器。
+- `GlassContainer` 的 `base`、`raised`、`overlay` 是唯一视觉层级；`Card` 只承载重复项目，页面分组不再叠加容器。欢迎引导复用同一套表面与主题令牌，不引入新的页面层级。
+- 首次运行（无 `user-config.json`）时主窗口直接呈现全屏欢迎引导覆盖层，底层工作台并行启动；顶部栏与主程序统一（隐藏菜单项）。
+- 软件退出遵循「前端与 WebView 先清理、窗口销毁后端再清理缓存」的顺序，WebView 缓存清理为有界等待的 best-effort 语义。
 - Marketplace 的 `discover`、`installed`、`toolchains` 各自保存 query、filter、scrollTop 和 selected item；只有 Discover 的提交搜索会发起远程目录请求。
 - 本地 LSP/Runtime 行只显示 IPC 与安装 manifest 的事实。缺少版本、大小、SHA-256 或下载地址时显示“信息不可用”，不得用市场统计或另一处版本猜测。
 - Keep-Alive 仍由 Workspace 保持挂载，但非活动页面使用 `display: none` 移除 Canvas/WebView 组成表面。lazy chunk 失败由 `LazyChunkBoundary` 记录模块路径并提供重试/重新加载。
@@ -127,6 +129,7 @@ Src/
 - **文本核心引擎**：基于 Ropey 维护大文本绳结构与版本修订链；
 - **扩展运行时**：Wasmtime 实例池管理、Host API 派发与 APPDATA 路径注入；
 - **系统接口桥接**：PTY 伪终端守护、LSP 子进程通信、真实系统剪贴板与文件系统监控；
+- **窗口生命周期**：Splashscreen 最短展示后交棒主窗口；首次运行（无 user-config.json）时主程序直接呈现内置的全屏欢迎引导覆盖层（欢迎 → 语言 → 外观主题 → 账户登录，可跳过），顶部栏与主程序统一（隐藏菜单项），完整复用主程序主题系统，完成引导进入工作台，引导中关闭窗口即退出应用，高级设置支持重新运行；所有窗口销毁后执行有界等待的 WebView 缓存退出清理队列；
 - **数据管理**：递归计算 APPDATA 真实物理占用，提供一键安全清理。
 
 ---

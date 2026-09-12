@@ -1,8 +1,28 @@
 use serde::Serialize;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tauri::{Manager, State};
 
 use crate::performance::PerformanceState;
+
+/// 退出清理开关：前端启动时依据 user-config.json 的 cleanup.clearCacheOnExit 同步，
+/// 默认开启。窗口全部销毁后（RunEvent::Exit）按此开关清理 WebView 缓存。
+pub struct ExitCleanupState {
+    pub enabled: AtomicBool,
+}
+
+impl Default for ExitCleanupState {
+    fn default() -> Self {
+        Self {
+            enabled: AtomicBool::new(true),
+        }
+    }
+}
+
+#[tauri::command]
+pub fn set_exit_cleanup_enabled(state: State<'_, ExitCleanupState>, enabled: bool) {
+    state.enabled.store(enabled, Ordering::SeqCst);
+}
 
 #[cfg(test)]
 mod tests {
@@ -218,15 +238,30 @@ pub async fn clear_err_logs(app: tauri::AppHandle) -> Result<(), String> {
         .map_err(|error| format!("Error log cleanup task failed: {error}"))?
 }
 
+/// 运行期间手动清理 WebView 缓存：EBWebView 目录的部分文件可能仍被 WebView2
+/// 浏览器进程锁定。做有界重试的 best-effort 删除：
+/// - 返回 Ok(true)：目录已完全清空；
+/// - 返回 Ok(false)：仍有文件被占用（这些文件会在应用退出后由退出清理队列删除）。
 #[tauri::command]
-pub async fn clear_webview_cache(app: tauri::AppHandle) -> Result<(), String> {
+pub async fn clear_webview_cache(app: tauri::AppHandle) -> Result<bool, String> {
     let app_dir = app
         .path()
         .app_local_data_dir()
         .map_err(|error| format!("Failed to get app local data dir: {error}"))?;
-    tokio::task::spawn_blocking(move || clear_directory_contents(&app_dir.join("EBWebView"), &[]))
-        .await
-        .map_err(|error| format!("WebView cache cleanup task failed: {error}"))?
+    tokio::task::spawn_blocking(move || {
+        let webview_cache = app_dir.join("EBWebView");
+        for attempt in 0..4 {
+            if clear_directory_contents_best_effort(&webview_cache) {
+                return Ok(true);
+            }
+            if attempt < 3 {
+                std::thread::sleep(Duration::from_millis(150));
+            }
+        }
+        Ok(false)
+    })
+    .await
+    .map_err(|error| format!("WebView cache cleanup task failed: {error}"))?
 }
 
 #[tauri::command]
@@ -306,6 +341,53 @@ fn clear_directory_contents(path: &Path, preserved_names: &[&str]) -> Result<(),
     Ok(())
 }
 
+/// best-effort 删除目录内容：单个条目删除失败（如被占用）时跳过并继续。
+/// 返回 true 表示目录已不存在或已清空。
+fn clear_directory_contents_best_effort(path: &Path) -> bool {
+    if !path.exists() {
+        return true;
+    }
+    let Ok(entries) = fs::read_dir(path) else {
+        return false;
+    };
+    let mut remaining = false;
+    for entry in entries.flatten() {
+        let entry_path = entry.path();
+        let Ok(file_type) = entry.file_type() else {
+            remaining = true;
+            continue;
+        };
+        let result = if file_type.is_dir() {
+            fs::remove_dir_all(&entry_path)
+        } else {
+            fs::remove_file(&entry_path)
+        };
+        if result.is_err() {
+            remaining = true;
+        }
+    }
+    !remaining
+}
+
+/// 退出清理队列：在所有窗口销毁之后（RunEvent::Exit）调用。
+/// WebView2 浏览器进程释放 EBWebView 文件锁通常在几百毫秒内完成，
+/// 这里最多等待约 3 秒做 best-effort 清理，保证退出不会长时间滞留后台。
+pub fn run_exit_cleanup(app: &tauri::AppHandle) {
+    let Ok(app_dir) = app.path().app_local_data_dir() else {
+        return;
+    };
+    let webview_cache = app_dir.join("EBWebView");
+    if !webview_cache.exists() {
+        return;
+    }
+    for _ in 0..12 {
+        if clear_directory_contents_best_effort(&webview_cache) {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
+}
+
 #[tauri::command]
 pub fn mark_splashscreen_shown(state: State<PerformanceState>) -> Result<(), String> {
     state.mark_splash_shown()
@@ -321,14 +403,15 @@ pub async fn close_splashscreen(
         tokio::time::sleep(remaining).await;
     }
 
+    if let Some(splashscreen) = app.get_webview_window("splashscreen") {
+        let _ = splashscreen.close();
+    }
+
     if let Some(main_window) = app.get_webview_window("main") {
         main_window
             .show()
             .map_err(|error| format!("Unable to show main window: {error}"))?;
         let _ = main_window.set_focus();
-    }
-    if let Some(splashscreen) = app.get_webview_window("splashscreen") {
-        let _ = splashscreen.close();
     }
     Ok(())
 }

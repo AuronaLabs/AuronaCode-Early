@@ -1,6 +1,28 @@
 import type { LocaleMessages } from "./zh-CN";
 
 export const zhHant: LocaleMessages = {
+  oobe: {
+    welcomeTitle: "歡迎使用 Aurona Code",
+    welcomeDesc: "寫程式這件事，值得更舒服、更安靜的角落。",
+    start: "開始",
+    languageTitle: "選擇你的語言",
+    languageDesc: "介面語言即刻生效，之後可以在設定中隨時變更。",
+    themeTitle: "選擇外觀",
+    themeDesc: "主題會即時預覽，隨時可以在「設定 → 外觀」中調整。",
+    themeLight: "淺色",
+    themeDark: "深色",
+    themeSystem: "跟隨系統",
+    accountTitle: "登入 Aurona Account",
+    accountDesc:
+      "登入後可在裝置間同步你的偏好與設定。也可以先跳過，稍後在「設定 → 帳戶」中隨時登入。",
+    accountHint: "授權將在系統瀏覽器中完成，應用程式不會讀取或儲存你的密碼",
+    accountSkip: "暫不登入",
+    readyTitle: "一切就緒",
+    readyDesc: "你的工作台已按所選偏好準備完畢，隨時可以開始創造。",
+    back: "上一步",
+    next: "下一步",
+    finish: "開始使用",
+  },
   common: {
     search: "搜尋",
     cancel: "取消",
@@ -239,6 +261,7 @@ export const zhHant: LocaleMessages = {
     latest: "最新版本",
     expand: "展開",
     collapse: "收合",
+    versionPicker: "選擇版本",
   },
   notifications: {
     title: "通知",
@@ -587,6 +610,8 @@ export const zhHant: LocaleMessages = {
     languageZhCN: "简体中文",
     languageZhHant: "繁體中文",
     languageEn: "English",
+    fliunoOpenModeSidebar: "側邊欄",
+    fliunoOpenModeEditorTab: "編輯區標籤頁",
     notificationsTitle: "通知管理",
     notificationsDescription: "設定應用程式通知彈窗呈現方式與靜音策略",
     muteNonCritical: "靜音非重要通知",
@@ -610,6 +635,11 @@ export const zhHant: LocaleMessages = {
     resetApp: "初始化重設",
     resetAppDescription: "清除應用程式全部本機資料，使編輯器回到初始安裝狀態",
     resetAppAction: "重設應用程式",
+    oobeRerun: {
+      title: "歡迎引導",
+      desc: "重新體驗首次啟動的歡迎引導流程，可再次選擇語言與外觀",
+      action: "重新執行",
+    },
     advancedDescription: "實驗性選項、更新與出廠重設",
     advancedEmpty: "實驗性與開發者選項即將在後續版本開放",
     categories: {
@@ -716,6 +746,7 @@ export const zhHant: LocaleMessages = {
       saveFailed: "儲存失敗: {message}",
       upToDate: "目前已是最新版本",
       checkUpdateFailed: "檢查更新失敗：{message}",
+      updateCheckTimeout: "檢查更新逾時，請檢查網路後重試",
       cacheCleared: "快取與設定已清除，請重新啟動應用程式",
       resetCompleted: "應用程式資料已重設，即將重新啟動",
     },
@@ -852,7 +883,8 @@ export const zhHant: LocaleMessages = {
       appDataDir: "應用程式本機資料目錄",
       openAppDataDir: "開啟資料目錄",
       note: "以上項目對應應用程式本機資料目錄中的真實檔案與資料夾；WebView 快取清理後由 WebView2 自動重建，設定、工作區狀態與復原快照屬於核心資料，請謹慎清理",
-      detailsTitle: "儲存細項與清理",
+      exitCleanupTitle: "結束時自動清理快取",
+      exitCleanupDescription: "關閉應用程式後自動清理 WebView 渲染快取與暫存檔案，無需手動維護",
       groupCore: "核心資料",
       groupExtensions: "擴充與外掛",
       groupToolchains: "語言服務與執行環境",
@@ -925,6 +957,10 @@ export const zhHant: LocaleMessages = {
       language: {
         title: "介面語言",
         description: "簡體中文、繁體中文 (Beta) 或 English (Beta)",
+      },
+      fliunoOpenMode: {
+        title: "Fliuno 工作區入口",
+        description: "點擊側邊欄搜尋圖示時，Fliuno 在左側側邊欄還是編輯區標籤頁開啟",
       },
       accentTheme: { title: "色彩主題", description: "選擇工作台的強調色與背景" },
       liquidTexture: { title: "流光", description: "柔和光帶緩慢掃過視窗" },

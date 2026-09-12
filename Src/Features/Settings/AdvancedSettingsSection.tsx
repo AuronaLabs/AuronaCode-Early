@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useOobeStore } from "../../App/Oobe/useOobeStore";
 import { UpdaterService } from "../../Core/UpdaterService";
 import { BaseDirectory, desktopFileSystem } from "../../Foundation/Desktop";
 import { useLocale } from "../../Foundation/I18n";
+import { formatDisplayVersion } from "../../Foundation/Release/ReleaseChannel";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { useFeatureFlagStore } from "../../State/useFeatureFlagStore";
@@ -27,11 +29,19 @@ export function AdvancedSettingsSection() {
     try {
       const result = await UpdaterService.checkForUpdates();
       if (result.status === "available") {
-        showToast(`${t("titleBar.updateAvailable")}: v${result.update.version}`, "info");
+        showToast(
+          `${t("titleBar.updateAvailable")}: ${formatDisplayVersion(result.update.version)}`,
+          "info",
+        );
       } else if (result.status === "up-to-date") {
         showToast(t("settings.toast.upToDate"), "success");
       } else if (result.status === "error") {
-        showToast(result.error || t("settings.toast.checkUpdateFailed"), "error");
+        showToast(
+          result.error === "timeout"
+            ? t("settings.toast.updateCheckTimeout")
+            : result.error || t("settings.toast.checkUpdateFailed"),
+          "error",
+        );
       }
     } catch (err) {
       showToast(err instanceof Error ? err.message : String(err), "error");
@@ -95,7 +105,27 @@ export function AdvancedSettingsSection() {
           </Button>
         </div>
 
-        {/* 3. 初始化重置 */}
+        {/* 3. 欢迎引导 */}
+        <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              {t("settings.oobeRerun.title")}
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
+              {t("settings.oobeRerun.desc")}
+            </span>
+          </div>
+          <Button
+            variant="secondary"
+            className="h-8 text-[12px] px-3.5"
+            onClick={() => useOobeStore.getState().open("rerun")}
+          >
+            <Icons.Sparkles size={14} />
+            {t("settings.oobeRerun.action")}
+          </Button>
+        </div>
+
+        {/* 4. 初始化重置 */}
         <div className="flex items-center justify-between p-5">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">

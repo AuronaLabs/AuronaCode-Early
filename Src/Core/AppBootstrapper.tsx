@@ -1,7 +1,11 @@
 import type React from "react";
 import { useEffect, useState } from "react";
+import { OobeOverlay } from "../App/Oobe";
+import { useOobeStore } from "../App/Oobe/useOobeStore";
 import { applyAccentTheme, applyLiquidTexture } from "../App/ThemeAccent";
+import { BaseDirectory, desktopFileSystem } from "../Foundation/Desktop";
 import { AppLifecycleIPC } from "../Foundation/IPC/AppLifecycleCommands";
+import { StorageIPC } from "../Foundation/IPC/StorageCommands";
 import { PlatformService } from "../Foundation/Platform";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 import { setPathPlatform } from "../Shared/Utils/UriUtils";
@@ -34,6 +38,7 @@ const applyResponsiveDensity = (density?: "compact" | "default" | "regular" | "c
 export function AppBootstrapper({ children }: Props) {
   const [ready, setReady] = useState(false);
   const [initError, setInitError] = useState<Error | null>(null);
+  const oobeMode = useOobeStore((state) => state.mode);
 
   if (initError) throw initError;
 
@@ -46,7 +51,23 @@ export function AppBootstrapper({ children }: Props) {
         await PlatformService.initialize();
         setPathPlatform(PlatformService.current());
         await UserConfigStore.init();
+
+        // 首次运行（尚无 user-config.json）：准备欢迎引导覆盖层。
+        // 覆盖层在 Splash 关闭、主窗口显示后就绪即呈现，底层工作台并行启动不受阻塞。
+        const configExists = await desktopFileSystem
+          .exists("user-config.json", { baseDir: BaseDirectory.AppLocalData })
+          .catch(() => true);
+        if (!mounted) return;
+        if (!configExists) {
+          useOobeStore.getState().open("first-run");
+        }
+
         const userConfig = await UserConfigStore.get();
+
+        // 同步退出清理开关到 Rust 侧（默认开启），窗口全部销毁后据此清理 WebView 缓存
+        await StorageIPC.setExitCleanupEnabled(
+          userConfig.cleanup?.clearCacheOnExit !== false,
+        ).catch(() => undefined);
 
         const savedTheme = userConfig.theme || "system";
         const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -142,5 +163,10 @@ export function AppBootstrapper({ children }: Props) {
 
   // We only render children once the bootstrapping is fully complete.
   // This ensures the main window is rendered with its full DOM tree before it becomes visible!
-  return <>{ready ? children : null}</>;
+  return (
+    <>
+      {ready ? children : null}
+      {oobeMode && <OobeOverlay />}
+    </>
+  );
 }

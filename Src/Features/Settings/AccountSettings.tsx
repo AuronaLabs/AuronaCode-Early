@@ -109,112 +109,157 @@ export function AccountSettings() {
       className="flex min-h-[520px] w-full max-w-3xl flex-col overflow-hidden"
     >
       {signedIn ? (
-        <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center">
-          <div className="relative mb-7">
-            <AccountAvatar key={profile.picture} name={displayName} picture={profile.picture} />
-            <span className="absolute bottom-1.5 right-1.5 grid size-6 place-items-center rounded-full border border-[var(--border-subtle)] bg-[var(--StatusSuccess)] text-white shadow-sm">
-              <Icons.Check size={13} stroke={3} />
-            </span>
-          </div>
-          <h2 className="max-w-full break-words text-3xl font-bold tracking-tight text-[var(--color-text-highlight)]">
-            {displayName}
-          </h2>
-          <p className="mt-2 max-w-full break-all text-xl font-medium text-[var(--color-text-primary)]">
-            {profile.email || t("account.noEmail")}
-          </p>
-
-          {profile.preferredUsername && (
-            <p className="mt-4 max-w-lg break-all text-[13px] font-medium text-[var(--color-text-muted)]">
-              @{profile.preferredUsername}
-            </p>
-          )}
-
-          <div className="mt-7 flex items-center justify-center gap-3">
-            <Button
-              variant="secondary"
-              disabled={isRefreshing}
-              onClick={() => void refreshProfile()}
-            >
-              <Icons.Refresh size={16} className={isRefreshing ? "animate-spin" : undefined} />
-              {isRefreshing ? t("account.refreshing") : t("account.refreshProfile")}
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={isOperating}
-              className="text-[var(--StatusError)]"
-              onClick={() => void logout()}
-            >
-              <Icons.Logout size={17} />
-              {isOperating ? t("account.signingOut") : t("account.logout")}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center">
-          <div className="mb-7 grid size-20 place-items-center rounded-[var(--radius-surface)] border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-accent)]">
-            <Icons.User size={36} stroke={1.5} />
-          </div>
-          <h2 className="text-2xl font-bold tracking-tight text-[var(--color-text-highlight)]">
-            Aurona Account
-          </h2>
-          <p className="mt-3 max-w-md text-[13px] leading-6 text-[var(--color-text-muted)]">
-            {t("account.intro")}
-          </p>
-
-          <div className="mt-6 flex max-w-md flex-wrap items-center justify-center gap-2">
-            {REQUESTED_SCOPES.map((scope) => (
-              <span
-                key={scope}
-                className="rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 py-1 font-mono text-[10px] text-[var(--color-text-muted)]"
-              >
-                {scope}
-              </span>
-            ))}
-          </div>
-          <p className="mt-2 max-w-md text-[11px] leading-5 text-[var(--color-text-muted)]">
-            {t("account.scopesNote")}
-          </p>
-
-          {status.enabled ? (
-            pending ? (
-              <div className="mt-8 flex flex-col items-center gap-4">
-                <span className="inline-flex items-center gap-2 text-[13px] font-medium text-[var(--color-text-primary)]">
-                  <Icons.Refresh size={16} className="animate-spin" />
-                  {phaseMessage(t, status.phase) || t("account.preparingLogin")}
-                </span>
-                <Button variant="ghost" onClick={() => void cancel()}>
-                  {t("account.cancelLogin")}
-                </Button>
-              </div>
-            ) : (
-              <Button className="mt-8" size="lg" onClick={() => void login()}>
-                <Icons.Login size={18} />
-                {t("account.login")}
-              </Button>
-            )
-          ) : (
-            <p className="mt-8 rounded-xl bg-[var(--material-panel)] px-4 py-3 text-[12px] text-[var(--color-text-muted)]">
-              {t("account.notConfigured")}
-            </p>
-          )}
-
-          {(interactionError || status.lastError?.userMessage) && status.phase !== "signedIn" && (
+        <>
+          {/* Hero 区：accent 光晕 + 头像光圈 + 身份信息 */}
+          <div className="relative overflow-hidden px-8 pb-8 pt-11 text-center">
             <div
-              role="alert"
-              className="mt-6 max-w-lg rounded-xl border border-[var(--StatusError)]/15 bg-[var(--StatusError)]/5 px-4 py-3 text-[12px] leading-5 text-[var(--StatusError)]"
-            >
-              {interactionError || status.lastError?.userMessage}
-            </div>
-          )}
-          {status.lastNotice &&
-            !interactionError &&
-            !status.lastError &&
-            status.phase !== "signedIn" && (
-              <p className="mt-6 text-[12px] text-[var(--color-text-muted)]" role="status">
-                {status.lastNotice}
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_50%_0%,color-mix(in_srgb,var(--color-accent)_13%,transparent),transparent)]"
+            />
+            <div className="relative flex flex-col items-center">
+              <div className="relative mb-6">
+                <div
+                  aria-hidden="true"
+                  className="absolute -inset-2.5 rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--color-accent)_24%,transparent),transparent_72%)]"
+                />
+                <AccountAvatar
+                  key={profile.picture}
+                  name={displayName}
+                  picture={profile.picture}
+                  className="relative ring-2 ring-[color-mix(in_srgb,var(--color-accent)_35%,transparent)]"
+                />
+                <span className="absolute bottom-1.5 right-1.5 grid size-6 place-items-center rounded-full border border-[var(--border-subtle)] bg-[var(--StatusSuccess)] text-white shadow-sm">
+                  <Icons.Check size={13} stroke={3} />
+                </span>
+              </div>
+              <h2 className="max-w-full break-words text-[22px] font-bold tracking-tight text-[var(--color-text-highlight)]">
+                {displayName}
+              </h2>
+              <p className="mt-1.5 max-w-full break-all text-[13px] font-medium text-[var(--color-text-primary)]">
+                {profile.email || t("account.noEmail")}
               </p>
-            )}
-        </div>
+              {profile.preferredUsername && (
+                <p className="mt-1 max-w-lg break-all text-[11.5px] font-medium text-[var(--color-text-muted)]">
+                  @{profile.preferredUsername}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* 操作区：行式布局 */}
+          <div className="flex flex-col gap-2 border-t border-[var(--border-subtle)] px-6 py-5">
+            <div className="flex items-center justify-between rounded-[var(--radius-surface)] border border-[var(--border-subtle)] bg-[var(--surface-base)] px-4 py-3">
+              <div className="flex items-center gap-2.5 text-[12.5px] text-[var(--color-text-highlight)]">
+                <Icons.Refresh size={15} className="text-[var(--color-text-muted)]" />
+                {t("account.refreshProfile")}
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={isRefreshing}
+                onClick={() => void refreshProfile()}
+              >
+                {isRefreshing ? t("account.refreshing") : t("account.refreshProfile")}
+              </Button>
+            </div>
+            <div className="flex items-center justify-between rounded-[var(--radius-surface)] border border-[var(--border-subtle)] bg-[var(--surface-base)] px-4 py-3">
+              <div className="flex items-center gap-2.5 text-[12.5px] text-[var(--color-text-highlight)]">
+                <Icons.Logout size={15} className="text-[var(--StatusError)]" />
+                {t("account.logout")}
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={isOperating}
+                className="text-[var(--StatusError)] hover:text-[var(--StatusError)]"
+                onClick={() => void logout()}
+              >
+                {isOperating ? t("account.signingOut") : t("account.logout")}
+              </Button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Hero 区：光晕图标 + 标题 + 简介 */}
+          <div className="relative overflow-hidden px-8 pb-8 pt-11 text-center">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_50%_0%,color-mix(in_srgb,var(--color-accent)_13%,transparent),transparent)]"
+            />
+            <div className="relative flex flex-col items-center">
+              <div className="relative mb-6 grid size-20 place-items-center rounded-[var(--radius-surface)] border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-accent)]">
+                <Icons.User size={36} stroke={1.5} />
+              </div>
+              <h2 className="text-[22px] font-bold tracking-tight text-[var(--color-text-highlight)]">
+                Aurona Account
+              </h2>
+              <p className="mt-2.5 max-w-md text-[13px] leading-6 text-[var(--color-text-muted)]">
+                {t("account.intro")}
+              </p>
+            </div>
+          </div>
+
+          {/* 信息与操作区 */}
+          <div className="flex flex-1 flex-col items-center gap-4 border-t border-[var(--border-subtle)] px-8 py-6 text-center">
+            <div className="flex max-w-md flex-wrap items-center justify-center gap-2">
+              {REQUESTED_SCOPES.map((scope) => (
+                <span
+                  key={scope}
+                  className="rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 py-1 font-mono text-[10px] text-[var(--color-text-muted)]"
+                >
+                  {scope}
+                </span>
+              ))}
+            </div>
+            <p className="max-w-md text-[11px] leading-5 text-[var(--color-text-muted)]">
+              {t("account.scopesNote")}
+            </p>
+
+            <div className="mt-auto flex flex-col items-center gap-4 pt-2">
+              {status.enabled ? (
+                pending ? (
+                  <>
+                    <span className="inline-flex items-center gap-2 text-[13px] font-medium text-[var(--color-text-primary)]">
+                      <Icons.Refresh size={16} className="animate-spin" />
+                      {phaseMessage(t, status.phase) || t("account.preparingLogin")}
+                    </span>
+                    <Button variant="ghost" onClick={() => void cancel()}>
+                      {t("account.cancelLogin")}
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="lg" onClick={() => void login()}>
+                    <Icons.Login size={18} />
+                    {t("account.login")}
+                  </Button>
+                )
+              ) : (
+                <p className="rounded-xl bg-[var(--material-panel)] px-4 py-3 text-[12px] text-[var(--color-text-muted)]">
+                  {t("account.notConfigured")}
+                </p>
+              )}
+
+              {(interactionError || status.lastError?.userMessage) &&
+                status.phase !== "signedIn" && (
+                  <div
+                    role="alert"
+                    className="max-w-lg rounded-xl border border-[var(--StatusError)]/15 bg-[var(--StatusError)]/5 px-4 py-3 text-[12px] leading-5 text-[var(--StatusError)]"
+                  >
+                    {interactionError || status.lastError?.userMessage}
+                  </div>
+                )}
+              {status.lastNotice &&
+                !interactionError &&
+                !status.lastError &&
+                status.phase !== "signedIn" && (
+                  <p className="text-[12px] text-[var(--color-text-muted)]" role="status">
+                    {status.lastNotice}
+                  </p>
+                )}
+            </div>
+          </div>
+        </>
       )}
     </GlassContainer>
   );

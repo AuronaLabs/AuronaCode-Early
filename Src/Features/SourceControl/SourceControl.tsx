@@ -14,6 +14,7 @@ import { cn } from "../../Shared/Utils/cn";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Button } from "../../UI/Components/Button";
 import { EmptyState } from "../../UI/Components/EmptyState";
+import { FilterChips } from "../../UI/Components/FilterChips";
 import { glassListHeaderStyles, glassListRowStyles } from "../../UI/Components/GlassList";
 import { Modal } from "../../UI/Components/Modal";
 import { Select } from "../../UI/Components/Select";
@@ -498,21 +499,25 @@ export const SourceControl = React.memo(function SourceControl() {
         }
       />
 
-      <div className="flex items-center gap-1 mx-[var(--PanelPaddingX)] mb-3 shrink-0">
-        <button
-          type="button"
-          className={`relative flex h-[28px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 ${activeTab === "changes" ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
-          onClick={() => setActiveTab("changes")}
-        >
-          <Icons.GitBranch size={13} /> {t("sourceControl.changesTab")}
-        </button>
-        <button
-          type="button"
-          className={`relative flex h-[28px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-colors duration-150 ${activeTab === "history" ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]" : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
-          onClick={() => setActiveTab("history")}
-        >
-          <Icons.History size={13} /> {t("sourceControl.historyTab")}
-        </button>
+      <div className="px-[var(--PanelPaddingX)] mb-3 shrink-0">
+        <FilterChips
+          size="md"
+          ariaLabel={t("sourceControl.changesTab")}
+          value={activeTab}
+          onChange={setActiveTab}
+          items={[
+            {
+              id: "changes",
+              label: t("sourceControl.changesTab"),
+              icon: <Icons.GitBranch size={13} />,
+            },
+            {
+              id: "history",
+              label: t("sourceControl.historyTab"),
+              icon: <Icons.History size={13} />,
+            },
+          ]}
+        />
       </div>
 
       <div className="mx-[var(--PanelPaddingX)] mb-3 flex shrink-0 items-center gap-1.5">

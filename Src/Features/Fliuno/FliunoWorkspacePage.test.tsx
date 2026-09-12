@@ -150,17 +150,17 @@ describe("FliunoWorkspacePage keyboard navigation", () => {
     await settleDebounce();
   });
 
-  it("removes a conflicting explicit prefix when a scope button is clicked", async () => {
+  it("removes a conflicting explicit prefix when a scope chip is clicked", async () => {
     render(<FliunoWorkspacePage />);
     const input = screen.getByPlaceholderText("搜索文件、内容、符号、命令或设置…");
     fireEvent.change(input, { target: { value: ">save" } });
 
-    fireEvent.click(screen.getByRole("button", { name: "文件" }));
+    fireEvent.click(screen.getByRole("tab", { name: "文件" }));
 
     expect((input as HTMLInputElement).value).toBe("save");
     expect(
       screen
-        .getByRole("button", { name: "文件" })
+        .getByRole("tab", { name: "文件" })
         .classList.contains("bg-[var(--material-interactive-active)]"),
     ).toBe(true);
     await settleDebounce();

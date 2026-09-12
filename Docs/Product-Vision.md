@@ -1,15 +1,15 @@
 # Aurona Code 产品愿景与长期演进
 
-## Pioneer 5 收敛里程碑
+## Pioneer 6 首启体验里程碑
 
-Pioneer 5 是一次产品表达收敛版本，冻结新的 SDK、Runtime、Marketplace 能力和页面入口，优先确保已有能力可被稳定、清晰地使用。
+Pioneer 6 是一次首启体验与运行质量收敛版本：把「第一次打开」做到位（主程序内嵌欢迎引导与安装器三语选择），把「关闭软件」做干净（退出清理队列与 WebView 缓存生命周期治理），并同步优化 Release 构建与性能基准模型。
 
-- 工作台和内部页面使用 base、raised、overlay 三层 surface 语法；重复项目才使用 Card，页面分组使用 section、divider 和标题层级。
-- Marketplace 只有 Discover、Installed、Toolchains 三个并列模式。Toolchains 是 LSP 与 Runtime 安装、版本、启停、重启和卸载的唯一入口。
-- 搜索输入只筛选当前目录，Enter 或搜索动作才提交远程查询；取消的请求不会改变 offline 状态，也不能覆盖新结果。
-- 保留 Tab Keep-Alive 状态，但隐藏非活动 Canvas/WebView 的组成表面；动态模块失败必须提供可恢复操作。
+- 工作台和内部页面使用 base、raised、overlay 三层 surface 语法；重复项目才使用 Card，页面分组使用 section、divider 和标题层级。欢迎引导与高级设置重游入口复用同一套规范。
+- 首次启动即可完成语言与外观选择并即时预览；Aurona 账户登录可在引导中跳过，稍后在设置中随时补全。
+- 软件关闭时执行退出清理队列：前端与 WebView 先清理，后端在窗口销毁后对缓存目录做有界等待的 best-effort 清理。
+- 性能验收以修订后的基准模型为准：文件系统基准并行执行、评分模型可横向对比、WASM 基准包缺失时优雅降级不阻断。
 
-Pioneer 5 的验收重点是路径一致、数据真实、状态可恢复和视觉层级可扫描，而不是新增功能数量。
+Pioneer 6 的验收重点是首启即母语、主题即见即所得、退出不留残余和跑分真实可比，而不是新增功能数量。
 
 ## 1. 为什么创立 Aurona Code？
 

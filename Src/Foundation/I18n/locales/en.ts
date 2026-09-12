@@ -1,6 +1,29 @@
 import type { LocaleMessages } from "./zh-CN";
 
 export const en: LocaleMessages = {
+  oobe: {
+    welcomeTitle: "Welcome to Aurona Code",
+    welcomeDesc: "Because writing code deserves a calmer, more comfortable corner.",
+    start: "Get Started",
+    languageTitle: "Choose Your Language",
+    languageDesc: "Applies immediately; you can change it anytime in Settings.",
+    themeTitle: "Choose Your Look",
+    themeDesc: "The theme previews live; adjust it anytime in Settings → Appearance.",
+    themeLight: "Light",
+    themeDark: "Dark",
+    themeSystem: "System",
+    accountTitle: "Sign in to Aurona Account",
+    accountDesc:
+      "Sign in to sync your preferences across devices. You can also skip this and sign in later in Settings → Account.",
+    accountHint:
+      "Authorization happens in your system browser; the app never sees or stores your password.",
+    accountSkip: "Not Now",
+    readyTitle: "You're All Set",
+    readyDesc: "Your workbench is ready with your preferences. Time to start creating.",
+    back: "Back",
+    next: "Next",
+    finish: "Start Using",
+  },
   common: {
     search: "Search",
     cancel: "Cancel",
@@ -241,6 +264,7 @@ export const en: LocaleMessages = {
     latest: "Latest",
     expand: "Expand",
     collapse: "Collapse",
+    versionPicker: "Select a version",
   },
   notifications: {
     title: "Notifications",
@@ -600,6 +624,8 @@ export const en: LocaleMessages = {
     languageZhCN: "Simplified Chinese",
     languageZhHant: "Traditional Chinese",
     languageEn: "English",
+    fliunoOpenModeSidebar: "Sidebar",
+    fliunoOpenModeEditorTab: "Editor Tab",
     notificationsTitle: "Notifications",
     notificationsDescription: "Configure notification toasts and silencing preferences",
     muteNonCritical: "Mute Non-Critical Notifications",
@@ -624,6 +650,11 @@ export const en: LocaleMessages = {
     resetApp: "Factory Reset",
     resetAppDescription: "Clear all local data and restore the initial installation state",
     resetAppAction: "Reset Application",
+    oobeRerun: {
+      title: "Welcome Tour",
+      desc: "Revisit the first-run welcome experience to pick your language and look again",
+      action: "Run Again",
+    },
     advancedDescription: "Experimental options, updates and factory reset",
     advancedEmpty: "Experimental and developer options are coming soon",
     categories: {
@@ -735,6 +766,7 @@ export const en: LocaleMessages = {
       saveFailed: "Save failed: {message}",
       upToDate: "You are up to date",
       checkUpdateFailed: "Update check failed: {message}",
+      updateCheckTimeout: "Update check timed out. Check your network and try again",
       cacheCleared: "Cache and configuration cleared. Restart the app",
       resetCompleted: "App data reset. Restarting…",
     },
@@ -879,7 +911,9 @@ export const en: LocaleMessages = {
       appDataDir: "App local data directory",
       openAppDataDir: "Open Data Directory",
       note: "Entries above map to real files and folders in the app local data directory; WebView cache is rebuilt automatically, while configuration, workspace state and recovery snapshots are core data, so clear them with care",
-      detailsTitle: "Storage Breakdown & Cleanup",
+      exitCleanupTitle: "Auto-Clean on Exit",
+      exitCleanupDescription:
+        "Automatically clean WebView render cache and temp files when the app closes, no manual maintenance needed",
       groupCore: "Core Data",
       groupExtensions: "Extensions",
       groupToolchains: "Language Servers & Runtimes",
@@ -957,6 +991,11 @@ export const en: LocaleMessages = {
       language: {
         title: "Interface Language",
         description: "Simplified Chinese, Traditional Chinese (Beta) or English (Beta)",
+      },
+      fliunoOpenMode: {
+        title: "Fliuno Workspace Entry",
+        description:
+          "Where the sidebar search icon opens Fliuno: the left sidebar or an editor tab",
       },
       accentTheme: {
         title: "Color Theme",
