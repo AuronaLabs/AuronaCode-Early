@@ -23,15 +23,19 @@ fn main() {
     // 测试进程启动即报 STATUS_ENTRYPOINT_NOT_FOUND。
     // 因此改为：bin 不由 tauri-build 嵌清单，统一用 rustc-link-arg 为所有链接
     // 目标（含 bin 与测试）嵌入同一份清单（tauri crate 自身测试亦用此方案）。
-    let app_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("windows")
-        .join("app-manifest.xml");
-    println!("cargo:rerun-if-changed={}", app_manifest.display());
-    println!("cargo:rustc-link-arg=/MANIFEST:EMBED");
-    println!(
-        "cargo:rustc-link-arg=/MANIFESTINPUT:{}",
-        app_manifest.display()
-    );
+    // 仅 Windows 目标注入：/MANIFEST:* 是 MSVC 链接器专属参数，传给 Unix 的
+    // cc/rust-lld 会被当作输入文件导致链接失败。
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        let app_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("windows")
+            .join("app-manifest.xml");
+        println!("cargo:rerun-if-changed={}", app_manifest.display());
+        println!("cargo:rustc-link-arg=/MANIFEST:EMBED");
+        println!(
+            "cargo:rustc-link-arg=/MANIFESTINPUT:{}",
+            app_manifest.display()
+        );
+    }
 
     tauri_build::try_build(
         tauri_build::Attributes::new()
