@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { DocumentService } from "../../Core/DocumentService";
 import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
+import { useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { LanguageFeaturePreferences } from "../../Foundation/Types/Config";
 import type { EditorAction } from "../../Foundation/Types/Editor";
@@ -30,7 +31,7 @@ import { useEditorHover } from "./Hooks/useEditorHover";
 import { useEditorIME } from "./Hooks/useEditorIME";
 import { useEditorKeybindings } from "./Hooks/useEditorKeybindings";
 import { useEditorPointerSelection } from "./Hooks/useEditorPointerSelection";
-import { type EditorSearchMatch, useEditorSearch } from "./Hooks/useEditorSearch";
+import { buildSearchRegex, type EditorSearchMatch, useEditorSearch } from "./Hooks/useEditorSearch";
 import {
   getCursorFromUtf16Offset,
   getLineStartUtf16,
@@ -90,6 +91,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   onSyncError,
   externalContent,
 }: AuronaEngineProps) {
+  const { t } = useLocale();
   const toggleBreakpoint = useDebugStore((state) => state.toggleBreakpoint);
   const isMinimapEnabled = useFeatureFlagStore((s) => s.isFeatureEnabled("editor.minimap"));
   const isBracketGuideEnabled = useFeatureFlagStore((s) =>
@@ -377,6 +379,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const {
     isOpen: isSearchOpen,
     query: searchQuery,
+    options: searchOptions,
+    setOptions: setSearchOptions,
     matches: searchMatches,
     currentIndex: currentMatchIndex,
     setIsOpen: setIsSearchOpen,
@@ -385,6 +389,52 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     prev: handleSearchPrev,
     close: handleSearchClose,
   } = useEditorSearch(documentLines, onScrollToMatch);
+
+  // 搜索替换：与 undo/redo 相同的落盘与同步路径
+  const [replaceValue, setReplaceValue] = useState("");
+  const invalidSearchQuery =
+    searchQuery !== "" && buildSearchRegex(searchQuery, searchOptions) === null;
+
+  const applyReplacedContent = useCallback(
+    (nextContent: string) => {
+      const nextLines = nextContent.split("\n");
+      setDocumentLines(nextLines);
+      setTotalLines(nextLines.length);
+      updateMaxLineLength(nextLines);
+      if (path)
+        DocumentService.applyEdit(path, 0, 0, nextContent, nextContent).catch(console.error);
+      onChange?.(nextContent);
+    },
+    [onChange, path, updateMaxLineLength],
+  );
+
+  const handleReplaceCurrent = useCallback(() => {
+    const match = searchMatches[currentMatchIndex];
+    if (!match) return;
+    const line = documentLines[match.line] ?? "";
+    const nextLine =
+      line.slice(0, match.char) + replaceValue + line.slice(match.char + match.length);
+    const nextLines = [...documentLines];
+    nextLines[match.line] = nextLine;
+    applyReplacedContent(nextLines.join("\n"));
+  }, [applyReplacedContent, currentMatchIndex, documentLines, replaceValue, searchMatches]);
+
+  const handleReplaceAll = useCallback(() => {
+    if (searchMatches.length === 0) return;
+    // 命中按 (line, char) 升序：逐行从后向前替换，保持索引稳定
+    const nextLines = documentLines.map((line, lineIndex) => {
+      const lineMatches = searchMatches.filter((m) => m.line === lineIndex);
+      if (lineMatches.length === 0) return line;
+      let result = line;
+      for (let i = lineMatches.length - 1; i >= 0; i--) {
+        const match = lineMatches[i];
+        result =
+          result.slice(0, match.char) + replaceValue + result.slice(match.char + match.length);
+      }
+      return result;
+    });
+    applyReplacedContent(nextLines.join("\n"));
+  }, [applyReplacedContent, documentLines, replaceValue, searchMatches]);
 
   const handleUndo = useCallback(() => {
     const entry = undo();
@@ -590,6 +640,11 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         setTotalLines(next.length);
         onChange?.(next.join("\n"));
       },
+      revealLine: (line) => {
+        if (!Number.isFinite(line) || line < 1) return;
+        const target = Math.min(Math.trunc(line) - 1, totalLines - 1);
+        scrollToLine(Math.max(0, target));
+      },
       getStatus: () => ({
         hasEditor: true,
         path,
@@ -625,6 +680,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     layout.tabSize,
     onChange,
     path,
+    scrollToLine,
+    totalLines,
   ]);
 
   // 18. Minimap 装饰标记计算
@@ -808,12 +865,20 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           onSearch={setSearchQuery}
           onClose={() => {
             handleSearchClose();
+            setReplaceValue("");
             textareaRef.current?.focus();
           }}
           onNext={handleSearchNext}
           onPrev={handleSearchPrev}
           totalMatches={searchMatches.length}
           currentIndex={currentMatchIndex}
+          options={searchOptions}
+          onOptionsChange={setSearchOptions}
+          invalidQuery={invalidSearchQuery}
+          replaceValue={replaceValue}
+          onReplaceValueChange={setReplaceValue}
+          onReplace={handleReplaceCurrent}
+          onReplaceAll={handleReplaceAll}
         />
       )}
 
@@ -907,17 +972,26 @@ export const AuronaEngine = React.memo(function AuronaEngine({
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent className="w-64">
-            <ContextMenuItem label="撤销" onSelect={handleUndo} />
-            <ContextMenuItem label="重做" onSelect={handleRedo} />
+            <ContextMenuItem label={t("editor.contextUndo")} onSelect={handleUndo} />
+            <ContextMenuItem label={t("editor.contextRedo")} onSelect={handleRedo} />
             <ContextMenuDivider />
-            <ContextMenuItem label="剪切" onSelect={() => executeEditorAction("cut")} />
-            <ContextMenuItem label="复制" onSelect={() => executeEditorAction("copy")} />
             <ContextMenuItem
-              label="粘贴"
+              label={t("editor.contextCut")}
+              onSelect={() => executeEditorAction("cut")}
+            />
+            <ContextMenuItem
+              label={t("editor.contextCopy")}
+              onSelect={() => executeEditorAction("copy")}
+            />
+            <ContextMenuItem
+              label={t("editor.contextPaste")}
               onSelect={() => navigator.clipboard.readText().then(insertTextAtCursor)}
             />
             <ContextMenuDivider />
-            <ContextMenuItem label="全选" onSelect={() => executeEditorAction("selectAll")} />
+            <ContextMenuItem
+              label={t("editor.contextSelectAll")}
+              onSelect={() => executeEditorAction("selectAll")}
+            />
           </ContextMenuContent>
         </ContextMenuRoot>
       </div>

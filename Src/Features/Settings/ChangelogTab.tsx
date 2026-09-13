@@ -239,33 +239,31 @@ export function ChangelogTab() {
         )}
 
         {/* 普通版本族：每个小版本独立一张可展开/收缩的卡片 */}
-        {selectedFamily && !selectedFamily.isPioneerFamily && (
-          <>
-            {selectedFamily.releases.map((release) => {
-              const expanded = expandedKeys.has(release.version);
-              return (
-                <Card key={release.version} className="flex flex-col overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => toggleKey(release.version)}
-                    className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-[var(--material-interactive-hover)]"
-                  >
-                    <span className="min-w-0 flex-1">
-                      {headerMeta(formatDisplayVersion(release.version), release)}
-                      {expanded && release.summary && (
-                        <span className="mt-2 block whitespace-pre-line text-[13px] leading-relaxed text-[var(--color-text-primary)] opacity-90">
-                          {parseMarkdownBold(release.summary)}
-                        </span>
-                      )}
-                    </span>
-                    {expandIndicator(expanded)}
-                  </button>
-                  {expanded && <ReleaseSections release={release} />}
-                </Card>
-              );
-            })}
-          </>
-        )}
+        {selectedFamily &&
+          !selectedFamily.isPioneerFamily &&
+          selectedFamily.releases.map((release) => {
+            const expanded = expandedKeys.has(release.version);
+            return (
+              <Card key={release.version} className="flex flex-col overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => toggleKey(release.version)}
+                  className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-[var(--material-interactive-hover)]"
+                >
+                  <span className="min-w-0 flex-1">
+                    {headerMeta(formatDisplayVersion(release.version), release)}
+                    {expanded && release.summary && (
+                      <span className="mt-2 block whitespace-pre-line text-[13px] leading-relaxed text-[var(--color-text-primary)] opacity-90">
+                        {parseMarkdownBold(release.summary)}
+                      </span>
+                    )}
+                  </span>
+                  {expandIndicator(expanded)}
+                </button>
+                {expanded && <ReleaseSections release={release} />}
+              </Card>
+            );
+          })}
       </div>
     </InternalPageLayout>
   );

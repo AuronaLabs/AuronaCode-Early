@@ -4,7 +4,7 @@
   <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-pioneer.6-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
@@ -16,7 +16,7 @@
 Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造轻量、克制且具触感美学的沉浸式编码工作台。
 
 > [!NOTE]
-> **Aurona Code Pioneer 6 首启体验版本** 当前版本为 **V0.4.0-pioneer.6**。本版本带来主程序内嵌的首启欢迎引导（OOBE）与安装器三语选择器，落地退出清理队列与 WebView 缓存生命周期治理，重构空间管理界面，并对 Release 构建与性能基准模型进行双向优化。
+> **Aurona Code V0.4.0 首个正式版** 当前版本为 **V0.4.0**（Stable 正式通道）。本版本承接 Pioneer 6 的全部改进——主程序内嵌的首启欢迎引导（OOBE）与 Windows 安装器三语选择器、退出清理队列与 WebView 缓存生命周期治理、空间管理界面重构、Release 构建与性能基准模型双向优化——并在此基础上完成扩展 SDK v1 契约固化、声明→审查→授予→强制的四段式插件权限模型，以及 VSCode 兼容层从字符串匹配报告到 **Boa 引擎 WASM 沙箱真实执行**的彻底重构。
 
 ---
 
@@ -40,17 +40,29 @@ Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面�
 
 ## 官方扩展与语言服务矩阵
 
-Aurona Code 使用 Marketplace 分发 WASM 扩展、语言服务包与公共基础运行时：
+Aurona Code 的扩展资产分为两组：**随安装包内置**（VSCode 兼容内核与官方测试插件，不占用侧边栏、不走 Marketplace）与**通过 Marketplace 分发**（WASM 扩展、LSP 语言服务包与公共基础运行时，按需安装）：
+
+### 随安装包内置（2 个）
+
+| 资产名称 | 唯一标识符 ID | 资产类型 | 特性描述 |
+| :--- | :--- | :--- | :--- |
+| **VSCode 兼容内核** | `aurona.vscode-compat` | 内置运行时 | 基于 Boa 引擎在 WASM 沙箱内真实执行标准 `.vsix` 扩展的 JavaScript 代码，提供 `vscode.commands` / `window` / `workspace.fs` / `env.clipboard` 等 API 相容层 |
+| **VSCode Demo 测试插件** | `vscode-demo` | `.vsix` (Standard) | 官方标准 VSCode 插件包，随包内置但不自动装载；在 设置 → 扩展 →「VSCode 测试插件」中一键安装，用于验证兼容层真实执行链路 |
+
+### 通过 Marketplace 分发（10 个）
 
 | 资产名称 | 唯一标识符 ID | 资产类型 | 特性描述 |
 | :--- | :--- | :--- | :--- |
 | **Markdown 预览** | `auronalabs.markdown` | WASM 扩展包 (`.aurx`) | 实时双向同步预览、结构化大纲树、GFM 规范支持 |
 | **任务面板** | `auronalabs.planner` | WASM 扩展包 (`.aurx`) | 敏捷看板、多级任务清单、测试用例追踪、Markdown 导出 |
-| **Python 语言服务** | `auronalabs.lsp-pyright` | LSP 语言服务包 | 基于 Pyright，提供 Python 3.x 静态类型检查与智能补全 |
-| **TypeScript / JS 语言服务** | `auronalabs.lsp-typescript` | LSP 语言服务包 | 基于 TS Language Server，提供全栈代码智能与重构 |
-| **Node.js 官方公共运行时** | `auronalabs.runtime-node` | 共享运行时包 (`.zip`) | Node.js 22.22.0 LTS 隔离环境，供所有 Node-based LSP 共享复用 |
-| **VSCode 兼容内核** | `aurona.vscode-compat` | 内置运行时 | 为标准 `.vsix` 扩展提供 API 转译与安全沙箱 |
-| **VSCode Bridge Demo** | `vscode-demo` | `.vsix` (Standard) | 官方标准 VSCode 插件包，由底层兼容层原生转译执行 |
+| **Python 语言服务** | `auronalabs.lsp-pyright` | LSP 语言服务包 (`.aurlsp`) | 基于 Pyright，提供 Python 3.x 静态类型检查与智能补全 |
+| **TypeScript / JS 语言服务** | `auronalabs.lsp-typescript` | LSP 语言服务包 (`.aurlsp`) | 基于 TS Language Server，提供全栈代码智能与重构 |
+| **HTML / CSS / JSON 语言服务** | `auronalabs.lsp-web` | LSP 语言服务包 (`.aurlsp`) | 提供 HTML、CSS、SCSS、LESS、JSON 与 JSON Schema 语法感知、智能补全与实时校验 |
+| **Rust 语言服务** | `auronalabs.lsp-rust` | LSP 语言服务包 (`.aurlsp`) | 基于 rust-analyzer 的官方原生 Rust 语义分析、类型推断、代码补全与宏展开 |
+| **C / C++ 语言服务** | `auronalabs.lsp-clangd` | LSP 语言服务包 (`.aurlsp`) | 基于 LLVM Clangd 的企业级 C / C++ 高精度智能感知、交叉引用与重构 |
+| **Go 语言服务** | `auronalabs.lsp-gopls` | LSP 语言服务包 (`.aurlsp`) | Google 官方 Gopls 引擎，提供精确自动导入、符号导航、代码补全与诊断 |
+| **Vue 语言服务** | `auronalabs.lsp-vue` | LSP 语言服务包 (`.aurlsp`) | Vue 3 SFC 单文件组件官方智能感知，支持 TS 深度类型推断与模板语法校验 |
+| **Node.js 官方公共运行时** | `auronalabs.runtime-node` | 共享运行时包 (`.zip`) | Node.js 22.x LTS 隔离环境，供所有 Node-based LSP 共享复用 |
 
 > **全新 UI 双模架构 (Dual UI Modes)**：插件开发者可自由选择**「官方原生声明式组件模式 (Declarative Native UI)」**（直接复用官方 Select、Switch、Card、Button 等组件，零额外体积开销）或**「自定义 Webview 容器模式 (Custom Webview Host)」**（完全自主绘制 HTML/CSS/Canvas 视图）。
 
@@ -103,10 +115,10 @@ pnpm run tauri:dev
 ```bash
 pnpm run format         # 自动格式化前端代码 (Biome)
 pnpm run typecheck      # TypeScript 类型检查
-pnpm run check          # Biome 代码规范检查
+pnpm run lint           # Biome 代码规范检查
 pnpm run smoke          # 发布元数据烟雾检查
-pnpm run test:frontend  # 运行前端 Vitest 单元测试 (233 项)
-pnpm run test:rust      # 运行 Rust 核心单元测试 (86 项)
+pnpm run test:frontend  # 运行前端 Vitest 单元测试 (241 项)
+pnpm run test:rust      # 运行 Rust 核心单元测试 (99 项)
 ```
 
 ---

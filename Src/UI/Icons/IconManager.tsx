@@ -70,6 +70,7 @@ import IconRefresh from "@tabler/icons-react/dist/esm/icons/IconRefresh.mjs";
 import IconSearch from "@tabler/icons-react/dist/esm/icons/IconSearch.mjs";
 import IconSettings from "@tabler/icons-react/dist/esm/icons/IconSettings.mjs";
 import IconShieldCheck from "@tabler/icons-react/dist/esm/icons/IconShieldCheck.mjs";
+import IconShieldOff from "@tabler/icons-react/dist/esm/icons/IconShieldOff.mjs";
 import IconSparkles from "@tabler/icons-react/dist/esm/icons/IconSparkles.mjs";
 import IconSquares from "@tabler/icons-react/dist/esm/icons/IconSquares.mjs";
 import IconStack2 from "@tabler/icons-react/dist/esm/icons/IconStack2.mjs";
@@ -178,4 +179,5 @@ export const Icons = {
   Asterisk: IconAsterisk,
   Download: IconDownload,
   ShieldCheck: IconShieldCheck,
+  ShieldOff: IconShieldOff,
 };

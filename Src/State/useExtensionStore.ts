@@ -3,6 +3,8 @@ import { canonicalExtensionId, migrateExtensionRecords } from "../Features/Exten
 import {
   type ExtensionDescriptor,
   ExtensionIPC,
+  type ExtensionPermissionCatalogEntry,
+  type ExtensionPermissionScope,
   type ExtensionPermissionState,
   type ExtensionViewPayload,
 } from "../Foundation/IPC/ExtensionCommands";
@@ -15,6 +17,10 @@ interface ExtensionStoreState {
   hiddenExtensionIds: string[];
   views: Record<string, ExtensionViewPayload | undefined>;
   permissions: Record<string, ExtensionPermissionState | undefined>;
+  /** 当前生效授权的作用域（"global"/"workspace"/"once"/"unknown"），与 permissions 同 key */
+  permissionScopes: Record<string, string | undefined>;
+  /** 后端权限目录（单一真相源），启动时拉取 */
+  permissionCatalog: ExtensionPermissionCatalogEntry[];
   initialized: boolean;
   initialize(): Promise<void>;
   refresh(): Promise<void>;
@@ -24,7 +30,10 @@ interface ExtensionStoreState {
     extensionId: string,
     permission: string,
     granted: boolean,
+    scope?: ExtensionPermissionScope,
   ): Promise<ExtensionPermissionState>;
+  /** 撤销某扩展的全部已授权限（恢复 unknown，下次使用重新询问） */
+  revokeAllPermissions(extensionId: string): Promise<void>;
   hideExtension(extensionId: string): void;
   restoreExtension(extensionId: string): void;
 }
@@ -57,56 +66,13 @@ function saveHiddenExtensions(ids: string[]): void {
   }
 }
 
-// Markdown and Planner are Marketplace packages, not bundled extensions.
-export const BUILTIN_DESCRIPTORS: ExtensionDescriptor[] = [
-  {
-    id: "aurona.vscode-compat",
-    name: "VSCode Extension Runtime",
-    displayName: {
-      "zh-CN": "VSCode 兼容运行时",
-      "zh-Hant": "VSCode 兼容執行階段",
-      en: "VSCode Compat",
-    },
-    publisher: "aurona",
-    version: "0.1.0",
-    description: "Shared WASM translation and execution runtime for VSCode extensions",
-    displayDescription: {
-      "zh-CN": "VSCode 扩展的共享 WASM 转译与安全沙箱运行时",
-      en: "Shared WASM translation and execution runtime for VSCode extensions",
-    },
-    sidebarTitle: "VSCode 兼容",
-    displayTitle: { "zh-CN": "VSCode 兼容", "zh-Hant": "VSCode 兼容", en: "VSCode Compat" },
-    sidebarIcon: "assets/icon.svg",
-    viewEntry: "ui/index.html",
-  },
-  {
-    id: "vscode-demo",
-    name: "VSCode Bridge Demo (.vsix)",
-    displayName: {
-      "zh-CN": "VSCode Demo 示例扩展",
-      "zh-Hant": "VSCode Demo 示範擴充",
-      en: "VSCode Demo",
-    },
-    publisher: "Aurona Labs",
-    version: "1.0.0",
-    description:
-      "Official VSCode .vsix demonstration package executed natively by Aurona WASM Sandbox",
-    displayDescription: {
-      "zh-CN": "官方 VSCode .vsix 格式演示包，由底层兼容层原生转译执行",
-      en: "Official VSCode .vsix demonstration package executed natively by Aurona WASM Sandbox",
-    },
-    sidebarTitle: "VSCode Demo",
-    displayTitle: { "zh-CN": "VSCode Demo", "zh-Hant": "VSCode Demo", en: "VSCode Demo" },
-    sidebarIcon: "assets/icon.svg",
-    viewEntry: "ui/index.html",
-  },
-];
-
 export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
   descriptors: [],
   hiddenExtensionIds: loadHiddenExtensions(),
   views: {},
   permissions: {},
+  permissionScopes: {},
+  permissionCatalog: [],
   initialized: false,
   async initialize() {
     if (!get().initialized) await get().refresh();
@@ -125,6 +91,10 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
       const hiddenExtensionIds = loadHiddenExtensions();
       saveHiddenExtensions(hiddenExtensionIds);
       set({ descriptors, hiddenExtensionIds, initialized: true });
+      // 权限目录：前端不维护自己的权限表，一律以后端为准
+      void ExtensionIPC.permissionCatalog()
+        .then((permissionCatalog) => set({ permissionCatalog }))
+        .catch(() => undefined);
       for (const descriptor of descriptors) {
         void ExtensionIPC.getView(descriptor.id)
           .then((view) => set((state) => ({ views: { ...state.views, [descriptor.id]: view } })))
@@ -145,19 +115,40 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
   },
   async permissionFor(extensionId, permission) {
     extensionId = canonicalExtensionId(extensionId);
-    const state = await ExtensionIPC.getPermission(extensionId, permission);
+    const detail = await ExtensionIPC.getPermission(extensionId, permission);
+    const key = permissionKey(extensionId, permission);
     set((current) => ({
-      permissions: { ...current.permissions, [permissionKey(extensionId, permission)]: state },
+      permissions: { ...current.permissions, [key]: detail.state },
+      permissionScopes: { ...current.permissionScopes, [key]: detail.scope },
+    }));
+    return detail.state;
+  },
+  async setPermission(extensionId, permission, granted, scope = "workspace") {
+    extensionId = canonicalExtensionId(extensionId);
+    const state = await ExtensionIPC.setPermission(extensionId, permission, granted, scope);
+    const key = permissionKey(extensionId, permission);
+    set((current) => ({
+      permissions: { ...current.permissions, [key]: state },
+      permissionScopes: { ...current.permissionScopes, [key]: scope },
     }));
     return state;
   },
-  async setPermission(extensionId, permission, granted) {
+  async revokeAllPermissions(extensionId) {
     extensionId = canonicalExtensionId(extensionId);
-    const state = await ExtensionIPC.setPermission(extensionId, permission, granted);
-    set((current) => ({
-      permissions: { ...current.permissions, [permissionKey(extensionId, permission)]: state },
-    }));
-    return state;
+    await ExtensionIPC.revokePermission(extensionId);
+    // 本地缓存一并失效
+    set((current) => {
+      const prefix = `${extensionId}:`;
+      const nextPermissions: Record<string, ExtensionPermissionState | undefined> = {};
+      const nextScopes: Record<string, string | undefined> = {};
+      for (const [key, value] of Object.entries(current.permissions)) {
+        if (!key.startsWith(prefix)) nextPermissions[key] = value;
+      }
+      for (const [key, value] of Object.entries(current.permissionScopes)) {
+        if (!key.startsWith(prefix)) nextScopes[key] = value;
+      }
+      return { permissions: nextPermissions, permissionScopes: nextScopes };
+    });
   },
   hideExtension(extensionId) {
     extensionId = canonicalExtensionId(extensionId);

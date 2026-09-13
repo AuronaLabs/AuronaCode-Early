@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
 
 use super::aurx::ExtensionPackage;
+use super::permissions::PermissionScope;
 use super::registry::{canonical_extension_id, ExtensionRegistry};
 use super::runtime::{ContextPermissionState, ExtensionLimits, ExtensionRuntime};
 
@@ -50,7 +51,10 @@ impl ExtensionState {
     /// 扫描并汇聚所有候选路径下的 .aurx 扩展包（优先源码资源目录）
     pub fn scan_extensions(&self, app: &AppHandle) -> usize {
         let mut candidate_roots = Vec::new();
-        // 1. 源码工程目录优先（开发与热更新支持）
+        // 1. 源码工程目录：仅开发构建使用，便于改完即生效。
+        //    发布构建里 CARGO_MANIFEST_DIR 是编译机的路径，在用户机器上无意义；
+        //    更糟的是若该路径恰好存在，会把用户磁盘上的仓库当成扩展来源。
+        #[cfg(debug_assertions)]
         candidate_roots.push(
             PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                 .join("resources")
@@ -124,6 +128,46 @@ impl ExtensionState {
             .lock()
             .map_err(|_| "扩展运行时状态锁定失败".to_string())?
             .remove(&id);
+        // 升级语义：已授予的权限保留；新声明的权限无记录（= unknown，首次使用重新询问）；
+        // 新版本**不再声明**的权限，其历史决定（granted/denied）立即清除（fail-closed）。
+        self.reconcile_permissions_on_upgrade(&id, &package.manifest.permissions);
+        self.descriptors()
+            .into_iter()
+            .find(|descriptor| descriptor.id == id)
+            .ok_or_else(|| format!("扩展安装后未能注册: {id}"))
+    }
+
+    /// 安装本地 .vsix（VSCode 兼容路径 2，规划 §5.5）。
+    /// 与 AURX 的差异：解析器走 `open_vsix_package`，落盘文件扩展名为 `.vsix`。
+    pub fn install_vsix_package(
+        &self,
+        app: &AppHandle,
+        vsix_bytes: &[u8],
+    ) -> Result<super::registry::ExtensionDescriptor, String> {
+        let package = super::aurx::open_vsix_package(vsix_bytes)?;
+        let id = canonical_extension_id(package.id()).to_string();
+        if is_builtin_extension(&id) {
+            return Err(format!("内置扩展不能覆盖安装: {id}"));
+        }
+        if package.js_source.trim().is_empty() {
+            return Err("VSIX 缺少可执行的主入口 JS，无法安装为兼容扩展".to_string());
+        }
+        let extension_dir = app
+            .path()
+            .app_local_data_dir()
+            .map_err(|error| format!("无法定位扩展目录: {error}"))?
+            .join("extensions");
+        std::fs::create_dir_all(&extension_dir)
+            .map_err(|error| format!("无法创建扩展目录: {error}"))?;
+        let target = extension_dir.join(format!("{id}.vsix"));
+        std::fs::write(&target, vsix_bytes)
+            .map_err(|error| format!("无法保存扩展安装包: {error}"))?;
+        self.registry.load_file(&target)?;
+        self.runtimes
+            .lock()
+            .map_err(|_| "扩展运行时状态锁定失败".to_string())?
+            .remove(&id);
+        self.reconcile_permissions_on_upgrade(&id, &package.manifest.permissions);
         self.descriptors()
             .into_iter()
             .find(|descriptor| descriptor.id == id)
@@ -199,32 +243,33 @@ impl ExtensionState {
         Ok(runtime)
     }
 
+    /// 读取扩展在某权限上的"生效"状态。
+    ///
+    /// 查找顺序：工作区授权 → 全局授权 → 会话授权（once）→ 内置扩展默认值。
+    /// 都未命中时返回 `Unknown`，含义是"需要用户决定"，**不会**自动弹窗——
+    /// 弹窗由扩展主动调用 `request-permission` 触发，前端据此展示三选一。
     pub fn permission(
         &self,
         extension_id: &str,
         permission: &str,
         workspace_identity: &str,
     ) -> ContextPermissionState {
-        let key = permission_key(
-            canonical_extension_id(extension_id),
-            permission,
-            workspace_identity,
-        );
-        if let Some(state) = self
-            .permissions
-            .lock()
-            .ok()
-            .and_then(|guard| guard.get(&key).cloned())
-        {
-            return state;
+        let extension_id = canonical_extension_id(extension_id);
+        let workspace_key = permission_key(extension_id, permission, Some(workspace_identity));
+        let global_key = permission_key(extension_id, permission, None);
+
+        if let Ok(guard) = self.permissions.lock() {
+            if let Some(state) = guard.get(&workspace_key) {
+                return *state;
+            }
+            if let Some(state) = guard.get(&global_key) {
+                return *state;
+            }
         }
-        let session_granted = self
-            .session_permissions
-            .lock()
-            .map(|guard| guard.contains(&key))
-            .unwrap_or(false);
-        if session_granted {
-            return ContextPermissionState::Granted;
+        if let Ok(guard) = self.session_permissions.lock() {
+            if guard.contains(&workspace_key) || guard.contains(&global_key) {
+                return ContextPermissionState::Granted;
+            }
         }
         if is_builtin_extension(extension_id) && permission == "editor.current.read" {
             return ContextPermissionState::Granted;
@@ -232,25 +277,49 @@ impl ExtensionState {
         ContextPermissionState::Unknown
     }
 
+    /// 持久化一次授权决定。
+    ///
+    /// - [`PermissionScope::Workspace`]：只对当前工作区生效（key 带工作区身份）
+    /// - [`PermissionScope::Global`]：跨工作区生效
+    ///
+    /// 拒绝为未开放的权限写授权记录（fail-closed）。
     pub fn set_permission(
         &self,
         extension_id: &str,
         permission: &str,
-        workspace_identity: &str,
+        workspace_identity: Option<&str>,
         granted: bool,
-    ) -> ContextPermissionState {
+        scope: PermissionScope,
+    ) -> Result<ContextPermissionState, String> {
+        super::permissions::ensure_requestable(permission)?;
         let extension_id = canonical_extension_id(extension_id);
-        let key = permission_key(extension_id, permission, workspace_identity);
+        let key = match scope {
+            PermissionScope::Global => permission_key(extension_id, permission, None),
+            PermissionScope::Workspace => permission_key(
+                extension_id,
+                permission,
+                Some(workspace_identity.ok_or("按工作区授权需要工作区身份")?),
+            ),
+            PermissionScope::Once => {
+                return Ok(self.set_session_permission(
+                    extension_id,
+                    permission,
+                    workspace_identity.unwrap_or("none"),
+                    granted,
+                ))
+            }
+        };
         let state = if granted {
             ContextPermissionState::Granted
         } else {
             ContextPermissionState::Denied
         };
-        if let Ok(mut guard) = self.permissions.lock() {
-            guard.insert(key, state);
-        }
+        self.permissions
+            .lock()
+            .map_err(|_| "扩展权限状态锁已损坏".to_string())?
+            .insert(key, state);
         self.persist_permissions();
-        state
+        Ok(state)
     }
 
     /// Grants a permission only for the current Aurona Code process. The grant
@@ -262,8 +331,11 @@ impl ExtensionState {
         workspace_identity: &str,
         granted: bool,
     ) -> ContextPermissionState {
+        if super::permissions::ensure_requestable(permission).is_err() {
+            return ContextPermissionState::Denied;
+        }
         let extension_id = canonical_extension_id(extension_id);
-        let key = permission_key(extension_id, permission, workspace_identity);
+        let key = permission_key(extension_id, permission, Some(workspace_identity));
         if let Ok(mut guard) = self.session_permissions.lock() {
             if granted {
                 guard.insert(key);
@@ -276,6 +348,121 @@ impl ExtensionState {
         } else {
             ContextPermissionState::Denied
         }
+    }
+
+    /// 撤销授权：删除持久化与 session 记录，把权限恢复为 `unknown`（下次使用时重新询问）。
+    /// 与 `set_permission(granted=false)` 的区别：后者是显式"拒绝"决定，撤销则是抹掉决定。
+    /// `permission` 为 `None` 时撤销该扩展的全部权限（"全部撤销"入口）。
+    /// 返回删除的记录条数。
+    pub fn revoke_permission(
+        &self,
+        extension_id: &str,
+        permission: Option<&str>,
+    ) -> Result<usize, String> {
+        let extension_id = canonical_extension_id(extension_id);
+        let prefix = match permission {
+            Some(permission) => format!("{extension_id}:{permission}:"),
+            None => format!("{extension_id}:"),
+        };
+        let mut removed = 0usize;
+        {
+            let mut guard = self
+                .permissions
+                .lock()
+                .map_err(|_| "扩展权限状态锁已损坏".to_string())?;
+            let stale: Vec<String> = guard
+                .keys()
+                .filter(|key| key.starts_with(&prefix))
+                .cloned()
+                .collect();
+            for key in stale {
+                guard.remove(&key);
+                removed += 1;
+            }
+        }
+        if let Ok(mut guard) = self.session_permissions.lock() {
+            let stale: Vec<String> = guard
+                .iter()
+                .filter(|key| key.starts_with(&prefix))
+                .cloned()
+                .collect();
+            for key in stale {
+                guard.remove(&key);
+                removed += 1;
+            }
+        }
+        if removed > 0 {
+            self.persist_permissions();
+        }
+        Ok(removed)
+    }
+
+    /// 扩展升级后的权限 reconcile（fail-closed）：
+    /// - 仍被新版本声明的权限：保留历史授权记录（granted/denied 均保留）；
+    /// - 新版本**不再声明**的权限：历史决定立即清除，避免残留越权授权；
+    /// - 新声明的权限：无任何记录，自然回落为 `unknown`（首次使用重新询问）。
+    fn reconcile_permissions_on_upgrade(&self, extension_id: &str, new_declared: &[String]) {
+        let extension_id = canonical_extension_id(extension_id);
+        let prefix = format!("{extension_id}:");
+        let declared_prefixes: HashSet<String> = new_declared
+            .iter()
+            .map(|permission| format!("{prefix}{permission}:"))
+            .collect();
+        {
+            let mut guard = self
+                .permissions
+                .lock()
+                .map_err(|_| "扩展权限状态锁已损坏".to_string())
+                .ok();
+            if let Some(guard) = guard.as_mut() {
+                // 只清理属于该扩展、且不再被新版本声明的记录；其他扩展的记录不能动。
+                guard.retain(|key, _| {
+                    if !key.starts_with(&prefix) {
+                        return true;
+                    }
+                    declared_prefixes
+                        .iter()
+                        .any(|d| key.starts_with(d.as_str()))
+                });
+            }
+        }
+        if let Ok(mut guard) = self.session_permissions.lock() {
+            guard.retain(|key| {
+                if !key.starts_with(&prefix) {
+                    return true;
+                }
+                declared_prefixes
+                    .iter()
+                    .any(|d| key.starts_with(d.as_str()))
+            });
+        }
+        self.persist_permissions();
+    }
+
+    /// 查询当前生效授权来自哪个作用域：`"global"` / `"workspace"` / `"once"` / `"unknown"`。
+    /// 同一权限多作用域都有记录时，按 宽 > 窄 顺序报告（global > workspace > once）。
+    pub fn permission_scope(
+        &self,
+        extension_id: &str,
+        permission: &str,
+        workspace_identity: &str,
+    ) -> &'static str {
+        let extension_id = canonical_extension_id(extension_id);
+        let prefix = format!("{extension_id}:{permission}:");
+        if let Ok(guard) = self.permissions.lock() {
+            if guard.contains_key(&format!("{prefix}global")) {
+                return "global";
+            }
+            if guard.contains_key(&format!("{prefix}{workspace_identity}")) {
+                return "workspace";
+            }
+        }
+        if let Ok(guard) = self.session_permissions.lock() {
+            if guard.contains(&format!("{prefix}{workspace_identity}")) {
+                return "once";
+            }
+        }
+        "unknown"
     }
 
     fn load_permissions(&self, config_dir: &std::path::Path) -> bool {
@@ -339,7 +526,7 @@ impl ExtensionState {
 }
 
 fn is_builtin_extension(extension_id: &str) -> bool {
-    matches!(extension_id, "aurona.vscode-compat" | "vscode-demo")
+    matches!(extension_id, "aurona.vscode-compat")
 }
 
 fn canonicalize_permission_key(key: &str) -> String {
@@ -355,8 +542,16 @@ impl Default for ExtensionState {
     }
 }
 
-fn permission_key(extension_id: &str, permission: &str, workspace_identity: &str) -> String {
-    format!("{extension_id}:{permission}:{workspace_identity}")
+fn permission_key(
+    extension_id: &str,
+    permission: &str,
+    workspace_identity: Option<&str>,
+) -> String {
+    match workspace_identity {
+        Some(identity) => format!("{extension_id}:{permission}:{identity}"),
+        // 全局作用域使用固定字面量，与既有 `{ext}:{perm}:{workspace}` 格式共存
+        None => format!("{extension_id}:{permission}:global"),
+    }
 }
 
 pub fn workspace_identity(root: Option<&std::path::Path>) -> String {
@@ -395,17 +590,34 @@ mod tests {
             ContextPermissionState::Unknown
         );
 
-        state.set_permission("custom.extension", "editor.current.read", "ws-a", true);
+        state
+            .set_permission(
+                "custom.extension",
+                "editor.current.read",
+                Some("ws-a"),
+                true,
+                PermissionScope::Workspace,
+            )
+            .unwrap();
         assert_eq!(
             state.permission("custom.extension", "editor.current.read", "ws-a"),
             ContextPermissionState::Granted
         );
+        // 按工作区授权不应泄漏到其他工作区
         assert_eq!(
             state.permission("custom.extension", "editor.current.read", "ws-b"),
             ContextPermissionState::Unknown
         );
 
-        state.set_permission("aurona.vscode-compat", "editor.current.read", "ws-a", false);
+        state
+            .set_permission(
+                "aurona.vscode-compat",
+                "editor.current.read",
+                Some("ws-a"),
+                false,
+                PermissionScope::Workspace,
+            )
+            .unwrap();
         assert_eq!(
             state.permission("aurona.vscode-compat", "editor.current.read", "ws-a"),
             ContextPermissionState::Denied
@@ -419,9 +631,187 @@ mod tests {
             state.permission("aurona.vscode-compat", "workspace.read", "ws-a"),
             ContextPermissionState::Unknown
         );
-        state.set_permission("aurona.vscode-compat", "workspace.read", "ws-a", true);
+        state
+            .set_permission(
+                "aurona.vscode-compat",
+                "workspace.read",
+                Some("ws-a"),
+                true,
+                PermissionScope::Workspace,
+            )
+            .unwrap();
         assert_eq!(
             state.permission("aurona.vscode-compat", "workspace.read", "ws-a"),
+            ContextPermissionState::Granted
+        );
+    }
+
+    #[test]
+    fn global_scope_grants_across_workspaces() {
+        let state = ExtensionState::new();
+        state
+            .set_permission(
+                "custom.extension",
+                "workspace.read",
+                Some("ws-a"),
+                true,
+                PermissionScope::Global,
+            )
+            .expect("global grant should succeed");
+
+        // 全局授权对所有工作区生效
+        assert_eq!(
+            state.permission("custom.extension", "workspace.read", "ws-a"),
+            ContextPermissionState::Granted
+        );
+        assert_eq!(
+            state.permission("custom.extension", "workspace.read", "ws-b"),
+            ContextPermissionState::Granted
+        );
+        assert_eq!(
+            state.permission("custom.extension", "workspace.read", "none"),
+            ContextPermissionState::Granted
+        );
+
+        // 但工作区级拒绝优先于全局授权（用户在某个工作区明确说过"不"）
+        state
+            .set_permission(
+                "custom.extension",
+                "workspace.read",
+                Some("ws-b"),
+                false,
+                PermissionScope::Workspace,
+            )
+            .expect("workspace deny should succeed");
+        assert_eq!(
+            state.permission("custom.extension", "workspace.read", "ws-b"),
+            ContextPermissionState::Denied
+        );
+    }
+
+    #[test]
+    fn set_permission_refuses_unavailable_permissions() {
+        let state = ExtensionState::new();
+        let error = state
+            .set_permission(
+                "custom.extension",
+                "terminal.execute",
+                Some("ws-a"),
+                true,
+                PermissionScope::Workspace,
+            )
+            .unwrap_err();
+        assert!(error.contains("尚未开放"), "{error}");
+    }
+
+    #[test]
+    fn once_scope_is_session_only_and_not_persisted() {
+        let state = ExtensionState::new();
+        state
+            .set_permission(
+                "custom.extension",
+                "editor.current.read",
+                Some("ws-a"),
+                true,
+                PermissionScope::Once,
+            )
+            .unwrap();
+        assert_eq!(
+            state.permission("custom.extension", "editor.current.read", "ws-a"),
+            ContextPermissionState::Granted
+        );
+        // once 不落盘：重启后（重建实例）应回到 Unknown
+        let reloaded = ExtensionState::new();
+        assert_eq!(
+            reloaded.permission("custom.extension", "editor.current.read", "ws-a"),
+            ContextPermissionState::Unknown
+        );
+    }
+
+    #[test]
+    fn upgrade_reconcile_keeps_declared_and_drops_undeclared() {
+        let state = ExtensionState::new();
+        state
+            .set_permission(
+                "custom.extension",
+                "editor.current.read",
+                Some("ws-a"),
+                true,
+                PermissionScope::Workspace,
+            )
+            .unwrap();
+        state
+            .set_permission(
+                "custom.extension",
+                "workspace.read",
+                Some("ws-a"),
+                true,
+                PermissionScope::Global,
+            )
+            .unwrap();
+        state
+            .set_permission(
+                "custom.extension",
+                "workspace.write",
+                Some("ws-a"),
+                false,
+                PermissionScope::Workspace,
+            )
+            .unwrap();
+        assert_eq!(
+            state.permission("custom.extension", "workspace.write", "ws-a"),
+            ContextPermissionState::Denied
+        );
+
+        // 新版本只声明 editor.current.read：保留授权，其余历史决定清除
+        state.reconcile_permissions_on_upgrade(
+            "custom.extension",
+            &["editor.current.read".to_string()],
+        );
+        assert_eq!(
+            state.permission("custom.extension", "editor.current.read", "ws-a"),
+            ContextPermissionState::Granted
+        );
+        assert_eq!(
+            state.permission("custom.extension", "workspace.read", "ws-a"),
+            ContextPermissionState::Unknown
+        );
+        // 曾经的"拒绝"决定也被抹掉（fail-closed 而非保留拒绝）
+        assert_eq!(
+            state.permission("custom.extension", "workspace.write", "ws-a"),
+            ContextPermissionState::Unknown
+        );
+
+        // 恢复声明 workspace.read 后：无记录，回到 unknown（重新询问），不会自动恢复授权
+        state.reconcile_permissions_on_upgrade(
+            "custom.extension",
+            &[
+                "editor.current.read".to_string(),
+                "workspace.read".to_string(),
+            ],
+        );
+        assert_eq!(
+            state.permission("custom.extension", "editor.current.read", "ws-a"),
+            ContextPermissionState::Granted
+        );
+        assert_eq!(
+            state.permission("custom.extension", "workspace.read", "ws-a"),
+            ContextPermissionState::Unknown
+        );
+
+        // 不影响其他扩展的授权
+        state
+            .set_permission(
+                "other.extension",
+                "workspace.read",
+                Some("ws-a"),
+                true,
+                PermissionScope::Workspace,
+            )
+            .unwrap();
+        state.reconcile_permissions_on_upgrade("custom.extension", &["workspace.read".to_string()]);
+        assert_eq!(
+            state.permission("other.extension", "workspace.read", "ws-a"),
             ContextPermissionState::Granted
         );
     }

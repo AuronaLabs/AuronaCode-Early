@@ -17,6 +17,8 @@ vi.mock("../Foundation/IPC/ExtensionCommands", () => ({
     getPermission: getPermissionMock,
     setPermission: setPermissionMock,
     render: renderMock,
+    permissionCatalog: vi.fn().mockResolvedValue([]),
+    revokePermission: vi.fn().mockResolvedValue(0),
   },
 }));
 
@@ -64,7 +66,7 @@ describe("useExtensionStore", () => {
   });
 
   it("stores and returns permission state", async () => {
-    getPermissionMock.mockResolvedValue("unknown");
+    getPermissionMock.mockResolvedValue({ state: "unknown", scope: "workspace" });
     setPermissionMock.mockResolvedValue("granted");
 
     expect(
@@ -81,6 +83,7 @@ describe("useExtensionStore", () => {
       "auronalabs.markdown",
       "editor.current.read",
       true,
+      "workspace",
     );
   });
 

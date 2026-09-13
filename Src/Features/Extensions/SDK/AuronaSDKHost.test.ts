@@ -4,8 +4,8 @@ import { createAuronaSDKHost, ExtensionFliunoRegistry } from "./AuronaSDKHost";
 describe("AuronaSDKHost", () => {
   it("provides complete Aurona SDK interface with storage, ui and permissions", async () => {
     const sdk = createAuronaSDKHost("test.aurona.ext");
-    expect(sdk.version).toBe("2.0.0");
-    expect(sdk.env.sdkVersion).toBe("2.0.0");
+    expect(sdk.version).toBe("1");
+    expect(sdk.env.sdkVersion).toBe("1");
     expect(typeof sdk.permissions.check).toBe("function");
     expect(typeof sdk.permissions.request).toBe("function");
     expect(typeof sdk.permissions.revoke).toBe("function");

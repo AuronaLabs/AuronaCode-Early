@@ -39,6 +39,7 @@ Extensions/*/target/
 # Extension packages protection (only keep built-in compat runtime)
 src-tauri/resources/extensions/*.aurx
 !src-tauri/resources/extensions/aurona.vscode-compat.aurx
+!src-tauri/resources/extensions-demo/vscode-demo.vsix
 
 # Marketplace upload packages (keep release artifacts local only)
 MarketplacePackages/

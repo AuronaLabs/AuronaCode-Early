@@ -68,7 +68,7 @@ fn validate_branch_name(path: &str, branch: &str) -> Result<(), String> {
     }
 }
 
-fn git_check_is_repo_internal(path: String) -> Result<bool, String> {
+pub(crate) fn git_check_is_repo_internal(path: String) -> Result<bool, String> {
     let output = git_output(&path, &["rev-parse", "--is-inside-work-tree"])?;
 
     Ok(output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true")
@@ -83,7 +83,7 @@ fn git_init_internal(path: String) -> Result<(), String> {
     Ok(())
 }
 
-fn git_status_internal(path: String) -> Result<Vec<GitFile>, String> {
+pub(crate) fn git_status_internal(path: String) -> Result<Vec<GitFile>, String> {
     let output = git_output(&path, &["status", "--porcelain=v1", "-z", "-uall"])?;
 
     if !output.status.success() {
@@ -169,7 +169,7 @@ fn git_status_internal(path: String) -> Result<Vec<GitFile>, String> {
     Ok(files)
 }
 
-fn git_add_internal(path: String, file: String) -> Result<(), String> {
+pub(crate) fn git_add_internal(path: String, file: String) -> Result<(), String> {
     let output = git_output(&path, &["add", "--", &file])?;
 
     if !output.status.success() {
@@ -178,7 +178,7 @@ fn git_add_internal(path: String, file: String) -> Result<(), String> {
     Ok(())
 }
 
-fn git_unstage_internal(path: String, file: String) -> Result<(), String> {
+pub(crate) fn git_unstage_internal(path: String, file: String) -> Result<(), String> {
     let output = git_output(&path, &["reset", "HEAD", "--", &file])?;
 
     if !output.status.success() {
@@ -187,7 +187,7 @@ fn git_unstage_internal(path: String, file: String) -> Result<(), String> {
     Ok(())
 }
 
-fn git_commit_internal(path: String, message: String) -> Result<(), String> {
+pub(crate) fn git_commit_internal(path: String, message: String) -> Result<(), String> {
     let output = git_output(&path, &["commit", "-m", &message])?;
 
     if !output.status.success() {
@@ -196,7 +196,7 @@ fn git_commit_internal(path: String, message: String) -> Result<(), String> {
     Ok(())
 }
 
-fn git_current_branch_internal(path: String) -> Result<String, String> {
+pub(crate) fn git_current_branch_internal(path: String) -> Result<String, String> {
     let output = git_output(&path, &["rev-parse", "--abbrev-ref", "HEAD"])?;
 
     if !output.status.success() {
@@ -229,7 +229,7 @@ fn git_branches_internal(path: String) -> Result<Vec<GitBranch>, String> {
         .collect())
 }
 
-fn git_tracking_status_internal(path: String) -> Result<(u32, u32), String> {
+pub(crate) fn git_tracking_status_internal(path: String) -> Result<(u32, u32), String> {
     let output = git_output(
         &path,
         &["rev-list", "--left-right", "--count", "HEAD...@{upstream}"],
@@ -267,7 +267,11 @@ fn git_create_branch_internal(path: String, branch: String) -> Result<(), String
     }
 }
 
-fn git_worktree_diff_internal(path: String, file: String, staged: bool) -> Result<String, String> {
+pub(crate) fn git_worktree_diff_internal(
+    path: String,
+    file: String,
+    staged: bool,
+) -> Result<String, String> {
     let tracked = git_output(&path, &["ls-files", "--error-unmatch", "--", &file])
         .map(|output| output.status.success())
         .unwrap_or(false);
@@ -383,7 +387,7 @@ fn git_unstage_all_internal(path: String) -> Result<(), String> {
     Ok(())
 }
 
-fn git_get_remote_internal(path: String) -> Result<String, String> {
+pub(crate) fn git_get_remote_internal(path: String) -> Result<String, String> {
     let output = git_output(&path, &["remote", "get-url", "origin"])?;
 
     if output.status.success() {
@@ -423,7 +427,7 @@ fn git_diff_commit_internal(path: String, hash: String) -> Result<String, String
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
-fn git_log_internal(path: String) -> Result<Vec<GitCommit>, String> {
+pub(crate) fn git_log_internal(path: String) -> Result<Vec<GitCommit>, String> {
     let output = git_output(
         &path,
         &[

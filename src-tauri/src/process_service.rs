@@ -391,7 +391,10 @@ mod tests {
         let child = command.spawn().expect("Node wrapper should start");
         let mut managed = ManagedChild::attach(child).expect("process should join the job");
 
-        let node_pid = tokio::time::timeout(Duration::from_secs(5), async {
+        // CI 的 Windows runner 首次启动 node.exe 时会被 Defender 实时扫描拖慢（内层还会再
+        // spawn 一个 node 子进程），5 秒远远不够。给到 30 秒的宽限；node 真缺失时
+        // 上面的 spawn().expect() 会立刻失败，不会在这里空等。
+        let node_pid = tokio::time::timeout(Duration::from_secs(30), async {
             loop {
                 if let Ok(raw_pid) = tokio::fs::read_to_string(&pid_file).await {
                     if let Ok(process_id) = raw_pid.trim().parse::<u32>() {

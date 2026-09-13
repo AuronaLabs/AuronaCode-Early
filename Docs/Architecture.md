@@ -101,7 +101,7 @@ Src/
 ### 3.3 扩展宿主兼容矩阵
 1. **VS Code 兼容宿主 (`VSCodeExtensionHost`)**：
    - 完整模拟 `vscode.window`、`vscode.commands`、`vscode.workspace`、`vscode.env` 与 `Uri`、`Range`、`Position` 等标准 API；
-2. **官方原生 Aurona SDK v1.1 (`AuronaSDKHost`)**：
+2. **官方原生 Aurona SDK v1 (`AuronaSDKHost`)**：
    - 提供 `aurona.workspace`（文档与文本替换）、`aurona.ui`（拟物 Toast 与状态栏胶囊）、`aurona.storage`（独立 APPDATA 沙箱存储）与 `aurona.fliuno`（向全局搜索注入动态搜索源）。
 
 ---

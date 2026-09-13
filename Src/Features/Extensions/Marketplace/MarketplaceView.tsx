@@ -501,6 +501,11 @@ export function MarketplaceView() {
         targetVersion={pendingInstallItem?.version}
         targetType="lsp"
         dependencies={runtimeDependency}
+        permissions={(pendingInstallItem?.permissions ?? []).map((permission) => ({
+          name: permission.name,
+          description: permission.description,
+          level: permission.level,
+        }))}
         onConfirm={() => {
           setConfirmModalOpen(false);
           if (pendingInstallItem) void executeInstall(pendingInstallItem);

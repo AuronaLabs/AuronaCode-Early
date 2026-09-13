@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DocumentService } from "../../Core/DocumentService";
+import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
 import { useLocale } from "../../Foundation/I18n";
 import {
   ExtensionIPC,
@@ -39,78 +40,6 @@ const CATEGORIES = [
   { name: "设计", color: "bg-pink-400" },
 ];
 
-const VSCODE_SAMPLE_SCRIPTS = [
-  {
-    name: "官方原生声明式组件",
-    script: JSON.stringify({
-      mode: "declarative",
-      title: "官方原生拟物组件示例",
-      description: "插件直接声明式复用 Aurona 官方 Select、Switch、Card 与 Button 组件",
-      components: [
-        {
-          type: "card",
-          id: "card_main",
-          title: "扩展配置中心",
-          subtitle: "Declarative Component System v1.0",
-          children: [
-            {
-              type: "select",
-              id: "targetChannel",
-              label: "目标渠道",
-              value: "pioneer",
-              options: [
-                { label: "Stable 正式稳定版", value: "stable" },
-                { label: "Pioneer 先锋计划", value: "pioneer" },
-              ],
-            },
-            {
-              type: "switch",
-              id: "autoSync",
-              label: "自动同步状态",
-              description: "开启后自动持久化至本地存储",
-              checked: true,
-            },
-            {
-              type: "input",
-              id: "tokenInput",
-              label: "访问令牌 (Token)",
-              placeholder: "输入插件安全令牌...",
-              inputType: "password",
-            },
-            {
-              type: "progress",
-              id: "compatProgress",
-              label: "API 兼容就绪度",
-              progress: 98.5,
-            },
-            {
-              type: "button",
-              id: "btnSave",
-              label: "保存并应用配置",
-              variant: "primary",
-              action: "config:save",
-            },
-          ],
-        },
-      ],
-    }),
-  },
-  {
-    name: "命令与窗口交互",
-    script: `vscode.commands.registerCommand("extension.sayHello", () => {
-  vscode.window.showInformationMessage("Hello from VSCode Compat Layer!");
-});
-vscode.window.showWarningMessage("API Compatibility verified.");`,
-  },
-  {
-    name: "文件系统与剪贴板",
-    script: `const uri = vscode.Uri.file("/workspace/README.md");
-vscode.workspace.fs.readFile(uri).then(content => {
-  vscode.env.clipboard.writeText("Read " + content.length + " bytes");
-});`,
-  },
-];
-
 function currentTheme(): string {
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
@@ -132,19 +61,23 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
     tabs.find((tab) => tab.id === activeTabId && tab.type === "file")?.path ?? null;
 
   const isPlanner = extensionId === "auronalabs.planner";
-  const isVsCodeCompat = extensionId === "aurona.vscode-compat";
-  const isVsCodeDemo =
-    extensionId === "vscode-demo" ||
-    extensionId === "vscode.demo" ||
-    extensionId.startsWith("vscode-");
-  const isStandalone = isPlanner || isVsCodeCompat || isVsCodeDemo;
+  // VSIX 兼容型扩展（安装入口装载）：由后端注入主入口 JS 源码渲染，不依赖编辑器文档
+  const isVsCodeType = extensionId.startsWith("vscode-") || extensionId.endsWith(".vsix");
+  const isStandalone = isPlanner || isVsCodeType;
+
+  // 权限按声明驱动（修复此前对 planner/vscode 系硬编码 granted 绕过权限系统的问题）：
+  // 扩展 manifest 声明了 editor.current.read 才需要走授权流程；
+  // 内置独立面板（兼容层/演示）不读编辑器内容，无需编辑器权限。
+  const needsEditorRead = descriptor
+    ? descriptor.permissions.includes("editor.current.read")
+    : false;
 
   const [view, setView] = useState<ExtensionViewPayload | null>(null);
   const [viewFailed, setViewFailed] = useState(false);
   const [editorPermission, setEditorPermission] = useState<ExtensionPermissionState>(
-    isStandalone ? "granted" : "unknown",
+    needsEditorRead ? "unknown" : "granted",
   );
-  const [permissionLoaded, setPermissionLoaded] = useState(isStandalone);
+  const [permissionLoaded, setPermissionLoaded] = useState(!needsEditorRead);
   const [permissionPromptOpen, setPermissionPromptOpen] = useState(false);
   const [renderState, setRenderState] = useState<ExtensionRenderState | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
@@ -157,9 +90,6 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   const [priorityFilter, setPriorityFilter] = useState<"all" | PlannerPriority>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [plannerSaveError, setPlannerSaveError] = useState<string | null>(null);
-
-  // VSCode Compat 专属状态
-  const [compatScript, setCompatScript] = useState("");
 
   const latestDocument = useRef<{ content: string; version: number } | null>(null);
   const debounceTimer = useRef<number | null>(null);
@@ -180,6 +110,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
           extensionId,
           markdown: docPayload.content,
           activeEditorPath: isStandalone ? null : activePathRef.current,
+          selectionText: EditorAdapter.getSelectionText() || null,
           theme: currentTheme(),
           accentColor: accentTheme,
           colorScheme: currentTheme(),
@@ -215,10 +146,54 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
     }, delay);
   }, [runRender]);
 
+  // 交互回传（修复缺陷 #11：此前 onAction 只弹 toast，声明式组件交互无法回传扩展）。
+  // 请求-响应模型：动作交给扩展，拿回下一帧渲染并替换当前视图。
+  const runAction = useCallback(
+    async (actionId: string, payload?: unknown) => {
+      const currentGeneration = ++generation.current;
+      const serializedPayload =
+        typeof payload === "string" ? payload : JSON.stringify(payload ?? {});
+      try {
+        const isBold = window.document.documentElement.getAttribute("data-bold-text") === "true";
+        const fontSizeAttr =
+          window.document.documentElement.getAttribute("data-font-size") || "default";
+        const accentTheme =
+          window.document.documentElement.getAttribute("data-accent-theme") || "aurora";
+        const response = await ExtensionIPC.onAction({
+          extensionId,
+          actionId,
+          payload: serializedPayload,
+          activeEditorPath: isStandalone ? null : activePathRef.current,
+          selectionText: EditorAdapter.getSelectionText() || null,
+          theme: currentTheme(),
+          accentColor: accentTheme,
+          colorScheme: currentTheme(),
+          locale,
+          fontWeight: isBold ? "bold" : "normal",
+          fontSize: fontSizeAttr,
+        });
+        if (currentGeneration !== generation.current) return;
+        setRenderError(null);
+        setRenderState({
+          html: response.html,
+          diagnostics: response.diagnostics,
+          revision: Date.now(),
+        });
+      } catch (error) {
+        if (currentGeneration !== generation.current) return;
+        showToast(error instanceof Error ? error.message : String(error), "warning");
+      }
+    },
+    [extensionId, isStandalone, locale],
+  );
+
   const refresh = useCallback(async () => {
     if (isStandalone) {
-      latestDocument.current = { content: compatScript, version: Date.now() };
-      await runRender(latestDocument.current);
+      // Planner 由任务持久化驱动渲染；VSCode 型扩展由后端注入 js_source，markdown 内容不参与
+      if (!isPlanner) {
+        latestDocument.current = { content: "", version: Date.now() };
+        await runRender(latestDocument.current);
+      }
       return;
     }
 
@@ -241,7 +216,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
       latestDocument.current = { content: record.content, version: record.version };
       await runRender(latestDocument.current);
     }
-  }, [isStandalone, compatScript, runRender]);
+  }, [isStandalone, isPlanner, runRender]);
 
   // Planner: 添加新任务
   const persistPlannerTasks = useCallback(
@@ -288,18 +263,6 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
     void persistPlannerTasks(updated);
   }, [persistPlannerTasks, tasks]);
 
-  // VSCode Compat: 运行示例或自定义脚本转译
-  const handleRunCompatSample = useCallback(
-    (script: string) => {
-      setCompatScript(script);
-      void runRender({
-        content: script,
-        version: Date.now(),
-      });
-    },
-    [runRender],
-  );
-
   // 1. 初始化读取插件基础视图与 Planner 初始任务
   useEffect(() => {
     let cancelled = false;
@@ -332,10 +295,12 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
     };
   }, [extensionId, isPlanner]);
 
-  // 2. 监听权限状态
+  // 2. 监听权限状态（仅当扩展声明了 editor.current.read 时走授权流程）
   useEffect(() => {
-    if (isStandalone) {
+    if (!needsEditorRead) {
       setEditorPermission("granted");
+      setPermissionLoaded(true);
+      setPermissionPromptOpen(false);
       return;
     }
     let cancelled = false;
@@ -360,7 +325,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [extensionId, isStandalone, refresh]);
+  }, [extensionId, needsEditorRead, refresh]);
 
   // 3. 独立插件初次自动渲染与编辑器文档变更订阅
   useEffect(() => {
@@ -412,17 +377,23 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
     }
   }, [renderError, t]);
 
-  const isPermissionGranted = isStandalone || editorPermission === "granted";
+  const isPermissionGranted = !needsEditorRead || editorPermission === "granted";
 
+  // 三选 + 拒绝：once（仅本次）/ workspace（此工作区）/ global（所有工作区）/ deny
   const resolvePermission = useCallback(
-    async (mode: "once" | "always" | "deny") => {
+    async (mode: "once" | "workspace" | "global" | "deny") => {
       try {
         const nextState =
           mode === "once"
             ? await ExtensionIPC.setSessionPermission(extensionId, "editor.current.read", true)
             : await useExtensionStore
                 .getState()
-                .setPermission(extensionId, "editor.current.read", mode === "always");
+                .setPermission(
+                  extensionId,
+                  "editor.current.read",
+                  mode !== "deny",
+                  mode === "deny" ? "workspace" : mode,
+                );
         setEditorPermission(nextState);
         setPermissionPromptOpen(false);
         if (nextState === "granted") void refresh();
@@ -460,7 +431,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-transparent">
-      {permissionPromptOpen && permissionLoaded && !isStandalone && (
+      {permissionPromptOpen && permissionLoaded && needsEditorRead && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-[var(--glass-blur-base)] transition-all animate-in fade-in duration-200">
           <GlassContainer
             layer="overlay"
@@ -476,12 +447,17 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               {t("extensions.permissionPromptTitle").replace("{name}", title)}
             </h3>
 
+            {/* 申请的权限 */}
+            <span className="mt-2 rounded border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-muted)]">
+              {t("extensions.permission.editorCurrentRead.name")}
+            </span>
+
             {/* 极简说明 */}
             <p className="text-[12px] text-[var(--color-text-muted)] leading-relaxed mt-1.5 mb-4 px-1">
-              {t("extensions.permissionPromptDescription")}
+              {t("extensions.permission.editorCurrentRead.description")}
             </p>
 
-            {/* 三个 iOS 风格极简按钮 */}
+            {/* 三种授权范围 + 拒绝 */}
             <div className="flex w-full flex-col gap-2">
               <Button
                 size="sm"
@@ -489,15 +465,23 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
                 onClick={() => void resolvePermission("once")}
                 className="h-8.5 w-full text-[12px] font-semibold rounded-xl"
               >
-                {t("extensions.permissionAllowOnce")}
+                {t("extensions.permission.scopeOnce")}
               </Button>
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => void resolvePermission("always")}
+                onClick={() => void resolvePermission("workspace")}
                 className="h-8.5 w-full text-[12px] font-medium rounded-xl"
               >
-                {t("extensions.permissionAllowAlways")}
+                {t("extensions.permission.scopeWorkspace")}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => void resolvePermission("global")}
+                className="h-8.5 w-full text-[12px] font-medium rounded-xl"
+              >
+                {t("extensions.permission.scopeGlobal")}
               </Button>
               <Button
                 size="sm"
@@ -540,96 +524,6 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
           </div>
         }
       />
-
-      {/* VSCode Demo 扩展专属转译运行状态面板 */}
-      {isVsCodeDemo && (
-        <div className="mx-[var(--PanelPaddingX)] mb-2 flex flex-col gap-2.5">
-          <div className="flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/60 p-3 shadow-none backdrop-blur-md">
-            <div className="flex items-center justify-between">
-              <span className="text-[12.5px] font-bold text-[var(--color-text-highlight)] flex items-center gap-1.5">
-                <Icons.Sparkles size={14} className="text-blue-400" />
-                VSCode 原生转译容器 (就绪)
-              </span>
-              <span className="rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
-                .VSIX 原生转译
-              </span>
-            </div>
-            <p className="text-[11.5px] text-[var(--color-text-muted)] leading-relaxed">
-              已通过底层 WASM 兼容层成功解包并即时转译{" "}
-              <code className="text-blue-400 font-mono">vscode-demo.vsix</code> 扩展包。
-            </p>
-            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[var(--border-subtle)]">
-              <Button
-                size="sm"
-                variant="primary"
-                className="h-6 px-2 text-[10.5px]"
-                onClick={() => {
-                  setRenderState({
-                    html: "<div class='p-3 bg-zinc-900 rounded-lg text-emerald-400 font-mono text-xs'>[VSCode Host] extension.helloWorld executed successfully.</div>",
-                    diagnostics: [],
-                    revision: Date.now(),
-                  });
-                }}
-              >
-                运行 Hello 命令
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-6 px-2 text-[10.5px]"
-                onClick={() => {
-                  setRenderState({
-                    html: "<div class='p-3 bg-zinc-900 rounded-lg text-blue-400 font-mono text-xs'>[VSCode Host] vscode.workspace.fs synced. Clipboard updated.</div>",
-                    diagnostics: [],
-                    revision: Date.now(),
-                  });
-                }}
-              >
-                测试剪贴板与 FS
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* VSCode Compat 专属操作栏与 API 矩阵 */}
-      {isVsCodeCompat && (
-        <div className="mx-[var(--PanelPaddingX)] mb-2 flex flex-col gap-2.5">
-          <div className="flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/60 p-3 shadow-none backdrop-blur-md">
-            <div className="flex items-center justify-between">
-              <span className="text-[12px] font-bold text-[var(--color-text-highlight)] flex items-center gap-1.5">
-                <Icons.Extensions size={13} className="text-blue-400" />
-                VSCode 兼容转译核心
-              </span>
-              <span className="rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-400 border border-blue-500/20 font-mono">
-                SDK v1
-              </span>
-            </div>
-            <p className="text-[11px] text-[var(--color-text-muted)] leading-relaxed">
-              支持直接运行 VSCode 扩展 API 脚本、声明式拟物组件以及 Node 沙箱命令。
-            </p>
-
-            <div className="flex flex-col gap-1.5 pt-1 border-t border-[var(--border-subtle)]">
-              <span className="text-[10.5px] font-semibold text-[var(--color-text-muted)]">
-                快速测试预设脚本：
-              </span>
-              <div className="flex flex-wrap items-center gap-1">
-                {VSCODE_SAMPLE_SCRIPTS.map((sample) => (
-                  <Button
-                    key={sample.name}
-                    size="sm"
-                    variant="secondary"
-                    className="h-6 px-2 text-[10.5px]"
-                    onClick={() => handleRunCompatSample(sample.script)}
-                  >
-                    {sample.name}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Planner 专属功能操作栏 */}
       {isPlanner && isPermissionGranted && (
@@ -766,7 +660,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
                 size="sm"
                 variant="primary"
                 className="h-8 text-[12px] font-semibold rounded-xl w-full"
-                onClick={() => void resolvePermission("always")}
+                onClick={() => void resolvePermission("global")}
               >
                 立即授权 (始终允许)
               </Button>
@@ -813,9 +707,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
             viewHtml={view.html}
             theme={currentTheme()}
             renderState={renderState}
-            onAction={(actionId) => {
-              showToast(`组件交互: ${actionId}`, "info");
-            }}
+            onAction={(actionId, payload) => void runAction(actionId, payload)}
           />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center px-4 text-center text-xs text-[var(--color-text-muted)]">

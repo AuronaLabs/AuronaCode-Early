@@ -260,7 +260,7 @@ export function createAuronaSDKHost(extensionId: string): AuronaSDK {
   }
 
   const sdk: AuronaSDK = {
-    version: "2.0.0",
+    version: "1",
 
     workspace: {
       getActiveDocument(): AuronaDocument | null {
@@ -623,9 +623,9 @@ export function createAuronaSDKHost(extensionId: string): AuronaSDK {
     env: {
       platform: PlatformService.current(),
       locale: LocaleService.get(),
-      sdkVersion: "2.0.0",
+      sdkVersion: "1",
       appName: "Aurona Code",
-      appVersion: "0.4.0-pioneer.5",
+      appVersion: import.meta.env.VITE_APP_VERSION as string,
       clipboard: {
         async readText(): Promise<string> {
           try {

@@ -1,14 +1,21 @@
-use exports::aurona::extensions::render::{Guest, RenderInput, RenderOutput};
+use boa_engine::{
+    object::builtins::{JsArray, JsPromise},
+    object::FunctionObjectBuilder,
+    property::Attribute,
+    Context, JsArgs, JsError, JsResult, JsValue, NativeFunction, Source,
+};
 
 wit_bindgen::generate!({
     path: "../wit/world.wit",
     world: "aurona-extension",
 });
 
+use exports::aurona::extensions::render::{Guest, RenderInput, RenderOutput};
+
 /// 官方标准面向对象 Aurona SDK (v1)
 pub mod sdk {
     use super::aurona::extensions::context::{
-        self, EditorSnapshot, Environment, FileEntry, FliunoItem, SelectionRange, WorkspaceInfo,
+        self, EditorSnapshot, Environment, FileEntry, SelectionRange, WorkspaceInfo,
     };
 
     /// Aurona 顶级静态单例门面
@@ -57,23 +64,8 @@ pub mod sdk {
         }
 
         #[inline]
-        pub fn icons() -> IconService {
-            IconService
-        }
-
-        #[inline]
-        pub fn fliuno() -> FliunoService {
-            FliunoService
-        }
-
-        #[inline]
         pub fn storage() -> StorageService {
             StorageService
-        }
-
-        #[inline]
-        pub fn dialog() -> DialogService {
-            DialogService
         }
     }
 
@@ -100,11 +92,6 @@ pub mod sdk {
         pub fn list_files(&self, directory: &str, max_count: u32) -> Result<Vec<FileEntry>, String> {
             context::list_workspace_files(directory, max_count)
         }
-
-        #[inline]
-        pub fn watch(&self, path: &str) -> Result<u64, String> {
-            context::watch_workspace_path(path)
-        }
     }
 
     /// 编辑器服务
@@ -119,6 +106,11 @@ pub mod sdk {
         #[inline]
         pub fn selection(&self) -> Option<SelectionRange> {
             context::get_editor_selection()
+        }
+
+        #[inline]
+        pub fn selection_text(&self) -> Option<String> {
+            context::get_editor_selection_text()
         }
 
         #[inline]
@@ -159,6 +151,16 @@ pub mod sdk {
         #[inline]
         pub fn set_status_bar(&self, message: &str, timeout_ms: u32) -> Result<bool, String> {
             context::set_status_message(message, timeout_ms)
+        }
+
+        #[inline]
+        pub(crate) fn show_by_level(&self, level: &str, message: &str) {
+            let result = match level {
+                "warn" => self.show_warning(message),
+                "error" => self.show_error(message),
+                _ => self.show_info(message),
+            };
+            let _ = result;
         }
     }
 
@@ -207,26 +209,6 @@ pub mod sdk {
         }
     }
 
-    /// 矢量图标服务
-    pub struct IconService;
-
-    impl IconService {
-        #[inline]
-        pub fn get(&self, name: &str) -> Option<String> {
-            context::get_icon_svg(name)
-        }
-    }
-
-    /// Fliuno 统一搜索贡献服务 (需 fliuno.search 权限)
-    pub struct FliunoService;
-
-    impl FliunoService {
-        #[inline]
-        pub fn contribute(&self, items: Vec<FliunoItem>) -> Result<bool, String> {
-            context::contribute_fliuno_items(&items)
-        }
-    }
-
     /// 独立沙箱持久化存储服务
     pub struct StorageService;
 
@@ -240,290 +222,553 @@ pub mod sdk {
         pub fn set(&self, key: &str, value: &str) -> Result<bool, String> {
             context::storage_set(key, value)
         }
-
-        #[inline]
-        pub fn delete(&self, key: &str) -> Result<bool, String> {
-            context::storage_delete(key)
-        }
-
-        #[inline]
-        pub fn list_keys(&self) -> Result<Vec<String>, String> {
-            context::storage_list_keys()
-        }
-    }
-
-    /// 拟物交互弹窗服务
-    pub struct DialogService;
-
-    impl DialogService {
-        #[inline]
-        pub fn confirm(&self, title: &str, message: &str) -> Result<bool, String> {
-            context::show_dialog_confirm(title, message)
-        }
     }
 }
 
 pub use sdk::Aurona;
 
-struct VsCodeCompatExtension;
-
-#[derive(Debug, Clone)]
-pub struct RegisteredApiEntry {
-    pub namespace: String,
-    pub api_name: String,
-    pub mapped_aurona_sdk: String,
-    pub status: String,
+fn js_error(error: JsError) -> String {
+    error.to_string()
 }
 
-#[derive(Debug, Clone)]
-pub struct TranspileResult {
-    pub extension_name: String,
-    pub version: String,
-    pub api_compatibility: String,
-    pub matched_apis: Vec<RegisteredApiEntry>,
-    pub execution_log: Vec<String>,
+use boa_engine::{JsObject, JsString};
+
+fn new_object(context: &mut Context) -> JsResult<JsObject> {
+    Ok(JsObject::with_object_proto(context.intrinsics()))
 }
 
-fn html_escape(input: &str) -> String {
-    input
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&#39;")
+fn set_value(
+    target: &JsObject,
+    key: &str,
+    value: impl Into<JsValue>,
+    context: &mut Context,
+) -> JsResult<()> {
+    target
+        .set(JsString::from(key), value.into(), false, context)
+        .map(|_| ())
 }
 
-/// 深度分析并转译 VSCode 插件代码或 .vsix package.json 清单
-pub fn transpile_vscode_script(script_or_manifest: &str) -> TranspileResult {
-    let text = script_or_manifest.trim();
-    let mut apis = Vec::new();
+fn set_fn(target: &JsObject, key: &str, f: NativeFunction, context: &mut Context) -> JsResult<()> {
+    let func = FunctionObjectBuilder::new(context.realm(), f)
+        .name(key)
+        .build();
+    set_value(target, key, func, context)
+}
+
+/// CJS 环境垫片：console / module / exports / require / 命令注册全部以 JS 定义，
+/// 状态保存在 GC 可达的全局对象图（__auronaLogs、vscode.commands.__registry），
+/// 因此所有原生闭包都无需捕获任何 Rust 状态（避免 boa GC 追踪 UB）。
+const SHIM_JS: &str = r#"
+    globalThis.__auronaLogs = [];
+    globalThis.console = {
+        log: (...args) => { __auronaLogs.push('[log] ' + args.map(String).join(' ')); },
+        info: (...args) => { __auronaLogs.push('[info] ' + args.map(String).join(' ')); },
+        warn: (...args) => { __auronaLogs.push('[warn] ' + args.map(String).join(' ')); },
+        error: (...args) => { __auronaLogs.push('[error] ' + args.map(String).join(' ')); },
+    };
+    globalThis.module = { exports: {} };
+    globalThis.exports = module.exports;
+    globalThis.require = (name) => {
+        if (name === 'vscode') { return vscode; }
+        throw new TypeError('兼容沙箱仅支持 require(\'vscode\')，收到: ' + name);
+    };
+    vscode.commands.registerCommand = (id, handler) => {
+        if (typeof handler !== 'function') {
+            throw new TypeError('registerCommand(id, handler) 需要 handler 为函数');
+        }
+        vscode.commands.__registry.push([id, handler]);
+        return undefined;
+    };
+    vscode.commands.executeCommand = (id, ...args) => {
+        for (const entry of vscode.commands.__registry) {
+            if (entry[0] === id) { return entry[1](...args); }
+        }
+        throw new TypeError('命令未注册: ' + id);
+    };
+"#;
+
+/// 把 `require("vscode")`、`console`、`module/exports` 注入 boa 全局。
+fn install_shims(context: &mut Context) -> JsResult<()> {
+    let vscode = build_vscode_module(context)?;
+    context.register_global_property(JsString::from("vscode"), vscode, Attribute::all())?;
+    context.eval(Source::from_bytes(SHIM_JS.as_bytes()))?;
+    Ok(())
+}
+
+/// 构建兼容层支持的 vscode.* API 表面（规划 §5.4 执行模型）。
+/// 所有原生函数均为零捕获（Copy）闭包。
+fn build_vscode_module(context: &mut Context) -> JsResult<JsObject> {
+    let vscode = new_object(context)?;
+
+    // --- vscode.commands（registerCommand/executeCommand 由 SHIM_JS 以 JS 定义）---
+    let commands_ns = new_object(context)?;
+    let registry = JsArray::new(context);
+    set_value(&commands_ns, "__registry", registry, context)?;
+    set_value(&vscode, "commands", commands_ns, context)?;
+
+    // --- vscode.window ---
+    let window_ns = new_object(context)?;
+    for (key, level) in [
+        ("showInformationMessage", "info"),
+        ("showWarningMessage", "warn"),
+        ("showErrorMessage", "error"),
+    ] {
+        set_fn(
+            &window_ns,
+            key,
+            NativeFunction::from_copy_closure(move |_this, args, ctx| {
+                let message = args
+                    .get_or_undefined(0)
+                    .to_string(ctx)?
+                    .to_std_string_escaped();
+                Aurona::window().show_by_level(level, &message);
+                Ok(JsValue::undefined())
+            }),
+            context,
+        )?;
+    }
+    {
+        set_fn(
+            &window_ns,
+            "setStatusBarMessage",
+            NativeFunction::from_copy_closure(move |_this, args, ctx| {
+                let message = args
+                    .get_or_undefined(0)
+                    .to_string(ctx)?
+                    .to_std_string_escaped();
+                let timeout = args
+                    .get_or_undefined(1)
+                    .to_number(ctx)
+                    .unwrap_or(4000.0) as u32;
+                let _ = Aurona::window().set_status_bar(&message, timeout.max(500));
+                Ok(JsValue::undefined())
+            }),
+            context,
+        )?;
+    }
+    set_value(&vscode, "window", window_ns, context)?;
+
+    // --- vscode.Uri ---
+    let uri_ns = new_object(context)?;
+    set_fn(
+        &uri_ns,
+        "file",
+        NativeFunction::from_copy_closure(move |_this, args, ctx| {
+            let path = args
+                .get_or_undefined(0)
+                .to_string(ctx)?
+                .to_std_string_escaped();
+            let uri = new_object(ctx)?;
+            set_value(&uri, "scheme", JsString::from("file"), ctx)?;
+            set_value(&uri, "fsPath", JsString::from(path.clone()), ctx)?;
+            set_value(&uri, "path", JsString::from(path), ctx)?;
+            Ok(uri.into())
+        }),
+        context,
+    )?;
+    set_value(&vscode, "Uri", uri_ns, context)?;
+
+    // --- vscode.workspace ---
+    let workspace_ns = new_object(context)?;
+    let fs_ns = new_object(context)?;
+    set_fn(
+        &fs_ns,
+        "readFile",
+        NativeFunction::from_copy_closure(move |_this, args, ctx| {
+            let uri = args.get_or_undefined(0);
+            let path = match uri.as_object() {
+                Some(obj) => {
+                    let fs_path = obj.get(JsString::from("fsPath"), ctx)?;
+                    fs_path.to_string(ctx)?.to_std_string_escaped()
+                }
+                None => uri.to_string(ctx)?.to_std_string_escaped(),
+            };
+            let promise = JsPromise::new(
+                move |resolvers, ctx| match Aurona::workspace().read_file(&path) {
+                    Ok(content) => resolvers.resolve.call(
+                        &JsValue::undefined(),
+                        &[JsValue::from(JsString::from(content))],
+                        ctx,
+                    ),
+                    Err(error) => resolvers.reject.call(
+                        &JsValue::undefined(),
+                        &[JsValue::from(JsString::from(error))],
+                        ctx,
+                    ),
+                },
+                ctx,
+            );
+            Ok(promise.into())
+        }),
+        context,
+    )?;
+    set_value(&workspace_ns, "fs", fs_ns, context)?;
+    // onDidChangeTextDocument：沙箱内暂无事件流，注册为 noop 兼容位。
+    set_fn(
+        &workspace_ns,
+        "onDidChangeTextDocument",
+        NativeFunction::from_copy_closure(|_this, _args, _ctx| Ok(JsValue::undefined())),
+        context,
+    )?;
+    set_value(&vscode, "workspace", workspace_ns, context)?;
+
+    // --- vscode.env.clipboard ---
+    let env_ns = new_object(context)?;
+    let clipboard_ns = new_object(context)?;
+    set_fn(
+        &clipboard_ns,
+        "readText",
+        NativeFunction::from_copy_closure(|_this, _args, _ctx| {
+            Ok(JsValue::from(JsString::from(
+                Aurona::clipboard().read().unwrap_or_default(),
+            )))
+        }),
+        context,
+    )?;
+    set_fn(
+        &clipboard_ns,
+        "writeText",
+        NativeFunction::from_copy_closure(move |_this, args, ctx| {
+            let text = args
+                .get_or_undefined(0)
+                .to_string(ctx)?
+                .to_std_string_escaped();
+            let _ = Aurona::clipboard().write(&text);
+            Ok(JsValue::undefined())
+        }),
+        context,
+    )?;
+    set_value(&env_ns, "clipboard", clipboard_ns, context)?;
+    set_value(&env_ns, "appName", JsString::from("Aurona Code"), context)?;
+    set_value(&vscode, "env", env_ns, context)?;
+
+    Ok(vscode)
+}
+
+/// 构造传给 activate(context) 的 ExtensionContext 形状。
+fn build_activation_context(context: &mut Context) -> JsResult<JsObject> {
+    let ctx_obj = new_object(context)?;
+    let subscriptions = JsArray::new(context);
+    set_value(&ctx_obj, "subscriptions", subscriptions, context)?;
+    set_value(&ctx_obj, "extensionPath", JsString::from(""), context)?;
+
+    let state_obj = new_object(context)?;
+    set_fn(
+        &state_obj,
+        "get",
+        NativeFunction::from_copy_closure(move |_this, args, ctx| {
+            let key = args
+                .get_or_undefined(0)
+                .to_string(ctx)?
+                .to_std_string_escaped();
+            match Aurona::storage().get(&key) {
+                Ok(Some(value)) => Ok(JsValue::from(JsString::from(value))),
+                _ => Ok(JsValue::undefined()),
+            }
+        }),
+        context,
+    )?;
+    set_fn(
+        &state_obj,
+        "update",
+        NativeFunction::from_copy_closure(move |_this, args, ctx| {
+            let key = args
+                .get_or_undefined(0)
+                .to_string(ctx)?
+                .to_std_string_escaped();
+            let value = args
+                .get_or_undefined(1)
+                .to_string(ctx)?
+                .to_std_string_escaped();
+            let _ = Aurona::storage().set(&key, &value);
+            Ok(JsValue::undefined())
+        }),
+        context,
+    )?;
+    set_value(&ctx_obj, "globalState", state_obj.clone(), context)?;
+    set_value(&ctx_obj, "workspaceState", state_obj, context)?;
+    Ok(ctx_obj)
+}
+
+/// 从 GC 可达的 vscode.commands.__registry 读取已注册命令 ID。
+fn read_command_ids(context: &mut Context) -> Result<Vec<String>, String> {
+    let vscode_value = context
+        .global_object()
+        .get(JsString::from("vscode"), context)
+        .map_err(js_error)?;
+    let Some(vscode_obj) = vscode_value.as_object() else {
+        return Ok(Vec::new());
+    };
+    let commands_value = vscode_obj
+        .get(JsString::from("commands"), context)
+        .map_err(js_error)?;
+    let Some(commands_obj) = commands_value.as_object() else {
+        return Ok(Vec::new());
+    };
+    let registry_value = commands_obj
+        .get(JsString::from("__registry"), context)
+        .map_err(js_error)?;
+    let Some(registry_obj) = registry_value.as_object() else {
+        return Ok(Vec::new());
+    };
+    let length_value = registry_obj
+        .get(JsString::from("length"), context)
+        .map_err(js_error)?;
+    let length = length_value.to_number(context).map_err(js_error)?;
+    let mut ids = Vec::new();
+    for index in 0..(length.max(0.0) as u64) {
+        let Ok(entry_value) = registry_obj.get(index, context) else {
+            continue;
+        };
+        let Some(entry_obj) = entry_value.as_object() else {
+            continue;
+        };
+        let Ok(id_value) = entry_obj.get(0u32, context) else {
+            continue;
+        };
+        let id = id_value
+            .as_string()
+            .map(|s| s.to_std_string_escaped())
+            .unwrap_or_default();
+        if !id.is_empty() {
+            ids.push(id);
+        }
+    }
+    Ok(ids)
+}
+
+/// 从 GC 可达的 __auronaLogs 读取 console 输出。
+fn read_console_logs(context: &mut Context) -> Vec<String> {
+    let Ok(value) = context
+        .global_object()
+        .get(JsString::from("__auronaLogs"), context)
+    else {
+        return Vec::new();
+    };
+    let Some(obj) = value.as_object() else {
+        return Vec::new();
+    };
+    let Ok(length_value) = obj.get(JsString::from("length"), context) else {
+        return Vec::new();
+    };
+    let Ok(length) = length_value.to_number(context) else {
+        return Vec::new();
+    };
     let mut logs = Vec::new();
-
-    logs.push("正在启动 Aurona VSCode 兼容转译层运行时 (WASM Sandbox Core v1.0)...".to_string());
-    logs.push(format!("当前 Aurona SDK 契约版本: v{}", Aurona::version()));
-
-    // 1. vscode.commands 命名空间
-    if text.contains("vscode.commands.registerCommand") || text.contains("commands.registerCommand") || text.contains("contributes") {
-        apis.push(RegisteredApiEntry {
-            namespace: "vscode.commands".to_string(),
-            api_name: "registerCommand(id, callback)".to_string(),
-            mapped_aurona_sdk: "Aurona::commands().register()".to_string(),
-            status: "已映射".to_string(),
-        });
-        logs.push("✓ [vscode.commands] 命令调度已成功转译至 Aurona::commands()".to_string());
+    for index in 0..(length.max(0.0) as u64) {
+        let Ok(item) = obj.get(index, context) else {
+            continue;
+        };
+        if let Some(text) = item.as_string() {
+            logs.push(text.to_std_string_escaped());
+        }
     }
-
-    // 2. vscode.window 命名空间
-    if text.contains("vscode.window.showInformationMessage") || text.contains("window.showInformationMessage") {
-        apis.push(RegisteredApiEntry {
-            namespace: "vscode.window".to_string(),
-            api_name: "showInformationMessage(message)".to_string(),
-            mapped_aurona_sdk: "Aurona::window().show_info()".to_string(),
-            status: "已映射".to_string(),
-        });
-        logs.push("✓ [vscode.window] 消息弹窗已成功转译至 Aurona::window() 现代毛玻璃 Toast".to_string());
-    }
-
-    if text.contains("vscode.window.createStatusBarItem") || text.contains("setStatusBarMessage") {
-        apis.push(RegisteredApiEntry {
-            namespace: "vscode.window".to_string(),
-            api_name: "createStatusBarItem() / setStatusBarMessage()".to_string(),
-            mapped_aurona_sdk: "Aurona::window().set_status_bar()".to_string(),
-            status: "已映射".to_string(),
-        });
-        logs.push("✓ [vscode.window] 状态栏项已成功转译至底部沉浸状态栏".to_string());
-    }
-
-    // 3. vscode.languages 命名空间
-    if text.contains("vscode.languages.registerHoverProvider") || text.contains("languages.registerHoverProvider") {
-        apis.push(RegisteredApiEntry {
-            namespace: "vscode.languages".to_string(),
-            api_name: "registerHoverProvider(selector, provider)".to_string(),
-            mapped_aurona_sdk: "Aurona::editor().register_hover()".to_string(),
-            status: "已映射".to_string(),
-        });
-        logs.push("✓ [vscode.languages] 悬停提示 Hover 管道已成功适配".to_string());
-    }
-
-    if text.contains("vscode.languages.registerCompletionItemProvider") || text.contains("registerCompletionItemProvider") {
-        apis.push(RegisteredApiEntry {
-            namespace: "vscode.languages".to_string(),
-            api_name: "registerCompletionItemProvider(selector, provider)".to_string(),
-            mapped_aurona_sdk: "Aurona::editor().register_completion()".to_string(),
-            status: "已映射".to_string(),
-        });
-        logs.push("✓ [vscode.languages] 自动补全提供器已成功接入 Autocomplete 引擎".to_string());
-    }
-
-    // 4. vscode.workspace 命名空间
-    if text.contains("vscode.workspace.fs.readFile") || text.contains("workspace.fs") {
-        apis.push(RegisteredApiEntry {
-            namespace: "vscode.workspace".to_string(),
-            api_name: "fs.readFile(uri)".to_string(),
-            mapped_aurona_sdk: "Aurona::workspace().read_file()".to_string(),
-            status: "已映射 (沙箱)".to_string(),
-        });
-        logs.push("✓ [vscode.workspace] 文件读取已严格接入工作区安全沙箱".to_string());
-    }
-
-    if text.contains("vscode.workspace.onDidChangeTextDocument") || text.contains("onDidChangeTextDocument") {
-        apis.push(RegisteredApiEntry {
-            namespace: "vscode.workspace".to_string(),
-            api_name: "onDidChangeTextDocument(event)".to_string(),
-            mapped_aurona_sdk: "Aurona::workspace().watch()".to_string(),
-            status: "已映射".to_string(),
-        });
-        logs.push("✓ [vscode.workspace] 文档变更监听已桥接至 Ropey 编辑器事件流".to_string());
-    }
-
-    // 5. vscode.ExtensionContext & EventEmitter
-    if text.contains("context.subscriptions") || text.contains("globalState") {
-        apis.push(RegisteredApiEntry {
-            namespace: "vscode.ExtensionContext".to_string(),
-            api_name: "subscriptions.push() / globalState".to_string(),
-            mapped_aurona_sdk: "Aurona::storage() / ComponentDrop".to_string(),
-            status: "已映射".to_string(),
-        });
-        logs.push("✓ [vscode.context] 生命周期与全局沙箱状态已成功转译".to_string());
-    }
-
-    if apis.is_empty() {
-        apis.push(RegisteredApiEntry {
-            namespace: "vscode.commands".to_string(),
-            api_name: "registerCommand('demo.execute', ...)".to_string(),
-            mapped_aurona_sdk: "Aurona::commands().execute()".to_string(),
-            status: "已映射".to_string(),
-        });
-        apis.push(RegisteredApiEntry {
-            namespace: "vscode.window".to_string(),
-            api_name: "showInformationMessage('VSCode Demo Ready')".to_string(),
-            mapped_aurona_sdk: "Aurona::window().show_info()".to_string(),
-            status: "已映射".to_string(),
-        });
-        apis.push(RegisteredApiEntry {
-            namespace: "vscode.workspace".to_string(),
-            api_name: "fs.readFile(Uri.file('package.json'))".to_string(),
-            mapped_aurona_sdk: "Aurona::workspace().read_file('package.json')".to_string(),
-            status: "已映射".to_string(),
-        });
-        logs.push("已成功解包并转译标准 VSCode 插件包: vscode-demo.vsix".to_string());
-    }
-
-    logs.push("沙箱转译完成: 0 error, 0 warning. 生成 Aurona 原生 WASM Component 调用栈.".to_string());
-
-    TranspileResult {
-        extension_name: "VSCode 插件转译运行底层 (Compat Core Engine)".to_string(),
-        version: "v1.92.0 Standard".to_string(),
-        api_compatibility: "99.2% Core".to_string(),
-        matched_apis: apis,
-        execution_log: logs,
-    }
+    logs
 }
 
-fn render_compat_html(result: &TranspileResult, locale: &str) -> RenderOutput {
-    let is_zh = locale.starts_with("zh");
+/// 执行一段 VSCode CJS 插件源码：eval → activate → 可选执行用户命令。
+/// 全部发生在同一个 Context（跨 Context 调用 JS 函数属于未定义行为）。
+/// 返回 (已注册命令 ID 列表, console 日志)。
+fn execute_extension(
+    source: &str,
+    command_to_run: Option<&str>,
+) -> Result<(Vec<String>, Vec<String>), String> {
+    let mut context = Context::default();
+    install_shims(&mut context).map_err(js_error)?;
+    context
+        .eval(Source::from_bytes(source.as_bytes()))
+        .map_err(js_error)?;
+
+    // 读取 module.exports.activate（兼容 module.exports = {...} 与 exports.activate = fn）。
+    let module_value = context
+        .global_object()
+        .get(JsString::from("module"), &mut context)
+        .map_err(js_error)?;
+    let exports_value = module_value
+        .as_object()
+        .ok_or_else(|| "module 不是对象".to_string())?
+        .get(JsString::from("exports"), &mut context)
+        .map_err(js_error)?;
+    let activate_fn = exports_value
+        .as_object()
+        .and_then(|exports| {
+            exports
+                .get(JsString::from("activate"), &mut context)
+                .ok()
+                .and_then(|value| value.as_function())
+        })
+        .ok_or_else(|| "扩展未导出 activate(context) 函数".to_string())?;
+
+    let activation_ctx = build_activation_context(&mut context).map_err(js_error)?;
+    activate_fn
+        .call(&JsValue::undefined(), &[activation_ctx.into()], &mut context)
+        .map_err(js_error)?;
+
+    // 驱动 readFile 等 Promise 的 then 回调。
+    context.run_jobs();
+
+    let command_ids = read_command_ids(&mut context)?;
+
+    if let Some(command_id) = command_to_run {
+        if !command_ids.iter().any(|id| id == command_id) {
+            return Err(format!("插件未注册命令: {command_id}"));
+        }
+        let call_source = format!(
+            "vscode.commands.executeCommand(\"{}\");",
+            json_escape(command_id)
+        );
+        context
+            .eval(Source::from_bytes(call_source.as_bytes()))
+            .map_err(js_error)?;
+        context.run_jobs();
+    }
+
+    let logs = read_console_logs(&mut context);
+    Ok((command_ids, logs))
+}
+
+fn json_escape(input: &str) -> String {
+    let mut out = String::with_capacity(input.len() + 2);
+    for ch in input.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// 生成声明式 UI（模式 A）根 JSON：命令卡 + 执行日志。
+fn build_declarative_ui(
+    title: &str,
+    description: &str,
+    commands: &[String],
+    logs: &[String],
+    executed: Option<&str>,
+) -> String {
+    let mut components = String::new();
+
+    // 执行结果徽标
+    if let Some(command_id) = executed {
+        components.push_str(&format!(
+            "{{\"type\":\"badge\",\"id\":\"exec_result\",\"text\":\"已执行: {}\",\"color\":\"green\"}},",
+            json_escape(command_id)
+        ));
+    }
+
+    // 命令卡
+    if commands.is_empty() {
+        components.push_str(
+            "{\"type\":\"card\",\"id\":\"empty\",\"title\":\"未发现已注册命令\",\"children\":[{\"type\":\"text\",\"id\":\"hint\",\"content\":\"该插件在 activate 中没有调用 vscode.commands.registerCommand，或执行被沙箱终止。\",\"variant\":\"body\"}]}",
+        );
+    } else {
+        let mut buttons = String::new();
+        for id in commands {
+            buttons.push_str(&format!(
+                "{{\"type\":\"button\",\"id\":\"btn_{}\",\"label\":\"执行 {}\",\"variant\":\"primary\",\"action\":\"run:{}\"}},",
+                json_escape(&id.replace(':', "_")),
+                json_escape(id),
+                json_escape(id)
+            ));
+        }
+        buttons.pop();
+        components.push_str(&format!(
+            "{{\"type\":\"card\",\"id\":\"commands\",\"title\":\"已注册命令\",\"subtitle\":\"来自插件 activate(context) 的真实注册\",\"children\":[{buttons}]}}"
+        ));
+    }
+
+    // 日志卡
+    if !logs.is_empty() {
+        let mut lines = String::new();
+        for (index, log) in logs.iter().take(40).enumerate() {
+            lines.push_str(&format!(
+                "{{\"type\":\"text\",\"id\":\"log_{}\",\"content\":\"{}\",\"variant\":\"code\"}},",
+                index,
+                json_escape(log)
+            ));
+        }
+        lines.pop();
+        components.push_str(&format!(
+            ",{{\"type\":\"card\",\"id\":\"logs\",\"title\":\"沙箱执行日志\",\"children\":[{lines}]}}"
+        ));
+    }
+
+    format!(
+        "{{\"mode\":\"declarative\",\"title\":\"{}\",\"description\":\"{}\",\"components\":[{components}]}}",
+        json_escape(title),
+        json_escape(description)
+    )
+}
+
+/// 兼容层的执行入口（locale 由调用方注入，宿主机测试可传固定值）。
+/// `action_id` 形如 `run:命令ID` 表示这是一次用户触发的命令执行。
+fn compat_execute_with_locale(
+    source: &str,
+    action_id: &str,
+    locale: &str,
+) -> Result<RenderOutput, String> {
+    let executed = action_id
+        .strip_prefix("run:")
+        .map(str::to_string)
+        .filter(|id| !id.is_empty());
+
+    let (command_ids, logs) = execute_extension(source, executed.as_deref())?;
+    let mut sorted = command_ids;
+    sorted.sort();
+    sorted.dedup();
+
     let is_hant = locale.starts_with("zh-Hant");
-
-    let title_text = if is_hant {
-        "VSCode 擴充相容與轉譯執行層"
+    let is_zh = locale.starts_with("zh");
+    let (title, description) = if is_hant {
+        (
+            "VSCode 外掛執行層",
+            "由 Aurona 相容沙箱真實執行（Boa 引擎 · WASM 元件）",
+        )
     } else if is_zh {
-        "VSCode 插件兼容与转译运行层"
+        (
+            "VSCode 插件执行层",
+            "由 Aurona 兼容沙箱真实执行（Boa 引擎 · WASM 组件）",
+        )
     } else {
-        "VSCode Extension Compat Runtime"
+        (
+            "VSCode Extension Runtime",
+            "Really executed by the Aurona compat sandbox (Boa engine · WASM component)",
+        )
     };
 
-    let apis_title = if is_hant {
-        "已轉譯與適配的 VSCode API 映射"
-    } else if is_zh {
-        "已转译与适配的 VSCode API 映射"
-    } else {
-        "Transpiled VSCode API Mappings"
-    };
-
-    let logs_title = if is_hant {
-        "WASM 沙箱轉譯與日誌"
-    } else if is_zh {
-        "WASM 沙箱转译与运行日志"
-    } else {
-        "WASM Sandbox Transpiler Logs"
-    };
-
-    let icon_code = Aurona::icons().get("code").unwrap_or_default();
-    let icon_zap = Aurona::icons().get("zap").unwrap_or_default();
-    let icon_terminal = Aurona::icons().get("terminal").unwrap_or_default();
-
-    let mut html = String::new();
-    html.push_str("<div class=\"compat-container\">");
-
-    // 头部信息卡片
-    html.push_str("<div class=\"compat-card header-card\">");
-    html.push_str("<div class=\"header-top\">");
-    html.push_str(&format!("<div class=\"header-icon\">{icon_zap}</div>"));
-    html.push_str("<div>");
-    html.push_str(&format!("<h2 class=\"compat-title\">{title_text}</h2>"));
-    html.push_str("<div class=\"compat-subtitle\">WASM 沙箱容器 · 面向对象 Aurona SDK v1 · 零开销运行时</div>");
-    html.push_str("</div>");
-    html.push_str("</div>");
-
-    html.push_str("<div class=\"compat-stats-grid\">");
-    html.push_str(&format!(
-        "<div class=\"stat-box\"><span class=\"stat-num\">{}</span><span class=\"stat-label\">API 兼容度</span></div>",
-        result.api_compatibility
-    ));
-    html.push_str(&format!(
-        "<div class=\"stat-box\"><span class=\"stat-num\">{}</span><span class=\"stat-label\">已适配 API 组</span></div>",
-        result.matched_apis.len()
-    ));
-    html.push_str("<div class=\"stat-box\"><span class=\"stat-num\">100% 内存安全</span><span class=\"stat-label\">沙箱状态</span></div>");
-    html.push_str("</div>");
-    html.push_str("</div>");
-
-    // API 映射列表
-    html.push_str("<div class=\"compat-card\">");
-    html.push_str(&format!(
-        "<div class=\"card-section-title\">{icon_code}<span>{apis_title}</span></div>"
-    ));
-    html.push_str("<div class=\"commands-list\">");
-    for api in &result.matched_apis {
-        let ns = html_escape(&api.namespace);
-        let name = html_escape(&api.api_name);
-        let target = html_escape(&api.mapped_aurona_sdk);
-        let status = html_escape(&api.status);
-        html.push_str(&format!(
-            "<div class=\"command-item\"><div class=\"command-title\"><span class=\"ns-badge\">{ns}</span> {name}</div><div class=\"command-id\"><code>➔ {target}</code> <span class=\"status-tag\">{status}</span></div></div>"
-        ));
-    }
-    html.push_str("</div>");
-    html.push_str("</div>");
-
-    // 转译日志终端
-    html.push_str("<div class=\"compat-card\">");
-    html.push_str(&format!(
-        "<div class=\"card-section-title\">{icon_terminal}<span>{logs_title}</span></div>"
-    ));
-    html.push_str("<div class=\"log-terminal\">");
-    for log_line in &result.execution_log {
-        let line_esc = html_escape(log_line);
-        html.push_str(&format!(
-            "<div class=\"log-line\"><span class=\"log-prefix\">❯</span><span class=\"log-text\">{line_esc}</span></div>"
-        ));
-    }
-    html.push_str("</div>");
-    html.push_str("</div>");
-
-    html.push_str("</div>");
-
-    RenderOutput {
-        html,
+    Ok(RenderOutput {
+        html: build_declarative_ui(
+            title,
+            description,
+            &sorted,
+            &logs,
+            executed.as_deref(),
+        ),
         diagnostics: Vec::new(),
-    }
+    })
 }
+
+/// WIT 入口：locale 来自宿主环境注入。
+fn compat_execute(source: &str, action_id: &str) -> Result<RenderOutput, String> {
+    let locale = Aurona::config().locale;
+    compat_execute_with_locale(source, action_id, &locale)
+}
+
+struct VsCodeCompatExtension;
 
 impl Guest for VsCodeCompatExtension {
     fn render(input: RenderInput) -> Result<RenderOutput, String> {
-        let config = Aurona::config();
-        let result = transpile_vscode_script(&input.markdown);
-        Ok(render_compat_html(&result, &config.locale))
+        compat_execute(&input.markdown, "")
+    }
+
+    fn on_action(action_id: String, payload: String) -> Result<RenderOutput, String> {
+        // payload 由 host 覆盖为主入口 JS 源码（§5.4：组件跨调用无状态）。
+        compat_execute(&payload, &action_id)
     }
 }
 
@@ -534,27 +779,49 @@ mod tests {
     use super::*;
 
     #[test]
-    fn transpile_vscode_multi_namespace() {
-        let script = r#"
-            vscode.commands.registerCommand("myExt.doSomething", () => {});
-            vscode.window.showInformationMessage("Hello World");
-            vscode.languages.registerHoverProvider("typescript", {});
-            vscode.workspace.fs.readFile(uri);
+    fn declarative_ui_lists_registered_commands() {
+        let source = r#"
+            const vscode = require('vscode');
+            function activate(context) {
+                vscode.commands.registerCommand('demo.hello', () => {
+                    vscode.window.showInformationMessage('hello');
+                });
+            }
+            module.exports = { activate };
         "#;
-        let result = transpile_vscode_script(script);
-        assert_eq!(result.matched_apis.len(), 4);
-        assert!(result.matched_apis.iter().any(|a| a.namespace == "vscode.commands"));
-        assert!(result.matched_apis.iter().any(|a| a.namespace == "vscode.window"));
-        assert!(result.matched_apis.iter().any(|a| a.namespace == "vscode.languages"));
-        assert!(result.matched_apis.iter().any(|a| a.namespace == "vscode.workspace"));
+        let output = compat_execute_with_locale(source, "", "zh-CN").expect("执行应成功");
+        assert!(output.html.contains("demo.hello"));
+        assert!(output.html.contains("\"mode\":\"declarative\""));
     }
 
     #[test]
-    fn render_compat_html_output() {
-        let result = transpile_vscode_script("");
-        let output = render_compat_html(&result, "zh-CN");
-        assert!(output.html.contains("compat-container"));
-        assert!(output.html.contains("VSCode"));
-        assert!(output.html.contains("API 兼容度"));
+    fn on_action_executes_command_and_logs() {
+        let source = r#"
+            const vscode = require('vscode');
+            function activate(context) {
+                vscode.commands.registerCommand('demo.hello', () => {
+                    console.log('command ran');
+                });
+            }
+            module.exports = { activate };
+        "#;
+        let output = compat_execute_with_locale(source, "run:demo.hello", "zh-CN")
+            .expect("命令执行应成功");
+        assert!(output.html.contains("已执行: demo.hello"));
+        assert!(output.html.contains("command ran"));
+    }
+
+    #[test]
+    fn missing_activate_is_reported() {
+        let output = compat_execute_with_locale("const vscode = require('vscode');", "", "zh-CN");
+        assert!(output.is_err());
+    }
+
+    #[test]
+    fn json_escape_produces_valid_json_string() {
+        let escaped = json_escape("a\"b\nc");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&format!("\"{escaped}\"")).expect("应为合法 JSON 字符串");
+        assert_eq!(parsed, "a\"b\nc");
     }
 }

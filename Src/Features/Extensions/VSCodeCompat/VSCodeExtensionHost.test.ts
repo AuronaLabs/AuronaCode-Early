@@ -1,5 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { createVSCodeExtensionHost, Position, Range, Selection, Uri } from "./VSCodeExtensionHost";
+import {
+  createVSCodeExtensionHost,
+  Position,
+  Range,
+  resolveConfigKey,
+  Selection,
+  Uri,
+} from "./VSCodeExtensionHost";
+
+describe("resolveConfigKey", () => {
+  it("maps VS Code section + key onto Aurona flat camelCase keys", () => {
+    // editor + fontSize -> editorFontSize（Aurona 的扁平键）
+    expect(resolveConfigKey("editor", "fontSize")).toEqual([
+      "editor.fontSize",
+      "fontSize",
+      "editorFontSize",
+    ]);
+  });
+
+  it("keeps the bare key first-class when no section is given", () => {
+    expect(resolveConfigKey(undefined, "editorFontSize")).toEqual(["editorFontSize"]);
+  });
+
+  it("tolerates an empty key without producing a broken candidate", () => {
+    expect(resolveConfigKey("editor", "")).toEqual(["editor.", ""]);
+  });
+});
 
 describe("VSCodeExtensionHost", () => {
   it("implements standard VS Code Uri parsing and operations", () => {

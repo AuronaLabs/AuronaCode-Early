@@ -2,6 +2,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { RecoveryCoordinator } from "../Core/Recovery/RecoveryCoordinator";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EditorTabBar } from "../Features/Editor/EditorTabBar";
+import { startExtensionEditorBridge } from "../Features/Extensions/ExtensionEditorBridge";
 import { ExtensionSidebar } from "../Features/Extensions/ExtensionSidebar";
 import { ExtensionsPanel } from "../Features/Extensions/ExtensionsPanel";
 import { FliunoWorkspacePage } from "../Features/Fliuno/FliunoWorkspacePage";
@@ -138,6 +139,14 @@ export function WorkspaceView() {
 
   const [mountedExtensions, setMountedExtensions] = useState<Set<string>>(new Set());
   const currentExtId = activeSidebar ? extensionIdFromSidebar(activeSidebar) : null;
+
+  // 扩展编辑器桥：接收后端 insert-text / reveal-line 事件并驱动活动引擎
+  useEffect(() => {
+    const promise = startExtensionEditorBridge();
+    return () => {
+      promise.then((dispose) => dispose()).catch(() => undefined);
+    };
+  }, []);
 
   useEffect(() => {
     if (currentExtId) {

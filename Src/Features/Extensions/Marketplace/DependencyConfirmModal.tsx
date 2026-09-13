@@ -11,20 +11,36 @@ export interface DependencyInfo {
   description: string;
 }
 
+/** 安装确认弹窗里展示的声明权限（与市场条目的 PermissionItem 同构） */
+export interface DeclaredPermissionInfo {
+  name: string;
+  description?: string;
+  level?: string;
+}
+
 interface DependencyConfirmModalProps {
   isOpen: boolean;
   targetName: string;
   targetVersion?: string;
   targetType?: "lsp" | "extension";
   dependencies: DependencyInfo[];
+  /** 扩展声明的权限：安装前让用户明确知道它要什么 */
+  permissions?: DeclaredPermissionInfo[];
   onConfirm: () => void;
   onCancel: () => void;
 }
+
+const LEVEL_KEY: Record<string, string> = {
+  normal: "extensions.permission.levelNormal",
+  sensitive: "extensions.permission.levelSensitive",
+  critical: "extensions.permission.levelCritical",
+};
 
 export function DependencyConfirmModal({
   isOpen,
   targetName,
   dependencies,
+  permissions = [],
   onConfirm,
   onCancel,
 }: DependencyConfirmModalProps) {
@@ -73,6 +89,37 @@ export function DependencyConfirmModal({
             ))
           )}
         </div>
+        {permissions.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-1.5 text-[11.5px] font-semibold text-[var(--color-text-highlight)]">
+              {t("extensions.permission.installPermissionTitle")}
+            </p>
+            <div className="divide-y divide-[var(--border-subtle)] border-y border-[var(--border-subtle)]">
+              {permissions.map((permission) => (
+                <div key={permission.name} className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-[12px] text-[var(--color-text-primary)]">
+                      {permission.name}
+                    </p>
+                    {permission.description && (
+                      <p className="mt-0.5 truncate text-[10.5px] text-[var(--color-text-muted)]">
+                        {permission.description}
+                      </p>
+                    )}
+                  </div>
+                  {permission.level && LEVEL_KEY[permission.level] && (
+                    <span className="shrink-0 rounded border border-[var(--border-subtle)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-muted)]">
+                      {t(LEVEL_KEY[permission.level] as never)}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[10.5px] text-[var(--color-text-muted)]">
+              {t("extensions.permission.installPermissionHint")}
+            </p>
+          </div>
+        )}
         <div className="mt-4 flex justify-end gap-2">
           <Button size="sm" variant="ghost" onClick={onCancel}>
             {t("common.cancel")}

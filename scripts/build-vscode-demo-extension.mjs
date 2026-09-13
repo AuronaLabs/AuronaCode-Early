@@ -6,7 +6,8 @@ import { crc32 } from "node:zlib";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const demoDir = join(root, "Extensions", "vscode.demo");
 const outputVsix = join(demoDir, "vscode-demo.vsix");
-const resourcesDir = join(root, "src-tauri", "resources", "extensions");
+// §5.7：demo 不再作为侧边栏内置扩展自动加载，改放独立目录由设置页一键装载
+const resourcesDir = join(root, "src-tauri", "resources", "extensions-demo");
 
 function createZip(entries) {
   const parts = [];

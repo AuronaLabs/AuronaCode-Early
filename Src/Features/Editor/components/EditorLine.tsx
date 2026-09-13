@@ -17,9 +17,9 @@ interface EditorLineProps {
   isCurrent: boolean;
   tokens: number[];
   searchQuery: string;
-  searchLineMatches: { char: number }[];
+  searchLineMatches: { char: number; length?: number }[];
   currentMatchIndex: number;
-  searchMatches: { line: number; char: number }[];
+  searchMatches: { line: number; char: number; length?: number }[];
   lineDiags: DiagnosticItem[];
   selection: { start: { line: number; char: number }; end: { line: number; char: number } } | null;
   isDragging: boolean;

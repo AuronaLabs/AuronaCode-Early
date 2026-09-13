@@ -54,6 +54,10 @@ class GlobalEditorAdapter {
     this.activeEngine?.replaceRange(startLine, endLine, newText);
   }
 
+  public revealLine(line: number): void {
+    this.activeEngine?.revealLine(line);
+  }
+
   public executeAction(action: EditorAction): void | Promise<void> {
     return this.activeEngine?.executeAction(action);
   }

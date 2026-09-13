@@ -17,5 +17,25 @@ fn main() {
         }
     }
 
-    tauri_build::build()
+    // tauri-build 默认通过 .res 资源只给 bin 目标嵌入应用清单（Common-Controls 6
+    // 依赖），测试二进制拿不到清单，comctl32 会解析到 System32 的 5.82 版（无
+    // TaskDialogIndirect 导出，tauri-plugin-dialog/rfd 需要它），`cargo test` 的
+    // 测试进程启动即报 STATUS_ENTRYPOINT_NOT_FOUND。
+    // 因此改为：bin 不由 tauri-build 嵌清单，统一用 rustc-link-arg 为所有链接
+    // 目标（含 bin 与测试）嵌入同一份清单（tauri crate 自身测试亦用此方案）。
+    let app_manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("windows")
+        .join("app-manifest.xml");
+    println!("cargo:rerun-if-changed={}", app_manifest.display());
+    println!("cargo:rustc-link-arg=/MANIFEST:EMBED");
+    println!(
+        "cargo:rustc-link-arg=/MANIFESTINPUT:{}",
+        app_manifest.display()
+    );
+
+    tauri_build::try_build(
+        tauri_build::Attributes::new()
+            .windows_attributes(tauri_build::WindowsAttributes::new_without_app_manifest()),
+    )
+    .expect("tauri-build 执行失败");
 }

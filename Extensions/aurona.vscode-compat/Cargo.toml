@@ -1,14 +1,18 @@
 [package]
 name = "aurona-vscode-compat"
 version = "0.1.0"
-description = "Aurona VSCode extension compatibility and translation runtime (WASM component guest)"
+description = "Aurona VSCode extension compatibility runtime (Boa-powered WASM component guest)"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
+boa_engine = "0.20"
 wit-bindgen = "0.58"
+
+[dev-dependencies]
+serde_json = "1"
 
 [profile.release]
 opt-level = "z"

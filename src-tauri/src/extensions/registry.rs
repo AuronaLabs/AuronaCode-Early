@@ -22,6 +22,8 @@ pub struct ExtensionDescriptor {
     pub display_title: Option<HashMap<String, String>>,
     pub sidebar_icon: String,
     pub view_entry: String,
+    /// manifest 声明的权限。前端据此渲染"声明驱动"的权限矩阵，而不是固定全量列表。
+    pub permissions: Vec<String>,
     pub marketplace: Option<super::aurx::MarketplaceMetadata>,
 }
 
@@ -42,6 +44,7 @@ impl ExtensionDescriptor {
             display_title: manifest.sidebar.display_title.clone(),
             sidebar_icon: manifest.sidebar.icon.clone(),
             view_entry: manifest.view.entry.clone(),
+            permissions: manifest.permissions.clone(),
             marketplace: manifest.marketplace.clone(),
         }
     }

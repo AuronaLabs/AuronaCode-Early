@@ -9,6 +9,8 @@ const { exists, mkdir, readTextFile, writeTextFile } = desktopFileSystem;
 let isWriting = false;
 let pendingWrite = false;
 let memoryCache: UserConfig | null = null;
+/** 首次加载时即无 user-config.json：用于首启 OOBE 判定，免去重复 exists IPC */
+let firstRunDetected = false;
 
 export const UserConfigStore = {
   async init(): Promise<void> {
@@ -25,6 +27,7 @@ export const UserConfigStore = {
 
       const fileExists = await exists(FILE, { baseDir: BASE });
       if (!fileExists) {
+        firstRunDetected = true;
         memoryCache = {};
         return memoryCache;
       }
@@ -35,6 +38,11 @@ export const UserConfigStore = {
       Logger.error("Unable to read user configuration; using in-memory defaults", error);
       return {};
     }
+  },
+
+  /** 首次 get() 时是否即无配置文件（首启判定） */
+  isFirstRun(): boolean {
+    return firstRunDetected;
   },
 
   async set(config: Partial<UserConfig>): Promise<void> {
@@ -70,5 +78,6 @@ export const UserConfigStore = {
     memoryCache = null;
     isWriting = false;
     pendingWrite = false;
+    firstRunDetected = false;
   },
 };

@@ -66,7 +66,8 @@ my-extension.aurx
 | `auronalabs.lsp-pyright` | **Python 语言服务** | Marketplace LSP 包 | 基于 Microsoft Pyright 的 Python 3.x 静态类型检查与智能语义服务 |
 | `auronalabs.lsp-typescript` | **TypeScript 语言服务** | Marketplace LSP 包 | 基于 typescript-language-server 的前端全栈代码智能服务 |
 | `auronalabs.runtime-node` | **官方共享运行时** | 共享环境包 (`.zip`) | Node.js 22.22.0 LTS 隔离基础运行时，供所有 Node-based LSP 共享使用 |
-| `aurona.vscode-compat` | **VSCode 兼容内核** | 应用内置运行时 | 提供 VSCode API 模拟层与 Node 安全沙箱；不作为可安装、可卸载或侧边栏扩展展示 |
+| `aurona.vscode-compat` | **VSCode 兼容内核** | 应用内置运行时 | 基于 Boa 引擎在 WASM 沙箱内真实执行 `.vsix` 扩展的 JavaScript 主入口；不作为可安装、可卸载或侧边栏扩展展示 |
+| `vscode-demo` | **VSCode Demo 测试插件** | 随包内置 `.vsix` | 官方标准 VSCode 插件包，经 设置 → 扩展 →「VSCode 测试插件」一键装载，用于验证兼容层执行链路 |
 
 ### 2.1 Marketplace 元数据、LSP 分发与权限规范
 

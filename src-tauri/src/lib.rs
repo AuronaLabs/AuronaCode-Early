@@ -15,8 +15,10 @@ pub mod toolchains;
 use commands::dap_cmds::DapState;
 pub use commands::lsp_cmds::LspState;
 use extensions::commands::{
-    extensions_get_permission, extensions_get_view, extensions_install, extensions_list,
-    extensions_render, extensions_set_permission, extensions_set_session_permission,
+    extensions_get_permission, extensions_get_view, extensions_install,
+    extensions_install_default_vscode, extensions_install_vscode, extensions_list,
+    extensions_on_action, extensions_permission_catalog, extensions_render,
+    extensions_revoke_permission, extensions_set_permission, extensions_set_session_permission,
     extensions_uninstall,
 };
 use extensions::state::ExtensionState;
@@ -54,8 +56,13 @@ pub fn run() {
             extensions_get_permission,
             extensions_set_permission,
             extensions_set_session_permission,
+            extensions_permission_catalog,
+            extensions_revoke_permission,
             extensions_render,
+            extensions_on_action,
             extensions_install,
+            extensions_install_vscode,
+            extensions_install_default_vscode,
             extensions_uninstall,
             account_auth::account_auth_status,
             account_auth::account_auth_start,

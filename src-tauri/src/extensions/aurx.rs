@@ -40,6 +40,10 @@ pub struct ExtensionManifest {
     pub runtime: RuntimeEntry,
     pub sidebar: SidebarEntry,
     pub view: ViewEntry,
+    /// 扩展声明它需要的权限（安装期由 permissions::validate_declared 审查）。
+    /// 旧包没有该字段时按"未声明"处理，运行时仍可主动请求。
+    #[serde(default)]
+    pub permissions: Vec<String>,
     #[serde(default)]
     pub marketplace: Option<MarketplaceMetadata>,
 }
@@ -100,6 +104,8 @@ pub struct ExtensionPackage {
     pub view_html: String,
     #[allow(dead_code)] // consumed by the extension view host in later phases
     pub icon_svg: String,
+    /// VSCode 兼容包的主入口 JS 源码（.vsix 路径专用；AURX 包恒为空）。
+    pub js_source: String,
 }
 
 impl ExtensionPackage {
@@ -241,6 +247,8 @@ fn validate_manifest(manifest: &ExtensionManifest) -> Result<(), String> {
             manifest.view.entry
         ));
     }
+    // 权限审查：声明了不存在的权限或当前版本未开放的权限，直接拒绝加载/安装
+    super::permissions::validate_declared(&manifest.permissions)?;
     Ok(())
 }
 
@@ -352,6 +360,7 @@ pub fn open_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, Strin
         wasm,
         view_html,
         icon_svg,
+        js_source: String::new(),
     }))
 }
 
@@ -378,6 +387,8 @@ struct VsCodePackageJson {
     version: Option<String>,
     description: Option<String>,
     #[serde(default)]
+    main: Option<String>,
+    #[serde(default)]
     categories: Vec<String>,
     #[serde(default)]
     keywords: Vec<String>,
@@ -387,6 +398,72 @@ struct VsCodePackageJson {
     license: Option<String>,
     #[serde(default)]
     contributes: Option<VsCodeContributes>,
+}
+
+/// VSIX 包内单个 entry 的解压上限（§5.3.2：真执行 JS 前必须补齐安全项）。
+pub const MAX_VSIX_ENTRY_BYTES: u64 = 8 * 1024 * 1024;
+/// VSIX 主入口 JS 的额外约束：小于单 entry 通用上限即可视为拒绝超大脚本。
+const VSIX_JS_HARD_LIMIT: u64 = MAX_VSIX_ENTRY_BYTES;
+
+/// 校验 VSIX entry 名，阻断 zip-slip / 绝对路径 / 反斜杠分隔符。
+fn ensure_safe_vsix_entry_name(name: &str) -> Result<(), String> {
+    if name.starts_with('[') {
+        // 允许 VSCode 标准的 "[Content_Types].xml" 元数据文件。
+        return Ok(());
+    }
+    if !is_safe_relative_path(name) || looks_like_drive_or_unc(name) {
+        return Err(format!("VSIX 包含不安全路径: {name}"));
+    }
+    Ok(())
+}
+
+/// 从 VSIX 归档中按 package.json 的 `main` 字段定位并读取主入口 JS。
+fn read_vsix_entry_bytes(
+    archive: &mut ZipArchive<Cursor<&[u8]>>,
+    wanted: &dyn Fn(&str) -> bool,
+    description: &str,
+) -> Result<Option<String>, String> {
+    let mut found: Option<(usize, u64)> = None;
+    for index in 0..archive.len() {
+        let entry = archive
+            .by_index(index)
+            .map_err(|error| format!("读取 VSIX entry 失败: {error}"))?;
+        if entry.is_dir() {
+            continue;
+        }
+        let name = entry.name().to_string();
+        ensure_safe_vsix_entry_name(&name)?;
+        let uncompressed = entry.size();
+        if uncompressed > MAX_VSIX_ENTRY_BYTES {
+            return Err(format!("VSIX 文件超过大小上限: {name}"));
+        }
+        if wanted(&name) {
+            found = Some((index, uncompressed));
+            break;
+        }
+    }
+    let Some((index, uncompressed)) = found else {
+        return Ok(None);
+    };
+    let mut entry = archive
+        .by_index(index)
+        .map_err(|error| format!("读取 VSIX entry 失败: {error}"))?;
+    if uncompressed > VSIX_JS_HARD_LIMIT {
+        return Err(format!("VSIX {description} 超过大小上限"));
+    }
+    let mut buffer = Vec::with_capacity(uncompressed as usize);
+    entry
+        .read_to_end(&mut buffer)
+        .map_err(|error| format!("读取 VSIX {description} 失败: {error}"))?;
+    if buffer.len() as u64 != uncompressed {
+        return Err(format!("VSIX 文件大小不一致: {description}"));
+    }
+    if crc32fast::hash(&buffer) != entry.crc32() {
+        return Err(format!("VSIX 文件校验失败: {description}"));
+    }
+    String::from_utf8(buffer)
+        .map(Some)
+        .map_err(|_| format!("VSIX {description} 不是有效的 UTF-8 文本"))
 }
 
 /// 解析与加载标准 VSCode 插件包 (.vsix)
@@ -400,25 +477,73 @@ pub fn open_vsix_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, 
     let reader = Cursor::new(archive_bytes);
     let mut archive =
         ZipArchive::new(reader).map_err(|error| format!("VSIX 不是有效的 ZIP 归档: {error}"))?;
-
-    let mut pkg_json_str = None;
-    for i in 0..archive.len() {
-        if let Ok(mut entry) = archive.by_index(i) {
-            let name = entry.name().to_string();
-            if name == "extension/package.json" || name == "package.json" {
-                let mut buf = String::new();
-                if entry.read_to_string(&mut buf).is_ok() {
-                    pkg_json_str = Some(buf);
-                    break;
-                }
-            }
-        }
+    if archive.len() > MAX_ENTRY_COUNT {
+        return Err(format!("VSIX entry 数量超过上限: {}", archive.len()));
     }
 
-    let pkg: VsCodePackageJson = if let Some(raw) = pkg_json_str {
-        serde_json::from_str(&raw).map_err(|e| format!("解析 VSIX package.json 失败: {e}"))?
-    } else {
+    // 第一遍：全量安全校验 + 定位 package.json（§5.3.2 zip-slip / entry 上限）。
+    let mut manifest_index: Option<usize> = None;
+    for index in 0..archive.len() {
+        let entry = archive
+            .by_index(index)
+            .map_err(|error| format!("读取 VSIX entry 失败: {error}"))?;
+        let name = entry.name().to_string();
+        ensure_safe_vsix_entry_name(&name)?;
+        if entry.is_dir() {
+            continue;
+        }
+        if entry
+            .unix_mode()
+            .is_some_and(|mode| mode & 0o170000 == 0o120000)
+        {
+            return Err(format!("VSIX 包含符号链接: {name}"));
+        }
+        let uncompressed = entry.size();
+        if uncompressed > MAX_VSIX_ENTRY_BYTES {
+            return Err(format!("VSIX 文件超过大小上限: {name}"));
+        }
+        if name == "extension/package.json" || name == "package.json" {
+            manifest_index = Some(index);
+        }
+    }
+    let Some(manifest_index) = manifest_index else {
         return Err("VSIX 缺少 extension/package.json".to_string());
+    };
+
+    let mut buf = String::new();
+    archive
+        .by_index(manifest_index)
+        .map_err(|error| format!("读取 VSIX package.json 失败: {error}"))?
+        .read_to_string(&mut buf)
+        .map_err(|error| format!("读取 VSIX package.json 失败: {error}"))?;
+    let pkg: VsCodePackageJson = serde_json::from_str(&buf)
+        .map_err(|error| format!("解析 VSIX package.json 失败: {error}"))?;
+
+    // 第二遍：按 main 字段定位主入口 JS（默认 extension/extension.js）。
+    let main_candidates: Vec<String> = match pkg.main.as_deref().map(str::trim) {
+        Some(main) if !main.is_empty() => {
+            let cleaned = main.trim_start_matches("./").trim_start_matches('/');
+            let cleaned = cleaned.replace('\\', "/");
+            let lower = cleaned.to_ascii_lowercase();
+            let normalized = if lower.starts_with("extension/") {
+                cleaned.clone()
+            } else {
+                format!("extension/{cleaned}")
+            };
+            vec![normalized, cleaned]
+        }
+        _ => vec!["extension/extension.js".to_string()],
+    };
+    let js_source = {
+        let mut js = None;
+        for candidate in &main_candidates {
+            let wanted = |name: &str| name.eq_ignore_ascii_case(candidate);
+            js = read_vsix_entry_bytes(&mut archive, &wanted, "主入口 JS")?;
+            if js.is_some() {
+                break;
+            }
+        }
+        js.unwrap_or_default()
     };
 
     let id = if pkg.name.starts_with("vscode-") {
@@ -458,7 +583,7 @@ pub fn open_vsix_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, 
             aurona_code: ">=0.4.0".to_string(),
         },
         runtime: RuntimeEntry {
-            component: "extension.wasm".to_string(),
+            component: "extension.js".to_string(),
         },
         sidebar: SidebarEntry {
             title: display_title,
@@ -468,6 +593,9 @@ pub fn open_vsix_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, 
         view: ViewEntry {
             entry: "ui/index.html".to_string(),
         },
+        // .vsix 不预声明权限：JS 运行时按需通过 request-permission 触发
+        // 三选一授权弹窗（声明 → 审查 → 授予 → 强制 流程的运行时分支）。
+        permissions: Vec::new(),
         marketplace: Some(MarketplaceMetadata {
             categories,
             tags: pkg.keywords,
@@ -488,6 +616,7 @@ pub fn open_vsix_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, 
         wasm: Vec::new(),
         view_html,
         icon_svg,
+        js_source,
     }))
 }
 
@@ -537,6 +666,7 @@ pub(crate) fn valid_manifest_for_tests() -> ExtensionManifest {
         view: ViewEntry {
             entry: "ui/index.html".to_string(),
         },
+        permissions: vec!["editor.current.read".to_string()],
         marketplace: None,
     }
 }
@@ -797,5 +927,79 @@ mod tests {
         assert_eq!(m.categories, vec!["Tools"]);
         assert_eq!(m.author.as_deref(), Some("Aurona"));
         assert_eq!(m.downloads, Some(1024));
+    }
+
+    #[test]
+    fn accepts_declaring_available_permissions() {
+        let mut manifest = valid_manifest();
+        manifest.permissions = vec![
+            "editor.current.read".to_string(),
+            "workspace.read".to_string(),
+            "workspace.write".to_string(),
+        ];
+        let json = serde_json::to_vec(&manifest).unwrap();
+        let bytes = pack(&[
+            ("manifest.json", json.as_slice()),
+            ("extension.wasm", b"\0asm\x01\x00\x00\x00"),
+            ("ui/index.html", b"<html></html>"),
+            ("assets/icon.svg", b"<svg></svg>"),
+        ]);
+        assert!(open_package(&bytes).is_ok());
+    }
+
+    #[test]
+    fn rejects_declaring_unknown_permissions() {
+        let mut manifest = valid_manifest();
+        manifest.permissions = vec!["made.up".to_string()];
+        let json = serde_json::to_vec(&manifest).unwrap();
+        let bytes = pack(&[
+            ("manifest.json", json.as_slice()),
+            ("extension.wasm", b"\0asm\x01\x00\x00\x00"),
+            ("ui/index.html", b"<html></html>"),
+            ("assets/icon.svg", b"<svg></svg>"),
+        ]);
+        let error = open_package(&bytes).unwrap_err();
+        assert!(error.contains("未知权限"), "{error}");
+    }
+
+    #[test]
+    fn rejects_declaring_unavailable_permissions() {
+        // terminal.execute 已登记但当前版本未开放：应在安装期就被拦下，
+        // 而不是装上后永远拿不到
+        let mut manifest = valid_manifest();
+        manifest.permissions = vec!["terminal.execute".to_string()];
+        let json = serde_json::to_vec(&manifest).unwrap();
+        let bytes = pack(&[
+            ("manifest.json", json.as_slice()),
+            ("extension.wasm", b"\0asm\x01\x00\x00\x00"),
+            ("ui/index.html", b"<html></html>"),
+            ("assets/icon.svg", b"<svg></svg>"),
+        ]);
+        let error = open_package(&bytes).unwrap_err();
+        assert!(error.contains("尚未开放"), "{error}");
+    }
+
+    #[test]
+    fn loads_legacy_manifest_without_permissions_field() {
+        // 旧包没有 permissions 字段，必须能继续加载（向后兼容）
+        let manifest = r#"{
+            "packageVersion": 1,
+            "id": "auronalabs.legacy",
+            "name": "Legacy",
+            "publisher": "aurona",
+            "version": "1.0.0",
+            "engine": { "auronaCode": ">=0.4.0" },
+            "runtime": { "component": "extension.wasm" },
+            "sidebar": { "title": "Legacy", "icon": "assets/icon.svg" },
+            "view": { "entry": "ui/index.html" }
+        }"#;
+        let bytes = pack(&[
+            ("manifest.json", manifest.as_bytes()),
+            ("extension.wasm", b"\0asm\x01\x00\x00\x00"),
+            ("ui/index.html", b"<html></html>"),
+            ("assets/icon.svg", b"<svg></svg>"),
+        ]);
+        let package = open_package(&bytes).expect("legacy package should load");
+        assert!(package.manifest.permissions.is_empty());
     }
 }

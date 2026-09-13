@@ -44,6 +44,7 @@ describe("ExtensionCommands", () => {
       extensionId: "auronalabs.markdown",
       permission: "editor.current.read",
       granted: true,
+      scope: "workspace",
     });
   });
 });

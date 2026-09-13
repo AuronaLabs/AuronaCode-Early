@@ -12,9 +12,85 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.4.0",
+    date: "2026-09-13",
+    isLatest: true,
+    summary:
+      "V0.4.0 是 Aurona Code 的首个正式版：从先锋通道毕业的同时保留双渠道机制，完整承接 Pioneer 6 的首启体验与性能收敛成果，并完成扩展 SDK v1 契约固化、四段式插件权限体系与 VSCode 兼容层的真实执行重构。",
+    sections: [
+      {
+        title: "首个正式版本",
+        description: "从 Pioneer 先锋通道毕业，Stable 正式通道开闸",
+        items: [
+          "**正式版发布**：版本号去除预发布标识，Stable 通道用户可直接接收更新",
+          "**双渠道机制保留**：Stable 与 Pioneer 通道切换能力不变，先锋用户可平滑升级到正式版",
+        ],
+      },
+      {
+        title: "承接 Pioneer 6 的全部改进",
+        description: "首启体验、退出清理与性能基准模型的沉淀成果均已包含",
+        items: [
+          "**首启欢迎引导（OOBE）**：四步式引导，Windows 安装器三语选择器",
+          "**退出清理队列**：退出时对 WebView 缓存执行有界清理，不在后台滞留",
+          "**性能基准模型**：评分逻辑修订，横向对比更真实",
+        ],
+      },
+      {
+        title: "扩展 SDK v1 契约固化",
+        description: "WIT 契约统一为 SDK v1，交互与能力面全面升级",
+        items: [
+          "**on-action 请求-响应模型**：插件视图中的按钮、开关等声明式组件可回传动作并获得下一帧渲染，插件跨调用无状态",
+          "**能力接口扩充**：新增沙箱 Storage 清理、Git 只读与写操作、Fliuno 搜索注入等 WIT 接口，编辑器选区与文本插入能力同步开放",
+          "**面向对象 SDK**：Aurona.workspace / editor / window / clipboard / storage 服务化门面随契约同步就绪",
+        ],
+      },
+      {
+        title: "四段式插件权限体系",
+        description: "声明 → 审查 → 授予 → 强制全链路落地，权限展示与真实能力一一对应",
+        items: [
+          "**声明层**：扩展在 manifest 中声明所需权限，安装期审查未知与未开放声明",
+          "**三态三作用域**：未知 / 允许 / 拒绝三态，配合 仅本次 / 此工作区 / 所有工作区 三种授权范围，升级时对新声明权限重置询问",
+          "**设置页权限矩阵重构**：按声明驱动展示，支持单项撤销与全部撤销；后端权限目录作为单一真相源",
+        ],
+      },
+      {
+        title: "VSCode 兼容层真实执行重构",
+        description: "从字符串匹配报告到 Boa 引擎 WASM 沙箱真执行",
+        items: [
+          "**JavaScript 真实执行**：标准 VSCode 插件主入口在 Boa 引擎中真实运行，registerCommand / showMessage / statusbar / clipboard 等 API 真实生效",
+          "**.vsix 安装入口**：设置页新增「VSCode 测试插件」卡片，一键装载随包内置的官方 Demo 或本地 .vsix 文件，安装后进入侧边栏并可卸载",
+          "**安全加固**：zip-slip 路径校验、符号链接拒绝、包体与条目大小上限、燃料与内存配额全额防护",
+        ],
+      },
+      {
+        title: "编辑器搜索增强与右键菜单国际化",
+        description: "自研编辑器的查找替换能力对齐主流标准",
+        items: [
+          "**搜索增强**：新增正则表达式、全词匹配与区分大小写三种匹配模式，并补齐替换与全部替换",
+          "**右键菜单国际化**：编辑器右键菜单全面接入三语文案，随界面语言实时切换",
+        ],
+      },
+      {
+        title: "启动性能与资源调度优化",
+        description: "关键路径 IPC 并行化，弱网下不再空转等待",
+        items: [
+          "**账号恢复移出关键路径**：会话恢复改为后台执行，网络不佳时启动不再被 30s 超时阻塞",
+          "**启动 IPC 并行化**：平台探测与配置读取并行、首启判定复用配置读取结果、退出清理开关异步下发，减少关键路径串行等待",
+        ],
+      },
+      {
+        title: "文档与质量门禁收敛",
+        description: "README 扩展矩阵重写，全量门禁本地等价 CI 通过",
+        items: [
+          "**扩展矩阵两组口径**：README 明确区分随安装包内置资产与 Marketplace 分发资产，补全五个 LSP 语言服务条目",
+          "**测试基线刷新**：前端 241 项、Rust 99 项单元测试全绿，Rust 测试二进制清单缺失导致的启动失败已修复",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.4.0-pioneer.6",
     date: "2026-09-12",
-    isLatest: true,
     summary:
       "Pioneer 6 是一次首启体验与性能双重收敛版本：全新四步式首启欢迎引导（OOBE）以主程序内嵌覆盖层呈现，Windows 安装程序上线简体中文、繁體中文与 English 三语选择器；退出清理队列与 WebView 缓存生命周期治理落地，空间管理界面全面重构对齐设置规范；Release 构建优化与性能基准模型修订双线并进，并集中打磨通知中心、Marketplace 与版本更新记录的交互细节。",
     sections: [

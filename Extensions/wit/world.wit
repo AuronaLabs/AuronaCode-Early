@@ -50,6 +50,27 @@ interface context {
     action: string,
   }
 
+  record git-repo-info {
+    root: string,
+    branch: string,
+    ahead: u32,
+    behind: u32,
+    has-remote: bool,
+  }
+
+  record git-file-status {
+    path: string,
+    change: string,
+    staged: bool,
+  }
+
+  record git-log-entry {
+    hash: string,
+    author: string,
+    message: string,
+    date: string,
+  }
+
   enum permission-state {
     unknown,
     granted,
@@ -67,6 +88,9 @@ interface context {
 
   /// Returns the current editor selection range when `editor.current.read` is granted.
   get-editor-selection: func() -> option<selection-range>;
+
+  /// Returns the selected text in the active editor when `editor.current.read` is granted.
+  get-editor-selection-text: func() -> option<string>;
 
   /// Returns workspace metadata when `workspace.read` is granted.
   get-workspace-info: func() -> workspace-info;
@@ -125,6 +149,30 @@ interface context {
   /// Contributes custom quick items into Fliuno Search (requires fliuno.search permission).
   contribute-fliuno-items: func(items: list<fliuno-item>) -> result<bool, string>;
 
+  /// Returns repository metadata for the current workspace when `git.read` is
+  /// granted. Returns none when the workspace is not a git repository.
+  git-repository-info: func() -> option<git-repo-info>;
+
+  /// Returns the changed files in the current workspace when `git.read` is granted.
+  git-status: func() -> result<list<git-file-status>, string>;
+
+  /// Returns recent commits (newest first, capped at `limit`) when `git.read` is granted.
+  git-log: func(limit: u32) -> result<list<git-log-entry>, string>;
+
+  /// Returns the worktree diff for one file (workspace-relative path) when
+  /// `git.read` is granted.
+  git-diff: func(path: string) -> result<string, string>;
+
+  /// Stages the given files (workspace-relative paths) when `git.write` is granted.
+  git-stage: func(paths: list<string>) -> result<bool, string>;
+
+  /// Unstages the given files (workspace-relative paths) when `git.write` is granted.
+  git-unstage: func(paths: list<string>) -> result<bool, string>;
+
+  /// Commits staged changes with a message when `git.write` is granted.
+  /// Empty messages are rejected by the host.
+  git-commit: func(message: string) -> result<bool, string>;
+
   /// Reads an entry from the extension's dedicated isolated storage sandbox.
   storage-get: func(key: string) -> result<option<string>, string>;
 
@@ -136,6 +184,9 @@ interface context {
 
   /// Lists all keys stored in the extension's dedicated isolated storage sandbox.
   storage-list-keys: func() -> result<list<string>, string>;
+
+  /// Clears every entry in the extension's dedicated isolated storage sandbox.
+  storage-clear: func() -> result<bool, string>;
 
   /// Displays an interactive modal confirmation dialog with the user.
   show-dialog-confirm: func(title: string, message: string) -> result<bool, string>;
@@ -153,6 +204,16 @@ interface render {
   }
 
   render: func(input: render-input) -> result<render-output, string>;
+
+  /// Handles a UI action emitted by the rendered view (request-response model).
+  /// Extensions are stateless across calls: persist anything long-lived via the
+  /// storage API. The host passes the user's action and an opaque payload, and
+  /// the extension returns the next render output.
+  ///
+  /// Backwards compatibility: components compiled against earlier revisions of
+  /// this world do not export `on-action`. The host treats the export as
+  /// optional and surfaces a clear error when such extensions receive actions.
+  on-action: func(action-id: string, payload: string) -> result<render-output, string>;
 }
 
 world aurona-extension {

@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { OobeOverlay } from "../App/Oobe";
 import { useOobeStore } from "../App/Oobe/useOobeStore";
 import { applyAccentTheme, applyLiquidTexture } from "../App/ThemeAccent";
-import { BaseDirectory, desktopFileSystem } from "../Foundation/Desktop";
 import { AppLifecycleIPC } from "../Foundation/IPC/AppLifecycleCommands";
 import { StorageIPC } from "../Foundation/IPC/StorageCommands";
 import { PlatformService } from "../Foundation/Platform";
@@ -48,26 +47,24 @@ export function AppBootstrapper({ children }: Props) {
     async function initializeCoreServices() {
       const startTime = performance.now();
       try {
-        await PlatformService.initialize();
+        // 平台探测与用户配置读取互不依赖，并行执行以缩短启动关键路径
+        await Promise.all([PlatformService.initialize(), UserConfigStore.init()]);
         setPathPlatform(PlatformService.current());
-        await UserConfigStore.init();
-
-        // 首次运行（尚无 user-config.json）：准备欢迎引导覆盖层。
-        // 覆盖层在 Splash 关闭、主窗口显示后就绪即呈现，底层工作台并行启动不受阻塞。
-        const configExists = await desktopFileSystem
-          .exists("user-config.json", { baseDir: BaseDirectory.AppLocalData })
-          .catch(() => true);
-        if (!mounted) return;
-        if (!configExists) {
-          useOobeStore.getState().open("first-run");
-        }
 
         const userConfig = await UserConfigStore.get();
 
-        // 同步退出清理开关到 Rust 侧（默认开启），窗口全部销毁后据此清理 WebView 缓存
-        await StorageIPC.setExitCleanupEnabled(
-          userConfig.cleanup?.clearCacheOnExit !== false,
-        ).catch(() => undefined);
+        // 首次运行判定直接复用配置读取结果（首次加载即无 user-config.json），
+        // 覆盖层在 ready 后随工作台同帧挂载，底层工作台并行启动不受阻塞。
+        if (!mounted) return;
+        if (UserConfigStore.isFirstRun()) {
+          useOobeStore.getState().open("first-run");
+        }
+
+        // 同步退出清理开关到 Rust 侧（默认开启），窗口全部销毁后据此清理 WebView 缓存；
+        // 非关键路径，落盘失败静默
+        void StorageIPC.setExitCleanupEnabled(userConfig.cleanup?.clearCacheOnExit !== false).catch(
+          () => undefined,
+        );
 
         const savedTheme = userConfig.theme || "system";
         const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -111,18 +108,17 @@ export function AppBootstrapper({ children }: Props) {
 
         const elapsed = performance.now() - startTime;
         setReady(true);
+        // 单层 rAF：等待一帧渲染完成后即记录指标并关闭 Splash
         requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (!mounted) return;
-            const mainInteractiveMs = performance.now() - startTime;
-            void AppLifecycleIPC.recordStartupMetrics({
-              frontendBootstrapMs: elapsed,
-              mainInteractiveMs,
-              splashMinimumMs: 2_000,
-            })
-              .catch(console.error)
-              .finally(() => AppLifecycleIPC.closeSplashscreen().catch(console.error));
-          });
+          if (!mounted) return;
+          const mainInteractiveMs = performance.now() - startTime;
+          void AppLifecycleIPC.recordStartupMetrics({
+            frontendBootstrapMs: elapsed,
+            mainInteractiveMs,
+            splashMinimumMs: 2_000,
+          })
+            .catch(console.error)
+            .finally(() => AppLifecycleIPC.closeSplashscreen().catch(console.error));
         });
       } catch (error) {
         if (mounted) {
@@ -163,10 +159,11 @@ export function AppBootstrapper({ children }: Props) {
 
   // We only render children once the bootstrapping is fully complete.
   // This ensures the main window is rendered with its full DOM tree before it becomes visible!
+  // OOBE 覆盖层同样等待 ready：Splash 关闭后与工作台同帧挂载，避免遮罩下出现空白闪现。
   return (
     <>
       {ready ? children : null}
-      {oobeMode && <OobeOverlay />}
+      {ready && oobeMode ? <OobeOverlay /> : null}
     </>
   );
 }

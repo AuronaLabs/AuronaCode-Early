@@ -67,7 +67,7 @@ export function segmentLine(
   lineText: string,
   tokens: number[],
   searchQuery: string,
-  searchMatches: { char: number }[],
+  searchMatches: { char: number; length?: number }[],
   currentMatchIndex: number,
   globalSearchMatches: { line: number; char: number }[],
   lineIndex: number,
@@ -93,13 +93,13 @@ export function segmentLine(
     }
   }
 
-  // 搜索高亮区间
+  // 搜索高亮区间（正则匹配长度逐命中可变，缺省回退到 query 长度）
   const searchRanges: { start: number; end: number; className: string }[] = [];
   if (searchQuery) {
     const queryLen = searchQuery.length;
     searchMatches.forEach((match) => {
       const start = match.char;
-      const end = Math.min(start + queryLen, lineLength);
+      const end = Math.min(start + (match.length ?? queryLen), lineLength);
       breakpointsSet.add(start);
       breakpointsSet.add(end);
 

@@ -12,6 +12,7 @@ import { LocaleService } from "../../../Foundation/I18n";
 import { FileSystemCommands } from "../../../Foundation/IPC/FileSystemCommands";
 import { UserConfigStore } from "../../../Foundation/Storage/UserConfigStore";
 import type { UserConfig } from "../../../Foundation/Types/Config";
+import { GetLanguageFromPath } from "../../../Shared/Utils/LanguageUtils";
 import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
 
 export class Uri {
@@ -244,6 +245,26 @@ export interface VSCodeExtensionAPI {
 }
 
 /**
+ * 把 VS Code 风格的配置查询映射到 Aurona 的扁平配置结构。
+ *
+ * Aurona 的 user-config.json 是扁平 camelCase（如 `editorFontSize`），
+ * 而 VS Code 扩展习惯写 `getConfiguration("editor").get("fontSize")`。
+ * 解析顺序（前者优先）：
+ *   1. 点号拼接键 `section.key` —— 若配置将来改为嵌套结构可直接命中
+ *   2. 扁平键 `key` —— 无 section 时的常规命中
+ *   3. `section` + 首字母大写的 `key` —— `editor` + `fontSize` → `editorFontSize`
+ */
+export function resolveConfigKey(section: string | undefined, key: string): string[] {
+  const candidates: string[] = [];
+  if (section) candidates.push(`${section}.${key}`);
+  candidates.push(key);
+  if (section && key.length > 0) {
+    candidates.push(`${section}${key.charAt(0).toUpperCase()}${key.slice(1)}`);
+  }
+  return candidates;
+}
+
+/**
  * 为指定扩展创建沙箱隔离的 VS Code 兼容 API 实例
  */
 export function createVSCodeExtensionHost(extensionId: string): VSCodeExtensionAPI {
@@ -362,7 +383,7 @@ export function createVSCodeExtensionHost(extensionId: string): VSCodeExtensionA
           document: {
             uri: Uri.file(activeTab.path),
             fileName: activeTab.path,
-            languageId: activeTab.path.split(".").pop() || "plaintext",
+            languageId: GetLanguageFromPath(activeTab.path),
             getText(range?: Range) {
               const fullText = EditorAdapter.getText();
               if (!range) return fullText;
@@ -441,15 +462,29 @@ export function createVSCodeExtensionHost(extensionId: string): VSCodeExtensionA
       },
 
       getConfiguration(section?: string) {
+        const knownKey = async (key: string): Promise<string | undefined> => {
+          const config = (await UserConfigStore.get()) as unknown as Record<string, unknown>;
+          return resolveConfigKey(section, key).find(
+            (candidate) => config[candidate] !== undefined,
+          );
+        };
+
         return {
           async get<T = unknown>(key: string, defaultValue?: T): Promise<T | undefined> {
-            const config = (await UserConfigStore.get()) as Record<string, unknown>;
-            const fullKey = section ? `${section}.${key}` : key;
-            const val = config[fullKey] ?? config[key];
-            return (val !== undefined ? val : defaultValue) as T;
+            const config = (await UserConfigStore.get()) as unknown as Record<string, unknown>;
+            for (const candidate of resolveConfigKey(section, key)) {
+              const value = config[candidate];
+              if (value !== undefined) return value as T;
+            }
+            return defaultValue;
           },
           async update(key: string, value: unknown): Promise<void> {
-            await UserConfigStore.set({ [key]: value } as Partial<UserConfig>);
+            // 只允许写回已存在的配置项：扩展不得向 user-config.json 注入未知字段
+            const target = await knownKey(key);
+            if (target === undefined) {
+              throw new Error(`拒绝写入未知配置项: ${resolveConfigKey(section, key).join(" / ")}`);
+            }
+            await UserConfigStore.set({ [target]: value } as Partial<UserConfig>);
           },
         };
       },

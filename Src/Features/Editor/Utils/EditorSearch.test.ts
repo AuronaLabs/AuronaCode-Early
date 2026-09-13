@@ -1,17 +1,62 @@
 import { describe, expect, it } from "vitest";
-import { advanceMatchIndex, findEditorMatches } from "../Hooks/useEditorSearch";
+import {
+  advanceMatchIndex,
+  buildSearchRegex,
+  defaultSearchOptions,
+  findEditorMatches,
+} from "../Hooks/useEditorSearch";
 
 describe("findEditorMatches", () => {
-  it("returns every occurrence across lines, case-insensitively", () => {
+  it("returns every occurrence across lines, case-insensitively by default", () => {
     const matches = findEditorMatches(["const foo = 1;", "const BAR = 2;", "foo(bar)", ""], "FOO");
     expect(matches).toEqual([
-      { line: 0, char: 6 },
-      { line: 2, char: 0 },
+      { line: 0, char: 6, length: 3 },
+      { line: 2, char: 0, length: 3 },
     ]);
   });
 
   it("returns no matches for an empty query", () => {
     expect(findEditorMatches(["abc"], "")).toEqual([]);
+  });
+
+  it("honors matchCase when enabled", () => {
+    const lines = ["foo FOO Foo"];
+    const insensitive = findEditorMatches(lines, "foo", {
+      ...defaultSearchOptions,
+      matchCase: false,
+    });
+    const sensitive = findEditorMatches(lines, "foo", { ...defaultSearchOptions, matchCase: true });
+    expect(insensitive).toHaveLength(3);
+    expect(sensitive).toEqual([{ line: 0, char: 0, length: 3 }]);
+  });
+
+  it("supports regular expressions with variable match lengths", () => {
+    const options = { ...defaultSearchOptions, useRegex: true };
+    const matches = findEditorMatches(["x abc y a1 z"], "a\\w+", options);
+    expect(matches).toEqual([
+      { line: 0, char: 2, length: 3 },
+      { line: 0, char: 8, length: 2 },
+    ]);
+  });
+
+  it("matches whole words only when enabled", () => {
+    const lines = ["cat catalog concatenate cat"];
+    const matches = findEditorMatches(lines, "cat", { ...defaultSearchOptions, wholeWord: true });
+    expect(matches).toEqual([
+      { line: 0, char: 0, length: 3 },
+      { line: 0, char: 24, length: 3 },
+    ]);
+  });
+
+  it("returns an empty list for an invalid regex instead of throwing", () => {
+    const options = { ...defaultSearchOptions, useRegex: true };
+    expect(findEditorMatches(["abc"], "a(", options)).toEqual([]);
+    expect(buildSearchRegex("a(", options)).toBeNull();
+  });
+
+  it("escapes literal metacharacters when regex mode is off", () => {
+    const matches = findEditorMatches(["a.c abc"], "a.c");
+    expect(matches).toEqual([{ line: 0, char: 0, length: 3 }]);
   });
 });
 

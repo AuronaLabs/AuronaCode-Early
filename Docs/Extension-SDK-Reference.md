@@ -95,17 +95,28 @@ let ok = clip.write("https://github.com/AuronaLabs");
 ```
 
 ### 1.7 矢量图标库 (`Aurona::icons()`)
-获取内置的官方 Tabler 矢量 SVG 图标：
+获取内置的官方线性矢量 SVG 图标（stroke 风格，`currentColor` 自动适配主题）：
 
 ```rust
 let icons = Aurona::icons();
 
-let check_svg = icons.get("check");       // 对勾图标
+let check_svg = icons.get("check");        // 对勾图标
 let clipboard_svg = icons.get("clipboard");// 剪贴板图标
-let trash_svg = icons.get("trash");       // 垃圾桶图标
-let plus_svg = icons.get("plus");         // 加号图标
-let code_svg = icons.get("code");         // 代码/终端图标
-let calendar_svg = icons.get("calendar"); // 日历图标
+let trash_svg = icons.get("trash");        // 垃圾桶图标
+let plus_svg = icons.get("plus");          // 加号图标
+let code_svg = icons.get("code");          // 代码图标
+let calendar_svg = icons.get("calendar");  // 日历图标
+let zap_svg = icons.get("zap");            // 闪电图标
+let terminal_svg = icons.get("terminal");  // 终端图标
+let search_svg = icons.get("search");      // 搜索图标
+let settings_svg = icons.get("settings");  // 设置图标
+let home_svg = icons.get("home");          // 主页图标
+let clock_svg = icons.get("clock");        // 时钟图标
+let user_svg = icons.get("user");          // 用户图标
+let file_svg = icons.get("file");          // 文件图标
+let folder_svg = icons.get("folder");      // 文件夹图标
+let star_svg = icons.get("star");          // 星标图标
+let x_svg = icons.get("x");                // 关闭图标
 ```
 
 ### 1.8 诊断日志服务 (`Aurona::logger()`)
@@ -146,6 +157,9 @@ let pref: Option<String> = storage.get("user_preference")?;
 // 删除数据与列出键名
 storage.delete("old_key");
 let keys: Vec<String> = storage.list_keys()?;
+
+// 一键清空沙箱（SDK v1.1 新增）
+storage.clear()?;
 ```
 
 ### 1.11 交互式弹窗服务 (`Aurona::dialog()`)
@@ -264,6 +278,40 @@ if dialog.confirm("清空任务列表", "确定要清空所有已完成任务吗
       ]
     }
   ]
+}
+```
+
+---
+
+## 5. 交互契约 `on-action`（SDK v1.1）
+
+声明式组件的按钮动作（如 `"action": "config:apply"`）通过 WIT 世界中 `render` 接口的第二个导出回传扩展：
+
+```wit
+on-action: func(action-id: string, payload: string) -> result<render-output, string>;
+```
+
+交互模型为**请求-响应**：宿主把用户动作（`action-id`）与不透明负载数据（`payload`）交给扩展，扩展返回下一帧渲染输出（与 `render` 同构）。要点：
+
+- **跨调用无状态**：扩展在两次调用之间不保留内存状态；需要持久化的数据请使用 `Aurona::storage()` 沙箱存储；
+- **payload 由扩展自行解释**：宿主只负责透传（前端会把结构化数据序列化为 JSON 字符串）；
+- **向后兼容**：按旧版 world 编译、未导出 `on-action` 的扩展包仍然可以正常渲染，只是收到交互时宿主会提示"该扩展未提供交互处理能力，请更新扩展"。
+
+Rust 扩展侧实现示例：
+
+```rust
+impl Guest for MyExtension {
+    fn render(input: RenderInput) -> Result<RenderOutput, String> { /* ... */ }
+
+    fn on_action(action_id: String, payload: String) -> Result<RenderOutput, String> {
+        match action_id.as_str() {
+            "config:apply" => {
+                // 读取 payload、更新状态（持久化到 storage），返回新视图
+                render_next_frame(&payload)
+            }
+            _ => Err(format!("未知动作: {action_id}")),
+        }
+    }
 }
 ```
 

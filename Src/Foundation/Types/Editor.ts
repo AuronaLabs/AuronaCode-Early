@@ -45,6 +45,8 @@ export interface IEditorEngine {
   getSelectionText(): string;
   insertCode(text: string, atCursor?: boolean): void;
   replaceRange(startLine: number, endLine: number, newText: string): void;
+  /** 滚动视口定位到指定行（1 基，与状态栏行号一致），必要时移动光标由调用方处理 */
+  revealLine(line: number): void;
   getStatus(): EditorStatus;
   onStatusChange(listener: EditorStatusListener): () => void;
   executeAction(action: EditorAction): void | Promise<void>;
