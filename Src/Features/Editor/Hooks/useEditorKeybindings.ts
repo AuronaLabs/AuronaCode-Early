@@ -10,7 +10,43 @@ import {
   outdentLineRange,
   toggleLineComment,
 } from "../Utils/EditorLineOperations";
-import type { SelectionRange } from "./useEditorSelectionOps";
+import { sortSelection } from "../Utils/EditorMath";
+import { getLinesAfterDeletion, type SelectionRange } from "./useEditorSelectionOps";
+
+const WORD_CHAR = /[\p{L}\p{N}_$]/u;
+const AUTO_PAIRS: Record<string, string> = {
+  "(": ")",
+  "[": "]",
+  "{": "}",
+  '"': '"',
+  "'": "'",
+  "`": "`",
+};
+const CLOSERS = new Set([")", "]", "}", '"', "'", "`"]);
+
+/** 行内词边界跳转：向后跳到下一个词首，向前跳到上一个词首；无有效目标返回 null 由调用方跨行处理 */
+function findWordJump(lineText: string, char: number, forward: boolean): number | null {
+  if (forward) {
+    if (char >= lineText.length) return null;
+    let i = char;
+    if (WORD_CHAR.test(lineText[i])) {
+      while (i < lineText.length && WORD_CHAR.test(lineText[i])) i++;
+    } else {
+      while (i < lineText.length && !WORD_CHAR.test(lineText[i]) && /\S/.test(lineText[i])) i++;
+    }
+    while (i < lineText.length && (lineText[i] === " " || lineText[i] === "\t")) i++;
+    return i;
+  }
+  if (char <= 0) return null;
+  let i = char;
+  while (i > 0 && /\s/.test(lineText[i - 1])) i--;
+  if (i > 0 && WORD_CHAR.test(lineText[i - 1])) {
+    while (i > 0 && WORD_CHAR.test(lineText[i - 1])) i--;
+  } else {
+    while (i > 0 && !WORD_CHAR.test(lineText[i - 1]) && /\S/.test(lineText[i - 1])) i--;
+  }
+  return i;
+}
 
 export interface UseEditorKeybindingsProps {
   language: string;
@@ -44,6 +80,16 @@ export interface UseEditorKeybindingsProps {
   setCursor: (cursor: { line: number; char: number }) => void;
   setIsSearchOpen: (open: boolean) => void;
   scrollToCursor: (pos?: { line: number; char: number }) => void;
+  /** 一页对应的行数（PageUp/PageDown 用） */
+  pageLines: number;
+  /** 额外光标数量（多光标批量编辑开关） */
+  extraCursorCount: number;
+  /** Ctrl+D：选词或添加下一匹配 */
+  handleCtrlD: () => void;
+  clearExtraCursors: () => void;
+  handleMultiCursorBackspace: () => void;
+  handleMultiCursorDelete: () => void;
+  handleMultiCursorEnter: () => void;
 }
 
 export function useEditorKeybindings({
@@ -68,10 +114,20 @@ export function useEditorKeybindings({
   setCursor,
   setIsSearchOpen,
   scrollToCursor,
+  pageLines,
+  extraCursorCount,
+  handleCtrlD,
+  clearExtraCursors,
+  handleMultiCursorBackspace,
+  handleMultiCursorDelete,
+  handleMultiCursorEnter,
 }: UseEditorKeybindingsProps) {
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      // 1. 自动补全菜单拦截
+      // 1. 输入法合成中直接放行（补全面板拦截必须在合成判断之后，否则会劫持 IME 候选窗按键）
+      if (isComposing) return;
+
+      // 2. 自动补全菜单拦截
       if (completions.length > 0) {
         if (e.key === "ArrowDown") {
           e.preventDefault();
@@ -94,9 +150,6 @@ export function useEditorKeybindings({
           return;
         }
       }
-
-      // 2. 输入法合成中直接放行
-      if (isComposing) return;
 
       const lines = [...documentLines];
       const { line, char } = cursor;
@@ -137,6 +190,18 @@ export function useEditorKeybindings({
       if (e.key === "f" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         setIsSearchOpen(true);
+        return;
+      }
+
+      // 多光标：Ctrl+D 选词/添加下一匹配；Esc 清除额外光标
+      if (e.key === "d" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleCtrlD();
+        return;
+      }
+      if (e.key === "Escape" && extraCursorCount > 0) {
+        e.preventDefault();
+        clearExtraCursors();
         return;
       }
 
@@ -210,6 +275,58 @@ export function useEditorKeybindings({
         return;
       }
 
+      // 括号/引号自动闭合与包裹：无选区补对、有选区包裹、重复输入跳过
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && AUTO_PAIRS[e.key] && lines.length > 0) {
+        const closer = AUTO_PAIRS[e.key];
+        const nextChar = lineText[char];
+        // 光标后恰为相同字符（闭合符或引号）：over-type 跳过，避免成对堆积
+        if (nextChar === e.key && CLOSERS.has(e.key) && !selection) {
+          e.preventDefault();
+          moveCursor(line, char + 1, false);
+          return;
+        }
+        e.preventDefault();
+        // 无选区输入引号且前一字符是单词字符：不自动补对（避免 markdown/所有格误补）
+        if (!selection && (e.key === '"' || e.key === "'" || e.key === "`")) {
+          const prevChar = char > 0 ? lineText[char - 1] : "";
+          if (prevChar && WORD_CHAR.test(prevChar)) {
+            insertTextAtCursor(e.key);
+            return;
+          }
+        }
+        if (selection) {
+          const { start, end } = sortSelection(selection);
+          const nextLines = [...lines];
+          let nextSelection: SelectionRange;
+          if (start.line === end.line) {
+            const text = lines[start.line] || "";
+            nextLines[start.line] =
+              text.slice(0, start.char) + e.key + text.slice(start.char, end.char) + closer + text.slice(end.char);
+            nextSelection = {
+              start: { line: start.line, char: start.char },
+              end: { line: start.line, char: end.char + e.key.length + closer.length - 1 },
+            };
+          } else {
+            // 跨行包裹：起始行首插入 opener，结束行尾插入 closer
+            nextLines[start.line] = e.key + (lines[start.line] || "");
+            nextLines[end.line] = (lines[end.line] || "") + closer;
+            nextSelection = {
+              start: { line: start.line, char: 0 },
+              end: { line: end.line, char: (lines[end.line] || "").length + 1 },
+            };
+          }
+          const anchor =
+            sortSelection(nextSelection).start;
+          replaceDocumentLines(nextLines, { line: anchor.line, char: anchor.char }, nextSelection);
+          return;
+        }
+        // 无选区：插入配对，光标居中
+        const nextLines = [...lines];
+        nextLines[line] = lineText.slice(0, char) + e.key + closer + lineText.slice(char);
+        replaceDocumentLines(nextLines, { line, char: char + e.key.length });
+        return;
+      }
+
       // 缩进 / 反缩进 Tab / Shift+Tab
       if (e.key === "Tab") {
         e.preventDefault();
@@ -237,6 +354,10 @@ export function useEditorKeybindings({
       // 退格键 Backspace
       if (e.key === "Backspace") {
         e.preventDefault();
+        if (extraCursorCount > 0) {
+          handleMultiCursorBackspace();
+          return;
+        }
         if (selection) {
           executeSelectionDelete();
           return;
@@ -270,6 +391,10 @@ export function useEditorKeybindings({
       // Delete 键
       if (e.key === "Delete") {
         e.preventDefault();
+        if (extraCursorCount > 0) {
+          handleMultiCursorDelete();
+          return;
+        }
         if (selection) {
           executeSelectionDelete();
           return;
@@ -291,14 +416,26 @@ export function useEditorKeybindings({
       // 回车键 Enter（智能缩进与括号闭合）
       if (e.key === "Enter") {
         e.preventDefault();
-        if (selection) executeSelectionDelete();
+        if (extraCursorCount > 0) {
+          handleMultiCursorEnter();
+          return;
+        }
+        // 有选区时先在内存中删除选区（executeSelectionDelete 的异步 setState 会被后续计算覆盖）
+        let effectiveLines = lines;
+        let effectiveCursor = cursor;
+        if (selection) {
+          const deletion = getLinesAfterDeletion(lines, selection);
+          effectiveLines = deletion.lines;
+          effectiveCursor = deletion.cursor;
+        }
 
-        const currentLineText = lines[line] || "";
+        const { line: effLine, char: effChar } = effectiveCursor;
+        const currentLineText = effectiveLines[effLine] || "";
         const indentMatch = currentLineText.match(/^(\s*)/);
         let indent = indentMatch ? indentMatch[1] : "";
 
-        const beforeCursor = currentLineText.substring(0, char);
-        const afterCursor = currentLineText.substring(char);
+        const beforeCursor = currentLineText.substring(0, effChar);
+        const afterCursor = currentLineText.substring(effChar);
 
         const isBetweenBrackets =
           (beforeCursor.endsWith("{") && afterCursor.startsWith("}")) ||
@@ -307,11 +444,11 @@ export function useEditorKeybindings({
 
         if (isBetweenBrackets) {
           const extraIndent = "  ";
-          const nextLines = [...lines];
-          nextLines[line] = beforeCursor;
-          nextLines.splice(line + 1, 0, `${indent}${extraIndent}`, `${indent}${afterCursor}`);
+          const nextLines = [...effectiveLines];
+          nextLines[effLine] = beforeCursor;
+          nextLines.splice(effLine + 1, 0, `${indent}${extraIndent}`, `${indent}${afterCursor}`);
           replaceDocumentLines(nextLines, {
-            line: line + 1,
+            line: effLine + 1,
             char: indent.length + extraIndent.length,
           });
           return;
@@ -321,10 +458,10 @@ export function useEditorKeybindings({
           indent += "  ";
         }
 
-        const nextLines = [...lines];
-        nextLines[line] = beforeCursor;
-        nextLines.splice(line + 1, 0, `${indent}${afterCursor}`);
-        replaceDocumentLines(nextLines, { line: line + 1, char: indent.length });
+        const nextLines = [...effectiveLines];
+        nextLines[effLine] = beforeCursor;
+        nextLines.splice(effLine + 1, 0, `${indent}${afterCursor}`);
+        replaceDocumentLines(nextLines, { line: effLine + 1, char: indent.length });
         return;
       }
 
@@ -361,6 +498,67 @@ export function useEditorKeybindings({
           const targetChar = Math.min(char, lines[line + 1].length);
           moveCursor(line + 1, targetChar, e.shiftKey);
         }
+        return;
+      }
+
+      // Ctrl+←/→ 词级跳转（跨行，含 Shift 扩选）
+      if ((e.ctrlKey || e.metaKey) && e.key === "ArrowRight") {
+        e.preventDefault();
+        let target: { line: number; char: number } = {
+          line: lines.length - 1,
+          char: (lines[lines.length - 1] || "").length,
+        };
+        for (let l = line; l < lines.length; l++) {
+          const text = lines[l] || "";
+          const jump = findWordJump(text, l === line ? char : 0, true);
+          if (jump !== null && !(l === line && jump === char)) {
+            target = { line: l, char: jump };
+            break;
+          }
+        }
+        moveCursor(target.line, target.char, e.shiftKey);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "ArrowLeft") {
+        e.preventDefault();
+        let target: { line: number; char: number } = { line: 0, char: 0 };
+        for (let l = line; l >= 0; l--) {
+          const text = lines[l] || "";
+          if (l !== line && text.length === 0) continue;
+          const jump = findWordJump(text, l === line ? char : text.length, false);
+          if (jump !== null && !(l === line && jump === char)) {
+            target = { line: l, char: jump };
+            break;
+          }
+        }
+        moveCursor(target.line, target.char, e.shiftKey);
+        return;
+      }
+
+      // PageUp / PageDown 按视口行数翻页（含 Shift 扩选）
+      if (e.key === "PageDown") {
+        e.preventDefault();
+        const targetLine = Math.min(lines.length - 1, line + Math.max(1, pageLines));
+        moveCursor(targetLine, Math.min(char, (lines[targetLine] || "").length), e.shiftKey);
+        return;
+      }
+      if (e.key === "PageUp") {
+        e.preventDefault();
+        const targetLine = Math.max(0, line - Math.max(1, pageLines));
+        moveCursor(targetLine, Math.min(char, (lines[targetLine] || "").length), e.shiftKey);
+        return;
+      }
+
+      // Ctrl+Home / Ctrl+End 跳到文首 / 文尾（含 Shift 扩选）
+      if (e.key === "Home" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        moveCursor(0, 0, e.shiftKey);
+        return;
+      }
+      if (e.key === "End" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        const last = lines.length - 1;
+        moveCursor(last, (lines[last] || "").length, e.shiftKey);
         return;
       }
 
@@ -402,6 +600,13 @@ export function useEditorKeybindings({
       executeSelectionDelete,
       moveCursor,
       scrollToCursor,
+      pageLines,
+      extraCursorCount,
+      handleCtrlD,
+      clearExtraCursors,
+      handleMultiCursorBackspace,
+      handleMultiCursorDelete,
+      handleMultiCursorEnter,
     ],
   );
 

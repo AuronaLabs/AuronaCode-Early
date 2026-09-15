@@ -11,11 +11,11 @@
 
 ## 开发环境
 
-需要 Node.js 22 或更高版本（CI 使用 22）、pnpm 11.13.0、Rust stable 和当前平台的 Tauri 2 系统依赖。
+需要 Node.js 22 或更高版本（CI 使用 22）、pnpm 12.4.1、Rust stable 和当前平台的 Tauri 2 系统依赖。
 
 ```powershell
 corepack enable
-corepack install --global pnpm@11.13.0
+corepack install --global pnpm@12.4.1
 pnpm install --frozen-lockfile
 pnpm run tauri:dev
 ```

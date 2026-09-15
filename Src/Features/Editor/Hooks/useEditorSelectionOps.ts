@@ -50,6 +50,7 @@ export function useEditorSelectionOps({
   updateMaxLineLength,
   setTotalLines,
   onChange,
+  onEditCommitted,
 }: {
   documentLines: string[];
   selection: SelectionRange | null;
@@ -61,6 +62,8 @@ export function useEditorSelectionOps({
   updateMaxLineLength: (lines: string[]) => void;
   setTotalLines: (total: number) => void;
   onChange?: (value: string) => void;
+  /** 每次选区删除提交后回调（内容 + 光标 utf16 偏移），供撤销栈入栈 */
+  onEditCommitted?: (content: string, cursorUtf16: number) => void;
 }) {
   const executeSelectionDelete = useCallback(() => {
     if (!selection) return;
@@ -81,10 +84,13 @@ export function useEditorSelectionOps({
     }
     updateMaxLineLength(deletion.lines);
     setTotalLines(deletion.lines.length);
-    onChange?.(deletion.lines.join("\n"));
+    const nextContent = deletion.lines.join("\n");
+    onEditCommitted?.(nextContent, getLineStartUtf16(deletion.lines, deletion.cursor.line) + deletion.cursor.char);
+    onChange?.(nextContent);
   }, [
     documentLines,
     onChange,
+    onEditCommitted,
     path,
     selection,
     setCursor,

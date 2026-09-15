@@ -195,15 +195,22 @@ impl ExtensionState {
             .remove(id);
         self.registry.remove(id);
 
-        // 卸载扩展时，立即撤销并清除该扩展的所有权限授权记录
-        if let Ok(mut guard) = self.permissions.lock() {
-            let prefix = format!("{id}:");
-            guard.retain(|k, _| !k.starts_with(&prefix) && k != id);
-        }
-        if let Ok(mut guard) = self.session_permissions.lock() {
-            let prefix = format!("{id}:");
-            guard.retain(|k| !k.starts_with(&prefix) && k != id);
-        }
+        // 卸载扩展时，立即撤销并清除该扩展的所有权限授权记录（锁失败必须中止，避免内存/磁盘不一致）
+        let mut permissions = self
+            .permissions
+            .lock()
+            .map_err(|_| "扩展权限状态锁定失败".to_string())?;
+        let prefix = format!("{id}:");
+        permissions.retain(|k, _| !k.starts_with(&prefix) && k != id);
+        drop(permissions);
+
+        let mut session_permissions = self
+            .session_permissions
+            .lock()
+            .map_err(|_| "扩展会话权限状态锁定失败".to_string())?;
+        session_permissions.retain(|k| !k.starts_with(&prefix) && k != id);
+        drop(session_permissions);
+
         self.persist_permissions();
 
         Ok(())

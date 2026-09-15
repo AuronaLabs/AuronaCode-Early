@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { SelectionRange } from "../Hooks/useEditorSelectionOps";
 
 export interface CursorPosition {
@@ -6,37 +6,42 @@ export interface CursorPosition {
   char: number;
 }
 
+/** 额外光标：光标点 + 可选选区（Ctrl+D 选词时携带） */
+export interface ExtraCursor {
+  cursor: CursorPosition;
+  selection: SelectionRange | null;
+}
+
 export function useMultiCursorOps(documentLines: string[]) {
-  // 额外光标列表（主光标仍然由主编辑器状态维护）
-  const [extraCursors, setExtraCursors] = useState<CursorPosition[]>([]);
-  const [extraSelections, setExtraSelections] = useState<SelectionRange[]>([]);
+  const [extras, setExtras] = useState<ExtraCursor[]>([]);
+  const extraCursors = useMemo(() => extras.map((item) => item.cursor), [extras]);
+  const extraSelections = useMemo(() => extras.map((item) => item.selection), [extras]);
 
   // 1. 添加一个新光标 (Alt + Click)
   const addCursor = useCallback((pos: CursorPosition) => {
-    setExtraCursors((prev) => {
+    setExtras((prev) => {
       // 避免重复添加同一个位置
-      if (prev.some((c) => c.line === pos.line && c.char === pos.char)) {
+      if (prev.some((item) => item.cursor.line === pos.line && item.cursor.char === pos.char)) {
         return prev;
       }
-      return [...prev, pos];
+      return [...prev, { cursor: pos, selection: null }];
     });
   }, []);
 
   // 2. 清除所有额外光标 (按 ESC 或单点主光标)
   const clearExtraCursors = useCallback(() => {
-    setExtraCursors([]);
-    setExtraSelections([]);
+    setExtras([]);
   }, []);
 
-  // 3. Ctrl + D：查找并选中下一个匹配的相同单词
+  // 3. Ctrl + D：无选区时返回主光标词选区；已有选区时添加下一个匹配的额外光标
   const selectNextOccurrence = useCallback(
     (
       primaryCursor: CursorPosition,
       primarySelection: SelectionRange | null,
       findWordBoundaries: (lineText: string, char: number) => { start: number; end: number } | null,
-    ) => {
+    ): { newPrimarySelection: SelectionRange; newPrimaryCursor: CursorPosition } | null => {
       let targetWord = "";
-      let currentSelection = primarySelection;
+      const currentSelection = primarySelection;
 
       if (!currentSelection) {
         // 如果当前没有选区，先选中光标所在的单词
@@ -45,12 +50,11 @@ export function useMultiCursorOps(documentLines: string[]) {
         if (!wordBounds || wordBounds.start === wordBounds.end) return null;
 
         targetWord = lineText.substring(wordBounds.start, wordBounds.end);
-        currentSelection = {
-          start: { line: primaryCursor.line, char: wordBounds.start },
-          end: { line: primaryCursor.line, char: wordBounds.end },
-        };
         return {
-          newPrimarySelection: currentSelection,
+          newPrimarySelection: {
+            start: { line: primaryCursor.line, char: wordBounds.start },
+            end: { line: primaryCursor.line, char: wordBounds.end },
+          },
           newPrimaryCursor: { line: primaryCursor.line, char: wordBounds.end },
         };
       }
@@ -99,11 +103,18 @@ export function useMultiCursorOps(documentLines: string[]) {
           start: { line: foundLine, char: foundChar },
           end: { line: foundLine, char: foundChar + targetWord.length },
         };
-        setExtraSelections((prev) => [...prev, nextSel]);
-        setExtraCursors((prev) => [
-          ...prev,
-          { line: foundLine, char: foundChar + targetWord.length },
-        ]);
+        setExtras((prev) => {
+          const nextCursorPos = { line: foundLine, char: foundChar + targetWord.length };
+          if (
+            prev.some(
+              (item) =>
+                item.cursor.line === nextCursorPos.line && item.cursor.char === nextCursorPos.char,
+            )
+          ) {
+            return prev;
+          }
+          return [...prev, { cursor: nextCursorPos, selection: nextSel }];
+        });
       }
 
       return null;
@@ -111,11 +122,18 @@ export function useMultiCursorOps(documentLines: string[]) {
     [documentLines],
   );
 
+  /** 批量编辑后整体替换额外光标状态 */
+  const replaceExtras = useCallback((next: ExtraCursor[]) => {
+    setExtras(next);
+  }, []);
+
   return {
+    extras,
     extraCursors,
     extraSelections,
     addCursor,
     clearExtraCursors,
     selectNextOccurrence,
+    replaceExtras,
   };
 }

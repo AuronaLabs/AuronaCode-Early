@@ -1,5 +1,15 @@
 # Aurona Code 核心架构指南 (Corona+ Architecture Specification)
 
+## V0.4.1 编辑器手感与性能边界
+
+V0.4.1 是编辑器内核的收敛版本：把「按键一致性」与「大文件响应」做扎实，不新增 SDK、Runtime 或 Marketplace 能力。
+
+- **统一编辑提交点 (`commitEdit`)**：按键类编辑（Backspace/Delete/Enter/Tab/行操作）、IME 提交、搜索替换与多光标批量编辑全部经同一提交点完成「状态更新 → 撤销入栈 → IPC 落盘」，杜绝旁路写入导致的栈与视图失同步。
+- **精确增量写盘**：提交点基于单连续差异区间（`diffText` 前后缀去除）只传输差异段给 Rust 内核；多光标批量编辑按降序坐标一次 `applyEdits` 批量应用，单 revision、单次 LSP didChange。
+- **复合撤销操作 (Composite Operation)**：多光标批量编辑以单一复合操作入栈，撤销时逆序回放子操作、重做顺序回放，一步还原全部光标改动；连续纯插入仍在 500ms 合并窗口内合并。
+- **光标可见性保障**：任何光标变化后统一执行可见性检查（纵向行级对齐 + 横向按实际前缀文本宽度），编辑、导航、撤销、替换全路径覆盖。
+- **导航与配对能力**：Ctrl+←/→ 词级跳转（Unicode 感知）、Ctrl+Home/End、PageUp/PageDown、括号引号自动闭合与选区包裹、over-type 跳过；搜索匹配设置软上限防止大文件宽匹配拖垮渲染。
+
 ## Pioneer 6 首启体验与生命周期边界
 
 Pioneer 6 聚焦首启体验与退出生命周期：新增主程序内嵌的欢迎引导覆盖层（OOBE）与安装器三语选择器，落地退出清理队列；不新增 SDK、Runtime 或 Marketplace 后端能力。前端通过现有 `LanguageServerIPC`、`ToolchainsOverview` 和扩展清单表达既有能力。

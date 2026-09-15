@@ -113,6 +113,8 @@ const aggregateSuites = (
   return [...grouped.values()].map((samples) => {
     const first = samples[0];
     if (samples.some((sample) => sample.status === "error")) return first;
+    // skipped（如 WASM 基准缺扩展包）不参与统计聚合，透传首轮结果
+    if (samples.every((sample) => sample.status === "skipped")) return first;
     const durations = samples.map((sample) => sample.durationNs);
     const stableDurations = trimmedSamples(durations);
     const statistics = {
@@ -337,11 +339,20 @@ export function PerformanceBenchmarkPage() {
               ? runUiBenchmark()
               : PerformanceIPC.runBenchmark<BenchmarkResult[]>(kind, `${token}`);
         const sampleRuns = kind === "ipc" || kind === "ui" ? 1 : SAMPLE_RUNS;
-        if (sampleRuns > 1) for (let index = 0; index < WARMUP_RUNS; index += 1) await execute();
+        if (sampleRuns > 1) {
+          for (let index = 0; index < WARMUP_RUNS; index += 1) {
+            const suite = await execute();
+            // 全部非 ok（如 skipped）时无需继续预热
+            if (suite.every((result) => result.status !== "ok")) break;
+          }
+        }
         if (cancellationRef.current !== token) return false;
         const samples: BenchmarkResult[][] = [];
         for (let index = 0; index < sampleRuns; index += 1) {
-          samples.push(await execute());
+          const suite = await execute();
+          samples.push(suite);
+          // 全部结果均非 ok（如 skipped）时没有采样意义：一轮即止
+          if (suite.every((result) => result.status !== "ok")) break;
           if (cancellationRef.current !== token) return false;
         }
         setResults((current) => ({ ...current, [kind]: aggregateSuites(samples, t) }));
@@ -668,6 +679,7 @@ export function PerformanceBenchmarkPage() {
             const suite = results[benchmark.id];
             const ok = suite?.find((result) => result.status === "ok");
             const failed = suite?.find((result) => result.status === "error");
+            const skippedResult = suite?.find((result) => result.status === "skipped");
             const previous =
               ok && comparisonBaseline ? getResult(comparisonBaseline, ok.id) : undefined;
             const delta =
@@ -723,6 +735,12 @@ export function PerformanceBenchmarkPage() {
                         <span className="text-[12px] text-[var(--DiagError)]">
                           {t("performance.testFailed")}
                         </span>
+                      ) : skippedResult ? (
+                        <Tooltip content={skippedResult.details} placement="top">
+                          <span className="rounded-md bg-[var(--material-interactive-hover)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-muted)]">
+                            {t("performance.skipped")}
+                          </span>
+                        </Tooltip>
                       ) : (
                         <span className="text-[12px] text-[var(--color-text-muted)]">
                           {t("performance.notRun")}

@@ -26,12 +26,17 @@ import { GitGutterBar } from "./GitGutter/GitGutterBar";
 import { useGitGutterDiff } from "./GitGutter/useGitGutterDiff";
 import { useEditorAutocomplete } from "./Hooks/useEditorAutocomplete";
 import { useEditorContextMenu } from "./Hooks/useEditorContextMenu";
-import { useEditorHistory } from "./Hooks/useEditorHistory";
+import { diffText, useEditorHistory } from "./Hooks/useEditorHistory";
 import { useEditorHover } from "./Hooks/useEditorHover";
 import { useEditorIME } from "./Hooks/useEditorIME";
 import { useEditorKeybindings } from "./Hooks/useEditorKeybindings";
 import { useEditorPointerSelection } from "./Hooks/useEditorPointerSelection";
-import { buildSearchRegex, type EditorSearchMatch, useEditorSearch } from "./Hooks/useEditorSearch";
+import {
+  buildSearchRegex,
+  type EditorSearchMatch,
+  resolveLineReplacement,
+  useEditorSearch,
+} from "./Hooks/useEditorSearch";
 import {
   getCursorFromUtf16Offset,
   getLineStartUtf16,
@@ -153,7 +158,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   });
 
   // 3. 历史栈管理
-  const { undo, redo, pushHistory } = useEditorHistory(value);
+  const { undo, redo, pushHistory, pushComposite, syncExternal } = useEditorHistory(value);
 
   // 4. 选区操作 Hook
   const { executeSelectionDelete, findWordBoundaries, moveCursor } = useEditorSelectionOps({
@@ -167,6 +172,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     updateMaxLineLength,
     setTotalLines,
     onChange,
+    onEditCommitted: (content, cursorUtf16) => pushHistory(content, cursorUtf16),
   });
 
   // 5. 语言偏好设置与诊断
@@ -224,44 +230,71 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const { activeMatchedPair } = useBracketMatching(documentLines, cursor);
 
   // 9. 多光标编辑与相同标识符全高亮 (MultiCursor)
-  const { extraCursors } = useMultiCursorOps(documentLines);
+  const {
+    extras,
+    extraCursors,
+    addCursor,
+    clearExtraCursors,
+    selectNextOccurrence,
+    replaceExtras,
+  } = useMultiCursorOps(documentLines);
   const occurrences = useSelectionOccurrence(documentLines, selection);
 
   // 10. Git Gutter 差异 (GitGutter)
   const gitGutterDiff = useGitGutterDiff(path);
 
   // 11. 文档更新与同步
-  const replaceDocumentLines = useCallback(
+  // 精确写盘：计算旧内容到新内容的单连续差异区间，只把差异段传给 Rust，
+  // 避免 Backspace/Delete/Enter/行操作等按键路径整文序列化重建 rope。
+  const applyContentDiff = useCallback(
+    (currentContent: string, nextContent: string) => {
+      if (!path) return;
+      const difference = diffText(currentContent, nextContent);
+      DocumentService.applyEdit(
+        path,
+        difference.startUtf16,
+        difference.startUtf16 + difference.deletedText.length,
+        difference.insertedText,
+        nextContent,
+      ).catch((error) => {
+        onSyncError?.(error instanceof Error ? error : new Error(String(error)));
+      });
+    },
+    [onSyncError, path],
+  );
+
+  // 统一编辑提交点：状态更新 + 撤销入栈 + IPC 落盘，所有编辑路径（按键/IME/替换）都经此提交
+  const commitEdit = useCallback(
     (
       nextLines: string[],
       nextCursor: { line: number; char: number },
       nextSelection: SelectionRange | null = null,
     ) => {
-      const startUtf16 = 0;
-      const endUtf16 = documentLines.reduce((acc, l) => acc + l.length + 1, 0);
+      const currentContent = documentLines.join("\n");
       const nextContent = nextLines.join("\n");
-
       setDocumentLines(nextLines);
       setTotalLines(nextLines.length);
       setCursor(nextCursor);
       setSelection(nextSelection);
       updateMaxLineLength(nextLines);
-
-      if (path) {
-        DocumentService.applyEdit(path, startUtf16, endUtf16, nextContent, nextContent).catch(
-          (error) => {
-            onSyncError?.(error instanceof Error ? error : new Error(String(error)));
-          },
-        );
-      }
+      pushHistory(
+        nextContent,
+        getLineStartUtf16(nextLines, nextCursor.line) + nextCursor.char,
+      );
+      applyContentDiff(currentContent, nextContent);
       onChange?.(nextContent);
     },
-    [documentLines, onChange, onSyncError, path, updateMaxLineLength],
+    [applyContentDiff, documentLines, onChange, pushHistory, updateMaxLineLength],
   );
+
+  // 按键类编辑入口（Backspace/Delete/Enter/Tab/行操作等 keybinding 路径）
+  const replaceDocumentLines = commitEdit;
 
   // 12. Hover 与自动补全
   const isDraggingPointerRef = useRef(false);
   const [isContextMenuOpen, setHoverContextMenuOpen] = useState(false);
+  // 多光标批量插入转发 ref：insertTextAtCursor 定义在前，批量路径定义在后
+  const multiCursorInsertRef = useRef<((text: string) => void) | null>(null);
   const {
     tooltip: hoverTooltip,
     setVisibleTooltip: setVisibleHover,
@@ -278,20 +311,53 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   });
 
   const singleCharWidth = useMemo(() => measureEditorText("M", layout), [layout]);
+  // 候选框锚点：按实际前缀文本测量，宽字符/CJK 不再漂移（textarea 代理与补全面板共用）
   const caretPos = useMemo(
     () => ({
-      x: layout.contentInsetX + cursor.char * singleCharWidth,
+      x:
+        layout.contentInsetX +
+        measureEditorText((documentLines[cursor.line] || "").substring(0, cursor.char), layout),
       y: layout.contentInsetTop + cursor.line * layout.lineHeight,
     }),
     [
       cursor.char,
       cursor.line,
+      documentLines,
       layout.contentInsetTop,
       layout.contentInsetX,
-      layout.lineHeight,
-      singleCharWidth,
+      layout,
     ],
   );
+
+  // 光标可见性保障：光标移动或编辑后确保主光标行完整位于视口内（纵向行级、横向按实际前缀宽度）
+  const ensureCursorVisible = useCallback(
+    (pos: { line: number; char: number }) => {
+      const container = containerRef.current;
+      if (!container) return;
+      const lineTop = layout.contentInsetTop + pos.line * layout.lineHeight;
+      if (lineTop < container.scrollTop) {
+        container.scrollTop = Math.max(0, lineTop);
+      } else if (lineTop + layout.lineHeight > container.scrollTop + container.clientHeight) {
+        container.scrollTop = lineTop + layout.lineHeight - container.clientHeight;
+      }
+      const caretX =
+        layout.contentInsetX +
+        measureEditorText((documentLines[pos.line] || "").substring(0, pos.char), layout);
+      const viewLeft = container.scrollLeft;
+      const viewRight = viewLeft + container.clientWidth;
+      if (caretX < viewLeft + layout.contentInsetX) {
+        container.scrollLeft = Math.max(0, caretX - layout.contentInsetX);
+      } else if (caretX > viewRight - 24) {
+        container.scrollLeft = caretX - container.clientWidth + layout.contentInsetX + 24;
+      }
+    },
+    [documentLines, layout],
+  );
+
+  // 任何光标变化后自动保障可见（编辑/导航/撤销/替换等所有路径统一覆盖）
+  useEffect(() => {
+    ensureCursorVisible(cursor);
+  }, [cursor, ensureCursorVisible]);
 
   const {
     completions,
@@ -330,35 +396,83 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
   const insertTextAtCursor = useCallback(
     (text: string) => {
-      if (selection) executeSelectionDelete();
+      // 多光标批量插入：每个光标/选区插入相同文本，一步撤销（批量路径定义在后，经 ref 转发）
+      if (extraCursors.length > 0 && multiCursorInsertRef.current) {
+        multiCursorInsertRef.current(text);
+        return;
+      }
+      if (selection) {
+        // 选中状态：删除选区并在选区起点插入，一次合并提交（单步撤销）。
+        // 不能依赖 executeSelectionDelete 的异步 setState——后续计算会拿到删除前的行。
+        const { start, end } = sortSelection(selection);
+        const nextLines = [...documentLines];
+        const startLineText = nextLines[start.line] || "";
+        const endLineText = nextLines[end.line] || "";
+        nextLines.splice(
+          start.line,
+          end.line - start.line + 1,
+          startLineText.substring(0, start.char) + text + endLineText.substring(end.char),
+        );
+        const nextCursor = { line: start.line, char: start.char + text.length };
+        const nextContent = nextLines.join("\n");
+
+        setDocumentLines(nextLines);
+        setTotalLines(nextLines.length);
+        setCursor(nextCursor);
+        setSelection(null);
+        updateMaxLineLength(nextLines);
+        pushHistory(
+          nextContent,
+          getLineStartUtf16(nextLines, nextCursor.line) + nextCursor.char,
+        );
+        if (path) {
+          const startUtf16 = getLineStartUtf16(documentLines, start.line) + start.char;
+          const endUtf16 = getLineStartUtf16(documentLines, end.line) + end.char;
+          DocumentService.applyEdit(path, startUtf16, endUtf16, text, nextContent).catch(
+            (error) => {
+              onSyncError?.(error instanceof Error ? error : new Error(String(error)));
+            },
+          );
+        }
+        triggerAutocomplete(nextLines, nextCursor.line, nextCursor.char);
+        onChange?.(nextContent);
+        return;
+      }
+
       const currentLines = [...documentLines];
       const inserted = insertTextIntoLines(currentLines, cursor, text);
+      const insertedContent = inserted.lines.join("\n");
       setDocumentLines(inserted.lines);
       setCursor(inserted.cursor);
       setSelection(null);
 
+      pushHistory(
+        insertedContent,
+        getLineStartUtf16(inserted.lines, inserted.cursor.line) + inserted.cursor.char,
+      );
+
       if (path) {
         const startUtf16 = getLineStartUtf16(currentLines, cursor.line) + cursor.char;
-        DocumentService.applyEdit(
-          path,
-          startUtf16,
-          startUtf16,
-          text,
-          inserted.lines.join("\n"),
-        ).catch(console.error);
+        DocumentService.applyEdit(path, startUtf16, startUtf16, text, insertedContent).catch(
+          (error) => {
+            onSyncError?.(error instanceof Error ? error : new Error(String(error)));
+          },
+        );
         triggerAutocomplete(inserted.lines, inserted.cursor.line, inserted.cursor.char);
       }
 
       updateMaxLineLength(inserted.lines);
       setTotalLines(inserted.lines.length);
-      onChange?.(inserted.lines.join("\n"));
+      onChange?.(insertedContent);
     },
     [
       cursor,
       documentLines,
-      executeSelectionDelete,
+      extraCursors,
       onChange,
+      onSyncError,
       path,
+      pushHistory,
       selection,
       triggerAutocomplete,
       updateMaxLineLength,
@@ -385,6 +499,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     currentIndex: currentMatchIndex,
     setIsOpen: setIsSearchOpen,
     setQuery: setSearchQuery,
+    markReplacementAnchor,
     next: handleSearchNext,
     prev: handleSearchPrev,
     close: handleSearchClose,
@@ -398,43 +513,63 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const applyReplacedContent = useCallback(
     (nextContent: string) => {
       const nextLines = nextContent.split("\n");
-      setDocumentLines(nextLines);
-      setTotalLines(nextLines.length);
-      updateMaxLineLength(nextLines);
-      if (path)
-        DocumentService.applyEdit(path, 0, 0, nextContent, nextContent).catch(console.error);
-      onChange?.(nextContent);
+      commitEdit(nextLines, cursor, selection);
     },
-    [onChange, path, updateMaxLineLength],
+    [commitEdit, cursor, selection],
   );
 
   const handleReplaceCurrent = useCallback(() => {
     const match = searchMatches[currentMatchIndex];
     if (!match) return;
     const line = documentLines[match.line] ?? "";
+    const replacement = resolveLineReplacement(
+      line,
+      match,
+      searchQuery,
+      replaceValue,
+      searchOptions,
+    );
     const nextLine =
-      line.slice(0, match.char) + replaceValue + line.slice(match.char + match.length);
+      line.slice(0, match.char) + replacement + line.slice(match.char + match.length);
     const nextLines = [...documentLines];
     nextLines[match.line] = nextLine;
+    // 替换后继续搜索的位置：替换起点 + 新文本长度
+    markReplacementAnchor(match.line, match.char + replacement.length);
     applyReplacedContent(nextLines.join("\n"));
-  }, [applyReplacedContent, currentMatchIndex, documentLines, replaceValue, searchMatches]);
+  }, [
+    applyReplacedContent,
+    currentMatchIndex,
+    documentLines,
+    markReplacementAnchor,
+    replaceValue,
+    searchOptions,
+    searchQuery,
+    searchMatches,
+  ]);
 
   const handleReplaceAll = useCallback(() => {
     if (searchMatches.length === 0) return;
-    // 命中按 (line, char) 升序：逐行从后向前替换，保持索引稳定
+    // 命中按 (line, char) 升序：逐行从后向前替换，保持索引稳定；正则替换逐命中展开捕获组
     const nextLines = documentLines.map((line, lineIndex) => {
       const lineMatches = searchMatches.filter((m) => m.line === lineIndex);
       if (lineMatches.length === 0) return line;
       let result = line;
       for (let i = lineMatches.length - 1; i >= 0; i--) {
         const match = lineMatches[i];
+        const replacement = resolveLineReplacement(
+          line,
+          match,
+          searchQuery,
+          replaceValue,
+          searchOptions,
+        );
         result =
-          result.slice(0, match.char) + replaceValue + result.slice(match.char + match.length);
+          result.slice(0, match.char) + replacement + result.slice(match.char + match.length);
       }
       return result;
     });
     applyReplacedContent(nextLines.join("\n"));
-  }, [applyReplacedContent, documentLines, replaceValue, searchMatches]);
+  }, [applyReplacedContent, documentLines, replaceValue, searchMatches, searchOptions, searchQuery]);
 
   const handleUndo = useCallback(() => {
     const entry = undo();
@@ -446,10 +581,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setCursor(nextCursor);
     setSelection(null);
     updateMaxLineLength(lines);
-    if (path)
-      DocumentService.applyEdit(path, 0, 0, entry.content, entry.content).catch(console.error);
+    applyContentDiff(documentLines.join("\n"), entry.content);
     onChange?.(entry.content);
-  }, [onChange, path, undo, updateMaxLineLength]);
+  }, [applyContentDiff, documentLines, onChange, undo, updateMaxLineLength]);
 
   const handleRedo = useCallback(() => {
     const entry = redo();
@@ -461,12 +595,228 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setCursor(nextCursor);
     setSelection(null);
     updateMaxLineLength(lines);
-    if (path)
-      DocumentService.applyEdit(path, 0, 0, entry.content, entry.content).catch(console.error);
+    applyContentDiff(documentLines.join("\n"), entry.content);
     onChange?.(entry.content);
-  }, [onChange, path, redo, updateMaxLineLength]);
+  }, [applyContentDiff, documentLines, onChange, redo, updateMaxLineLength]);
 
-  // 14. 快捷键与剪贴板
+  // 14. 多光标批量编辑：内存合并 + 一次降序批量 IPC + composite 一步撤销
+  const commitMultiCursorEdits = useCallback(
+    (
+      ranges: {
+        start: { line: number; char: number };
+        end: { line: number; char: number };
+        text: string;
+        isPrimary: boolean;
+        cursorOffsetInText: number;
+      }[],
+    ) => {
+      if (ranges.length === 0) return;
+      const originalContent = documentLines.join("\n");
+      const withOffsets = ranges.map((range) => ({
+        ...range,
+        startUtf16: getLineStartUtf16(documentLines, range.start.line) + range.start.char,
+        endUtf16: getLineStartUtf16(documentLines, range.end.line) + range.end.char,
+      }));
+      // 降序排列：坐标互不重叠时在中间文档上依然正确
+      withOffsets.sort((a, b) => b.startUtf16 - a.startUtf16);
+      const applied: typeof withOffsets = [];
+      let lastStart = Number.MAX_SAFE_INTEGER;
+      for (const item of withOffsets) {
+        // 与右侧已应用区间重叠（如重复光标）：防御性跳过
+        if (item.endUtf16 > lastStart) continue;
+        applied.push(item);
+        lastStart = item.startUtf16;
+      }
+      if (applied.length === 0) return;
+
+      let nextContent = originalContent;
+      for (const item of applied) {
+        nextContent =
+          nextContent.slice(0, item.startUtf16) + item.text + nextContent.slice(item.endUtf16);
+      }
+      const nextLines = nextContent.split("\n");
+
+      // 新光标：extras 按原位置升序重建；被跳过的区间光标保持原位
+      const skipped = withOffsets.filter((item) => !applied.includes(item));
+      const primary = applied.find((item) => item.isPrimary);
+      const extraEdits = applied.filter((item) => !item.isPrimary);
+      const nextExtras = [
+        ...extraEdits
+          .sort((a, b) => a.startUtf16 - b.startUtf16)
+          .map((item) => ({
+            cursor: getCursorFromUtf16Offset(nextLines, item.startUtf16 + item.cursorOffsetInText),
+            selection: null,
+          })),
+        ...skipped
+          .filter((item) => !item.isPrimary)
+          .sort((a, b) => a.startUtf16 - b.startUtf16)
+          .map((item) => ({ cursor: item.start, selection: null })),
+      ];
+
+      setDocumentLines(nextLines);
+      setTotalLines(nextLines.length);
+      if (primary) {
+        setCursor(getCursorFromUtf16Offset(nextLines, primary.startUtf16 + primary.cursorOffsetInText));
+        setSelection(null);
+      }
+      replaceExtras(nextExtras);
+      updateMaxLineLength(nextLines);
+
+      const primaryCursorUtf16 = primary
+        ? primary.startUtf16 + primary.cursorOffsetInText
+        : getLineStartUtf16(nextLines, cursor.line) + cursor.char;
+      pushComposite(
+        applied.map((item) => ({
+          startUtf16: item.startUtf16,
+          deletedText: originalContent.slice(item.startUtf16, item.endUtf16),
+          insertedText: item.text,
+        })),
+        primaryCursorUtf16,
+        nextContent,
+      );
+
+      if (path) {
+        DocumentService.applyEdits(
+          path,
+          applied.map((item) => ({
+            startUtf16: item.startUtf16,
+            endUtf16: item.endUtf16,
+            text: item.text,
+          })),
+          nextContent,
+        ).catch((error) => {
+          onSyncError?.(error instanceof Error ? error : new Error(String(error)));
+        });
+      }
+      if (primary) {
+        triggerAutocomplete(
+          nextLines,
+          getCursorFromUtf16Offset(nextLines, primaryCursorUtf16).line,
+          getCursorFromUtf16Offset(nextLines, primaryCursorUtf16).char,
+        );
+      }
+      onChange?.(nextContent);
+    },
+    [
+      cursor,
+      documentLines,
+      onChange,
+      onSyncError,
+      path,
+      pushComposite,
+      replaceExtras,
+      triggerAutocomplete,
+      updateMaxLineLength,
+    ],
+  );
+
+  // 收集主光标 + 额外光标的编辑区间（点或选区）
+  const collectMultiCursorRanges = useCallback(() => {
+    const ranges: {
+      start: { line: number; char: number };
+      end: { line: number; char: number };
+      isPrimary: boolean;
+    }[] = [];
+    if (selection) {
+      const sorted = sortSelection(selection);
+      ranges.push({ start: sorted.start, end: sorted.end, isPrimary: true });
+    } else {
+      ranges.push({ start: cursor, end: cursor, isPrimary: true });
+    }
+    extras.forEach((item) => {
+      if (item.selection) {
+        const sorted = sortSelection(item.selection);
+        ranges.push({ start: sorted.start, end: sorted.end, isPrimary: false });
+      } else {
+        ranges.push({ start: item.cursor, end: item.cursor, isPrimary: false });
+      }
+    });
+    return ranges;
+  }, [cursor, extras, selection]);
+
+  const handleMultiCursorInsert = useCallback(
+    (text: string) => {
+      commitMultiCursorEdits(
+        collectMultiCursorRanges().map((range) => ({
+          ...range,
+          text,
+          cursorOffsetInText: text.length,
+        })),
+      );
+    },
+    [collectMultiCursorRanges, commitMultiCursorEdits],
+  );
+  multiCursorInsertRef.current = handleMultiCursorInsert;
+
+  const handleMultiCursorBackspace = useCallback(() => {
+    const ranges = collectMultiCursorRanges().map((range) => {
+      if (range.start.line === range.end.line && range.start.char === range.end.char) {
+        if (range.start.char > 0) {
+          return {
+            ...range,
+            start: { line: range.start.line, char: range.start.char - 1 },
+            text: "",
+            cursorOffsetInText: 0,
+          };
+        }
+        if (range.start.line > 0) {
+          // 行首退格：与前一行合并（删除换行符）
+          const prevLength = (documentLines[range.start.line - 1] || "").length;
+          return {
+            ...range,
+            start: { line: range.start.line - 1, char: prevLength },
+            text: "",
+            cursorOffsetInText: 0,
+          };
+        }
+        // 文档起点无处可删：零宽无操作，光标保持
+        return { ...range, text: "", cursorOffsetInText: 0 };
+      }
+      return { ...range, text: "", cursorOffsetInText: 0 };
+    });
+    commitMultiCursorEdits(ranges);
+  }, [collectMultiCursorRanges, commitMultiCursorEdits, documentLines]);
+
+  const handleMultiCursorDelete = useCallback(() => {
+    const ranges = collectMultiCursorRanges().map((range) => {
+      if (range.start.line === range.end.line && range.start.char === range.end.char) {
+        const lineText = documentLines[range.end.line] || "";
+        if (range.end.char < lineText.length) {
+          return {
+            ...range,
+            end: { line: range.end.line, char: range.end.char + 1 },
+            text: "",
+            cursorOffsetInText: 0,
+          };
+        }
+        if (range.end.line < documentLines.length - 1) {
+          // 行尾删除：与下一行合并
+          return {
+            ...range,
+            end: { line: range.end.line + 1, char: 0 },
+            text: "",
+            cursorOffsetInText: 0,
+          };
+        }
+        return { ...range, text: "", cursorOffsetInText: 0 };
+      }
+      return { ...range, text: "", cursorOffsetInText: 0 };
+    });
+    commitMultiCursorEdits(ranges);
+  }, [collectMultiCursorRanges, commitMultiCursorEdits, documentLines]);
+
+  const handleMultiCursorEnter = useCallback(() => {
+    commitMultiCursorEdits(
+      collectMultiCursorRanges().map((range) => {
+        const lineText = documentLines[range.start.line] || "";
+        const indent = lineText.match(/^(\s*)/)?.[1] ?? "";
+        const insert = `\n${indent}`;
+        return { ...range, text: insert, cursorOffsetInText: insert.length };
+      }),
+    );
+  }, [collectMultiCursorRanges, commitMultiCursorEdits, documentLines]);
+
+  // 15. 快捷键与剪贴板
   const { handleKeyDown } = useEditorKeybindings({
     language,
     documentLines,
@@ -490,6 +840,19 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setCursor,
     setIsSearchOpen,
     scrollToCursor: (pos) => scrollToLine(pos?.line ?? cursor.line),
+    pageLines: Math.max(1, Math.floor(viewportHeight / layout.lineHeight) - 1),
+    extraCursorCount: extraCursors.length,
+    handleCtrlD: () => {
+      const result = selectNextOccurrence(cursor, selection, findWordBoundaries);
+      if (result) {
+        setSelection(result.newPrimarySelection);
+        setCursor(result.newPrimaryCursor);
+      }
+    },
+    clearExtraCursors,
+    handleMultiCursorBackspace,
+    handleMultiCursorDelete,
+    handleMultiCursorEnter,
   });
 
   const handleCut = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -569,19 +932,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     textareaRef,
     setHoverContextMenuOpen,
     clearCompletions: () => setCompletions([]),
-    undo: () => {
-      const entry = undo();
-      return entry
-        ? { content: entry.content, cursor: { line: 0, char: entry.selectionStart } }
-        : null;
-    },
-    redo: () => {
-      const entry = redo();
-      return entry
-        ? { content: entry.content, cursor: { line: 0, char: entry.selectionStart } }
-        : null;
-    },
-    applyHistoryState: (state) => pushHistory(state.content, state.cursor.char),
     onExecuteAction: executeEditorAction,
   });
 
@@ -591,7 +941,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setDocumentLines(lines);
     setTotalLines(lines.length);
     updateMaxLineLength(lines);
-  }, [value, updateMaxLineLength]);
+    syncExternal(value);
+  }, [value, syncExternal, updateMaxLineLength]);
 
   useEffect(() => {
     if (!externalContent) return;
@@ -599,7 +950,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setDocumentLines(lines);
     setTotalLines(lines.length);
     updateMaxLineLength(lines);
-  }, [externalContent, updateMaxLineLength]);
+    syncExternal(externalContent.content);
+  }, [externalContent, syncExternal, updateMaxLineLength]);
 
   useEffect(() => {
     if (revealLine !== undefined && revealLine > 0) {
@@ -715,13 +1067,26 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           selection={selection}
           isDragging={isDraggingRef.current}
           setHoverTooltip={setVisibleHover}
-          onMouseDown={handleLineMouseDown}
+          onMouseDown={(idx, e) => {
+            // Alt+Click：添加额外光标
+            if (e.altKey && e.button === 0) {
+              const charIndex = textIndexAtPoint(idx, e.currentTarget, e.clientX, e.clientY);
+              addCursor({ line: idx, char: charIndex });
+              textareaRef.current?.focus();
+              e.preventDefault();
+              return;
+            }
+            // 常规指针交互：清除额外光标
+            if (extraCursors.length > 0) clearExtraCursors();
+            handleLineMouseDown(idx, e);
+          }}
           onMouseLeave={handleLineMouseLeave}
           onLanguageHover={requestLanguageHover}
           textIndexAtPoint={textIndexAtPoint}
           registerLineElement={registerLineElement}
           isComposing={isComposing}
           compositionText={compositionText}
+          compositionChar={cursor.char}
           layout={layout}
           isFoldedStart={isFoldedStart}
           onToggleFold={toggleFold}
@@ -752,10 +1117,14 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     registerLineElement,
     isComposing,
     compositionText,
+    cursor.char,
     layout,
     toggleFold,
     occurrences,
     isDraggingRef.current,
+    addCursor,
+    extraCursors,
+    clearExtraCursors,
   ]);
 
   // 20. 行号与折叠三角
@@ -938,7 +1307,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
               {/* 主光标与多光标平滑动画层 */}
               <MultiCursorCaretLayer
                 primaryCursor={cursor}
-                extraCursors={extraCursors}
+                extras={extras}
                 lineHeight={layout.lineHeight}
                 charWidth={singleCharWidth}
                 contentInsetX={layout.contentInsetX}

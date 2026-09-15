@@ -46,9 +46,8 @@ export const UserConfigStore = {
   },
 
   async set(config: Partial<UserConfig>): Promise<void> {
-    const current = await this.get();
-    const next = { ...current, ...config };
-    memoryCache = next;
+    // 同步合并到内存缓存（避免 await 间隙丢失并发 set 的字段），写盘走 flush 队列
+    memoryCache = { ...(memoryCache ?? (await this.get())), ...config };
 
     if (isWriting) {
       pendingWrite = true;

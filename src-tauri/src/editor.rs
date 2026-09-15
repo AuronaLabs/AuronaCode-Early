@@ -5,7 +5,6 @@ use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::fs::{File, OpenOptions};
-use std::hash::{Hash, Hasher};
 use std::io::{BufReader, BufWriter, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -205,16 +204,36 @@ fn utf16_to_char_idx_strict(rope: &Rope, utf16_idx: usize) -> Result<usize, Desk
 }
 
 fn normalize_path(path: &str) -> String {
-    Path::new(path)
-        .canonicalize()
-        .map(|value| value.to_string_lossy().to_string())
-        .unwrap_or_else(|_| path.to_string())
+    match Path::new(path).canonicalize() {
+        // 统一剥掉 Windows verbatim 前缀（\\?\ 与 \\?\UNC\），避免同一文件因
+        // 前缀差异产生两个 EditorSession key
+        Ok(value) => {
+            let raw = value.to_string_lossy().to_string();
+            if let Some(unc) = raw.strip_prefix(r"\\?\UNC\") {
+                format!(r"\\{unc}")
+            } else if let Some(plain) = raw.strip_prefix(r"\\?\") {
+                plain.to_string()
+            } else {
+                raw
+            }
+        }
+        Err(_) => path.to_string(),
+    }
 }
 
 fn fingerprint_bytes(bytes: &[u8]) -> String {
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    bytes.hash(&mut hasher);
-    format!("{:016x}:{}", hasher.finish(), bytes.len())
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(bytes);
+    format!("{:064x}:{}", hex_lower(&digest), bytes.len())
+}
+
+fn hex_lower(bytes: &[u8]) -> String {
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        use std::fmt::Write as _;
+        let _ = write!(output, "{byte:02x}");
+    }
+    output
 }
 
 fn fingerprint_file(path: &Path) -> Result<String, DesktopError> {

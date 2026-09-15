@@ -36,6 +36,8 @@ interface EditorLineProps {
   registerLineElement: (idx: number, element: HTMLButtonElement | null) => void;
   isComposing: boolean;
   compositionText: string;
+  /** 合成预览插入点（当前行光标 char），用于把预览渲染到正确位置 */
+  compositionChar: number;
   layout: EditorLayoutMetrics;
   isFoldedStart?: boolean;
   onToggleFold?: (line: number) => void;
@@ -62,6 +64,7 @@ export const EditorLine = React.memo(function EditorLine({
   registerLineElement,
   isComposing,
   compositionText,
+  compositionChar,
   layout,
   isFoldedStart,
   onToggleFold,
@@ -104,7 +107,7 @@ export const EditorLine = React.memo(function EditorLine({
     lineDiags,
   ]);
 
-  // 2. 独立计算选区高亮层
+  // 2. 独立计算选区高亮层（带依赖数组：无关渲染不再触发 DOM 测量）
   useLayoutEffect(() => {
     if (!selection || !lineRef.current) {
       setRenderedSelection(null);
@@ -123,7 +126,7 @@ export const EditorLine = React.memo(function EditorLine({
       if (current && current.left === next.left && current.width === next.width) return current;
       return next;
     });
-  });
+  }, [selection, idx, lineText]);
 
   const selectionLayer = useMemo(() => {
     if (!selection) return null;
@@ -299,7 +302,12 @@ export const EditorLine = React.memo(function EditorLine({
       {isCurrent && isComposing && compositionText && (
         <span
           data-editor-composition
-          className="underline decoration-dotted opacity-75 text-[var(--color-text-highlight)] ime-temp"
+          className="absolute top-0 underline decoration-dotted opacity-75 text-[var(--color-text-highlight)] ime-temp pointer-events-none z-20"
+          style={{
+            left: `${layout.contentInsetX + measureEditorText(lineText.substring(0, compositionChar), layout)}px`,
+            height: `${layout.lineHeight}px`,
+            lineHeight: `${layout.lineHeight}px`,
+          }}
         >
           {compositionText}
         </span>

@@ -438,6 +438,7 @@ export const en: LocaleMessages = {
     running: "Running",
     testFailed: "Failed",
     notRun: "Not run",
+    skipped: "Skipped",
     variation: "Variability {pct}%",
     trimmedAverage: "Trimmed mean · {count} samples",
     viewDetails: "View Details",

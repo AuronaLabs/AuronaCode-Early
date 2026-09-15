@@ -432,6 +432,7 @@ export const zhHant: LocaleMessages = {
     running: "執行中",
     testFailed: "測試失敗",
     notRun: "尚未執行",
+    skipped: "已跳過",
     variation: "波動 {pct}%",
     trimmedAverage: "去極值平均 · {count} 個樣本",
     viewDetails: "查看詳情",

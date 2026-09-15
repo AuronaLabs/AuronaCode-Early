@@ -430,6 +430,7 @@ export const zhCN = {
     running: "运行中",
     testFailed: "测试失败",
     notRun: "尚未运行",
+    skipped: "已跳过",
     variation: "波动 {pct}%",
     trimmedAverage: "去极值平均 · {count} 个样本",
     viewDetails: "查看详情",

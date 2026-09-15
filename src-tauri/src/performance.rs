@@ -565,30 +565,59 @@ pub async fn get_performance_environment(
     .map_err(|error| format!("Environment inspection task failed: {error}"))?
 }
 
-fn run_wasm_benchmark(cancelled: &AtomicBool) -> Result<Vec<PerformanceBenchmarkResult>, String> {
+/// 解析 WASM 基准使用的扩展包路径：优先开发机 MarketplacePackages，
+/// 否则回退到任一已安装的市场扩展包；都没有则返回 None（前端显示 skipped）。
+fn resolve_wasm_benchmark_package(app: &tauri::AppHandle) -> Option<PathBuf> {
+    let dev_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("MarketplacePackages")
+        .join("auronalabs.markdown.aurx");
+    if dev_path.is_file() {
+        return Some(dev_path);
+    }
+    let extensions_dir = app
+        .path()
+        .app_local_data_dir()
+        .ok()?
+        .join("extensions");
+    std::fs::read_dir(&extensions_dir)
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|candidate| {
+            candidate.is_file() && candidate.extension().map(|ext| ext == "aurx").unwrap_or(false)
+        })
+}
+
+fn skipped_wasm_result() -> PerformanceBenchmarkResult {
+    PerformanceBenchmarkResult {
+        id: "wasm-skipped".to_string(),
+        name: "WASM 沙箱基准".to_string(),
+        duration_ns: 0,
+        value: 0.0,
+        unit: "ops/s".to_string(),
+        status: "skipped".to_string(),
+        details: "未找到可用扩展包（在扩展市场安装任意扩展后可运行），已跳过 WASM 沙箱基准"
+            .to_string(),
+    }
+}
+
+fn run_wasm_benchmark(
+    cancelled: &AtomicBool,
+    package_path: Option<PathBuf>,
+) -> Result<Vec<PerformanceBenchmarkResult>, String> {
     ensure_not_cancelled(cancelled)?;
     let mut results = Vec::new();
     let sample_markdown = "# Aurona Performance Benchmark\n\n| Item | Value |\n|---|---|\n| WASM | Speed |\n\n> Quote block with **bold** text and `inline code`.\n\n```rust\nfn main() { println!(\"hello\"); }\n```\n".repeat(4);
 
-    let package_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("MarketplacePackages")
-        .join("auronalabs.markdown.aurx");
-    // 该路径仅存在于开发机（env! 在编译期固化）。正式安装包中没有源码树，
-    // 包缺失时优雅降级为一条错误结果行，而不是让整个 wasm 基准直接失败。
+    let package_path = match package_path {
+        Some(path) => path,
+        None => return Ok(vec![skipped_wasm_result()]),
+    };
+    // 开发机路径仅存在于源码树（env! 在编译期固化）；安装包环境回退到已安装扩展。
     let package_bytes = match fs::read(&package_path) {
         Ok(bytes) => bytes,
-        Err(error) => {
-            return Ok(vec![PerformanceBenchmarkResult {
-                id: "wasm-unavailable".to_string(),
-                name: "WASM 沙箱基准".to_string(),
-                duration_ns: 0,
-                value: 0.0,
-                unit: "ops/s".to_string(),
-                status: "error".to_string(),
-                details: format!("基准扩展包不可用（{error}），已跳过 WASM 沙箱基准"),
-            }]);
-        }
+        Err(_) => return Ok(vec![skipped_wasm_result()]),
     };
 
     // 1. WASM 包校验与解析
@@ -655,6 +684,7 @@ fn run_wasm_benchmark(cancelled: &AtomicBool) -> Result<Vec<PerformanceBenchmark
 pub async fn run_performance_benchmark(
     kind: String,
     request_id: String,
+    app: tauri::AppHandle,
     state: State<'_, PerformanceState>,
 ) -> Result<Vec<PerformanceBenchmarkResult>, String> {
     let cancelled = Arc::new(AtomicBool::new(false));
@@ -690,7 +720,8 @@ pub async fn run_performance_benchmark(
         }
         "wasm" => {
             let cancelled = cancelled.clone();
-            tokio::task::spawn_blocking(move || run_wasm_benchmark(&cancelled))
+            let package_path = resolve_wasm_benchmark_package(&app);
+            tokio::task::spawn_blocking(move || run_wasm_benchmark(&cancelled, package_path))
                 .await
                 .map_err(|error| format!("WASM benchmark task failed: {error}"))?
         }

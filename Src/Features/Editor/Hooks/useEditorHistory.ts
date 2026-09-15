@@ -5,7 +5,8 @@ type HistoryEntry = {
   selectionStart: number;
 };
 
-type EditOperation = {
+type SingleOperation = {
+  kind: "single";
   startUtf16: number;
   deletedText: string;
   insertedText: string;
@@ -14,11 +15,30 @@ type EditOperation = {
   timestamp: number;
 };
 
+/** 多光标批量编辑：子操作按顺序应用坐标（每个子操作基于前一子操作应用后的内容） */
+type CompositeOperation = {
+  kind: "composite";
+  operations: SingleOperation[];
+  beforeSelection: number;
+  afterSelection: number;
+  timestamp: number;
+};
+
+type EditOperation = SingleOperation | CompositeOperation;
+
 const MAX_HISTORY_OPERATIONS = 400;
 const MAX_HISTORY_BYTES = 8 * 1024 * 1024;
 const TYPE_MERGE_WINDOW_MS = 500;
 
 function operationBytes(operation: EditOperation) {
+  if (operation.kind === "composite") {
+    return (
+      operation.operations.reduce(
+        (total, item) => total + (item.deletedText.length + item.insertedText.length) * 2,
+        0,
+      ) + 64
+    );
+  }
   return (operation.deletedText.length + operation.insertedText.length) * 2 + 48;
 }
 
@@ -26,10 +46,11 @@ function isLowSurrogate(code: number) {
   return code >= 0xdc00 && code <= 0xdfff;
 }
 
-function diffText(
+/** 计算两个文本的单连续差异区间（前后缀去除后中间即为完整差异），用于撤销栈与精确写盘 */
+export function diffText(
   previous: string,
   next: string,
-): Pick<EditOperation, "startUtf16" | "deletedText" | "insertedText"> {
+): Pick<SingleOperation, "startUtf16" | "deletedText" | "insertedText"> {
   let prefix = 0;
   const sharedLength = Math.min(previous.length, next.length);
   while (prefix < sharedLength && previous.charCodeAt(prefix) === next.charCodeAt(prefix)) prefix++;
@@ -60,7 +81,12 @@ function diffText(
   };
 }
 
-function applyOperation(content: string, operation: EditOperation, inverse: boolean) {
+function applyOperation(content: string, operation: EditOperation, inverse: boolean): string {
+  if (operation.kind === "composite") {
+    // 撤销逆序回放子操作，重做顺序回放；子操作坐标基于"前序子操作应用后"的内容
+    const ordered = inverse ? [...operation.operations].reverse() : operation.operations;
+    return ordered.reduce((acc, item) => applyOperation(acc, item, inverse), content);
+  }
   const removedLength = inverse ? operation.insertedText.length : operation.deletedText.length;
   const insertedText = inverse ? operation.deletedText : operation.insertedText;
   return (
@@ -83,6 +109,17 @@ export function useEditorHistory(initialValue: string) {
     };
   }, []);
 
+  const trimAndStore = useCallback((operations: EditOperation[]) => {
+    let retainedBytes = operations.reduce((total, item) => total + operationBytes(item), 0);
+    while (operations.length > MAX_HISTORY_OPERATIONS || retainedBytes > MAX_HISTORY_BYTES) {
+      const removed = operations.shift();
+      if (!removed) break;
+      retainedBytes -= operationBytes(removed);
+    }
+    operationsRef.current = operations;
+    appliedCountRef.current = operations.length;
+  }, []);
+
   const pushHistory = useCallback((content: string, selectionStart: number) => {
     const previousContent = currentContentRef.current;
     if (previousContent === content) {
@@ -91,7 +128,8 @@ export function useEditorHistory(initialValue: string) {
     }
 
     const difference = diffText(previousContent, content);
-    const operation: EditOperation = {
+    const operation: SingleOperation = {
+      kind: "single",
       ...difference,
       beforeSelection: currentSelectionRef.current,
       afterSelection: selectionStart,
@@ -101,6 +139,7 @@ export function useEditorHistory(initialValue: string) {
     const previous = operations.at(-1);
     const canMergeTyping =
       previous !== undefined &&
+      previous.kind !== "composite" &&
       previous.deletedText.length === 0 &&
       operation.deletedText.length === 0 &&
       previous.startUtf16 + previous.insertedText.length === operation.startUtf16 &&
@@ -114,17 +153,39 @@ export function useEditorHistory(initialValue: string) {
       operations.push(operation);
     }
 
-    let retainedBytes = operations.reduce((total, item) => total + operationBytes(item), 0);
-    while (operations.length > MAX_HISTORY_OPERATIONS || retainedBytes > MAX_HISTORY_BYTES) {
-      const removed = operations.shift();
-      if (!removed) break;
-      retainedBytes -= operationBytes(removed);
-    }
-    operationsRef.current = operations;
-    appliedCountRef.current = operations.length;
+    trimAndStore(operations);
     currentContentRef.current = content;
     currentSelectionRef.current = selectionStart;
-  }, []);
+  }, [trimAndStore]);
+
+  /** 多光标批量编辑入栈：单步撤销整体还原。子操作坐标按顺序应用语义（降序提交即原始坐标）。 */
+  const pushComposite = useCallback(
+    (
+      operations: { startUtf16: number; deletedText: string; insertedText: string }[],
+      selectionStart: number,
+      nextContent: string,
+    ) => {
+      if (operations.length === 0) return;
+      const next = operationsRef.current.slice(0, appliedCountRef.current);
+      next.push({
+        kind: "composite",
+        operations: operations.map((item) => ({
+          kind: "single" as const,
+          ...item,
+          beforeSelection: 0,
+          afterSelection: 0,
+          timestamp: 0,
+        })),
+        beforeSelection: currentSelectionRef.current,
+        afterSelection: selectionStart,
+        timestamp: Date.now(),
+      });
+      trimAndStore(next);
+      currentContentRef.current = nextContent;
+      currentSelectionRef.current = selectionStart;
+    },
+    [trimAndStore],
+  );
 
   const resetHistory = useCallback((content: string) => {
     operationsRef.current = [];
@@ -132,6 +193,15 @@ export function useEditorHistory(initialValue: string) {
     currentContentRef.current = content;
     currentSelectionRef.current = 0;
   }, []);
+
+  /** 外部内容同步：内容与撤销栈当前状态一致时不清栈（受控回传场景），真正外部变更才重置 */
+  const syncExternal = useCallback(
+    (content: string) => {
+      if (currentContentRef.current === content) return;
+      resetHistory(content);
+    },
+    [resetHistory],
+  );
 
   const undo = useCallback((): HistoryEntry | null => {
     if (appliedCountRef.current === 0) return null;
@@ -153,5 +223,5 @@ export function useEditorHistory(initialValue: string) {
     return { content, selectionStart: operation.afterSelection };
   }, []);
 
-  return { pushHistory, resetHistory, undo, redo, historyTimerRef };
+  return { pushHistory, pushComposite, resetHistory, syncExternal, undo, redo, historyTimerRef };
 }

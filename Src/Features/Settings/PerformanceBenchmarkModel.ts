@@ -27,7 +27,7 @@ export interface BenchmarkResult {
   durationNs: number;
   value: number;
   unit: string;
-  status: "ok" | "error";
+  status: "ok" | "error" | "skipped";
   details: string;
   samplesNs?: number[];
   statistics?: {

@@ -46,6 +46,7 @@ class GitServiceImpl {
   private cache: SourceControlCache | null = null;
   private readonly listeners = new Set<CacheListener>();
   private inflightRefresh: Promise<SourceControlCache | null> | null = null;
+  private readonly inflightDiffs = new Map<string, Promise<string>>();
 
   public getCache(path: string | null): SourceControlCache | null {
     if (!path || !this.cache || this.cache.repoPath !== path) return null;
@@ -129,6 +130,18 @@ class GitServiceImpl {
 
   public async getDiff(path: string, file: string, staged = false): Promise<string> {
     return GitIPC.getWorktreeDiff(path, file, staged);
+  }
+
+  /** 并发合并的单文件 diff：同一文件同时多次请求只发一次 IPC */
+  public getDiffCached(path: string, file: string): Promise<string> {
+    const key = `${path}\u0000${file}`;
+    const inflight = this.inflightDiffs.get(key);
+    if (inflight) return inflight;
+    const promise = GitIPC.getWorktreeDiff(path, file, false).finally(() => {
+      this.inflightDiffs.delete(key);
+    });
+    this.inflightDiffs.set(key, promise);
+    return promise;
   }
 
   public async getLog(path: string): Promise<GitCommit[]> {

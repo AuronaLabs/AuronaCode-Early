@@ -4,7 +4,7 @@
   <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.1-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
@@ -16,13 +16,13 @@
 Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造轻量、克制且具触感美学的沉浸式编码工作台。
 
 > [!NOTE]
-> **Aurona Code V0.4.0 首个正式版** 当前版本为 **V0.4.0**（Stable 正式通道）。本版本承接 Pioneer 6 的全部改进——主程序内嵌的首启欢迎引导（OOBE）与 Windows 安装器三语选择器、退出清理队列与 WebView 缓存生命周期治理、空间管理界面重构、Release 构建与性能基准模型双向优化——并在此基础上完成扩展 SDK v1 契约固化、声明→审查→授予→强制的四段式插件权限模型，以及 VSCode 兼容层从字符串匹配报告到 **Boa 引擎 WASM 沙箱真实执行**的彻底重构。
+> **Aurona Code V0.4.1 编辑器手感收敛** 当前版本为 **V0.4.1**（Stable 正式通道）。本版本以编辑器基础手感与性能为主题：撤销系统全面打通、按键编辑精确增量写盘、光标跟随滚动、词级跳转与翻页导航、括号引号自动补对、查找替换当前文件闭环、多光标编辑落地、IME 合成输入手感修正，并实装 Git Gutter 行标记与 WASM 沙箱基准优雅降级，集中修复多项稳定性问题。
 
 ---
 
 ## 核心特性
 
-- **自研纯粹内核与 Canvas 2D Minimap**：自研 `AuronaEngine` 虚拟滚动视口 + 交互式代码小地图 + 彩虹嵌套括号与代码折叠。
+- **自研纯粹内核与 Canvas 2D Minimap**：自研 `AuronaEngine` 虚拟滚动视口 + 交互式代码小地图 + 彩虹嵌套括号与代码折叠；全量撤销栈、多光标批量编辑、括号引号自动补对、词级跳转与光标跟随滚动，按键编辑走精确增量写盘。
 - **语言服务解耦与共享运行时池**：主程序彻底剔除臃肿的预置工具链二进制；LSP 语言服务全部转为市场化动态按需加载，单套 Node.js 共享运行时池跨语言服务复用。
 - **异步流式下载彻底防 OOM 崩溃**：Rust 端采用 `reqwest::Response::chunk()` 流式分块落盘，多线程异步非阻塞，根除大文件下载导致的内存崩溃与 UI 掉帧。
 - **页面状态常驻保活 (Tab Keep-Alive)**：设置、扩展市场、关于及 Fliuno 等内置标签页采用常驻挂载与绘制隔离机制，切换页面不丢失任何输入与滚动状态。

@@ -150,13 +150,18 @@ class EventBusImpl {
   }
 
   /**
-   * 派发系统级事件，具备单点故障异常隔离保护
+   * 派发系统级事件，具备单点故障异常隔离保护。
+   * 无负载事件（EventMap 值为 undefined 或含 undefined）可省略 payload；
+   * 有负载事件漏传 payload 会在编译期报错。
    */
-  emit<K extends keyof EventMap>(event: K, payload?: EventMap[K]): void {
+  emit<K extends keyof EventMap>(
+    event: K,
+    ...args: undefined extends EventMap[K] ? [payload?: EventMap[K]] : [payload: EventMap[K]]
+  ): void {
     const currentListeners = [...(this.listeners[event] ?? [])];
     for (const callback of currentListeners) {
       try {
-        callback(payload as EventMap[K]);
+        callback(args[0] as EventMap[K]);
       } catch (error) {
         console.error(`[EventBus] 事件 ${String(event)} 处理器执行异常:`, error);
       }

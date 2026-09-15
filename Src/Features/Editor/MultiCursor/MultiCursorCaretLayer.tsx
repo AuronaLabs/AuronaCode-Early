@@ -1,9 +1,10 @@
 import React from "react";
-import type { CursorPosition } from "./useMultiCursorOps";
+import { sortSelection } from "../Utils/EditorMath";
+import type { CursorPosition, ExtraCursor } from "./useMultiCursorOps";
 
 export interface MultiCursorCaretLayerProps {
   primaryCursor: CursorPosition;
-  extraCursors: CursorPosition[];
+  extras: ExtraCursor[];
   lineHeight: number;
   charWidth: number;
   contentInsetX: number;
@@ -13,7 +14,7 @@ export interface MultiCursorCaretLayerProps {
 
 export const MultiCursorCaretLayer = React.memo(function MultiCursorCaretLayer({
   primaryCursor,
-  extraCursors,
+  extras,
   lineHeight,
   charWidth,
   contentInsetX,
@@ -22,10 +23,30 @@ export const MultiCursorCaretLayer = React.memo(function MultiCursorCaretLayer({
 }: MultiCursorCaretLayerProps) {
   if (!isActive) return null;
 
-  const allCursors = [primaryCursor, ...extraCursors];
+  const allCursors = [primaryCursor, ...extras.map((item) => item.cursor)];
 
   return (
     <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
+      {extras.map((item) => {
+        if (!item.selection) return null;
+        const { start, end } = sortSelection(item.selection);
+        // 第一版仅高亮单行选区（Ctrl+D 产生的词选区均为单行）
+        if (start.line !== end.line) return null;
+        const left = contentInsetX + start.char * charWidth;
+        const width = Math.max(1, (end.char - start.char) * charWidth);
+        return (
+          <div
+            key={`extra-selection-${start.line}-${start.char}-${end.char}`}
+            className="absolute bg-[var(--EditorSelectionBg)] pointer-events-none"
+            style={{
+              left: `${left}px`,
+              top: `${contentInsetTop + start.line * lineHeight}px`,
+              width: `${width}px`,
+              height: `${lineHeight}px`,
+            }}
+          />
+        );
+      })}
       {allCursors.map((c) => {
         const x = contentInsetX + c.char * charWidth;
         const y = contentInsetTop + c.line * lineHeight;

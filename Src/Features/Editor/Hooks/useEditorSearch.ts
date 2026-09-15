@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface EditorSearchOptions {
   /** 区分大小写 */
@@ -41,6 +41,9 @@ export function buildSearchRegex(
   }
 }
 
+/** 单次搜索的最大匹配数：防止大文件宽匹配生成海量结果拖垮渲染 */
+export const MAX_SEARCH_MATCHES = 50_000;
+
 export function findEditorMatches(
   lines: readonly string[],
   query: string,
@@ -50,6 +53,7 @@ export function findEditorMatches(
   if (!regex) return [];
   const matches: EditorSearchMatch[] = [];
   lines.forEach((lineText, lineIndex) => {
+    if (matches.length >= MAX_SEARCH_MATCHES) return;
     regex.lastIndex = 0;
     let hit = regex.exec(lineText);
     while (hit !== null) {
@@ -59,6 +63,7 @@ export function findEditorMatches(
         // 空匹配（如 ^）无法高亮：前进一步避免死循环
         regex.lastIndex += 1;
       }
+      if (matches.length >= MAX_SEARCH_MATCHES) return;
       hit = regex.exec(lineText);
     }
   });
@@ -70,6 +75,43 @@ export function advanceMatchIndex(current: number, total: number, direction: 1 |
   return (current + direction + total) % total;
 }
 
+/**
+ * 展开正则替换串：$1..$99 捕获组、$& 整个匹配、$$ 字面量 $。
+ * 字面量模式原样返回；无效组号保留原 token。
+ */
+export function expandRegexReplacement(
+  replaceValue: string,
+  match: RegExpExecArray,
+  useRegex: boolean,
+): string {
+  if (!useRegex) return replaceValue;
+  return replaceValue.replace(/\$(\$|&|\d{1,2})/g, (token, group: string) => {
+    if (group === "$") return "$";
+    if (group === "&") return match[0];
+    const index = Number(group);
+    return index > 0 && index < match.length ? (match[index] ?? "") : token;
+  });
+}
+
+/**
+ * 计算单行中某命中替换后的实际插入文本（正则模式按该命中展开捕获组）。
+ */
+export function resolveLineReplacement(
+  lineText: string,
+  match: EditorSearchMatch,
+  query: string,
+  replaceValue: string,
+  options: EditorSearchOptions,
+): string {
+  if (!options.useRegex) return replaceValue;
+  const regex = buildSearchRegex(query, options);
+  if (!regex) return replaceValue;
+  const sticky = new RegExp(regex.source, `${regex.flags.replace("g", "")}y`);
+  sticky.lastIndex = match.char;
+  const hit = sticky.exec(lineText);
+  return hit ? expandRegexReplacement(replaceValue, hit, true) : replaceValue;
+}
+
 export function useEditorSearch(
   lines: readonly string[],
   onScrollToMatch: (match: EditorSearchMatch) => void,
@@ -79,15 +121,34 @@ export function useEditorSearch(
   const [options, setOptions] = useState<EditorSearchOptions>(defaultSearchOptions);
   const [matches, setMatches] = useState<EditorSearchMatch[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  // 替换当前后，重算匹配时跳到替换点之后第一个命中，而非回 0
+  const replacementAnchorRef = useRef<{ line: number; anchorChar: number } | null>(null);
+
+  /** 标记替换锚点：line 行中替换起点 + 新文本长度（替换后继续搜索的位置） */
+  const markReplacementAnchor = useCallback((line: number, anchorChar: number) => {
+    replacementAnchorRef.current = { line, anchorChar };
+  }, []);
 
   useEffect(() => {
     if (!query) {
       setMatches([]);
       return;
     }
-    setMatches(findEditorMatches(lines, query, options));
+    const nextMatches = findEditorMatches(lines, query, options);
+    setMatches(nextMatches);
+    const anchor = replacementAnchorRef.current;
+    replacementAnchorRef.current = null;
+    if (anchor) {
+      const index = nextMatches.findIndex(
+        (m) => m.line > anchor.line || (m.line === anchor.line && m.char >= anchor.anchorChar),
+      );
+      const resolved = index >= 0 ? index : 0;
+      setCurrentIndex(resolved);
+      if (nextMatches[resolved]) onScrollToMatch(nextMatches[resolved]);
+      return;
+    }
     setCurrentIndex(0);
-  }, [lines, query, options]);
+  }, [lines, query, options, onScrollToMatch]);
 
   const next = useCallback(() => {
     if (matches.length === 0) return;
@@ -118,6 +179,7 @@ export function useEditorSearch(
     setOptions,
     matches,
     currentIndex,
+    markReplacementAnchor,
     next,
     prev,
     close,
