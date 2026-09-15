@@ -224,7 +224,9 @@ fn normalize_path(path: &str) -> String {
 fn fingerprint_bytes(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     let digest = Sha256::digest(bytes);
-    format!("{:064x}:{}", hex_lower(&digest), bytes.len())
+    // SHA-256 为 32 字节，hex_lower 输出恒为 64 个十六进制字符
+    let hex = hex_lower(digest.as_slice());
+    format!("{hex}:{}", bytes.len())
 }
 
 fn hex_lower(bytes: &[u8]) -> String {

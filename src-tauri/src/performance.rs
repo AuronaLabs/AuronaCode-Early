@@ -610,14 +610,12 @@ fn run_wasm_benchmark(
     let mut results = Vec::new();
     let sample_markdown = "# Aurona Performance Benchmark\n\n| Item | Value |\n|---|---|\n| WASM | Speed |\n\n> Quote block with **bold** text and `inline code`.\n\n```rust\nfn main() { println!(\"hello\"); }\n```\n".repeat(4);
 
-    let package_path = match package_path {
-        Some(path) => path,
-        None => return Ok(vec![skipped_wasm_result()]),
+    let Some(package_path) = package_path else {
+        return Ok(vec![skipped_wasm_result()]);
     };
     // 开发机路径仅存在于源码树（env! 在编译期固化）；安装包环境回退到已安装扩展。
-    let package_bytes = match fs::read(&package_path) {
-        Ok(bytes) => bytes,
-        Err(_) => return Ok(vec![skipped_wasm_result()]),
+    let Ok(package_bytes) = fs::read(&package_path) else {
+        return Ok(vec![skipped_wasm_result()]);
     };
 
     // 1. WASM 包校验与解析

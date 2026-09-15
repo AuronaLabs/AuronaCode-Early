@@ -174,8 +174,12 @@ pub fn spawn_pty(
             }
         };
 
-        // 仅当 map 中仍是本会话时才清理：防止旧 reader 线程退出时误杀同 id 的新会话
-        sessions.remove_if(&id, |_, current| Arc::ptr_eq(current, &session));
+        // 仅当 map 中仍是本会话时才清理并关闭：防止旧 reader 线程退出时误杀同 id 的新会话
+        if let Some((_, removed)) =
+            sessions.remove_if(&id, |_, current| Arc::ptr_eq(current, &session))
+        {
+            removed.shutdown();
+        }
         let _ = app.emit("pty-exit", PtyExitPayload { id, reason });
     });
 
