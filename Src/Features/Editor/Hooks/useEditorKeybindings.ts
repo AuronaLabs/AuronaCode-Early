@@ -1,7 +1,9 @@
 import type React from "react";
 import { useCallback } from "react";
+import { LocaleService } from "../../../Foundation/I18n";
 import type { LanguageFeaturePreferences } from "../../../Foundation/Types/Config";
 import type { CompletionItem } from "../../../Foundation/Types/Lsp";
+import { showToast } from "../../../UI/Feedback/Toast";
 import {
   affectedLineRange,
   duplicateLineRange,
@@ -205,9 +207,13 @@ export function useEditorKeybindings({
         return;
       }
 
-      // 行注释切换 Ctrl+/
+      // 行注释切换 Ctrl+/（多光标下降级为主光标，避免行操作后 extra 光标位置失真）
       if (e.code === "Slash" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
+        if (extraCursorCount > 0) {
+          clearExtraCursors();
+          showToast(LocaleService.translate("editor.multiCursorLineOpsDegrade"));
+        }
         const marker = ["python", "shellscript", "yaml", "toml", "powershell"].includes(language)
           ? "#"
           : ["html", "css", "scss", "markdown", "plaintext"].includes(language)
@@ -232,9 +238,13 @@ export function useEditorKeybindings({
         return;
       }
 
-      // 复制行 Alt+Shift+Down
+      // 复制行 Alt+Shift+Down（多光标下降级为主光标）
       if (e.altKey && e.shiftKey && e.key === "ArrowDown") {
         e.preventDefault();
+        if (extraCursorCount > 0) {
+          clearExtraCursors();
+          showToast(LocaleService.translate("editor.multiCursorLineOpsDegrade"));
+        }
         const range = affectedLineRange(line, selection);
         const result = duplicateLineRange(lines, range);
         const lineDelta = result.range.startLine - range.startLine;
@@ -252,9 +262,13 @@ export function useEditorKeybindings({
         return;
       }
 
-      // 移动行 Alt+Up / Alt+Down
+      // 移动行 Alt+Up / Alt+Down（多光标下降级为主光标）
       if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
         e.preventDefault();
+        if (extraCursorCount > 0) {
+          clearExtraCursors();
+          showToast(LocaleService.translate("editor.multiCursorLineOpsDegrade"));
+        }
         const range = affectedLineRange(line, selection);
         const direction = e.key === "ArrowUp" ? -1 : 1;
         const result = moveLineRange(lines, range, direction);
@@ -365,6 +379,21 @@ export function useEditorKeybindings({
           executeSelectionDelete();
           return;
         }
+        // Ctrl+Backspace：向前删除一个词（复用词边界逻辑），行首则并入上一行
+        if (e.ctrlKey || e.metaKey) {
+          const wordStart = findWordJump(lineText, char, false);
+          if (wordStart !== null) {
+            lines[line] = lineText.slice(0, wordStart) + lineText.slice(char);
+            replaceDocumentLines(lines, { line, char: wordStart });
+          } else if (line > 0) {
+            const prevLineText = lines[line - 1];
+            const nextLines = [...lines];
+            nextLines[line - 1] = prevLineText + lineText;
+            nextLines.splice(line, 1);
+            replaceDocumentLines(nextLines, { line: line - 1, char: prevLineText.length });
+          }
+          return;
+        }
         if (char > 0) {
           const prevChar = lineText[char - 1];
           const nextChar = lineText[char];
@@ -400,6 +429,21 @@ export function useEditorKeybindings({
         }
         if (selection) {
           executeSelectionDelete();
+          return;
+        }
+        // Ctrl+Delete：向后删除一个词（复用词边界逻辑），行尾则并入下一行
+        if (e.ctrlKey || e.metaKey) {
+          const wordEnd = findWordJump(lineText, char, true);
+          if (wordEnd !== null) {
+            lines[line] = lineText.slice(0, char) + lineText.slice(wordEnd);
+            replaceDocumentLines(lines, { line, char });
+          } else if (line < lines.length - 1) {
+            const nextLineText = lines[line + 1];
+            const nextLines = [...lines];
+            nextLines[line] = lineText + nextLineText;
+            nextLines.splice(line + 1, 1);
+            replaceDocumentLines(nextLines, { line, char });
+          }
           return;
         }
         if (char < lineText.length) {

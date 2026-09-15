@@ -1,9 +1,12 @@
-import { type Locale, useLocale } from "../../Foundation/I18n";
+import { LOCALE_NATIVE_NAMES, type Locale, useLocale } from "../../Foundation/I18n";
 import { Select } from "../../UI/Components/Select";
 import { SettingResetButton } from "../../UI/Components/SettingResetButton";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { Icons } from "../../UI/Icons/IconManager";
+
+/** 设置页语言下拉的固定顺序（标签一律用各自母语显示） */
+const LOCALES: Locale[] = ["zh-CN", "zh-Hant", "en", "de", "it", "ja"];
 
 export type Density = "compact" | "default" | "regular" | "comfortable";
 
@@ -146,11 +149,7 @@ export function GeneralSettingsSection({
               value={locale}
               onChange={(value) => setLocale(value as Locale)}
               className="w-[160px]"
-              options={[
-                { value: "zh-CN", label: t("settings.languageZhCN") },
-                { value: "zh-Hant", label: t("settings.languageZhHant") },
-                { value: "en", label: t("settings.languageEn") },
-              ]}
+              options={LOCALES.map((id) => ({ value: id, label: LOCALE_NATIVE_NAMES[id] }))}
             />
             <SettingResetButton label={t("settings.reset")} onReset={() => setLocale("zh-CN")} />
           </div>

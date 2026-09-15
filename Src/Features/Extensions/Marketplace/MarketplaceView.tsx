@@ -8,7 +8,6 @@ import {
   LanguageServerIPC,
   type ToolchainsOverview,
 } from "../../../Foundation/IPC/LanguageServerCommands";
-import { cn } from "../../../Shared/Utils/cn";
 import { useExtensionStore } from "../../../State/useExtensionStore";
 import { useInstallProgressStore } from "../../../State/useInstallProgressStore";
 import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
@@ -16,7 +15,7 @@ import { Button } from "../../../UI/Components/Button";
 import { Card } from "../../../UI/Components/Card";
 import { EmptyState } from "../../../UI/Components/EmptyState";
 import { FilterChips } from "../../../UI/Components/FilterChips";
-import { glassVariants } from "../../../UI/Core/GlassManager/variants";
+import { Input } from "../../../UI/Components/Input";
 import { showToast } from "../../../UI/Feedback/Toast";
 import { Tooltip } from "../../../UI/Feedback/Tooltip";
 import { Icons } from "../../../UI/Icons/IconManager";
@@ -554,30 +553,20 @@ export function MarketplaceView() {
           onChange={(value) => updateCurrentState({ filter: value })}
           items={options.map((option) => ({ id: option.value, label: option.label }))}
         />
-        <div
-          className={cn(
-            glassVariants({ layer: "raised" }),
-            "relative flex items-center rounded-2xl transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)]",
-          )}
-        >
-          <Icons.Search
-            size={14}
-            className="pointer-events-none absolute left-3.5 text-[var(--color-text-muted)]"
-          />
-          <input
-            data-aurona-input="embedded"
-            value={currentState.draftQuery}
-            onChange={(event) => updateCurrentState({ draftQuery: event.target.value })}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                commitSearch();
-              }
-            }}
-            placeholder={t("extensions.searchPlaceholder")}
-            className="h-10 w-full min-w-0 rounded-2xl bg-transparent pl-9 pr-3.5 text-[12.5px] text-[var(--color-text-highlight)] outline-none placeholder:text-[var(--color-text-muted)]"
-          />
-        </div>
+        <Input
+          icon={<Icons.Search size={14} />}
+          inputSize="lg"
+          fullWidth
+          value={currentState.draftQuery}
+          onChange={(event) => updateCurrentState({ draftQuery: event.target.value })}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              commitSearch();
+            }
+          }}
+          placeholder={t("extensions.searchPlaceholder")}
+        />
       </div>
 
       {sourceStatus === "offline" && mode === "discover" && (

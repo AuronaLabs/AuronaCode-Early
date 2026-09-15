@@ -17,6 +17,7 @@ import { EventBus } from "../../../Foundation/EventBus";
 import { useLocale } from "../../../Foundation/I18n";
 import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
 import { Button } from "../../../UI/Components/Button";
+import { Input } from "../../../UI/Components/Input";
 import { Modal } from "../../../UI/Components/Modal";
 import { Icons } from "../../../UI/Icons/IconManager";
 import { WorkspaceEditPreviewList } from "../../Language/WorkspaceEditPreviewList";
@@ -195,11 +196,12 @@ export function LanguageModals() {
       >
         <div className="space-y-3">
           {!renamePreview && (
-            <input
+            <Input
+              fullWidth
+              inputSize="md"
               value={renameName}
               onChange={(event) => setRenameName(event.target.value)}
               placeholder={t("language.renamePlaceholder")}
-              className="h-9 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
             />
           )}
           {renamePreview && <WorkspaceEditPreviewList preview={renamePreview} />}
@@ -320,8 +322,10 @@ export function LanguageModals() {
         icon={<Icons.Sparkles size={18} />}
       >
         <div className="space-y-3">
-          <input
+          <Input
             ref={symbolInputRef}
+            fullWidth
+            inputSize="md"
             value={symbolQuery}
             onChange={(event) => {
               setSymbolQuery(event.target.value);
@@ -347,7 +351,6 @@ export function LanguageModals() {
               }
             }}
             placeholder={t("language.symbolSearchPlaceholder")}
-            className="h-9 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
           />
           {symbolError && (
             <div className="text-[12px] text-[var(--StatusError)]">{symbolError}</div>

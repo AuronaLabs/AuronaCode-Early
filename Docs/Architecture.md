@@ -1,5 +1,15 @@
 # Aurona Code 核心架构指南 (Corona+ Architecture Specification)
 
+## V0.4.2 语言 / 终端 / 全局设计一致性
+
+V0.4.2 第一批聚焦「界面语言、终端主题集成、全局输入框规范与深色主题表面分域」，并完成两处大文件结构拆分；不新增 SDK、Runtime 或 Marketplace 能力。
+
+- **I18n locale 订阅契约**：`useLocale()` 返回的 `t` 引用随 locale 变化（`useCallback([locale])`），调用方把 `t` 放进 `useMemo`/`useCallback` 依赖即可正确失效重算；tab 标题与命令标题走 `titleKey` 优先、渲染时实时翻译，store 不缓存翻译终值。新增 de/it/ja 全量翻译，并由结构性测试遍历比较各语言与 zh-CN 的 key 树防止漏译。
+- **终端主题集成**：`TerminalView` 的 ANSI 调色板完整从 CSS 变量读取（暗色块 12 色齐全），MutationObserver 同时监听 `class` 与 `data-accent`，明暗主题与强调色切换即时重建 xterm theme 并 refresh；终端宿主不再持有独立背景色，直接透出面板卡片表面。
+- **输入框规范**：统一 `Input` 组件以 wrapper `focus-within` 驱动「淡灰高亮边框 + 14% 光晕」焦点语言（Marketplace 规范），三档尺寸（sm/md/lg）共享同一焦点与圆角体系；裸 `<input>` 收编为组件，overlay 弹层内部行以 embedded surface 保持一致焦点语言。
+- **深色主题表面分域**：每个 `.dark[data-accent]` 段覆盖 `--EditorSurface`（同色相低饱和深底），暖色三主题（rose/coral/amber）深色背景渐变拉开明度层次，dark heavy 玻璃档 multiplier 0.42 → 0.55 恢复表面区分度。
+- **编辑器体感与结构**：词删除（Ctrl+Backspace/Delete）复用词边界逻辑走 `commitEdit`；大幅视口跳转（翻页/Ctrl+End/搜索跳转）走 120ms rAF 缓动平滑滚动，打字保持瞬时；多光标下行操作降级主光标并提示。`useEditorCommit`（提交/撤销/多光标批量写路径）与 `useExternalSync` 从 AuronaEngine 抽出，Rust 端行级语法高亮引擎拆至独立 `highlight.rs` 模块（纯移动）。
+
 ## V0.4.1 编辑器手感与性能边界
 
 V0.4.1 是编辑器内核的收敛版本：把「按键一致性」与「大文件响应」做扎实，不新增 SDK、Runtime 或 Marketplace 能力。

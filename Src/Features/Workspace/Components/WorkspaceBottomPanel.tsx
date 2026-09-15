@@ -305,7 +305,7 @@ export function WorkspaceBottomPanel() {
         >
           {terminalStartupError && terminals.length === 0 && (
             <div className="absolute inset-0 z-10 flex items-center justify-center p-4">
-              <div className="flex max-w-sm flex-col items-center gap-3 border-y border-[var(--border-subtle)] bg-[var(--surface-overlay)] p-5 text-center">
+              <div className="flex max-w-sm flex-col items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-panel)] p-5 text-center">
                 <Icons.AlertTriangle size={20} className="text-[var(--StatusWarning)]" />
                 <div className="text-[13px] font-medium text-[var(--color-text-highlight)]">
                   {t("terminal.failed")}
@@ -322,7 +322,7 @@ export function WorkspaceBottomPanel() {
           {terminals.map((term) => (
             <div
               key={term.id}
-              className="absolute inset-0 p-2"
+              className="absolute inset-0"
               style={{
                 visibility: activeTerminalId === term.id ? "visible" : "hidden",
                 zIndex: activeTerminalId === term.id ? 1 : 0,
@@ -378,6 +378,7 @@ export function WorkspaceBottomPanel() {
                   {editingTerminalId === term.id ? (
                     <input
                       type="text"
+                      data-aurona-input="embedded"
                       value={editingName}
                       className="bg-transparent outline-none w-full text-[12px] text-[var(--color-text-highlight)]"
                       onChange={(e) => setEditingName(e.target.value)}
@@ -695,11 +696,12 @@ export function WorkspaceBottomPanel() {
                 </div>
               )}
             </div>
-            <div className="flex shrink-0 items-center gap-2 border-t border-[var(--border-subtle)] px-3 py-1.5">
+            <div className="flex shrink-0 items-center gap-2 border-t border-[var(--border-subtle)] px-3 py-1.5 transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[inset_0_1px_0_0_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)]">
               <span className="select-none text-[13px] font-bold text-[var(--color-accent)]">
                 &gt;
               </span>
               <input
+                data-aurona-input="embedded"
                 value={debugConsoleInput}
                 onChange={(event) => {
                   setDebugConsoleInput(event.target.value);

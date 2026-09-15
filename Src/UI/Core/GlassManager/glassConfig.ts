@@ -53,7 +53,7 @@ export const DARK_GLASS_PRESETS: Record<GlassIntensity, GlassPreset> = {
     base: "24px",
     raised: "36px",
     overlay: "56px",
-    opacityMultiplier: "0.42",
+    opacityMultiplier: "0.55",
   },
 };
 

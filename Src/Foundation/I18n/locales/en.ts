@@ -123,6 +123,8 @@ export const en: LocaleMessages = {
     contextCopy: "Copy",
     contextPaste: "Paste",
     contextSelectAll: "Select All",
+    multiCursorLineOpsDegrade:
+      "Line operations run on the primary cursor only in multi-cursor mode",
     recoveryRestored: "Restored local edit snapshot",
     recoverySnapshotTitle: "Unsaved Local Snapshot",
     recoverySnapshotMessage: "Detected unsaved recovery snapshot for {file}. Restore it?",
@@ -639,6 +641,9 @@ export const en: LocaleMessages = {
     languageZhCN: "Simplified Chinese",
     languageZhHant: "Traditional Chinese",
     languageEn: "English",
+    languageDe: "German",
+    languageIt: "Italian",
+    languageJa: "Japanese",
     fliunoOpenModeSidebar: "Sidebar",
     fliunoOpenModeEditorTab: "Editor Tab",
     notificationsTitle: "Notifications",
@@ -1014,7 +1019,8 @@ export const en: LocaleMessages = {
       density: { title: "UI Density", description: "Compact, regular or comfortable" },
       language: {
         title: "Interface Language",
-        description: "Simplified Chinese, Traditional Chinese (Beta) or English (Beta)",
+        description:
+          "Simplified Chinese, Traditional Chinese, English, German, Italian or Japanese",
       },
       fliunoOpenMode: {
         title: "Fliuno Workspace Entry",

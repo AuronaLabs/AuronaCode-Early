@@ -3,26 +3,27 @@ import * as React from "react";
 import { cn } from "../../Shared/Utils/cn";
 import { glassVariants } from "../Core/GlassManager/variants";
 
-const inputVariants = cva(
-  "flex w-full rounded-lg text-[12px] text-[var(--color-text-highlight)] outline-none transition-[background-color,border-color,color,box-shadow,opacity] duration-150 placeholder:text-[var(--color-text-muted)] disabled:cursor-not-allowed disabled:opacity-50",
-  {
-    variants: {
-      inputSize: {
-        default: "h-7 px-3",
-        sm: "h-6 px-2 text-[11px]",
-        lg: "h-9 px-4 text-[13px]",
-      },
-      hasIcon: {
-        true: "pl-8",
-        false: "",
-      },
-    },
-    defaultVariants: {
-      inputSize: "default",
-      hasIcon: false,
+/**
+ * 统一焦点语言（与 Marketplace 搜索框一致）：淡灰高亮边框 + 14% 光晕，
+ * 由 wrapper 的 focus-within 驱动；内层 input 通过 data-aurona-input
+ * 关闭浏览器/主题焦点描边（Theme.css）。
+ */
+const FOCUS_WITHIN =
+  "focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)]";
+
+/** 三档尺寸共享同一焦点语言；圆角随尺寸递进（lg 即 Marketplace 大圆角）。 */
+const inputVariants = cva("transition-[border-color,box-shadow]", {
+  variants: {
+    inputSize: {
+      sm: "h-7 rounded-lg",
+      md: "h-9 rounded-xl",
+      lg: "h-10 rounded-2xl",
     },
   },
-);
+  defaultVariants: {
+    inputSize: "md",
+  },
+});
 
 export interface InputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size">,
@@ -35,22 +36,29 @@ export interface InputProps
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, inputSize, icon, fullWidth = false, surface = "glass", ...props }, ref) => {
     return (
-      <div className={cn("relative flex items-center", fullWidth ? "w-full" : "w-auto", className)}>
+      <div
+        className={cn(
+          "relative flex items-center border",
+          fullWidth ? "w-full" : "w-auto",
+          surface === "glass"
+            ? glassVariants({ layer: "raised" })
+            : "border-transparent bg-transparent shadow-none backdrop-blur-none",
+          inputVariants({ inputSize }),
+          FOCUS_WITHIN,
+          className,
+        )}
+      >
         {icon && (
-          <div className="absolute left-2.5 flex items-center justify-center text-[var(--color-text-muted)] pointer-events-none">
+          <div className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-[var(--color-text-muted)]">
             {icon}
           </div>
         )}
         <input
           data-aurona-input={surface}
           className={cn(
-            surface === "glass"
-              ? cn(
-                  glassVariants({ layer: "raised" }),
-                  "focus-visible:border-[var(--color-text-muted)]/25 focus-visible:ring-2 focus-visible:ring-[var(--color-text-muted)]/25",
-                )
-              : "border border-transparent bg-transparent shadow-none backdrop-blur-none focus-visible:border-transparent focus-visible:ring-0",
-            inputVariants({ inputSize, hasIcon: !!icon }),
+            "h-full w-full min-w-0 bg-transparent text-[var(--color-text-highlight)] outline-none placeholder:text-[var(--color-text-muted)] disabled:cursor-not-allowed disabled:opacity-50",
+            inputSize === "sm" ? "text-[12px]" : "text-[12.5px]",
+            icon ? "pl-9 pr-3.5" : inputSize === "sm" ? "px-3" : "px-3.5",
           )}
           ref={ref}
           {...props}

@@ -1,4 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { de } from "./locales/de";
+import { en } from "./locales/en";
+import { it as itMessages } from "./locales/it";
+import { ja } from "./locales/ja";
+import { zhCN } from "./locales/zh-CN";
+import { zhHant } from "./locales/zh-Hant";
+
+/** 递归收集消息树的所有叶子键路径。 */
+function collectKeys(node: unknown, prefix = ""): string[] {
+  if (typeof node !== "object" || node === null) return [prefix];
+  return Object.entries(node as Record<string, unknown>).flatMap(([key, value]) =>
+    collectKeys(value, prefix ? `${prefix}.${key}` : key),
+  );
+}
 
 describe("LocaleService", () => {
   beforeEach(() => {
@@ -41,5 +55,18 @@ describe("LocaleService", () => {
     vi.resetModules();
     const { LocaleService } = await import("./index");
     expect(LocaleService.get()).toBe("zh-CN");
+  });
+
+  it("every locale covers exactly the zh-CN key tree (防漏译)", () => {
+    const reference = collectKeys(zhCN).sort();
+    for (const [name, messages] of [
+      ["zh-Hant", zhHant],
+      ["en", en],
+      ["de", de],
+      ["it", itMessages],
+      ["ja", ja],
+    ] as const) {
+      expect(collectKeys(messages).sort(), `locale "${name}" key mismatch`).toEqual(reference);
+    }
   });
 });

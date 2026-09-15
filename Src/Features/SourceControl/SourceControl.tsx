@@ -16,6 +16,7 @@ import { Button } from "../../UI/Components/Button";
 import { EmptyState } from "../../UI/Components/EmptyState";
 import { FilterChips } from "../../UI/Components/FilterChips";
 import { glassListHeaderStyles, glassListRowStyles } from "../../UI/Components/GlassList";
+import { Input } from "../../UI/Components/Input";
 import { Modal } from "../../UI/Components/Modal";
 import { Select } from "../../UI/Components/Select";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
@@ -837,21 +838,21 @@ export const SourceControl = React.memo(function SourceControl() {
           </>
         }
       >
-        <label className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
           <span className="text-[12px] text-[var(--color-text-muted)]">
             {t("sourceControl.newBranchName")}
           </span>
-          <input
-            data-aurona-input="embedded"
+          <Input
+            fullWidth
+            inputSize="md"
             value={newBranchName}
             onChange={(event) => setNewBranchName(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") void handleCreateBranch();
             }}
             placeholder={t("sourceControl.branchPlaceholder")}
-            className="h-9 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 text-[13px] text-[var(--color-text-highlight)] outline-none focus:border-[var(--color-accent)]"
           />
-        </label>
+        </div>
       </Modal>
       <Modal
         isOpen={Boolean(discardTarget)}

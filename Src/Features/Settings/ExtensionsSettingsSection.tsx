@@ -504,7 +504,6 @@ export function ExtensionsSettingsSection() {
             }}
             placeholder="https://marketplace.aurona.cc/ 或 http://127.0.0.1:5219/api"
             fullWidth
-            inputSize="default"
             className="flex-1 font-mono"
           />
           <Button

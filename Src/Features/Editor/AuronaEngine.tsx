@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiagnosticsService } from "../../Core/DiagnosticsService";
-import { DocumentService } from "../../Core/DocumentService";
 import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
 import { useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
@@ -25,8 +24,9 @@ import { useCodeFolding } from "./Folding/useCodeFolding";
 import { GitGutterBar } from "./GitGutter/GitGutterBar";
 import { useGitGutterDiff } from "./GitGutter/useGitGutterDiff";
 import { useEditorAutocomplete } from "./Hooks/useEditorAutocomplete";
+import { useEditorCommit } from "./Hooks/useEditorCommit";
 import { useEditorContextMenu } from "./Hooks/useEditorContextMenu";
-import { diffText, useEditorHistory } from "./Hooks/useEditorHistory";
+import { useEditorHistory } from "./Hooks/useEditorHistory";
 import { useEditorHover } from "./Hooks/useEditorHover";
 import { useEditorIME } from "./Hooks/useEditorIME";
 import { useEditorKeybindings } from "./Hooks/useEditorKeybindings";
@@ -37,12 +37,8 @@ import {
   resolveLineReplacement,
   useEditorSearch,
 } from "./Hooks/useEditorSearch";
-import {
-  getCursorFromUtf16Offset,
-  getLineStartUtf16,
-  type SelectionRange,
-  useEditorSelectionOps,
-} from "./Hooks/useEditorSelectionOps";
+import { type SelectionRange, useEditorSelectionOps } from "./Hooks/useEditorSelectionOps";
+import { useExternalSync } from "./Hooks/useExternalSync";
 import { useSyntaxHighlighting } from "./Hooks/useSyntaxHighlighting";
 import type { IEditorEngine } from "./IEditorEngine";
 import { CanvasMinimap } from "./Minimap/CanvasMinimap";
@@ -56,8 +52,6 @@ import {
   editorTextIndexAtX,
   editorTextIndexFromPoint,
   measureEditorText,
-  readEditorLayoutMetrics,
-  sameEditorLayout,
 } from "./Utils/EditorLayoutMetrics";
 import {
   type DiagnosticItem,
@@ -65,7 +59,6 @@ import {
   normalizeEditorText,
   sortSelection,
 } from "./Utils/EditorMath";
-import { insertTextIntoLines } from "./Utils/EditorTextInsert";
 
 export type AuronaEngineProps = {
   value: string;
@@ -243,55 +236,47 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   // 10. Git Gutter 差异 (GitGutter)
   const gitGutterDiff = useGitGutterDiff(path);
 
-  // 11. 文档更新与同步
-  // 精确写盘：计算旧内容到新内容的单连续差异区间，只把差异段传给 Rust，
-  // 避免 Backspace/Delete/Enter/行操作等按键路径整文序列化重建 rope。
-  const applyContentDiff = useCallback(
-    (currentContent: string, nextContent: string) => {
-      if (!path) return;
-      const difference = diffText(currentContent, nextContent);
-      DocumentService.applyEdit(
-        path,
-        difference.startUtf16,
-        difference.startUtf16 + difference.deletedText.length,
-        difference.insertedText,
-        nextContent,
-      ).catch((error) => {
-        onSyncError?.(error instanceof Error ? error : new Error(String(error)));
-      });
-    },
-    [onSyncError, path],
-  );
-
-  // 统一编辑提交点：状态更新 + 撤销入栈 + IPC 落盘，所有编辑路径（按键/IME/替换）都经此提交
-  const commitEdit = useCallback(
-    (
-      nextLines: string[],
-      nextCursor: { line: number; char: number },
-      nextSelection: SelectionRange | null = null,
-    ) => {
-      const currentContent = documentLines.join("\n");
-      const nextContent = nextLines.join("\n");
-      setDocumentLines(nextLines);
-      setTotalLines(nextLines.length);
-      setCursor(nextCursor);
-      setSelection(nextSelection);
-      updateMaxLineLength(nextLines);
-      pushHistory(nextContent, getLineStartUtf16(nextLines, nextCursor.line) + nextCursor.char);
-      applyContentDiff(currentContent, nextContent);
-      onChange?.(nextContent);
-    },
-    [applyContentDiff, documentLines, onChange, pushHistory, updateMaxLineLength],
-  );
-
-  // 按键类编辑入口（Backspace/Delete/Enter/Tab/行操作等 keybinding 路径）
-  const replaceDocumentLines = commitEdit;
+  // 11. 文档更新与同步（提交路径抽至 useEditorCommit）
+  // triggerAutocompleteRef 打破循环：补全 hook 依赖 commitEdit，而 commit 路径（插入/多光标）
+  // 又要触发补全——与 multiCursorInsertRef 同款 ref 延迟绑定模式。
+  const triggerAutocompleteRef = useRef<
+    (lines: string[], lineIndex: number, charIndex: number, manual?: boolean) => void
+  >(() => {});
+  const {
+    commitEdit,
+    replaceDocumentLines,
+    handleUndo,
+    handleRedo,
+    insertTextAtCursor,
+    handleMultiCursorBackspace,
+    handleMultiCursorDelete,
+    handleMultiCursorEnter,
+  } = useEditorCommit({
+    documentLines,
+    cursor,
+    selection,
+    extras,
+    path,
+    onChange,
+    onSyncError,
+    setDocumentLines,
+    setTotalLines,
+    setCursor,
+    setSelection,
+    updateMaxLineLength,
+    pushHistory,
+    pushComposite,
+    undo,
+    redo,
+    replaceExtras,
+    triggerAutocompleteRef,
+    insertTextAtCursorRef,
+  });
+  insertTextAtCursorRef.current = insertTextAtCursor;
 
   // 12. Hover 与自动补全
   const isDraggingPointerRef = useRef(false);
   const [isContextMenuOpen, setHoverContextMenuOpen] = useState(false);
-  // 多光标批量插入转发 ref：insertTextAtCursor 定义在前，批量路径定义在后
-  const multiCursorInsertRef = useRef<((text: string) => void) | null>(null);
   const {
     tooltip: hoverTooltip,
     setVisibleTooltip: setVisibleHover,
@@ -319,16 +304,37 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     [cursor.char, cursor.line, documentLines, layout.contentInsetTop, layout.contentInsetX, layout],
   );
 
-  // 光标可见性保障：光标移动或编辑后确保主光标行完整位于视口内（纵向行级、横向按实际前缀宽度）
+  // 光标可见性保障：光标移动或编辑后确保主光标行完整位于视口内（纵向行级、横向按实际前缀宽度）。
+  // 小幅位移（打字/逐行移动）瞬时贴合；大幅跳转（翻页/Ctrl+End/搜索跳转等）用 120ms 缓动，
+  // 与 VSCode 的滚动体感一致。
+  const smoothScrollRafRef = useRef(0);
   const ensureCursorVisible = useCallback(
     (pos: { line: number; char: number }) => {
       const container = containerRef.current;
       if (!container) return;
       const lineTop = layout.contentInsetTop + pos.line * layout.lineHeight;
+      let targetTop: number | null = null;
       if (lineTop < container.scrollTop) {
-        container.scrollTop = Math.max(0, lineTop);
+        targetTop = Math.max(0, lineTop);
       } else if (lineTop + layout.lineHeight > container.scrollTop + container.clientHeight) {
-        container.scrollTop = lineTop + layout.lineHeight - container.clientHeight;
+        targetTop = lineTop + layout.lineHeight - container.clientHeight;
+      }
+      if (targetTop !== null) {
+        const jump = Math.abs(targetTop - container.scrollTop);
+        if (jump > layout.lineHeight * 4) {
+          const startTop = container.scrollTop;
+          const startTime = performance.now();
+          cancelAnimationFrame(smoothScrollRafRef.current);
+          const step = (now: number) => {
+            const progress = Math.min(1, (now - startTime) / 120);
+            const eased = 1 - (1 - progress) ** 3;
+            container.scrollTop = startTop + (targetTop - startTop) * eased;
+            if (progress < 1) smoothScrollRafRef.current = requestAnimationFrame(step);
+          };
+          smoothScrollRafRef.current = requestAnimationFrame(step);
+        } else {
+          container.scrollTop = targetTop;
+        }
       }
       const caretX =
         layout.contentInsetX +
@@ -343,6 +349,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     },
     [documentLines, layout],
   );
+
+  // 卸载时终止未完成的平滑滚动动画
+  useEffect(() => () => cancelAnimationFrame(smoothScrollRafRef.current), []);
 
   // 任何光标变化后自动保障可见（编辑/导航/撤销/替换等所有路径统一覆盖）
   useEffect(() => {
@@ -371,6 +380,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     replaceDocumentLines,
     setVisibleHover,
   });
+  triggerAutocompleteRef.current = triggerAutocomplete;
 
   const getSelectionText = useCallback((): string => {
     if (!selection) return "";
@@ -383,89 +393,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     result.push((documentLines[end.line] || "").substring(0, end.char));
     return result.join("\n");
   }, [documentLines, selection]);
-
-  const insertTextAtCursor = useCallback(
-    (text: string) => {
-      // 多光标批量插入：每个光标/选区插入相同文本，一步撤销（批量路径定义在后，经 ref 转发）
-      if (extraCursors.length > 0 && multiCursorInsertRef.current) {
-        multiCursorInsertRef.current(text);
-        return;
-      }
-      if (selection) {
-        // 选中状态：删除选区并在选区起点插入，一次合并提交（单步撤销）。
-        // 不能依赖 executeSelectionDelete 的异步 setState——后续计算会拿到删除前的行。
-        const { start, end } = sortSelection(selection);
-        const nextLines = [...documentLines];
-        const startLineText = nextLines[start.line] || "";
-        const endLineText = nextLines[end.line] || "";
-        nextLines.splice(
-          start.line,
-          end.line - start.line + 1,
-          startLineText.substring(0, start.char) + text + endLineText.substring(end.char),
-        );
-        const nextCursor = { line: start.line, char: start.char + text.length };
-        const nextContent = nextLines.join("\n");
-
-        setDocumentLines(nextLines);
-        setTotalLines(nextLines.length);
-        setCursor(nextCursor);
-        setSelection(null);
-        updateMaxLineLength(nextLines);
-        pushHistory(nextContent, getLineStartUtf16(nextLines, nextCursor.line) + nextCursor.char);
-        if (path) {
-          const startUtf16 = getLineStartUtf16(documentLines, start.line) + start.char;
-          const endUtf16 = getLineStartUtf16(documentLines, end.line) + end.char;
-          DocumentService.applyEdit(path, startUtf16, endUtf16, text, nextContent).catch(
-            (error) => {
-              onSyncError?.(error instanceof Error ? error : new Error(String(error)));
-            },
-          );
-        }
-        triggerAutocomplete(nextLines, nextCursor.line, nextCursor.char);
-        onChange?.(nextContent);
-        return;
-      }
-
-      const currentLines = [...documentLines];
-      const inserted = insertTextIntoLines(currentLines, cursor, text);
-      const insertedContent = inserted.lines.join("\n");
-      setDocumentLines(inserted.lines);
-      setCursor(inserted.cursor);
-      setSelection(null);
-
-      pushHistory(
-        insertedContent,
-        getLineStartUtf16(inserted.lines, inserted.cursor.line) + inserted.cursor.char,
-      );
-
-      if (path) {
-        const startUtf16 = getLineStartUtf16(currentLines, cursor.line) + cursor.char;
-        DocumentService.applyEdit(path, startUtf16, startUtf16, text, insertedContent).catch(
-          (error) => {
-            onSyncError?.(error instanceof Error ? error : new Error(String(error)));
-          },
-        );
-        triggerAutocomplete(inserted.lines, inserted.cursor.line, inserted.cursor.char);
-      }
-
-      updateMaxLineLength(inserted.lines);
-      setTotalLines(inserted.lines.length);
-      onChange?.(insertedContent);
-    },
-    [
-      cursor,
-      documentLines,
-      extraCursors,
-      onChange,
-      onSyncError,
-      path,
-      pushHistory,
-      selection,
-      triggerAutocomplete,
-      updateMaxLineLength,
-    ],
-  );
-  insertTextAtCursorRef.current = insertTextAtCursor;
 
   // 13. 搜索与撤销重做
   const onScrollToMatch = useCallback(
@@ -494,6 +421,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
   // 搜索替换：与 undo/redo 相同的落盘与同步路径
   const [replaceValue, setReplaceValue] = useState("");
+  // Ctrl+F 打开搜索时预填当前选区文本（仅单行选区；无选区则置空）
+  const [searchSeed, setSearchSeed] = useState("");
   const invalidSearchQuery =
     searchQuery !== "" && buildSearchRegex(searchQuery, searchOptions) === null;
 
@@ -565,252 +494,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     searchQuery,
   ]);
 
-  const handleUndo = useCallback(() => {
-    const entry = undo();
-    if (!entry) return;
-    const lines = entry.content.split("\n");
-    const nextCursor = getCursorFromUtf16Offset(lines, entry.selectionStart);
-    setDocumentLines(lines);
-    setTotalLines(lines.length);
-    setCursor(nextCursor);
-    setSelection(null);
-    updateMaxLineLength(lines);
-    applyContentDiff(documentLines.join("\n"), entry.content);
-    onChange?.(entry.content);
-  }, [applyContentDiff, documentLines, onChange, undo, updateMaxLineLength]);
-
-  const handleRedo = useCallback(() => {
-    const entry = redo();
-    if (!entry) return;
-    const lines = entry.content.split("\n");
-    const nextCursor = getCursorFromUtf16Offset(lines, entry.selectionStart);
-    setDocumentLines(lines);
-    setTotalLines(lines.length);
-    setCursor(nextCursor);
-    setSelection(null);
-    updateMaxLineLength(lines);
-    applyContentDiff(documentLines.join("\n"), entry.content);
-    onChange?.(entry.content);
-  }, [applyContentDiff, documentLines, onChange, redo, updateMaxLineLength]);
-
-  // 14. 多光标批量编辑：内存合并 + 一次降序批量 IPC + composite 一步撤销
-  const commitMultiCursorEdits = useCallback(
-    (
-      ranges: {
-        start: { line: number; char: number };
-        end: { line: number; char: number };
-        text: string;
-        isPrimary: boolean;
-        cursorOffsetInText: number;
-      }[],
-    ) => {
-      if (ranges.length === 0) return;
-      const originalContent = documentLines.join("\n");
-      const withOffsets = ranges.map((range) => ({
-        ...range,
-        startUtf16: getLineStartUtf16(documentLines, range.start.line) + range.start.char,
-        endUtf16: getLineStartUtf16(documentLines, range.end.line) + range.end.char,
-      }));
-      // 降序排列：坐标互不重叠时在中间文档上依然正确
-      withOffsets.sort((a, b) => b.startUtf16 - a.startUtf16);
-      const applied: typeof withOffsets = [];
-      let lastStart = Number.MAX_SAFE_INTEGER;
-      for (const item of withOffsets) {
-        // 与右侧已应用区间重叠（如重复光标）：防御性跳过
-        if (item.endUtf16 > lastStart) continue;
-        applied.push(item);
-        lastStart = item.startUtf16;
-      }
-      if (applied.length === 0) return;
-
-      let nextContent = originalContent;
-      for (const item of applied) {
-        nextContent =
-          nextContent.slice(0, item.startUtf16) + item.text + nextContent.slice(item.endUtf16);
-      }
-      const nextLines = nextContent.split("\n");
-
-      // 新光标：extras 按原位置升序重建；被跳过的区间光标保持原位
-      const skipped = withOffsets.filter((item) => !applied.includes(item));
-      const primary = applied.find((item) => item.isPrimary);
-      const extraEdits = applied.filter((item) => !item.isPrimary);
-      const nextExtras = [
-        ...extraEdits
-          .sort((a, b) => a.startUtf16 - b.startUtf16)
-          .map((item) => ({
-            cursor: getCursorFromUtf16Offset(nextLines, item.startUtf16 + item.cursorOffsetInText),
-            selection: null,
-          })),
-        ...skipped
-          .filter((item) => !item.isPrimary)
-          .sort((a, b) => a.startUtf16 - b.startUtf16)
-          .map((item) => ({ cursor: item.start, selection: null })),
-      ];
-
-      setDocumentLines(nextLines);
-      setTotalLines(nextLines.length);
-      if (primary) {
-        setCursor(
-          getCursorFromUtf16Offset(nextLines, primary.startUtf16 + primary.cursorOffsetInText),
-        );
-        setSelection(null);
-      }
-      replaceExtras(nextExtras);
-      updateMaxLineLength(nextLines);
-
-      const primaryCursorUtf16 = primary
-        ? primary.startUtf16 + primary.cursorOffsetInText
-        : getLineStartUtf16(nextLines, cursor.line) + cursor.char;
-      pushComposite(
-        applied.map((item) => ({
-          startUtf16: item.startUtf16,
-          deletedText: originalContent.slice(item.startUtf16, item.endUtf16),
-          insertedText: item.text,
-        })),
-        primaryCursorUtf16,
-        nextContent,
-      );
-
-      if (path) {
-        DocumentService.applyEdits(
-          path,
-          applied.map((item) => ({
-            startUtf16: item.startUtf16,
-            endUtf16: item.endUtf16,
-            text: item.text,
-          })),
-          nextContent,
-        ).catch((error) => {
-          onSyncError?.(error instanceof Error ? error : new Error(String(error)));
-        });
-      }
-      if (primary) {
-        triggerAutocomplete(
-          nextLines,
-          getCursorFromUtf16Offset(nextLines, primaryCursorUtf16).line,
-          getCursorFromUtf16Offset(nextLines, primaryCursorUtf16).char,
-        );
-      }
-      onChange?.(nextContent);
-    },
-    [
-      cursor,
-      documentLines,
-      onChange,
-      onSyncError,
-      path,
-      pushComposite,
-      replaceExtras,
-      triggerAutocomplete,
-      updateMaxLineLength,
-    ],
-  );
-
-  // 收集主光标 + 额外光标的编辑区间（点或选区）
-  const collectMultiCursorRanges = useCallback(() => {
-    const ranges: {
-      start: { line: number; char: number };
-      end: { line: number; char: number };
-      isPrimary: boolean;
-    }[] = [];
-    if (selection) {
-      const sorted = sortSelection(selection);
-      ranges.push({ start: sorted.start, end: sorted.end, isPrimary: true });
-    } else {
-      ranges.push({ start: cursor, end: cursor, isPrimary: true });
-    }
-    extras.forEach((item) => {
-      if (item.selection) {
-        const sorted = sortSelection(item.selection);
-        ranges.push({ start: sorted.start, end: sorted.end, isPrimary: false });
-      } else {
-        ranges.push({ start: item.cursor, end: item.cursor, isPrimary: false });
-      }
-    });
-    return ranges;
-  }, [cursor, extras, selection]);
-
-  const handleMultiCursorInsert = useCallback(
-    (text: string) => {
-      commitMultiCursorEdits(
-        collectMultiCursorRanges().map((range) => ({
-          ...range,
-          text,
-          cursorOffsetInText: text.length,
-        })),
-      );
-    },
-    [collectMultiCursorRanges, commitMultiCursorEdits],
-  );
-  multiCursorInsertRef.current = handleMultiCursorInsert;
-
-  const handleMultiCursorBackspace = useCallback(() => {
-    const ranges = collectMultiCursorRanges().map((range) => {
-      if (range.start.line === range.end.line && range.start.char === range.end.char) {
-        if (range.start.char > 0) {
-          return {
-            ...range,
-            start: { line: range.start.line, char: range.start.char - 1 },
-            text: "",
-            cursorOffsetInText: 0,
-          };
-        }
-        if (range.start.line > 0) {
-          // 行首退格：与前一行合并（删除换行符）
-          const prevLength = (documentLines[range.start.line - 1] || "").length;
-          return {
-            ...range,
-            start: { line: range.start.line - 1, char: prevLength },
-            text: "",
-            cursorOffsetInText: 0,
-          };
-        }
-        // 文档起点无处可删：零宽无操作，光标保持
-        return { ...range, text: "", cursorOffsetInText: 0 };
-      }
-      return { ...range, text: "", cursorOffsetInText: 0 };
-    });
-    commitMultiCursorEdits(ranges);
-  }, [collectMultiCursorRanges, commitMultiCursorEdits, documentLines]);
-
-  const handleMultiCursorDelete = useCallback(() => {
-    const ranges = collectMultiCursorRanges().map((range) => {
-      if (range.start.line === range.end.line && range.start.char === range.end.char) {
-        const lineText = documentLines[range.end.line] || "";
-        if (range.end.char < lineText.length) {
-          return {
-            ...range,
-            end: { line: range.end.line, char: range.end.char + 1 },
-            text: "",
-            cursorOffsetInText: 0,
-          };
-        }
-        if (range.end.line < documentLines.length - 1) {
-          // 行尾删除：与下一行合并
-          return {
-            ...range,
-            end: { line: range.end.line + 1, char: 0 },
-            text: "",
-            cursorOffsetInText: 0,
-          };
-        }
-        return { ...range, text: "", cursorOffsetInText: 0 };
-      }
-      return { ...range, text: "", cursorOffsetInText: 0 };
-    });
-    commitMultiCursorEdits(ranges);
-  }, [collectMultiCursorRanges, commitMultiCursorEdits, documentLines]);
-
-  const handleMultiCursorEnter = useCallback(() => {
-    commitMultiCursorEdits(
-      collectMultiCursorRanges().map((range) => {
-        const lineText = documentLines[range.start.line] || "";
-        const indent = lineText.match(/^(\s*)/)?.[1] ?? "";
-        const insert = `\n${indent}`;
-        return { ...range, text: insert, cursorOffsetInText: insert.length };
-      }),
-    );
-  }, [collectMultiCursorRanges, commitMultiCursorEdits, documentLines]);
+  // 14. 多光标批量编辑已抽至 useEditorCommit（commitMultiCursorEdits / collectMultiCursorRanges / handleMultiCursor*）
 
   // 15. 快捷键与剪贴板
   const { handleKeyDown } = useEditorKeybindings({
@@ -834,7 +518,17 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setCompletionIndex,
     setSelection,
     setCursor,
-    setIsSearchOpen,
+    setIsSearchOpen: (open) => {
+      if (open && selection) {
+        const { start, end } = sortSelection(selection);
+        setSearchSeed(
+          start.line === end.line
+            ? (documentLines[start.line] || "").slice(start.char, end.char)
+            : "",
+        );
+      }
+      setIsSearchOpen(open);
+    },
     scrollToCursor: (pos) => scrollToLine(pos?.line ?? cursor.line),
     pageLines: Math.max(1, Math.floor(viewportHeight / layout.lineHeight) - 1),
     extraCursorCount: extraCursors.length,
@@ -931,46 +625,24 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     onExecuteAction: executeEditorAction,
   });
 
-  // 16. 同步外部内容与初始化
-  useEffect(() => {
-    const lines = value.split("\n");
-    setDocumentLines(lines);
-    setTotalLines(lines.length);
-    updateMaxLineLength(lines);
-    syncExternal(value);
-  }, [value, syncExternal, updateMaxLineLength]);
-
-  useEffect(() => {
-    if (!externalContent) return;
-    const lines = externalContent.content.split("\n");
-    setDocumentLines(lines);
-    setTotalLines(lines.length);
-    updateMaxLineLength(lines);
-    syncExternal(externalContent.content);
-  }, [externalContent, syncExternal, updateMaxLineLength]);
-
-  useEffect(() => {
-    if (revealLine !== undefined && revealLine > 0) {
-      const targetLine = Math.min(revealLine - 1, totalLines - 1);
-      setCursor({ line: targetLine, char: 0 });
-      setSelection(null);
-      scrollToLine(targetLine);
-      if (path && onRevealHandled) onRevealHandled(path, revealLine);
-    }
-  }, [revealLine, totalLines, path, onRevealHandled, scrollToLine]);
-
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const updateLayout = () => {
-      const nextLayout = readEditorLayoutMetrics(container);
-      setLayout((prev) => (sameEditorLayout(prev, nextLayout) ? prev : nextLayout));
-    };
-    updateLayout();
-    const observer = new ResizeObserver(updateLayout);
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
+  // 16. 外部内容同步 / revealLine / 布局测量（抽至 useExternalSync）
+  useExternalSync({
+    value,
+    externalContent,
+    revealLine,
+    totalLines,
+    path,
+    onRevealHandled,
+    setDocumentLines,
+    setTotalLines,
+    updateMaxLineLength,
+    syncExternal,
+    setCursor,
+    setSelection,
+    scrollToLine,
+    containerRef,
+    setLayout,
+  });
 
   // 17. 引擎适配器桥接
   useEffect(() => {
@@ -1137,6 +809,11 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           className="group/line relative w-full flex items-center justify-between px-1.5 select-none"
           style={{ height: layout.lineHeight, lineHeight: `${layout.lineHeight}px` }}
         >
+          {/* 当前行 gutter 指示：accent 侧标 */}
+          {isCurrent && (
+            <span className="absolute left-0 top-0.5 bottom-0.5 w-[2px] rounded-full bg-[var(--color-accent)]" />
+          )}
+
           {/* 折叠触发三角 */}
           {isFoldable ? (
             <button
@@ -1227,6 +904,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
       {isSearchOpen && (
         <SearchWidget
+          initialQuery={searchSeed}
           onSearch={setSearchQuery}
           onClose={() => {
             handleSearchClose();

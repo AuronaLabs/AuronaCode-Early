@@ -308,7 +308,7 @@ export function FliunoWorkspacePage({
       }
     >
       <div
-        className={`flex shrink-0 items-center border border-[var(--border-overlay)] bg-[var(--material-panel)] backdrop-blur-[var(--glass-blur-overlay)] ${
+        className={`flex shrink-0 items-center border border-[var(--border-overlay)] bg-[var(--material-panel)] backdrop-blur-[var(--glass-blur-overlay)] transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)] ${
           compact ? "h-10 gap-2 rounded-xl px-3" : "h-12 gap-3 rounded-2xl px-4"
         }`}
       >

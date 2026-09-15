@@ -4,6 +4,7 @@ mod content_length;
 mod dap;
 mod editor;
 mod extensions;
+mod highlight;
 mod lsp;
 mod performance;
 mod platform;

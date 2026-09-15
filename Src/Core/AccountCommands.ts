@@ -18,9 +18,12 @@ function isBusy(): boolean {
 }
 
 function openAccountSettings() {
-  useWorkbenchStore
-    .getState()
-    .openTab({ id: "settings", type: "settings", title: "设置", titleKey: "settings.title" });
+  useWorkbenchStore.getState().openTab({
+    id: "settings",
+    type: "settings",
+    title: LocaleService.translate("settings.title"),
+    titleKey: "settings.title",
+  });
   EventBus.emit("settings:nav", "accountCloud");
 }
 

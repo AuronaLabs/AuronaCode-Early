@@ -529,9 +529,10 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
       {isPlanner && isPermissionGranted && (
         <div className="mx-[var(--PanelPaddingX)] mb-2 flex flex-col gap-2.5">
           {/* 快速新建任务卡片 */}
-          <Card className="flex items-center gap-1.5 p-1.5 rounded-xl">
+          <Card className="flex items-center gap-1.5 rounded-xl p-1.5 transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)]">
             <input
               type="text"
+              data-aurona-input="embedded"
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
               onKeyDown={(e) => {
@@ -621,7 +622,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               </div>
               <div className="flex-1 min-w-0">
                 <Input
-                  icon={<Icons.Search size={12} />}
+                  icon={<Icons.Search size={14} />}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="搜索任务..."

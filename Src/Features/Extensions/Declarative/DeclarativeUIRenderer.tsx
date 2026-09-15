@@ -8,6 +8,7 @@ import type {
   DeclarativeUIRoot,
 } from "../../../Foundation/Types/ExtensionUI";
 import { Button } from "../../../UI/Components/Button";
+import { Input } from "../../../UI/Components/Input";
 import { Select } from "../../../UI/Components/Select";
 import { Switch } from "../../../UI/Components/Switch";
 import { GlassContainer } from "../../../UI/Core/GlassManager";
@@ -132,7 +133,9 @@ export function DeclarativeUIRenderer({ ui, onAction }: DeclarativeUIRendererPro
                 {comp.label}
               </span>
             )}
-            <input
+            <Input
+              fullWidth
+              inputSize="md"
               type={comp.inputType ?? "text"}
               value={currentText}
               disabled={comp.disabled}
@@ -141,7 +144,6 @@ export function DeclarativeUIRenderer({ ui, onAction }: DeclarativeUIRendererPro
                 updateState(comp.id, e.target.value);
                 onAction?.(`input:${comp.id}`, e.target.value);
               }}
-              className="h-8 w-full rounded-xl border border-[var(--color-border)] bg-[var(--material-panel)] px-3 text-[12px] text-[var(--color-text-primary)] outline-none transition-all placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]"
             />
           </div>
         );

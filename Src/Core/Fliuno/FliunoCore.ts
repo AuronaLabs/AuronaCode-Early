@@ -101,7 +101,8 @@ const SYNONYMS: Array<{ pattern: RegExp; words: string[] }> = [
 ];
 
 function commandKeywords(command: CommandDefinition<unknown>): string[] {
-  const source = `${command.title} ${command.id} ${command.category ?? ""}`;
+  // 用 getCommandTitle 保证按当前语言匹配命令标题（titleKey 优先）
+  const source = `${getCommandTitle(command)} ${command.id} ${command.category ?? ""}`;
   const found: string[] = [];
   for (const { pattern, words } of SYNONYMS) {
     if (pattern.test(source)) found.push(...words);

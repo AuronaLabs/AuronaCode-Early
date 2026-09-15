@@ -148,9 +148,10 @@ export const TerminalView = memo(function TerminalView({
       syncTransparentSurface();
       terminal.refresh(0, Math.max(0, terminal.rows - 1));
     });
+    // 同时监听 class（明暗主题）与 data-accent（强调色），任一变化即时重建终端配色
     themeObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["class"],
+      attributeFilter: ["class", "data-accent"],
     });
 
     const resizeObserver = new ResizeObserver(fit);

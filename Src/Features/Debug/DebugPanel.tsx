@@ -11,6 +11,7 @@ import {
   glassListHeaderStyles,
   glassListRowStyles,
 } from "../../UI/Components/GlassList";
+import { Input } from "../../UI/Components/Input";
 import { Modal } from "../../UI/Components/Modal";
 import { Select } from "../../UI/Components/Select";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
@@ -395,45 +396,51 @@ export function DebugPanel() {
         }
       >
         <div className="space-y-3">
-          <label className="block space-y-1">
+          <div className="block space-y-1">
             <span className="text-[11px] font-medium text-[var(--color-text-primary)]">
               {t("debug.condition")}
             </span>
-            <input
+            <Input
+              fullWidth
+              inputSize="md"
+              className="font-mono"
               value={breakpointDraft.condition}
               onChange={(event) =>
                 setBreakpointDraft((draft) => ({ ...draft, condition: event.target.value }))
               }
               placeholder={t("debug.conditionPlaceholder")}
-              className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 font-mono text-[12px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
             />
-          </label>
-          <label className="block space-y-1">
+          </div>
+          <div className="block space-y-1">
             <span className="text-[11px] font-medium text-[var(--color-text-primary)]">
               {t("debug.hitCondition")}
             </span>
-            <input
+            <Input
+              fullWidth
+              inputSize="md"
+              className="font-mono"
               value={breakpointDraft.hitCondition}
               onChange={(event) =>
                 setBreakpointDraft((draft) => ({ ...draft, hitCondition: event.target.value }))
               }
               placeholder={t("debug.hitConditionPlaceholder")}
-              className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 font-mono text-[12px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
             />
-          </label>
-          <label className="block space-y-1">
+          </div>
+          <div className="block space-y-1">
             <span className="text-[11px] font-medium text-[var(--color-text-primary)]">
               {t("debug.logMessage")}
             </span>
-            <input
+            <Input
+              fullWidth
+              inputSize="md"
+              className="font-mono"
               value={breakpointDraft.logMessage}
               onChange={(event) =>
                 setBreakpointDraft((draft) => ({ ...draft, logMessage: event.target.value }))
               }
               placeholder={t("debug.logMessagePlaceholder")}
-              className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 font-mono text-[12px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
             />
-          </label>
+          </div>
         </div>
       </Modal>
     </section>
@@ -838,14 +845,15 @@ function WatchSection() {
       empty={t("debug.watchEmpty")}
     >
       <div className="flex items-center gap-1 px-1 pb-1.5">
-        <input
+        <Input
+          inputSize="sm"
+          className="min-w-0 flex-1"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") add();
           }}
           placeholder={t("debug.addWatch")}
-          className="h-6 min-w-0 flex-1 rounded-md border border-[var(--border-subtle)] bg-[var(--material-panel)] px-2 text-[10px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
         />
         <button
           type="button"

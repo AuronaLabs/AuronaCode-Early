@@ -13,6 +13,7 @@ import type { AccentThemeId } from "../../Foundation/Types/Config";
 import { cn } from "../../Shared/Utils/cn";
 import { Button } from "../../UI/Components/Button";
 import { EmptyState } from "../../UI/Components/EmptyState";
+import { Input } from "../../UI/Components/Input";
 import { SettingsNavItem } from "../../UI/Components/SettingsNavItem";
 import { GlassContainer, useGlassStore } from "../../UI/Core/GlassManager";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
@@ -492,18 +493,14 @@ export function SettingsTab() {
 
   const sidebarContent = (
     <div className="flex flex-col gap-6 w-full">
-      <div className="relative w-full">
-        <Icons.Search
-          size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none"
-        />
-        <input
-          value={settingsQuery}
-          onChange={(e) => setSettingsQuery(e.target.value)}
-          placeholder={t("settings.searchPlaceholder")}
-          className="w-full h-8 pl-8 pr-3 bg-[var(--material-surface)] border border-[var(--border-subtle)] rounded-lg text-[12px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
-        />
-      </div>
+      <Input
+        icon={<Icons.Search size={14} />}
+        inputSize="lg"
+        fullWidth
+        value={settingsQuery}
+        onChange={(e) => setSettingsQuery(e.target.value)}
+        placeholder={t("settings.searchPlaceholder")}
+      />
       <div className="flex flex-col gap-1 w-full">{navItems}</div>
     </div>
   );

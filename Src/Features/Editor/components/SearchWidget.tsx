@@ -14,6 +14,8 @@ import { glassVariants } from "../../../UI/Core/GlassManager/variants";
 import type { EditorSearchOptions } from "../Hooks/useEditorSearch";
 
 export interface SearchWidgetProps {
+  /** 打开时预填的查询文本（Ctrl+F 选中态预填） */
+  initialQuery?: string;
   onSearch: (query: string) => void;
   onClose: () => void;
   onNext: () => void;
@@ -57,6 +59,7 @@ function ToggleOption({ label, ariaLabel, active, onToggle }: ToggleOptionProps)
 }
 
 export function SearchWidget({
+  initialQuery = "",
   onSearch,
   onClose,
   onNext,
@@ -72,14 +75,16 @@ export function SearchWidget({
   onReplaceAll,
 }: SearchWidgetProps) {
   const { t } = useLocale();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [replaceOpen, setReplaceOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // 挂载时自动聚焦
+    // 挂载时自动聚焦；有预填选区时同步执行一次搜索
     inputRef.current?.focus();
+    if (initialQuery) onSearch(initialQuery);
+    // 仅挂载时执行一次：initialQuery 在组件每次打开时重建组件后注入
   }, []);
 
   const toggleOption = (key: keyof EditorSearchOptions) => {
@@ -125,7 +130,7 @@ export function SearchWidget({
     <div
       className={cn(
         glassVariants({ layer: "overlay" }),
-        "absolute top-4 right-8 z-50 flex flex-col rounded-xl overflow-hidden font-sans transition-all w-[400px]",
+        "absolute top-4 right-8 z-50 flex flex-col rounded-2xl overflow-hidden font-sans transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)] w-[400px]",
       )}
     >
       <div
@@ -155,6 +160,7 @@ export function SearchWidget({
         <input
           ref={inputRef}
           type="text"
+          data-aurona-input="embedded"
           value={query}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
@@ -234,6 +240,7 @@ export function SearchWidget({
           <input
             ref={replaceInputRef}
             type="text"
+            data-aurona-input="embedded"
             value={replaceValue}
             onChange={(e) => onReplaceValueChange(e.target.value)}
             onKeyDown={handleReplaceKeyDown}
