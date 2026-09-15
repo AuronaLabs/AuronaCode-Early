@@ -575,17 +575,17 @@ fn resolve_wasm_benchmark_package(app: &tauri::AppHandle) -> Option<PathBuf> {
     if dev_path.is_file() {
         return Some(dev_path);
     }
-    let extensions_dir = app
-        .path()
-        .app_local_data_dir()
-        .ok()?
-        .join("extensions");
+    let extensions_dir = app.path().app_local_data_dir().ok()?.join("extensions");
     std::fs::read_dir(&extensions_dir)
         .ok()?
         .flatten()
         .map(|entry| entry.path())
         .find(|candidate| {
-            candidate.is_file() && candidate.extension().map(|ext| ext == "aurx").unwrap_or(false)
+            candidate.is_file()
+                && candidate
+                    .extension()
+                    .map(|ext| ext == "aurx")
+                    .unwrap_or(false)
         })
 }
 
