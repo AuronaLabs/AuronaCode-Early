@@ -96,7 +96,9 @@ jobs:
             args: --bundles nsis
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.settings.platform }}
-    timeout-minutes: 90
+    # release 构建使用 lto + codegen-units=1（Cargo.toml），且无法复用 quality 的
+    # debug 编译缓存；Windows 冷编译 wasmtime 的 release 版本耗时极长，预留充足上限。
+    timeout-minutes: 180
     env:
       TAURI_ENV_TARGET_TRIPLE: ${{ matrix.settings.target }}
 
@@ -131,6 +133,8 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: ./src-tauri
+          # 即使构建失败也保留缓存，避免一次超时导致后续每次冷编译
+          cache-on-failure: true
 
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
