@@ -85,7 +85,10 @@ export function useEditorSelectionOps({
     updateMaxLineLength(deletion.lines);
     setTotalLines(deletion.lines.length);
     const nextContent = deletion.lines.join("\n");
-    onEditCommitted?.(nextContent, getLineStartUtf16(deletion.lines, deletion.cursor.line) + deletion.cursor.char);
+    onEditCommitted?.(
+      nextContent,
+      getLineStartUtf16(deletion.lines, deletion.cursor.line) + deletion.cursor.char,
+    );
     onChange?.(nextContent);
   }, [
     documentLines,

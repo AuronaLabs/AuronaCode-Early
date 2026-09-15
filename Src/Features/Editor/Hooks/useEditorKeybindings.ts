@@ -301,7 +301,11 @@ export function useEditorKeybindings({
           if (start.line === end.line) {
             const text = lines[start.line] || "";
             nextLines[start.line] =
-              text.slice(0, start.char) + e.key + text.slice(start.char, end.char) + closer + text.slice(end.char);
+              text.slice(0, start.char) +
+              e.key +
+              text.slice(start.char, end.char) +
+              closer +
+              text.slice(end.char);
             nextSelection = {
               start: { line: start.line, char: start.char },
               end: { line: start.line, char: end.char + e.key.length + closer.length - 1 },
@@ -315,8 +319,7 @@ export function useEditorKeybindings({
               end: { line: end.line, char: (lines[end.line] || "").length + 1 },
             };
           }
-          const anchor =
-            sortSelection(nextSelection).start;
+          const anchor = sortSelection(nextSelection).start;
           replaceDocumentLines(nextLines, { line: anchor.line, char: anchor.char }, nextSelection);
           return;
         }

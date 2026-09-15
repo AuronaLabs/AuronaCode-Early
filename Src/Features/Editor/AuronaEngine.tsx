@@ -277,10 +277,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       setCursor(nextCursor);
       setSelection(nextSelection);
       updateMaxLineLength(nextLines);
-      pushHistory(
-        nextContent,
-        getLineStartUtf16(nextLines, nextCursor.line) + nextCursor.char,
-      );
+      pushHistory(nextContent, getLineStartUtf16(nextLines, nextCursor.line) + nextCursor.char);
       applyContentDiff(currentContent, nextContent);
       onChange?.(nextContent);
     },
@@ -319,14 +316,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         measureEditorText((documentLines[cursor.line] || "").substring(0, cursor.char), layout),
       y: layout.contentInsetTop + cursor.line * layout.lineHeight,
     }),
-    [
-      cursor.char,
-      cursor.line,
-      documentLines,
-      layout.contentInsetTop,
-      layout.contentInsetX,
-      layout,
-    ],
+    [cursor.char, cursor.line, documentLines, layout.contentInsetTop, layout.contentInsetX, layout],
   );
 
   // 光标可见性保障：光标移动或编辑后确保主光标行完整位于视口内（纵向行级、横向按实际前缀宽度）
@@ -421,10 +411,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         setCursor(nextCursor);
         setSelection(null);
         updateMaxLineLength(nextLines);
-        pushHistory(
-          nextContent,
-          getLineStartUtf16(nextLines, nextCursor.line) + nextCursor.char,
-        );
+        pushHistory(nextContent, getLineStartUtf16(nextLines, nextCursor.line) + nextCursor.char);
         if (path) {
           const startUtf16 = getLineStartUtf16(documentLines, start.line) + start.char;
           const endUtf16 = getLineStartUtf16(documentLines, end.line) + end.char;
@@ -569,7 +556,14 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       return result;
     });
     applyReplacedContent(nextLines.join("\n"));
-  }, [applyReplacedContent, documentLines, replaceValue, searchMatches, searchOptions, searchQuery]);
+  }, [
+    applyReplacedContent,
+    documentLines,
+    replaceValue,
+    searchMatches,
+    searchOptions,
+    searchQuery,
+  ]);
 
   const handleUndo = useCallback(() => {
     const entry = undo();
@@ -656,7 +650,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       setDocumentLines(nextLines);
       setTotalLines(nextLines.length);
       if (primary) {
-        setCursor(getCursorFromUtf16Offset(nextLines, primary.startUtf16 + primary.cursorOffsetInText));
+        setCursor(
+          getCursorFromUtf16Offset(nextLines, primary.startUtf16 + primary.cursorOffsetInText),
+        );
         setSelection(null);
       }
       replaceExtras(nextExtras);

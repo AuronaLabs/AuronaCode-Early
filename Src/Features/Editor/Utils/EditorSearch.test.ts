@@ -115,11 +115,23 @@ describe("resolveLineReplacement", () => {
   it("expands groups per match in regex mode", () => {
     const options = { ...defaultSearchOptions, useRegex: true };
     expect(
-      resolveLineReplacement("user@host", { line: 0, char: 0, length: 9 }, "(\\w+)@(\\w+)", "$2.$1", options),
+      resolveLineReplacement(
+        "user@host",
+        { line: 0, char: 0, length: 9 },
+        "(\\w+)@(\\w+)",
+        "$2.$1",
+        options,
+      ),
     ).toBe("host.user");
     // 同行第二个命中按其自身内容展开
     expect(
-      resolveLineReplacement("a@b c@d", { line: 0, char: 4, length: 3 }, "(\\w+)@(\\w+)", "$2-$1", options),
+      resolveLineReplacement(
+        "a@b c@d",
+        { line: 0, char: 4, length: 3 },
+        "(\\w+)@(\\w+)",
+        "$2-$1",
+        options,
+      ),
     ).toBe("d-c");
   });
 });

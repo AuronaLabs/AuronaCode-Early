@@ -34,7 +34,12 @@ export function parseUnifiedDiffHunks(diffText: string): GitGutterDiffState {
       newLine = Number(match[1]) - 1; // 转为 0 基
       continue;
     }
-    if (line.startsWith("diff ") || line.startsWith("index ") || line.startsWith("---") || line.startsWith("+++")) {
+    if (
+      line.startsWith("diff ") ||
+      line.startsWith("index ") ||
+      line.startsWith("---") ||
+      line.startsWith("+++")
+    ) {
       continue;
     }
     if (line.startsWith("+")) {

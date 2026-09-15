@@ -120,43 +120,46 @@ export function useEditorHistory(initialValue: string) {
     appliedCountRef.current = operations.length;
   }, []);
 
-  const pushHistory = useCallback((content: string, selectionStart: number) => {
-    const previousContent = currentContentRef.current;
-    if (previousContent === content) {
+  const pushHistory = useCallback(
+    (content: string, selectionStart: number) => {
+      const previousContent = currentContentRef.current;
+      if (previousContent === content) {
+        currentSelectionRef.current = selectionStart;
+        return;
+      }
+
+      const difference = diffText(previousContent, content);
+      const operation: SingleOperation = {
+        kind: "single",
+        ...difference,
+        beforeSelection: currentSelectionRef.current,
+        afterSelection: selectionStart,
+        timestamp: Date.now(),
+      };
+      const operations = operationsRef.current.slice(0, appliedCountRef.current);
+      const previous = operations.at(-1);
+      const canMergeTyping =
+        previous !== undefined &&
+        previous.kind !== "composite" &&
+        previous.deletedText.length === 0 &&
+        operation.deletedText.length === 0 &&
+        previous.startUtf16 + previous.insertedText.length === operation.startUtf16 &&
+        operation.timestamp - previous.timestamp <= TYPE_MERGE_WINDOW_MS;
+
+      if (canMergeTyping) {
+        previous.insertedText += operation.insertedText;
+        previous.afterSelection = operation.afterSelection;
+        previous.timestamp = operation.timestamp;
+      } else {
+        operations.push(operation);
+      }
+
+      trimAndStore(operations);
+      currentContentRef.current = content;
       currentSelectionRef.current = selectionStart;
-      return;
-    }
-
-    const difference = diffText(previousContent, content);
-    const operation: SingleOperation = {
-      kind: "single",
-      ...difference,
-      beforeSelection: currentSelectionRef.current,
-      afterSelection: selectionStart,
-      timestamp: Date.now(),
-    };
-    const operations = operationsRef.current.slice(0, appliedCountRef.current);
-    const previous = operations.at(-1);
-    const canMergeTyping =
-      previous !== undefined &&
-      previous.kind !== "composite" &&
-      previous.deletedText.length === 0 &&
-      operation.deletedText.length === 0 &&
-      previous.startUtf16 + previous.insertedText.length === operation.startUtf16 &&
-      operation.timestamp - previous.timestamp <= TYPE_MERGE_WINDOW_MS;
-
-    if (canMergeTyping) {
-      previous.insertedText += operation.insertedText;
-      previous.afterSelection = operation.afterSelection;
-      previous.timestamp = operation.timestamp;
-    } else {
-      operations.push(operation);
-    }
-
-    trimAndStore(operations);
-    currentContentRef.current = content;
-    currentSelectionRef.current = selectionStart;
-  }, [trimAndStore]);
+    },
+    [trimAndStore],
+  );
 
   /** 多光标批量编辑入栈：单步撤销整体还原。子操作坐标按顺序应用语义（降序提交即原始坐标）。 */
   const pushComposite = useCallback(

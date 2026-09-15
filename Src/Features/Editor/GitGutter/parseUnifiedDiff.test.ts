@@ -22,12 +22,7 @@ describe("parseUnifiedDiffHunks", () => {
   });
 
   it("maps trailing deletions to the hunk position", () => {
-    const diff = [
-      "@@ -1,3 +1,1 @@",
-      " keep",
-      "-gone1",
-      "-gone2",
-    ].join("\n");
+    const diff = ["@@ -1,3 +1,1 @@", " keep", "-gone1", "-gone2"].join("\n");
 
     const state = parseUnifiedDiffHunks(diff);
     expect(state.addedLines.size).toBe(0);
@@ -51,14 +46,9 @@ describe("parseUnifiedDiffHunks", () => {
   });
 
   it("handles multiple hunks and empty input", () => {
-    const diff = [
-      "@@ -2,2 +2,2 @@",
-      " a",
-      "-old",
-      "+new",
-      "@@ -10,1 +11,2 @@",
-      "+extra",
-    ].join("\n");
+    const diff = ["@@ -2,2 +2,2 @@", " a", "-old", "+new", "@@ -10,1 +11,2 @@", "+extra"].join(
+      "\n",
+    );
     const state = parseUnifiedDiffHunks(diff);
     expect(state.modifiedLines).toEqual(new Set([2]));
     // hunk 头 +11（1 基）→ 0 基行 10
