@@ -78,7 +78,9 @@ jobs:
       matrix:
         os: [ubuntu-22.04, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    # Windows runner 首次冷编译 wasmtime 并保存缓存可达 45 分钟以上（缓存命中后仅数分钟），
+    # 预留冷启动余量，避免超时导致缓存无法保存、陷入每次全量编译的循环。
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -88,6 +90,8 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: ./src-tauri
+          # 即使任务失败也保存缓存，避免一次超时让后续每次都被迫冷编译
+          cache-on-failure: true
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
         run: |
