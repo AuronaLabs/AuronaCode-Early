@@ -1,10 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
 import { useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { LanguageFeaturePreferences } from "../../Foundation/Types/Config";
-import type { EditorAction } from "../../Foundation/Types/Editor";
 import { useDebugStore } from "../../State/useDebugStore";
 import { useFeatureFlagStore } from "../../State/useFeatureFlagStore";
 import {
@@ -17,48 +16,29 @@ import {
 import { BracketPairGuides } from "./Brackets/BracketPairGuides";
 import { useBracketMatching } from "./Brackets/useBracketMatching";
 import { AutocompleteMenu } from "./components/AutocompleteMenu";
-import { EditorLine } from "./components/EditorLine";
 import { HoverCard } from "./components/HoverCard";
 import { SearchWidget } from "./components/SearchWidget";
 import { useCodeFolding } from "./Folding/useCodeFolding";
-import { GitGutterBar } from "./GitGutter/GitGutterBar";
 import { useGitGutterDiff } from "./GitGutter/useGitGutterDiff";
-import { useEditorAutocomplete } from "./Hooks/useEditorAutocomplete";
 import { useEditorCommit } from "./Hooks/useEditorCommit";
-import { useEditorContextMenu } from "./Hooks/useEditorContextMenu";
+import { useEditorCompletion } from "./Hooks/useEditorCompletion";
 import { useEditorHistory } from "./Hooks/useEditorHistory";
-import { useEditorHover } from "./Hooks/useEditorHover";
 import { useEditorIME } from "./Hooks/useEditorIME";
 import { useEditorKeybindings } from "./Hooks/useEditorKeybindings";
-import { useEditorPointerSelection } from "./Hooks/useEditorPointerSelection";
-import {
-  buildSearchRegex,
-  type EditorSearchMatch,
-  resolveLineReplacement,
-  useEditorSearch,
-} from "./Hooks/useEditorSearch";
+import { useEditorPointerClipboard } from "./Hooks/useEditorPointerClipboard";
+import { useEditorRenderData } from "./Hooks/useEditorRenderData";
+import { useEditorSearchReplace } from "./Hooks/useEditorSearchReplace";
 import { type SelectionRange, useEditorSelectionOps } from "./Hooks/useEditorSelectionOps";
 import { useExternalSync } from "./Hooks/useExternalSync";
 import { useSyntaxHighlighting } from "./Hooks/useSyntaxHighlighting";
 import type { IEditorEngine } from "./IEditorEngine";
 import { CanvasMinimap } from "./Minimap/CanvasMinimap";
-import { collectMinimapDecorations } from "./Minimap/MinimapDecorations";
 import { MultiCursorCaretLayer } from "./MultiCursor/MultiCursorCaretLayer";
 import { useMultiCursorOps } from "./MultiCursor/useMultiCursorOps";
 import { useSelectionOccurrence } from "./MultiCursor/useSelectionOccurrence";
 import { useEditorViewport } from "./Performance/useEditorViewport";
-import {
-  DEFAULT_EDITOR_LAYOUT,
-  editorTextIndexAtX,
-  editorTextIndexFromPoint,
-  measureEditorText,
-} from "./Utils/EditorLayoutMetrics";
-import {
-  type DiagnosticItem,
-  diagnosticsForLine,
-  normalizeEditorText,
-  sortSelection,
-} from "./Utils/EditorMath";
+import { DEFAULT_EDITOR_LAYOUT, measureEditorText } from "./Utils/EditorLayoutMetrics";
+import { type DiagnosticItem, normalizeEditorText } from "./Utils/EditorMath";
 
 export type AuronaEngineProps = {
   value: string;
@@ -274,35 +254,40 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   });
   insertTextAtCursorRef.current = insertTextAtCursor;
 
-  // 12. Hover 与自动补全
-  const isDraggingPointerRef = useRef(false);
-  const [isContextMenuOpen, setHoverContextMenuOpen] = useState(false);
+  // 12. Hover 与自动补全（抽至 useEditorCompletion）
   const {
-    tooltip: hoverTooltip,
-    setVisibleTooltip: setVisibleHover,
+    isDraggingPointerRef,
+    isContextMenuOpen,
+    setHoverContextMenuOpen,
+    hoverTooltip,
+    setVisibleHover,
     requestLanguageHover,
     handleLineMouseLeave,
-    handleTooltipMouseEnter: handleHoverEnter,
-    handleTooltipMouseLeave: handleHoverLeave,
-    dismiss: dismissHover,
-  } = useEditorHover({
+    handleHoverEnter,
+    handleHoverLeave,
+    dismissHover,
+    singleCharWidth,
+    caretPos,
+    completions,
+    completionIndex,
+    completionPos,
+    setCompletionIndex,
+    setCompletions,
+    closeAutocomplete,
+    triggerAutocomplete,
+    handleAutocompleteSelect,
+  } = useEditorCompletion({
     path,
     language,
-    preferences: languagePreferences,
-    interactionBlocked: () => isDraggingPointerRef.current || isContextMenuOpen,
+    layout,
+    languagePreferences,
+    containerRef,
+    scrollTop,
+    documentLines,
+    cursor,
+    replaceDocumentLines,
+    triggerAutocompleteRef,
   });
-
-  const singleCharWidth = useMemo(() => measureEditorText("M", layout), [layout]);
-  // 候选框锚点：按实际前缀文本测量，宽字符/CJK 不再漂移（textarea 代理与补全面板共用）
-  const caretPos = useMemo(
-    () => ({
-      x:
-        layout.contentInsetX +
-        measureEditorText((documentLines[cursor.line] || "").substring(0, cursor.char), layout),
-      y: layout.contentInsetTop + cursor.line * layout.lineHeight,
-    }),
-    [cursor.char, cursor.line, documentLines, layout.contentInsetTop, layout.contentInsetX, layout],
-  );
 
   // 光标可见性保障：光标移动或编辑后确保主光标行完整位于视口内（纵向行级、横向按实际前缀宽度）。
   // 小幅位移（打字/逐行移动）瞬时贴合；大幅跳转（翻页/Ctrl+End/搜索跳转等）用 120ms 缓动，
@@ -358,141 +343,34 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     ensureCursorVisible(cursor);
   }, [cursor, ensureCursorVisible]);
 
+  // 13. 搜索与替换（抽至 useEditorSearchReplace）
   const {
-    completions,
-    completionIndex,
-    completionPos,
-    setCompletionIndex,
-    setCompletions,
-    closeAutocomplete,
-    triggerAutocomplete,
-    handleAutocompleteSelect,
-  } = useEditorAutocomplete({
-    path,
-    language,
-    layout,
-    languagePreferences,
-    containerRef,
-    caretPos,
-    scrollTop,
+    isSearchOpen,
+    searchQuery,
+    searchOptions,
+    setSearchOptions,
+    searchMatches,
+    currentMatchIndex,
+    setIsSearchOpen,
+    setSearchQuery,
+    handleSearchNext,
+    handleSearchPrev,
+    handleSearchClose,
+    replaceValue,
+    setReplaceValue,
+    searchSeed,
+    invalidSearchQuery,
+    handleReplaceCurrent,
+    handleReplaceAll,
+  } = useEditorSearchReplace({
     documentLines,
     cursor,
-    replaceDocumentLines,
-    setVisibleHover,
+    selection,
+    commitEdit,
+    setCursor,
+    setSelection,
+    scrollToLine,
   });
-  triggerAutocompleteRef.current = triggerAutocomplete;
-
-  const getSelectionText = useCallback((): string => {
-    if (!selection) return "";
-    const { start, end } = sortSelection(selection);
-    if (start.line === end.line) {
-      return (documentLines[start.line] || "").substring(start.char, end.char);
-    }
-    const result: string[] = [(documentLines[start.line] || "").substring(start.char)];
-    for (let i = start.line + 1; i < end.line; i++) result.push(documentLines[i] || "");
-    result.push((documentLines[end.line] || "").substring(0, end.char));
-    return result.join("\n");
-  }, [documentLines, selection]);
-
-  // 13. 搜索与撤销重做
-  const onScrollToMatch = useCallback(
-    (match: EditorSearchMatch) => {
-      setCursor(match);
-      setSelection({ start: match, end: { line: match.line, char: match.char + 1 } });
-      scrollToLine(match.line);
-    },
-    [scrollToLine],
-  );
-
-  const {
-    isOpen: isSearchOpen,
-    query: searchQuery,
-    options: searchOptions,
-    setOptions: setSearchOptions,
-    matches: searchMatches,
-    currentIndex: currentMatchIndex,
-    setIsOpen: setIsSearchOpen,
-    setQuery: setSearchQuery,
-    markReplacementAnchor,
-    next: handleSearchNext,
-    prev: handleSearchPrev,
-    close: handleSearchClose,
-  } = useEditorSearch(documentLines, onScrollToMatch);
-
-  // 搜索替换：与 undo/redo 相同的落盘与同步路径
-  const [replaceValue, setReplaceValue] = useState("");
-  // Ctrl+F 打开搜索时预填当前选区文本（仅单行选区；无选区则置空）
-  const [searchSeed, setSearchSeed] = useState("");
-  const invalidSearchQuery =
-    searchQuery !== "" && buildSearchRegex(searchQuery, searchOptions) === null;
-
-  const applyReplacedContent = useCallback(
-    (nextContent: string) => {
-      const nextLines = nextContent.split("\n");
-      commitEdit(nextLines, cursor, selection);
-    },
-    [commitEdit, cursor, selection],
-  );
-
-  const handleReplaceCurrent = useCallback(() => {
-    const match = searchMatches[currentMatchIndex];
-    if (!match) return;
-    const line = documentLines[match.line] ?? "";
-    const replacement = resolveLineReplacement(
-      line,
-      match,
-      searchQuery,
-      replaceValue,
-      searchOptions,
-    );
-    const nextLine =
-      line.slice(0, match.char) + replacement + line.slice(match.char + match.length);
-    const nextLines = [...documentLines];
-    nextLines[match.line] = nextLine;
-    // 替换后继续搜索的位置：替换起点 + 新文本长度
-    markReplacementAnchor(match.line, match.char + replacement.length);
-    applyReplacedContent(nextLines.join("\n"));
-  }, [
-    applyReplacedContent,
-    currentMatchIndex,
-    documentLines,
-    markReplacementAnchor,
-    replaceValue,
-    searchOptions,
-    searchQuery,
-    searchMatches,
-  ]);
-
-  const handleReplaceAll = useCallback(() => {
-    if (searchMatches.length === 0) return;
-    // 命中按 (line, char) 升序：逐行从后向前替换，保持索引稳定；正则替换逐命中展开捕获组
-    const nextLines = documentLines.map((line, lineIndex) => {
-      const lineMatches = searchMatches.filter((m) => m.line === lineIndex);
-      if (lineMatches.length === 0) return line;
-      let result = line;
-      for (let i = lineMatches.length - 1; i >= 0; i--) {
-        const match = lineMatches[i];
-        const replacement = resolveLineReplacement(
-          line,
-          match,
-          searchQuery,
-          replaceValue,
-          searchOptions,
-        );
-        result =
-          result.slice(0, match.char) + replacement + result.slice(match.char + match.length);
-      }
-      return result;
-    });
-    applyReplacedContent(nextLines.join("\n"));
-  }, [
-    applyReplacedContent,
-    documentLines,
-    replaceValue,
-    searchMatches,
-    searchOptions,
-    searchQuery,
-  ]);
 
   // 14. 多光标批量编辑已抽至 useEditorCommit（commitMultiCursorEdits / collectMultiCursorRanges / handleMultiCursor*）
 
@@ -518,17 +396,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setCompletionIndex,
     setSelection,
     setCursor,
-    setIsSearchOpen: (open) => {
-      if (open && selection) {
-        const { start, end } = sortSelection(selection);
-        setSearchSeed(
-          start.line === end.line
-            ? (documentLines[start.line] || "").slice(start.char, end.char)
-            : "",
-        );
-      }
-      setIsSearchOpen(open);
-    },
+    setIsSearchOpen,
     scrollToCursor: (pos) => scrollToLine(pos?.line ?? cursor.line),
     pageLines: Math.max(1, Math.floor(viewportHeight / layout.lineHeight) - 1),
     extraCursorCount: extraCursors.length,
@@ -545,84 +413,35 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     handleMultiCursorEnter,
   });
 
-  const handleCut = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    e.preventDefault();
-    const selText = getSelectionText();
-    if (selText && selection) {
-      e.clipboardData.setData("text/plain", selText);
-      executeSelectionDelete();
-    }
-  };
-
-  const handleCopy = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    e.preventDefault();
-    e.clipboardData.setData(
-      "text/plain",
-      getSelectionText() || `${documentLines[cursor.line] || ""}\n`,
-    );
-  };
-
-  const executeEditorAction = useCallback(
-    (action: EditorAction) => {
-      textareaRef.current?.focus();
-      if (action === "undo") handleUndo();
-      else if (action === "redo") handleRedo();
-      else if (action === "cut" && selection) executeSelectionDelete();
-      else if (action === "selectAll") {
-        setSelection({
-          start: { line: 0, char: 0 },
-          end: {
-            line: documentLines.length - 1,
-            char: documentLines[documentLines.length - 1].length,
-          },
-        });
-      }
-    },
-    [documentLines, executeSelectionDelete, handleRedo, handleUndo, selection],
-  );
-
-  // 15. 指针交互
-  const minTextLengthIndex = useCallback(
-    (text: string, relativeX: number) => editorTextIndexAtX(text, relativeX, layout),
-    [layout],
-  );
-
-  const textIndexAtPoint = useCallback(
-    (lineIndex: number, lineElement: HTMLButtonElement, clientX: number, clientY: number) => {
-      const lineText = documentLines[lineIndex] || "";
-      const renderedIndex = editorTextIndexFromPoint(lineElement, clientX, clientY, lineText);
-      if (renderedIndex !== null) return renderedIndex;
-      const rect = lineElement.getBoundingClientRect();
-      return minTextLengthIndex(lineText, clientX - rect.left - layout.contentInsetX);
-    },
-    [documentLines, layout.contentInsetX, minTextLengthIndex],
-  );
-
-  const { isDraggingRef, handleLineMouseDown } = useEditorPointerSelection({
+  // 15. 指针交互、剪贴板与上下文菜单（抽至 useEditorPointerClipboard）
+  const {
+    getSelectionText,
+    handleCut,
+    handleCopy,
+    executeEditorAction,
+    textIndexAtPoint,
+    isDraggingRef,
+    handleLineMouseDown,
+    handleContextMenuOpenChange,
+  } = useEditorPointerClipboard({
+    documentLines,
+    cursor,
+    selection,
+    totalLines,
+    layout,
     containerRef,
     textareaRef,
     lineElementsRef,
-    documentLines,
-    totalLines,
-    layout,
-    selection,
+    isDraggingPointerRef,
+    setHoverContextMenuOpen,
+    setCompletions,
+    dismissHover,
+    executeSelectionDelete,
+    findWordBoundaries,
     setSelection,
     setCursor,
-    textIndexAtPoint,
-    minTextLengthIndex,
-    findWordBoundaries,
-    onPointerStateChange: () => {
-      setCompletions([]);
-      dismissHover();
-    },
-  });
-  isDraggingPointerRef.current = isDraggingRef.current;
-
-  const { handleContextMenuOpenChange } = useEditorContextMenu({
-    textareaRef,
-    setHoverContextMenuOpen,
-    clearCompletions: () => setCompletions([]),
-    onExecuteAction: executeEditorAction,
+    handleUndo,
+    handleRedo,
   });
 
   // 16. 外部内容同步 / revealLine / 布局测量（抽至 useExternalSync）
@@ -704,165 +523,42 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     totalLines,
   ]);
 
-  // 18. Minimap 装饰标记计算
-  const minimapDecorations = useMemo(() => {
-    return collectMinimapDecorations(diagnostics, searchMatches, selection);
-  }, [diagnostics, searchMatches, selection]);
-
-  // 19. 视口行渲染
-  const visibleLinesDOM = useMemo(() => {
-    const list = [];
-    for (let idx = visibleStartIndex; idx < visibleEndIndex; idx++) {
-      const lineText = documentLines[idx] ?? "";
-      const isCurrent = idx === cursor.line;
-      const tokens = isLargeFileMode ? largeLineTokens.get(idx) || [] : linesTokens[idx] || [];
-      const lineDiags = diagnosticsForLine(diagnostics, idx, lineText.length);
-      const searchLineMatches = searchMatches.filter((m: EditorSearchMatch) => m.line === idx);
-      const isFoldedStart = foldedStartLines.has(idx);
-
-      list.push(
-        <EditorLine
-          key={idx}
-          idx={idx}
-          lineText={lineText}
-          isCurrent={isCurrent}
-          tokens={tokens}
-          searchQuery={searchQuery}
-          searchLineMatches={searchLineMatches}
-          currentMatchIndex={currentMatchIndex}
-          searchMatches={searchMatches}
-          lineDiags={lineDiags}
-          selection={selection}
-          isDragging={isDraggingRef.current}
-          setHoverTooltip={setVisibleHover}
-          onMouseDown={(idx, e) => {
-            // Alt+Click：添加额外光标
-            if (e.altKey && e.button === 0) {
-              const charIndex = textIndexAtPoint(idx, e.currentTarget, e.clientX, e.clientY);
-              addCursor({ line: idx, char: charIndex });
-              textareaRef.current?.focus();
-              e.preventDefault();
-              return;
-            }
-            // 常规指针交互：清除额外光标
-            if (extraCursors.length > 0) clearExtraCursors();
-            handleLineMouseDown(idx, e);
-          }}
-          onMouseLeave={handleLineMouseLeave}
-          onLanguageHover={requestLanguageHover}
-          textIndexAtPoint={textIndexAtPoint}
-          registerLineElement={registerLineElement}
-          isComposing={isComposing}
-          compositionText={compositionText}
-          compositionChar={cursor.char}
-          layout={layout}
-          isFoldedStart={isFoldedStart}
-          onToggleFold={toggleFold}
-          occurrences={occurrences}
-        />,
-      );
-    }
-    return list;
-  }, [
+  // 18-20. Minimap 装饰 / 视口行渲染 / 行号 gutter（抽至 useEditorRenderData）
+  const { minimapDecorations, visibleLinesDOM, lineNumbersDOM } = useEditorRenderData({
+    documentLines,
+    cursor,
+    selection,
     visibleStartIndex,
     visibleEndIndex,
-    documentLines,
-    cursor.line,
+    layout,
     linesTokens,
     largeLineTokens,
     isLargeFileMode,
     diagnostics,
-    searchMatches,
-    foldedStartLines,
     searchQuery,
+    searchMatches,
     currentMatchIndex,
-    selection,
-    setVisibleHover,
-    handleLineMouseDown,
-    handleLineMouseLeave,
-    requestLanguageHover,
-    textIndexAtPoint,
-    registerLineElement,
+    foldedStartLines,
+    foldableRanges,
+    occurrences,
     isComposing,
     compositionText,
-    cursor.char,
-    layout,
+    path,
+    textareaRef,
+    isDraggingRef,
+    setVisibleHover,
+    requestLanguageHover,
+    handleLineMouseLeave,
+    handleLineMouseDown,
+    textIndexAtPoint,
+    registerLineElement,
     toggleFold,
-    occurrences,
-    isDraggingRef.current,
+    toggleBreakpoint,
+    gitGutterDiff,
     addCursor,
     extraCursors,
     clearExtraCursors,
-  ]);
-
-  // 20. 行号与折叠三角
-  const lineNumbersDOM = useMemo(() => {
-    const list = [];
-    for (let idx = visibleStartIndex; idx < visibleEndIndex; idx++) {
-      const isCurrent = idx === cursor.line;
-      const isFoldable = foldableRanges.some((r) => r.startLine === idx);
-      const isFolded = foldedStartLines.has(idx);
-
-      list.push(
-        <div
-          key={idx}
-          className="group/line relative w-full flex items-center justify-between px-1.5 select-none"
-          style={{ height: layout.lineHeight, lineHeight: `${layout.lineHeight}px` }}
-        >
-          {/* 当前行 gutter 指示：accent 侧标 */}
-          {isCurrent && (
-            <span className="absolute left-0 top-0.5 bottom-0.5 w-[2px] rounded-full bg-[var(--color-accent)]" />
-          )}
-
-          {/* 折叠触发三角 */}
-          {isFoldable ? (
-            <button
-              type="button"
-              onClick={() => toggleFold(idx)}
-              className="text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-transform"
-            >
-              {isFolded ? "▶" : "▼"}
-            </button>
-          ) : (
-            <span className="w-2.5" />
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              if (path) toggleBreakpoint(path, idx + 1);
-            }}
-            className={`flex-1 text-right pr-2 font-mono text-[12px] ${
-              isCurrent
-                ? "text-[var(--color-text-highlight)] font-bold"
-                : "text-[var(--color-text-muted)] opacity-60"
-            }`}
-          >
-            {idx + 1}
-          </button>
-
-          {/* Git 边栏指示条 */}
-          <GitGutterBar
-            isAdded={gitGutterDiff.addedLines.has(idx)}
-            isModified={gitGutterDiff.modifiedLines.has(idx)}
-            isDeleted={gitGutterDiff.deletedLines.has(idx)}
-          />
-        </div>,
-      );
-    }
-    return list;
-  }, [
-    visibleStartIndex,
-    visibleEndIndex,
-    cursor.line,
-    foldableRanges,
-    foldedStartLines,
-    layout.lineHeight,
-    toggleFold,
-    path,
-    toggleBreakpoint,
-    gitGutterDiff,
-  ]);
+  });
 
   return (
     <div

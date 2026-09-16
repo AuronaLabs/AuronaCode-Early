@@ -119,7 +119,17 @@ export function useEditorCommit({
       applyContentDiff(currentContent, nextContent);
       onChange?.(nextContent);
     },
-    [applyContentDiff, documentLines, onChange, pushHistory, updateMaxLineLength],
+    [
+      applyContentDiff,
+      documentLines,
+      onChange,
+      pushHistory,
+      updateMaxLineLength,
+      setCursor,
+      setSelection,
+      setDocumentLines,
+      setTotalLines,
+    ],
   );
 
   // 按键类编辑入口（Backspace/Delete/Enter/Tab/行操作等 keybinding 路径）
@@ -137,7 +147,17 @@ export function useEditorCommit({
     updateMaxLineLength(lines);
     applyContentDiff(documentLines.join("\n"), entry.content);
     onChange?.(entry.content);
-  }, [applyContentDiff, documentLines, onChange, undo, updateMaxLineLength]);
+  }, [
+    applyContentDiff,
+    documentLines,
+    onChange,
+    undo,
+    updateMaxLineLength,
+    setDocumentLines,
+    setSelection,
+    setCursor,
+    setTotalLines,
+  ]);
 
   const handleRedo = useCallback(() => {
     const entry = redo();
@@ -151,7 +171,17 @@ export function useEditorCommit({
     updateMaxLineLength(lines);
     applyContentDiff(documentLines.join("\n"), entry.content);
     onChange?.(entry.content);
-  }, [applyContentDiff, documentLines, onChange, redo, updateMaxLineLength]);
+  }, [
+    applyContentDiff,
+    documentLines,
+    onChange,
+    redo,
+    updateMaxLineLength,
+    setSelection,
+    setTotalLines,
+    setDocumentLines,
+    setCursor,
+  ]);
 
   // 多光标批量编辑：内存合并 + 一次降序批量 IPC + composite 一步撤销
   const commitMultiCursorEdits = useCallback(
@@ -255,6 +285,10 @@ export function useEditorCommit({
       replaceExtras,
       triggerAutocompleteRef,
       updateMaxLineLength,
+      setTotalLines,
+      setDocumentLines,
+      setSelection,
+      setCursor,
     ],
   );
 
@@ -446,6 +480,10 @@ export function useEditorCommit({
       selection,
       triggerAutocompleteRef,
       updateMaxLineLength,
+      setDocumentLines,
+      setTotalLines,
+      setSelection,
+      setCursor,
     ],
   );
   insertTextAtCursorRef.current = insertTextAtCursor;

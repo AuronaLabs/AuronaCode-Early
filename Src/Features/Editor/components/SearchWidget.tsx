@@ -85,7 +85,7 @@ export function SearchWidget({
     inputRef.current?.focus();
     if (initialQuery) onSearch(initialQuery);
     // 仅挂载时执行一次：initialQuery 在组件每次打开时重建组件后注入
-  }, []);
+  }, [onSearch, initialQuery]);
 
   const toggleOption = (key: keyof EditorSearchOptions) => {
     onOptionsChange({ ...options, [key]: !options[key] });

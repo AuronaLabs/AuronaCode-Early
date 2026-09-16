@@ -47,7 +47,7 @@ export function useExternalSync({
     setTotalLines(lines.length);
     updateMaxLineLength(lines);
     syncExternal(value);
-  }, [value, syncExternal, updateMaxLineLength]);
+  }, [value, syncExternal, updateMaxLineLength, setTotalLines, setDocumentLines]);
 
   useEffect(() => {
     if (!externalContent) return;
@@ -56,7 +56,7 @@ export function useExternalSync({
     setTotalLines(lines.length);
     updateMaxLineLength(lines);
     syncExternal(externalContent.content);
-  }, [externalContent, syncExternal, updateMaxLineLength]);
+  }, [externalContent, syncExternal, updateMaxLineLength, setDocumentLines, setTotalLines]);
 
   useEffect(() => {
     if (revealLine !== undefined && revealLine > 0) {
@@ -66,7 +66,7 @@ export function useExternalSync({
       scrollToLine(targetLine);
       if (path && onRevealHandled) onRevealHandled(path, revealLine);
     }
-  }, [revealLine, totalLines, path, onRevealHandled, scrollToLine]);
+  }, [revealLine, totalLines, path, onRevealHandled, scrollToLine, setSelection, setCursor]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -79,5 +79,5 @@ export function useExternalSync({
     const observer = new ResizeObserver(updateLayout);
     observer.observe(container);
     return () => observer.disconnect();
-  }, []);
+  }, [setLayout, containerRef.current]);
 }

@@ -13,7 +13,7 @@ pub enum LexerState {
     InBlockComment,    // JS/Rust/CSS /* */
 }
 
-struct TokenRule {
+pub(crate) struct TokenRule {
     token_type: u32,
     regex: Regex,
     capture_group: Option<usize>,

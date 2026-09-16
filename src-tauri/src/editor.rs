@@ -273,8 +273,8 @@ fn recover_interrupted_save(path: &Path) -> Result<(), DesktopError> {
 // ── 行渲染数据与语法高亮器桥接（高亮引擎见 highlight.rs）───────────────────
 
 // 语法高亮器已拆至 highlight.rs（v0.4.2）：LexerState 由该模块定义并在此复用（re-export 供 tests/super::* 使用）。
+use crate::highlight::highlight_line_stateful;
 pub use crate::highlight::LexerState;
-use crate::highlight::{get_rules, highlight_line_stateful};
 
 #[derive(Serialize, Debug, Clone)]
 pub struct LineRenderData {
@@ -840,7 +840,7 @@ pub fn close_editor_file(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::highlight::TOKEN_STRING;
+    use crate::highlight::{get_rules, TOKEN_STRING};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn test_file(content: &str) -> std::path::PathBuf {
