@@ -133,6 +133,8 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: ./src-tauri
+          # 与 quality 工作流的缓存 key 隔离，避免两个工作流并发时同 key 保存互相顶掉
+          prefix-key: release
           # 即使构建失败也保留缓存，避免一次超时导致后续每次冷编译
           cache-on-failure: true
 

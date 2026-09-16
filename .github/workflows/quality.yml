@@ -87,9 +87,30 @@ jobs:
         with:
           toolchain: 1.95.0
           components: rustfmt, clippy
+      # Windows 用 actions/cache：rust-cache 的保存 key 固定基于 Cargo.lock 哈希，
+      # 被取消的 run 与新 run 的 post-save 同 key 并发会互相顶掉
+      # （"Unable to reserve cache with key ..., another job may be creating this cache"），
+      # 导致 Windows 反复 40+ 分钟冷编译。改为 run_id 唯一保存 key + restore-keys 前缀共享，
+      # save-always 保证失败/取消也能落盘。Linux/macOS 保存快、几乎不冲突，保留 rust-cache。
+      - name: Restore Rust cache (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: quality-rust-windows-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ github.run_id }}
+          restore-keys: |
+            quality-rust-windows-${{ hashFiles('src-tauri/Cargo.lock') }}-
+            quality-rust-windows-
+          save-always: true
       - uses: swatinem/rust-cache@v2
+        if: runner.os != 'Windows'
         with:
           workspaces: ./src-tauri
+          prefix-key: quality
           # 即使任务失败也保存缓存，避免一次超时让后续每次都被迫冷编译
           cache-on-failure: true
       - name: Install Linux system dependencies
