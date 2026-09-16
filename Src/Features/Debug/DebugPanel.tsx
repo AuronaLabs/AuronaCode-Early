@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { DebugConfigurationService } from "../../Core/DebugConfigurationService";
 import { DebugService } from "../../Core/DebugService";
 import { LocaleService, useLocale } from "../../Foundation/I18n";
-import { type DebugBreakpoint, type DebugVariable, useDebugStore } from "../../State/useDebugStore";
+import { type DebugBreakpoint, useDebugStore } from "../../State/useDebugStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Button } from "../../UI/Components/Button";
 import { EmptyState } from "../../UI/Components/EmptyState";
@@ -70,33 +70,34 @@ export function DebugPanel() {
 
   return (
     <section className="flex h-full min-h-0 flex-col">
-      <SidebarPageHeader
-        title={t("debug.sidebarTitle")}
-        actions={
-          <>
-            {debug.configurations.length > 0 && (
-              <HeaderAction
-                label={t("debug.editConfig")}
-                icon={<Icons.FileCode size={16} />}
-                onClick={() => {
-                  const path = DebugConfigurationService.getConfigurationPath();
-                  if (path) useWorkbenchStore.getState().openFile(path);
-                }}
-              />
-            )}
-            <HeaderAction
-              label={t("debug.refreshConfig")}
-              icon={<Icons.Refresh size={16} />}
-              onClick={() => void DebugService.reloadConfigurations(activeFile)}
-            />
-          </>
-        }
-      />
-
       {showContextEmpty ? (
+        // 空态对齐 Git 标杆：无 page 标题，仅发光 logo + 单行文案
         <DebugContextEmpty hasFile={Boolean(activeFile)} />
       ) : (
         <>
+          <SidebarPageHeader
+            title={t("debug.sidebarTitle")}
+            actions={
+              <>
+                {debug.configurations.length > 0 && (
+                  <HeaderAction
+                    label={t("debug.editConfig")}
+                    icon={<Icons.FileCode size={16} />}
+                    onClick={() => {
+                      const path = DebugConfigurationService.getConfigurationPath();
+                      if (path) useWorkbenchStore.getState().openFile(path);
+                    }}
+                  />
+                )}
+                <HeaderAction
+                  label={t("debug.refreshConfig")}
+                  icon={<Icons.Refresh size={16} />}
+                  onClick={() => void DebugService.reloadConfigurations(activeFile)}
+                />
+              </>
+            }
+          />
+
           <div className="shrink-0 px-[var(--PanelPaddingX)] pb-3 pt-2">
             <div className="flex gap-2">
               {debug.configurations.length ? (
@@ -739,7 +740,6 @@ function DebugContextEmpty({ hasFile }: { hasFile: boolean }) {
           </>
         )
       }
-      badge={t("debug.waitingContext")}
     />
   );
 }

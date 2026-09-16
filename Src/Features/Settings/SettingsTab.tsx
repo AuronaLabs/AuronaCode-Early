@@ -27,6 +27,7 @@ import { EditorSettingsSection } from "./EditorSettingsSection";
 import { ExtensionsSettingsSection } from "./ExtensionsSettingsSection";
 import { type Density, GeneralSettingsSection } from "./GeneralSettingsSection";
 import { LanguageServiceSettings } from "./LanguageServiceSettings";
+import { NetworkSettingsSection, type ProxyMode } from "./NetworkSettingsSection";
 import { SourceControlSettingsSection } from "./SourceControlSettingsSection";
 import { StorageSettingsSection } from "./StorageSettingsSection";
 
@@ -37,6 +38,7 @@ export type SettingsSection =
   | "codeIntelligence"
   | "terminalRun"
   | "sourceControl"
+  | "network"
   | "accountCloud"
   | "extensions"
   | "system"
@@ -49,6 +51,7 @@ const CATEGORY_TO_SECTION: Record<SettingCategory, SettingsSection> = {
   codeIntelligence: "codeIntelligence",
   terminalRun: "terminalRun",
   sourceControl: "sourceControl",
+  network: "network",
   accountCloud: "accountCloud",
   extensions: "extensions",
   system: "system",
@@ -70,6 +73,7 @@ const SECTION_META: Array<{
   },
   { id: "terminalRun", labelKey: "settings.categories.terminalRun", Icon: Icons.Terminal },
   { id: "sourceControl", labelKey: "settings.categories.sourceControl", Icon: Icons.Git },
+  { id: "network", labelKey: "settings.categories.network", Icon: Icons.World },
   { id: "accountCloud", labelKey: "settings.categories.accountCloud", Icon: Icons.User },
   { id: "extensions", labelKey: "settings.categories.extensions", Icon: Icons.Extensions },
   { id: "system", labelKey: "settings.categories.system", Icon: Icons.Database },
@@ -163,6 +167,8 @@ export function SettingsTab() {
   const [muteNonCriticalToasts, setMuteNonCriticalToasts] = useState(false);
   const [toastDuration, setToastDuration] = useState(4000);
   const [fliunoOpenMode, setFliunoOpenMode] = useState<"sidebar" | "editorTab">("sidebar");
+  const [proxyMode, setProxyMode] = useState<ProxyMode>("system");
+  const [proxyUrl, setProxyUrl] = useState("");
 
   const [editorFontSize, setEditorFontSize] = useState("14");
   const [editorLineHeight, setEditorLineHeight] = useState("24");
@@ -203,6 +209,8 @@ export function SettingsTab() {
       setMuteNonCriticalToasts(config.muteNonCriticalToasts ?? false);
       setToastDuration(config.toastDuration ?? 4000);
       setFliunoOpenMode(config.fliuno?.openMode ?? "sidebar");
+      setProxyMode(config.network?.proxyMode ?? "system");
+      setProxyUrl(config.network?.proxyUrl ?? "");
 
       const savedEditorFont = config.editorFontSize?.toString() || "14";
       const savedEditorLineHeight = config.editorLineHeight?.toString() || "24";
@@ -253,6 +261,20 @@ export function SettingsTab() {
     setFliunoOpenMode(next);
     void UserConfigStore.get().then((config) =>
       UserConfigStore.set({ fliuno: { ...config.fliuno, openMode: next } }),
+    );
+  };
+
+  const handleProxyModeChange = (next: ProxyMode) => {
+    setProxyMode(next);
+    void UserConfigStore.get().then((config) =>
+      UserConfigStore.set({ network: { ...config.network, proxyMode: next } }),
+    );
+  };
+
+  const handleProxyUrlChange = (next: string) => {
+    setProxyUrl(next);
+    void UserConfigStore.get().then((config) =>
+      UserConfigStore.set({ network: { ...config.network, proxyUrl: next } }),
     );
   };
 
@@ -436,6 +458,15 @@ export function SettingsTab() {
         return <DebugSettings />;
       case "sourceControl":
         return <SourceControlSettingsSection />;
+      case "network":
+        return (
+          <NetworkSettingsSection
+            proxyMode={proxyMode}
+            proxyUrl={proxyUrl}
+            onProxyModeChange={handleProxyModeChange}
+            onProxyUrlChange={handleProxyUrlChange}
+          />
+        );
       case "accountCloud":
         return <AccountSettings />;
       case "extensions":

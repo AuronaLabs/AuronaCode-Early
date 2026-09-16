@@ -10,6 +10,7 @@ export type SettingCategory =
   | "codeIntelligence"
   | "terminalRun"
   | "sourceControl"
+  | "network"
   | "accountCloud"
   | "extensions"
   | "system"

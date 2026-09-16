@@ -1,5 +1,15 @@
 # Aurona Code 核心架构指南 (Corona+ Architecture Specification)
 
+## V0.4.3 代理 / 窗口状态 / 液态玻璃材质
+
+V0.4.3 聚焦「网络代理、窗口状态契约、圆角体系收敛与液态玻璃材质」；Fliuno 补齐分组渲染与搜索偏好持久化。不新增 SDK、Runtime 或 Marketplace 能力。
+
+- **代理注入点**：前端为单一事实源。更新检查由 `UpdaterService` 读取 `UserConfigStore.network`，custom 模式经 `check({ proxy })` 直传 tauri-plugin-updater（检查与下载共用，运行时生效，无需重启；插件 check 命令不支持 no_proxy，故「不使用代理」仅对 Rust 侧工具链下载强制直连）；工具链下载经 `network::configure_client(reqwest::ClientBuilder)` 按全局 `OnceLock<RwLock<ProxyConfig>>` 修饰，`set_network_proxy` IPC 在启动与设置变更时同步。Marketplace 扩展下载走前端 fetch，明确不在覆盖范围。
+- **窗口状态契约**：`UserConfig.windowState`（物理像素 + isMaximized）。关闭保护链在 `destroy()` 前采样 `saveWindowLayout()` 并 `UserConfigStore.flush()` 落盘（最小化窗口跳过采样）；启动恢复在主窗口 show 之前执行（防闪烁），按显示器工作区做边界钳制（可见余量 120px），无显示器信息等异常一律回退最大化。`@tauri-apps/api` 类型只允许出现在 Foundation/Desktop，`WindowLayoutManager` 消费纯数据投影（`MonitorArea` / `setPositionPhysical`）。
+- **液态玻璃档体系**：`glassVariants` overlay 层挂 `glass-layer-overlay` 标记类；Theme.css 以 `--LiquidSpecular/--LiquidRim` 双令牌驱动顶缘 specular 高光带（::before，9s 微流动）与边缘 rim 折射描边（::after），伪元素 `z-index:-1` 压内容下方、随 `liquidTexture` 开关启停、强度乘 `--GlassOpacity-Multiplier` 与拟物三档联动；背景光场 5 层（3 radial 慢速群 + 1 conic 90s 旋转 + 1 远景呼吸），纯 GPU 合成并响应 `prefers-reduced-motion`。
+- **圆角三档契约**：控件按高度归档——h-9/h-10 → `rounded-2xl`、h-8 → `rounded-xl`、h-7 及以下 → 胶囊 `rounded-full`（必要时加高）；`--radius-control` 8px → 12px；控件焦点环统一 muted 体系（与输入框一致），accent 仅保留强调态。表面类（Card/Modal）保持 radius-surface。
+- **Fliuno 分组与偏好**：`SECTION_LABEL_KEYS` 统一分组标题，Modal 与 WorkspacePage 均按 SECTION_ORDER 分组渲染 sticky 组头（全局平铺索引与键盘导航/aria 一致）；Fliuno 大小写/正则默认值来自 `UserConfig`，Modal 与 WorkspacePage 的切换即时持久化并传入 FliunoCore；防抖统一 120ms；`FliunoCore.test.ts` 固化前缀路由、字段加权、模糊边界与高亮区间基线。
+
 ## V0.4.2 语言 / 终端 / 全局设计一致性
 
 V0.4.2 第一批聚焦「界面语言、终端主题集成、全局输入框规范与深色主题表面分域」，并完成两处大文件结构拆分；不新增 SDK、Runtime 或 Marketplace 能力。

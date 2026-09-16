@@ -3,12 +3,15 @@ import { useEffect, useState } from "react";
 import { OobeOverlay } from "../App/Oobe";
 import { useOobeStore } from "../App/Oobe/useOobeStore";
 import { applyAccentTheme, applyLiquidTexture } from "../App/ThemeAccent";
+import { desktopWindow } from "../Foundation/Desktop";
 import { AppLifecycleIPC } from "../Foundation/IPC/AppLifecycleCommands";
+import { NetworkIPC } from "../Foundation/IPC/NetworkCommands";
 import { StorageIPC } from "../Foundation/IPC/StorageCommands";
 import { PlatformService } from "../Foundation/Platform";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 import { setPathPlatform } from "../Shared/Utils/UriUtils";
 import { AppServices } from "./AppServices";
+import { restoreWindowLayout } from "./WindowLayoutManager";
 
 interface Props {
   children: React.ReactNode;
@@ -66,6 +69,12 @@ export function AppBootstrapper({ children }: Props) {
           () => undefined,
         );
 
+        // 同步代理偏好到 Rust 侧全局状态（工具链下载使用；更新检查由 UpdaterService 按 check 选项直传）
+        void NetworkIPC.setNetworkProxy(
+          userConfig.network?.proxyMode ?? "system",
+          userConfig.network?.proxyUrl,
+        ).catch(() => undefined);
+
         const savedTheme = userConfig.theme || "system";
         const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
         if (savedTheme === "dark" || (savedTheme === "system" && prefersDark)) {
@@ -109,8 +118,18 @@ export function AppBootstrapper({ children }: Props) {
         const elapsed = performance.now() - startTime;
         setReady(true);
         // 单层 rAF：等待一帧渲染完成后即记录指标并关闭 Splash
-        requestAnimationFrame(() => {
+        requestAnimationFrame(async () => {
           if (!mounted) return;
+          // 主窗口此刻仍不可见：首启最大化 / 恢复上次布局都在 show 之前完成，避免尺寸变化闪烁
+          try {
+            if (UserConfigStore.isFirstRun()) {
+              await desktopWindow.maximize();
+            } else if (userConfig.windowState) {
+              await restoreWindowLayout(userConfig.windowState);
+            }
+          } catch (error) {
+            console.warn("Window layout restore failed", error);
+          }
           const mainInteractiveMs = performance.now() - startTime;
           void AppLifecycleIPC.recordStartupMetrics({
             frontendBootstrapMs: elapsed,

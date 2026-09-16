@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
 import { useLocale } from "../../Foundation/I18n";
+import { EventBus } from "../../Foundation/EventBus";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { LanguageFeaturePreferences } from "../../Foundation/Types/Config";
 import { useDebugStore } from "../../State/useDebugStore";
@@ -152,6 +153,25 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const [languagePreferences, setLanguagePreferences] =
     useState<Required<LanguageFeaturePreferences>>(DEFAULT_PREFS);
   const [diagnostics, setDiagnostics] = useState<DiagnosticItem[]>([]);
+
+  // 平滑滚动开关：设置变更即时生效（EditorSettingsSection 会广播 settings:editor-changed）
+  const [smoothScrollingEnabled, setSmoothScrollingEnabled] = useState(true);
+  useEffect(() => {
+    let mounted = true;
+    const readSetting = () => {
+      UserConfigStore.get()
+        .then((cfg) => {
+          if (mounted) setSmoothScrollingEnabled(cfg.editorSmoothScrolling ?? true);
+        })
+        .catch(() => undefined);
+    };
+    readSetting();
+    const unsub = EventBus.on("settings:editor-changed", readSetting);
+    return () => {
+      mounted = false;
+      unsub();
+    };
+  }, []);
 
   useEffect(() => {
     UserConfigStore.get()
@@ -306,7 +326,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       }
       if (targetTop !== null) {
         const jump = Math.abs(targetTop - container.scrollTop);
-        if (jump > layout.lineHeight * 4) {
+        if (jump > layout.lineHeight * 4 && smoothScrollingEnabled) {
           const startTop = container.scrollTop;
           const startTime = performance.now();
           cancelAnimationFrame(smoothScrollRafRef.current);
@@ -332,7 +352,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         container.scrollLeft = caretX - container.clientWidth + layout.contentInsetX + 24;
       }
     },
-    [documentLines, layout],
+    [documentLines, layout, smoothScrollingEnabled],
   );
 
   // 卸载时终止未完成的平滑滚动动画

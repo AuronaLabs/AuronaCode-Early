@@ -781,6 +781,20 @@ pub struct ExtensionRuntime {
 
 impl ExtensionRuntime {
     pub fn new(component_bytes: &[u8], limits: ExtensionLimits) -> Result<Self, String> {
+        // 防御性校验：空/非 wasm 字节会被 wasmtime 当作 WAT 文本解析，
+        // 报出晦涩的 "expected at least one module field"；这里先给出可行动的错误。
+        if component_bytes.is_empty() {
+            return Err("扩展 WASM 组件为空：纯 JS 扩展需要 VSCode 兼容层提供运行时".to_string());
+        }
+        if !component_bytes.starts_with(b"\0asm") {
+            return Err("扩展 WASM 组件无效：二进制缺少 \\0asm 魔数".to_string());
+        }
+        if component_bytes.len() >= 8 && component_bytes[4] == 0x01 {
+            return Err(
+                "扩展 WASM 是核心模块而非组件：wasm32-wasip2 打包链必须产出组件编码".to_string(),
+            );
+        }
+
         let mut config = Config::new();
         config.consume_fuel(true);
         config.cranelift_opt_level(wasmtime::OptLevel::Speed);

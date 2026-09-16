@@ -7,7 +7,6 @@ import { Select } from "../../UI/Components/Select";
 import { SettingResetButton } from "../../UI/Components/SettingResetButton";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer, type GlassIntensity } from "../../UI/Core/GlassManager";
-import { Icons } from "../../UI/Icons/IconManager";
 
 interface AppearanceSettingsSectionProps {
   accentTheme: AccentThemeId;
@@ -74,7 +73,7 @@ export function AppearanceSettingsSection({
               onReset={() => onAccentThemeChange("aurora")}
             />
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
             {ACCENT_THEMES.map((accent) => {
               const selected = accentTheme === accent.id;
               return (
@@ -83,14 +82,15 @@ export function AppearanceSettingsSection({
                   key={accent.id}
                   aria-pressed={selected}
                   onClick={() => onAccentThemeChange(accent.id)}
-                  className={`group relative flex min-h-[68px] overflow-hidden rounded-xl border p-2.5 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 ${
+                  className={`group relative flex flex-col gap-1.5 overflow-hidden rounded-2xl border p-1.5 pb-1 text-left transition-[border-color,box-shadow,transform,background-color] duration-200 ${
                     selected
-                      ? "border-[color-mix(in_srgb,var(--color-accent)_32%,var(--border-subtle))] bg-[var(--material-interactive-active)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_14%,transparent)]"
-                      : "border-[var(--border-subtle)] bg-[var(--material-surface)] hover:border-[var(--border-overlay)] hover:bg-[var(--material-interactive-hover)] hover:-translate-y-px"
+                      ? "border-[color-mix(in_srgb,var(--color-accent)_50%,transparent)] bg-[var(--material-interactive-active)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_30%,transparent),0_10px_28px_color-mix(in_srgb,var(--color-accent)_22%,transparent)]"
+                      : "border-[var(--border-subtle)] bg-[var(--material-surface)] hover:-translate-y-px hover:border-[var(--border-overlay)] hover:bg-[var(--material-interactive-hover)]"
                   }`}
                 >
+                  {/* 渐变预览窗：毛玻璃画框 + 顶缘 specular 高光带（液态玻璃语言） */}
                   <span
-                    className="relative flex h-[58px] w-full items-end overflow-hidden rounded-lg border border-[var(--border-subtle)]"
+                    className="relative block h-11 w-full overflow-hidden rounded-xl border border-[var(--border-subtle)] shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]"
                     aria-hidden="true"
                   >
                     <span
@@ -102,28 +102,28 @@ export function AppearanceSettingsSection({
                         ),
                       }}
                     />
+                    <span className="absolute inset-x-0 top-0 h-1/2 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.2),rgba(255,255,255,0))]" />
                     <span
-                      className="absolute right-1.5 top-1.5 size-3 rounded-full border border-white/70 shadow-sm"
+                      className="absolute right-1 top-1 size-2.5 rounded-full border border-white/70 shadow-sm"
                       style={{ backgroundColor: `rgb(${accent.rgb})` }}
                     />
-                    <span className="relative z-10 flex w-full items-center gap-1.5 bg-[linear-gradient(to_top,color-mix(in_srgb,var(--material-overlay)_88%,transparent),transparent)] px-2 pb-1.5 pt-4">
-                      <span className="truncate text-[11px] font-semibold text-[var(--color-text-highlight)]">
-                        {themeLabel(accent.id)}
-                      </span>
-                      {accent.isDefault && (
-                        <span className="shrink-0 rounded-md bg-[color-mix(in_srgb,var(--color-accent)_14%,transparent)] px-1 py-0.5 text-[9px] font-semibold leading-none text-[var(--color-accent)]">
-                          {t("settings.appearanceSection.defaultBadge")}
-                        </span>
-                      )}
-                    </span>
                   </span>
-                  {selected && (
-                    <Icons.Check
-                      className="absolute left-1.5 top-1.5 z-20 text-[var(--color-text-highlight)]"
-                      size={15}
-                      stroke={2.5}
-                    />
-                  )}
+                  <span className="flex min-w-0 items-center justify-center gap-1 pb-0.5">
+                    <span
+                      className={`truncate text-[10.5px] font-semibold ${
+                        selected
+                          ? "text-[var(--color-text-highlight)]"
+                          : "text-[var(--color-text-muted)] group-hover:text-[var(--color-text-primary)]"
+                      }`}
+                    >
+                      {themeLabel(accent.id)}
+                    </span>
+                    {accent.isDefault && (
+                      <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_14%,transparent)] px-1 py-px text-[8.5px] font-semibold leading-none text-[var(--color-accent)]">
+                        {t("settings.appearanceSection.defaultBadge")}
+                      </span>
+                    )}
+                  </span>
                 </button>
               );
             })}

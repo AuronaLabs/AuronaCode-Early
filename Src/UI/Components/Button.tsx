@@ -4,7 +4,7 @@ import * as React from "react";
 import { cn } from "../../Shared/Utils/cn";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-lg text-[13px] font-medium transition-[background-color,border-color,color,box-shadow,opacity,transform] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/50 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97] select-none",
+  "inline-flex items-center justify-center gap-2 text-[13px] font-medium transition-[background-color,border-color,color,box-shadow,opacity,transform] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-text-muted)]/40 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97] select-none",
   {
     variants: {
       variant: {
@@ -20,10 +20,10 @@ const buttonVariants = cva(
           "border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-highlight)] backdrop-blur-[var(--glass-blur-raised)] hover:bg-[var(--material-interactive-hover)]",
       },
       size: {
-        default: "h-8 px-4 py-1.5",
-        sm: "h-7 px-3 text-[12px]",
-        lg: "h-10 px-8 text-[14px]",
-        icon: "h-8 w-8",
+        default: "h-8 rounded-xl px-4 py-1.5",
+        sm: "h-7 rounded-full px-3.5 text-[12px]",
+        lg: "h-10 rounded-2xl px-8 text-[14px]",
+        icon: "h-8 w-8 rounded-xl",
       },
       fullWidth: {
         true: "w-full",

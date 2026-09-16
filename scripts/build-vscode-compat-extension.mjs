@@ -39,7 +39,7 @@ function buildGuest() {
 
   try {
     execFileSync("cargo", args, { stdio: "inherit", env });
-  } catch (firstError) {
+  } catch {
     if (process.platform === "win32") {
       const vcvars = findVcvars64();
       if (vcvars) {
@@ -137,6 +137,14 @@ function main() {
   const wasm = readFileSync(wasmPath);
   if (wasm.length < 4 || wasm.subarray(0, 4).toString("binary") !== "\0asm") {
     throw new Error(`无效的 WASM 产物: ${wasmPath}`);
+  }
+  // wasm32-wasip2 目标应直接产出组件编码（版本 13: 0x0d 0x00 0x01 0x00）。
+  // 若产出核心模块（0x01 0x00 0x00 0x00），wasmtime 的组件 API 无法加载。
+  const componentVersion = Buffer.from([0x0d, 0x00, 0x01, 0x00]);
+  if (wasm.length < 8 || !wasm.subarray(4, 8).equals(componentVersion)) {
+    throw new Error(
+      "extension.wasm 不是 WebAssembly 组件（component）编码——请确认 wasm32-wasip2 工具链产出组件而非核心模块",
+    );
   }
   const view = readFileSync(join(guestDir, "ui", "index.html"), "utf8");
   if (!view.includes("Content-Security-Policy")) {

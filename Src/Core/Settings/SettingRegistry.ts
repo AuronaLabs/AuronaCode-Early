@@ -30,6 +30,7 @@ export const SETTING_CATEGORY_KEYS: Record<SettingCategory, I18nKey> = {
   codeIntelligence: "settings.categories.codeIntelligence",
   terminalRun: "settings.categories.terminalRun",
   sourceControl: "settings.categories.sourceControl",
+  network: "settings.categories.network",
   accountCloud: "settings.categories.accountCloud",
   extensions: "settings.categories.extensions",
   system: "settings.categories.system",
@@ -265,6 +266,36 @@ registerSetting({
 });
 
 registerSetting({
+  id: "editorSmoothScrolling",
+  category: "editor",
+  titleKey: "settings.definitions.editorSmoothScrolling.title",
+  descriptionKey: "settings.definitions.editorSmoothScrolling.description",
+  keywords: ["scroll", "smooth", "editor", "animation", "滚动", "平滑", "缓动", "编辑器", "动画"],
+  type: "boolean",
+  defaultValue: true,
+});
+
+registerSetting({
+  id: "fliunoSearchCaseSensitive",
+  category: "general",
+  titleKey: "settings.definitions.fliunoSearchCaseSensitive.title",
+  descriptionKey: "settings.definitions.fliunoSearchCaseSensitive.description",
+  keywords: ["fliuno", "search", "case", "sensitive", "搜索", "大小写", "区分", "敏感"],
+  type: "boolean",
+  defaultValue: false,
+});
+
+registerSetting({
+  id: "fliunoSearchRegex",
+  category: "general",
+  titleKey: "settings.definitions.fliunoSearchRegex.title",
+  descriptionKey: "settings.definitions.fliunoSearchRegex.description",
+  keywords: ["fliuno", "search", "regex", "正则", "表达式", "搜索", "内容"],
+  type: "boolean",
+  defaultValue: false,
+});
+
+registerSetting({
   id: "terminalFontSize",
   category: "terminalRun",
   titleKey: "settings.definitions.terminalFontSize.title",
@@ -376,16 +407,6 @@ registerSetting({
 });
 
 registerSetting({
-  id: "editorCodeFolding",
-  category: "editor",
-  titleKey: "settings.featureFlags.editorCodeFolding.title",
-  descriptionKey: "settings.featureFlags.editorCodeFolding.desc",
-  keywords: ["folding", "code", "折叠", "代码折叠"],
-  type: "boolean",
-  defaultValue: true,
-});
-
-registerSetting({
   id: "muteNonCritical",
   category: "general",
   titleKey: "settings.muteNonCritical",
@@ -403,6 +424,37 @@ registerSetting({
   keywords: ["toast", "duration", "time", "通知时长", "停留时间", "弹窗时长"],
   type: "select",
   defaultValue: "normal",
+});
+
+registerSetting({
+  id: "networkProxyMode",
+  category: "network",
+  titleKey: "settings.definitions.networkProxyMode.title",
+  descriptionKey: "settings.definitions.networkProxyMode.description",
+  keywords: [
+    "proxy",
+    "network",
+    "update",
+    "download",
+    "代理",
+    "网络",
+    "更新",
+    "下载",
+    "系统代理",
+    "直连",
+  ],
+  type: "select",
+  defaultValue: "system",
+});
+
+registerSetting({
+  id: "networkProxyUrl",
+  category: "network",
+  titleKey: "settings.definitions.networkProxyUrl.title",
+  descriptionKey: "settings.definitions.networkProxyUrl.description",
+  keywords: ["proxy", "url", "address", "socks", "http", "代理", "地址", "服务器"],
+  type: "string",
+  defaultValue: "",
 });
 
 registerSetting({

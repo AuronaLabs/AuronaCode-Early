@@ -1,5 +1,15 @@
 import "@testing-library/jest-dom/vitest";
 
+// jsdom 未实现 ResizeObserver（FilterChips/EditorTabBar 等溢出检测依赖它）
+class ResizeObserverStub {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+}
+
 if (typeof window !== "undefined") {
   const win = window as unknown as {
     __TAURI_INTERNALS__?: {

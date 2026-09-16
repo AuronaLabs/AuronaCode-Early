@@ -184,10 +184,16 @@ impl ExtensionState {
             .app_local_data_dir()
             .map_err(|error| format!("无法定位扩展目录: {error}"))?
             .join("extensions");
-        let target = extension_dir.join(format!("{id}.aurx"));
-        if !target.exists() {
+        // 兼容两种落盘格式：AURX 包（市场扩展）与 VSIX（VSCode 兼容扩展）
+        let target_aurx = extension_dir.join(format!("{id}.aurx"));
+        let target_vsix = extension_dir.join(format!("{id}.vsix"));
+        let target = if target_aurx.exists() {
+            target_aurx
+        } else if target_vsix.exists() {
+            target_vsix
+        } else {
             return Err(format!("未找到已安装扩展: {id}"));
-        }
+        };
         std::fs::remove_file(&target).map_err(|error| format!("无法卸载扩展安装包: {error}"))?;
         self.runtimes
             .lock()
@@ -231,10 +237,16 @@ impl ExtensionState {
             .package(id)
             .ok_or_else(|| format!("扩展不存在: {id}"))?;
         let wasm_bytes = if package.wasm.is_empty() {
-            if let Some(compat_pkg) = self.package("aurona.vscode-compat") {
-                compat_pkg.wasm.clone()
-            } else {
-                package.wasm.clone()
+            // 纯 JS 扩展（如 VSIX demo）：借用 VSCode 兼容层的 WASM 运行时。
+            // 兼容层缺失时给出明确错误，而不是让空字节落到 wasmtime 的 WAT 解析器里。
+            match self.package("aurona.vscode-compat") {
+                Some(compat_pkg) if !compat_pkg.wasm.is_empty() => compat_pkg.wasm.clone(),
+                _ => {
+                    return Err(
+                        "该扩展为纯 JS 扩展，需要 VSCode 兼容层提供 WASM 运行时，但兼容层未就绪"
+                            .to_string(),
+                    );
+                }
             }
         } else {
             package.wasm.clone()

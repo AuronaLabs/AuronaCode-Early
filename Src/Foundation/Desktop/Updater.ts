@@ -1,5 +1,5 @@
 import { relaunch } from "@tauri-apps/plugin-process";
-import { check, type Update } from "@tauri-apps/plugin-updater";
+import { type CheckOptions, check, type Update } from "@tauri-apps/plugin-updater";
 
 export interface UpdateInfo {
   version: string;
@@ -24,8 +24,9 @@ const toInfo = (update: Update): UpdateInfo => ({
 });
 
 export const desktopUpdater = {
-  async check(): Promise<UpdateInfo | null> {
-    pendingUpdate = await check();
+  /** options.proxy 覆盖检查与后续下载的代理；不传则跟随系统默认 */
+  async check(options?: CheckOptions): Promise<UpdateInfo | null> {
+    pendingUpdate = await check(options);
     return pendingUpdate ? toInfo(pendingUpdate) : null;
   },
 

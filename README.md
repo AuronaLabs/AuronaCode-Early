@@ -4,7 +4,7 @@
   <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.2-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.3-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
@@ -16,7 +16,7 @@
 Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造轻量、克制且具触感美学的沉浸式编码工作台。
 
 > [!NOTE]
-> **Aurona Code V0.4.2 语言 / 终端 / 全局质感** 当前版本为 **V0.4.2**（Stable 正式通道）。本批次以界面语言、终端与全局设计一致性为主题：新增德语、意大利语与日语并修复切换语言后部分界面不刷新的问题，语言选择框各语言自名显示；终端配色完整跟随主题并支持强调色即时切换，暗色 ANSI 调色板补全，背景回归卡片；全局输入框统一为 Marketplace 玻璃质感；八套主题深色模式表面分域不再浑浊；编辑器补齐词删除、搜索预填、平滑滚动与当前行 gutter 指示等 VSCode 体感细节，并完成编辑器提交路径与 Rust 语法高亮器的结构拆分。
+> **Aurona Code V0.4.3 代理 / 液态玻璃 / Fliuno 升级** 当前版本为 **V0.4.3**（Stable 正式通道）。本批次以网络代理、窗口体验与全局材质升级为主题：新增网络代理设置（跟随系统 / 自定义 / 直连），覆盖更新检查与工具链下载；窗口尺寸与位置跨会话记忆、首次启动自动最大化；OOBE 语言选择改为双列网格；控件圆角统一到新三档体系并重设计色彩主题选择器；流光升级为液态玻璃流光（多组有机光域 + 浮层折射 rim 与 specular 高光带，支持降级与强度联动）；修复内置扩展预览渲染失败与卸载"未找到"，Fliuno 菜单溢出改箭头滚动范式，搜索大小写/正则接入设置持久化并补齐分组结果渲染。
 
 ---
 
@@ -30,7 +30,9 @@ Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面�
 - **Aurona Marketplace 插件市场**：沉浸式毛玻璃详情页、一键复制 Identifier、更新与卸载分离操作、WASI 0.2 沙箱权限审查、安全审计评分、设备维度下载量统计与真实评价互动。
 - **面向对象 SDK v1 与 VSCode 转译层**：固化 SDK v1 契约（Fliuno 搜索注入、沙箱 Storage、Dialog 交互），支持标准 `.vsix` 扩展原生解包转译运行。
 - **双渠道与 Feature Flags 架构**：Stable 正式版与 Pioneer 先锋测试通道无缝切换，iOS Developer Beta 模式分发。
-- **Fliuno 统一搜索**：命令、文件、符号、设置与内容一键直达，键盘优先导航。
+- **Fliuno 统一搜索**：命令、文件、符号、设置与内容一键直达，键盘优先导航，分组 sticky 结果渲染，大小写/正则偏好持久化。
+- **网络代理设置**：跟随系统 / 自定义 / 直连三档代理，覆盖更新检查与语言服务器等工具链下载，自定义代理即时生效。
+- **窗口状态记忆与液态玻璃流光**：窗口尺寸与位置跨会话记忆（异常自动回退最大化、首启自动最大化）；可开关的液态玻璃流光为背景与浮层玻璃带来折射质感，支持动效降级与三档强度联动。
 - **集成透明终端**：基于 `portable-pty` 与 `xterm.js`，配色完整跟随明暗主题与强调色即时切换，背景与主题卡片浑然一体。
 - **全链路国际化**：简体中文 (zh-CN)、繁體中文 (zh-Hant)、English、Deutsch、Italiano 与日本語实时无缝切换，语言选择以各语言自名显示。
 - **首启欢迎引导 (OOBE) 与安装器多语言**：Windows 安装程序支持多语言界面选择；首次启动主程序直接呈现全屏欢迎引导（欢迎 → 语言 → 外观主题 → 账户登录，可跳过），完整复用整套主题系统，完成直达工作台。

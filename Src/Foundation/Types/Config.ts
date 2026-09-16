@@ -57,6 +57,21 @@ export interface CleanupPreferences {
   clearCacheOnExit?: boolean;
 }
 
+/** 主窗口布局记忆：物理像素坐标，恢复时做屏幕边界钳制 */
+export interface WindowStatePreferences {
+  isMaximized?: boolean;
+  width?: number;
+  height?: number;
+  x?: number;
+  y?: number;
+}
+
+/** 网络代理偏好：仅作用于更新检查与工具链下载（Marketplace 扩展下载走前端 fetch 不在内） */
+export interface NetworkPreferences {
+  proxyMode?: "system" | "custom" | "none";
+  proxyUrl?: string;
+}
+
 export interface UserConfig {
   theme?: "light" | "dark" | "system";
   accentTheme?: AccentThemeId;
@@ -74,6 +89,12 @@ export interface UserConfig {
   editorWordWrap?: "on" | "off" | "wordWrapColumn" | "bounded";
   editorMinimap?: boolean;
   editorCursorSmoothCaret?: boolean;
+  /** 光标大幅跳转时的 120ms 缓动滚动开关 */
+  editorSmoothScrolling?: boolean;
+  /** Fliuno 内容搜索默认大小写敏感 */
+  fliunoSearchCaseSensitive?: boolean;
+  /** Fliuno 内容搜索默认正则模式 */
+  fliunoSearchRegex?: boolean;
 
   terminalFontSize?: number;
   terminalCursorBlink?: boolean;
@@ -90,4 +111,6 @@ export interface UserConfig {
   toastDuration?: number;
   fliuno?: FliunoPreferences;
   cleanup?: CleanupPreferences;
+  windowState?: WindowStatePreferences;
+  network?: NetworkPreferences;
 }

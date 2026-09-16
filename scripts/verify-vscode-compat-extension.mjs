@@ -67,6 +67,11 @@ function main() {
   if (wasm.length < 4 || wasm.subarray(0, 4).toString("binary") !== "\0asm") {
     throw new Error("extension.wasm 不是有效 WASM");
   }
+  // 组件编码版本 13（0x0d 0x00 0x01 0x00）；核心模块无法被 wasmtime 组件 API 加载
+  const componentVersion = Buffer.from([0x0d, 0x00, 0x01, 0x00]);
+  if (wasm.length < 8 || !wasm.subarray(4, 8).equals(componentVersion)) {
+    throw new Error("extension.wasm 不是 WebAssembly 组件（component）编码");
+  }
   const view = entries.find((entry) => entry.name === "ui/index.html").content.toString("utf8");
   if (!view.includes("Content-Security-Policy")) {
     throw new Error("插件 UI 缺少 CSP");

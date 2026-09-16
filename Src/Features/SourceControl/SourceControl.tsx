@@ -60,39 +60,46 @@ export const SourceControl = React.memo(function SourceControl() {
     setIsLoading(false);
   }, []);
 
-  const fetchStatus = useCallback(async (path: string, background = false) => {
-    try {
-      if (background) setIsRefreshing(true);
-      const fullStatus = await GitIPC.getFullStatus(path);
-      setIsRepo(fullStatus.is_repo);
-      setFiles(fullStatus.files);
-      setBranch(fullStatus.branch);
-      setBranches(fullStatus.branches);
-      setHasRemote(fullStatus.has_remote);
-      setAhead(fullStatus.ahead);
-      setBehind(fullStatus.behind);
-      setCommits(fullStatus.commits);
-      GitService.setCache({
-        repoPath: path,
-        isRepo: fullStatus.is_repo,
-        files: fullStatus.files,
-        commits: fullStatus.commits,
-        branch: fullStatus.branch,
-        branches: fullStatus.branches,
-        hasRemote: fullStatus.has_remote,
-        ahead: fullStatus.ahead,
-        behind: fullStatus.behind,
-        checkedAt: Date.now(),
-      });
+  const fetchStatus = useCallback(
+    async (path: string, background = false) => {
+      try {
+        if (background) setIsRefreshing(true);
+        const fullStatus = await GitIPC.getFullStatus(path);
+        setIsRepo(fullStatus.is_repo);
+        setFiles(fullStatus.files);
+        setBranch(fullStatus.branch);
+        setBranches(fullStatus.branches);
+        setHasRemote(fullStatus.has_remote);
+        setAhead(fullStatus.ahead);
+        setBehind(fullStatus.behind);
+        setCommits(fullStatus.commits);
+        GitService.setCache({
+          repoPath: path,
+          isRepo: fullStatus.is_repo,
+          files: fullStatus.files,
+          commits: fullStatus.commits,
+          branch: fullStatus.branch,
+          branches: fullStatus.branches,
+          hasRemote: fullStatus.has_remote,
+          ahead: fullStatus.ahead,
+          behind: fullStatus.behind,
+          checkedAt: Date.now(),
+        });
 
-      EventBus.emit("git:changes-count", fullStatus.files.length);
-    } catch (error) {
-      console.error("Git status failed", error);
-      if (!background) showToast(`Git 状态读取失败：${error}`, "error");
-    } finally {
-      if (background) setIsRefreshing(false);
-    }
-  }, []);
+        EventBus.emit("git:changes-count", fullStatus.files.length);
+      } catch (error) {
+        console.error("Git status failed", error);
+        if (!background)
+          showToast(
+            t("sourceControl.statusReadFailed").replace("{message}", String(error)),
+            "error",
+          );
+      } finally {
+        if (background) setIsRefreshing(false);
+      }
+    },
+    [t],
+  );
 
   const checkRepo = useCallback(
     async (path: string, background = false) => {
@@ -129,13 +136,17 @@ export const SourceControl = React.memo(function SourceControl() {
         }
       } catch (error) {
         console.error("Git repo check failed", error);
-        if (!background) showToast(`Git 仓库检查失败：${error}`, "error");
+        if (!background)
+          showToast(
+            t("sourceControl.repoCheckFailed").replace("{message}", String(error)),
+            "error",
+          );
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
       }
     },
-    [fetchStatus],
+    [fetchStatus, t],
   );
 
   useEffect(() => {
@@ -191,7 +202,7 @@ export const SourceControl = React.memo(function SourceControl() {
       await GitIPC.init(repoPath);
       await checkRepo(repoPath);
     } catch (error) {
-      showToast(`初始化 Git 仓库失败：${error}`, "error");
+      showToast(t("sourceControl.initFailed").replace("{message}", String(error)), "error");
     }
   };
 
@@ -202,7 +213,7 @@ export const SourceControl = React.memo(function SourceControl() {
       else await GitIPC.add(repoPath, file.path);
       await fetchStatus(repoPath, true);
     } catch (error) {
-      showToast(`暂存状态更新失败：${error}`, "error");
+      showToast(t("sourceControl.stageUpdateFailed").replace("{message}", String(error)), "error");
     }
   };
 
@@ -212,7 +223,7 @@ export const SourceControl = React.memo(function SourceControl() {
       await GitIPC.add(repoPath, ".");
       await fetchStatus(repoPath, true);
     } catch (error) {
-      showToast(`全部暂存失败：${error}`, "error");
+      showToast(t("sourceControl.stageAllFailed").replace("{message}", String(error)), "error");
     }
   };
 
@@ -222,7 +233,7 @@ export const SourceControl = React.memo(function SourceControl() {
       await GitIPC.unstageAll(repoPath);
       await fetchStatus(repoPath, true);
     } catch (error) {
-      showToast(`取消暂存失败：${error}`, "error");
+      showToast(t("sourceControl.unstageAllFailed").replace("{message}", String(error)), "error");
     }
   };
 
@@ -252,10 +263,15 @@ export const SourceControl = React.memo(function SourceControl() {
       await GitIPC[action](repoPath);
       await fetchStatus(repoPath, true);
       OutputService.append("source-control", `${label} completed`);
-      showToast(`${label}完成`, "success");
+      showToast(t("sourceControl.repoActionCompleted").replace("{label}", label), "success");
     } catch (error) {
       OutputService.append("source-control", `${label} failed: ${error}`, "error");
-      showToast(`${label}失败：${error}`, "error");
+      showToast(
+        t("sourceControl.repoActionFailed")
+          .replace("{label}", label)
+          .replace("{message}", String(error)),
+        "error",
+      );
     } finally {
       setGitAction(null);
     }
@@ -268,10 +284,10 @@ export const SourceControl = React.memo(function SourceControl() {
       OutputService.append("source-control", `Switching branch from ${branch} to ${nextBranch}`);
       await GitIPC.switchBranch(repoPath, nextBranch);
       await fetchStatus(repoPath, true);
-      showToast(`已切换到 ${nextBranch}`, "success");
+      showToast(t("sourceControl.branchSwitched").replace("{branch}", nextBranch), "success");
     } catch (error) {
       OutputService.append("source-control", `Branch switch failed: ${error}`, "error");
-      showToast(`分支切换失败：${error}`, "error");
+      showToast(t("sourceControl.branchSwitchFailed").replace("{message}", String(error)), "error");
     } finally {
       setGitAction(null);
     }
@@ -287,10 +303,10 @@ export const SourceControl = React.memo(function SourceControl() {
       setNewBranchName("");
       setIsCreateBranchOpen(false);
       await fetchStatus(repoPath, true);
-      showToast(`已创建并切换到 ${name}`, "success");
+      showToast(t("sourceControl.branchCreatedSwitched").replace("{name}", name), "success");
     } catch (error) {
       OutputService.append("source-control", `Branch creation failed: ${error}`, "error");
-      showToast(`创建分支失败：${error}`, "error");
+      showToast(t("sourceControl.branchCreateFailed").replace("{message}", String(error)), "error");
     } finally {
       setGitAction(null);
     }
@@ -314,7 +330,7 @@ export const SourceControl = React.memo(function SourceControl() {
       setDiscardTarget(null);
       await fetchStatus(repoPath, true);
     } catch (error) {
-      showToast(`放弃更改失败：${error}`, "error");
+      showToast(t("sourceControl.discardFailed").replace("{message}", String(error)), "error");
     } finally {
       setGitAction(null);
     }
@@ -420,7 +436,7 @@ export const SourceControl = React.memo(function SourceControl() {
   if (isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-transparent text-[var(--color-text-muted)] text-sm">
-        正在加载 Git 状态...
+        {t("sourceControl.loadingStatus")}
       </div>
     );
   }
@@ -430,8 +446,8 @@ export const SourceControl = React.memo(function SourceControl() {
       <EmptyState
         className="h-full"
         icon={<Icons.Folder size={27} stroke={1.45} />}
-        title="尚未打开任何工作区"
-        description="请先在资源管理器中打开一个文件夹"
+        title={t("sourceControl.noWorkspaceTitle")}
+        description={t("sourceControl.noWorkspaceDescription")}
       />
     );
   }
@@ -442,7 +458,7 @@ export const SourceControl = React.memo(function SourceControl() {
         <SidebarPageHeader
           title={
             <>
-              源代码管理
+              {t("sourceControl.panelTitle")}
               <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]">
                 Preview
               </span>
@@ -452,7 +468,7 @@ export const SourceControl = React.memo(function SourceControl() {
         <EmptyState
           className="flex-1"
           icon={<Icons.GitBranch size={27} stroke={1.45} />}
-          title="当前文件夹尚未初始化 Git 仓库"
+          title={t("sourceControl.notInitializedTitle")}
           actions={
             <button
               type="button"
@@ -460,7 +476,7 @@ export const SourceControl = React.memo(function SourceControl() {
               className="flex items-center gap-2 rounded-xl bg-[var(--color-accent)] px-5 py-2.5 text-[13px] font-bold text-[var(--color-accent-text)] transition-all hover:opacity-90 active:scale-[0.98]"
             >
               <Icons.Plus size={16} stroke={2.5} />
-              初始化 Git 仓库
+              {t("sourceControl.initRepository")}
             </button>
           }
         />
@@ -477,7 +493,7 @@ export const SourceControl = React.memo(function SourceControl() {
       <SidebarPageHeader
         title={
           <>
-            源代码管理
+            {t("sourceControl.panelTitle")}
             <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]">
               Preview
             </span>
@@ -753,7 +769,7 @@ export const SourceControl = React.memo(function SourceControl() {
                 {unstagedExpanded &&
                   (unstagedFiles.length === 0 ? (
                     <div className="p-4 text-center text-[12px] text-[var(--color-text-muted)] bg-transparent">
-                      目前没有任何更改
+                      {t("sourceControl.noChanges")}
                     </div>
                   ) : (
                     <div className="flex-1 overflow-y-auto overflow-x-hidden aurona-scroll p-2 bg-transparent">

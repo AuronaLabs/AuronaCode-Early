@@ -90,6 +90,7 @@ export interface EventMap {
     | "codeIntelligence"
     | "terminalRun"
     | "sourceControl"
+    | "network"
     | "accountCloud"
     | "extensions"
     | "system"

@@ -25,7 +25,7 @@ export function LanguageStep({ onSelect }: { onSelect: (next: Locale) => void })
           {t("oobe.languageDesc")}
         </p>
       </div>
-      <div className="flex flex-col gap-2.5">
+      <div className="grid grid-cols-2 gap-3">
         {LANGUAGE_OPTIONS.map((option) => {
           const selected = locale === option.id;
           return (
@@ -36,23 +36,23 @@ export function LanguageStep({ onSelect }: { onSelect: (next: Locale) => void })
               role="button"
               aria-pressed={selected}
               onClick={() => onSelect(option.id)}
-              className={`flex cursor-pointer items-center justify-between p-4 text-left transition-shadow duration-150 ${
+              className={`flex cursor-pointer items-center justify-between gap-2 p-3.5 text-left transition-shadow duration-150 ${
                 selected
                   ? "cursor-default shadow-[0_0_0_1.5px_color-mix(in_srgb,var(--color-accent)_55%,transparent),0_8px_24px_rgb(0_0_0/20%)]"
                   : ""
               }`}
             >
-              <span className="flex flex-col gap-0.5">
-                <span className="text-[14.5px] font-semibold text-[var(--color-text-highlight)]">
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate text-[14px] font-semibold text-[var(--color-text-highlight)]">
                   {LOCALE_NATIVE_NAMES[option.id]}
                 </span>
-                <span className="text-[11.5px] text-[var(--color-text-muted)]">
+                <span className="truncate text-[11px] text-[var(--color-text-muted)]">
                   {t(option.sub)}
                 </span>
               </span>
               {selected && (
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-accent)] text-white shadow-[0_2px_8px_color-mix(in_srgb,var(--color-accent)_45%,transparent)]">
-                  <Icons.Check size={13} />
+                <span className="flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-white shadow-[0_2px_8px_color-mix(in_srgb,var(--color-accent)_45%,transparent)]">
+                  <Icons.Check size={12} />
                 </span>
               )}
             </GlassContainer>

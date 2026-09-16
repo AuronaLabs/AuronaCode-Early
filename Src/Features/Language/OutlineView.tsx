@@ -8,6 +8,7 @@ import {
 import { useLocale } from "../../Foundation/I18n";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { EmptyState } from "../../UI/Components/EmptyState";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 
@@ -48,6 +49,20 @@ export function OutlineView() {
     void load(activeFilePath);
   }, [activeFilePath, load]);
 
+  // 未打开文件时空态对齐 Git 标杆：无 page 标题，仅发光 logo + 单行文案
+  if (!activeFilePath) {
+    return (
+      <section className="flex h-full min-h-0 flex-col">
+        <EmptyState
+          className="h-full"
+          icon={<Icons.List size={27} stroke={1.45} />}
+          title={t("outline.title")}
+          description={t("outline.empty")}
+        />
+      </section>
+    );
+  }
+
   return (
     <section className="flex h-full min-h-0 flex-col">
       <SidebarPageHeader
@@ -64,18 +79,13 @@ export function OutlineView() {
         }
       />
       <div className="min-h-0 flex-1 overflow-y-auto px-[var(--PanelPaddingX)] pb-3 no-scrollbar">
-        {!activeFilePath || (status === "idle" && symbols.length === 0) ? (
-          <div className="flex h-full min-h-0 flex-col items-center justify-center gap-4 border-t border-[var(--border-subtle)] px-6 text-center">
-            <Icons.List size={22} className="text-[var(--color-text-muted)]" stroke={1.45} />
-            <div className="space-y-1.5">
-              <h3 className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
-                {activeFilePath ? t("outline.noSymbols") : t("outline.title")}
-              </h3>
-              <p className="text-[11px] leading-relaxed text-[var(--color-text-muted)]">
-                {activeFilePath ? t("outline.noSymbolsHint") : t("outline.empty")}
-              </p>
-            </div>
-          </div>
+        {status === "idle" && symbols.length === 0 ? (
+          <EmptyState
+            className="h-full"
+            icon={<Icons.List size={27} stroke={1.45} />}
+            title={t("outline.noSymbols")}
+            description={t("outline.noSymbolsHint")}
+          />
         ) : status === "loading" ? (
           <div className="flex h-full items-center justify-center gap-2 text-[11px] text-[var(--color-text-muted)]">
             <Icons.Refresh size={14} className="animate-spin" />

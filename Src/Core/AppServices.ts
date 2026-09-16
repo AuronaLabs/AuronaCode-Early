@@ -10,6 +10,7 @@ import { DocumentService } from "./DocumentService";
 import { LspClient } from "./Language/LspClient";
 import { OutputService } from "./OutputService";
 import { RecoveryCoordinator } from "./Recovery/RecoveryCoordinator";
+import { saveWindowLayout } from "./WindowLayoutManager";
 import { WorkspaceService } from "./WorkspaceService";
 
 let startPromise: Promise<void> | null = null;
@@ -25,6 +26,8 @@ async function initializeCloseProtection(): Promise<() => void> {
     await DocumentService.closeAll(true);
     await LspClient.shutdownCurrent();
     await AccountService.shutdown().catch(() => undefined);
+    // 窗口布局记忆须在销毁窗口前落盘完成
+    await saveWindowLayout().catch(() => undefined);
     destroying = true;
     await desktopWindow.destroy();
   });

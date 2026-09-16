@@ -31,12 +31,14 @@ export function EditorSettingsSection({
   const { t } = useLocale();
   const [editorMinimap, setEditorMinimap] = useState(false);
   const [cursorSmoothCaret, setCursorSmoothCaret] = useState(true);
+  const [smoothScrolling, setSmoothScrolling] = useState(true);
 
   useEffect(() => {
     UserConfigStore.get().then((config) => {
       setEditorMinimap(config.editorMinimap ?? false);
       const smooth = config.editorCursorSmoothCaret ?? true;
       setCursorSmoothCaret(smooth);
+      setSmoothScrolling(config.editorSmoothScrolling ?? true);
       document.documentElement.style.setProperty(
         "--EditorCursorSmooth",
         smooth ? "smooth" : "normal",
@@ -82,6 +84,12 @@ export function EditorSettingsSection({
       "--EditorCursorSmooth",
       checked ? "smooth" : "normal",
     );
+  };
+
+  const handleSmoothScrollingChange = (checked: boolean) => {
+    setSmoothScrolling(checked);
+    void UserConfigStore.set({ editorSmoothScrolling: checked });
+    EventBus.emit("settings:editor-changed");
   };
 
   return (
@@ -234,6 +242,31 @@ export function EditorSettingsSection({
             <SettingResetButton
               label={t("settings.reset")}
               onReset={() => handleMinimapChange(false)}
+            />
+          </div>
+        </div>
+
+        <div
+          data-setting-id="editorSmoothScrolling"
+          className="flex items-center justify-between border-b border-[var(--border-subtle)] p-5"
+        >
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              {t("settings.definitions.editorSmoothScrolling.title")}
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
+              {t("settings.definitions.editorSmoothScrolling.description")}
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Switch
+              checked={smoothScrolling}
+              onCheckedChange={handleSmoothScrollingChange}
+              aria-label={t("settings.definitions.editorSmoothScrolling.title")}
+            />
+            <SettingResetButton
+              label={t("settings.reset")}
+              onReset={() => handleSmoothScrollingChange(true)}
             />
           </div>
         </div>

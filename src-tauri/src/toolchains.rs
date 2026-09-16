@@ -441,11 +441,10 @@ pub async fn install_toolchain_from_url(
     use tauri::Emitter;
     use tokio::io::AsyncWriteExt;
 
-    // 1. 发起网络请求
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(300))
-        .build()
-        .map_err(|e| format!("创建 HTTP 客户端失败: {e}"))?;
+    // 1. 发起网络请求（按用户代理偏好修饰客户端：system/custom/none）
+    let client = crate::network::configure_client(
+        reqwest::Client::builder().timeout(std::time::Duration::from_secs(300)),
+    )?;
 
     let mut res = client
         .get(&url)

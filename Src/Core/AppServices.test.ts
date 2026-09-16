@@ -54,12 +54,26 @@ vi.mock("../Foundation/IPC/AccountAuthCommands", () => ({
 vi.mock("../Foundation/Desktop", () => ({
   invokeDesktop: vi.fn(async () => undefined),
   listenDesktop: vi.fn(async () => () => undefined),
+  BaseDirectory: { AppLocalData: "app-local-data" },
+  desktopFileSystem: {
+    exists: vi.fn(async () => false),
+    mkdir: vi.fn(async () => undefined),
+    readTextFile: vi.fn(async () => "{}"),
+    writeTextFile: vi.fn(async () => undefined),
+    remove: vi.fn(async () => undefined),
+  },
   desktopWindow: {
     onCloseRequested: vi.fn(async (handler) => {
       mocks.closeHandler = handler;
       return mocks.unlistenClose;
     }),
     destroy: mocks.destroyWindow,
+    // 最小化时 saveWindowLayout 直接跳过，避免测试依赖窗口几何
+    isMinimized: vi.fn(async () => true),
+    isMaximized: vi.fn(async () => false),
+    outerSize: vi.fn(async () => ({ width: 0, height: 0 })),
+    outerPosition: vi.fn(async () => ({ x: 0, y: 0 })),
+    maximize: vi.fn(async () => undefined),
   },
 }));
 

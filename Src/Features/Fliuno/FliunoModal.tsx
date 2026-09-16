@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   type FliunoCoreResult,
+  type FliunoCoreResultKind,
   type FliunoScope,
   FliunoSearchSession,
   parseFliunoQuery,
@@ -21,6 +22,7 @@ import {
   readHistory,
   writeHistory,
 } from "../../Core/Fliuno/history";
+import { SECTION_LABEL_KEYS, SECTION_ORDER } from "../../Core/Fliuno/presentation";
 import { NavigationHistory } from "../../Core/NavigationHistory";
 import { WorkspaceService } from "../../Core/WorkspaceService";
 import { CommandRegistry } from "../../Extension/CommandRegistry";
@@ -30,10 +32,12 @@ import {
   type WorkspaceFileEntry,
   WorkspaceSearchIPC,
 } from "../../Foundation/IPC/WorkspaceSearchCommands";
+import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../../State/useEditorStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { EmptyState } from "../../UI/Components/EmptyState";
+import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 
 const FLIUNO_COMMAND_ID = "workbench.action.openFliuno";
@@ -90,6 +94,8 @@ export function FliunoModal() {
     () => WorkspaceService.getCurrent().primaryRoot,
   );
   const [files, setFiles] = useState<WorkspaceFileEntry[]>([]);
+  const [contentCaseSensitive, setContentCaseSensitive] = useState(false);
+  const [contentRegex, setContentRegex] = useState(false);
   const [fileIndexState, setFileIndexState] = useState<"idle" | "loading" | "ready" | "error">(
     "idle",
   );
@@ -110,6 +116,35 @@ export function FliunoModal() {
   }, [isOpen, registryRevision]);
 
   const parsedQuery = useMemo(() => parseFliunoQuery(query, scope), [query, scope]);
+
+  // 内容搜索大小写/正则：默认值来自设置，切换即持久化
+  useEffect(() => {
+    let mounted = true;
+    UserConfigStore.get()
+      .then((config) => {
+        if (!mounted) return;
+        setContentCaseSensitive(config.fliunoSearchCaseSensitive ?? false);
+        setContentRegex(config.fliunoSearchRegex ?? false);
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const toggleCaseSensitive = useCallback(() => {
+    setContentCaseSensitive((value) => {
+      void UserConfigStore.set({ fliunoSearchCaseSensitive: !value });
+      return !value;
+    });
+  }, []);
+
+  const toggleRegex = useCallback(() => {
+    setContentRegex((value) => {
+      void UserConfigStore.set({ fliunoSearchRegex: !value });
+      return !value;
+    });
+  }, []);
 
   const loadFiles = useCallback(async (root: string) => {
     setFileIndexState("loading");
@@ -217,12 +252,14 @@ export function FliunoModal() {
             activeFilePath,
             activeLanguage: useEditorStore.getState().editorStatus.language,
             workspaceRoot: workspaceRoot || undefined,
+            contentCaseSensitive,
+            contentRegex,
             excludedCommandId: FLIUNO_COMMAND_ID,
           })
           .then(setResults);
-      }, 100);
+      }, 120);
     },
-    [files, isOpen, recentCommands, recentFiles, workspaceRoot],
+    [contentCaseSensitive, contentRegex, files, isOpen, recentCommands, recentFiles, workspaceRoot],
   );
 
   useEffect(() => {
@@ -330,6 +367,22 @@ export function FliunoModal() {
     return map;
   }, [commands]);
 
+  // 分组渲染（组头 sticky）：index 保留全局平铺索引，与键盘导航/aria 一致
+  const kindGroups = useMemo(() => {
+    const byKind = new Map<
+      FliunoCoreResultKind,
+      Array<{ result: FliunoCoreResult; index: number }>
+    >();
+    results.forEach((result, index) => {
+      const list = byKind.get(result.kind) ?? [];
+      list.push({ result, index });
+      byKind.set(result.kind, list);
+    });
+    return SECTION_ORDER.map((kind) => ({ kind, items: byKind.get(kind) ?? [] })).filter(
+      (group) => group.items.length > 0,
+    );
+  }, [results]);
+
   if (!isOpen) return null;
 
   const hasQuery = query.trim().length > 0;
@@ -345,14 +398,16 @@ export function FliunoModal() {
       <section
         data-testid="fliuno-surface"
         aria-label={t("fliuno.surfaceLabel")}
-        className={`relative grid w-full max-w-[720px] overflow-hidden border border-[var(--border-overlay)] bg-[var(--material-panel)] backdrop-blur-[var(--glass-blur-overlay)] transition-[border-color,border-radius,box-shadow] duration-200 focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)] ${
+        className={`glass-layer-overlay relative grid w-full max-w-[720px] overflow-hidden border border-[var(--border-overlay)] bg-[var(--material-panel)] backdrop-blur-[var(--glass-blur-overlay)] transition-[border-color,border-radius,box-shadow] duration-200 focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)] ${
           hasQuery ? "rounded-[20px]" : "rounded-[18px]"
         }`}
       >
         <div className="flex h-14 items-center gap-3 px-4">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--color-accent)]/10 text-[var(--color-accent)]">
-            <Icons.Search size={17} stroke={1.8} />
-          </span>
+          <Icons.Search
+            size={17}
+            stroke={1.8}
+            className="shrink-0 text-[var(--color-text-muted)]"
+          />
           <input
             ref={inputRef}
             data-fliuno-input
@@ -450,6 +505,40 @@ export function FliunoModal() {
                   </button>
                 );
               })}
+              {parsedQuery.scope === "content" && (
+                <>
+                  <Tooltip content={t("fliuno.caseSensitive")} placement="bottom">
+                    <button
+                      type="button"
+                      aria-label={t("fliuno.caseSensitive")}
+                      aria-pressed={contentCaseSensitive}
+                      onClick={toggleCaseSensitive}
+                      className={`rounded-lg p-1.5 transition-colors ${
+                        contentCaseSensitive
+                          ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
+                          : "text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)]"
+                      }`}
+                    >
+                      <Icons.Typography size={13} stroke={contentCaseSensitive ? 2.5 : 2} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={t("fliuno.regex")} placement="bottom">
+                    <button
+                      type="button"
+                      aria-label={t("fliuno.regex")}
+                      aria-pressed={contentRegex}
+                      onClick={toggleRegex}
+                      className={`rounded-lg p-1.5 transition-colors ${
+                        contentRegex
+                          ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
+                          : "text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)]"
+                      }`}
+                    >
+                      <Icons.Asterisk size={13} stroke={contentRegex ? 2.5 : 2} />
+                    </button>
+                  </Tooltip>
+                </>
+              )}
               <span className="ml-auto text-[9px] text-[var(--color-text-muted)]">
                 {fileIndexState === "loading" && parsedQuery.scope !== "commands"
                   ? t("fliuno.indexing")
@@ -464,95 +553,105 @@ export function FliunoModal() {
               className="max-h-[56vh] min-h-[190px] overflow-y-auto border-t border-[var(--border-subtle)] px-2 py-2 aurona-scroll"
               onMouseLeave={() => setInteractionMode("keyboard")}
             >
-              {results.length ? (
-                <div className="flex flex-col gap-0.5">
-                  {results.map((result, index) => {
-                    const command =
-                      result.kind === "command"
-                        ? commandByResult.get(result.commandId ?? "")
-                        : undefined;
-                    const enabled =
-                      result.kind === "file" ||
-                      result.kind !== "command" ||
-                      (command ? CommandRegistry.canExecute(command) : false);
-                    const selected = index === selectedIndex;
-                    const keybinding = command?.keybindings?.[0]
-                      ? [
-                          command.keybindings[0].primary ? "Ctrl/Cmd" : "",
-                          command.keybindings[0].shift ? "Shift" : "",
-                          command.keybindings[0].alt ? "Alt" : "",
-                          command.keybindings[0].key.toUpperCase(),
-                        ]
-                          .filter(Boolean)
-                          .join("+")
-                      : "";
-                    return (
-                      <button
-                        type="button"
-                        role="option"
-                        id={result.id}
-                        data-fliuno-index={index}
-                        aria-selected={selected}
-                        key={result.id}
-                        disabled={!enabled}
-                        onMouseMove={() => {
-                          setInteractionMode("pointer");
-                          setSelectedIndex(index);
-                        }}
-                        onClick={() => execute(result)}
-                        className={`group flex min-h-[52px] w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
-                          selected
-                            ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
-                            : "text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-hover)]"
-                        } ${enabled ? "" : "cursor-not-allowed opacity-45"}`}
-                      >
-                        <span
-                          className={`grid size-8 shrink-0 place-items-center rounded-xl ${
-                            result.kind === "command"
-                              ? "bg-[var(--material-panel)] text-[var(--color-text-muted)]"
-                              : "bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
-                          }`}
-                        >
-                          <ResultIcon kind={result.kind} />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-center gap-2">
-                            <span className="truncate text-[13px] font-medium">
-                              <HighlightedText text={result.title} ranges={result.titleRanges} />
+              {kindGroups.length ? (
+                <div className="flex flex-col gap-2">
+                  {kindGroups.map((group) => (
+                    <div key={group.kind} className="flex flex-col gap-0.5">
+                      <div className="sticky top-0 z-10 bg-[var(--material-panel)] px-3 py-1.5 text-[9px] font-semibold tracking-wider text-[var(--color-text-muted)]/80 uppercase">
+                        {t(SECTION_LABEL_KEYS[group.kind])}
+                      </div>
+                      {group.items.map(({ result, index }) => {
+                        const command =
+                          result.kind === "command"
+                            ? commandByResult.get(result.commandId ?? "")
+                            : undefined;
+                        const enabled =
+                          result.kind === "file" ||
+                          result.kind !== "command" ||
+                          (command ? CommandRegistry.canExecute(command) : false);
+                        const selected = index === selectedIndex;
+                        const keybinding = command?.keybindings?.[0]
+                          ? [
+                              command.keybindings[0].primary ? "Ctrl/Cmd" : "",
+                              command.keybindings[0].shift ? "Shift" : "",
+                              command.keybindings[0].alt ? "Alt" : "",
+                              command.keybindings[0].key.toUpperCase(),
+                            ]
+                              .filter(Boolean)
+                              .join("+")
+                          : "";
+                        return (
+                          <button
+                            type="button"
+                            role="option"
+                            id={result.id}
+                            data-fliuno-index={index}
+                            aria-selected={selected}
+                            key={result.id}
+                            disabled={!enabled}
+                            onMouseMove={() => {
+                              setInteractionMode("pointer");
+                              setSelectedIndex(index);
+                            }}
+                            onClick={() => execute(result)}
+                            className={`group flex min-h-[52px] w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
+                              selected
+                                ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
+                                : "text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-hover)]"
+                            } ${enabled ? "" : "cursor-not-allowed opacity-45"}`}
+                          >
+                            <span
+                              className={`grid size-8 shrink-0 place-items-center rounded-xl ${
+                                result.kind === "command"
+                                  ? "bg-[var(--material-panel)] text-[var(--color-text-muted)]"
+                                  : "bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+                              }`}
+                            >
+                              <ResultIcon kind={result.kind} />
                             </span>
-                            {result.recent && !query && (
-                              <span className="shrink-0 text-[8px] text-[var(--color-text-muted)]">
-                                {t("common.recent")}
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center gap-2">
+                                <span className="truncate text-[13px] font-medium">
+                                  <HighlightedText
+                                    text={result.title}
+                                    ranges={result.titleRanges}
+                                  />
+                                </span>
+                                {result.recent && !query && (
+                                  <span className="shrink-0 text-[8px] text-[var(--color-text-muted)]">
+                                    {t("common.recent")}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="mt-0.5 block truncate text-[10px] text-[var(--color-text-muted)]">
+                                <HighlightedText
+                                  text={result.description}
+                                  ranges={result.descriptionRanges}
+                                />
+                              </span>
+                            </span>
+                            {!enabled && command && (
+                              <span className="max-w-44 truncate text-[9px] text-[var(--color-text-muted)]">
+                                {CommandRegistry.getDisabledReason(command) ??
+                                  t("fliuno.commandUnavailable")}
                               </span>
                             )}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[10px] text-[var(--color-text-muted)]">
-                            <HighlightedText
-                              text={result.description}
-                              ranges={result.descriptionRanges}
+                            {keybinding && (
+                              <kbd className="rounded-md border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--color-text-muted)]">
+                                {keybinding}
+                              </kbd>
+                            )}
+                            <Icons.ArrowRight
+                              size={13}
+                              className={`shrink-0 text-[var(--color-text-muted)] transition-opacity ${
+                                selected ? "opacity-80" : "opacity-0"
+                              }`}
                             />
-                          </span>
-                        </span>
-                        {!enabled && command && (
-                          <span className="max-w-44 truncate text-[9px] text-[var(--color-text-muted)]">
-                            {CommandRegistry.getDisabledReason(command) ??
-                              t("fliuno.commandUnavailable")}
-                          </span>
-                        )}
-                        {keybinding && (
-                          <kbd className="rounded-md border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--color-text-muted)]">
-                            {keybinding}
-                          </kbd>
-                        )}
-                        <Icons.ArrowRight
-                          size={13}
-                          className={`shrink-0 text-[var(--color-text-muted)] transition-opacity ${
-                            selected ? "opacity-80" : "opacity-0"
-                          }`}
-                        />
-                      </button>
-                    );
-                  })}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <EmptyState

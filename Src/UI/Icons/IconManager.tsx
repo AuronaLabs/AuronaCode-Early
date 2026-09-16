@@ -81,6 +81,7 @@ import IconTerminal2 from "@tabler/icons-react/dist/esm/icons/IconTerminal2.mjs"
 import IconTrash from "@tabler/icons-react/dist/esm/icons/IconTrash.mjs";
 import IconTypography from "@tabler/icons-react/dist/esm/icons/IconTypography.mjs";
 import IconUserCircle from "@tabler/icons-react/dist/esm/icons/IconUserCircle.mjs";
+import IconWorld from "@tabler/icons-react/dist/esm/icons/IconWorld.mjs";
 import IconX from "@tabler/icons-react/dist/esm/icons/IconX.mjs";
 
 export const Icons = {
@@ -97,6 +98,7 @@ export const Icons = {
   ChevronUp: IconChevronUp,
   Push: IconCloudUpload,
   Pull: IconCloudDownload,
+  World: IconWorld,
   Checks: IconChecks,
   Check: IconCheck,
   Trash: IconTrash,

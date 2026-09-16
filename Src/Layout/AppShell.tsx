@@ -145,6 +145,8 @@ export function AppShell({ Children }: AppShellProps) {
         <span />
         <span />
         <span />
+        <span />
+        <span />
       </div>
 
       <div className="relative z-[1]">

@@ -12,7 +12,11 @@ import {
   readHistory,
   writeHistory,
 } from "../../Core/Fliuno/history";
-import { flattenFliunoPresentation, SECTION_ORDER } from "../../Core/Fliuno/presentation";
+import {
+  flattenFliunoPresentation,
+  SECTION_LABEL_KEYS,
+  SECTION_ORDER,
+} from "../../Core/Fliuno/presentation";
 import { NavigationHistory } from "../../Core/NavigationHistory";
 import { WorkspaceService } from "../../Core/WorkspaceService";
 import { CommandRegistry } from "../../Extension/CommandRegistry";
@@ -22,6 +26,7 @@ import {
   type WorkspaceFileEntry,
   WorkspaceSearchIPC,
 } from "../../Foundation/IPC/WorkspaceSearchCommands";
+import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../../State/useEditorStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
@@ -97,6 +102,35 @@ export function FliunoWorkspacePage({
   const [contentCaseSensitive, setContentCaseSensitive] = useState(false);
   const [contentRegex, setContentRegex] = useState(false);
   const indexedRootRef = useRef<string | null>(null);
+
+  // 大小写/正则默认值来自设置，切换即持久化
+  useEffect(() => {
+    let mounted = true;
+    UserConfigStore.get()
+      .then((config) => {
+        if (!mounted) return;
+        setContentCaseSensitive(config.fliunoSearchCaseSensitive ?? false);
+        setContentRegex(config.fliunoSearchRegex ?? false);
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const toggleCaseSensitive = useCallback(() => {
+    setContentCaseSensitive((value) => {
+      void UserConfigStore.set({ fliunoSearchCaseSensitive: !value });
+      return !value;
+    });
+  }, []);
+
+  const toggleRegex = useCallback(() => {
+    setContentRegex((value) => {
+      void UserConfigStore.set({ fliunoSearchRegex: !value });
+      return !value;
+    });
+  }, []);
 
   const loadFiles = useCallback(async (root: string) => {
     try {
@@ -312,13 +346,7 @@ export function FliunoWorkspacePage({
           compact ? "h-10 gap-2 rounded-xl px-3" : "h-12 gap-3 rounded-2xl px-4"
         }`}
       >
-        <span
-          className={`flex shrink-0 items-center justify-center bg-[var(--color-accent)]/10 text-[var(--color-accent)] ${
-            compact ? "h-7 w-7 rounded-lg" : "h-8 w-8 rounded-xl"
-          }`}
-        >
-          <Icons.Search size={16} stroke={1.8} />
-        </span>
+        <Icons.Search size={16} stroke={1.8} className="shrink-0 text-[var(--color-text-muted)]" />
         <input
           ref={inputRef}
           data-fliuno-input
@@ -382,7 +410,6 @@ export function FliunoWorkspacePage({
 
       <div className="flex shrink-0 flex-wrap items-center gap-1 px-1">
         <FilterChips
-          className="flex-wrap"
           size={compact ? "sm" : "md"}
           ariaLabel={t("fliuno.workspacePlaceholder")}
           value={parsed.scope}
@@ -399,7 +426,8 @@ export function FliunoWorkspacePage({
               <button
                 type="button"
                 aria-label={t("fliuno.caseSensitive")}
-                onClick={() => setContentCaseSensitive((value) => !value)}
+                aria-pressed={contentCaseSensitive}
+                onClick={toggleCaseSensitive}
                 className={`rounded-lg p-1.5 transition-colors ${
                   contentCaseSensitive
                     ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
@@ -413,7 +441,8 @@ export function FliunoWorkspacePage({
               <button
                 type="button"
                 aria-label={t("fliuno.regex")}
-                onClick={() => setContentRegex((value) => !value)}
+                aria-pressed={contentRegex}
+                onClick={toggleRegex}
                 className={`rounded-lg p-1.5 transition-colors ${
                   contentRegex
                     ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
@@ -473,6 +502,13 @@ export function FliunoWorkspacePage({
               }
               return (
                 <section key={group.kind}>
+                  <div
+                    className={`sticky top-0 z-10 mb-1.5 bg-[var(--AppBackground,var(--AppBg))] text-[9px] font-semibold tracking-wider text-[var(--color-text-muted)]/80 uppercase ${
+                      compact ? "-mx-1 px-1 py-1" : "px-1 py-1.5"
+                    }`}
+                  >
+                    {t(SECTION_LABEL_KEYS[group.kind])}
+                  </div>
                   <div
                     className={
                       compact

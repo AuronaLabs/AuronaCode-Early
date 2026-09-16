@@ -1,3 +1,4 @@
+import type { I18nKey } from "../../Foundation/I18n";
 import type { FliunoCoreResult, FliunoCoreResultKind } from "./FliunoCore";
 
 export const SECTION_ORDER: FliunoCoreResultKind[] = [
@@ -8,6 +9,16 @@ export const SECTION_ORDER: FliunoCoreResultKind[] = [
   "extension",
   "content",
 ];
+
+/** 结果分组标题（Modal / WorkspacePage 共用），sticky 组头渲染用 */
+export const SECTION_LABEL_KEYS: Record<FliunoCoreResultKind, I18nKey> = {
+  command: "common.command",
+  file: "common.file",
+  setting: "common.setting",
+  symbol: "common.symbol",
+  extension: "extensions.sidebarTitle",
+  content: "common.content",
+};
 
 export interface FliunoPresentation {
   display: FliunoCoreResult[];

@@ -133,7 +133,7 @@
   --shadow-overlay: 0 8px 28px rgba(15, 23, 42, 0.1);
   --shadow-glow: none;
   --material-inset: rgba(255, 255, 255, 0.1);
-  --radius-control: 8px;
+  --radius-control: 12px;
   --radius-surface: 12px;
   --radius-overlay: 16px;
   --surface-blur-base: var(--glass-blur-base);
@@ -1171,11 +1171,12 @@ code {
   background-color: transparent;
 }
 
-/* 流光（Flowing Light）——环境光场：三个巨大的柔和光域缓慢漂移，
-   没有可见光带、不跨越全屏、不跟随鼠标。默认关闭。 */
+/* 液态流光（Liquid Glass Flow）——环境光场：多组有机光域以两种速度群漂移呼吸，
+   叠加一层极缓旋转的锥形色相场（mesh 感），消除"几个圆在平移"的观感。
+   纯 GPU 合成（transform/opacity），默认关闭，光域总数 ≤5 层。 */
 .liquid-texture {
   position: fixed;
-  inset: -8%;
+  inset: -10%;
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
@@ -1189,83 +1190,135 @@ code {
   will-change: transform, opacity;
 }
 
+/* 慢速群：三片主体光域（34-50s 交替漂移 + 呼吸） */
 .liquid-texture span:nth-child(1) {
   left: -18vmax;
   top: -16vmax;
-  width: 70vmax;
-  height: 70vmax;
+  width: 72vmax;
+  height: 72vmax;
   background: radial-gradient(
     circle,
     rgba(var(--RGB-BackgroundGlow-Primary), 0.16) 0%,
     transparent 62%
   );
-  animation: aurora-drift-a 34s ease-in-out infinite alternate;
+  animation: liquid-drift-a 38s ease-in-out infinite alternate;
 }
 
 .liquid-texture span:nth-child(2) {
   right: -14vmax;
   top: 4vmax;
-  width: 58vmax;
-  height: 58vmax;
+  width: 60vmax;
+  height: 60vmax;
   background: radial-gradient(
     circle,
     rgba(var(--RGB-BackgroundGlow-Secondary), 0.13) 0%,
     transparent 60%
   );
-  animation: aurora-drift-b 42s ease-in-out infinite alternate;
+  animation: liquid-drift-b 46s ease-in-out infinite alternate;
 }
 
 .liquid-texture span:nth-child(3) {
   left: 18vmax;
   bottom: -20vmax;
-  width: 64vmax;
-  height: 64vmax;
+  width: 66vmax;
+  height: 66vmax;
   background: radial-gradient(
     circle,
     rgba(var(--RGB-BackgroundGlow-Tertiary), 0.12) 0%,
     transparent 62%
   );
-  animation: aurora-drift-c 50s ease-in-out infinite alternate;
+  animation: liquid-drift-c 52s ease-in-out infinite alternate;
+}
+
+/* 更慢速群：锥形色相场（极缓旋转的 mesh 色相过渡）+ 远景柔光呼吸 */
+.liquid-texture span:nth-child(4) {
+  left: 50%;
+  top: 50%;
+  width: 120vmax;
+  height: 120vmax;
+  margin: -60vmax 0 0 -60vmax;
+  border-radius: 0;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(var(--RGB-BackgroundGlow-Primary), 0.05),
+    rgba(var(--RGB-BackgroundGlow-Secondary), 0.04),
+    rgba(var(--RGB-BackgroundGlow-Tertiary), 0.05),
+    rgba(var(--RGB-BackgroundGlow-Primary), 0.05)
+  );
+  animation: liquid-conic-rotate 90s linear infinite;
+}
+
+.liquid-texture span:nth-child(5) {
+  right: 4vmax;
+  bottom: 10vmax;
+  width: 44vmax;
+  height: 44vmax;
+  background: radial-gradient(
+    circle,
+    rgba(var(--RGB-BackgroundGlow-Primary), 0.09) 0%,
+    transparent 58%
+  );
+  animation: liquid-drift-e 68s ease-in-out infinite alternate;
 }
 
 :root[data-liquid-texture="true"] .liquid-texture {
-  opacity: 0.8;
+  opacity: calc(0.78 * var(--GlassOpacity-Multiplier, 1));
 }
 
 .dark[data-liquid-texture="true"] .liquid-texture {
-  opacity: 0.85;
+  opacity: calc(0.85 * var(--GlassOpacity-Multiplier, 1));
 }
 
-@keyframes aurora-drift-a {
+@keyframes liquid-drift-a {
   from {
     transform: translate3d(0, 0, 0) scale(1);
     opacity: 0.5;
   }
   to {
-    transform: translate3d(4vmax, 2vmax, 0) scale(1.06);
-    opacity: 0.72;
+    transform: translate3d(4vmax, 2.4vmax, 0) scale(1.08);
+    opacity: 0.74;
   }
 }
 
-@keyframes aurora-drift-b {
+@keyframes liquid-drift-b {
   from {
     transform: translate3d(0, 0, 0) scale(1);
     opacity: 0.45;
   }
   to {
-    transform: translate3d(-3vmax, -2vmax, 0) scale(1.04);
-    opacity: 0.65;
+    transform: translate3d(-3.4vmax, -2vmax, 0) scale(1.05);
+    opacity: 0.66;
   }
 }
 
-@keyframes aurora-drift-c {
+@keyframes liquid-drift-c {
   from {
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1.02);
     opacity: 0.4;
   }
   to {
-    transform: translate3d(-4vmax, -1vmax, 0) scale(1.05);
-    opacity: 0.58;
+    transform: translate3d(-4vmax, -1.6vmax, 0) scale(1.07);
+    opacity: 0.6;
+  }
+}
+
+@keyframes liquid-conic-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes liquid-drift-e {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.35;
+  }
+  to {
+    transform: translate3d(2.6vmax, -2.2vmax, 0) scale(1.12);
+    opacity: 0.55;
   }
 }
 
@@ -1273,5 +1326,82 @@ code {
   .liquid-texture span {
     animation: none;
     opacity: 0.5;
+  }
+}
+
+/* 液态玻璃材质（iOS 26 Liquid Glass 方向）：浮层玻璃的折射顶缘高光带 + 边缘 rim 折射描边。
+   仅作用于 overlay 档（.glass-layer-overlay），随 liquidTexture 开关启停，
+   强度跟随拟物强度档（--GlassOpacity-Multiplier），纯 GPU 合成。 */
+:root {
+  --LiquidSpecular: 0;
+  --LiquidRim: 0;
+}
+
+:root[data-liquid-texture="true"] {
+  --LiquidSpecular: 0.13;
+  --LiquidRim: 0.18;
+}
+
+.dark[data-liquid-texture="true"] {
+  --LiquidSpecular: 0.19;
+  --LiquidRim: 0.26;
+}
+
+.glass-layer-overlay {
+  position: relative;
+  isolation: isolate;
+}
+
+.glass-layer-overlay::before {
+  content: "";
+  position: absolute;
+  inset: -1px 0 auto 0;
+  height: 46%;
+  border-radius: inherit;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, var(--LiquidSpecular)),
+    rgba(255, 255, 255, 0)
+  );
+  opacity: calc(var(--GlassOpacity-Multiplier, 1));
+  pointer-events: none;
+  z-index: -1;
+  transition: opacity 500ms ease;
+  will-change: transform, opacity;
+}
+
+.glass-layer-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, var(--LiquidRim)),
+    inset 0 -1px 1px rgba(0, 0, 0, calc(var(--LiquidRim) * 0.3));
+  opacity: calc(var(--GlassOpacity-Multiplier, 1));
+  pointer-events: none;
+  z-index: -1;
+  transition: opacity 500ms ease;
+}
+
+/* 材质微流动：顶缘 specular 光带极缓平移呼吸（亚秒级感知，实为长周期缓动） */
+[data-liquid-texture="true"] .glass-layer-overlay::before {
+  animation: liquid-specular-flow 9s ease-in-out infinite alternate;
+}
+
+@keyframes liquid-specular-flow {
+  from {
+    transform: translate3d(-2.5%, 0, 0);
+    opacity: calc(0.72 * var(--GlassOpacity-Multiplier, 1));
+  }
+  to {
+    transform: translate3d(2.5%, 0, 0);
+    opacity: var(--GlassOpacity-Multiplier, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-liquid-texture="true"] .glass-layer-overlay::before {
+    animation: none;
   }
 }

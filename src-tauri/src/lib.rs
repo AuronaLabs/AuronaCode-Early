@@ -6,6 +6,7 @@ mod editor;
 mod extensions;
 mod highlight;
 mod lsp;
+mod network;
 mod performance;
 mod platform;
 mod process_service;
@@ -109,6 +110,7 @@ pub fn run() {
             performance::record_startup_metrics,
             performance::get_startup_metrics,
             platform::platform_info,
+            network::set_network_proxy,
             performance::load_performance_baseline,
             performance::save_performance_baseline,
             commands::lsp_cmds::lsp_start,

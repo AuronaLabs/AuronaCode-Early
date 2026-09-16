@@ -95,7 +95,7 @@ export function OobeOverlay() {
         <div key={step} className="oobe-step-enter flex w-full justify-center">
           {step === 0 && <WelcomeStep version={version ? formatDisplayVersion(version) : ""} />}
           {step === 1 && (
-            <div className="w-full max-w-[440px]">
+            <div className="w-full max-w-[680px]">
               <LanguageStep onSelect={selectLanguage} />
             </div>
           )}

@@ -2,6 +2,7 @@ import { desktopUpdater, type UpdateInfo, type UpdateProgress } from "../Foundat
 import { EventBus } from "../Foundation/EventBus";
 import { Logger } from "../Foundation/Logger";
 import { parseAuronaVersion } from "../Foundation/Release/ReleaseChannel";
+import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 import { useFeatureFlagStore } from "../State/useFeatureFlagStore";
 
 export type UpdateCheckResult =
@@ -18,9 +19,15 @@ export const UpdaterService = {
   async checkForUpdates(): Promise<UpdateCheckResult> {
     try {
       const channel = useFeatureFlagStore.getState().channel;
+      // 代理偏好：自定义模式直传 check 选项（覆盖检查与下载）；其余模式跟随系统默认
+      const network = (await UserConfigStore.get()).network;
+      const checkOptions =
+        network?.proxyMode === "custom" && network.proxyUrl
+          ? { proxy: network.proxyUrl }
+          : undefined;
       let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
       const update = await Promise.race([
-        desktopUpdater.check(),
+        desktopUpdater.check(checkOptions),
         new Promise<never>((_, reject) => {
           timeoutHandle = setTimeout(
             () => reject(new Error("update-check-timeout")),

@@ -118,7 +118,6 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
                 t("notifications.filteredEmptyHint")
               )
             }
-            badge={t("notifications.allRead")}
           />
         ) : (
           <div className="flex flex-col gap-2 mt-1">

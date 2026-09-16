@@ -9,6 +9,7 @@ const { exists, mkdir, readTextFile, writeTextFile } = desktopFileSystem;
 let isWriting = false;
 let pendingWrite = false;
 let memoryCache: UserConfig | null = null;
+let writeChain: Promise<void> = Promise.resolve();
 /** 首次加载时即无 user-config.json：用于首启 OOBE 判定，免去重复 exists IPC */
 let firstRunDetected = false;
 
@@ -54,7 +55,7 @@ export const UserConfigStore = {
       return;
     }
 
-    const flush = async () => {
+    const run = async () => {
       isWriting = true;
       pendingWrite = false;
       try {
@@ -66,11 +67,16 @@ export const UserConfigStore = {
       }
       isWriting = false;
       if (pendingWrite) {
-        flush();
+        await run();
       }
     };
 
-    flush();
+    writeChain = run().then(() => undefined);
+  },
+
+  /** 等待全部待写盘完成（退出前保存窗口布局等场景需确保落盘后再销毁窗口） */
+  async flush(): Promise<void> {
+    await writeChain;
   },
 
   resetCache(): void {
@@ -78,5 +84,6 @@ export const UserConfigStore = {
     isWriting = false;
     pendingWrite = false;
     firstRunDetected = false;
+    writeChain = Promise.resolve();
   },
 };
