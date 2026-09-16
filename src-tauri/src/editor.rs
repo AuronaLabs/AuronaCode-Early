@@ -282,10 +282,6 @@ pub struct LineRenderData {
     pub tokens: Vec<u32>, // [start_utf16, len_utf16, token_type_id, ...]
 }
 
-// 语法高亮器已拆至 highlight.rs（v0.4.2）：LexerState 由该模块定义并在此复用。
-pub use crate::highlight::LexerState;
-use crate::highlight::{get_rules, highlight_line_stateful};
-
 fn detect_language(path: &str) -> String {
     let ext = Path::new(path)
         .extension()
@@ -844,6 +840,7 @@ pub fn close_editor_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::highlight::TOKEN_STRING;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn test_file(content: &str) -> std::path::PathBuf {
@@ -988,7 +985,6 @@ mod tests {
             highlight_line_stateful("close\"\"\" + 1", "python", python_state);
         assert_eq!(python_end, LexerState::Normal);
         assert_eq!(&python_tokens[..3], &[0, 8, TOKEN_STRING]);
-
         let (_, comment_state) = highlight_line_stateful("/* open", "rust", LexerState::Normal);
         assert_eq!(comment_state, LexerState::InBlockComment);
         let (_, comment_end) = highlight_line_stateful("close */ let", "rust", comment_state);
