@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
-import { useLocale } from "../../Foundation/I18n";
 import { EventBus } from "../../Foundation/EventBus";
+import { useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { LanguageFeaturePreferences } from "../../Foundation/Types/Config";
 import { useDebugStore } from "../../State/useDebugStore";

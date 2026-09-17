@@ -1170,7 +1170,8 @@ export const it: LocaleMessages = {
       },
       fliunoSearchCaseSensitive: {
         title: "Fliuno Maiuscole/Minuscole",
-        description: "Impostazione predefinita di maiuscole/minuscole per la ricerca contenuti Fliuno",
+        description:
+          "Impostazione predefinita di maiuscole/minuscole per la ricerca contenuti Fliuno",
       },
       fliunoSearchRegex: {
         title: "Ricerca Regex Fliuno",

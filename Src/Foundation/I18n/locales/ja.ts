@@ -1151,7 +1151,8 @@ export const ja: LocaleMessages = {
       },
       editorSmoothScrolling: {
         title: "スムーススクロール",
-        description: "カーソルの大幅なジャンプを 120ms のイージングでスクロールします。オフで即時移動",
+        description:
+          "カーソルの大幅なジャンプを 120ms のイージングでスクロールします。オフで即時移動",
       },
       fliunoSearchCaseSensitive: {
         title: "Fliuno 大文字小文字の区別",
