@@ -26,23 +26,26 @@ fn proxy_config() -> &'static RwLock<ProxyConfig> {
     PROXY_CONFIG.get_or_init(|| RwLock::new(ProxyConfig::default()))
 }
 
-/// 按当前代理偏好修饰 reqwest 客户端构建器（工具链下载等 Rust 侧网络请求共用）。
-pub fn configure_client(builder: reqwest::ClientBuilder) -> Result<reqwest::ClientBuilder, String> {
-    let Ok(config) = proxy_config().read() else {
-        return Ok(builder);
+/// 按当前代理偏好构建 reqwest 客户端（工具链下载等 Rust 侧网络请求共用）。
+pub fn configure_client(builder: reqwest::ClientBuilder) -> Result<reqwest::Client, String> {
+    let builder = {
+        let Ok(config) = proxy_config().read() else {
+            return builder.build().map_err(|error| format!("创建 HTTP 客户端失败: {error}"));
+        };
+        match config.mode {
+            ProxyMode::System => builder,
+            ProxyMode::None => builder.no_proxy(),
+            ProxyMode::Custom => match config.url.as_deref() {
+                Some(url) => {
+                    let proxy =
+                        reqwest::Proxy::all(url).map_err(|error| format!("代理地址无效: {error}"))?;
+                    builder.proxy(proxy)
+                }
+                None => builder,
+            },
+        }
     };
-    match config.mode {
-        ProxyMode::System => Ok(builder),
-        ProxyMode::None => Ok(builder.no_proxy()),
-        ProxyMode::Custom => match config.url.as_deref() {
-            Some(url) => {
-                let proxy =
-                    reqwest::Proxy::all(url).map_err(|error| format!("代理地址无效: {error}"))?;
-                Ok(builder.proxy(proxy))
-            }
-            None => Ok(builder),
-        },
-    }
+    builder.build().map_err(|error| format!("创建 HTTP 客户端失败: {error}"))
 }
 
 fn parse_proxy_url(url: &str) -> Result<(), String> {
