@@ -30,22 +30,26 @@ fn proxy_config() -> &'static RwLock<ProxyConfig> {
 pub fn configure_client(builder: reqwest::ClientBuilder) -> Result<reqwest::Client, String> {
     let builder = {
         let Ok(config) = proxy_config().read() else {
-            return builder.build().map_err(|error| format!("创建 HTTP 客户端失败: {error}"));
+            return builder
+                .build()
+                .map_err(|error| format!("创建 HTTP 客户端失败: {error}"));
         };
         match config.mode {
             ProxyMode::System => builder,
             ProxyMode::None => builder.no_proxy(),
             ProxyMode::Custom => match config.url.as_deref() {
                 Some(url) => {
-                    let proxy =
-                        reqwest::Proxy::all(url).map_err(|error| format!("代理地址无效: {error}"))?;
+                    let proxy = reqwest::Proxy::all(url)
+                        .map_err(|error| format!("代理地址无效: {error}"))?;
                     builder.proxy(proxy)
                 }
                 None => builder,
             },
         }
     };
-    builder.build().map_err(|error| format!("创建 HTTP 客户端失败: {error}"))
+    builder
+        .build()
+        .map_err(|error| format!("创建 HTTP 客户端失败: {error}"))
 }
 
 fn parse_proxy_url(url: &str) -> Result<(), String> {
