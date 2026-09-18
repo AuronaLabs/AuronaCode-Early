@@ -1,4 +1,3 @@
-import { invokeDesktop } from "../../../Foundation/Desktop";
 import { AccountAuthIPC } from "../../../Foundation/IPC/AccountAuthCommands";
 import { type ExtensionDescriptor, ExtensionIPC } from "../../../Foundation/IPC/ExtensionCommands";
 import {
@@ -6,6 +5,7 @@ import {
   LanguageServerIPC,
   type ToolchainsOverview,
 } from "../../../Foundation/IPC/LanguageServerCommands";
+import { NetworkIPC } from "../../../Foundation/IPC/NetworkCommands";
 import { UserConfigStore } from "../../../Foundation/Storage/UserConfigStore";
 import { canonicalExtensionId, migrateExtensionRecords } from "../ExtensionId";
 
@@ -26,11 +26,6 @@ function inputSignal(input?: MarketplaceRequestInput): AbortSignal | undefined {
   if (!input) return undefined;
   if (typeof AbortSignal !== "undefined" && input instanceof AbortSignal) return input;
   return "signal" in input ? input.signal : undefined;
-}
-
-interface HttpFetchBytesResult {
-  data_b64: string;
-  sha256?: string | null;
 }
 
 function base64ToBytes(base64: string): Uint8Array {
@@ -855,7 +850,7 @@ export const MarketplaceService = {
     const serverUrl = await this.getServerUrl();
     const url = await this.getDownloadUrl(id, version);
     // 统一走 Rust HTTP 客户端：与更新检查、工具链下载共用同一套代理偏好
-    const result = await invokeDesktop<HttpFetchBytesResult>("http_fetch_bytes", { url });
+    const result = await NetworkIPC.fetchBytes(url);
     const sha256 = result.sha256 ?? undefined;
     // 供应链信任：官方渠道必须携带 SHA-256，缺失即拒装；本地开发/自定义服务器豁免
     if (!sha256 && isOfficialMarketplaceHost(serverUrl)) {
