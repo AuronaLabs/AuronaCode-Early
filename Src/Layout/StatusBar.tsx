@@ -204,5 +204,5 @@ function languageServerStatusColor(status?: LanguageServerInfo["status"]): strin
   if (status === "starting" || status === "initializing" || status === "restarting") {
     return "bg-[var(--StatusWarning)] animate-pulse shadow-[0_0_6px_var(--StatusWarning)]";
   }
-  return "bg-zinc-400/80 dark:bg-zinc-500/80";
+  return "bg-[var(--color-text-muted)]/80";
 }
