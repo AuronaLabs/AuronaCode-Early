@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "../../Shared/Utils/cn";
+import { Badge } from "./Badge";
 
 export interface SettingsNavItemProps {
   label: string;
@@ -26,11 +27,7 @@ export function SettingsNavItem({ label, icon, active, badge, onClick }: Setting
         {icon}
         <span>{label}</span>
       </div>
-      {badge !== undefined && (
-        <span className="rounded-full bg-[var(--color-accent)]/15 px-2 py-0.5 text-[10px] font-bold text-[var(--color-accent)]">
-          {badge}
-        </span>
-      )}
+      {badge !== undefined && <Badge>{badge}</Badge>}
     </button>
   );
 }

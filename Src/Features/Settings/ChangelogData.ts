@@ -12,9 +12,56 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.4.5",
+    date: "2026-09-19",
+    isLatest: true,
+    summary:
+      "V0.4.5 设计篇：玻璃语言全面落地与不统一感大扫除——品牌化改名补课、Slider 玻璃化重做、浮层材质查漏、通知玻璃染色（iOS 26 liquid glass）、徽章体系统一、主题色卡玻璃染色、设置行规格统一、空间管理单卡总览、Git Diff 推翻重做、硬编码色清零。",
+    sections: [
+      {
+        title: "Aurona 玻璃控件重做",
+        description: "名字对了，控件也要像玻璃",
+        items: [
+          "**品牌化改名补课**：六语言统一「Aurona 玻璃强度」「Aurona 流光」，三档更名「轻透 / 均衡 / 醇厚」",
+          "**Slider 玻璃化重做**：玻璃轨道 + 玻璃球 Thumb（垂直居中修复）+ 渐变填充 + 自由拖动松手吸附",
+          "**overlay 档位调优**：blur 下调一档、饱和度上调，下拉菜单与 Tooltip 告别「磨砂蒙白布」",
+          "**浮层材质查漏**：Modal/Select/Button/Input/GlassList 及编辑器手写浮层全部接入 glass-layer 公共链路",
+        ],
+      },
+      {
+        title: "玻璃染色语言",
+        description: "颜色从玻璃里透出来",
+        items: [
+          "**通知玻璃染色**：推翻左缘色条，Toast 与通知中心按状态色整卡轻染（≈9%），iOS 26 liquid glass 语言",
+          "**GlassContainer tint API**：实例级染色能力（color-mix 实现，默认行为不变），通知与色卡复用同一机制",
+          "**主题色卡重做**：废弃渐变位图预览，改为玻璃染色 + 色滴 + 勾选态，OOBE 主题预览同步对齐",
+        ],
+      },
+      {
+        title: "徽章与排版统一",
+        description: "一处定义，处处一致",
+        items: [
+          "**Badge 组件统一**：全局徽章收敛单一规格（tint/solid/neutral 三 variant），PREVIEW/Beta/最新/basedOn 全部重设计",
+          "**设置行规格统一**：border-t 分隔 + min-h-14 + gap-6 全分区对齐（General/Appearance/Network/Editor/Debug/LanguageService/Advanced）",
+          "**选中态语言统一**：ToolchainsPanel 等处 border-accent 直改改为 accent 染底 + 细描边语言",
+          "**网络重置图标化**：代理模式行文字重置按钮收敛为全局统一的小图标重置按钮",
+        ],
+      },
+      {
+        title: "页面重做与色值大扫除",
+        description: "把不统一一口气断根",
+        items: [
+          "**空间管理单卡总览**：顶部三卡整合为一卡（总占用 + 可安全清理 + 占比环 + 图例），分类卡一行最多两个",
+          "**Git Diff 推翻重做**：头部信息卡玻璃化、EmptyState 空态、语义色行内标记、9 处硬编码中文全部接入 i18n",
+          "**硬编码色清零**：ExtensionSidebar/DeclarativeUIRenderer/Marketplace 星标/GitGutter 等全部收敛语义令牌（新增 --Viz* 数据可视化四色）",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.4.4",
     date: "2026-09-18",
-    isLatest: true,
+    isLatest: false,
     summary:
       "V0.4.4 聚焦材质质感、开发效率与设计收敛：「Aurona 玻璃效果」升级为多轴材质体系并改用三档吸附 Slider；「Aurona 流光动效」深化为液态折射并明确静态/动态令牌契约；新增 i18n 工具链（结构校验 + 插桩向导）；Fliuno 双模式共享组件抽象与三序一致；空间管理 bento 重设计；通知视觉收敛；官方市场无哈希拒装。",
     sections: [

@@ -10,6 +10,7 @@ import { GetLanguageFromPath } from "../../../Shared/Utils/LanguageUtils";
 import { fileUriToPath } from "../../../Shared/Utils/UriUtils";
 import { useTerminalStore } from "../../../State/useTerminalStore";
 import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
+import { Badge } from "../../../UI/Components/Badge";
 import { Button } from "../../../UI/Components/Button";
 import {
   DropdownMenuContent,
@@ -204,9 +205,9 @@ export function WorkspaceBottomPanel() {
             <Icons.AlertTriangle size={14} />
             <span>{t("bottomPanel.problems")}</span>
             {problems.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-[var(--StatusError)]/15 text-[var(--StatusError)] text-[10px] font-bold">
+              <Badge variant="solid" color="var(--StatusError)" className="ml-1">
                 {problems.length}
-              </span>
+              </Badge>
             )}
           </button>
           <button

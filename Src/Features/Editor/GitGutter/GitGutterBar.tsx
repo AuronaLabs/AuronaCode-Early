@@ -13,19 +13,25 @@ export const GitGutterBar = React.memo(function GitGutterBar({
 }: GitGutterBarProps) {
   if (isAdded) {
     return (
-      <span aria-hidden="true" className="absolute right-0 top-0 bottom-0 w-[3px] bg-[#22c55e]" />
+      <span
+        aria-hidden="true"
+        className="absolute right-0 top-0 bottom-0 w-[3px] bg-[var(--StatusSuccess)]"
+      />
     );
   }
   if (isModified) {
     return (
-      <span aria-hidden="true" className="absolute right-0 top-0 bottom-0 w-[3px] bg-[#3b82f6]" />
+      <span
+        aria-hidden="true"
+        className="absolute right-0 top-0 bottom-0 w-[3px] bg-[var(--StatusInfo)]"
+      />
     );
   }
   if (isDeleted) {
     return (
       <span
         aria-hidden="true"
-        className="absolute right-0 top-0 border-t-[4px] border-r-[4px] border-t-transparent border-r-[#ef4444]"
+        className="absolute right-0 top-0 border-t-[4px] border-r-[4px] border-t-transparent border-r-[var(--StatusError)]"
       />
     );
   }

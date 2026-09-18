@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { ACCENT_THEMES } from "./ThemeAccent";
-import { buildThemePreviewGradient, getThemeDefinition, THEME_DEFINITIONS } from "./themePalettes";
+import { THEME_DEFINITIONS } from "./themePalettes";
 
 describe("theme palettes", () => {
   afterEach(() => {
@@ -33,15 +33,6 @@ describe("theme palettes", () => {
         expect(field.alpha).toBeLessThanOrEqual(1);
       }
     }
-  });
-
-  it("builds a layered preview gradient for light and dark modes", () => {
-    const aurora = getThemeDefinition("aurora");
-    const light = buildThemePreviewGradient(aurora, "light");
-    const dark = buildThemePreviewGradient(aurora, "dark");
-    expect(light).toContain("radial-gradient");
-    expect(light).toContain("linear-gradient(160deg");
-    expect(light).not.toBe(dark);
   });
 
   it("keeps liquid texture compatibility through the data attribute", async () => {

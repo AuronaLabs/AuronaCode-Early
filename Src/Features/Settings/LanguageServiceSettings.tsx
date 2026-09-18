@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+﻿import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { type LanguageServerInfo, LspClient } from "../../Core/Language/LspClient";
 import { EventBus } from "../../Foundation/EventBus";
@@ -197,7 +197,7 @@ function SettingRow({
   return (
     <div
       data-setting-id={settingId}
-      className="flex items-center justify-between gap-4 border-b border-[var(--border-subtle)] p-5 last:border-b-0"
+      className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
     >
       <div className="min-w-0">
         <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">{title}</div>

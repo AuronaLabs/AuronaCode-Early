@@ -1,10 +1,10 @@
-<div align="center">
+﻿<div align="center">
   <img src="public/logo.png" alt="Aurona Code" width="104" />
   <h1>Aurona Code</h1>
   <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.4-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.5-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
@@ -16,7 +16,7 @@
 Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造轻量、克制且具触感美学的沉浸式编码工作台。
 
 > [!NOTE]
-> **Aurona Code V0.4.4 玻璃质感二轮 / i18n 工具链 / Fliuno 重设计** 当前版本为 **V0.4.4**（Stable 正式通道）。本批次以材质质感、开发效率与设计收敛为主题：「Aurona 玻璃效果」升级为多轴材质体系（轻透/均衡/醇厚三档 Slider，投影深度、饱和度、rim 强度与边框亮度分档联动），「Aurona 流光动效」深化为液态折射（背景光域 hue 流动 + 第二条斜向折射带，静态 `--Glass*` / 动态 `--Liquid*` 令牌契约明确）；新增 i18n 工具链（key 树 diff、占位符一致性、硬编码中文扫描 + 一次写六语言的插桩向导）；Fliuno 悬浮窗与工作台页共享组件抽象并统一「展示 = 键盘 = 执行」三序一致；空间管理重设计为 bento 网格（占比环 + 可安全清理一键聚合）；通知与 Toast 收敛为透明底图标 + 左缘状态色条；官方市场下载无 SHA-256 拒装。
+> **Aurona Code V0.4.4 玻璃质感二轮 / i18n 工具链 / Fliuno 重设计** 当前版本为 **V0.4.5**（Stable 正式通道）。本批次为设计篇：玻璃语言全面落地与不统一感大扫除——品牌化改名补课（Aurona 玻璃强度 / Aurona 流光 ×6 语言）、Slider 玻璃化重做（自由拖动松手吸附 + 垂直居中修复）、浮层材质查漏与 overlay 档位调优（告别磨砂感）、通知玻璃染色（iOS 26 liquid glass，推翻左缘色条）、Badge 公共徽章体系、主题色卡玻璃染色重做、设置行规格全分区统一、空间管理单卡总览 + 两列分类卡、Git Diff 推翻重做 + i18n 清零、硬编码色收敛语义令牌。
 
 ---
 

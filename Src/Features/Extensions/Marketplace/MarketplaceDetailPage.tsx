@@ -249,7 +249,9 @@ export function MarketplaceDetailPage({ extensionId }: MarketplaceDetailPageProp
             >
               <Icons.Sparkles
                 size={14}
-                className={isStarred ? "fill-amber-400 text-amber-400" : ""}
+                className={
+                  isStarred ? "fill-[var(--StatusWarning)] text-[var(--StatusWarning)]" : ""
+                }
               />
               {isStarred ? t("extensions.starred") : t("extensions.star")}
             </Button>
@@ -562,7 +564,7 @@ function ReviewSection({
                 size={16}
                 className={
                   value <= rating
-                    ? "fill-amber-400 text-amber-400"
+                    ? "fill-[var(--StatusWarning)] text-[var(--StatusWarning)]"
                     : "text-[var(--color-text-muted)]"
                 }
               />
@@ -608,7 +610,7 @@ function ReviewSection({
                 <span className="text-[12px] font-medium text-[var(--color-text-highlight)]">
                   {review.userName}
                 </span>
-                <span className="text-[11px] text-amber-400">{review.rating}/5</span>
+                <span className="text-[11px] text-[var(--StatusWarning)]">{review.rating}/5</span>
               </div>
               <p className="text-[12px] leading-relaxed text-[var(--color-text-secondary)]">
                 {review.body}

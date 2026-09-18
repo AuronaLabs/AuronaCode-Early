@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DocumentService } from "../../Core/DocumentService";
 import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
 import { useLocale } from "../../Foundation/I18n";
@@ -33,11 +33,11 @@ const RENDER_DEBOUNCE_MS = 80;
 const LARGE_DOCUMENT_DEBOUNCE_MS = 350;
 
 const CATEGORIES = [
-  { name: "开发", color: "bg-blue-400" },
-  { name: "测试", color: "bg-purple-400" },
-  { name: "文档", color: "bg-emerald-400" },
-  { name: "优化", color: "bg-amber-400" },
-  { name: "设计", color: "bg-pink-400" },
+  { name: "开发", color: "bg-[var(--StatusInfo)]" },
+  { name: "测试", color: "bg-[var(--VizIndigo)]" },
+  { name: "文档", color: "bg-[var(--StatusSuccess)]" },
+  { name: "优化", color: "bg-[var(--StatusWarning)]" },
+  { name: "设计", color: "bg-[var(--VizFuchsia)]" },
 ];
 
 function currentTheme(): string {
@@ -487,7 +487,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
                 size="sm"
                 variant="ghost"
                 onClick={() => void resolvePermission("deny")}
-                className="h-8 w-full text-[12px] text-[var(--color-text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-xl"
+                className="h-8 w-full text-[12px] text-[var(--color-text-muted)] hover:text-[var(--StatusError)] hover:bg-[var(--StatusError)]/10 rounded-xl"
               >
                 {t("extensions.deny")}
               </Button>
@@ -504,7 +504,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-7 px-2 text-[11px] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)] hover:text-red-400"
+                className="h-7 px-2 text-[11px] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--StatusError)]"
                 aria-label="清理已完成任务"
                 onClick={handleClearCompleted}
               >
@@ -542,7 +542,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               className="min-w-0 flex-1 bg-transparent px-2.5 text-[12px] text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-muted)]"
             />
 
-            {/* 官方原生拟物分类选择器 */}
+            {/* 官方原生玻璃分类选择器 */}
             <div className="w-24 shrink-0">
               <Select
                 value={newTaskCategory}
@@ -638,7 +638,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
       {/* 核心内卡片容器：统一使用系统内边距 */}
       {isPlanner && plannerSaveError && (
-        <div className="mx-[var(--PanelPaddingX)] mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
+        <div className="mx-[var(--PanelPaddingX)] mb-2 rounded-lg border border-[var(--StatusError)]/30 bg-[var(--StatusError)]/10 px-3 py-2 text-[11px] text-[var(--StatusError)]">
           Planner 保存失败：{plannerSaveError}
         </div>
       )}

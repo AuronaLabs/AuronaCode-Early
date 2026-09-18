@@ -162,7 +162,9 @@ function InstalledServerRow({
       data-marketplace-item-id={item.id}
       data-selected={selected || undefined}
       className={`flex flex-col gap-2.5 p-3.5 transition-colors duration-150 hover:bg-[var(--material-interactive-hover)] ${
-        selected ? "border-[var(--color-accent)]" : ""
+        selected
+          ? "border-[color-mix(in_srgb,rgb(var(--AccentPrimary))_45%,var(--border-overlay))] bg-[color-mix(in_srgb,rgb(var(--AccentPrimary))_8%,transparent)] shadow-[0_0_0_1px_color-mix(in_srgb,rgb(var(--AccentPrimary))_28%,transparent)]"
+          : ""
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -246,7 +248,9 @@ function RuntimeRow({
       data-marketplace-item-id={runtime.runtimeType}
       data-selected={selected || undefined}
       className={`flex items-center justify-between gap-3 p-3.5 transition-colors duration-150 hover:bg-[var(--material-interactive-hover)] ${
-        selected ? "border-[var(--color-accent)]" : ""
+        selected
+          ? "border-[color-mix(in_srgb,rgb(var(--AccentPrimary))_45%,var(--border-overlay))] bg-[color-mix(in_srgb,rgb(var(--AccentPrimary))_8%,transparent)] shadow-[0_0_0_1px_color-mix(in_srgb,rgb(var(--AccentPrimary))_28%,transparent)]"
+          : ""
       }`}
     >
       <div className="min-w-0">

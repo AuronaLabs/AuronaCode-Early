@@ -1,6 +1,6 @@
 /**
  * Aurona Code 官方原生声明式组件协议定义 (Declarative Component Schema)
- * 允许插件无需编写 HTML/CSS，直接声明式复用 Aurona 官方全套现代拟物组件
+ * 允许插件无需编写 HTML/CSS，直接声明式复用 Aurona 官方全套现代玻璃组件
  */
 
 export type DeclarativeComponent =

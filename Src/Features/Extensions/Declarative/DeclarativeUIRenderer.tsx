@@ -150,12 +150,16 @@ export function DeclarativeUIRenderer({ ui, onAction }: DeclarativeUIRendererPro
       }
 
       case "badge": {
+        // 徽章色收敛语义令牌：命名色键不变（插件协议兼容），色值走 --Status*/--Viz* 令牌
         const colorStyles: Record<string, string> = {
-          blue: "bg-blue-500/15 text-blue-400 border-blue-500/20",
-          green: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
-          amber: "bg-amber-500/15 text-amber-400 border-amber-500/20",
-          purple: "bg-purple-500/15 text-purple-400 border-purple-500/20",
-          neutral: "bg-zinc-500/15 text-zinc-400 border-zinc-500/20",
+          blue: "bg-[var(--StatusInfo)]/15 text-[var(--StatusInfo)] border-[var(--StatusInfo)]/20",
+          green:
+            "bg-[var(--StatusSuccess)]/15 text-[var(--StatusSuccess)] border-[var(--StatusSuccess)]/20",
+          amber:
+            "bg-[var(--StatusWarning)]/15 text-[var(--StatusWarning)] border-[var(--StatusWarning)]/20",
+          purple: "bg-[var(--VizIndigo)]/15 text-[var(--VizIndigo)] border-[var(--VizIndigo)]/20",
+          neutral:
+            "bg-[var(--color-text-muted)]/15 text-[var(--color-text-muted)] border-[var(--border-subtle)]",
         };
         const style = colorStyles[comp.color ?? "blue"] ?? colorStyles.blue;
         return (

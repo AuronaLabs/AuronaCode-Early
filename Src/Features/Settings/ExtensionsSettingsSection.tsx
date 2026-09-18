@@ -10,6 +10,7 @@ import { ExtensionIPC } from "../../Foundation/IPC/ExtensionCommands";
 import { StorageIPC } from "../../Foundation/IPC/StorageCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { useExtensionStore } from "../../State/useExtensionStore";
+import { Badge } from "../../UI/Components/Badge";
 import { Button } from "../../UI/Components/Button";
 import { Card } from "../../UI/Components/Card";
 import { Input } from "../../UI/Components/Input";
@@ -527,9 +528,7 @@ export function ExtensionsSettingsSection() {
               <span className="text-[14px] font-bold text-[var(--color-text-highlight)]">
                 {t("settings.extensionsSettings.vscodeCompatTitle")}
               </span>
-              <span className="rounded border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-muted)]">
-                {t("settings.extensionsSettings.builtinBadge")}
-              </span>
+              <Badge variant="neutral">{t("settings.extensionsSettings.builtinBadge")}</Badge>
             </div>
             <span className="text-[11.5px] leading-relaxed text-[var(--color-text-muted)]">
               {t("settings.extensionsSettings.vscodeCompatDescription")}

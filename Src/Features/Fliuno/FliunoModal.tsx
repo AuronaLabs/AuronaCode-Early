@@ -148,7 +148,7 @@ export function FliunoModal() {
       <section
         data-testid="fliuno-surface"
         aria-label={t("fliuno.surfaceLabel")}
-        className={`glass-layer-overlay relative grid w-full max-w-[720px] overflow-hidden border border-[var(--border-overlay)] bg-[var(--material-panel)] backdrop-blur-[var(--glass-blur-overlay)] transition-[border-color,border-radius,box-shadow] duration-200 focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)] ${
+        className={`glass-layer-overlay relative grid w-full max-w-[720px] overflow-hidden border border-[var(--border-overlay)] bg-[var(--material-panel)] backdrop-blur-[var(--glass-blur-overlay)] backdrop-saturate-[var(--GlassSaturation)] transition-[border-color,border-radius,box-shadow] duration-200 focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)] ${
           hasQuery ? "rounded-[20px]" : "rounded-[18px]"
         }`}
       >

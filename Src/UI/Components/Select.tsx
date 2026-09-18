@@ -59,12 +59,12 @@ export function Select({ options, value, onChange, className, ariaLabel, disable
                 value={opt.value}
                 disabled={opt.disabled}
                 className={cn(
-                  "relative flex min-h-8 w-full cursor-pointer select-none items-center rounded-lg border border-transparent py-1.5 pl-8 pr-2 text-[13px] text-[var(--color-text-primary)] outline-none transition-[background-color,border-color,color,box-shadow] data-[highlighted]:bg-[var(--material-interactive-hover)] data-[highlighted]:text-[var(--color-text-highlight)] data-[state=checked]:border-[var(--border-subtle)] data-[state=checked]:bg-[var(--material-surface)] data-[state=checked]:text-[var(--color-text-highlight)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
+                  "relative flex min-h-8 w-full cursor-pointer select-none items-center rounded-lg py-1.5 pl-8 pr-2 text-[13px] text-[var(--color-text-primary)] outline-none transition-[background-color,color,box-shadow] data-[highlighted]:bg-[var(--material-interactive-hover)] data-[highlighted]:text-[var(--color-text-highlight)] data-[state=checked]:bg-[color-mix(in_srgb,var(--color-accent)_8%,transparent)] data-[state=checked]:text-[var(--color-text-highlight)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
                 )}
               >
                 <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
                   <SelectPrimitive.ItemIndicator>
-                    <Icons.Check size={14} className="text-[var(--color-text-highlight)]" />
+                    <Icons.Check size={14} className="text-[var(--color-accent)]" />
                   </SelectPrimitive.ItemIndicator>
                 </span>
                 <Tooltip

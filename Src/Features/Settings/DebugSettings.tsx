@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+﻿import { type ReactNode, useEffect, useState } from "react";
 import { BuiltInToolRegistry } from "../../Core/BuiltInToolRegistry";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
@@ -130,7 +130,7 @@ export function DebugSettings() {
         {BuiltInToolRegistry.getByKind("debug-adapter").map((tool) => (
           <div
             key={tool.id}
-            className="flex min-h-14 items-center justify-between gap-6 border-b border-[var(--border-subtle)] p-5 last:border-b-0"
+            className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
           >
             <div className="min-w-0">
               <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -187,7 +187,7 @@ function Row({
   return (
     <div
       data-setting-id={settingId}
-      className="flex min-h-14 items-center justify-between gap-6 border-b border-[var(--border-subtle)] p-5 last:border-b-0"
+      className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
     >
       <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">{label}</span>
       <div className="flex shrink-0 items-center gap-2">

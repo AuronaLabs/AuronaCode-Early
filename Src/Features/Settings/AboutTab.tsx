@@ -3,6 +3,7 @@ import { desktopApp } from "../../Foundation/Desktop";
 import { useLocale } from "../../Foundation/I18n";
 import { PlatformService } from "../../Foundation/Platform";
 import { formatDisplayVersion } from "../../Foundation/Release/ReleaseChannel";
+import { Badge } from "../../UI/Components/Badge";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
@@ -53,9 +54,7 @@ export function AboutTab() {
               <span className="text-[14px] font-medium text-[var(--color-text-primary)]">
                 {formatDisplayVersion(appVersion)}
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-[var(--color-accent)]/20 text-[var(--color-accent)] text-[11px] font-bold tracking-widest border border-[var(--color-accent)]/30">
-                {t("about.basedOn")}
-              </span>
+              <Badge variant="neutral">{t("about.basedOn")}</Badge>
             </div>
             <p className="text-[13px] text-[var(--color-text-muted)] mt-2 tracking-wide">
               {t("about.tagline")}

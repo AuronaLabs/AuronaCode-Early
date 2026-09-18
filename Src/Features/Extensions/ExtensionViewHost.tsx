@@ -85,7 +85,7 @@ export function ExtensionViewHost({
     return result.replace(RENDER_SLOT, html).replace(STATUS_SLOT, status);
   }, [declarativeUI, viewHtml, theme, renderState]);
 
-  // 如果是官方原生声明式组件模式，直接由 React 现代拟物组件树驱动渲染
+  // 如果是官方原生声明式组件模式，直接由 React 现代玻璃组件树驱动渲染
   if (declarativeUI) {
     return (
       <div className="h-full w-full overflow-y-auto overflow-x-hidden bg-transparent">

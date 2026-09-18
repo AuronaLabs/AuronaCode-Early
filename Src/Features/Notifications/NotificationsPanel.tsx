@@ -133,37 +133,31 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
                         ? Icons.InfoCircle
                         : Icons.Info;
 
-              // 状态色收敛：四令牌，confirm 复用 primary；透明底图标 + 左缘状态色条
-              const statusText =
+              // 状态色收敛：四令牌，confirm 复用 primary；玻璃染色（type 即颜色来源）
+              const statusColor =
                 item.type === "success"
-                  ? "text-[var(--StatusSuccess)]"
+                  ? "var(--StatusSuccess)"
                   : item.type === "error"
-                    ? "text-[var(--StatusError)]"
+                    ? "var(--StatusError)"
                     : item.type === "warning"
-                      ? "text-[var(--StatusWarning)]"
+                      ? "var(--StatusWarning)"
                       : item.type === "confirm"
-                        ? "text-[var(--color-accent)]"
-                        : "text-[var(--StatusInfo)]";
-              const statusBar =
-                item.type === "success"
-                  ? "bg-[var(--StatusSuccess)]"
-                  : item.type === "error"
-                    ? "bg-[var(--StatusError)]"
-                    : item.type === "warning"
-                      ? "bg-[var(--StatusWarning)]"
-                      : item.type === "confirm"
-                        ? "bg-[var(--color-accent)]"
-                        : "bg-[var(--StatusInfo)]";
+                        ? "var(--color-accent)"
+                        : "var(--StatusInfo)";
 
               return (
                 <Card
                   key={item.id}
                   layer="base"
                   className="group relative z-10 flex gap-3 overflow-hidden p-3 transition-colors duration-150 hover:bg-[var(--material-interactive-hover)]"
+                  style={{
+                    // iOS 26 liquid glass 染色：整卡轻染状态色，替代左缘色条
+                    backgroundColor: `color-mix(in srgb, ${statusColor} 9%, var(--surface-base))`,
+                    borderColor: `color-mix(in srgb, ${statusColor} 14%, var(--border-subtle))`,
+                  }}
                 >
-                  <span className={`absolute top-0 bottom-0 left-0 w-[3px] ${statusBar}`} />
                   <div
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center ${statusText}`}
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center text-[${statusColor}]`}
                   >
                     <Icon size={15} />
                   </div>

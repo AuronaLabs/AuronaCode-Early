@@ -243,19 +243,6 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
   },
 ];
 
-const fieldGradient = (field: ThemeAmbientField) =>
-  `radial-gradient(${field.sizeX}% ${field.sizeY}% at ${field.x}% ${field.y}%, rgba(${field.rgb.join(", ")}, ${field.alpha}) 0%, transparent 60%)`;
-
-/** 生成 Theme Picker 微型预览使用的背景（与 Theme.css 的 Atmosphere 结构一致）。 */
-export function buildThemePreviewGradient(theme: ThemeDefinition, mode: ThemeMode): string {
-  const palette = theme.palettes[mode];
-  const fields = palette.fields.map(fieldGradient);
-  return [
-    ...fields,
-    `linear-gradient(160deg, ${palette.baseStart} 0%, ${palette.baseMiddle} 46%, ${palette.baseEnd} 100%)`,
-  ].join(", ");
-}
-
 export function getThemeDefinition(id: AccentThemeId): ThemeDefinition {
   const fallback = THEME_DEFINITIONS[0];
   if (!fallback) throw new Error("Theme definitions are empty");

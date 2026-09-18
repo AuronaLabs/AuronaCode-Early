@@ -6,12 +6,12 @@ import { Icons } from "../Icons/IconManager";
 export type ToastType = "info" | "success" | "warning" | "error" | "confirm";
 
 /** 状态色收敛：四令牌（success/error/warning/info），confirm 复用 primary。 */
-const STATUS_BAR_CLASS: Record<ToastType, string> = {
-  success: "bg-[var(--StatusSuccess)]",
-  error: "bg-[var(--StatusError)]",
-  warning: "bg-[var(--StatusWarning)]",
-  confirm: "bg-[var(--color-accent)]",
-  info: "bg-[var(--StatusInfo)]",
+const STATUS_TINT: Record<ToastType, string> = {
+  success: "var(--StatusSuccess)",
+  error: "var(--StatusError)",
+  warning: "var(--StatusWarning)",
+  confirm: "var(--color-accent)",
+  info: "var(--StatusInfo)",
 };
 
 const STATUS_TEXT_CLASS: Record<ToastType, string> = {
@@ -104,11 +104,13 @@ export function ToastContainer() {
         return (
           <div
             key={toast.id}
-            className="glass-layer-overlay pointer-events-auto relative flex flex-col gap-2.5 overflow-hidden rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)]/95 p-3.5 backdrop-blur-[var(--glass-blur-overlay)] shadow-2xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group"
+            className={`glass-layer-overlay pointer-events-auto relative flex flex-col gap-2.5 overflow-hidden rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)]/95 p-3.5 backdrop-blur-[var(--glass-blur-overlay)] shadow-2xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group`}
+            style={{
+              // iOS 26 liquid glass 染色：整卡轻染状态色，替代左缘色条
+              backgroundColor: `color-mix(in srgb, ${STATUS_TINT[toast.type]} 9%, var(--material-overlay))`,
+              borderColor: `color-mix(in srgb, ${STATUS_TINT[toast.type]} 14%, var(--border-overlay))`,
+            }}
           >
-            <span
-              className={`absolute top-0 bottom-0 left-0 w-[3px] ${STATUS_BAR_CLASS[toast.type]}`}
-            />
             <div className={`flex ${hasTitle ? "items-start" : "items-center"} gap-3`}>
               <div
                 className={`flex h-8 w-8 shrink-0 items-center justify-center ${STATUS_TEXT_CLASS[toast.type]}`}

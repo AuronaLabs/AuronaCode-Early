@@ -9,15 +9,15 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-[var(--color-accent)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-hover)] border border-[color-mix(in_srgb,var(--color-accent)_24%,transparent)]",
+          "bg-[var(--color-accent)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-hover)] border border-[color-mix(in_srgb,var(--color-accent)_24%,transparent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]",
         secondary:
           "bg-[var(--material-interactive-hover)] text-[var(--color-text-highlight)] hover:bg-[var(--border-subtle)] border border-[var(--border-subtle)]",
         danger:
-          "bg-[var(--DiagError)]/90 text-white hover:bg-[var(--DiagError)] border border-[color-mix(in_srgb,var(--DiagError)_24%,transparent)]",
+          "bg-[var(--DiagError)]/90 text-white hover:bg-[var(--DiagError)] border border-[color-mix(in_srgb,var(--DiagError)_24%,transparent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]",
         ghost:
           "bg-transparent text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]",
         glass:
-          "border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-highlight)] backdrop-blur-[var(--glass-blur-raised)] hover:bg-[var(--material-interactive-hover)]",
+          "border border-[color-mix(in_srgb,var(--GlassSurface-Rim)_75%,var(--border-subtle))] bg-[var(--material-surface)] text-[var(--color-text-highlight)] shadow-[inset_0_1px_0_var(--GlassSurface-Highlight)] backdrop-blur-[var(--glass-blur-raised)] backdrop-saturate-[var(--GlassSaturation)] hover:border-[var(--border-overlay)] hover:bg-[var(--material-interactive-hover)] hover:shadow-[inset_0_1px_0_color-mix(in_srgb,var(--GlassSurface-Highlight)_160%,transparent)]",
       },
       size: {
         default: "h-8 rounded-xl px-4 py-1.5",

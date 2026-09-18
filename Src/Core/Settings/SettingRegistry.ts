@@ -160,7 +160,17 @@ registerSetting({
   category: "appearance",
   titleKey: "settings.definitions.materialIntensity.title",
   descriptionKey: "settings.definitions.materialIntensity.description",
-  keywords: ["material", "glass", "intensity", "aurona", "玻璃", "玻璃效果", "毛玻璃", "强度"],
+  keywords: [
+    "material",
+    "glass",
+    "intensity",
+    "aurona",
+    "玻璃",
+    "玻璃强度",
+    "玻璃效果",
+    "毛玻璃",
+    "强度",
+  ],
   type: "select",
   defaultValue: "medium",
 });

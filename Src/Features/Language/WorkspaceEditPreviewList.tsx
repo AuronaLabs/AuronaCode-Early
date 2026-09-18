@@ -1,6 +1,7 @@
 import type { WorkspaceEditPreview } from "../../Core/LanguageFeatureService";
 import { useLocale } from "../../Foundation/I18n";
 import { fileUriToPath } from "../../Shared/Utils/UriUtils";
+import { Badge } from "../../UI/Components/Badge";
 import { Icons } from "../../UI/Icons/IconManager";
 
 export function WorkspaceEditPreviewList({ preview }: { preview: WorkspaceEditPreview }) {
@@ -17,9 +18,9 @@ export function WorkspaceEditPreviewList({ preview }: { preview: WorkspaceEditPr
             <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[var(--color-text-muted)]">
               {fileUriToPath(file.uri) ?? file.uri}
             </span>
-            <span className="shrink-0 rounded-full bg-[var(--material-interactive-hover)] px-1.5 py-0.5 text-[9px] text-[var(--color-text-muted)]">
+            <Badge variant="neutral">
               {t("language.changesCount").replace("{count}", String(file.editCount))}
-            </span>
+            </Badge>
           </div>
           <div className="divide-y divide-[var(--border-subtle)]">
             {file.edits.map((edit) => (

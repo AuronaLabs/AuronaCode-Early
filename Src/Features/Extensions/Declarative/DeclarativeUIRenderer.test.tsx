@@ -21,7 +21,7 @@ describe("DeclarativeUIRenderer & UI Schema", () => {
     const schema: DeclarativeUIRoot = {
       mode: "declarative",
       title: "官方原生声明式组件测试",
-      description: "由 React 现代拟物组件驱动",
+      description: "由 React 现代玻璃组件驱动",
       components: [
         {
           type: "card",

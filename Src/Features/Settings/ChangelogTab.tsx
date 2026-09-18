@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLocale } from "../../Foundation/I18n";
 import { formatDisplayVersion, parseAuronaVersion } from "../../Foundation/Release/ReleaseChannel";
+import { Badge } from "../../UI/Components/Badge";
 import { Card } from "../../UI/Components/Card";
 import { FilterChips } from "../../UI/Components/FilterChips";
 import { GlassContainer } from "../../UI/Core/GlassManager";
@@ -174,11 +175,7 @@ export function ChangelogTab() {
       <span className="rounded-lg border border-[var(--border-subtle)] bg-[var(--material-panel)] px-2.5 py-0.5 text-[12px] font-medium text-[var(--color-text-muted)]">
         {release.date}
       </span>
-      {release.isLatest && (
-        <span className="rounded-lg bg-[var(--color-accent)] px-2.5 py-0.5 text-[11px] font-bold tracking-widest text-white">
-          {t("changelog.latest")}
-        </span>
-      )}
+      {release.isLatest && <Badge>{t("changelog.latest")}</Badge>}
     </span>
   );
 

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import { useLocale } from "../../Foundation/I18n";
 import { GitIPC } from "../../Foundation/IPC/GitCommands";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 
 import { cn } from "../../Shared/Utils/cn";
+import { EmptyState } from "../../UI/Components/EmptyState";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { Icons } from "../../UI/Icons/IconManager";
 
@@ -29,6 +31,7 @@ interface DiffLine {
 }
 
 export function DiffViewer({ diffTarget }: DiffViewerProps) {
+  const { t } = useLocale();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [commitMessage, setCommitMessage] = useState("");
@@ -151,32 +154,26 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
 
   if (loading) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-transparent p-6 text-[var(--color-text-muted)]">
-        <div
-          className={cn(
-            glassVariants({ layer: "raised" }),
-            "flex items-center gap-2.5 rounded-2xl px-5 py-3 text-[12px]",
-          )}
-        >
-          <Icons.Refresh className="animate-spin" size={17} /> 加载差异数据中...
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-6 text-[var(--color-text-muted)]">
+        <div className="relative">
+          <div className="absolute inset-0 scale-125 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] blur-xl" />
+          <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-accent)_22%,var(--border-subtle))] bg-[var(--material-surface)] text-[var(--color-accent)]">
+            <Icons.GitCommit size={24} stroke={1.45} />
+          </div>
         </div>
+        <span className="text-[12.5px]">{t("sourceControl.diffViewer.loading")}</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-transparent p-6">
-        <div
-          className={cn(
-            glassVariants({ layer: "raised" }),
-            "flex max-w-md flex-col items-center rounded-2xl px-8 py-7 text-[var(--DiagError)]",
-          )}
-        >
-          <Icons.AlertTriangle size={30} className="mb-2" />
-          <div className="font-medium">获取 Diff 失败</div>
-          <div className="mt-1 text-center text-[12px] opacity-70">{error}</div>
-        </div>
+      <div className="flex h-full w-full items-center justify-center p-6">
+        <EmptyState
+          icon={<Icons.AlertTriangle size={26} stroke={1.6} />}
+          title={t("sourceControl.diffViewer.loadFailed")}
+          description={error}
+        />
       </div>
     );
   }
@@ -191,39 +188,41 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
           )}
         >
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--material-overlay)] text-[var(--color-text-highlight)]">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--material-overlay)] text-[var(--color-accent)] shadow-[inset_0_1px_0_var(--GlassSurface-Rim)] backdrop-blur-[var(--glass-blur-overlay)]">
               <Icons.GitCommit size={18} />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
-                  {workingFile ? "工作区差异" : "提交差异"}
+                  {workingFile
+                    ? t("sourceControl.diffViewer.title")
+                    : t("sourceControl.diffViewer.commitTitle")}
                 </span>
-                <code className="rounded-md border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-muted)]">
+                <code className="rounded-full bg-[var(--material-surface)] px-2 py-0.5 font-mono text-[10px] text-[var(--color-text-muted)]">
                   {workingFile ?? diffTarget.slice(0, 8)}
                 </code>
               </div>
               <p className="mt-0.5 truncate text-[11.5px] text-[var(--color-text-muted)]">
                 {workingFile
                   ? isStaged
-                    ? "已暂存的更改"
-                    : "尚未暂存的更改"
-                  : commitMessage || "此提交没有提供说明"}
+                    ? t("sourceControl.diffViewer.staged")
+                    : t("sourceControl.diffViewer.unstaged")
+                  : commitMessage || t("sourceControl.diffViewer.noCommitMessage")}
               </p>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5 text-[11px]">
-            <span className="rounded-lg border border-[var(--border-subtle)] bg-[var(--material-panel)] px-2 py-1 text-[var(--color-text-muted)]">
-              {files.length} 个文件
+          <div className="flex shrink-0 items-center gap-2 text-[11px]">
+            <span className="text-[var(--color-text-muted)]">
+              {t("sourceControl.diffViewer.fileCount").replace("{count}", String(files.length))}
             </span>
             {summary.additions > 0 && (
-              <span className="rounded-lg border border-[var(--StatusSuccess)]/15 bg-[var(--StatusSuccess)]/10 px-2 py-1 font-mono text-[var(--StatusSuccess)]">
+              <span className="font-mono font-semibold text-[var(--StatusSuccess)]">
                 +{summary.additions}
               </span>
             )}
             {summary.deletions > 0 && (
-              <span className="rounded-lg border border-[var(--StatusError)]/15 bg-[var(--StatusError)]/10 px-2 py-1 font-mono text-[var(--StatusError)]">
-                -{summary.deletions}
+              <span className="font-mono font-semibold text-[var(--StatusError)]">
+                −{summary.deletions}
               </span>
             )}
           </div>
@@ -232,15 +231,10 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
 
       <div className="aurona-scroll flex-1 overflow-y-auto p-4">
         {files.length === 0 ? (
-          <div
-            className={cn(
-              glassVariants({ layer: "base" }),
-              "flex flex-col items-center rounded-2xl py-12 text-center text-[var(--color-text-muted)]",
-            )}
-          >
-            <Icons.FileCode size={26} className="mb-2 opacity-55" />
-            <span className="text-[12px]">此提交未包含支持差异对比的文件</span>
-          </div>
+          <EmptyState
+            icon={<Icons.FileCode size={27} stroke={1.45} />}
+            title={t("sourceControl.diffViewer.empty")}
+          />
         ) : (
           <div className="flex flex-col gap-4">
             {files.map((file) => {
@@ -258,27 +252,23 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                   key={`${file.oldName}-${file.newName}`}
                   className={cn(glassVariants({ layer: "raised" }), "overflow-hidden rounded-2xl")}
                 >
-                  <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--material-panel)] px-3 py-2.5 backdrop-blur-[var(--glass-blur-base)]">
+                  <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-base)] px-3 py-2.5 backdrop-blur-[var(--surface-blur-base)] backdrop-saturate-[var(--GlassSaturation)]">
                     <div className="flex min-w-0 items-center gap-2.5">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-muted)]">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-accent)]">
                         <Icons.FileCode size={14} />
                       </div>
-                      <span className="truncate text-[12.5px] font-semibold text-[var(--color-text-highlight)]">
+                      <span className="truncate font-mono text-[12px] font-semibold text-[var(--color-text-highlight)]">
                         {file.oldName === file.newName
                           ? file.newName
-                          : `${file.oldName} -> ${file.newName}`}
+                          : `${file.oldName} → ${file.newName}`}
                       </span>
                     </div>
                     <div className="ml-3 flex shrink-0 items-center gap-1.5 font-mono text-[10.5px] font-semibold">
                       {additions > 0 && (
-                        <span className="rounded-md border border-[var(--StatusSuccess)]/15 bg-[var(--StatusSuccess)]/10 px-1.5 py-0.5 text-[var(--StatusSuccess)]">
-                          +{additions}
-                        </span>
+                        <span className="text-[var(--StatusSuccess)]">+{additions}</span>
                       )}
                       {deletions > 0 && (
-                        <span className="rounded-md border border-[var(--StatusError)]/15 bg-[var(--StatusError)]/10 px-1.5 py-0.5 text-[var(--StatusError)]">
-                          -{deletions}
-                        </span>
+                        <span className="text-[var(--StatusError)]">−{deletions}</span>
                       )}
                     </div>
                   </div>
@@ -289,20 +279,20 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                         key={hunk.header}
                         className="flex flex-col border-b border-[var(--border-subtle)] last:border-b-0"
                       >
-                        <div className="border-b border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 py-1.5 text-[10.5px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-raised)]">
+                        <div className="border-b border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 py-1.5 font-mono text-[10.5px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-raised)]">
                           {hunk.header}
                         </div>
                         <div className="flex w-full">
                           {/* Left Pane */}
-                          <div className="w-1/2 overflow-x-auto aurona-scroll border-r border-[var(--border-subtle)]">
-                            <div className="flex flex-col min-w-max">
+                          <div className="aurona-scroll w-1/2 overflow-x-auto border-r border-[var(--border-subtle)]">
+                            <div className="flex min-w-max flex-col">
                               {hunk.lines.map((line) => {
                                 const isContext = line.type === "context";
                                 const isDel = line.type === "deletion";
                                 const leftBg = isContext
                                   ? "bg-transparent"
                                   : isDel
-                                    ? "bg-[var(--StatusError)]/10"
+                                    ? "bg-[var(--StatusError)]/8"
                                     : "bg-[var(--material-surface)]";
                                 const leftText = isContext
                                   ? line.content
@@ -313,7 +303,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                                 return (
                                   <div
                                     key={`left-${line.type}-${line.leftLineNum ?? "none"}-${line.rightLineNum ?? "none"}-${line.content}`}
-                                    className="flex group hover:bg-[var(--material-interactive-hover)] transition-colors h-[22px] items-stretch"
+                                    className="group flex h-[22px] items-stretch transition-colors hover:bg-[var(--material-interactive-hover)]"
                                     style={{
                                       contentVisibility: "auto",
                                       containIntrinsicSize: "22px",
@@ -323,8 +313,15 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                                       {line.leftLineNum || ""}
                                     </div>
                                     <div
-                                      className={`px-4 flex-1 flex items-center whitespace-pre ${leftBg} ${isDel ? "text-[var(--StatusError)]" : "text-[var(--color-text-primary)]"}`}
+                                      className={`relative flex flex-1 items-center whitespace-pre px-4 ${leftBg} ${
+                                        isDel
+                                          ? "text-[var(--StatusError)]"
+                                          : "text-[var(--color-text-primary)]"
+                                      }`}
                                     >
+                                      {isDel && (
+                                        <span className="absolute inset-y-0 left-0 w-0.5 bg-[var(--StatusError)]/50" />
+                                      )}
                                       {leftText || " "}
                                     </div>
                                   </div>
@@ -334,15 +331,15 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                           </div>
 
                           {/* Right Pane */}
-                          <div className="w-1/2 overflow-x-auto aurona-scroll">
-                            <div className="flex flex-col min-w-max">
+                          <div className="aurona-scroll w-1/2 overflow-x-auto">
+                            <div className="flex min-w-max flex-col">
                               {hunk.lines.map((line) => {
                                 const isContext = line.type === "context";
                                 const isAdd = line.type === "addition";
                                 const rightBg = isContext
                                   ? "bg-transparent"
                                   : isAdd
-                                    ? "bg-[var(--StatusSuccess)]/10"
+                                    ? "bg-[var(--StatusSuccess)]/8"
                                     : "bg-[var(--material-surface)]";
                                 const rightText = isContext
                                   ? line.content
@@ -353,7 +350,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                                 return (
                                   <div
                                     key={`right-${line.type}-${line.leftLineNum ?? "none"}-${line.rightLineNum ?? "none"}-${line.content}`}
-                                    className="flex group hover:bg-[var(--material-interactive-hover)] transition-colors h-[22px] items-stretch"
+                                    className="group flex h-[22px] items-stretch transition-colors hover:bg-[var(--material-interactive-hover)]"
                                     style={{
                                       contentVisibility: "auto",
                                       containIntrinsicSize: "22px",
@@ -363,8 +360,15 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                                       {line.rightLineNum || ""}
                                     </div>
                                     <div
-                                      className={`px-4 flex-1 flex items-center whitespace-pre ${rightBg} ${isAdd ? "text-[var(--StatusSuccess)]" : "text-[var(--color-text-primary)]"}`}
+                                      className={`relative flex flex-1 items-center whitespace-pre px-4 ${rightBg} ${
+                                        isAdd
+                                          ? "text-[var(--StatusSuccess)]"
+                                          : "text-[var(--color-text-primary)]"
+                                      }`}
                                     >
+                                      {isAdd && (
+                                        <span className="absolute inset-y-0 left-0 w-0.5 bg-[var(--StatusSuccess)]/50" />
+                                      )}
                                       {rightText || " "}
                                     </div>
                                   </div>

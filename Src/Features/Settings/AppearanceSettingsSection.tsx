@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
 import { ACCENT_THEMES } from "../../App/ThemeAccent";
-import { buildThemePreviewGradient, getThemeDefinition } from "../../App/themePalettes";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import type { AccentThemeId } from "../../Foundation/Types/Config";
+import { Badge } from "../../UI/Components/Badge";
 import { Select } from "../../UI/Components/Select";
 import { SettingResetButton } from "../../UI/Components/SettingResetButton";
 import { Slider } from "../../UI/Components/Slider";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer, type GlassIntensity } from "../../UI/Core/GlassManager";
+import { Icons } from "../../UI/Icons/IconManager";
 
 const INTENSITY_ORDER: GlassIntensity[] = ["light", "medium", "heavy"];
 
@@ -38,17 +38,6 @@ export function AppearanceSettingsSection({
 }: AppearanceSettingsSectionProps) {
   const { t } = useLocale();
   const themeLabel = (id: AccentThemeId) => t(`settings.themes.${id}` as I18nKey);
-  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
-  useEffect(() => {
-    const observer = new MutationObserver(() =>
-      setIsDark(document.documentElement.classList.contains("dark")),
-    );
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => observer.disconnect();
-  }, []);
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
       <div className="flex flex-col gap-2">
@@ -79,37 +68,48 @@ export function AppearanceSettingsSection({
           <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
             {ACCENT_THEMES.map((accent) => {
               const selected = accentTheme === accent.id;
+              const tint = `rgb(${accent.rgb})`;
               return (
                 <button
                   type="button"
                   key={accent.id}
                   aria-pressed={selected}
                   onClick={() => onAccentThemeChange(accent.id)}
-                  className={`group relative flex flex-col gap-1.5 overflow-hidden rounded-2xl border p-1.5 pb-1 text-left transition-[border-color,box-shadow,transform,background-color] duration-200 ${
+                  className={`group relative flex flex-col items-stretch gap-1.5 overflow-hidden rounded-2xl border p-1.5 pb-1 text-left backdrop-blur-[var(--glass-blur-raised)] transition-[border-color,box-shadow,transform,background-color] duration-200 ${
                     selected
-                      ? "border-[color-mix(in_srgb,var(--color-accent)_50%,transparent)] bg-[var(--material-interactive-active)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_30%,transparent),0_10px_28px_color-mix(in_srgb,var(--color-accent)_22%,transparent)]"
-                      : "border-[var(--border-subtle)] bg-[var(--material-surface)] hover:-translate-y-px hover:border-[var(--border-overlay)] hover:bg-[var(--material-interactive-hover)]"
+                      ? "-translate-y-px border-[color-mix(in_srgb,rgb(var(--AccentPrimary))_45%,var(--border-overlay))] shadow-[0_0_0_1px_color-mix(in_srgb,rgb(var(--AccentPrimary))_30%,transparent),0_10px_28px_color-mix(in_srgb,rgb(var(--AccentPrimary))_20%,transparent),inset_0_1px_0_var(--GlassSurface-Rim)]"
+                      : "border-[var(--border-subtle)] bg-[var(--material-surface)] shadow-[inset_0_1px_0_var(--GlassSurface-Rim)] hover:-translate-y-px hover:border-[var(--border-overlay)] hover:bg-[var(--material-interactive-hover)]"
                   }`}
+                  style={
+                    selected
+                      ? {
+                          backgroundColor: `color-mix(in srgb, ${tint} 14%, var(--material-surface))`,
+                        }
+                      : undefined
+                  }
                 >
-                  {/* 渐变预览窗：毛玻璃画框 + 顶缘 specular 高光带（液态玻璃语言） */}
+                  {/* 玻璃染色预览：主题 accent 从玻璃里透出来，替代旧渐变位图 */}
                   <span
-                    className="relative block h-11 w-full overflow-hidden rounded-xl border border-[var(--border-subtle)] shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]"
                     aria-hidden="true"
+                    className="glass-layer-overlay relative block h-11 w-full overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--material-overlay)] backdrop-blur-[var(--glass-blur-overlay)] backdrop-saturate-[var(--GlassSaturation)]"
+                    style={{
+                      backgroundColor: `color-mix(in srgb, ${tint} 20%, var(--material-overlay))`,
+                    }}
                   >
                     <span
-                      className="absolute inset-0"
-                      style={{
-                        background: buildThemePreviewGradient(
-                          getThemeDefinition(accent.id),
-                          isDark ? "dark" : "light",
-                        ),
-                      }}
+                      className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full shadow-[0_1px_4px_rgb(0_0_0/25%),inset_0_1px_1px_rgba(255,255,255,0.5)]"
+                      style={{ backgroundColor: tint }}
                     />
-                    <span className="absolute inset-x-0 top-0 h-1/2 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.2),rgba(255,255,255,0))]" />
+                    <span className="absolute bottom-1.5 left-2.5 h-1 w-9 rounded-full bg-[color-mix(in_srgb,rgb(var(--AccentPrimary))_55%,transparent)]" />
+                    <span className="absolute bottom-3.5 left-2.5 h-1 w-14 rounded-full bg-[var(--color-text-highlight)]/25" />
                     <span
-                      className="absolute right-1 top-1 size-2.5 rounded-full border border-white/70 shadow-sm"
-                      style={{ backgroundColor: `rgb(${accent.rgb})` }}
-                    />
+                      className={`absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full text-white shadow-sm transition-opacity ${
+                        selected ? "opacity-100" : "opacity-0"
+                      }`}
+                      style={{ backgroundColor: tint }}
+                    >
+                      <Icons.Check size={10} stroke={3} />
+                    </span>
                   </span>
                   <span className="flex min-w-0 items-center justify-center gap-1 pb-0.5">
                     <span
@@ -122,9 +122,9 @@ export function AppearanceSettingsSection({
                       {themeLabel(accent.id)}
                     </span>
                     {accent.isDefault && (
-                      <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_14%,transparent)] px-1 py-px text-[8.5px] font-semibold leading-none text-[var(--color-accent)]">
+                      <Badge className="px-1.5 py-px">
                         {t("settings.appearanceSection.defaultBadge")}
-                      </span>
+                      </Badge>
                     )}
                   </span>
                 </button>
@@ -160,6 +160,7 @@ export function AppearanceSettingsSection({
               min={1}
               max={3}
               step={1}
+              snapOnRelease
               ariaLabel={t("settings.appearanceSection.intensity")}
               marks={[
                 { value: 1, label: t("settings.appearanceSection.intensityLight") },
@@ -178,9 +179,7 @@ export function AppearanceSettingsSection({
               <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                 {t("settings.appearanceSection.liquid")}
               </span>
-              <span className="shrink-0 rounded-full bg-[var(--color-accent)]/15 px-2 py-0.5 text-[9px] font-bold leading-none text-[var(--color-accent)]">
-                Beta
-              </span>
+              <Badge>Beta</Badge>
             </span>
             <p className="mt-0.5 text-[12px] leading-5 text-[var(--color-text-muted)]">
               {t("settings.appearanceSection.liquidDescription")}

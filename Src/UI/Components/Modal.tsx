@@ -1,5 +1,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import type * as React from "react";
+import { cn } from "../../Shared/Utils/cn";
+import { glassVariants } from "../Core/GlassManager/variants";
 import { Icons } from "../Icons/IconManager";
 
 export type ModalProps = {
@@ -18,7 +20,11 @@ export function Modal({ isOpen, onClose, title, children, footer, icon, classNam
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[9998] bg-black/30 backdrop-blur-[var(--glass-blur-base)] animate-in fade-in duration-300" />
         <DialogPrimitive.Content
-          className={`fixed left-[50%] top-[50%] z-[9999] w-full max-w-md translate-x-[-50%] translate-y-[-50%] rounded-2xl border border-[var(--border-subtle)] bg-[var(--material-modal)] backdrop-blur-[var(--glass-blur-overlay)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/50 ${className ?? ""}`}
+          className={cn(
+            glassVariants({ layer: "overlay" }),
+            "fixed left-[50%] top-[50%] z-[9999] flex w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden border-[color-mix(in_srgb,var(--GlassSurface-Rim)_80%,var(--border-subtle))] shadow-[var(--GlassSurface-Shadow-Raised)] animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/50",
+            className,
+          )}
         >
           <div className="flex flex-col p-5 gap-3">
             {title && (

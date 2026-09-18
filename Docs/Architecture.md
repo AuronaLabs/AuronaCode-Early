@@ -1,5 +1,17 @@
 # Aurona Code 核心架构指南 (Corona+ Architecture Specification)
 
+## V0.4.5 设计篇：玻璃染色 / 徽章体系 / 排版统一
+
+V0.4.5 设计篇聚焦「玻璃语言全面落地与不统一感大扫除」：品牌化改名补课、Slider 玻璃化重做、浮层材质查漏、通知玻璃染色、徽章体系统一、主题色卡玻璃染色、设置行规格统一、空间管理单卡总览、Git Diff 推翻重做与硬编码色清零。
+
+- **GlassContainer 实例染色 API**：新增可选 `tint` prop（CSS 颜色，如 `var(--StatusSuccess)`），渲染时注入 `--GlassInstance-Tint` 实例变量，背景 `color-mix(9%)`、边框 `color-mix(14%)`；不传时行为与普通玻璃完全一致。纯 color-mix 无额外合成层，变量走 `--GlassInstance-*` 命名空间不污染全局契约。通知/Toast 按 type 状态色整卡轻染（推翻 V0.4.4 左缘色条），主题色卡复用同一染色语言（废弃 `buildThemePreviewGradient` 渐变位图）。
+- **Badge 公共徽章组件**：全局唯一胶囊规格（`rounded-full` + `text-[10px]` + `font-semibold tracking-wide`），三 variant——tint（状态染色）、solid（实心计数）、neutral（中性信息）。SourceControl PREVIEW、Appearance Beta/默认徽章、Changelog 最新、About basedOn、SettingsNavItem、WorkspaceBottomPanel problems、LocationResults/WorkspaceEditPreview 计数等全部收敛。
+- **Slider snap-on-release 模式**：新增 `snapOnRelease` prop——拖动过程内部以 1 为步长细分（视觉连续跟手），`onValueChange` 回调时吸附最近档位；Thumb 垂直居中修复（`top-1/2 -translate-y-1/2`，Radix Thumb 默认无垂直居中 transform 是偏下根因）；轨道/Thumb 全面玻璃材质（`--switch-*` 令牌复用 + rim 高光 + saturate），拖动中微放大 + accent 光晕。
+- **overlay 档位调优**：三档 blur 下调（light 8→6、medium 12→10、heavy 24→18；dark 同步下调）、`saturation` 上调（1.12/1.2/1.3）、`--GlassSurface-Floating` 白度下调（0.32→0.26 / 0.12→0.10），下拉菜单与 Tooltip 告别「磨砂蒙白布」；glassConfig.test.ts 数值同步。
+- **设置行统一规格**：全部分区收敛为 `GlassContainer raised` 容器 + 行间 `border-t`（首行 `first:border-t-0`）+ `min-h-14` + `p-5` + `gap-6`；Editor/Debug/LanguageService/Advanced 的 `border-b last:border-b-0` 旧语言全部迁移。选中态语言统一：`border-[var(--color-accent)]` 直改边框（ToolchainsPanel）改为 accent 染底 + mix 细描边 + ring 阴影。
+- **数据可视化令牌**：Theme.css 新增 `--VizTeal/--VizIndigo/--VizSky/--VizFuchsia`（深浅色双阶），空间管理占比环四色、扩展分类色点等收敛语义令牌；硬编码色清零（ExtensionSidebar red/emerald/amber、DeclarativeUIRenderer badge 色表、Marketplace 星标、GitGutterBar、MarkdownRenderer 链接色）。
+- **DiffViewer 重做**：解析逻辑 `parseGitDiff` 与 `diffTarget` 协议不变，仅重写渲染层——头部信息卡玻璃化（rim 图标容器 + 胶囊 hash + 纯色 ±统计）、加载/错误/空态统一 EmptyState 语言（去 spinner）、加/删行语义色低透明度底 + 行内 2px 语义色标记；9 处硬编码中文接入 i18n（`sourceControl.diffViewer.*` ×6 语言）。
+
 ## V0.4.4 多轴玻璃材质 / i18n 工具链 / Fliuno 抽象 / Bento
 
 V0.4.4 聚焦「玻璃质感二轮、i18n 工具链、Fliuno 双模式抽象、空间管理 bento 与通知视觉收敛」；供应链信任策略收紧（官方市场无哈希拒装）。

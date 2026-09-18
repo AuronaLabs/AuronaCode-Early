@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useLocale } from "../../Foundation/I18n";
 import { NetworkIPC } from "../../Foundation/IPC/NetworkCommands";
-import { Button } from "../../UI/Components/Button";
 import { Input } from "../../UI/Components/Input";
 import { Select } from "../../UI/Components/Select";
+import { SettingResetButton } from "../../UI/Components/SettingResetButton";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { showToast } from "../../UI/Feedback/Toast";
 
@@ -93,13 +93,10 @@ export function NetworkSettingsSection({
                 { value: "none", label: t("settings.networkProxyModeNone") },
               ]}
             />
-            <Button
-              variant="glass"
-              className="h-9 shrink-0 px-3 text-[12px]"
-              onClick={() => handleModeChange("system")}
-            >
-              {t("settings.reset")}
-            </Button>
+            <SettingResetButton
+              label={t("settings.reset")}
+              onReset={() => handleModeChange("system")}
+            />
           </div>
         </div>
 

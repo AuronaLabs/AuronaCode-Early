@@ -1,4 +1,4 @@
-import { useLocale } from "../../../Foundation/I18n";
+﻿import { useLocale } from "../../../Foundation/I18n";
 import { useInstallProgressStore } from "../../../State/useInstallProgressStore";
 import { AccountAvatar } from "../../../UI/Components/AccountAvatar";
 import { Button } from "../../../UI/Components/Button";
@@ -84,7 +84,7 @@ export function MarketplaceCard({
                 item.reviewCount > 0 &&
                 item.rating !== undefined && (
                   <span className="flex items-center gap-1">
-                    <Icons.Sparkles size={11} className="text-amber-400" />
+                    <Icons.Sparkles size={11} className="text-[var(--StatusWarning)]" />
                     {item.rating.toFixed(1)}
                   </span>
                 )}

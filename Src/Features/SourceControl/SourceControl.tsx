@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+﻿import React, { useCallback, useEffect, useState } from "react";
 import { GitService, type SourceControlCache } from "../../Core/GitService";
 import { OutputService } from "../../Core/OutputService";
 import { EventBus } from "../../Foundation/EventBus";
@@ -12,6 +12,7 @@ import {
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { cn } from "../../Shared/Utils/cn";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { Badge } from "../../UI/Components/Badge";
 import { Button } from "../../UI/Components/Button";
 import { EmptyState } from "../../UI/Components/EmptyState";
 import { FilterChips } from "../../UI/Components/FilterChips";
@@ -459,9 +460,7 @@ export const SourceControl = React.memo(function SourceControl() {
           title={
             <>
               {t("sourceControl.panelTitle")}
-              <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]">
-                Preview
-              </span>
+              <Badge>Preview</Badge>
             </>
           }
         />
@@ -494,9 +493,7 @@ export const SourceControl = React.memo(function SourceControl() {
         title={
           <>
             {t("sourceControl.panelTitle")}
-            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]">
-              Preview
-            </span>
+            <Badge>Preview</Badge>
           </>
         }
         actions={
@@ -594,7 +591,7 @@ export const SourceControl = React.memo(function SourceControl() {
               >
                 <Icons.Pull size={13} />
                 {behind > 0 && (
-                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--color-accent)] px-0.5 text-center text-[8px] leading-3 text-[var(--color-accent-text)]">
+                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--color-accent)] px-0.5 text-center text-[9px] leading-3 text-[var(--color-accent-text)]">
                     {behind}
                   </span>
                 )}
@@ -616,7 +613,7 @@ export const SourceControl = React.memo(function SourceControl() {
               >
                 <Icons.Push size={13} />
                 {ahead > 0 && (
-                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--color-accent)] px-0.5 text-center text-[8px] leading-3 text-[var(--color-accent-text)]">
+                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--color-accent)] px-0.5 text-center text-[9px] leading-3 text-[var(--color-accent-text)]">
                     {ahead}
                   </span>
                 )}

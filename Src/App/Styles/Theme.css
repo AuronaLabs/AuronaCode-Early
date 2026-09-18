@@ -33,7 +33,9 @@
   background: var(--material-surface);
   border-color: var(--border-subtle);
   color: var(--TextHighlight);
-  box-shadow: var(--shadow-surface);
+  box-shadow:
+    var(--shadow-surface),
+    inset 0 1px 0 var(--GlassSurface-Rim);
   z-index: 10;
 }
 
@@ -180,7 +182,7 @@
   --GlassSurface-Floating: color-mix(
     in srgb,
     rgb(var(--GlassTintRGB)) 9%,
-    rgba(255, 255, 255, calc(0.32 * var(--GlassOpacity-Multiplier)))
+    rgba(255, 255, 255, calc(0.26 * var(--GlassOpacity-Multiplier)))
   );
   --GlassHover: rgba(var(--RGB-Fg), calc(0.055 * var(--GlassOpacity-Multiplier)));
   --GlassActive: rgba(255, 255, 255, calc(0.5 * var(--GlassOpacity-Multiplier)));
@@ -194,6 +196,12 @@
   --StatusWarning: #d97706;
   --StatusError: #dc2626;
   --StatusInfo: #2563eb;
+
+  /* 数据可视化六色（空间管理占比环/图例等），浅色用深阶保证对比度 */
+  --VizTeal: #0d9488;
+  --VizIndigo: #4f46e5;
+  --VizSky: #0284c7;
+  --VizFuchsia: #c026d3;
 
   /* Editor Active Line Highlight variables */
   --EditorActiveLineBg: rgba(0, 0, 0, 0.015);
@@ -393,7 +401,7 @@
   --GlassSurface-Floating: color-mix(
     in srgb,
     rgb(var(--GlassTintRGB)) 10%,
-    rgba(255, 255, 255, calc(0.12 * var(--GlassOpacity-Multiplier)))
+    rgba(255, 255, 255, calc(0.1 * var(--GlassOpacity-Multiplier)))
   );
   --GlassHover: rgba(255, 255, 255, calc(0.11 * var(--GlassOpacity-Multiplier)));
   --GlassActive: rgba(255, 255, 255, calc(0.17 * var(--GlassOpacity-Multiplier)));
@@ -405,6 +413,13 @@
   --StatusWarning: #fbbf24;
   --StatusError: #f87171;
   --StatusInfo: #60a5fa;
+
+  /* 数据可视化六色：深色用亮阶 */
+  --VizTeal: #2dd4bf;
+  --VizIndigo: #818cf8;
+  --VizSky: #38bdf8;
+  --VizFuchsia: #e879f9;
+
   --switch-track-off: color-mix(in srgb, black 28%, var(--material-panel));
   --switch-track-on: color-mix(in srgb, var(--AccentPrimary) 32%, var(--material-surface));
   --switch-thumb-surface: color-mix(in srgb, white 16%, var(--material-overlay));

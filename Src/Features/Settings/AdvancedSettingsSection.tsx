@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useOobeStore } from "../../App/Oobe/useOobeStore";
 import { UpdaterService } from "../../Core/UpdaterService";
 import { BaseDirectory, desktopFileSystem } from "../../Foundation/Desktop";
@@ -63,7 +63,7 @@ export function AdvancedSettingsSection() {
 
       <GlassContainer layer="raised" className="overflow-hidden flex flex-col">
         {/* 1. 先锋计划开关 */}
-        <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
+        <div className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0">
           <div className="flex flex-col gap-1 pr-4">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.featureFlags.channelPioneerTitle")}
@@ -83,7 +83,7 @@ export function AdvancedSettingsSection() {
         </div>
 
         {/* 2. 检查更新 */}
-        <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
+        <div className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.checkUpdate")}
@@ -106,7 +106,7 @@ export function AdvancedSettingsSection() {
         </div>
 
         {/* 3. 欢迎引导 */}
-        <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">
+        <div className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0">
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.oobeRerun.title")}

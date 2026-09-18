@@ -9,6 +9,7 @@ import {
 import { type LocationResultItem, LocationResultsStore } from "../../Core/LocationResultsStore";
 import { useLocale } from "../../Foundation/I18n";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { Badge } from "../../UI/Components/Badge";
 import { Icons } from "../../UI/Icons/IconManager";
 
 export function LocationResultsPanel() {
@@ -124,9 +125,7 @@ export function LocationResultsPanel() {
               <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--color-text-muted)]">
                 {group.path}
               </span>
-              <span className="shrink-0 rounded-full bg-[var(--material-interactive-hover)] px-1.5 py-0.5 text-[9px] text-[var(--color-text-muted)]">
-                {group.items.length}
-              </span>
+              <Badge variant="neutral">{group.items.length}</Badge>
             </div>
             {group.items.map((item) => {
               const index = state.items.indexOf(item);

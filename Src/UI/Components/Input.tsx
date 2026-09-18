@@ -41,7 +41,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           "relative flex items-center border",
           fullWidth ? "w-full" : "w-auto",
           surface === "glass"
-            ? glassVariants({ layer: "raised" })
+            ? cn(
+                glassVariants({ layer: "raised" }),
+                "shadow-[inset_0_1px_0_var(--GlassSurface-Highlight)]",
+              )
             : "border-transparent bg-transparent shadow-none backdrop-blur-none",
           inputVariants({ inputSize }),
           FOCUS_WITHIN,

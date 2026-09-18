@@ -1,4 +1,4 @@
-import type React from "react";
+﻿import type React from "react";
 import { useMemo } from "react";
 
 interface MarkdownRendererProps {
@@ -24,7 +24,7 @@ function renderInlineMarkdown(text: string): React.ReactNode {
       tokens.push(
         <code
           key={`code-${keyIndex++}`}
-          className="px-1.5 py-0.5 rounded-md bg-[var(--color-surface-3)] font-mono text-[12px] text-blue-400 border border-[var(--border-subtle)]"
+          className="px-1.5 py-0.5 rounded-md bg-[var(--color-surface-3)] font-mono text-[12px] text-[var(--StatusInfo)] border border-[var(--border-subtle)]"
         >
           {codeMatch[1]}
         </code>,
@@ -66,7 +66,7 @@ function renderInlineMarkdown(text: string): React.ReactNode {
           href={linkMatch[2]}
           target="_blank"
           rel="noreferrer"
-          className="text-blue-400 hover:underline hover:text-blue-300 transition-colors inline-flex items-center gap-0.5"
+          className="text-[var(--StatusInfo)] hover:underline hover:text-[var(--color-accent-hover)] transition-colors inline-flex items-center gap-0.5"
         >
           {linkMatch[1]}
         </a>,
@@ -140,7 +140,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
       elements.push(
         <blockquote
           key={`quote-${key}`}
-          className="border-l-3 border-blue-400/80 bg-[var(--color-surface-2)]/80 rounded-r-xl px-4 py-2.5 my-3 text-[13px] text-[var(--color-text-secondary)] leading-relaxed shadow-sm"
+          className="border-l-3 border-[var(--StatusInfo)]/80 bg-[var(--color-surface-2)]/80 rounded-r-xl px-4 py-2.5 my-3 text-[13px] text-[var(--color-text-secondary)] leading-relaxed shadow-sm"
         >
           {blockquoteLines.map((line) => (
             <p key={`quote-line-${key}-${line.slice(0, 16)}`}>{renderInlineMarkdown(line)}</p>

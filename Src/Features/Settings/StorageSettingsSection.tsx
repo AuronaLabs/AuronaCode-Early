@@ -69,25 +69,25 @@ const GROUP_META: Array<{
   },
   {
     id: "extensions",
-    color: "#10b981",
+    color: "var(--VizTeal)",
     nameKey: "settings.storage.groupExtensions",
     icon: Icons.Extensions,
   },
   {
     id: "toolchains",
-    color: "#6366f1",
+    color: "var(--VizIndigo)",
     nameKey: "settings.storage.groupToolchains" as I18nKey,
     icon: Icons.Terminal,
   },
   {
     id: "cache",
-    color: "#0ea5e9",
+    color: "var(--VizSky)",
     nameKey: "settings.storage.groupCache",
     icon: Icons.Eraser,
   },
   {
     id: "logs",
-    color: "#d946ef",
+    color: "var(--VizFuchsia)",
     nameKey: "settings.storage.groupLogs",
     icon: Icons.FileText,
   },
@@ -374,75 +374,77 @@ export function StorageSettingsSection() {
         </p>
       </div>
 
-      {/* 总览行：总占用 / 可安全清理 / 占比环 */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <GlassContainer layer="raised" className="flex flex-col gap-2 p-5">
-          <span className="select-none text-[11px] font-medium text-[var(--color-text-muted)]">
-            {t("settings.storage.localDataUsed")}
-          </span>
-          <span className="select-none text-[26px] leading-none font-extrabold tracking-tight text-[var(--color-text-highlight)]">
-            {totalFormatted}
-          </span>
-          <span className="select-none text-[10.5px] text-[var(--color-text-muted)]">
-            {t("settings.storage.appDataDir")}
-          </span>
-          <p className="mt-auto pt-2 text-[10.5px] leading-4 text-[var(--color-text-muted)]/80">
+      {/* 总览卡：单卡整合 总占用 / 可安全清理 / 占比环 + 图例 */}
+      <GlassContainer layer="raised" className="overflow-hidden p-5">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <span className="select-none text-[11px] font-medium text-[var(--color-text-muted)]">
+              {t("settings.storage.localDataUsed")}
+            </span>
+            <span className="select-none text-[28px] leading-none font-extrabold tracking-tight text-[var(--color-text-highlight)]">
+              {totalFormatted}
+            </span>
+            <span className="select-none text-[10.5px] text-[var(--color-text-muted)]">
+              {t("settings.storage.appDataDir")}
+            </span>
+          </div>
+
+          <div className="flex shrink-0 flex-col gap-2 rounded-2xl border border-[color-mix(in_srgb,var(--color-accent)_30%,var(--border-subtle))] bg-[color-mix(in_srgb,var(--color-accent)_6%,transparent)] p-4 sm:w-[240px]">
+            <span className="select-none text-[11px] font-medium text-[var(--color-accent)]">
+              {t("settings.storage.safeToClean")}
+            </span>
+            <span className="select-none text-[22px] leading-none font-extrabold tracking-tight text-[var(--color-text-highlight)]">
+              {formatBytes(safeBytes)}
+            </span>
+            <span className="text-[10px] leading-4 text-[var(--color-text-muted)]">
+              {t("settings.storage.rows.cache.name")} · {t("settings.storage.rows.logs.name")} ·{" "}
+              {t("settings.storage.rows.errlogs.name")}
+            </span>
+            <Button
+              variant="primary"
+              className="h-8 px-3 text-[12px]"
+              disabled={clearing !== null || safeBytes === 0}
+              onClick={() => void clearSafeAll()}
+            >
+              {clearing === "safe"
+                ? t("settings.storage.clearing")
+                : t("settings.storage.cleanAll")}
+            </Button>
+          </div>
+
+          <div className="relative mx-auto size-24 shrink-0 sm:ml-0">
+            <div
+              className="size-full rounded-full"
+              style={{
+                background: donutBackground,
+                maskImage: "radial-gradient(closest-side, transparent 64%, black 65%)",
+                WebkitMaskImage: "radial-gradient(closest-side, transparent 64%, black 65%)",
+              }}
+            />
+            <span className="absolute inset-0 grid place-items-center text-[12px] font-bold text-[var(--color-text-highlight)]">
+              {GROUP_META.length}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-[var(--border-subtle)] pt-3 select-none">
+          {GROUP_META.map((group) => (
+            <div
+              key={group.id}
+              className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]"
+            >
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: group.color }} />
+              <span>{t(group.nameKey)}</span>
+            </div>
+          ))}
+          <p className="w-full pt-1 text-[10.5px] leading-4 text-[var(--color-text-muted)]/80">
             {t("settings.storage.note")}
           </p>
-        </GlassContainer>
+        </div>
+      </GlassContainer>
 
-        <GlassContainer
-          layer="raised"
-          className="flex flex-col gap-2 border-[color-mix(in_srgb,var(--color-accent)_30%,var(--border-subtle))] p-5"
-        >
-          <span className="select-none text-[11px] font-medium text-[var(--color-accent)]">
-            {t("settings.storage.safeToClean")}
-          </span>
-          <span className="select-none text-[26px] leading-none font-extrabold tracking-tight text-[var(--color-text-highlight)]">
-            {formatBytes(safeBytes)}
-          </span>
-          <span className="text-[10.5px] text-[var(--color-text-muted)]">
-            {t("settings.storage.rows.cache.name")} · {t("settings.storage.rows.logs.name")} ·{" "}
-            {t("settings.storage.rows.errlogs.name")}
-          </span>
-          <Button
-            variant="primary"
-            className="mt-auto h-8 w-full px-3 text-[12px]"
-            disabled={clearing !== null || safeBytes === 0}
-            onClick={() => void clearSafeAll()}
-          >
-            {clearing === "safe" ? t("settings.storage.clearing") : t("settings.storage.cleanAll")}
-          </Button>
-        </GlassContainer>
-
-        <GlassContainer layer="raised" className="flex flex-col items-center gap-3 p-5">
-          <div
-            className="size-24 shrink-0 rounded-full"
-            style={{
-              background: donutBackground,
-              maskImage: "radial-gradient(closest-side, transparent 64%, black 65%)",
-              WebkitMaskImage: "radial-gradient(closest-side, transparent 64%, black 65%)",
-            }}
-          />
-          <div className="flex w-full flex-wrap justify-center gap-x-3 gap-y-1 select-none">
-            {GROUP_META.map((group) => (
-              <div
-                key={group.id}
-                className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]"
-              >
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: group.color }}
-                />
-                <span>{t(group.nameKey)}</span>
-              </div>
-            ))}
-          </div>
-        </GlassContainer>
-      </div>
-
-      {/* 分类卡：核心数据 / 扩展 / 工具链 / 缓存 / 日志 / 其他 */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {/* 分类卡：核心数据 / 扩展 / 工具链 / 缓存 / 日志 / 其他（一行最多两个） */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {GROUP_META.map((group) => {
           const GroupIcon = group.icon;
           const groupRows = rows.filter((row) => ROW_GROUP[row.id] === group.id);

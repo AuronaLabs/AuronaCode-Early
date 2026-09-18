@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+﻿import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
@@ -159,7 +159,7 @@ export const EditorTabBar = memo(function EditorTabBar() {
                       <Icons.Extensions
                         size={16}
                         stroke={1.5}
-                        className={`shrink-0 ${isActive ? "text-blue-400" : ""}`}
+                        className={`shrink-0 ${isActive ? "text-[var(--color-accent)]" : ""}`}
                       />
                     )}
                     <span
