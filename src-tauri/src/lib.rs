@@ -111,6 +111,7 @@ pub fn run() {
             performance::get_startup_metrics,
             platform::platform_info,
             network::set_network_proxy,
+            network::http_fetch_bytes,
             performance::load_performance_baseline,
             performance::save_performance_baseline,
             commands::lsp_cmds::lsp_start,

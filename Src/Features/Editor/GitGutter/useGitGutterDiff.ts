@@ -2,12 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DocumentService } from "../../../Core/DocumentService";
 import { GitService, type SourceControlCache } from "../../../Core/GitService";
 import { EventBus } from "../../../Foundation/EventBus";
-import { createEmptyDiffState, parseUnifiedDiffHunks } from "./parseUnifiedDiff";
+import {
+  createEmptyDiffState,
+  type GitGutterHunk,
+  parseUnifiedDiffHunks,
+} from "./parseUnifiedDiff";
 
 export interface GitGutterDiffState {
   addedLines: Set<number>;
   modifiedLines: Set<number>;
   deletedLines: Set<number>;
+  /** hunk 明细（供 gutter 点击浮层展示） */
+  hunks: GitGutterHunk[];
 }
 
 const REFRESH_DEBOUNCE_MS = 800;

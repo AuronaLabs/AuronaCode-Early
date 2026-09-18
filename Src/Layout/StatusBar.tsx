@@ -5,6 +5,7 @@ import { type StatusBarItemHandle, StatusBarRegistry } from "../Core/StatusBar/S
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EventBus } from "../Foundation/EventBus";
 import { LocaleService, useLocale } from "../Foundation/I18n";
+import { LanguageServerIPC } from "../Foundation/IPC/LanguageServerCommands";
 import { GetLanguageFromPath } from "../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../State/useEditorStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
@@ -88,6 +89,8 @@ export function StatusBar() {
   const [languageServer, setLanguageServer] = useState<LanguageServerInfo | undefined>(() =>
     LspClient.getInstance().getState(activeLanguage),
   );
+  // 语言服务安装状态：null 未知 / false 未安装（驱动「点击安装」引导）
+  const [lspInstalled, setLspInstalled] = useState<boolean | null>(null);
   const signedInProfile = account.phase === "signedIn" ? account.profile : null;
   const accountDisplayName =
     signedInProfile?.preferredUsername || signedInProfile?.name || t("account.defaultDisplayName");
@@ -101,6 +104,32 @@ export function StatusBar() {
     update();
     return client.subscribe(update);
   }, [activeLanguage]);
+
+  // 安装状态查询：随语言/文件切换刷新，工具链装卸后由 toolchains:changed 驱动
+  useEffect(() => {
+    if (!activeFilePath) {
+      setLspInstalled(null);
+      return;
+    }
+    // javascript 与 typescript 共用同一语言服务，按 typescript 查询
+    const target = activeLanguage === "javascript" ? "typescript" : activeLanguage;
+    let cancelled = false;
+    const query = () => {
+      LanguageServerIPC.toolchainStatus(target)
+        .then((status) => {
+          if (!cancelled) setLspInstalled(Boolean(status.isLspInstalled));
+        })
+        .catch(() => {
+          if (!cancelled) setLspInstalled(null);
+        });
+    };
+    query();
+    const unsub = EventBus.on("toolchains:changed", query);
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, [activeLanguage, activeFilePath]);
 
   return (
     <footer className="flex h-[var(--StatusBarHeight)] shrink-0 items-center bg-transparent px-4 text-xs text-[var(--color-text-muted)] font-medium overflow-hidden">
@@ -149,18 +178,25 @@ export function StatusBar() {
             </span>
             <span className="cursor-default truncate">{formatLanguage(activeLanguage)}</span>
             <Tooltip
-              content={getLspTooltip(activeLanguage, languageServer)}
+              content={getLspTooltip(activeLanguage, languageServer, lspInstalled)}
               placement="top"
               delay={200}
             >
               <button
                 type="button"
-                onClick={() => setActiveBottomPanel("output")}
-                aria-label={getLspTooltip(activeLanguage, languageServer)}
+                onClick={() => {
+                  if (lspInstalled === false) {
+                    useWorkbenchStore.getState().setActiveSidebar("extensions");
+                    EventBus.emit("marketplace:navigate", { mode: "toolchains" });
+                    return;
+                  }
+                  setActiveBottomPanel("output");
+                }}
+                aria-label={getLspTooltip(activeLanguage, languageServer, lspInstalled)}
                 className="flex h-5 w-5 items-center justify-center rounded-md hover:bg-[var(--material-interactive-hover)] cursor-pointer"
               >
                 <span
-                  className={`h-2 w-2 rounded-full transition-all ${languageServerStatusColor(languageServer?.status)}`}
+                  className={`h-2 w-2 rounded-full transition-all ${languageServerStatusColor(languageServer?.status, lspInstalled === false)}`}
                 />
               </button>
             </Tooltip>
@@ -171,30 +207,44 @@ export function StatusBar() {
   );
 }
 
-function getLspTooltip(activeLanguage: string, languageServer?: LanguageServerInfo | null): string {
+function getLspTooltip(
+  activeLanguage: string,
+  languageServer?: LanguageServerInfo | null,
+  lspInstalled?: boolean | null,
+): string {
   const languageName = formatLanguage(activeLanguage);
+  const text = (key: Parameters<typeof LocaleService.translate>[0]) =>
+    LocaleService.translate(key).replace("{language}", languageName);
+  if (lspInstalled === false) {
+    return text("statusBar.lspNotInstalled");
+  }
   if (!languageServer || languageServer.status === "stopped") {
-    return `${languageName}: ${LocaleService.translate("statusBar.lspTooltipStopped")}`;
+    return text("statusBar.lspTooltipStopped");
   }
   if (languageServer.status === "running") {
-    return `${languageName}: ${LocaleService.translate("statusBar.lspTooltipRunning")}`;
+    return text("statusBar.lspTooltipRunning");
   }
   if (languageServer.status === "failed") {
-    return languageServer.lastError
-      ? `${languageName}: ${languageServer.lastError}`
-      : `${languageName}: ${LocaleService.translate("statusBar.lspTooltipFailed")}`;
+    // 错误详情在 output 面板，tooltip 不裸露报错码
+    return text("statusBar.lspTooltipFailed");
   }
   if (
     languageServer.status === "starting" ||
     languageServer.status === "initializing" ||
     languageServer.status === "restarting"
   ) {
-    return `${languageName}: ${LocaleService.translate("statusBar.lspTooltipStarting")}`;
+    return text("statusBar.lspTooltipStarting");
   }
   return `${languageName}: ${LocaleService.translate("statusBar.lspTooltipNotConfigured")}`;
 }
 
-function languageServerStatusColor(status?: LanguageServerInfo["status"]): string {
+function languageServerStatusColor(
+  status?: LanguageServerInfo["status"],
+  notInstalled?: boolean,
+): string {
+  if (notInstalled) {
+    return "bg-[var(--color-text-muted)]/50";
+  }
   if (status === "running") {
     return "bg-[var(--StatusSuccess)] shadow-[0_0_6px_var(--StatusSuccess)]";
   }

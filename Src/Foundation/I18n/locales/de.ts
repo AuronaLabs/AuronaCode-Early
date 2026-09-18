@@ -97,6 +97,7 @@ export const de: LocaleMessages = {
     lspTooltipStarting: "{language}: Startet",
     lspTooltipFailed: "{language}: Fehler",
     lspTooltipNotConfigured: "Kein Sprachserver konfiguriert",
+    lspNotInstalled: "{language}: nicht installiert, zum Installieren klicken",
   },
   editorTabBar: {
     closeTab: "Tab schließen",
@@ -695,7 +696,7 @@ export const de: LocaleMessages = {
     durationSlow: "Langsam (6 s)",
     durationManual: "Verlängert (8 s)",
     networkDescription:
-      "Netzwerkproxy für Update-Prüfungen und Toolchain-Downloads konfigurieren; Marketplace-Erweiterungsdownloads umgehen ihn",
+      "Netzwerkproxy für Update-Prüfungen, Toolchain-Downloads und Marketplace-Erweiterungsdownloads konfigurieren",
     networkProxyModeSystem: "System folgen",
     networkProxyModeCustom: "Eigener Proxy",
     networkProxyModeNone: "Kein Proxy",
@@ -703,7 +704,7 @@ export const de: LocaleMessages = {
     networkProxyUrlInvalid: "Ungültige Proxy-Adresse: {message}",
     networkProxyApplyFailed: "Proxy-Wechsel fehlgeschlagen: {message}",
     networkScopeNote:
-      "Der Proxy gilt nur für In-App-Update-Prüfungen und Toolchain-Downloads wie Sprachserver und Laufzeiten; Marketplace-Erweiterungs-Downloads laufen noch nicht darüber.",
+      "Der Proxy gilt für In-App-Update-Prüfungen, Toolchain-Downloads wie Sprachserver und Laufzeiten sowie Marketplace-Erweiterungs-Downloads",
     terminalRunDescription: "Terminalanzeige sowie Ausführungs- und Debugkonfiguration",
     sourceControlDescription:
       "Konfiguriere Git-Remote-Fetch- und Push-URLs für den aktuellen Arbeitsbereich",
@@ -1075,6 +1076,11 @@ export const de: LocaleMessages = {
       },
       safeToClean: "Sicher bereinigbar",
       cleanAll: "Alles bereinigen",
+      confirmTitle: "Bereinigung bestätigen",
+      confirmConfigDescription:
+        "Alle Benutzereinstellungen werden gelöscht und die Standardeinstellungen wiederhergestellt. Dies kann nicht rückgängig gemacht werden.",
+      confirmWorkspaceDescription:
+        "Arbeitsbereichstatus und lokaler Bearbeitungsverlauf werden gelöscht. Dies kann nicht rückgängig gemacht werden.",
     },
     definitions: {
       theme: { title: "Darstellungsmodus", description: "Hell, dunkel oder System" },
@@ -1491,7 +1497,6 @@ export const de: LocaleMessages = {
     dependencyTitle: "Erforderliche Abhängigkeit",
     confirmInstall: "Mit Abhängigkeit installieren",
     sectionLoadFailed: "Dieser Abschnitt konnte nicht geladen werden.",
-    installProxyHint: "Hinweis: Marketplace-Downloads umgehen den Proxy",
   },
   commandCategories: {
     file: "Datei",

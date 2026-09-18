@@ -296,6 +296,7 @@ export function MarketplaceView() {
               stage,
             );
           });
+          EventBus.emit("toolchains:changed");
         } else if (item.kind === "lsp") {
           await MarketplaceService.installLspServer(item.id, item.version, (progress, stage) => {
             setProgress(
@@ -305,6 +306,7 @@ export function MarketplaceView() {
               stage,
             );
           });
+          EventBus.emit("toolchains:changed");
         } else {
           await MarketplaceService.installExtension(item.id, item.version);
         }
@@ -314,9 +316,7 @@ export function MarketplaceView() {
         await refreshCatalog();
         window.setTimeout(() => clearProgress(item.id), 1200);
       } catch (error) {
-        // 言行一致：市场下载不走代理（见网络设置范围说明），失败提示附带该线索
-        const base = error instanceof Error ? error.message : t("extensions.installFailed");
-        const message = `${base} · ${t("extensions.installProxyHint")}`;
+        const message = error instanceof Error ? error.message : t("extensions.installFailed");
         setProgress(item.id, "failed", 0, message);
         showToast(message, "warning");
         window.setTimeout(() => clearProgress(item.id), 3000);
@@ -352,8 +352,10 @@ export function MarketplaceView() {
         if (item.kind === "runtime") {
           const runtimeType = item.runtimeMetadata?.runtimeType ?? item.id;
           await MarketplaceService.uninstallSharedRuntime(runtimeType);
+          EventBus.emit("toolchains:changed");
         } else if (item.kind === "lsp") {
           await MarketplaceService.uninstallLspServer(item.id);
+          EventBus.emit("toolchains:changed");
         } else {
           await MarketplaceService.uninstallExtension(item.id);
         }

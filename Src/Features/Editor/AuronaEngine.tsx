@@ -20,6 +20,8 @@ import { AutocompleteMenu } from "./components/AutocompleteMenu";
 import { HoverCard } from "./components/HoverCard";
 import { SearchWidget } from "./components/SearchWidget";
 import { useCodeFolding } from "./Folding/useCodeFolding";
+import { GitGutterPopover } from "./GitGutter/GitGutterPopover";
+import type { GitGutterHunk } from "./GitGutter/parseUnifiedDiff";
 import { useGitGutterDiff } from "./GitGutter/useGitGutterDiff";
 import { useEditorCommit } from "./Hooks/useEditorCommit";
 import { useEditorCompletion } from "./Hooks/useEditorCompletion";
@@ -235,6 +237,16 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
   // 10. Git Gutter 差异 (GitGutter)
   const gitGutterDiff = useGitGutterDiff(path);
+
+  // gutter 点击浮层：展示当前变更块（Esc/外点/滚动关闭）
+  const [openHunk, setOpenHunk] = useState<{
+    hunk: GitGutterHunk;
+    anchorTop: number;
+    anchorRight: number;
+  } | null>(null);
+  const handleOpenHunk = useCallback((hunk: GitGutterHunk, anchor: DOMRect) => {
+    setOpenHunk({ hunk, anchorTop: anchor.top, anchorRight: anchor.right });
+  }, []);
 
   // 11. 文档更新与同步（提交路径抽至 useEditorCommit）
   // triggerAutocompleteRef 打破循环：补全 hook 依赖 commitEdit，而 commit 路径（插入/多光标）
@@ -575,6 +587,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     toggleFold,
     toggleBreakpoint,
     gitGutterDiff,
+    onOpenHunk: handleOpenHunk,
     addCursor,
     extraCursors,
     clearExtraCursors,
@@ -786,6 +799,16 @@ export const AuronaEngine = React.memo(function AuronaEngine({
           hover={hoverTooltip}
           onMouseEnter={handleHoverEnter}
           onMouseLeave={handleHoverLeave}
+        />
+      )}
+
+      {/* Git gutter hunk 浮层 */}
+      {openHunk && (
+        <GitGutterPopover
+          hunk={openHunk.hunk}
+          anchorTop={openHunk.anchorTop}
+          anchorRight={openHunk.anchorRight}
+          onClose={() => setOpenHunk(null)}
         />
       )}
     </div>

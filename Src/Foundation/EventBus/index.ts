@@ -105,6 +105,7 @@ export interface EventMap {
   "settings:debug-changed": DebugPreferences;
   "settings:terminal-changed": undefined;
   "lsp:diagnostics": LspDiagnosticsPayload;
+  "toolchains:changed": undefined;
   "app:update-available": UpdateInfo;
   "app:update-progress": UpdateProgress;
   "app:show-update-modal": undefined;

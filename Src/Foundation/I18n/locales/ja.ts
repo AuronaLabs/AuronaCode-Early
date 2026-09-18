@@ -3,23 +3,23 @@ import type { LocaleMessages } from "./zh-CN";
 export const ja: LocaleMessages = {
   oobe: {
     welcomeTitle: "Aurona Code へようこそ",
-    welcomeDesc: "コードを書くことは、より静かで心地よい場所に値します。",
+    welcomeDesc: "コードを書くことは、より静かで心地よい場所に値します",
     start: "はじめる",
     languageTitle: "言語を選択",
-    languageDesc: "すぐに反映されます。後から設定でいつでも変更できます。",
+    languageDesc: "すぐに反映され、後から設定でいつでも変更できます",
     themeTitle: "外観を選択",
-    themeDesc: "テーマはリアルタイムでプレビューされます。「設定 → 外観」でいつでも調整できます。",
+    themeDesc: "テーマはリアルタイムでプレビューされ、「設定 → 外観」でいつでも調整できます",
     themeLight: "ライト",
     themeDark: "ダーク",
     themeSystem: "システムに従う",
     accountTitle: "Aurona Account にサインイン",
     accountDesc:
-      "サインインすると設定をデバイス間で同期できます。スキップして後で「設定 → アカウント」からサインインすることもできます。",
+      "サインインすると設定をデバイス間で同期でき、スキップして後で「設定 → アカウント」からサインインすることもできます",
     accountHint:
-      "認証はシステムブラウザーで行われます。アプリがパスワードを見たり保存したりすることはありません。",
+      "認証はシステムブラウザーで行われ、アプリがパスワードを見たり保存したりすることはありません",
     accountSkip: "今はしない",
     readyTitle: "準備完了",
-    readyDesc: "選択した設定でワークベンチの準備が整いました。さあ、始めましょう。",
+    readyDesc: "選択した設定でワークベンチの準備が整いました！さあ、始めましょう",
     back: "戻る",
     next: "次へ",
     finish: "使い始める",
@@ -96,6 +96,7 @@ export const ja: LocaleMessages = {
     lspTooltipStarting: "{language}: 起動中",
     lspTooltipFailed: "{language}: エラー",
     lspTooltipNotConfigured: "言語サーバーが設定されていません",
+    lspNotInstalled: "{language}: 未インストール、クリックでインストール",
   },
   editorTabBar: {
     closeTab: "タブを閉じる",
@@ -129,12 +130,12 @@ export const ja: LocaleMessages = {
     recoveryRestored: "ローカルの編集スナップショットを復元しました",
     recoverySnapshotTitle: "未保存のローカルスナップショット",
     recoverySnapshotMessage:
-      "{file} の未保存の復元スナップショットが見つかりました。復元しますか？",
+      "{file} の未保存の復元スナップショットが見つかりました、復元しますか？",
     restoreAction: "復元",
     ignoreAction: "無視",
     syncErrorTitle: "ドキュメント同期に失敗しました",
     syncErrorMessage:
-      "ドキュメントの同期に失敗しました。未同期の内容を保護するため保存をブロックしました。",
+      "ドキュメントの同期に失敗したため、未同期の内容を保護して保存をブロックしました",
     copyLocalContentAction: "ローカルの内容をコピー",
     reloadFromDiskAction: "ディスクから再読み込み",
     reloadedFromDisk: "ディスクからファイルを再読み込みしました",
@@ -145,7 +146,7 @@ export const ja: LocaleMessages = {
     cannotOpen: "ファイルを開けません",
     binaryWarningTitle: "このファイルは表示できません",
     binaryWarningMessage:
-      "このファイルはバイナリか、未対応のテキストエンコーディングの可能性があります。強制的に開くと文字化けやパフォーマンス問題が発生する可能性があります。",
+      "このファイルはバイナリか、未対応のテキストエンコーディングの可能性があり、強制的に開くと文字化けやパフォーマンス問題が発生する可能性があります",
     forceOpenAction: "強制的に開く",
     savingIndicator: "保存中…",
   },
@@ -311,7 +312,7 @@ export const ja: LocaleMessages = {
     unsavedTitle: "未保存の変更",
     saveAndClose: "保存して閉じる",
     discardChanges: "変更を破棄",
-    unsavedHint: "未保存の変更があります。閉じると失われます",
+    unsavedHint: "未保存の変更は閉じると失われます",
     loadingExplorer: "エクスプローラーを読み込み中…",
     loadingGit: "ソース管理を読み込み中…",
     loadingNotifications: "通知を読み込み中…",
@@ -330,9 +331,9 @@ export const ja: LocaleMessages = {
     minimizePanel: "パネルを最小化",
     trustTitle: "ワークスペースの言語サーバーを信頼",
     trustBody:
-      "このワークスペースにはカスタム言語サーバー設定が含まれています。起動するとローカルプログラムが実行されます",
+      "このワークスペースにはカスタム言語サーバー設定が含まれており、起動するとローカルプログラムが実行されます",
     trustHint:
-      "このプロジェクトのソースを信頼する場合のみ続行してください。環境変数がログに書かれることはありません",
+      "このプロジェクトのソースを信頼する場合のみ続行してください、環境変数がログに書かれることはありません",
     trustNo: "信頼しない",
     trustYes: "信頼して起動",
     copyFailed: "コピーに失敗しました",
@@ -350,7 +351,7 @@ export const ja: LocaleMessages = {
   update: {
     connecting: "アップデートサーバーに接続中…",
     downloading: "ダウンロード中: {percent}%",
-    restarting: "ダウンロード完了。インストールのため再起動します…",
+    restarting: "ダウンロード完了、インストールのため再起動します…",
     failed: "アップデートに失敗: {message}",
     newVersion: "新しいバージョン v{version} が利用可能",
     restartHint: "アップデート後、アプリは自動的に再起動します",
@@ -364,13 +365,13 @@ export const ja: LocaleMessages = {
   errorBoundary: {
     title: "Aurona Code で予期しないエラーが発生しました",
     intro: "ワークスペースで未処理のエラーが発生しました",
-    hint: "フロントエンドエンジンを再起動できます。繰り返し発生する場合はログのパスをチームに共有してください",
+    hint: "フロントエンドエンジンを再起動できます、繰り返し発生する場合はログのパスをチームに共有してください",
     restart: "エンジンを再起動",
     copied: "コピーしました",
     copyLogPath: "ログのパスをコピー",
     lazyTitle: "このパネルを読み込めませんでした",
     lazyDescription:
-      "ホットアップデート後にモジュールが古くなったか、コンパイルに失敗した可能性があります。",
+      "ホットアップデート後にモジュールが古くなったか、コンパイルに失敗した可能性があります",
     retry: "再試行",
     reload: "ウィンドウを再読み込み",
   },
@@ -559,7 +560,7 @@ export const ja: LocaleMessages = {
       envFailed: "パフォーマンス環境を読み取れません: {error}",
       benchmarkFailed: "{name} が失敗しました",
       cancelled:
-        "追加のサンプリングを停止しました。現在のアトミックテストは安全に終了し一時ファイルを整理します",
+        "追加のサンプリングを停止しました、現在のアトミックテストは安全に終了し一時ファイルを整理します",
       runFirst: "まず少なくとも 1 つのパフォーマンステストを実行してください",
       saved: "この実行をローカルのバージョンランキングに保存しました",
       saveFailed: "パフォーマンス記録の保存に失敗: {error}",
@@ -690,7 +691,7 @@ export const ja: LocaleMessages = {
     durationSlow: "長い（6 秒）",
     durationManual: "拡張（8 秒）",
     networkDescription:
-      "アップデート確認とツールチェーンダウンロードに使用するネットワークプロキシを設定します。マーケットプレイスの拡張機能ダウンロードは対象外です",
+      "アップデート確認、ツールチェーンダウンロード、マーケットプレイスの拡張機能ダウンロードに使用するネットワークプロキシを設定します",
     networkProxyModeSystem: "システムに従う",
     networkProxyModeCustom: "カスタムプロキシ",
     networkProxyModeNone: "プロキシなし",
@@ -698,7 +699,7 @@ export const ja: LocaleMessages = {
     networkProxyUrlInvalid: "プロキシアドレスが無効です：{message}",
     networkProxyApplyFailed: "プロキシの切り替えに失敗しました：{message}",
     networkScopeNote:
-      "プロキシはアプリ内のアップデート確認と言語サーバー / ランタイムなどのツールチェーンダウンロードにのみ適用されます。Marketplace の拡張機能ダウンロードはまだ経由しません。",
+      "プロキシはアプリ内のアップデート確認、言語サーバー / ランタイムなどのツールチェーンダウンロード、マーケットプレイスの拡張機能ダウンロードに適用されます",
     terminalRunDescription: "ターミナル表示、実行とデバッグの構成",
     sourceControlDescription: "現在のワークスペースの Git リモート fetch/push URL を構成します",
     openPerformance: "パフォーマンステスト",
@@ -734,53 +735,53 @@ export const ja: LocaleMessages = {
       advanced: "詳細",
     },
     featureFlags: {
-      sectionDesc: "ビルドのリリースチャンネルを確認し、最先端の実験的機能を管理します。",
+      sectionDesc: "ビルドのリリースチャンネルを確認し、最先端の実験的機能を管理します",
       channelSelectionTitle: "リリースチャンネル",
       channelStableTitle: "安定版（本番）",
       channelStableDesc:
-        "このビルドは安定版の本番チャンネルです。企業での利用に耐える堅牢さがテストされています。",
+        "このビルドは安定版の本番チャンネルで、企業での利用に耐える堅牢さがテストされています",
       channelPioneerTitle: "Pioneer フェーズ",
       channelPioneerDesc:
-        "Pioneer プレビューチャンネルに参加すると、最先端の機能と実験的アーキテクチャを既定で受け取れます。",
+        "Pioneer プレビューチャンネルに参加すると、最先端の機能と実験的アーキテクチャを既定で受け取れます",
       pioneerUpdateCheckDesc:
-        "Pioneer プレビュービルドを確認し、安定版へは自動的にアップグレードします。",
+        "Pioneer プレビュービルドを確認し、安定版へは自動的にアップグレードします",
       resetDefaults: "既定値に戻す",
       availableFlags: "登録済みの機能フラグ",
       totalCount: "利用可能なフラグ",
       experimentalConfirmTitle: "実験的機能を有効化",
       experimentalConfirmDesc:
-        "この機能は初期の実験段階にあり、安定性に影響する可能性があります。本当に有効化しますか？",
+        "この機能は初期の実験段階にあり、安定性に影響する可能性があります、本当に有効化しますか？",
       editorMinimap: {
         title: "コードミニマップ",
-        desc: "インタラクティブにドラッグできるビューポートスライダー付きの高パフォーマンス Canvas 2D ミニマップ。",
+        desc: "インタラクティブにドラッグできるビューポートスライダー付きの高パフォーマンス Canvas 2D ミニマップ",
       },
       editorBracketPair: {
         title: "括弧ペアの彩色とガイド",
-        desc: "6 段階のレインボー括弧ネストと、垂直の点線インデントガイド。",
+        desc: "6 段階のレインボー括弧ネストと、垂直の点線インデントガイド",
       },
       editorCodeFolding: {
         title: "コード折りたたみエンジン",
-        desc: "インデントを認識する折りたたみツリー、ガーターのシェブロン、インラインプレースホルダー。",
+        desc: "インデントを認識する折りたたみツリー、ガーターのシェブロン、インラインプレースホルダー",
       },
       editorSmoothCaret: {
         title: "スムーズキャレットアニメーション",
-        desc: "マルチカーソルとプライマリカーソルの移動を CSS 補間で滑らかに描画。",
+        desc: "マルチカーソルとプライマリカーソルの移動を CSS 補間で滑らかに描画",
       },
       editorOccurrence: {
         title: "選択出現箇所のハイライト",
-        desc: "選択時に同一識別子の出現箇所すべてをビューポート全体でさりげなく強調表示。",
+        desc: "選択時に同一識別子の出現箇所すべてをビューポート全体でさりげなく強調表示",
       },
       asciiFastMetrics: {
         title: "ASCII 高速メトリクステーブル",
-        desc: "ASCII 0～127 の文字メトリクスを O(1) で事前計算した参照テーブルでレイアウトを高速化。",
+        desc: "ASCII 0～127 の文字メトリクスを O(1) で事前計算した参照テーブルでレイアウトを高速化",
       },
       vscodeCompat: {
         title: "VSCode 互換トランスパイラー",
-        desc: "VSCode 拡張 API スクリプトを WASM サンドボックス内で Aurona ネイティブの OOP 呼び出しに変換。",
+        desc: "VSCode 拡張 API スクリプトを WASM サンドボックス内で Aurona ネイティブの OOP 呼び出しに変換",
       },
       marketplacePreview: {
         title: "Aurona Marketplace 早期プレビュー",
-        desc: "Aurona Marketplace と拡張レジストリの早期探索インターフェースを解放。",
+        desc: "Aurona Marketplace と拡張レジストリの早期探索インターフェースを解放",
       },
     },
     editorSection: {
@@ -796,7 +797,7 @@ export const ja: LocaleMessages = {
       wordWrapDescription: "ビューポート幅を超える行を折り返します",
       minimap: "ミニマップ",
       minimapDescription:
-        "軽量エディターカーネルはまだミニマップに対応していません。実装後に有効になります",
+        "軽量エディターカーネルはまだミニマップに対応しておらず、実装後に有効になります",
       unavailable: "利用不可",
     },
     terminalSection: {
@@ -808,13 +809,13 @@ export const ja: LocaleMessages = {
     sourceControlSection: {
       noRepo: "Git ワークスペースが検出されません",
       noRepoDescription:
-        "ワークスペースに有効なディレクトリが開かれていません。エクスプローラーで Git リポジトリを含むフォルダーを開いてから、ここで認証情報を構成してください",
+        "ワークスペースに有効なディレクトリが開かれていません、エクスプローラーで Git リポジトリを含むフォルダーを開いてから、ここで認証情報を構成してください",
       currentRepo: "現在のワークスペースのリポジトリ",
       localConfig: "ローカル設定",
       remoteUrl: "リモートリポジトリ URL",
       remoteUrlDescription: "現在のリポジトリへの fetch と push に使用します",
       credentialsNote:
-        "認証情報は Git Credential Manager、システムキーチェーン、SSH キーで管理されます。Aurona Code がユーザー名・パスワード・トークンをリモート URL に書き込むことはありません",
+        "認証情報は Git Credential Manager、システムキーチェーン、SSH キーで管理され、Aurona Code がユーザー名・パスワード・トークンをリモート URL に書き込むことはありません",
       localOnly: "このリポジトリの Git リモート設定のみを変更します",
       applying: "適用中…",
       apply: "変更を適用",
@@ -823,15 +824,15 @@ export const ja: LocaleMessages = {
       noGitWorkspace: "現在のワークスペースに有効な Git プロジェクトがありません",
       enterRemoteUrl: "リモートリポジトリ URL を入力してください",
       credentialWarning:
-        "認証情報は Git Credential Manager や SSH キーで管理してください。リモート URL に認証情報を書き込まないでください",
+        "認証情報は Git Credential Manager や SSH キーで管理してください、リモート URL に認証情報を書き込まないでください",
       remoteUpdated: "リモートリポジトリ URL を更新しました",
       saveFailed: "保存に失敗: {message}",
       upToDate: "最新です",
       checkUpdateFailed: "アップデート確認に失敗: {message}",
       updateCheckTimeout:
-        "アップデート確認がタイムアウトしました。ネットワークを確認して再試行してください",
-      cacheCleared: "キャッシュと設定を消去しました。アプリを再起動してください",
-      resetCompleted: "アプリデータをリセットしました。再起動中…",
+        "アップデート確認がタイムアウトしました、ネットワークを確認して再試行してください",
+      cacheCleared: "キャッシュと設定を消去しました、アプリを再起動してください",
+      resetCompleted: "アプリデータをリセットしました、再起動中…",
     },
     appearanceSection: {
       title: "外観と色",
@@ -846,7 +847,7 @@ export const ja: LocaleMessages = {
       intensityDescription: "ガラスの厚み感を制御します：ぼかし・透明度・影・ハイライトの強さ",
       liquid: "Aurona 流光",
       liquidDescription:
-        "現在のガラス素材の上に動的な光のレイヤー（環境光フィールドと流れるハイライト）を重ねます。コンテンツの閲覧を妨げません",
+        "現在のガラス素材の上に動的な光のレイヤー（環境光フィールドと流れるハイライト）を重ねます、コンテンツの閲覧を妨げません",
       liquidLabel: "Aurona 流光を有効化",
       intensityLight: "軽やか",
       intensityMedium: "バランス",
@@ -873,14 +874,14 @@ export const ja: LocaleMessages = {
     codeIntelligence: {
       experienceTitle: "言語エクスペリエンス",
       experienceDescription:
-        "ホバーと補完の実際のトリガー方法を制御します。変更はすぐに反映されます",
+        "ホバーと補完の実際のトリガー方法を制御します、変更はすぐに反映されます",
       hover: "ホバー情報",
       hoverDescription: "シンボルにカーソルを合わせると型・シグネチャ・ドキュメントを表示",
       hoverDelay: "ホバー遅延",
       hoverDelayDescription:
         "マウスが静止するまで待ってから要求し、サーバーへの過剰な要求を防ぎます",
       completion: "自動補完",
-      completionDescription: "入力中に候補を要求します。Ctrl+Space は常に手動で動作します",
+      completionDescription: "入力中に候補を要求します、Ctrl+Space は常に手動で動作します",
       serversTitle: "言語サーバーと環境",
       serversSummary: "{servers} サーバー · {diagnostics} 件の診断",
       serversDescription:
@@ -911,24 +912,24 @@ export const ja: LocaleMessages = {
         "Aurona Marketplace のソース、アプリごとの権限付与、サンドボックスデータ分離を管理します",
       marketplaceUrlTitle: "Aurona Marketplace サーバー URL",
       marketplaceUrlDescription:
-        "リモートのマーケットプレイスエンドポイントを構成します。オフラインや到達不能な場合は内蔵の公式カタログにフォールバックします",
+        "リモートのマーケットプレイスエンドポイントを構成します、オフラインや到達不能な場合は内蔵の公式カタログにフォールバックします",
       resetToOfficial: "公式に戻す",
       testConnection: "接続テスト",
       marketplaceUrlSaved: "マーケットプレイスサーバー構成を保存しました",
       marketplaceUrlReset: "公式 Marketplace ソースに戻しました",
       marketplaceReachable: "Marketplace に到達できます（{status}）",
       marketplaceUnreachable:
-        "マーケットプレイスサーバーに到達できませんでした。URL を確認してください",
+        "マーケットプレイスサーバーに到達できませんでした、URL を確認してください",
       marketplaceConnectFailed: "マーケットプレイスサーバーへの接続に失敗しました",
       vscodeCompatTitle: "VSCode 互換ランタイム",
       builtinBadge: "内蔵",
       vscodeCompatDescription:
-        "VSIX 拡張向けの vscode API 互換ランタイムを提供します。Aurona Code に同梱され、サイドバーには表示されず、Marketplace からアンインストールもできません。",
+        "VSIX 拡張向けの vscode API 互換ランタイムを提供し、Aurona Code に同梱され、サイドバーには表示されず、Marketplace からアンインストールもできません",
       vscodeCompatEnabledToast: "VSCode 互換ランタイムを有効化しました",
       vscodeCompatDisabledToast: "VSCode 互換ランタイムを無効化しました",
       vscodeTestTitle: "VSCode テスト拡張",
       vscodeTestDescription:
-        "同梱の公式デモプラグインをワンクリックでインストール、またはローカルの .vsix ファイルを選択します。インストールされた拡張はサイドバーに表示され、いつでもアンインストールできます。",
+        "同梱の公式デモプラグインをワンクリックでインストール、またはローカルの .vsix ファイルを選択します（インストールされた拡張はサイドバーに表示され、いつでもアンインストールできます）",
       vscodeTestInstallDefault: "既定のテストプラグインをインストール",
       vscodeTestInstallLocal: "ローカルの .vsix をインストール…",
       vscodeTestInstalled: "{name} をインストールしました",
@@ -970,12 +971,12 @@ export const ja: LocaleMessages = {
       logInfo: "情報",
       logDebug: "デバッグ",
       runtimesTitle: "ランタイムパス",
-      runtimesDescription: "シェルなしでプログラムを直接起動します。ダウンロードは行われません",
+      runtimesDescription: "シェルなしでプログラムを直接起動します、ダウンロードは行われません",
       python: "Python",
       node: "Node.js",
       adaptersTitle: "内蔵デバッグサポート",
       adaptersDescription:
-        "プロトコルクライアントと UI は Aurona が提供します。Python デバッグコンポーネントは初回使用時にインストール導線を提示します",
+        "プロトコルクライアントと UI は Aurona が提供し、Python デバッグコンポーネントは初回使用時にインストール導線を提示します",
     },
     storage: {
       title: "ストレージ",
@@ -984,10 +985,10 @@ export const ja: LocaleMessages = {
       localDataUsed: "のローカルデータを使用中",
       appDataDir: "アプリのローカルデータディレクトリ",
       openAppDataDir: "データディレクトリを開く",
-      note: "上の項目はアプリのローカルデータディレクトリ内の実際のファイル・フォルダーに対応します。WebView キャッシュは自動的に再構築されますが、設定・ワークスペース状態・復元スナップショットは中核データのため、慎重に消去してください",
+      note: "上の項目はアプリのローカルデータディレクトリ内の実際のファイル・フォルダーに対応します、WebView キャッシュは自動的に再構築されますが、設定・ワークスペース状態・復元スナップショットは中核データのため、慎重に消去してください",
       exitCleanupTitle: "終了時に自動クリーンアップ",
       exitCleanupDescription:
-        "アプリ終了時に WebView の描画キャッシュと一時ファイルを自動クリーンアップします。手動メンテナンスは不要です",
+        "アプリ終了時に WebView の描画キャッシュと一時ファイルを自動クリーンアップします、手動メンテナンスは不要です",
       groupCore: "中核データ",
       groupExtensions: "拡張機能",
       groupToolchains: "言語サーバーとランタイム",
@@ -997,21 +998,20 @@ export const ja: LocaleMessages = {
       clear: "クリア",
       clearing: "クリア中…",
       footerNote:
-        "使用中のファイルはすぐに削除されない場合があります。ページを開き直すと最新の使用量が表示されます。アプリの全データをリセットするには「詳細 → 出荷時リセット」へ",
+        "使用中のファイルはすぐに削除されない場合があり、ページを開き直すと最新の使用量が表示されます、アプリの全データをリセットするには「詳細 → 出荷時リセット」へ",
       rows: {
         config: {
           name: "ユーザー設定",
-          description: "テーマ、外観、フォント、言語サービスの設定。再起動後は既定値に戻ります",
+          description: "テーマ、外観、フォント、言語サービスの設定、再起動後は既定値に戻ります",
         },
         workspace: {
           name: "ワークスペース状態",
-          description:
-            "最近のフォルダー、タブ、レイアウトの記憶。再起動後にレイアウトはリセットされます",
+          description: "最近のフォルダー、タブ、レイアウトの記憶（再起動後にリセットされます）",
         },
         recovery: {
           name: "エディター復元スナップショット",
           description:
-            "異常終了後に未保存ドキュメントを復元するために使用します。不要であればクリアしてください",
+            "異常終了後に未保存ドキュメントを復元するために使用します、不要であればクリアしてください",
         },
         extensionStorage: {
           name: "拡張サンドボックスストレージ",
@@ -1025,7 +1025,7 @@ export const ja: LocaleMessages = {
         cache: {
           name: "WebView 描画キャッシュ",
           description:
-            "WebView2 のキャッシュと一時ファイル。通常は最大の部分で、次回起動時に再構築されます",
+            "WebView2 のキャッシュと一時ファイル（通常は最大の部分で、次回起動時に再構築されます）",
         },
         logs: {
           name: "アプリログ",
@@ -1033,11 +1033,11 @@ export const ja: LocaleMessages = {
         },
         errlogs: {
           name: "エラーログ",
-          description: "クラッシュとエラーの記録。トラブルシュート後は安全にクリアできます",
+          description: "クラッシュとエラーの記録（トラブルシュート後は安全にクリアできます）",
         },
         performance: {
           name: "パフォーマンスベースライン",
-          description: "ローカルのベースラインデータ。次のベンチマークで再構築されます",
+          description: "ローカルのベースラインデータ（次のベンチマークで再構築されます）",
         },
         other: {
           name: "その他のローカルデータ",
@@ -1045,23 +1045,28 @@ export const ja: LocaleMessages = {
         },
       },
       toasts: {
-        configCleared: "ユーザー設定を消去しました。再起動後に既定値に戻ります",
+        configCleared: "ユーザー設定を消去しました、再起動後に既定値に戻ります",
         workspaceCleared:
-          "ワークスペース状態を消去しました。レイアウトは再起動後にリセットされます",
+          "ワークスペース状態を消去しました、レイアウトは再起動後にリセットされます",
         recoveryCleared: "エディター復元スナップショットを消去しました",
         extensionStorageCleared: "拡張サンドボックスストレージを消去しました",
         toolchainsCleared: "言語サーバーと共有ランタイムを消去しました",
-        cacheCleared: "WebView キャッシュを消去しました。次回起動時に再構築されます",
+        cacheCleared: "WebView キャッシュを消去しました、次回起動時に再構築されます",
         logsCleared: "アプリログを消去しました",
         errlogsCleared: "エラーログを消去しました",
         performanceCleared:
-          "パフォーマンスベースラインをリセットしました。次のベンチマークで再構築されます",
-        otherCleared: "残存データを消去しました。再起動後に容量が解放される場合があります",
+          "パフォーマンスベースラインをリセットしました、次のベンチマークで再構築されます",
+        otherCleared: "残存データを消去しました、再起動後に容量が解放される場合があります",
         clearFailed: "クリアに失敗: {message}",
         safeCleared: "キャッシュとログを削除しました",
       },
       safeToClean: "安全にクリア可能",
       cleanAll: "すべてクリア",
+      confirmTitle: "クリーンアップの確認",
+      confirmConfigDescription:
+        "すべてのユーザー設定を削除し既定に戻ります（この操作は元に戻せません）",
+      confirmWorkspaceDescription:
+        "ワークスペースの状態とローカル編集履歴を削除します（この操作は元に戻せません）",
     },
     definitions: {
       theme: { title: "外観モード", description: "ライト、ダーク、またはシステム" },
@@ -1166,7 +1171,7 @@ export const ja: LocaleMessages = {
       editorSmoothScrolling: {
         title: "スムーススクロール",
         description:
-          "カーソルの大幅なジャンプを 120ms のイージングでスクロールします。オフで即時移動",
+          "カーソルの大幅なジャンプを 120ms のイージングでスクロールします、オフで即時移動",
       },
       fliunoSearchCaseSensitive: {
         title: "Fliuno 大文字小文字の区別",
@@ -1182,7 +1187,7 @@ export const ja: LocaleMessages = {
       },
       networkProxyUrl: {
         title: "プロキシサーバーアドレス",
-        description: "http/https プロキシに対応。Enter またはフォーカスを外すと保存されます",
+        description: "http/https プロキシに対応し、Enter またはフォーカスを外すと保存されます",
       },
     },
   },
@@ -1194,19 +1199,19 @@ export const ja: LocaleMessages = {
     advancedInfo: "詳細情報",
     defaultDisplayName: "Aurona ユーザー",
     intro:
-      "Aurona Code を公式の Aurona アカウントと接続します。認証はシステムブラウザーで完了し、アプリがパスワードを読み取ったり保存したりすることはありません",
+      "Aurona Code を公式の Aurona アカウントと接続します、認証はシステムブラウザーで完了し、アプリがパスワードを読み取ったり保存したりすることはありません",
     scopesNote:
       "サインインにより、識別・プロフィール・安全なリフレッシュトークンのためのこれらの機能が付与されます",
     noEmail: "Aurona Code に認可されたメールはありません",
     login: "Aurona Account でサインイン",
-    loginFailed: "サインインを完了できませんでした。もう一度お試しください",
+    loginFailed: "サインインを完了できませんでした、もう一度お試しください",
     cancelLogin: "サインインをキャンセル",
-    cancelFailed: "サインインをキャンセルできませんでした。後でもう一度お試しください",
+    cancelFailed: "サインインをキャンセルできませんでした、後でもう一度お試しください",
     logout: "サインアウト",
-    logoutFailed: "サインアウトに失敗しました。後でもう一度お試しください",
+    logoutFailed: "サインアウトに失敗しました、後でもう一度お試しください",
     signingOut: "サインアウト中…",
     refreshing: "更新中…",
-    refreshFailed: "プロフィールの更新に失敗しました。後でもう一度お試しください",
+    refreshFailed: "プロフィールの更新に失敗しました、後でもう一度お試しください",
     refreshToast: "プロフィールを更新しました",
     loginToast: "Aurona Account でサインインしました",
     logoutToast: "サインアウトしました",
@@ -1277,7 +1282,7 @@ export const ja: LocaleMessages = {
     pythonDebug: {
       runtime: "Python + debugpy",
       description:
-        "Aurona は内蔵 DAP セッション、ブレークポイント、デバッグビューを同梱しています。実際のアダプターは選択した Python 環境から起動され、debugpy がない場合は安全なワンクリックインストール導線を提示します",
+        "Aurona は内蔵 DAP セッション、ブレークポイント、デバッグビューを同梱しており、実際のアダプターは選択した Python 環境から起動され、debugpy がない場合は安全なワンクリックインストール導線を提示します",
     },
   },
   extensions: {
@@ -1285,7 +1290,7 @@ export const ja: LocaleMessages = {
     permissionTitle: "拡張機能の権限",
     permissionPromptTitle: "「{name}」に現在のドキュメントへのアクセスを許可しますか？",
     permissionPromptDescription:
-      "ライブビューと解析を表示するため、拡張がアクティブなエディターの内容を読み取る必要があります。",
+      "ライブビューと解析を表示するため、拡張がアクティブなエディターの内容を読み取る必要があります",
     permissionAllowOnce: "今回のみ許可",
     permissionAllowAlways: "常に許可",
     permission: {
@@ -1331,7 +1336,7 @@ export const ja: LocaleMessages = {
       scopeOnce: "今回のみ",
       scopeWorkspace: "このワークスペース",
       scopeGlobal: "すべてのワークスペース",
-      scopeHintOnce: "このセッションのみ有効。アプリ終了時にクリアされます",
+      scopeHintOnce: "このセッションのみ有効（アプリ終了時にクリアされます）",
       scopeHintWorkspace: "現在のワークスペースにのみ適用されます",
       scopeHintGlobal: "すべてのワークスペースに適用されます",
       unknown: "未付与",
@@ -1339,7 +1344,7 @@ export const ja: LocaleMessages = {
       revokeAll: "すべて取り消す",
       revokeAllConfirmTitle: "すべての権限を取り消しますか？",
       revokeAllConfirmDescription:
-        "「{name}」のすべての付与が直ちに取り消され、次回使用時に再度要求されます。",
+        "「{name}」のすべての付与が直ちに取り消され、次回使用時に再度要求されます",
       requestTitle: "「{name}」が次の権限を要求しています",
       scopeChoiceTitle: "付与スコープを選択",
       declaredTitle: "この拡張が宣言している権限",
@@ -1384,15 +1389,15 @@ export const ja: LocaleMessages = {
     uninstallCompleted: "アンインストールしました",
     uninstallFailed: "アンインストールに失敗しました",
     toolchainActionFailed: "ツールチェーン操作に失敗しました",
-    runtimeDependencyDescription: "この言語サービスにはこのランタイムが必要です。",
-    offlineNotice: "マーケットプレイスはオフラインです。",
-    offlineInvalidResponse: "サーバーが無効な応答を返しました。",
-    offlineUnavailable: "最後に利用可能だったカタログを表示しています。",
+    runtimeDependencyDescription: "この言語サービスにはこのランタイムが必要です",
+    offlineNotice: "マーケットプレイスはオフラインです",
+    offlineInvalidResponse: "サーバーが無効な応答を返しました",
+    offlineUnavailable: "最後に利用可能だったカタログを表示しています",
     toolchainsServers: "言語サーバー",
-    noInstalledToolchains: "言語サーバーはインストールされていません。",
+    noInstalledToolchains: "言語サーバーはインストールされていません",
     availableToolchains: "利用可能な言語サーバー",
     toolchainsRuntimes: "共有ランタイム",
-    noInstalledRuntimes: "共有ランタイムはインストールされていません。",
+    noInstalledRuntimes: "共有ランタイムはインストールされていません",
     stopped: "停止",
     start: "起動",
     stop: "停止",
@@ -1433,19 +1438,19 @@ export const ja: LocaleMessages = {
     relatedResources: "関連リソース",
     sourceAndDocs: "ソースコードとドキュメント",
     marketplacePortal: "マーケットプレイスポータル",
-    defaultDescription: "詳細な説明は提供されていません。",
+    defaultDescription: "詳細な説明は提供されていません",
     defaultSdkSummary:
-      "この拡張は Aurona 拡張システム上に構築され、高速で信頼性の高い編集機能を提供します。",
+      "この拡張は Aurona 拡張システム上に構築され、高速で信頼性の高い編集機能を提供します",
     refreshList: "マーケットプレイスの拡張を更新",
     openSettings: "拡張とソースの設定を開く",
     marketplaceClosed: "Aurona Marketplace は近日公開",
-    marketplaceClosedHint: "より良い拡張エコシステムを構築中です。お楽しみに！",
+    marketplaceClosedHint: "より良い拡張エコシステムを構築中です、お楽しみに！",
     installDisabledHint: "マーケットプレイスは近日公開、お楽しみに",
     comingSoon: "近日公開",
     visitWebsite: "ウェブサイトを見る",
     reviewsTab: "レビューと評価",
     reviewsTitle: "ユーザーレビュー",
-    noReviews: "まだユーザーレビューはありません。最初のフィードバックをぜひ！",
+    noReviews: "まだユーザーレビューはありません、最初のフィードバックをぜひ！",
     writeReview: "レビューを書く",
     submitReview: "レビューを送信",
     reviewPlaceholder: "この拡張の使用感や感想を共有してください…",
@@ -1466,16 +1471,15 @@ export const ja: LocaleMessages = {
     starFailed: "お気に入りを更新できませんでした",
     reviewFailed: "レビューを送信できませんでした",
     openToolchains: "ツールチェーンを開く",
-    noChangelog: "公開されている変更履歴はありません。",
-    noVersions: "公開されているバージョンはありません。",
+    noChangelog: "公開されている変更履歴はありません",
+    noVersions: "公開されているバージョンはありません",
     retry: "再試行",
     informationUnavailable: "情報は利用できません",
     runtimeVersion: "ランタイムバージョン",
     checksum: "SHA-256",
     dependencyTitle: "必要な依存関係",
     confirmInstall: "依存関係を含めてインストール",
-    sectionLoadFailed: "このセクションを読み込めませんでした。",
-    installProxyHint: "ヒント：マーケットプレイスのダウンロードはプロキシを経由しません",
+    sectionLoadFailed: "このセクションを読み込めませんでした",
   },
   commandCategories: {
     file: "ファイル",

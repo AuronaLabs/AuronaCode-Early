@@ -96,6 +96,7 @@ export const en: LocaleMessages = {
     lspTooltipStarting: "{language}: Starting",
     lspTooltipFailed: "{language}: Error",
     lspTooltipNotConfigured: "No language server configured",
+    lspNotInstalled: "{language}: not installed, click to install",
   },
   editorTabBar: {
     closeTab: "Close Tab",
@@ -690,7 +691,7 @@ export const en: LocaleMessages = {
     durationSlow: "Slow (6s)",
     durationManual: "Extended (8s)",
     networkDescription:
-      "Configure the network proxy for update checks and toolchain downloads; marketplace extension downloads do not use the proxy",
+      "Configure the network proxy for update checks, toolchain downloads, and marketplace extension downloads",
     networkProxyModeSystem: "Follow system",
     networkProxyModeCustom: "Custom proxy",
     networkProxyModeNone: "No proxy",
@@ -698,7 +699,7 @@ export const en: LocaleMessages = {
     networkProxyUrlInvalid: "Invalid proxy address: {message}",
     networkProxyApplyFailed: "Failed to apply proxy: {message}",
     networkScopeNote:
-      "The proxy only applies to in-app update checks and toolchain downloads such as language servers and runtimes; Marketplace extension downloads do not go through it yet.",
+      "The proxy applies to in-app update checks, toolchain downloads such as language servers and runtimes, and Marketplace extension downloads",
     terminalRunDescription: "Terminal display, run and debug configuration",
     sourceControlDescription:
       "Configure the Git remote fetch and push URLs for the current workspace",
@@ -1060,6 +1061,11 @@ export const en: LocaleMessages = {
       },
       safeToClean: "Safe to clean",
       cleanAll: "Clean all",
+      confirmTitle: "Confirm cleanup",
+      confirmConfigDescription:
+        "All user settings will be deleted and defaults restored. This cannot be undone.",
+      confirmWorkspaceDescription:
+        "Workspace state and local edit history will be deleted. This cannot be undone.",
     },
     definitions: {
       theme: { title: "Appearance Mode", description: "Light, dark or system" },
@@ -1448,7 +1454,6 @@ export const en: LocaleMessages = {
     dependencyTitle: "Required dependency",
     confirmInstall: "Install with dependency",
     sectionLoadFailed: "Unable to load this section.",
-    installProxyHint: "Note: marketplace downloads do not use the proxy",
   },
   commandCategories: {
     file: "File",

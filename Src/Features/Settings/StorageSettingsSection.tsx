@@ -5,6 +5,7 @@ import { StorageIPC } from "../../Foundation/IPC/StorageCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { Button } from "../../UI/Components/Button";
+import { Modal } from "../../UI/Components/Modal";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { showToast } from "../../UI/Feedback/Toast";
@@ -129,6 +130,7 @@ export function StorageSettingsSection() {
   const { t } = useLocale();
   const [sizes, setSizes] = useState<StorageBreakdown>(EMPTY_BREAKDOWN);
   const [clearing, setClearing] = useState<ClearTarget | "safe" | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<ClearTarget | null>(null);
   const [exitCleanup, setExitCleanup] = useState(true);
 
   useEffect(() => {
@@ -508,7 +510,11 @@ export function StorageSettingsSection() {
                           }
                           className="h-7 shrink-0 px-2.5 text-[11px]"
                           disabled={clearing !== null || row.raw === 0}
-                          onClick={() => void clear(row.id)}
+                          onClick={() =>
+                            row.id === "config" || row.id === "workspace"
+                              ? setConfirmTarget(row.id)
+                              : void clear(row.id)
+                          }
                         >
                           {clearing === row.id
                             ? t("settings.storage.clearing")
@@ -545,6 +551,42 @@ export function StorageSettingsSection() {
         <Icons.Info size={16} className="mt-0.5 shrink-0" />
         <span>{t("settings.storage.footerNote")}</span>
       </div>
+
+      <Modal
+        isOpen={confirmTarget !== null}
+        onClose={() => setConfirmTarget(null)}
+        title={t("settings.storage.confirmTitle")}
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setConfirmTarget(null)}
+              className="text-[12px]"
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              className="text-[12px]"
+              onClick={() => {
+                const target = confirmTarget;
+                setConfirmTarget(null);
+                if (target) void clear(target);
+              }}
+            >
+              {t("common.confirm")}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-[12.5px] leading-relaxed text-[var(--color-text-secondary)]">
+          {confirmTarget === "config"
+            ? t("settings.storage.confirmConfigDescription")
+            : t("settings.storage.confirmWorkspaceDescription")}
+        </p>
+      </Modal>
     </div>
   );
 }

@@ -1,5 +1,5 @@
-//! 网络代理偏好（仅作用于 Rust 侧网络：更新检查由前端 check 选项直传，工具链下载走本模块）。
-//! Marketplace 扩展下载走前端 fetch，不在代理覆盖范围内。
+//! 网络代理偏好（仅作用于 Rust 侧网络：更新检查由前端 check 选项直传；
+//! 工具链下载与 Marketplace 扩展包下载走本模块，统一跟随代理三档设置）。
 
 use std::sync::{OnceLock, RwLock};
 
@@ -89,6 +89,67 @@ pub fn set_network_proxy(mode: String, url: Option<String>) -> Result<(), String
     Ok(())
 }
 
+/// 扩展安装包下载大小上限（200 MB），防止误配地址拖爆内存
+pub const HTTP_FETCH_MAX_BYTES: usize = 200 * 1024 * 1024;
+
+#[derive(Debug, serde::Serialize)]
+pub struct FetchedBytes {
+    pub data_b64: String,
+    pub sha256: Option<String>,
+}
+
+/// 仅允许 http/https，阻断 file:// 等本地 scheme 被当作下载地址
+fn validate_http_url(url: &str) -> Result<(), String> {
+    let lower = url.trim().to_ascii_lowercase();
+    if lower.starts_with("http://") || lower.starts_with("https://") {
+        Ok(())
+    } else {
+        Err("仅支持 http/https 下载地址".to_string())
+    }
+}
+
+/// 下载任意 http(s) 资源为 base64（Marketplace 扩展安装走此命令，
+/// 与工具链下载共用同一代理偏好 configure_client）
+#[tauri::command]
+pub async fn http_fetch_bytes(url: String) -> Result<FetchedBytes, String> {
+    validate_http_url(&url)?;
+    let client = configure_client(reqwest::Client::builder())?;
+    let response = client
+        .get(url.trim())
+        .timeout(std::time::Duration::from_secs(600))
+        .send()
+        .await
+        .map_err(|error| format!("下载请求失败: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "下载安装包失败 (HTTP {})",
+            response.status().as_u16()
+        ));
+    }
+    let sha256 = response
+        .headers()
+        .get("X-Aurona-Extension-Sha256")
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string);
+    if let Some(length) = response.content_length() {
+        if length as usize > HTTP_FETCH_MAX_BYTES {
+            return Err("安装包超出下载大小上限".to_string());
+        }
+    }
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|error| format!("读取下载数据失败: {error}"))?;
+    if bytes.len() > HTTP_FETCH_MAX_BYTES {
+        return Err("安装包超出下载大小上限".to_string());
+    }
+    use base64::Engine as _;
+    Ok(FetchedBytes {
+        data_b64: base64::engine::general_purpose::STANDARD.encode(&bytes),
+        sha256,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -124,5 +185,14 @@ mod tests {
         let builder = reqwest::Client::builder();
         assert!(crate::network::configure_client(builder).is_ok());
         assert!(set_network_proxy("system".to_string(), None).is_ok());
+    }
+
+    #[test]
+    fn validate_http_url_blocks_non_http_schemes() {
+        assert!(validate_http_url("https://marketplace.aurona.cc/api/x/download").is_ok());
+        assert!(validate_http_url("http://127.0.0.1:5219/api/x/download").is_ok());
+        assert!(validate_http_url("file://C:/Windows/system32/pwn.dll").is_err());
+        assert!(validate_http_url("ftp://example.com/pkg").is_err());
+        assert!(validate_http_url("  ").is_err());
     }
 }

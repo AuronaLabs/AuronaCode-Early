@@ -1,3 +1,4 @@
+import { invokeDesktop } from "../../../Foundation/Desktop";
 import { AccountAuthIPC } from "../../../Foundation/IPC/AccountAuthCommands";
 import { type ExtensionDescriptor, ExtensionIPC } from "../../../Foundation/IPC/ExtensionCommands";
 import {
@@ -25,6 +26,20 @@ function inputSignal(input?: MarketplaceRequestInput): AbortSignal | undefined {
   if (!input) return undefined;
   if (typeof AbortSignal !== "undefined" && input instanceof AbortSignal) return input;
   return "signal" in input ? input.signal : undefined;
+}
+
+interface HttpFetchBytesResult {
+  data_b64: string;
+  sha256?: string | null;
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
 }
 
 function absoluteMarketplaceUrl(baseUrl: string, value: string): string {
@@ -839,14 +854,14 @@ export const MarketplaceService = {
     id = canonicalExtensionId(id);
     const serverUrl = await this.getServerUrl();
     const url = await this.getDownloadUrl(id, version);
-    const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
-    if (!response.ok) throw new Error(`下载安装包失败 (${response.status})`);
-    const sha256 = response.headers.get("X-Aurona-Extension-Sha256") || undefined;
+    // 统一走 Rust HTTP 客户端：与更新检查、工具链下载共用同一套代理偏好
+    const result = await invokeDesktop<HttpFetchBytesResult>("http_fetch_bytes", { url });
+    const sha256 = result.sha256 ?? undefined;
     // 供应链信任：官方渠道必须携带 SHA-256，缺失即拒装；本地开发/自定义服务器豁免
     if (!sha256 && isOfficialMarketplaceHost(serverUrl)) {
       throw new Error("官方市场下载缺少 SHA-256 校验值，已拒绝安装");
     }
-    const bytes = Array.from(new Uint8Array(await response.arrayBuffer()));
+    const bytes = Array.from(base64ToBytes(result.data_b64));
     const descriptor = await ExtensionIPC.install(bytes, sha256);
     return descriptor;
   },

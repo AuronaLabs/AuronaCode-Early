@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { EditorLine } from "../components/EditorLine";
 import type { EditorHoverState } from "../components/HoverCard";
 import { GitGutterBar } from "../GitGutter/GitGutterBar";
+import { findHunkAtLine, type GitGutterHunk } from "../GitGutter/parseUnifiedDiff";
 import { collectMinimapDecorations, type MinimapDecoration } from "../Minimap/MinimapDecorations";
 import type { EditorLayoutMetrics } from "../Utils/EditorLayoutMetrics";
 import type { DiagnosticItem } from "../Utils/EditorMath";
@@ -52,7 +53,10 @@ export interface UseEditorRenderDataParams {
     addedLines: Set<number>;
     modifiedLines: Set<number>;
     deletedLines: Set<number>;
+    hunks: GitGutterHunk[];
   };
+  /** 点击 gutter 变化行指示条时打开 hunk 浮层 */
+  onOpenHunk?: (hunk: GitGutterHunk, anchor: DOMRect) => void;
   addCursor: (cursor: { line: number; char: number }) => void;
   extraCursors: unknown[];
   clearExtraCursors: () => void;
@@ -90,6 +94,7 @@ export function useEditorRenderData({
   toggleFold,
   toggleBreakpoint,
   gitGutterDiff,
+  onOpenHunk,
   addCursor,
   extraCursors,
   clearExtraCursors,
@@ -236,11 +241,19 @@ export function useEditorRenderData({
             {idx + 1}
           </button>
 
-          {/* Git 边栏指示条 */}
+          {/* Git 边栏指示条（变化行可点击查看 hunk 浮层） */}
           <GitGutterBar
             isAdded={gitGutterDiff.addedLines.has(idx)}
             isModified={gitGutterDiff.modifiedLines.has(idx)}
             isDeleted={gitGutterDiff.deletedLines.has(idx)}
+            onClick={
+              onOpenHunk
+                ? (() => {
+                    const hunk = findHunkAtLine(gitGutterDiff.hunks, idx);
+                    return hunk ? (anchor: DOMRect) => onOpenHunk(hunk, anchor) : undefined;
+                  })()
+                : undefined
+            }
           />
         </div>,
       );
@@ -257,6 +270,7 @@ export function useEditorRenderData({
     path,
     toggleBreakpoint,
     gitGutterDiff,
+    onOpenHunk,
   ]);
 
   return { minimapDecorations, visibleLinesDOM, lineNumbersDOM };

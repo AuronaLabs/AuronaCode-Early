@@ -96,6 +96,7 @@ export const it: LocaleMessages = {
     lspTooltipStarting: "{language}: Avvio",
     lspTooltipFailed: "{language}: Errore",
     lspTooltipNotConfigured: "Nessun language server configurato",
+    lspNotInstalled: "{language}: non installato, fai clic per installare",
   },
   editorTabBar: {
     closeTab: "Chiudi scheda",
@@ -698,7 +699,7 @@ export const it: LocaleMessages = {
     durationSlow: "Lenta (6 s)",
     durationManual: "Estesa (8 s)",
     networkDescription:
-      "Configura il proxy di rete per controllo aggiornamenti e download dei toolchain; i download di estensioni dal marketplace non lo usano",
+      "Configura il proxy di rete per controllo aggiornamenti, download dei toolchain e download delle estensioni dal marketplace",
     networkProxyModeSystem: "Segui il sistema",
     networkProxyModeCustom: "Proxy personalizzato",
     networkProxyModeNone: "Nessun proxy",
@@ -706,7 +707,7 @@ export const it: LocaleMessages = {
     networkProxyUrlInvalid: "Indirizzo proxy non valido: {message}",
     networkProxyApplyFailed: "Cambio proxy non riuscito: {message}",
     networkScopeNote:
-      "Il proxy si applica solo ai controlli aggiornamenti in-app e ai download dei toolchain come language server e runtime; i download delle estensioni del Marketplace non lo utilizzano ancora.",
+      "Il proxy si applica ai controlli aggiornamenti in-app, ai download dei toolchain come language server e runtime e ai download delle estensioni del Marketplace",
     terminalRunDescription: "Visualizzazione terminale, configurazione esecuzione e debug",
     sourceControlDescription:
       "Configura gli URL Git remoti di fetch e push per il workspace corrente",
@@ -1076,6 +1077,11 @@ export const it: LocaleMessages = {
       },
       safeToClean: "Sicuro da pulire",
       cleanAll: "Pulisci tutto",
+      confirmTitle: "Conferma pulizia",
+      confirmConfigDescription:
+        "Tutte le impostazioni utente verranno eliminate e ripristinate ai valori predefiniti. Operazione irreversibile.",
+      confirmWorkspaceDescription:
+        "Lo stato dell'area di lavoro e la cronologia delle modifiche locali verranno eliminati. Operazione irreversibile.",
     },
     definitions: {
       theme: { title: "Modalità aspetto", description: "Chiaro, scuro o sistema" },
@@ -1494,7 +1500,6 @@ export const it: LocaleMessages = {
     dependencyTitle: "Dipendenza richiesta",
     confirmInstall: "Installa con dipendenza",
     sectionLoadFailed: "Impossibile caricare questa sezione.",
-    installProxyHint: "Nota: i download dal marketplace ignorano il proxy",
   },
   commandCategories: {
     file: "File",

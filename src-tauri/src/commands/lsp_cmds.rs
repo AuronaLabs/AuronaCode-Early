@@ -460,7 +460,7 @@ pub async fn lsp_did_open(
 ) -> Result<(), String> {
     if let Some(client) = get_client(&state, &language).await {
         let uri = file_path_to_uri(&path)?;
-        let doc_key = format!("{}:{}", canonical_language(&language), &uri);
+        let doc_key = format!("{}:{}", canonical_language(&language), uri);
         state.opened_docs.lock().await.insert(doc_key);
 
         client
@@ -490,7 +490,7 @@ pub async fn lsp_did_change(
 ) -> Result<(), String> {
     if let Some(client) = get_client(&state, &language).await {
         let uri = file_path_to_uri(&path)?;
-        let doc_key = format!("{}:{}", canonical_language(&language), &uri);
+        let doc_key = format!("{}:{}", canonical_language(&language), uri);
         let is_opened = state.opened_docs.lock().await.contains(&doc_key);
 
         if !is_opened {
@@ -556,7 +556,7 @@ pub async fn lsp_did_close(
 ) -> Result<(), String> {
     if let Some(client) = get_client(&state, &language).await {
         let uri = file_path_to_uri(&path)?;
-        let doc_key = format!("{}:{}", canonical_language(&language), &uri);
+        let doc_key = format!("{}:{}", canonical_language(&language), uri);
         let was_opened = state.opened_docs.lock().await.remove(&doc_key);
 
         // 仅当此前确已对该语言服务器发送过 didOpen 时，才向服务器派发 didClose，彻底避免 "Trying to close not opened document" 报错
