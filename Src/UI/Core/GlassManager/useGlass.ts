@@ -26,6 +26,11 @@ export const useGlassStore = create<GlassStore>()(
         root.style.setProperty("--glass-blur-raised", preset.raised);
         root.style.setProperty("--glass-blur-overlay", preset.overlay);
         root.style.setProperty("--GlassOpacity-Multiplier", preset.opacityMultiplier);
+        // 多轴材质（--Glass* 静态令牌，档位全权；--Liquid* 动态层另行按流光动效开关门控）
+        root.style.setProperty("--GlassShadow-Depth", preset.shadowDepth);
+        root.style.setProperty("--GlassSaturation", preset.saturation);
+        root.style.setProperty("--GlassRim-Strength", preset.rimStrength);
+        root.style.setProperty("--GlassBorder-Luminance", preset.borderLuminance);
       },
     }),
     { name: "aurona-glass-settings" },

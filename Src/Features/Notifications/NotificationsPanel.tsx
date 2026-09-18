@@ -133,25 +133,39 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
                         ? Icons.InfoCircle
                         : Icons.Info;
 
-              const iconColor =
+              // 状态色收敛：四令牌，confirm 复用 primary；透明底图标 + 左缘状态色条
+              const statusText =
                 item.type === "success"
-                  ? "bg-[var(--StatusSuccess)]/10 text-[var(--StatusSuccess)]"
+                  ? "text-[var(--StatusSuccess)]"
                   : item.type === "error"
-                    ? "bg-[var(--StatusError)]/10 text-[var(--StatusError)]"
+                    ? "text-[var(--StatusError)]"
                     : item.type === "warning"
-                      ? "bg-[var(--StatusWarning)]/10 text-[var(--StatusWarning)]"
-                      : "bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]";
+                      ? "text-[var(--StatusWarning)]"
+                      : item.type === "confirm"
+                        ? "text-[var(--color-accent)]"
+                        : "text-[var(--StatusInfo)]";
+              const statusBar =
+                item.type === "success"
+                  ? "bg-[var(--StatusSuccess)]"
+                  : item.type === "error"
+                    ? "bg-[var(--StatusError)]"
+                    : item.type === "warning"
+                      ? "bg-[var(--StatusWarning)]"
+                      : item.type === "confirm"
+                        ? "bg-[var(--color-accent)]"
+                        : "bg-[var(--StatusInfo)]";
 
               return (
                 <Card
                   key={item.id}
                   layer="base"
-                  className="group relative z-10 flex gap-3 p-3 transition-colors duration-150 hover:bg-[var(--material-interactive-hover)]"
+                  className="group relative z-10 flex gap-3 overflow-hidden p-3 transition-colors duration-150 hover:bg-[var(--material-interactive-hover)]"
                 >
+                  <span className={`absolute top-0 bottom-0 left-0 w-[3px] ${statusBar}`} />
                   <div
-                    className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full ${iconColor}`}
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center ${statusText}`}
                   >
-                    <Icon size={14} />
+                    <Icon size={15} />
                   </div>
                   <div className="flex flex-col justify-center gap-1 min-w-0">
                     {item.title && (

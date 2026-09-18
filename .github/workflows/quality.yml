@@ -31,6 +31,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
       - run: pnpm run check
+      - run: pnpm run i18n:check
       - run: pnpm run check:boundaries
       - run: pnpm run check:materials
       - run: pnpm run verify:vscode-compat

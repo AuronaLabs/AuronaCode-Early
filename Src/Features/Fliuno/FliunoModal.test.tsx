@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CommandRegistry } from "../../Extension/CommandRegistry";
+import { EventBus } from "../../Foundation/EventBus";
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({}),
@@ -32,9 +33,9 @@ vi.mock("../../Foundation/IPC/WorkspaceSearchCommands", () => ({
 }));
 
 import { WorkspaceService } from "../../Core/WorkspaceService";
-import { FliunoWorkspacePage } from "./FliunoWorkspacePage";
+import { FliunoModal } from "./FliunoModal";
 
-describe("FliunoWorkspacePage keyboard navigation", () => {
+describe("FliunoModal keyboard navigation", () => {
   const disposers: Array<() => void> = [];
   const settleDebounce = async () => {
     await act(async () => {
@@ -50,7 +51,6 @@ describe("FliunoWorkspacePage keyboard navigation", () => {
   };
 
   beforeEach(() => {
-    vi.spyOn(WorkspaceService, "openRoot").mockImplementation(async () => undefined);
     vi.spyOn(WorkspaceService, "getCurrent").mockReturnValue(mockedWorkspace);
     vi.spyOn(WorkspaceService, "subscribe").mockImplementation((listener) => {
       listener(mockedWorkspace);
@@ -93,69 +93,75 @@ describe("FliunoWorkspacePage keyboard navigation", () => {
   });
 
   it("keeps rendering order, keyboard order and Enter execution consistent", async () => {
-    render(<FliunoWorkspacePage />);
+    render(<FliunoModal />);
 
-    const input = screen.getByPlaceholderText("搜索一切…");
+    act(() => {
+      EventBus.emit("app:show-fliuno");
+    });
+
+    const input = screen.getByPlaceholderText("搜索命令、文件或设置…");
     fireEvent.change(input, { target: { value: "a" } });
 
     await waitFor(() => {
       expect(document.querySelectorAll("[data-fliuno-index]").length).toBeGreaterThan(1);
     });
 
-    // 从 DOM 读取真实渲染顺序（卡片/行上的 data-fliuno-index 与 id）。
-    const orderedIds = Array.from(document.querySelectorAll<HTMLElement>("[data-fliuno-index]"))
-      .sort((left, right) => Number(left.dataset.fliunoIndex) - Number(right.dataset.fliunoIndex))
-      .map((element) => element.getAttribute("data-result-id") ?? element.textContent ?? "");
+    // 渲染顺序 = data-fliuno-index 升序；默认无选中项。
+    const indexes = Array.from(document.querySelectorAll<HTMLElement>("[data-fliuno-index]")).map(
+      (element) => Number(element.dataset.fliunoIndex),
+    );
+    expect(indexes).toEqual([...indexes].sort((left, right) => left - right));
+    expect(document.querySelector('[data-fliuno-index="0"]')?.getAttribute("aria-selected")).toBe(
+      "false",
+    );
 
-    expect(orderedIds.length).toBeGreaterThan(1);
-
-    // 默认没有任何选中项；第一次按下方向键才进入键盘选中逻辑。
-    const first = document.querySelector<HTMLElement>('[data-fliuno-index="0"]');
-    expect(first?.classList.contains("bg-[var(--material-interactive-active)]")).toBe(false);
-
+    // 第一次 ↓ 选中第 0 项，Enter 执行它。
     fireEvent.keyDown(input, { key: "ArrowDown" });
     await waitFor(() => {
-      const selected = document.querySelector<HTMLElement>('[data-fliuno-index="0"]');
-      expect(selected?.classList.contains("bg-[var(--material-interactive-active)]")).toBe(true);
+      expect(document.querySelector('[data-fliuno-index="0"]')?.getAttribute("aria-selected")).toBe(
+        "true",
+      );
     });
-
-    // Enter 必须执行当前可视选中项（display index 0 的元素）。
     const selectedElement = document.querySelector<HTMLElement>('[data-fliuno-index="0"]');
     const selectedTitle = selectedElement?.textContent ?? "";
     fireEvent.keyDown(input, { key: "Enter" });
 
-    const alphaHandler = CommandRegistry.getCommands().find(
-      (command) => command.id === "test.alphaCommand",
-    )?.handler as unknown as ReturnType<typeof vi.fn> | undefined;
-    const betaHandler = CommandRegistry.getCommands().find(
-      (command) => command.id === "test.betaCommand",
-    )?.handler as unknown as ReturnType<typeof vi.fn> | undefined;
-    const gammaHandler = CommandRegistry.getCommands().find(
-      (command) => command.id === "test.gammaCommand",
-    )?.handler as unknown as ReturnType<typeof vi.fn> | undefined;
-    const executed = [alphaHandler, betaHandler, gammaHandler].find((handler) =>
-      handler?.mock.calls.length ? handler : undefined,
-    );
-    expect(executed).toBeDefined();
-    expect(selectedTitle).toContain(
-      executed === alphaHandler ? "Alpha" : executed === betaHandler ? "Beta" : "Gamma",
-    );
+    const handlers = ["test.alphaCommand", "test.betaCommand", "test.gammaCommand"].map(
+      (id) => CommandRegistry.getCommands().find((command) => command.id === id)?.handler,
+    ) as Array<ReturnType<typeof vi.fn>>;
+    const executedIndex = handlers.findIndex((handler) => handler.mock.calls.length > 0);
+    expect(executedIndex).toBeGreaterThanOrEqual(0);
+    expect(selectedTitle).toContain(["Alpha", "Beta", "Gamma"][executedIndex]);
+
+    // Esc 关闭悬浮窗。
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(screen.queryByTestId("fliuno-surface")).toBeNull();
     await settleDebounce();
   });
 
-  it("removes a conflicting explicit prefix when a scope chip is clicked", async () => {
-    render(<FliunoWorkspacePage />);
-    const input = screen.getByPlaceholderText("搜索一切…");
-    fireEvent.change(input, { target: { value: ">save" } });
+  it("Tab cycles scope and re-scopes results", async () => {
+    render(<FliunoModal />);
 
-    fireEvent.click(screen.getByRole("tab", { name: "文件" }));
+    act(() => {
+      EventBus.emit("app:show-fliuno");
+    });
 
-    expect((input as HTMLInputElement).value).toBe("save");
-    expect(
-      screen
-        .getByRole("tab", { name: "文件" })
-        .classList.contains("bg-[var(--material-interactive-active)]"),
-    ).toBe(true);
+    const input = screen.getByPlaceholderText("搜索命令、文件或设置…");
+    fireEvent.change(input, { target: { value: "alpha" } });
+
+    await waitFor(() => {
+      expect(document.querySelectorAll("[data-fliuno-index]").length).toBeGreaterThan(1);
+    });
+
+    // all → commands → files：两下 Tab 后结果应只剩文件 alpha.ts。
+    fireEvent.keyDown(input, { key: "Tab" });
+    fireEvent.keyDown(input, { key: "Tab" });
+
+    await waitFor(() => {
+      const rows = document.querySelectorAll("[data-fliuno-index]");
+      expect(rows.length).toBe(1);
+      expect(rows[0]?.textContent).toContain("alpha.ts");
+    });
     await settleDebounce();
   });
 });

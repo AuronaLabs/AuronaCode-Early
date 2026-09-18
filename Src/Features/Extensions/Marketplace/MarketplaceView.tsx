@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LspClient } from "../../../Core/Language/LspClient";
 import { EventBus } from "../../../Foundation/EventBus";
 import { useLocale } from "../../../Foundation/I18n";
@@ -314,7 +314,9 @@ export function MarketplaceView() {
         await refreshCatalog();
         window.setTimeout(() => clearProgress(item.id), 1200);
       } catch (error) {
-        const message = error instanceof Error ? error.message : t("extensions.installFailed");
+        // 言行一致：市场下载不走代理（见网络设置范围说明），失败提示附带该线索
+        const base = error instanceof Error ? error.message : t("extensions.installFailed");
+        const message = `${base} · ${t("extensions.installProxyHint")}`;
         setProgress(item.id, "failed", 0, message);
         showToast(message, "warning");
         window.setTimeout(() => clearProgress(item.id), 3000);

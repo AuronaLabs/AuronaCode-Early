@@ -1,5 +1,18 @@
 # Aurona Code 核心架构指南 (Corona+ Architecture Specification)
 
+## V0.4.4 多轴玻璃材质 / i18n 工具链 / Fliuno 抽象 / Bento
+
+V0.4.4 聚焦「玻璃质感二轮、i18n 工具链、Fliuno 双模式抽象、空间管理 bento 与通知视觉收敛」；供应链信任策略收紧（官方市场无哈希拒装）。
+
+- **多轴玻璃令牌体系**：`GlassPreset` 从 blur+opacity 两轴扩展为六轴（新增 `shadowDepth`/`saturation`/`rimStrength`/`borderLuminance`，light/dark 独立预设表），`useGlass.applyToDOM` 全量写盘为 `--GlassShadow-Depth` 等令牌。**令牌命名契约**：`--Glass*` = 静态材质（档位全权，常驻渲染）；`--Liquid*` = 动态层可见性/幅度（`liquidTexture` 开关门控，幅度乘 `--GlassRim-Strength` 档位系数）。设置 UI 用 `UI/Components/Slider` 三档吸附控件（轻透/均衡/醇厚）。
+- **液态折射深化**：背景光域提亮 + 主体光域 `liquid-hue-flow` 色相微流动（GPU filter，双速度组反相）；overlay 层新增第二条斜向折射带（::before 双渐变）与 rim 左右缘微反射（::after 三向 inset）；浮层 hover 时 specular 流动加速。所有动画选择器均挂在 `data-liquid-texture="true"` 下——开关关闭时无任何动画运行；reduced-motion 全降级；光域 ≤5 层红线保持。
+- **i18n 工具链契约**：`scripts/i18n-check.mjs`（零依赖）以 zh-CN 为基准做 key 树 diff 与 `{placeholder}` 一致性校验（错误即 CI 失败），硬编码中文扫描为 warning；`scripts/i18n-add.mjs` 一次写六语言并自动定位嵌套位置（LF 写盘保序）。CI 在 Frontend job 独立 step 运行。
+- **Fliuno 共享组件拓扑**：`Src/Features/Fliuno/components/` 承载双模式共享层——`useFliunoSearch`（debounce/session/文件索引/偏好持久化/最近记录 + `executeFliunoResult`）、`useFliunoKeyboard`（↑↓/Home/End/Page/Tab/Enter + 选中滚动）、`FliunoSearchRow`/`FliunoScopeRow`/`FliunoResultGroups`/`HighlightedText`。Modal 与 WorkspacePage 统一 `flattenFliunoPresentation` 拍平模型，「展示顺序 = 键盘导航顺序 = Enter 执行顺序」三序一致由 `FliunoModal.test.tsx` 与 `FliunoWorkspacePage.test.tsx` 双侧固化。
+- **Bento 网格范式**：StorageSettingsSection 以 `grid-cols-1 sm:2 xl:3` 分类卡网格重组，总览行三卡（总占用/可安全清理聚合/CSS conic-gradient 占比环，radial mask 挖孔无图表库）；全部清理目标与开关保留，仅重排。
+- **通知视觉收敛**：Toast 与通知中心统一「透明底彩色图标 + 左缘 3px 状态色条」，状态色收敛为 `--StatusSuccess/Error/Warning/Info` 四令牌（confirm 复用 primary）；Toast 表面挂 `glass-layer-overlay` 液态档。
+- **供应链信任**：`MarketplaceService.installExtension` 在官方渠道（host = marketplace.aurona.cc，`isOfficialMarketplaceHost` 判定）要求响应携带 `X-Aurona-Extension-Sha256`，缺失即拒装；本地开发与自定义服务器豁免；Rust 侧 `install_package` SHA-256 校验保持不变。本地 sideload（.vsix/手动安装）不受此限。
+- **vscodeCompatEnabled 解耦事实**：该开关为纯前端配置（仅控制安装入口 disabled），Rust 侧兼容层借用判定不看它；`runtime_for` 失败路径已拆分「兼容层包存在但 wasm 空 / 包不在注册表」双分支并输出 `[Extensions] 兼容层诊断` 结构化日志。
+
 ## V0.4.3 代理 / 窗口状态 / 液态玻璃材质
 
 V0.4.3 聚焦「网络代理、窗口状态契约、圆角体系收敛与液态玻璃材质」；Fliuno 补齐分组渲染与搜索偏好持久化。不新增 SDK、Runtime 或 Marketplace 能力。

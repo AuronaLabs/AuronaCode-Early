@@ -50,7 +50,7 @@ export const en: LocaleMessages = {
     quickPlaceholder: "Search commands, files or settings…",
     workspaceTitle: "Fliuno Workspace",
     workspaceHint: "Search files, content, symbols, commands and settings in one place",
-    workspacePlaceholder: "Search files, content, symbols, commands or settings…",
+    workspacePlaceholder: "Search everything…",
     scopeAll: "All",
     scopeCommands: "Commands",
     scopeFiles: "Files",
@@ -678,7 +678,8 @@ export const en: LocaleMessages = {
     durationNormal: "Normal (4s)",
     durationSlow: "Slow (6s)",
     durationManual: "Extended (8s)",
-    networkDescription: "Configure the network proxy for update checks and toolchain downloads",
+    networkDescription:
+      "Configure the network proxy for update checks and toolchain downloads; marketplace extension downloads do not use the proxy",
     networkProxyModeSystem: "Follow system",
     networkProxyModeCustom: "Custom proxy",
     networkProxyModeNone: "No proxy",
@@ -1043,7 +1044,10 @@ export const en: LocaleMessages = {
         performanceCleared: "Performance baseline reset. The next benchmark rebuilds it",
         otherCleared: "Residual data cleared. Some space may free up after a restart",
         clearFailed: "Clear failed: {message}",
+        safeCleared: "Cache and logs cleared",
       },
+      safeToClean: "Safe to clean",
+      cleanAll: "Clean all",
     },
     definitions: {
       theme: { title: "Appearance Mode", description: "Light, dark or system" },
@@ -1432,6 +1436,7 @@ export const en: LocaleMessages = {
     dependencyTitle: "Required dependency",
     confirmInstall: "Install with dependency",
     sectionLoadFailed: "Unable to load this section.",
+    installProxyHint: "Note: marketplace downloads do not use the proxy",
   },
   commandCategories: {
     file: "File",

@@ -13,6 +13,23 @@ export type UpdateCheckResult =
 /** 更新检查网络超时：超时后立即反馈错误，避免 UI 无限 loading */
 const UPDATE_CHECK_TIMEOUT_MS = 15_000;
 
+export interface UpdateNetworkPreferences {
+  proxyMode?: string;
+  proxyUrl?: string;
+}
+
+/**
+ * 纯函数：更新检查/下载的代理偏好。
+ * 仅自定义模式且填了代理地址时直传 check 选项；其余模式跟随系统默认。
+ */
+export function buildUpdateCheckOptions(
+  network?: UpdateNetworkPreferences,
+): { proxy: string } | undefined {
+  return network?.proxyMode === "custom" && network.proxyUrl
+    ? { proxy: network.proxyUrl }
+    : undefined;
+}
+
 export const UpdaterService = {
   currentUpdate: null as UpdateInfo | null,
 
@@ -21,10 +38,7 @@ export const UpdaterService = {
       const channel = useFeatureFlagStore.getState().channel;
       // 代理偏好：自定义模式直传 check 选项（覆盖检查与下载）；其余模式跟随系统默认
       const network = (await UserConfigStore.get()).network;
-      const checkOptions =
-        network?.proxyMode === "custom" && network.proxyUrl
-          ? { proxy: network.proxyUrl }
-          : undefined;
+      const checkOptions = buildUpdateCheckOptions(network);
       let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
       const update = await Promise.race([
         desktopUpdater.check(checkOptions),

@@ -5,6 +5,23 @@ import { Icons } from "../Icons/IconManager";
 
 export type ToastType = "info" | "success" | "warning" | "error" | "confirm";
 
+/** 状态色收敛：四令牌（success/error/warning/info），confirm 复用 primary。 */
+const STATUS_BAR_CLASS: Record<ToastType, string> = {
+  success: "bg-[var(--StatusSuccess)]",
+  error: "bg-[var(--StatusError)]",
+  warning: "bg-[var(--StatusWarning)]",
+  confirm: "bg-[var(--color-accent)]",
+  info: "bg-[var(--StatusInfo)]",
+};
+
+const STATUS_TEXT_CLASS: Record<ToastType, string> = {
+  success: "text-[var(--StatusSuccess)]",
+  error: "text-[var(--StatusError)]",
+  warning: "text-[var(--StatusWarning)]",
+  confirm: "text-[var(--color-accent)]",
+  info: "text-[var(--StatusInfo)]",
+};
+
 export interface ToastAction {
   label: string;
   primary?: boolean;
@@ -87,21 +104,14 @@ export function ToastContainer() {
         return (
           <div
             key={toast.id}
-            className="pointer-events-auto relative flex flex-col gap-2.5 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)]/95 p-3.5 backdrop-blur-[var(--glass-blur-overlay)] shadow-2xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group"
+            className="glass-layer-overlay pointer-events-auto relative flex flex-col gap-2.5 overflow-hidden rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)]/95 p-3.5 backdrop-blur-[var(--glass-blur-overlay)] shadow-2xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group"
           >
+            <span
+              className={`absolute top-0 bottom-0 left-0 w-[3px] ${STATUS_BAR_CLASS[toast.type]}`}
+            />
             <div className={`flex ${hasTitle ? "items-start" : "items-center"} gap-3`}>
               <div
-                className={`flex items-center justify-center h-8 w-8 rounded-xl shrink-0 ${
-                  toast.type === "success"
-                    ? "bg-[var(--StatusSuccess)]/15 text-[var(--StatusSuccess)]"
-                    : toast.type === "error"
-                      ? "bg-[var(--StatusError)]/15 text-[var(--StatusError)]"
-                      : toast.type === "warning"
-                        ? "bg-[var(--StatusWarning)]/15 text-[var(--StatusWarning)]"
-                        : toast.type === "confirm"
-                          ? "bg-[var(--color-accent)]/15 text-[var(--color-accent)]"
-                          : "bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] text-[var(--color-accent)]"
-                }`}
+                className={`flex h-8 w-8 shrink-0 items-center justify-center ${STATUS_TEXT_CLASS[toast.type]}`}
               >
                 {toast.type === "success" && <Icons.Checks size={16} stroke={2} />}
                 {toast.type === "error" && <Icons.Close size={16} stroke={2} />}

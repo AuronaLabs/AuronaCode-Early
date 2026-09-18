@@ -50,7 +50,7 @@ export const it: LocaleMessages = {
     quickPlaceholder: "Cerca comandi, file o impostazioni…",
     workspaceTitle: "Fliuno Workspace",
     workspaceHint: "Cerca file, contenuti, simboli, comandi e impostazioni in un unico posto",
-    workspacePlaceholder: "Cerca file, contenuti, simboli, comandi o impostazioni…",
+    workspacePlaceholder: "Cerca tutto…",
     scopeAll: "Tutti",
     scopeCommands: "Comandi",
     scopeFiles: "File",
@@ -687,7 +687,7 @@ export const it: LocaleMessages = {
     durationSlow: "Lenta (6 s)",
     durationManual: "Estesa (8 s)",
     networkDescription:
-      "Configura il proxy di rete per controllo aggiornamenti e download dei toolchain",
+      "Configura il proxy di rete per controllo aggiornamenti e download dei toolchain; i download di estensioni dal marketplace non lo usano",
     networkProxyModeSystem: "Segui il sistema",
     networkProxyModeCustom: "Proxy personalizzato",
     networkProxyModeNone: "Nessun proxy",
@@ -1061,7 +1061,10 @@ export const it: LocaleMessages = {
           "Baseline prestazioni ripristinata. Il prossimo benchmark la ricostruisce",
         otherCleared: "Dati residui cancellati. Dopo il riavvio potrebbe liberarsi spazio",
         clearFailed: "Svuotamento non riuscito: {message}",
+        safeCleared: "Cache e log cancellati",
       },
+      safeToClean: "Sicuro da pulire",
+      cleanAll: "Pulisci tutto",
     },
     definitions: {
       theme: { title: "Modalità aspetto", description: "Chiaro, scuro o sistema" },
@@ -1480,6 +1483,7 @@ export const it: LocaleMessages = {
     dependencyTitle: "Dipendenza richiesta",
     confirmInstall: "Installa con dipendenza",
     sectionLoadFailed: "Impossibile caricare questa sezione.",
+    installProxyHint: "Nota: i download dal marketplace ignorano il proxy",
   },
   commandCategories: {
     file: "File",

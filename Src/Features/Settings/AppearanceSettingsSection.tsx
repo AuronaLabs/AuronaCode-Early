@@ -5,8 +5,11 @@ import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import type { AccentThemeId } from "../../Foundation/Types/Config";
 import { Select } from "../../UI/Components/Select";
 import { SettingResetButton } from "../../UI/Components/SettingResetButton";
+import { Slider } from "../../UI/Components/Slider";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer, type GlassIntensity } from "../../UI/Core/GlassManager";
+
+const INTENSITY_ORDER: GlassIntensity[] = ["light", "medium", "heavy"];
 
 interface AppearanceSettingsSectionProps {
   accentTheme: AccentThemeId;
@@ -150,20 +153,19 @@ export function AppearanceSettingsSection({
               {t("settings.appearanceSection.intensityDescription")}
             </span>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Select
-              value={intensity}
-              onChange={(value) => onIntensityChange(value as GlassIntensity)}
-              className="w-[140px]"
-              options={[
-                { value: "light", label: t("settings.appearanceSection.intensityLight") },
-                { value: "medium", label: t("settings.appearanceSection.intensityMedium") },
-                { value: "heavy", label: t("settings.appearanceSection.intensityHeavy") },
+          <div className="w-[220px] shrink-0">
+            <Slider
+              value={INTENSITY_ORDER.indexOf(intensity) + 1}
+              onValueChange={(index) => onIntensityChange(INTENSITY_ORDER[index - 1] ?? "medium")}
+              min={1}
+              max={3}
+              step={1}
+              ariaLabel={t("settings.appearanceSection.intensity")}
+              marks={[
+                { value: 1, label: t("settings.appearanceSection.intensityLight") },
+                { value: 2, label: t("settings.appearanceSection.intensityMedium") },
+                { value: 3, label: t("settings.appearanceSection.intensityHeavy") },
               ]}
-            />
-            <SettingResetButton
-              label={t("settings.reset")}
-              onReset={() => onIntensityChange("medium")}
             />
           </div>
         </div>
@@ -172,8 +174,13 @@ export function AppearanceSettingsSection({
           className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
         >
           <div className="min-w-0 pr-2">
-            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
-              {t("settings.appearanceSection.liquid")}
+            <span className="flex items-center gap-2">
+              <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+                {t("settings.appearanceSection.liquid")}
+              </span>
+              <span className="shrink-0 rounded-full bg-[var(--color-accent)]/15 px-2 py-0.5 text-[9px] font-bold leading-none text-[var(--color-accent)]">
+                Beta
+              </span>
             </span>
             <p className="mt-0.5 text-[12px] leading-5 text-[var(--color-text-muted)]">
               {t("settings.appearanceSection.liquidDescription")}

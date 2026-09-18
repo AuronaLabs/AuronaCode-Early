@@ -35,6 +35,15 @@ function absoluteMarketplaceUrl(baseUrl: string, value: string): string {
   }
 }
 
+/** 官方市场渠道判定：仅该渠道强制 SHA-256 信任策略；本地开发/自定义服务器豁免。 */
+export function isOfficialMarketplaceHost(serverUrl: string): boolean {
+  try {
+    return new URL(serverUrl).host === "marketplace.aurona.cc";
+  } catch {
+    return false;
+  }
+}
+
 export function isAbortError(error: unknown): boolean {
   return (
     (typeof DOMException !== "undefined" &&
@@ -828,10 +837,15 @@ export const MarketplaceService = {
 
   async installExtension(id: string, version?: string): Promise<ExtensionDescriptor> {
     id = canonicalExtensionId(id);
+    const serverUrl = await this.getServerUrl();
     const url = await this.getDownloadUrl(id, version);
     const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
     if (!response.ok) throw new Error(`下载安装包失败 (${response.status})`);
     const sha256 = response.headers.get("X-Aurona-Extension-Sha256") || undefined;
+    // 供应链信任：官方渠道必须携带 SHA-256，缺失即拒装；本地开发/自定义服务器豁免
+    if (!sha256 && isOfficialMarketplaceHost(serverUrl)) {
+      throw new Error("官方市场下载缺少 SHA-256 校验值，已拒绝安装");
+    }
     const bytes = Array.from(new Uint8Array(await response.arrayBuffer()));
     const descriptor = await ExtensionIPC.install(bytes, sha256);
     return descriptor;

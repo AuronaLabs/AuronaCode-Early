@@ -241,7 +241,30 @@ impl ExtensionState {
             // 兼容层缺失时给出明确错误，而不是让空字节落到 wasmtime 的 WAT 解析器里。
             match self.package("aurona.vscode-compat") {
                 Some(compat_pkg) if !compat_pkg.wasm.is_empty() => compat_pkg.wasm.clone(),
-                _ => {
+                Some(compat_pkg) => {
+                    eprintln!(
+                        "[Extensions] 兼容层诊断: 包 aurona.vscode-compat 存在但 wasm 为空 \
+                         (version={}, js_source_len={}, view_html_len={})",
+                        compat_pkg.manifest.version,
+                        compat_pkg.js_source.len(),
+                        compat_pkg.view_html.len(),
+                    );
+                    return Err(
+                        "该扩展为纯 JS 扩展，需要 VSCode 兼容层提供 WASM 运行时，但兼容层未就绪"
+                            .to_string(),
+                    );
+                }
+                None => {
+                    let installed = self
+                        .registry
+                        .descriptors()
+                        .into_iter()
+                        .map(|descriptor| descriptor.id)
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    eprintln!(
+                        "[Extensions] 兼容层诊断: 包 aurona.vscode-compat 不在注册表 (installed=[{installed}])",
+                    );
                     return Err(
                         "该扩展为纯 JS 扩展，需要 VSCode 兼容层提供 WASM 运行时，但兼容层未就绪"
                             .to_string(),

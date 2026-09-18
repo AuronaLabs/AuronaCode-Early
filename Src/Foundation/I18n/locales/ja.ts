@@ -50,7 +50,7 @@ export const ja: LocaleMessages = {
     quickPlaceholder: "コマンド、ファイル、設定を検索…",
     workspaceTitle: "Fliuno Workspace",
     workspaceHint: "ファイル・コンテンツ・シンボル・コマンド・設定を一か所で検索",
-    workspacePlaceholder: "ファイル、コンテンツ、シンボル、コマンド、設定を検索…",
+    workspacePlaceholder: "すべてを検索…",
     scopeAll: "すべて",
     scopeCommands: "コマンド",
     scopeFiles: "ファイル",
@@ -679,7 +679,7 @@ export const ja: LocaleMessages = {
     durationSlow: "長い（6 秒）",
     durationManual: "拡張（8 秒）",
     networkDescription:
-      "アップデート確認とツールチェーンダウンロードに使用するネットワークプロキシを設定",
+      "アップデート確認とツールチェーンダウンロードに使用するネットワークプロキシを設定します。マーケットプレイスの拡張機能ダウンロードは対象外です",
     networkProxyModeSystem: "システムに従う",
     networkProxyModeCustom: "カスタムプロキシ",
     networkProxyModeNone: "プロキシなし",
@@ -1047,7 +1047,10 @@ export const ja: LocaleMessages = {
           "パフォーマンスベースラインをリセットしました。次のベンチマークで再構築されます",
         otherCleared: "残存データを消去しました。再起動後に容量が解放される場合があります",
         clearFailed: "クリアに失敗: {message}",
+        safeCleared: "キャッシュとログを削除しました",
       },
+      safeToClean: "安全にクリア可能",
+      cleanAll: "すべてクリア",
     },
     definitions: {
       theme: { title: "外観モード", description: "ライト、ダーク、またはシステム" },
@@ -1461,6 +1464,7 @@ export const ja: LocaleMessages = {
     dependencyTitle: "必要な依存関係",
     confirmInstall: "依存関係を含めてインストール",
     sectionLoadFailed: "このセクションを読み込めませんでした。",
+    installProxyHint: "ヒント：マーケットプレイスのダウンロードはプロキシを経由しません",
   },
   commandCategories: {
     file: "ファイル",

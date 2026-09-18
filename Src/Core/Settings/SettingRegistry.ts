@@ -149,9 +149,10 @@ registerSetting({
   category: "appearance",
   titleKey: "settings.definitions.liquidTexture.title",
   descriptionKey: "settings.definitions.liquidTexture.description",
-  keywords: ["flowing", "light", "liquid", "流光", "液态", "光带"],
+  keywords: ["flowing", "light", "liquid", "aurona", "流光动效", "流光", "光效", "动效"],
   type: "boolean",
   defaultValue: false,
+  experimental: true,
 });
 
 registerSetting({
@@ -159,7 +160,7 @@ registerSetting({
   category: "appearance",
   titleKey: "settings.definitions.materialIntensity.title",
   descriptionKey: "settings.definitions.materialIntensity.description",
-  keywords: ["material", "glass", "intensity", "拟物", "毛玻璃", "强度"],
+  keywords: ["material", "glass", "intensity", "aurona", "玻璃", "玻璃效果", "毛玻璃", "强度"],
   type: "select",
   defaultValue: "medium",
 });

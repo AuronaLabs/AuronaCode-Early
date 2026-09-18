@@ -171,7 +171,9 @@ export function MarketplaceDetailPage({ extensionId }: MarketplaceDetailPageProp
       showToast(t("extensions.installCompleted"), "success");
       window.setTimeout(() => clearProgress(canonicalId), 1200);
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("extensions.installFailed");
+      // 言行一致：市场下载不走代理（见网络设置范围说明），失败提示附带该线索
+      const base = error instanceof Error ? error.message : t("extensions.installFailed");
+      const message = `${base} · ${t("extensions.installProxyHint")}`;
       setProgress(canonicalId, "failed", 0, message);
       showToast(message, "warning");
     } finally {

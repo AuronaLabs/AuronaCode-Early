@@ -545,40 +545,38 @@ export function ExtensionsSettingsSection() {
           vscodeCompatEnabled ? "" : "pointer-events-none opacity-50"
         }`}
       >
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
-              <Icons.Sparkles size={17} />
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
+            <Icons.Sparkles size={17} />
+          </span>
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="text-[14px] font-bold text-[var(--color-text-highlight)]">
+              {t("settings.extensionsSettings.vscodeTestTitle")}
             </span>
-            <div className="flex min-w-0 flex-col gap-1">
-              <span className="text-[14px] font-bold text-[var(--color-text-highlight)]">
-                {t("settings.extensionsSettings.vscodeTestTitle")}
-              </span>
-              <span className="text-[11.5px] leading-relaxed text-[var(--color-text-muted)]">
-                {t("settings.extensionsSettings.vscodeTestDescription")}
-              </span>
-            </div>
+            <span className="text-[11.5px] leading-relaxed text-[var(--color-text-muted)]">
+              {t("settings.extensionsSettings.vscodeTestDescription")}
+            </span>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!vscodeCompatEnabled || isInstallingVsix}
-              onClick={() => void handleInstallDefaultVsix()}
-              className="h-7 px-3 text-[11.5px]"
-            >
-              {t("settings.extensionsSettings.vscodeTestInstallDefault")}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={!vscodeCompatEnabled || isInstallingVsix}
-              onClick={() => void handleInstallLocalVsix()}
-              className="h-7 px-3 text-[11.5px]"
-            >
-              {t("settings.extensionsSettings.vscodeTestInstallLocal")}
-            </Button>
-          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!vscodeCompatEnabled || isInstallingVsix}
+            onClick={() => void handleInstallDefaultVsix()}
+            className="h-7 px-3 text-[11.5px]"
+          >
+            {t("settings.extensionsSettings.vscodeTestInstallDefault")}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!vscodeCompatEnabled || isInstallingVsix}
+            onClick={() => void handleInstallLocalVsix()}
+            className="h-7 px-3 text-[11.5px]"
+          >
+            {t("settings.extensionsSettings.vscodeTestInstallLocal")}
+          </Button>
         </div>
 
         {vscodeTestExtensions.length > 0 && (

@@ -51,7 +51,7 @@ export const de: LocaleMessages = {
     quickPlaceholder: "Befehle, Dateien oder Einstellungen suchen…",
     workspaceTitle: "Fliuno Workspace",
     workspaceHint: "Dateien, Inhalte, Symbole, Befehle und Einstellungen an einem Ort suchen",
-    workspacePlaceholder: "Dateien, Inhalte, Symbole, Befehle oder Einstellungen suchen…",
+    workspacePlaceholder: "Alles durchsuchen…",
     scopeAll: "Alle",
     scopeCommands: "Befehle",
     scopeFiles: "Dateien",
@@ -683,7 +683,8 @@ export const de: LocaleMessages = {
     durationNormal: "Normal (4 s)",
     durationSlow: "Langsam (6 s)",
     durationManual: "Verlängert (8 s)",
-    networkDescription: "Netzwerkproxy für Update-Prüfungen und Toolchain-Downloads konfigurieren",
+    networkDescription:
+      "Netzwerkproxy für Update-Prüfungen und Toolchain-Downloads konfigurieren; Marketplace-Erweiterungsdownloads umgehen ihn",
     networkProxyModeSystem: "System folgen",
     networkProxyModeCustom: "Eigener Proxy",
     networkProxyModeNone: "Kein Proxy",
@@ -1058,7 +1059,10 @@ export const de: LocaleMessages = {
           "Leistungsbasislinie zurückgesetzt. Der nächste Benchmark erstellt sie neu",
         otherCleared: "Restdaten gelöscht. Nach einem Neustart kann etwas Platz frei werden",
         clearFailed: "Leeren fehlgeschlagen: {message}",
+        safeCleared: "Cache und Protokolle bereinigt",
       },
+      safeToClean: "Sicher bereinigbar",
+      cleanAll: "Alles bereinigen",
     },
     definitions: {
       theme: { title: "Darstellungsmodus", description: "Hell, dunkel oder System" },
@@ -1475,6 +1479,7 @@ export const de: LocaleMessages = {
     dependencyTitle: "Erforderliche Abhängigkeit",
     confirmInstall: "Mit Abhängigkeit installieren",
     sectionLoadFailed: "Dieser Abschnitt konnte nicht geladen werden.",
+    installProxyHint: "Hinweis: Marketplace-Downloads umgehen den Proxy",
   },
   commandCategories: {
     file: "Datei",

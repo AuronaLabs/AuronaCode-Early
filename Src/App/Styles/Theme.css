@@ -133,6 +133,12 @@
   --shadow-overlay: 0 8px 28px rgba(15, 23, 42, 0.1);
   --shadow-glow: none;
   --material-inset: rgba(255, 255, 255, 0.1);
+  --GlassSurface-Highlight: rgba(255, 255, 255, 0.13);
+  --GlassSurface-Rim: rgba(255, 255, 255, calc(0.34 * var(--GlassBorder-Luminance, 0.8)));
+  --GlassSurface-Shadow-Base: 0 3px 12px
+    rgba(15, 23, 42, calc(0.32 * var(--GlassShadow-Depth, 0.09)));
+  --GlassSurface-Shadow-Raised: 0 10px 28px
+    rgba(15, 23, 42, calc(0.48 * var(--GlassShadow-Depth, 0.09)));
   --radius-control: 12px;
   --radius-surface: 12px;
   --radius-overlay: 16px;
@@ -407,6 +413,11 @@
   --shadow-overlay: 0 8px 28px rgba(0, 0, 0, 0.4);
   --shadow-glow: none;
   --material-inset: rgba(255, 255, 255, 0.08);
+  --GlassSurface-Highlight: rgba(255, 255, 255, 0.08);
+  --GlassSurface-Rim: rgba(255, 255, 255, calc(0.24 * var(--GlassBorder-Luminance, 0.8)));
+  --GlassSurface-Shadow-Base: 0 4px 16px rgba(0, 0, 0, calc(0.58 * var(--GlassShadow-Depth, 0.15)));
+  --GlassSurface-Shadow-Raised: 0 14px 34px
+    rgba(0, 0, 0, calc(0.72 * var(--GlassShadow-Depth, 0.15)));
   --switch-track-shadow: inset 0 2px 5px rgb(0 0 0 / 35%);
   --switch-thumb-shadow: inset 0 1px 1px rgb(255 255 255 / 24%);
   --switch-thumb-shadow-checked:
@@ -1171,9 +1182,36 @@ code {
   background-color: transparent;
 }
 
-/* 液态流光（Liquid Glass Flow）——环境光场：多组有机光域以两种速度群漂移呼吸，
-   叠加一层极缓旋转的锥形色相场（mesh 感），消除"几个圆在平移"的观感。
-   纯 GPU 合成（transform/opacity），默认关闭，光域总数 ≤5 层。 */
+/* 静态玻璃材质：基础与抬升层始终由 Aurona 玻璃效果档位决定。
+   顶部受光、低饱和边缘与分档投影保持常驻，不依赖 Aurona 流光动效。 */
+.glass-layer-base,
+.glass-layer-raised {
+  position: relative;
+  isolation: isolate;
+  border-color: color-mix(in srgb, var(--GlassBorder) 68%, var(--GlassSurface-Rim));
+}
+
+.glass-layer-base {
+  box-shadow: var(--GlassSurface-Shadow-Base);
+}
+
+.glass-layer-raised {
+  box-shadow: var(--GlassSurface-Shadow-Raised);
+}
+
+.glass-layer-base::before,
+.glass-layer-raised::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 var(--GlassSurface-Rim);
+  background: linear-gradient(to bottom, var(--GlassSurface-Highlight), transparent 42%);
+}
+
+/* Aurona 流光动效：环境光场只在开关打开时显现与动画，光域总数 ≤5 层。 */
 .liquid-texture {
   position: fixed;
   inset: -10%;
@@ -1187,7 +1225,22 @@ code {
 .liquid-texture span {
   position: absolute;
   border-radius: 50%;
-  will-change: transform, opacity;
+  will-change: transform, opacity, filter;
+}
+
+:root {
+  --LiquidField-Opacity: 0;
+  --LiquidHue-Shift: 0deg;
+}
+
+:root[data-liquid-texture="true"] {
+  --LiquidField-Opacity: calc(0.9 * var(--GlassOpacity-Multiplier, 1));
+  --LiquidHue-Shift: 10deg;
+}
+
+.dark[data-liquid-texture="true"] {
+  --LiquidField-Opacity: calc(0.96 * var(--GlassOpacity-Multiplier, 1));
+  --LiquidHue-Shift: 14deg;
 }
 
 /* 慢速群：三片主体光域（34-50s 交替漂移 + 呼吸） */
@@ -1198,10 +1251,10 @@ code {
   height: 72vmax;
   background: radial-gradient(
     circle,
-    rgba(var(--RGB-BackgroundGlow-Primary), 0.16) 0%,
+    rgba(var(--RGB-BackgroundGlow-Primary), 0.22) 0%,
     transparent 62%
   );
-  animation: liquid-drift-a 38s ease-in-out infinite alternate;
+  animation: none;
 }
 
 .liquid-texture span:nth-child(2) {
@@ -1211,10 +1264,10 @@ code {
   height: 60vmax;
   background: radial-gradient(
     circle,
-    rgba(var(--RGB-BackgroundGlow-Secondary), 0.13) 0%,
+    rgba(var(--RGB-BackgroundGlow-Secondary), 0.19) 0%,
     transparent 60%
   );
-  animation: liquid-drift-b 46s ease-in-out infinite alternate;
+  animation: none;
 }
 
 .liquid-texture span:nth-child(3) {
@@ -1224,10 +1277,10 @@ code {
   height: 66vmax;
   background: radial-gradient(
     circle,
-    rgba(var(--RGB-BackgroundGlow-Tertiary), 0.12) 0%,
+    rgba(var(--RGB-BackgroundGlow-Tertiary), 0.17) 0%,
     transparent 62%
   );
-  animation: liquid-drift-c 52s ease-in-out infinite alternate;
+  animation: none;
 }
 
 /* 更慢速群：锥形色相场（极缓旋转的 mesh 色相过渡）+ 远景柔光呼吸 */
@@ -1240,12 +1293,12 @@ code {
   border-radius: 0;
   background: conic-gradient(
     from 0deg at 50% 50%,
-    rgba(var(--RGB-BackgroundGlow-Primary), 0.05),
-    rgba(var(--RGB-BackgroundGlow-Secondary), 0.04),
-    rgba(var(--RGB-BackgroundGlow-Tertiary), 0.05),
-    rgba(var(--RGB-BackgroundGlow-Primary), 0.05)
+    rgba(var(--RGB-BackgroundGlow-Primary), 0.08),
+    rgba(var(--RGB-BackgroundGlow-Secondary), 0.06),
+    rgba(var(--RGB-BackgroundGlow-Tertiary), 0.08),
+    rgba(var(--RGB-BackgroundGlow-Primary), 0.08)
   );
-  animation: liquid-conic-rotate 90s linear infinite;
+  animation: none;
 }
 
 .liquid-texture span:nth-child(5) {
@@ -1255,18 +1308,42 @@ code {
   height: 44vmax;
   background: radial-gradient(
     circle,
-    rgba(var(--RGB-BackgroundGlow-Primary), 0.09) 0%,
+    rgba(var(--RGB-BackgroundGlow-Primary), 0.13) 0%,
     transparent 58%
   );
-  animation: liquid-drift-e 68s ease-in-out infinite alternate;
+  animation: none;
 }
 
 :root[data-liquid-texture="true"] .liquid-texture {
-  opacity: calc(0.78 * var(--GlassOpacity-Multiplier, 1));
+  opacity: var(--LiquidField-Opacity);
 }
 
-.dark[data-liquid-texture="true"] .liquid-texture {
-  opacity: calc(0.85 * var(--GlassOpacity-Multiplier, 1));
+:root[data-liquid-texture="true"] .liquid-texture span:nth-child(1) {
+  animation:
+    liquid-drift-a 38s ease-in-out infinite alternate,
+    liquid-hue-flow 24s ease-in-out infinite alternate;
+}
+
+:root[data-liquid-texture="true"] .liquid-texture span:nth-child(2) {
+  animation:
+    liquid-drift-b 46s ease-in-out infinite alternate,
+    liquid-hue-flow 31s ease-in-out infinite alternate-reverse;
+}
+
+:root[data-liquid-texture="true"] .liquid-texture span:nth-child(3) {
+  animation:
+    liquid-drift-c 52s ease-in-out infinite alternate,
+    liquid-hue-flow 36s ease-in-out infinite alternate;
+}
+
+:root[data-liquid-texture="true"] .liquid-texture span:nth-child(4) {
+  animation: liquid-conic-rotate 90s linear infinite;
+}
+
+:root[data-liquid-texture="true"] .liquid-texture span:nth-child(5) {
+  animation:
+    liquid-drift-e 68s ease-in-out infinite alternate,
+    liquid-hue-flow 42s ease-in-out infinite alternate-reverse;
 }
 
 @keyframes liquid-drift-a {
@@ -1302,6 +1379,15 @@ code {
   }
 }
 
+@keyframes liquid-hue-flow {
+  from {
+    filter: hue-rotate(calc(var(--LiquidHue-Shift) * -1));
+  }
+  to {
+    filter: hue-rotate(var(--LiquidHue-Shift));
+  }
+}
+
 @keyframes liquid-conic-rotate {
   from {
     transform: rotate(0deg);
@@ -1323,28 +1409,33 @@ code {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .liquid-texture span {
+  :root[data-liquid-texture="true"] .liquid-texture span {
     animation: none;
     opacity: 0.5;
   }
 }
 
-/* 液态玻璃材质（iOS 26 Liquid Glass 方向）：浮层玻璃的折射顶缘高光带 + 边缘 rim 折射描边。
-   仅作用于 overlay 档（.glass-layer-overlay），随 liquidTexture 开关启停，
-   强度跟随拟物强度档（--GlassOpacity-Multiplier），纯 GPU 合成。 */
+/* 液态玻璃材质：浮层玻璃的折射顶缘高光带 + 边缘 rim 折射描边。
+   仅作用于 overlay 档（.glass-layer-overlay），随流光动效开关启停，
+   纯 GPU 合成，动态幅度随「Aurona 玻璃效果」档位系数缩放。 */
+/* 职责边界：--Glass* 静态材质（档位全权）；--Liquid* 动态层（流光动效开关门控，
+   幅度乘 --GlassRim-Strength 档位系数——醇厚档流动更明显，轻透档更含蓄）。 */
 :root {
   --LiquidSpecular: 0;
+  --LiquidRefraction: 0;
   --LiquidRim: 0;
 }
 
 :root[data-liquid-texture="true"] {
-  --LiquidSpecular: 0.13;
-  --LiquidRim: 0.18;
+  --LiquidSpecular: calc(0.18 * var(--GlassRim-Strength, 1));
+  --LiquidRefraction: calc(0.1 * var(--GlassRim-Strength, 1));
+  --LiquidRim: calc(0.2 * var(--GlassRim-Strength, 1));
 }
 
 .dark[data-liquid-texture="true"] {
-  --LiquidSpecular: 0.19;
-  --LiquidRim: 0.26;
+  --LiquidSpecular: calc(0.25 * var(--GlassRim-Strength, 1));
+  --LiquidRefraction: calc(0.14 * var(--GlassRim-Strength, 1));
+  --LiquidRim: calc(0.29 * var(--GlassRim-Strength, 1));
 }
 
 .glass-layer-overlay {
@@ -1355,14 +1446,21 @@ code {
 .glass-layer-overlay::before {
   content: "";
   position: absolute;
-  inset: -1px 0 auto 0;
-  height: 46%;
+  inset: -1px -12% auto;
+  height: 58%;
   border-radius: inherit;
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, var(--LiquidSpecular)),
-    rgba(255, 255, 255, 0)
-  );
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, var(--LiquidSpecular)),
+      rgba(255, 255, 255, 0) 58%
+    ),
+    linear-gradient(
+      118deg,
+      transparent 32%,
+      rgba(255, 255, 255, var(--LiquidRefraction)) 47%,
+      transparent 62%
+    );
   opacity: calc(var(--GlassOpacity-Multiplier, 1));
   pointer-events: none;
   z-index: -1;
@@ -1377,25 +1475,41 @@ code {
   border-radius: inherit;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, var(--LiquidRim)),
+    inset 1px 0 0 rgba(255, 255, 255, calc(var(--LiquidRim) * 0.48)),
+    inset -1px 0 0 rgba(255, 255, 255, calc(var(--LiquidRim) * 0.32)),
     inset 0 -1px 1px rgba(0, 0, 0, calc(var(--LiquidRim) * 0.3));
   opacity: calc(var(--GlassOpacity-Multiplier, 1));
   pointer-events: none;
   z-index: -1;
-  transition: opacity 500ms ease;
+  transition:
+    opacity 500ms ease,
+    box-shadow 220ms ease;
 }
 
-/* 材质微流动：顶缘 specular 光带极缓平移呼吸（亚秒级感知，实为长周期缓动） */
+/* 第二条斜向折射带与顶缘 specular 仅在流光开启时流动。 */
 [data-liquid-texture="true"] .glass-layer-overlay::before {
-  animation: liquid-specular-flow 9s ease-in-out infinite alternate;
+  animation: liquid-specular-flow 6.5s ease-in-out infinite alternate;
+}
+
+[data-liquid-texture="true"] .glass-layer-overlay:hover::before {
+  animation-duration: 780ms;
+}
+
+[data-liquid-texture="true"] .glass-layer-overlay:hover::after {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, calc(var(--LiquidRim) * 1.3)),
+    inset 1px 0 0 rgba(255, 255, 255, calc(var(--LiquidRim) * 0.72)),
+    inset -1px 0 0 rgba(255, 255, 255, calc(var(--LiquidRim) * 0.52)),
+    inset 0 -1px 1px rgba(0, 0, 0, calc(var(--LiquidRim) * 0.3));
 }
 
 @keyframes liquid-specular-flow {
   from {
-    transform: translate3d(-2.5%, 0, 0);
-    opacity: calc(0.72 * var(--GlassOpacity-Multiplier, 1));
+    transform: translate3d(-4%, 0, 0);
+    opacity: calc(0.68 * var(--GlassOpacity-Multiplier, 1));
   }
   to {
-    transform: translate3d(2.5%, 0, 0);
+    transform: translate3d(4%, 0, 0);
     opacity: var(--GlassOpacity-Multiplier, 1);
   }
 }
