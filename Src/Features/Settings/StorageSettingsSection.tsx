@@ -8,6 +8,7 @@ import { Button } from "../../UI/Components/Button";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { showToast } from "../../UI/Feedback/Toast";
+import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 import { clearWorkspaceLocalState } from "./storageOwnership";
 
@@ -476,41 +477,43 @@ export function StorageSettingsSection() {
               <div className="flex flex-col">
                 {groupRows.map((row, index) => {
                   return (
-                    <div
-                      key={row.id}
-                      title={row.description}
-                      className={`flex items-center gap-2 py-2 ${
-                        index < groupRows.length - 1 ? "border-b border-[var(--border-subtle)]" : ""
-                      }`}
-                    >
-                      <div className="flex min-w-0 flex-1 flex-col">
-                        <span className="flex min-w-0 items-center gap-1.5">
-                          <span className="truncate text-[12px] font-medium text-[var(--color-text-highlight)]">
-                            {row.name}
-                          </span>
-                          <span className="hidden truncate font-mono text-[9.5px] text-[var(--color-text-muted)] sm:block">
-                            {row.file}
-                          </span>
-                        </span>
-                        <span className="truncate text-[10px] text-[var(--color-text-muted)]">
-                          {formatBytes(row.raw)}
-                        </span>
-                      </div>
-                      <Button
-                        variant={
-                          row.id === "config" || row.id === "workspace" || row.id === "recovery"
-                            ? "danger"
-                            : "glass"
-                        }
-                        className="h-7 shrink-0 px-2.5 text-[11px]"
-                        disabled={clearing !== null || row.raw === 0}
-                        onClick={() => void clear(row.id)}
+                    <Tooltip key={row.id} content={row.description} placement="top">
+                      <div
+                        className={`flex items-center gap-2 py-2 ${
+                          index < groupRows.length - 1
+                            ? "border-b border-[var(--border-subtle)]"
+                            : ""
+                        }`}
                       >
-                        {clearing === row.id
-                          ? t("settings.storage.clearing")
-                          : t("settings.storage.clear")}
-                      </Button>
-                    </div>
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <span className="truncate text-[12px] font-medium text-[var(--color-text-highlight)]">
+                              {row.name}
+                            </span>
+                            <span className="hidden truncate font-mono text-[9.5px] text-[var(--color-text-muted)] sm:block">
+                              {row.file}
+                            </span>
+                          </span>
+                          <span className="truncate text-[10px] text-[var(--color-text-muted)]">
+                            {formatBytes(row.raw)}
+                          </span>
+                        </div>
+                        <Button
+                          variant={
+                            row.id === "config" || row.id === "workspace" || row.id === "recovery"
+                              ? "danger"
+                              : "glass"
+                          }
+                          className="h-7 shrink-0 px-2.5 text-[11px]"
+                          disabled={clearing !== null || row.raw === 0}
+                          onClick={() => void clear(row.id)}
+                        >
+                          {clearing === row.id
+                            ? t("settings.storage.clearing")
+                            : t("settings.storage.clear")}
+                        </Button>
+                      </div>
+                    </Tooltip>
                   );
                 })}
               </div>
