@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type Ref } from "react";
+import type { KeyboardEvent, Ref } from "react";
 import { useLocale } from "../../../Foundation/I18n";
 import { cn } from "../../../Shared/Utils/cn";
 import { Icons } from "../../../UI/Icons/IconManager";
@@ -14,7 +14,6 @@ interface FliunoSearchRowProps {
   inputRef?: Ref<HTMLInputElement>;
   /** modal 的 combobox aria 三件套 */
   combobox?: { expanded: boolean; controlsId: string; activeDescendant?: string };
-  autoFocus?: boolean;
   className?: string;
 }
 
@@ -28,7 +27,6 @@ export function FliunoSearchRow({
   variant = "md",
   inputRef,
   combobox,
-  autoFocus,
   className,
 }: FliunoSearchRowProps) {
   const { t } = useLocale();
@@ -49,7 +47,6 @@ export function FliunoSearchRow({
         ref={inputRef}
         data-fliuno-input
         data-aurona-input="embedded"
-        autoFocus={autoFocus}
         {...(combobox
           ? {
               role: "combobox",

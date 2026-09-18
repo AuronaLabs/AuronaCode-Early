@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 /** Modal 与工作区页共用的高亮文本：命中区间以 accent 底色 mark 呈现。 */
 export function HighlightedText({
@@ -11,7 +11,7 @@ export function HighlightedText({
   className?: string;
 }) {
   if (!ranges.length) {
-    return className ? <span className={className}>{text}</span> : <>{text}</>;
+    return className ? <span className={className}>{text}</span> : text;
   }
   const parts: ReactNode[] = [];
   let cursor = 0;

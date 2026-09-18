@@ -1,4 +1,4 @@
-import { type FliunoScope } from "../../../Core/Fliuno/FliunoCore";
+import type { FliunoScope } from "../../../Core/Fliuno/FliunoCore";
 import { useLocale } from "../../../Foundation/I18n";
 import { cn } from "../../../Shared/Utils/cn";
 import { FilterChips } from "../../../UI/Components/FilterChips";
@@ -84,7 +84,9 @@ export function FliunoScopeRow({
         </>
       )}
       <span className="ml-auto shrink-0 pr-1 text-[10px] text-[var(--color-text-muted)]">
-        {indexing ? t("fliuno.indexing") : t("fliuno.resultsCount").replace("{count}", String(count))}
+        {indexing
+          ? t("fliuno.indexing")
+          : t("fliuno.resultsCount").replace("{count}", String(count))}
       </span>
     </div>
   );

@@ -5,7 +5,13 @@ import { Icons } from "../../../UI/Icons/IconManager";
 import { HighlightedText } from "./HighlightedText";
 
 /** 分组 sticky 组头：modal 传 material-panel 底，工作区页传 AppBackground 底。 */
-export function FliunoGroupHeader({ children, className }: { children: ReactNode; className?: string }) {
+export function FliunoGroupHeader({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <div
       className={cn(
@@ -93,7 +99,9 @@ export function ModalResultRow({
             <HighlightedText text={result.title} ranges={result.titleRanges} />
           </span>
           {showRecentHint && (
-            <span className="shrink-0 text-[8px] text-[var(--color-text-muted)]">{recentLabel}</span>
+            <span className="shrink-0 text-[8px] text-[var(--color-text-muted)]">
+              {recentLabel}
+            </span>
           )}
         </span>
         <span className="mt-0.5 block truncate text-[10px] text-[var(--color-text-muted)]">

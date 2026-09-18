@@ -104,7 +104,6 @@ export function FliunoWorkspacePage({
         variant={compact ? "sm" : "md"}
         query={query}
         inputRef={inputRef}
-        autoFocus
         onQueryChange={(value) => {
           setQuery(value);
           setSelectedIndex(-1);
