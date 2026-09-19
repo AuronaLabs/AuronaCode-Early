@@ -267,6 +267,14 @@
   --SyntaxOperator: #4a5568;
   --SyntaxBuiltin: #0e7490;
   --SyntaxTypeHint: #2563eb;
+
+  /* 彩虹嵌套括号（6 级，明暗各一套） */
+  --EditorBracket0: #b45309;
+  --EditorBracket1: #7c3aed;
+  --EditorBracket2: #0369a1;
+  --EditorBracket3: #047857;
+  --EditorBracket4: #be123c;
+  --EditorBracket5: #475569;
   --DiagError: #ef4444;
   --DiagWarning: #f59e0b;
   --DiagInfo: #3b82f6;
@@ -484,17 +492,25 @@
   --AccentText: #ffffff;
 
   --SyntaxKeyword: #f97316;
-  --SyntaxString: #a3e635;
+  --SyntaxString: #98c379;
   --SyntaxNumber: #38bdf8;
   --SyntaxFunction: #c084fc;
-  --SyntaxVariable: #fcd34d;
+  --SyntaxVariable: #e0af68;
   --SyntaxComment: #64748b;
   --DiagError: #f87171;
   --DiagWarning: #fbbf24;
   --DiagInfo: #60a5fa;
-  --SyntaxOperator: #cbd5e1;
-  --SyntaxBuiltin: #38bdf8;
-  --SyntaxTypeHint: #60a5fa;
+  --SyntaxOperator: #94a3b8;
+  --SyntaxBuiltin: #56b6c2;
+  --SyntaxTypeHint: #7aa2f7;
+
+  /* 彩虹嵌套括号（深色分支） */
+  --EditorBracket0: #f59e0b;
+  --EditorBracket1: #c084fc;
+  --EditorBracket2: #38bdf8;
+  --EditorBracket3: #98c379;
+  --EditorBracket4: #f43f5e;
+  --EditorBracket5: #94a3b8;
 
   /* Aurora（默认）Dark Atmosphere：深蓝夜空，避免电竞蓝黑。 */
   --RGB-BackgroundGlow-Primary: 58, 130, 218;
@@ -1226,6 +1242,35 @@ code {
   background: linear-gradient(to bottom, var(--GlassSurface-Highlight), transparent 42%);
 }
 
+/* 流光 rim 动态描边扩展到 base/raised 层：与 overlay 同一语言但乘 0.6 系数弱化，
+   避免与浮层抢戏。仍由 data-liquid-texture="true" 门控启停；rim 为静态 inset
+   描边（无动画），天然满足 prefers-reduced-motion 降级，无需额外关闭规则。 */
+[data-liquid-texture="true"] .glass-layer-base::after,
+[data-liquid-texture="true"] .glass-layer-raised::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, calc(var(--LiquidRim) * 0.6)),
+    inset 1px 0 0 rgba(255, 255, 255, calc(var(--LiquidRim) * 0.6 * 0.48)),
+    inset -1px 0 0 rgba(255, 255, 255, calc(var(--LiquidRim) * 0.6 * 0.32)),
+    inset 0 -1px 1px rgba(0, 0, 0, calc(var(--LiquidRim) * 0.6 * 0.3));
+  opacity: calc(var(--GlassOpacity-Multiplier, 1));
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* 主题卡片选中态：accent 液态光环——半透明 accent 边框 + 1.5px accent ring
+   + 24px 微光晕，替代旧的深色实线描边。置于 .glass-layer-* 规则之后，
+   同为无层规则按源序覆盖玻璃层默认 border-color / box-shadow。 */
+.glass-card-selected {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  box-shadow:
+    0 0 0 1.5px color-mix(in srgb, var(--color-accent) 55%, transparent),
+    0 0 24px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
 /* Aurona 流光动效：环境光场只在开关打开时显现与动画，光域总数 ≤5 层。 */
 .liquid-texture {
   position: fixed;
@@ -1431,10 +1476,10 @@ code {
 }
 
 /* 液态玻璃材质：浮层玻璃的折射顶缘高光带 + 边缘 rim 折射描边。
-   仅作用于 overlay 档（.glass-layer-overlay），随流光动效开关启停，
-   纯 GPU 合成，动态幅度随「Aurona 玻璃效果」档位系数缩放。 */
-/* 职责边界：--Glass* 静态材质（档位全权）；--Liquid* 动态层（流光动效开关门控，
-   幅度乘 --GlassRim-Strength 档位系数——醇厚档流动更明显，轻透档更含蓄）。 */
+   specular 随 0.4.6 提强（light 0.30 / dark 0.38）；rim 扩展到 base/raised 层，
+   随流光动效开关启停，纯 GPU 合成，动态幅度随玻璃强度连续值系数缩放。 */
+/* 职责边界：--Glass* 静态材质（强度全权）；--Liquid* 动态层（流光动效开关门控，
+   幅度乘 --GlassRim-Strength 强度系数——醇厚端流动更明显，轻透端更含蓄）。 */
 :root {
   --LiquidSpecular: 0;
   --LiquidRefraction: 0;
@@ -1442,15 +1487,15 @@ code {
 }
 
 :root[data-liquid-texture="true"] {
-  --LiquidSpecular: calc(0.18 * var(--GlassRim-Strength, 1));
+  --LiquidSpecular: calc(0.3 * var(--GlassRim-Strength, 1));
   --LiquidRefraction: calc(0.1 * var(--GlassRim-Strength, 1));
-  --LiquidRim: calc(0.2 * var(--GlassRim-Strength, 1));
+  --LiquidRim: calc(0.26 * var(--GlassRim-Strength, 1));
 }
 
 .dark[data-liquid-texture="true"] {
-  --LiquidSpecular: calc(0.25 * var(--GlassRim-Strength, 1));
+  --LiquidSpecular: calc(0.38 * var(--GlassRim-Strength, 1));
   --LiquidRefraction: calc(0.14 * var(--GlassRim-Strength, 1));
-  --LiquidRim: calc(0.29 * var(--GlassRim-Strength, 1));
+  --LiquidRim: calc(0.38 * var(--GlassRim-Strength, 1));
 }
 
 .glass-layer-overlay {
@@ -1533,4 +1578,24 @@ code {
   [data-liquid-texture="true"] .glass-layer-overlay::before {
     animation: none;
   }
+}
+
+/* 玻璃点缀光斑（iOS 26 liquid glass 语言）：右上角状态色 radial 光晕，
+   渐变范围约占卡片四成区域，作边缘点缀而非整卡底色。
+   颜色经宿主 style 注入 --GlassAccent-Halo（如 --StatusSuccess），默认取 accent。
+   宿主需为定位元素（glass-layer-* 已自带 position/isolation）；
+   与 glass-layer ::after rim 描边共存时按源序合并（本规则在后，z-index 生效）。
+   z-index 取 -1 而非 0：光斑须垫在内容之下，0 会把 18% 色洗盖到文字上。 */
+.glass-accent-halo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    56% 72% at 100% 0%,
+    color-mix(in srgb, var(--GlassAccent-Halo, var(--color-accent)) 18%, transparent),
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: -1;
 }

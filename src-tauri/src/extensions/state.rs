@@ -17,6 +17,8 @@ pub struct ExtensionState {
     permissions: Mutex<HashMap<String, ContextPermissionState>>,
     session_permissions: Mutex<HashSet<String>>,
     config_dir: Mutex<Option<PathBuf>>,
+    /// 最近一次运行时构建失败的结构化诊断（`[code] message` 格式），供 IPC 拉取。
+    last_runtime_failure: Mutex<Option<String>>,
 }
 
 impl ExtensionState {
@@ -27,6 +29,7 @@ impl ExtensionState {
             permissions: Mutex::new(HashMap::new()),
             session_permissions: Mutex::new(HashSet::new()),
             config_dir: Mutex::new(None),
+            last_runtime_failure: Mutex::new(None),
         }
     }
 
@@ -82,6 +85,31 @@ impl ExtensionState {
 
     pub fn descriptors(&self) -> Vec<super::registry::ExtensionDescriptor> {
         self.registry.descriptors()
+    }
+
+    fn record_runtime_failure(&self, message: &str) {
+        if let Ok(mut guard) = self.last_runtime_failure.lock() {
+            *guard = Some(message.to_string());
+        }
+    }
+
+    /// 聚合诊断：包加载失败列表 + 最近运行时失败 + 当前已安装列表。
+    /// 前端经 IPC `extensions_get_diagnostics` 拉取，用于"兼容层未就绪"等问题的可视排查。
+    pub fn diagnostics(&self) -> super::registry::RegistryDiagnostics {
+        super::registry::RegistryDiagnostics {
+            load: self.registry.diagnostics(),
+            last_runtime_failure: self
+                .last_runtime_failure
+                .lock()
+                .ok()
+                .and_then(|guard| guard.clone()),
+            installed: self
+                .registry
+                .descriptors()
+                .into_iter()
+                .map(|descriptor| descriptor.id)
+                .collect(),
+        }
     }
 
     pub fn package(&self, id: &str) -> Option<Arc<ExtensionPackage>> {
@@ -151,6 +179,11 @@ impl ExtensionState {
         }
         if package.js_source.trim().is_empty() {
             return Err("VSIX 缺少可执行的主入口 JS，无法安装为兼容扩展".to_string());
+        }
+        // 安装自检（fail-fast）：纯 JS 扩展依赖兼容层 WASM 运行时。
+        // 兼容层未就绪时拒绝安装并返回结构化错误码，避免装完即"无法启动"的体验。
+        if let Err(error) = self.compat_readiness() {
+            return Err(localized_compat_error(&error));
         }
         let extension_dir = app
             .path()
@@ -222,6 +255,39 @@ impl ExtensionState {
         Ok(())
     }
 
+    /// VSCode 兼容层就绪自检：纯 JS 扩展（VSIX）依赖兼容层提供 WASM 运行时。
+    /// 返回结构化错误码（`[compat.*]` 前缀），前端据此映射本地化文案。
+    /// `Ok(())` 表示兼容层包存在且 wasm 非空。
+    pub fn compat_readiness(&self) -> Result<(), String> {
+        match self.package("aurona.vscode-compat") {
+            Some(compat_pkg) if !compat_pkg.wasm.is_empty() => Ok(()),
+            Some(compat_pkg) => {
+                let message = format!(
+                    "[compat.wasm.empty] VSCode 兼容层包存在但 wasm 为空 (version={}, js_source_len={}, view_html_len={})",
+                    compat_pkg.manifest.version,
+                    compat_pkg.js_source.len(),
+                    compat_pkg.view_html.len(),
+                );
+                eprintln!("[Extensions] 兼容层诊断: {message}");
+                Err(message)
+            }
+            None => {
+                let installed = self
+                    .registry
+                    .descriptors()
+                    .into_iter()
+                    .map(|descriptor| descriptor.id)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let message = format!(
+                    "[compat.missing] VSCode 兼容层包 aurona.vscode-compat 不在注册表 (installed=[{installed}])"
+                );
+                eprintln!("[Extensions] 兼容层诊断: {message}");
+                Err(message)
+            }
+        }
+    }
+
     pub fn runtime_for(&self, id: &str) -> Result<Arc<ExtensionRuntime>, String> {
         let id = canonical_extension_id(id);
         if let Some(runtime) = self
@@ -238,37 +304,19 @@ impl ExtensionState {
             .ok_or_else(|| format!("扩展不存在: {id}"))?;
         let wasm_bytes = if package.wasm.is_empty() {
             // 纯 JS 扩展（如 VSIX demo）：借用 VSCode 兼容层的 WASM 运行时。
-            // 兼容层缺失时给出明确错误，而不是让空字节落到 wasmtime 的 WAT 解析器里。
-            match self.package("aurona.vscode-compat") {
-                Some(compat_pkg) if !compat_pkg.wasm.is_empty() => compat_pkg.wasm.clone(),
-                Some(compat_pkg) => {
-                    eprintln!(
-                        "[Extensions] 兼容层诊断: 包 aurona.vscode-compat 存在但 wasm 为空 \
-                         (version={}, js_source_len={}, view_html_len={})",
-                        compat_pkg.manifest.version,
-                        compat_pkg.js_source.len(),
-                        compat_pkg.view_html.len(),
-                    );
-                    return Err(
-                        "该扩展为纯 JS 扩展，需要 VSCode 兼容层提供 WASM 运行时，但兼容层未就绪"
-                            .to_string(),
-                    );
-                }
+            // 兼容层缺失时给出结构化错误码，而不是让空字节落到 wasmtime 的 WAT 解析器里。
+            let compat = self
+                .package("aurona.vscode-compat")
+                .filter(|compat_pkg| !compat_pkg.wasm.is_empty());
+            match compat {
+                Some(compat_pkg) => compat_pkg.wasm.clone(),
                 None => {
-                    let installed = self
-                        .registry
-                        .descriptors()
-                        .into_iter()
-                        .map(|descriptor| descriptor.id)
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    eprintln!(
-                        "[Extensions] 兼容层诊断: 包 aurona.vscode-compat 不在注册表 (installed=[{installed}])",
-                    );
-                    return Err(
-                        "该扩展为纯 JS 扩展，需要 VSCode 兼容层提供 WASM 运行时，但兼容层未就绪"
-                            .to_string(),
-                    );
+                    let error = self
+                        .compat_readiness()
+                        .err()
+                        .unwrap_or_else(|| "[compat.missing] VSCode 兼容层未就绪".to_string());
+                    self.record_runtime_failure(&error);
+                    return Err(localized_compat_error(&error));
                 }
             }
         } else {
@@ -569,6 +617,22 @@ impl ExtensionState {
 
 fn is_builtin_extension(extension_id: &str) -> bool {
     matches!(extension_id, "aurona.vscode-compat")
+}
+
+/// 把结构化错误串（`[code] 详细消息`）转成面向用户的友好文案。
+/// 错误码前缀保留在输出里（前端据此映射 i18n），中文详情供日志与兜底展示。
+fn localized_compat_error(error: &str) -> String {
+    if error.starts_with("[compat.wasm.empty]") {
+        return format!(
+            "{error}\n该扩展为纯 JS 扩展，需要 VSCode 兼容层提供 WASM 运行时，但兼容层包已损坏，请重新安装 Aurona Code 或清理扩展目录后重试"
+        );
+    }
+    if error.starts_with("[compat.missing]") {
+        return format!(
+            "{error}\n该扩展为纯 JS 扩展，需要 VSCode 兼容层提供 WASM 运行时，但兼容层未就绪"
+        );
+    }
+    error.to_string()
 }
 
 fn canonicalize_permission_key(key: &str) -> String {

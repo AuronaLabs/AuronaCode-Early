@@ -4,12 +4,12 @@ import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import { StorageIPC } from "../../Foundation/IPC/StorageCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
+import { Badge } from "../../UI/Components/Badge";
 import { Button } from "../../UI/Components/Button";
 import { Modal } from "../../UI/Components/Modal";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { showToast } from "../../UI/Feedback/Toast";
-import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 import { clearWorkspaceLocalState } from "./storageOwnership";
 
@@ -42,6 +42,9 @@ type ClearTarget =
 
 type StorageGroup = "core" | "extensions" | "toolchains" | "cache" | "logs" | "other";
 
+/** t 函数类型：直接取自 useLocale 返回值，保证签名兼容 */
+type TranslateFn = ReturnType<typeof useLocale>["t"];
+
 const ROW_GROUP: Record<ClearTarget, StorageGroup> = {
   config: "core",
   workspace: "core",
@@ -55,7 +58,7 @@ const ROW_GROUP: Record<ClearTarget, StorageGroup> = {
   other: "other",
 };
 
-/** 组色值同时用于图例圆点、占比环与分类卡描边，统一取语义令牌。 */
+/** 组色值同时用于堆叠条分段与明细行图标染色，统一取语义令牌。 */
 const GROUP_META: Array<{
   id: StorageGroup;
   color: string;
@@ -100,8 +103,69 @@ const GROUP_META: Array<{
   },
 ];
 
-/** 可安全清理聚合（总览高亮卡 + 一键清理的范围） */
+/** 可安全清理聚合（总览高亮 + 一键清理的范围） */
 const SAFE_CLEAR_TARGETS: ClearTarget[] = ["cache", "logs", "errlogs"];
+
+/** 明细行定义：一个可清理目标对应一行 */
+interface StorageRowDef {
+  id: ClearTarget;
+  nameKey: I18nKey;
+  descriptionKey: I18nKey;
+}
+
+/** 明细列表顺序 = 分组顺序（组内保持旧行序），图标染色传达分组归属 */
+const ROW_ORDER: StorageRowDef[] = [
+  {
+    id: "config",
+    nameKey: "settings.storage.rows.config.name",
+    descriptionKey: "settings.storage.rows.config.description",
+  },
+  {
+    id: "workspace",
+    nameKey: "settings.storage.rows.workspace.name",
+    descriptionKey: "settings.storage.rows.workspace.description",
+  },
+  {
+    id: "recovery",
+    nameKey: "settings.storage.rows.recovery.name",
+    descriptionKey: "settings.storage.rows.recovery.description",
+  },
+  {
+    id: "performance",
+    nameKey: "settings.storage.rows.performance.name",
+    descriptionKey: "settings.storage.rows.performance.description",
+  },
+  {
+    id: "extensionStorage",
+    nameKey: "settings.storage.rows.extensionStorage.name",
+    descriptionKey: "settings.storage.rows.extensionStorage.description",
+  },
+  {
+    id: "toolchains",
+    nameKey: "settings.storage.rows.toolchains.name",
+    descriptionKey: "settings.storage.rows.toolchains.description",
+  },
+  {
+    id: "cache",
+    nameKey: "settings.storage.rows.cache.name",
+    descriptionKey: "settings.storage.rows.cache.description",
+  },
+  {
+    id: "logs",
+    nameKey: "settings.storage.rows.logs.name",
+    descriptionKey: "settings.storage.rows.logs.description",
+  },
+  {
+    id: "errlogs",
+    nameKey: "settings.storage.rows.errlogs.name",
+    descriptionKey: "settings.storage.rows.errlogs.description",
+  },
+  {
+    id: "other",
+    nameKey: "settings.storage.rows.other.name",
+    descriptionKey: "settings.storage.rows.other.description",
+  },
+];
 
 const EMPTY_BREAKDOWN: StorageBreakdown = {
   appDataBytes: 0,
@@ -248,87 +312,27 @@ export function StorageSettingsSection() {
     }
   };
 
-  const rows: {
-    id: ClearTarget;
-    name: string;
-    file: string;
-    description: string;
-    raw: number;
-  }[] = [
-    {
-      id: "cache",
-      name: t("settings.storage.rows.cache.name"),
-      file: "EBWebView/",
-      description: t("settings.storage.rows.cache.description"),
-      raw: sizes.cacheBytes,
-    },
-    {
-      id: "toolchains",
-      name: t("settings.storage.rows.toolchains.name"),
-      file: "toolchains/",
-      description: t("settings.storage.rows.toolchains.description"),
-      raw: sizes.toolchainBytes,
-    },
-    {
-      id: "extensionStorage",
-      name: t("settings.storage.rows.extensionStorage.name"),
-      file: "extension-storage/",
-      description: t("settings.storage.rows.extensionStorage.description"),
-      raw: sizes.extensionStorageBytes,
-    },
-    {
-      id: "logs",
-      name: t("settings.storage.rows.logs.name"),
-      file: "logs/",
-      description: t("settings.storage.rows.logs.description"),
-      raw: sizes.logBytes,
-    },
-    {
-      id: "errlogs",
-      name: t("settings.storage.rows.errlogs.name"),
-      file: "errlogs/",
-      description: t("settings.storage.rows.errlogs.description"),
-      raw: sizes.errlogBytes,
-    },
-    {
-      id: "recovery",
-      name: t("settings.storage.rows.recovery.name"),
-      file: "editor-recovery/",
-      description: t("settings.storage.rows.recovery.description"),
-      raw: sizes.recoveryBytes,
-    },
-    {
-      id: "performance",
-      name: t("settings.storage.rows.performance.name"),
-      file: "performance-baseline.json",
-      description: t("settings.storage.rows.performance.description"),
-      raw: sizes.performanceBytes,
-    },
-    {
-      id: "workspace",
-      name: t("settings.storage.rows.workspace.name"),
-      file: "workspace.json",
-      description: t("settings.storage.rows.workspace.description"),
-      raw: sizes.workspaceBytes,
-    },
-    {
-      id: "config",
-      name: t("settings.storage.rows.config.name"),
-      file: "user-config.json",
-      description: t("settings.storage.rows.config.description"),
-      raw: sizes.configBytes,
-    },
-    {
-      id: "other",
-      name: t("settings.storage.rows.other.name"),
-      file: "AppLocalData",
-      description: t("settings.storage.rows.other.description"),
-      raw: sizes.otherAppDataBytes,
-    },
-  ];
+  const rows = ROW_ORDER.map((row) => ({
+    id: row.id,
+    name: t(row.nameKey),
+    description: t(row.descriptionKey),
+    raw: (
+      {
+        config: sizes.configBytes,
+        workspace: sizes.workspaceBytes,
+        recovery: sizes.recoveryBytes,
+        performance: sizes.performanceBytes,
+        extensionStorage: sizes.extensionStorageBytes,
+        toolchains: sizes.toolchainBytes,
+        cache: sizes.cacheBytes,
+        logs: sizes.logBytes,
+        errlogs: sizes.errlogBytes,
+        other: sizes.otherAppDataBytes,
+      } as Record<ClearTarget, number>
+    )[row.id],
+  }));
 
   const totalRawSize = sizes.appDataBytes;
-  const totalFormatted = formatBytes(totalRawSize);
   const totalForBar = totalRawSize === 0 ? 1 : totalRawSize;
   const safeBytes = SAFE_CLEAR_TARGETS.reduce(
     (sum, target) => sum + (rows.find((row) => row.id === target)?.raw ?? 0),
@@ -338,16 +342,18 @@ export function StorageSettingsSection() {
   const groupBytes = (group: StorageGroup) =>
     rows.filter((row) => ROW_GROUP[row.id] === group).reduce((sum, row) => sum + row.raw, 0);
 
-  // 纯 CSS conic-gradient 占比环：按组顺序累积扇区
-  const donutStops: string[] = [];
-  let donutAcc = 0;
+  // 水平堆叠占比条：按组顺序线性分段（取代此前的 conic 环）
+  const barStops: string[] = [];
+  let barAcc = 0;
   for (const group of GROUP_META) {
-    const start = donutAcc;
-    donutAcc = Math.min(100, donutAcc + (groupBytes(group.id) / totalForBar) * 100);
-    donutStops.push(`${group.color} ${start.toFixed(2)}% ${donutAcc.toFixed(2)}%`);
+    const start = barAcc;
+    barAcc = Math.min(100, barAcc + (groupBytes(group.id) / totalForBar) * 100);
+    barStops.push(`${group.color} ${start.toFixed(2)}% ${barAcc.toFixed(2)}%`);
   }
-  const donutBackground =
-    totalRawSize === 0 ? "var(--material-surface)" : `conic-gradient(${donutStops.join(", ")})`;
+  const barBackground =
+    totalRawSize === 0
+      ? "var(--material-surface)"
+      : `linear-gradient(to right, ${barStops.join(", ")})`;
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
@@ -376,178 +382,131 @@ export function StorageSettingsSection() {
         </p>
       </div>
 
-      {/* 总览卡：单卡整合 总占用 / 可安全清理 / 占比环 + 图例 */}
-      <GlassContainer layer="raised" className="overflow-hidden p-5">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <span className="select-none text-[11px] font-medium text-[var(--color-text-muted)]">
+      {/* 总览：单一焦点数字 + 可安全清理徽章 + 堆叠占比条（与设置页 raised 卡片同一语言） */}
+      <GlassContainer layer="raised" className="flex flex-col gap-5 overflow-hidden p-5">
+        <div className="flex items-end justify-between gap-4">
+          <div className="flex min-w-0 flex-col gap-1.5 select-none">
+            <span className="text-[12px] text-[var(--color-text-muted)]">
               {t("settings.storage.localDataUsed")}
             </span>
-            <span className="select-none text-[28px] leading-none font-extrabold tracking-tight text-[var(--color-text-highlight)]">
-              {totalFormatted}
+            <span className="flex flex-wrap items-center gap-2.5">
+              <span className="text-[22px] leading-none font-bold tracking-tight text-[var(--color-text-highlight)] tabular-nums">
+                {formatBytes(totalRawSize)}
+              </span>
+              <Badge variant="tint">
+                {t("settings.storage.safeToClean")} · {formatBytes(safeBytes)}
+              </Badge>
             </span>
-            <span className="select-none text-[10.5px] text-[var(--color-text-muted)]">
+            <span className="text-[11px] text-[var(--color-text-muted)]">
               {t("settings.storage.appDataDir")}
             </span>
           </div>
-
-          <div className="flex shrink-0 flex-col gap-2 rounded-2xl border border-[color-mix(in_srgb,var(--color-accent)_30%,var(--border-subtle))] bg-[color-mix(in_srgb,var(--color-accent)_6%,transparent)] p-4 sm:w-[240px]">
-            <span className="select-none text-[11px] font-medium text-[var(--color-accent)]">
-              {t("settings.storage.safeToClean")}
-            </span>
-            <span className="select-none text-[22px] leading-none font-extrabold tracking-tight text-[var(--color-text-highlight)]">
-              {formatBytes(safeBytes)}
-            </span>
-            <span className="text-[10px] leading-4 text-[var(--color-text-muted)]">
-              {t("settings.storage.rows.cache.name")} · {t("settings.storage.rows.logs.name")} ·{" "}
-              {t("settings.storage.rows.errlogs.name")}
-            </span>
-            <Button
-              variant="primary"
-              className="h-8 px-3 text-[12px]"
-              disabled={clearing !== null || safeBytes === 0}
-              onClick={() => void clearSafeAll()}
-            >
-              {clearing === "safe"
-                ? t("settings.storage.clearing")
-                : t("settings.storage.cleanAll")}
-            </Button>
-          </div>
-
-          <div className="relative mx-auto size-24 shrink-0 sm:ml-0">
-            <div
-              className="size-full rounded-full"
-              style={{
-                background: donutBackground,
-                maskImage: "radial-gradient(closest-side, transparent 64%, black 65%)",
-                WebkitMaskImage: "radial-gradient(closest-side, transparent 64%, black 65%)",
-              }}
-            />
-            <span className="absolute inset-0 grid place-items-center text-[12px] font-bold text-[var(--color-text-highlight)]">
-              {GROUP_META.length}
-            </span>
-          </div>
+          <Button
+            variant="primary"
+            className="h-8 shrink-0 px-4 text-[12px]"
+            disabled={clearing !== null || safeBytes === 0}
+            onClick={() => void clearSafeAll()}
+          >
+            {clearing === "safe" ? t("settings.storage.clearing") : t("settings.storage.cleanAll")}
+          </Button>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-[var(--border-subtle)] pt-3 select-none">
+        {/* 堆叠占比条：6 组色分段，总占用为 0 时退化为中性面 */}
+        <div
+          className="h-2 w-full overflow-hidden rounded-full"
+          style={{ background: barBackground }}
+          role="img"
+          aria-label={t("settings.storage.title")}
+        />
+        {/* 图例：单行紧凑排列（色点 + 组名） */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 select-none">
           {GROUP_META.map((group) => (
-            <div
+            <span
               key={group.id}
-              className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]"
+              className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]"
             >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: group.color }} />
-              <span>{t(group.nameKey)}</span>
-            </div>
+              <span
+                className="size-1.5 shrink-0 rounded-full"
+                style={{ backgroundColor: group.color }}
+              />
+              {t(group.nameKey)}
+              <span className="tabular-nums opacity-70">{formatBytes(groupBytes(group.id))}</span>
+            </span>
           ))}
-          <p className="w-full pt-1 text-[10.5px] leading-4 text-[var(--color-text-muted)]/80">
-            {t("settings.storage.note")}
-          </p>
         </div>
+
+        <p className="border-t border-[var(--border-subtle)] pt-3 text-[11px] leading-4 text-[var(--color-text-muted)]/80 select-none">
+          {t("settings.storage.note")}
+        </p>
       </GlassContainer>
 
-      {/* 分类卡：核心数据 / 扩展 / 工具链 / 缓存 / 日志 / 其他（一行最多两个） */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {GROUP_META.map((group) => {
-          const GroupIcon = group.icon;
-          const groupRows = rows.filter((row) => ROW_GROUP[row.id] === group.id);
-          const cleanable = group.id === "cache" || group.id === "logs";
+      {/* 明细列表：单一 raised 容器 + 统一行规格（border-t / min-h-14 / p-5），与全设置分区一致 */}
+      <GlassContainer layer="raised" className="overflow-hidden">
+        {rows.map((row, index) => {
+          const group = GROUP_META.find((g) => g.id === ROW_GROUP[row.id]);
+          const GroupIcon = group?.icon ?? Icons.Files;
+          const groupColor = group?.color ?? "var(--color-accent)";
+          const isDanger = row.id === "config" || row.id === "workspace";
           return (
-            <GlassContainer
-              key={group.id}
-              layer="base"
-              className={`flex flex-col overflow-hidden p-4 ${
-                cleanable
-                  ? "border-[color-mix(in_srgb,var(--StatusError)_22%,var(--border-subtle))]"
-                  : ""
+            <div
+              key={row.id}
+              className={`flex min-h-14 items-center gap-4 p-5 ${
+                index > 0 ? "border-t border-[var(--border-subtle)]" : ""
               }`}
             >
-              <div className="flex items-center gap-2.5 pb-2">
-                <span
-                  className="grid size-7 shrink-0 place-items-center rounded-lg"
-                  style={{
-                    backgroundColor: `color-mix(in srgb, ${group.color} 12%, transparent)`,
-                    color: group.color,
-                  }}
-                >
-                  <GroupIcon size={14} />
+              <span
+                className="grid size-8 shrink-0 place-items-center rounded-lg"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${groupColor} 12%, transparent)`,
+                  color: groupColor,
+                }}
+              >
+                <GroupIcon size={15} />
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="truncate text-[13px] font-medium text-[var(--color-text-highlight)] select-none">
+                  {row.name}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[var(--color-text-highlight)] select-none">
-                  {t(group.nameKey)}
-                </span>
-                <span className="shrink-0 font-mono text-[11px] text-[var(--color-text-muted)] select-none">
-                  {formatBytes(groupBytes(group.id))}
+                <span className="truncate text-[11px] text-[var(--color-text-muted)]">
+                  {row.description}
                 </span>
               </div>
-              <div className="flex flex-col">
-                {groupRows.map((row, index) => {
-                  return (
-                    <Tooltip key={row.id} content={row.description} placement="top">
-                      <div
-                        className={`flex items-center gap-2 py-2 ${
-                          index < groupRows.length - 1
-                            ? "border-b border-[var(--border-subtle)]"
-                            : ""
-                        }`}
-                      >
-                        <div className="flex min-w-0 flex-1 flex-col">
-                          <span className="flex min-w-0 items-center gap-1.5">
-                            <span className="truncate text-[12px] font-medium text-[var(--color-text-highlight)]">
-                              {row.name}
-                            </span>
-                            <span className="hidden truncate font-mono text-[9.5px] text-[var(--color-text-muted)] sm:block">
-                              {row.file}
-                            </span>
-                          </span>
-                          <span className="truncate text-[10px] text-[var(--color-text-muted)]">
-                            {formatBytes(row.raw)}
-                          </span>
-                        </div>
-                        <Button
-                          variant={
-                            row.id === "config" || row.id === "workspace" || row.id === "recovery"
-                              ? "danger"
-                              : "glass"
-                          }
-                          className="h-7 shrink-0 px-2.5 text-[11px]"
-                          disabled={clearing !== null || row.raw === 0}
-                          onClick={() =>
-                            row.id === "config" || row.id === "workspace"
-                              ? setConfirmTarget(row.id)
-                              : void clear(row.id)
-                          }
-                        >
-                          {clearing === row.id
-                            ? t("settings.storage.clearing")
-                            : t("settings.storage.clear")}
-                        </Button>
-                      </div>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            </GlassContainer>
+              <span className="shrink-0 text-[12.5px] tabular-nums text-[var(--color-text-secondary)] select-none">
+                {formatBytes(row.raw)}
+              </span>
+              <Button
+                variant={isDanger ? "danger" : "glass"}
+                className="h-7 shrink-0 px-2.5 text-[11px]"
+                disabled={clearing !== null || row.raw === 0}
+                onClick={() => (isDanger ? setConfirmTarget(row.id) : void clear(row.id))}
+              >
+                {clearing === row.id ? t("settings.storage.clearing") : t("settings.storage.clear")}
+              </Button>
+            </div>
           );
         })}
-      </div>
-
-      {/* 退出清理开关（保留） */}
-      <GlassContainer layer="base" className="flex items-center justify-between gap-4 p-4">
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="select-none text-[13px] font-medium text-[var(--color-text-highlight)]">
-            {t("settings.storage.exitCleanupTitle")}
-          </span>
-          <span className="text-[11.5px] leading-4 text-[var(--color-text-muted)]">
-            {t("settings.storage.exitCleanupDescription")}
-          </span>
-        </div>
-        <Switch
-          checked={exitCleanup}
-          onCheckedChange={handleExitCleanupToggle}
-          aria-label={t("settings.storage.exitCleanupTitle")}
-        />
       </GlassContainer>
 
-      <div className="flex items-start gap-3 px-3 py-1 text-[11.5px] leading-relaxed text-[var(--color-text-muted)]">
+      {/* 退出清理开关（统一行规格） */}
+      <GlassContainer layer="raised" className="overflow-hidden">
+        <div className="flex min-h-14 items-center justify-between gap-4 p-5">
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="text-[13px] font-medium text-[var(--color-text-highlight)] select-none">
+              {t("settings.storage.exitCleanupTitle")}
+            </span>
+            <span className="text-[11px] leading-4 text-[var(--color-text-muted)]">
+              {t("settings.storage.exitCleanupDescription")}
+            </span>
+          </div>
+          <Switch
+            checked={exitCleanup}
+            onCheckedChange={handleExitCleanupToggle}
+            aria-label={t("settings.storage.exitCleanupTitle")}
+          />
+        </div>
+      </GlassContainer>
+
+      <div className="flex items-start gap-3 px-3 py-1 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
         <Icons.Info size={16} className="mt-0.5 shrink-0" />
         <span>{t("settings.storage.footerNote")}</span>
       </div>
@@ -581,7 +540,7 @@ export function StorageSettingsSection() {
           </div>
         }
       >
-        <p className="text-[12.5px] leading-relaxed text-[var(--color-text-secondary)]">
+        <p className="text-[12px] leading-relaxed text-[var(--color-text-secondary)]">
           {confirmTarget === "config"
             ? t("settings.storage.confirmConfigDescription")
             : t("settings.storage.confirmWorkspaceDescription")}

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { AiChatService } from "../Core/AiChatService";
 import { NotificationService } from "../Core/NotificationService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { FliunoModal as Fliuno } from "../Features/Fliuno/FliunoModal";
@@ -7,12 +8,8 @@ import { EventBus } from "../Foundation/EventBus";
 import { useLocale } from "../Foundation/I18n";
 import {
   extensionSidebarId,
-  SIDEBAR_DEBUG,
-  SIDEBAR_EXPLORER,
-  SIDEBAR_EXTENSIONS,
-  SIDEBAR_FLIUNO,
+  SIDEBAR_AI,
   SIDEBAR_NOTIFICATIONS,
-  SIDEBAR_OUTLINE,
   SIDEBAR_SOURCE_CONTROL,
 } from "../Shared/Constants/Sidebar";
 import { useExtensionStore } from "../State/useExtensionStore";
@@ -27,6 +24,7 @@ import {
 import { ToastContainer } from "../UI/Feedback/Toast";
 import { UpdateModal } from "../UI/Feedback/UpdateModal";
 import { Icons } from "../UI/Icons/IconManager";
+import { sidebarCardsByGroup } from "./SidebarCardRegistry";
 import { StatusBar } from "./StatusBar";
 import { TitleBar } from "./TitleBar/TitleBar";
 
@@ -65,6 +63,11 @@ export function AppShell({ Children }: AppShellProps) {
   const [unreadNotifications, setUnreadNotifications] = useState(
     NotificationService.getUnreadCount(),
   );
+  // AI 卡片可见性跟随 ai.enabled 设置（默认开启）
+  const aiCardEnabled = useSyncExternalStore(
+    AiChatService.subscribe,
+    AiChatService.getSnapshot,
+  ).cardEnabled;
 
   const visibleDescriptors = useMemo(
     () => extensionDescriptors.filter((d) => !hiddenExtensionIds.includes(d.id)),
@@ -72,6 +75,7 @@ export function AppShell({ Children }: AppShellProps) {
   );
 
   useEffect(() => {
+    void AiChatService.refreshConfig();
     void useExtensionStore.getState().initialize();
     const unsubGit = EventBus.on("git:changes-count", (count: number) => {
       setGitChangeCount(count);
@@ -85,51 +89,42 @@ export function AppShell({ Children }: AppShellProps) {
     };
   }, []);
 
+  // 内置卡片活动项：从 SidebarCardRegistry 声明源驱动（行为与视觉零变化）
+  const badgeForCard = (id: string) => {
+    if (id === SIDEBAR_SOURCE_CONTROL) return gitChangeCount > 0;
+    if (id === SIDEBAR_NOTIFICATIONS) return unreadNotifications > 0;
+    return false;
+  };
+
   const activityItems: Array<{
     id: string;
     title: string;
     icon: ReactNode;
     badge: boolean;
     commandId?: string;
-  }> = [
-    {
-      id: SIDEBAR_EXPLORER,
-      title: t("sidebar.explorer"),
-      icon: <Icons.Files size={22} stroke={1.5} />,
-      badge: false,
-    },
-    {
-      id: SIDEBAR_FLIUNO,
-      title: t("sidebar.search"),
-      icon: <Icons.Search size={22} stroke={1.5} />,
-      badge: false,
-      commandId: "workbench.action.openFliunoWorkspace",
-    },
-    {
-      id: SIDEBAR_SOURCE_CONTROL,
-      title: t("sidebar.sourceControl"),
-      icon: <Icons.Git size={22} stroke={1.5} />,
-      badge: gitChangeCount > 0,
-    },
-    {
-      id: SIDEBAR_OUTLINE,
-      title: t("sidebar.outline"),
-      icon: <Icons.List size={22} stroke={1.5} />,
-      badge: false,
-    },
-    {
-      id: SIDEBAR_DEBUG,
-      title: t("sidebar.debug"),
-      icon: <Icons.Debug size={22} stroke={1.5} />,
-      badge: false,
-    },
-    {
-      id: SIDEBAR_EXTENSIONS,
-      title: t("sidebar.extensions"),
-      icon: <Icons.Extensions size={22} stroke={1.5} />,
-      badge: false,
-    },
-  ];
+  }> = sidebarCardsByGroup("main")
+    .filter((card) => card.id !== SIDEBAR_AI || aiCardEnabled)
+    .map((card) => {
+      const Icon = Icons[card.iconKey];
+      return {
+        id: card.id,
+        title: t(card.titleKey),
+        icon: <Icon size={22} stroke={1.5} />,
+        badge: badgeForCard(card.id),
+        commandId: card.activityCommandId,
+      };
+    });
+
+  const auxActivityItems = sidebarCardsByGroup("aux").map((card) => {
+    const Icon = Icons[card.iconKey];
+    return {
+      id: card.id,
+      title: t(card.titleKey),
+      icon: <Icon size={22} stroke={1.5} />,
+      badge: badgeForCard(card.id),
+      commandId: card.activityCommandId,
+    };
+  });
 
   const toggleActivity = (id: string) => {
     const nextSidebar = activeSidebar === id ? null : id;
@@ -209,13 +204,22 @@ export function AppShell({ Children }: AppShellProps) {
           </div>
 
           <div className="flex flex-col gap-1.5 mt-auto w-full items-center">
-            <ActivitySquare
-              active={activeSidebar === SIDEBAR_NOTIFICATIONS}
-              onClick={() => toggleActivity(SIDEBAR_NOTIFICATIONS)}
-              title={t("sidebar.notifications")}
-              icon={<Icons.Bell size={22} stroke={1.5} />}
-              badge={unreadNotifications > 0}
-            />
+            {auxActivityItems.map((item) => (
+              <ActivitySquare
+                key={item.id}
+                active={activeSidebar === item.id}
+                onClick={() => {
+                  if (item.commandId) {
+                    void CommandRegistry.execute(item.commandId);
+                  } else {
+                    toggleActivity(item.id);
+                  }
+                }}
+                title={item.title}
+                icon={item.icon}
+                badge={item.badge}
+              />
+            ))}
             <ActivitySquare
               onClick={() => {
                 void CommandRegistry.execute("workbench.action.openSettings").then((result) => {

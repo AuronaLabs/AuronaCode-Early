@@ -1,7 +1,8 @@
 import type { ComponentProps, ReactNode, RefObject } from "react";
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { EditorLine } from "../components/EditorLine";
 import type { EditorHoverState } from "../components/HoverCard";
+import type { FoldingLineMap } from "../Folding/FoldingLineMap";
 import { GitGutterBar } from "../GitGutter/GitGutterBar";
 import { findHunkAtLine, type GitGutterHunk } from "../GitGutter/parseUnifiedDiff";
 import { collectMinimapDecorations, type MinimapDecoration } from "../Minimap/MinimapDecorations";
@@ -12,6 +13,9 @@ import type { EditorSearchMatch } from "./useEditorSearch";
 import type { SelectionRange } from "./useEditorSelectionOps";
 
 type Occurrences = ComponentProps<typeof EditorLine>["occurrences"];
+
+/** 空匹配常量：未命中行共享同一引用，保证 EditorLine memo 命中 */
+const EMPTY_SEARCH_LINE_MATCHES: { char: number; length?: number }[] = [];
 
 export interface UseEditorRenderDataParams {
   documentLines: string[];
@@ -29,6 +33,10 @@ export interface UseEditorRenderDataParams {
   currentMatchIndex: number;
   foldedStartLines: Set<number>;
   foldableRanges: { startLine: number }[];
+  /** 真实折叠启用时传入：视口按可视行迭代，行内坐标映射回真实行 */
+  lineMap?: FoldingLineMap | null;
+  /** 折叠起始行 → 隐藏行数（折叠胶囊计数显示用） */
+  foldedHiddenCounts?: Map<number, number>;
   occurrences: Occurrences;
   isComposing: boolean;
   compositionText: string;
@@ -79,6 +87,8 @@ export function useEditorRenderData({
   currentMatchIndex,
   foldedStartLines,
   foldableRanges,
+  lineMap,
+  foldedHiddenCounts,
   occurrences,
   isComposing,
   compositionText,
@@ -108,16 +118,83 @@ export function useEditorRenderData({
     return collectMinimapDecorations(diagnostics, searchMatches, selection);
   }, [diagnostics, searchMatches, selection]);
 
-  // 19. 视口行渲染
+  // 18.5 行级预计算（0.4.6 增量渲染）：
+  // - 搜索匹配按行分组（Map），未命中行共享 EMPTY 常量引用；
+  // - 诊断按 (line:length) 缓存，未变行复用旧数组引用；
+  // 两者让 EditorLine 的 React.memo 在纯光标移动/单行编辑时命中。
+  const searchMatchesByLine = useMemo(() => {
+    const map = new Map<number, { char: number; length?: number }[]>();
+    for (const match of searchMatches) {
+      const list = map.get(match.line);
+      if (list) list.push(match);
+      else map.set(match.line, [match]);
+    }
+    return map;
+  }, [searchMatches]);
+
+  const lineDiagsCacheRef = useRef<{
+    source: DiagnosticItem[];
+    cache: Map<string, DiagnosticItem[]>;
+  }>({ source: diagnostics, cache: new Map() });
+  if (lineDiagsCacheRef.current.source !== diagnostics) {
+    lineDiagsCacheRef.current = { source: diagnostics, cache: new Map() };
+  }
+  const lineDiagsFor = useCallback((idx: number, length: number) => {
+    const cache = lineDiagsCacheRef.current.cache;
+    const key = `${idx}:${length}`;
+    let value = cache.get(key);
+    if (!value) {
+      value = diagnosticsForLine(lineDiagsCacheRef.current.source, idx, length);
+      cache.set(key, value);
+    }
+    return value;
+  }, []);
+
+  // 稳定行事件处理器（latest-ref 模式）：引用恒定，行为始终读最新值，
+  // 消除"每行内联闭包"导致的 EditorLine memo 全量失效。
+  const latestLineHandlersRef = useRef({
+    textIndexAtPoint,
+    addCursor,
+    clearExtraCursors,
+    handleLineMouseDown,
+    hasExtraCursors: extraCursors.length > 0,
+    textareaRef,
+  });
+  latestLineHandlersRef.current = {
+    textIndexAtPoint,
+    addCursor,
+    clearExtraCursors,
+    handleLineMouseDown,
+    hasExtraCursors: extraCursors.length > 0,
+    textareaRef,
+  };
+  const stableLineMouseDown = useCallback((idx: number, e: React.MouseEvent<HTMLButtonElement>) => {
+    const handlers = latestLineHandlersRef.current;
+    // Alt+Click：添加额外光标
+    if (e.altKey && e.button === 0) {
+      const charIndex = handlers.textIndexAtPoint(idx, e.currentTarget, e.clientX, e.clientY);
+      handlers.addCursor({ line: idx, char: charIndex });
+      handlers.textareaRef.current?.focus();
+      e.preventDefault();
+      return;
+    }
+    // 常规指针交互：清除额外光标
+    if (handlers.hasExtraCursors) handlers.clearExtraCursors();
+    handlers.handleLineMouseDown(idx, e);
+  }, []);
+
+  // 19. 视口行渲染（迭代可视空间；真实折叠启用时映射回真实行号）
   const visibleLinesDOM = useMemo(() => {
     const list = [];
-    for (let idx = visibleStartIndex; idx < visibleEndIndex; idx++) {
+    for (let visual = visibleStartIndex; visual < visibleEndIndex; visual++) {
+      const idx = lineMap ? lineMap.getRealLine(visual) : visual;
       const lineText = documentLines[idx] ?? "";
       const isCurrent = idx === cursor.line;
       const tokens = isLargeFileMode ? largeLineTokens.get(idx) || [] : linesTokens[idx] || [];
-      const lineDiags = diagnosticsForLine(diagnostics, idx, lineText.length);
-      const searchLineMatches = searchMatches.filter((m) => m.line === idx);
+      const lineDiags = lineDiagsFor(idx, lineText.length);
+      const searchLineMatches = searchMatchesByLine.get(idx) ?? EMPTY_SEARCH_LINE_MATCHES;
       const isFoldedStart = foldedStartLines.has(idx);
+      const foldedHiddenCount = foldedHiddenCounts?.get(idx);
 
       list.push(
         <EditorLine
@@ -134,19 +211,7 @@ export function useEditorRenderData({
           selection={selection}
           isDragging={isDraggingRef.current}
           setHoverTooltip={setVisibleHover}
-          onMouseDown={(idx, e) => {
-            // Alt+Click：添加额外光标
-            if (e.altKey && e.button === 0) {
-              const charIndex = textIndexAtPoint(idx, e.currentTarget, e.clientX, e.clientY);
-              addCursor({ line: idx, char: charIndex });
-              textareaRef.current?.focus();
-              e.preventDefault();
-              return;
-            }
-            // 常规指针交互：清除额外光标
-            if (extraCursors.length > 0) clearExtraCursors();
-            handleLineMouseDown(idx, e);
-          }}
+          onMouseDown={stableLineMouseDown}
           onMouseLeave={handleLineMouseLeave}
           onLanguageHover={requestLanguageHover}
           textIndexAtPoint={textIndexAtPoint}
@@ -156,6 +221,7 @@ export function useEditorRenderData({
           compositionChar={cursor.char}
           layout={layout}
           isFoldedStart={isFoldedStart}
+          foldedHiddenCount={foldedHiddenCount}
           onToggleFold={toggleFold}
           occurrences={occurrences}
         />,
@@ -170,14 +236,14 @@ export function useEditorRenderData({
     linesTokens,
     largeLineTokens,
     isLargeFileMode,
-    diagnostics,
     searchMatches,
     foldedStartLines,
+    foldedHiddenCounts,
+    lineMap,
     searchQuery,
     currentMatchIndex,
     selection,
     setVisibleHover,
-    handleLineMouseDown,
     handleLineMouseLeave,
     requestLanguageHover,
     textIndexAtPoint,
@@ -188,17 +254,17 @@ export function useEditorRenderData({
     layout,
     toggleFold,
     occurrences,
-    isDraggingRef.current,
-    addCursor,
-    extraCursors,
-    clearExtraCursors,
-    textareaRef.current?.focus,
+    isDraggingRef,
+    lineDiagsFor,
+    stableLineMouseDown,
+    searchMatchesByLine,
   ]);
 
-  // 20. 行号与折叠三角
+  // 20. 行号与折叠三角（可视空间迭代；行号显示真实行号）
   const lineNumbersDOM = useMemo(() => {
     const list = [];
-    for (let idx = visibleStartIndex; idx < visibleEndIndex; idx++) {
+    for (let visual = visibleStartIndex; visual < visibleEndIndex; visual++) {
+      const idx = lineMap ? lineMap.getRealLine(visual) : visual;
       const isCurrent = idx === cursor.line;
       const isFoldable = foldableRanges.some((r) => r.startLine === idx);
       const isFolded = foldedStartLines.has(idx);
@@ -265,6 +331,7 @@ export function useEditorRenderData({
     cursor.line,
     foldableRanges,
     foldedStartLines,
+    lineMap,
     layout.lineHeight,
     toggleFold,
     path,

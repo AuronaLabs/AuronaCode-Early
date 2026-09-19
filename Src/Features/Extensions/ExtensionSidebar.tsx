@@ -1,11 +1,12 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DocumentService } from "../../Core/DocumentService";
 import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
-import { useLocale } from "../../Foundation/I18n";
+import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import {
   ExtensionIPC,
   type ExtensionPermissionState,
   type ExtensionViewPayload,
+  parseExtensionError,
 } from "../../Foundation/IPC/ExtensionCommands";
 import { useExtensionStore } from "../../State/useExtensionStore";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
@@ -13,10 +14,14 @@ import { Button } from "../../UI/Components/Button";
 import { Card } from "../../UI/Components/Card";
 import { Input } from "../../UI/Components/Input";
 import { Select } from "../../UI/Components/Select";
-import { GlassContainer } from "../../UI/Core/GlassManager";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
+import {
+  ExtensionPermissionPrompt,
+  type PermissionResolveMode,
+  permissionSegment,
+} from "./ExtensionPermissionPrompt";
 import { resolveExtensionName } from "./ExtensionUtils";
 import { type ExtensionRenderState, ExtensionViewHost } from "./ExtensionViewHost";
 import {
@@ -78,7 +83,8 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
     needsEditorRead ? "unknown" : "granted",
   );
   const [permissionLoaded, setPermissionLoaded] = useState(!needsEditorRead);
-  const [permissionPromptOpen, setPermissionPromptOpen] = useState(false);
+  // 通用授权弹窗：记录当前请求授权的权限（editor.current.read 之外也走同一弹窗）
+  const [promptPermission, setPromptPermission] = useState<string | null>(null);
   const [renderState, setRenderState] = useState<ExtensionRenderState | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
 
@@ -96,6 +102,39 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   const generation = useRef(0);
   const activePathRef = useRef(activePath);
   activePathRef.current = activePath;
+
+  // 结构化错误分流（0.4.6）：permission.required → 弹通用授权弹窗并等待重授权后重渲染；
+  // permission.denied / compat.* → 本地化文案；其余原样展示。
+  const handleRenderFailure = useCallback(
+    (error: unknown) => {
+      const parsed = parseExtensionError(error);
+      if (parsed.code?.startsWith("permission.required:")) {
+        setPromptPermission(parsed.code.slice("permission.required:".length));
+        setRenderError(null);
+        return;
+      }
+      if (parsed.code?.startsWith("permission.denied:")) {
+        const permission = parsed.code.slice("permission.denied:".length);
+        setRenderError(
+          t("extensions.errors.permissionDenied").replace(
+            "{permission}",
+            t(`extensions.permission.${permissionSegment(permission)}.name` as I18nKey),
+          ),
+        );
+        return;
+      }
+      if (parsed.code === "compat.missing" || parsed.code === "compat.wasm.empty") {
+        setRenderError(t("extensions.errors.compatNotReady"));
+        return;
+      }
+      if (parsed.code === "api.unsupported") {
+        setRenderError(parsed.detail);
+        return;
+      }
+      setRenderError(parsed.detail);
+    },
+    [t],
+  );
 
   const runRender = useCallback(
     async (docPayload: { content: string; version: number }) => {
@@ -127,10 +166,10 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
         });
       } catch (error) {
         if (currentGeneration !== generation.current) return;
-        setRenderError(error instanceof Error ? error.message : String(error));
+        handleRenderFailure(error);
       }
     },
-    [extensionId, isStandalone, locale],
+    [extensionId, isStandalone, locale, handleRenderFailure],
   );
 
   const scheduleRender = useCallback(() => {
@@ -181,7 +220,12 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
         });
       } catch (error) {
         if (currentGeneration !== generation.current) return;
-        showToast(error instanceof Error ? error.message : String(error), "warning");
+        const parsed = parseExtensionError(error);
+        if (parsed.code?.startsWith("permission.required:")) {
+          setPromptPermission(parsed.code.slice("permission.required:".length));
+          return;
+        }
+        showToast(parsed.detail, "warning");
       }
     },
     [extensionId, isStandalone, locale],
@@ -295,12 +339,12 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
     };
   }, [extensionId, isPlanner]);
 
-  // 2. 监听权限状态（仅当扩展声明了 editor.current.read 时走授权流程）
+  // 2. 监听权限状态（仅当扩展声明了 editor.current.read 时走预授权流程；
+  //    其余权限在运行期由结构化错误 permission.required 触发通用弹窗）
   useEffect(() => {
     if (!needsEditorRead) {
       setEditorPermission("granted");
       setPermissionLoaded(true);
-      setPermissionPromptOpen(false);
       return;
     }
     let cancelled = false;
@@ -313,7 +357,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
         if (!cancelled) {
           setEditorPermission(permState);
           setPermissionLoaded(true);
-          setPermissionPromptOpen(permState === "unknown");
+          setPromptPermission(permState === "unknown" ? permissionName : null);
           if (permState === "granted") {
             void refresh();
           }
@@ -379,26 +423,30 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
   const isPermissionGranted = !needsEditorRead || editorPermission === "granted";
 
-  // 三选 + 拒绝：once（仅本次）/ workspace（此工作区）/ global（所有工作区）/ deny
+  // 通用授权处理：once（仅本次）/ workspace（此工作区）/ global（所有工作区）/ deny。
+  // promptPermission 可为任意权限（editor.current.read 之外的由运行期错误触发）。
   const resolvePermission = useCallback(
-    async (mode: "once" | "workspace" | "global" | "deny") => {
+    async (permission: string, mode: PermissionResolveMode) => {
       try {
         const nextState =
           mode === "once"
-            ? await ExtensionIPC.setSessionPermission(extensionId, "editor.current.read", true)
+            ? await ExtensionIPC.setSessionPermission(extensionId, permission, true)
             : await useExtensionStore
                 .getState()
                 .setPermission(
                   extensionId,
-                  "editor.current.read",
+                  permission,
                   mode !== "deny",
                   mode === "deny" ? "workspace" : mode,
                 );
-        setEditorPermission(nextState);
-        setPermissionPromptOpen(false);
+        if (permission === "editor.current.read") {
+          setEditorPermission(nextState);
+        }
+        setPromptPermission(null);
         if (nextState === "granted") void refresh();
       } catch (error) {
-        showToast(error instanceof Error ? error.message : "权限设置失败", "warning");
+        const parsed = parseExtensionError(error);
+        showToast(parsed.detail, "warning");
       }
     },
     [extensionId, refresh],
@@ -431,69 +479,12 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-transparent">
-      {permissionPromptOpen && permissionLoaded && needsEditorRead && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-[var(--glass-blur-base)] transition-all animate-in fade-in duration-200">
-          <GlassContainer
-            layer="overlay"
-            className="w-full max-w-[280px] rounded-2xl p-5 shadow-[var(--shadow-overlay)] flex flex-col items-center text-center animate-in zoom-in-95 duration-200"
-          >
-            {/* 顶部居中极简图标 */}
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--color-accent)] border border-[var(--border-subtle)] mb-3 shadow-inner">
-              <Icons.ShieldCheck size={24} stroke={1.75} />
-            </div>
-
-            {/* 居中标题 */}
-            <h3 className="text-[14px] font-semibold text-[var(--color-text-highlight)] tracking-tight leading-snug px-1">
-              {t("extensions.permissionPromptTitle").replace("{name}", title)}
-            </h3>
-
-            {/* 申请的权限 */}
-            <span className="mt-2 rounded border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-muted)]">
-              {t("extensions.permission.editorCurrentRead.name")}
-            </span>
-
-            {/* 极简说明 */}
-            <p className="text-[12px] text-[var(--color-text-muted)] leading-relaxed mt-1.5 mb-4 px-1">
-              {t("extensions.permission.editorCurrentRead.description")}
-            </p>
-
-            {/* 三种授权范围 + 拒绝 */}
-            <div className="flex w-full flex-col gap-2">
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => void resolvePermission("once")}
-                className="h-8.5 w-full text-[12px] font-semibold rounded-xl"
-              >
-                {t("extensions.permission.scopeOnce")}
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => void resolvePermission("workspace")}
-                className="h-8.5 w-full text-[12px] font-medium rounded-xl"
-              >
-                {t("extensions.permission.scopeWorkspace")}
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => void resolvePermission("global")}
-                className="h-8.5 w-full text-[12px] font-medium rounded-xl"
-              >
-                {t("extensions.permission.scopeGlobal")}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => void resolvePermission("deny")}
-                className="h-8 w-full text-[12px] text-[var(--color-text-muted)] hover:text-[var(--StatusError)] hover:bg-[var(--StatusError)]/10 rounded-xl"
-              >
-                {t("extensions.deny")}
-              </Button>
-            </div>
-          </GlassContainer>
-        </div>
+      {promptPermission && permissionLoaded && (
+        <ExtensionPermissionPrompt
+          permission={promptPermission}
+          title={title}
+          onResolve={(mode) => void resolvePermission(promptPermission, mode)}
+        />
       )}
       {/* 统一系统侧边栏头部 */}
       <SidebarPageHeader
@@ -661,17 +652,17 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
                 size="sm"
                 variant="primary"
                 className="h-8 text-[12px] font-semibold rounded-xl w-full"
-                onClick={() => void resolvePermission("global")}
+                onClick={() => void resolvePermission("editor.current.read", "global")}
               >
-                立即授权 (始终允许)
+                {t("extensions.permissionAllowAlways")}
               </Button>
               <Button
                 size="sm"
                 variant="secondary"
                 className="h-8 text-[12px] rounded-xl w-full"
-                onClick={() => void resolvePermission("once")}
+                onClick={() => void resolvePermission("editor.current.read", "once")}
               >
-                仅本次允许
+                {t("extensions.permissionAllowOnce")}
               </Button>
             </div>
           </div>

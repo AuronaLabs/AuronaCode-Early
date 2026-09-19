@@ -21,6 +21,7 @@ import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
 import { AccountSettings } from "./AccountSettings";
 import { AdvancedSettingsSection } from "./AdvancedSettingsSection";
+import { AiSettingsSection } from "./AiSettingsSection";
 import { AppearanceSettingsSection } from "./AppearanceSettingsSection";
 import { DebugSettings } from "./DebugSettings";
 import { EditorSettingsSection } from "./EditorSettingsSection";
@@ -39,6 +40,7 @@ export type SettingsSection =
   | "terminalRun"
   | "sourceControl"
   | "network"
+  | "ai"
   | "accountCloud"
   | "extensions"
   | "system"
@@ -74,6 +76,7 @@ const SECTION_META: Array<{
   { id: "terminalRun", labelKey: "settings.categories.terminalRun", Icon: Icons.Terminal },
   { id: "sourceControl", labelKey: "settings.categories.sourceControl", Icon: Icons.Git },
   { id: "network", labelKey: "settings.categories.network", Icon: Icons.World },
+  { id: "ai", labelKey: "settings.categories.ai", Icon: Icons.Sparkles },
   { id: "accountCloud", labelKey: "settings.categories.accountCloud", Icon: Icons.User },
   { id: "extensions", labelKey: "settings.categories.extensions", Icon: Icons.Extensions },
   { id: "system", labelKey: "settings.categories.system", Icon: Icons.Database },
@@ -118,6 +121,14 @@ export function SettingsTab() {
   const revealTargetRef = useRef<number | null>(null);
   const intensity = useGlassStore((state) => state.intensity);
   const setIntensity = useGlassStore((state) => state.setIntensity);
+
+  /** 玻璃强度松手提交：同步写入 UserConfig 外观段（拖动中的实时预览只走玻璃 store） */
+  const handleGlassIntensityCommit = (value: number) => {
+    setIntensity(value);
+    void UserConfigStore.get().then((config) =>
+      UserConfigStore.set({ appearance: { ...config.appearance, glassIntensity: value } }),
+    );
+  };
 
   useEffect(() => {
     const unsub = EventBus.on("settings:nav", (section: SettingsSection) => {
@@ -186,6 +197,12 @@ export function SettingsTab() {
       setLiquidTexture(savedLiquidTexture);
       applyLiquidTexture(savedLiquidTexture);
 
+      // 玻璃强度：UserConfig 外观段为准（旧三档字符串只在玻璃 store 持久化里，已由 migrate 迁移）
+      const savedGlassIntensity = config.appearance?.glassIntensity;
+      if (typeof savedGlassIntensity === "number") {
+        setIntensity(savedGlassIntensity);
+      }
+
       const savedDensity = (config.density ?? "default") as Density;
       setDensity(savedDensity);
       applyDensity(savedDensity);
@@ -227,7 +244,7 @@ export function SettingsTab() {
       );
       document.documentElement.style.setProperty("--EditorTabSize", savedEditorTabSize);
     });
-  }, []);
+  }, [setIntensity]);
 
   const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
     setTheme(newTheme);
@@ -434,6 +451,7 @@ export function SettingsTab() {
             interfaceFontSize={interfaceFontSize}
             onAccentThemeChange={handleAccentThemeChange}
             onIntensityChange={(value) => setIntensity(value)}
+            onIntensityCommit={handleGlassIntensityCommit}
             onLiquidTextureChange={handleLiquidTextureChange}
             onBoldTextChange={handleBoldTextChange}
             onInterfaceFontSizeChange={handleInterfaceFontSizeChange}
@@ -467,6 +485,8 @@ export function SettingsTab() {
             onProxyUrlChange={handleProxyUrlChange}
           />
         );
+      case "ai":
+        return <AiSettingsSection />;
       case "accountCloud":
         return <AccountSettings />;
       case "extensions":

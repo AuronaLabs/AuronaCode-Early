@@ -118,6 +118,27 @@ class LanguageFeatureServiceImpl {
     return locations;
   }
 
+  /** Peek 定义（0.4.6）：与 goToDefinition 同源，但不跳转——
+   *  把位置交给编辑器内嵌 Peek 浮层渲染，由用户选择是否跳转。 */
+  async peekDefinition(
+    path: string,
+    language: string,
+    line: number,
+    character: number,
+  ): Promise<LspLocation[]> {
+    this.ensureCapability(language, "definition");
+    const response = await LspClient.getInstance().getDefinition(language, path, line, character);
+    const values = response ? (Array.isArray(response) ? response : [response]) : [];
+    const locations = values.map((value: LspLocation | LocationLink) =>
+      "targetUri" in value ? { uri: value.targetUri, range: value.targetSelectionRange } : value,
+    );
+    if (locations.length > 0) {
+      NavigationHistory.record({ path, line: line + 1, character: character + 1 });
+      EventBus.emit("language:peek-locations", { locations });
+    }
+    return locations;
+  }
+
   async previewRename(
     path: string,
     language: string,

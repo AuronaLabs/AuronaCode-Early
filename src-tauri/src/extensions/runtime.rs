@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::path::{Component, Path};
+use std::sync::{LazyLock, Mutex};
 
+use tauri::Emitter;
 use wasmtime::component::wit_parser::ItemName;
 use wasmtime::component::{bindgen, HasSelf, Instance, Linker, ResourceTable, TypedFunc};
 use wasmtime::{Config, Engine, Store, StoreLimits, StoreLimitsBuilder};
@@ -27,6 +29,7 @@ const DEFAULT_MEMORY_BYTES: usize = 256 * 1024 * 1024;
 const DEFAULT_FUEL: u64 = 4_000_000_000;
 const INSTANTIATE_FUEL: u64 = 500_000_000;
 const MAX_WORKSPACE_READ_BYTES: u64 = 4 * 1024 * 1024;
+const MAX_WORKSPACE_RANGE_BYTES: u64 = 256 * 1024;
 const MAX_WORKSPACE_WRITE_BYTES: usize = 10 * 1024 * 1024;
 const MAX_WORKSPACE_LIST_ENTRIES: u32 = 1000;
 const MAX_FLIUNO_ITEMS: usize = 50;
@@ -42,6 +45,109 @@ pub struct FliunoContributedItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
     pub action: String,
+}
+
+/// 宿主↔前端请求-响应桥（SDK v1 增量，0.4.6）。
+///
+/// host 函数（对话框 / 剪贴板 / 命令执行）需要用户交互或前端能力，而 WASM
+/// 调用运行在 `spawn_blocking` 线程：向 UI 发 `extension://host-request` 事件后
+/// 阻塞等待 `extensions_host_response` 回填应答是安全的。超时保护防止 UI
+/// 无响应时拖死调用线程（wasm 侧收到明确错误，不会永久等待）。
+mod host_bridge {
+    use std::collections::HashMap;
+    use std::sync::mpsc::{channel, Receiver, Sender};
+    use std::sync::{LazyLock, Mutex};
+    use std::time::Duration;
+
+    struct PendingRequest {
+        sender: Sender<String>,
+        #[allow(dead_code)]
+        kind: &'static str,
+    }
+
+    static PENDING: LazyLock<Mutex<HashMap<String, PendingRequest>>> =
+        LazyLock::new(|| Mutex::new(HashMap::new()));
+
+    static REQUEST_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+    pub fn next_request_id() -> String {
+        let count = REQUEST_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or(0);
+        format!("host-req-{nanos}-{count}")
+    }
+
+    /// 注册请求并返回应答接收端；前端经 `extensions_host_response` 回填。
+    pub fn register(request_id: &str, kind: &'static str) -> Receiver<String> {
+        let (sender, receiver) = channel::<String>();
+        if let Ok(mut guard) = PENDING.lock() {
+            guard.insert(request_id.to_string(), PendingRequest { sender, kind });
+        }
+        receiver
+    }
+
+    /// 前端回填应答；请求不存在（已超时清理）时返回 false。
+    pub fn respond(request_id: &str, value: String) -> bool {
+        let sender: Option<Sender<String>> = PENDING
+            .lock()
+            .ok()
+            .and_then(|mut guard| guard.remove(request_id))
+            .map(|pending| pending.sender);
+        match sender {
+            Some(sender) => sender.send(value).is_ok(),
+            None => false,
+        }
+    }
+
+    /// 阻塞等待前端应答；超时后清理挂起请求并返回错误。
+    pub fn wait_response(
+        request_id: &str,
+        receiver: Receiver<String>,
+        timeout: Duration,
+    ) -> Result<String, String> {
+        match receiver.recv_timeout(timeout) {
+            Ok(value) => Ok(value),
+            Err(_) => {
+                if let Ok(mut guard) = PENDING.lock() {
+                    guard.remove(request_id);
+                }
+                Err("[host.timeout] 前端应答超时".to_string())
+            }
+        }
+    }
+}
+
+/// 扩展事件队列（SDK v1 增量）：前端把文档变更等事件推入，扩展经
+/// `poll-events` 拉取（sync linker 无回调能力，拉取模型替代推送）。
+static HOST_EVENT_QUEUES: LazyLock<Mutex<HashMap<String, Vec<String>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+const MAX_EVENT_QUEUE: usize = 100;
+
+/// 前端推送一条扩展事件（commands.rs `extensions_push_event` 调用）。
+pub fn push_host_event(extension_id: &str, event: String) {
+    if let Ok(mut guard) = HOST_EVENT_QUEUES.lock() {
+        let queue = guard.entry(extension_id.to_string()).or_default();
+        if queue.len() >= MAX_EVENT_QUEUE {
+            queue.remove(0);
+        }
+        queue.push(event);
+    }
+}
+
+/// 取走该扩展的全部挂起事件。
+fn drain_host_events(extension_id: &str) -> Vec<String> {
+    HOST_EVENT_QUEUES
+        .lock()
+        .ok()
+        .and_then(|mut guard| guard.remove(extension_id))
+        .unwrap_or_default()
+}
+
+/// 供 commands.rs 调用的桥应答入口（`extensions_host_response`）。
+pub fn host_bridge_respond(request_id: &str, value: String) -> bool {
+    host_bridge::respond(request_id, value)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -131,10 +237,7 @@ impl ExtensionContext {
     }
 
     fn ensure_git_read(&self) -> Result<(), String> {
-        if self.require("git.read")? != ContextPermissionState::Granted {
-            return Err("缺少 git.read 权限".to_string());
-        }
-        Ok(())
+        self.require_granted("git.read")
     }
 
     /// git 只读操作（info/status/log/diff）的公共前置：git.read + 工作区。
@@ -147,9 +250,7 @@ impl ExtensionContext {
 
     /// git 写操作（stage/unstage/commit）的公共前置：git.write + 工作区。
     fn git_write_root(&self) -> Result<std::path::PathBuf, String> {
-        if self.require("git.write")? != ContextPermissionState::Granted {
-            return Err("缺少 git.write 权限".to_string());
-        }
+        self.require_granted("git.write")?;
         self.workspace_root
             .clone()
             .ok_or_else(|| "尚未打开工作区".to_string())
@@ -171,6 +272,88 @@ impl ExtensionContext {
 
     fn is_granted(&self, permission: &str) -> bool {
         self.require(permission) == Ok(ContextPermissionState::Granted)
+    }
+
+    /// 权限强制点的统一出口：已授权放行；未决定返回 `[permission.required:<perm>]`，
+    /// 已拒绝返回 `[permission.denied:<perm>]`。前端解析前缀后弹出通用授权弹窗并重试，
+    /// 扩展侧则拿到"被拒绝"与"等待授权"可区分的明确错误。
+    fn require_granted(&self, permission: &str) -> Result<(), String> {
+        match self.require(permission)? {
+            ContextPermissionState::Granted => Ok(()),
+            ContextPermissionState::Unknown => Err(format!(
+                "[permission.required:{permission}] 扩展请求 {permission} 权限，等待用户授权"
+            )),
+            ContextPermissionState::Denied => Err(format!(
+                "[permission.denied:{permission}] 用户已拒绝 {permission} 权限"
+            )),
+        }
+    }
+
+    /// 工作区相对路径的安全解析（workspace 边界校验的唯一实现）。
+    /// 拒绝绝对路径与任何越界（.. / 根 / 前缀）组件，返回规范化后的绝对路径。
+    fn resolve_workspace_path(&self, path: &str) -> Result<std::path::PathBuf, String> {
+        let root = self
+            .workspace_root
+            .as_ref()
+            .ok_or_else(|| "尚未打开工作区".to_string())?;
+
+        let requested = Path::new(path);
+        let mut safe = true;
+        for component in requested.components() {
+            match component {
+                Component::ParentDir
+                | Component::RootDir
+                | Component::Prefix(_)
+                | Component::CurDir => {
+                    safe = false;
+                    break;
+                }
+                Component::Normal(_) => {}
+            }
+        }
+        if !safe || requested.is_absolute() {
+            return Err(format!("不允许读取工作区外的路径: {path}"));
+        }
+
+        let canonical_root = root
+            .canonicalize()
+            .map_err(|error| format!("无法解析工作区根目录 {}: {error}", root.display()))?;
+        let resolved = canonical_root
+            .join(requested)
+            .canonicalize()
+            .map_err(|error| format!("无法解析路径 {path}: {error}"))?;
+        if !resolved.starts_with(&canonical_root) {
+            return Err(format!("不允许读取工作区外的路径: {path}"));
+        }
+        Ok(resolved)
+    }
+
+    /// 向前端发起一次请求-响应交互（对话框/剪贴板/命令），阻塞等待应答。
+    /// 应答为 JSON 字符串（协议见 ExtensionHostBridge）。超时返回结构化错误。
+    fn request_frontend_blocking(
+        &self,
+        kind: &'static str,
+        mut payload: serde_json::Value,
+        timeout: std::time::Duration,
+    ) -> Result<String, String> {
+        let app = self
+            .app
+            .as_ref()
+            .ok_or_else(|| "[host.unavailable] 宿主应用句柄不可用".to_string())?;
+        let request_id = host_bridge::next_request_id();
+        let receiver = host_bridge::register(&request_id, kind);
+        payload["requestId"] = serde_json::json!(request_id);
+        payload["kind"] = serde_json::json!(kind);
+        payload["extensionId"] = serde_json::json!(self.extension_id);
+        app.emit("extension://host-request", payload)
+            .map_err(|error| format!("[host.emit] 发送宿主请求失败: {error}"))?;
+        host_bridge::wait_response(&request_id, receiver, timeout)
+    }
+
+    /// 解析前端应答 JSON（协议容错：解析失败按错误返回，扩展拿到明确原因）。
+    fn parse_host_response(response: &str) -> Result<serde_json::Value, String> {
+        serde_json::from_str(response)
+            .map_err(|error| format!("[host.protocol] 应答解析失败: {error}"))
     }
 }
 
@@ -259,42 +442,8 @@ impl aurona::extensions::context::Host for ExtensionContext {
     }
 
     fn read_workspace_file(&mut self, path: String) -> Result<String, String> {
-        if self.require("workspace.read")? != ContextPermissionState::Granted {
-            return Err("缺少 workspace.read 权限".to_string());
-        }
-        let root = self
-            .workspace_root
-            .as_ref()
-            .ok_or_else(|| "尚未打开工作区".to_string())?;
-
-        let requested = Path::new(&path);
-        let mut safe = true;
-        for component in requested.components() {
-            match component {
-                Component::ParentDir
-                | Component::RootDir
-                | Component::Prefix(_)
-                | Component::CurDir => {
-                    safe = false;
-                    break;
-                }
-                Component::Normal(_) => {}
-            }
-        }
-        if !safe || requested.is_absolute() {
-            return Err(format!("不允许读取工作区外的路径: {path}"));
-        }
-
-        let canonical_root = root
-            .canonicalize()
-            .map_err(|error| format!("无法解析工作区根目录 {}: {error}", root.display()))?;
-        let resolved = canonical_root
-            .join(requested)
-            .canonicalize()
-            .map_err(|error| format!("无法解析路径 {path}: {error}"))?;
-        if !resolved.starts_with(&canonical_root) {
-            return Err(format!("不允许读取工作区外的路径: {path}"));
-        }
+        self.require_granted("workspace.read")?;
+        let resolved = self.resolve_workspace_path(&path)?;
         if !resolved.is_file() {
             return Err(format!("不是文件: {path}"));
         }
@@ -308,12 +457,78 @@ impl aurona::extensions::context::Host for ExtensionContext {
         std::fs::read_to_string(&resolved).map_err(|error| format!("读取文件 {path} 失败: {error}"))
     }
 
+    fn read_workspace_range(
+        &mut self,
+        path: String,
+        offset: u64,
+        length: u32,
+    ) -> Result<String, String> {
+        self.require_granted("workspace.read")?;
+        let resolved = self.resolve_workspace_path(&path)?;
+        if !resolved.is_file() {
+            return Err(format!("不是文件: {path}"));
+        }
+        // 单次分块上限：防止扩展用超大 length 绕过分块语义
+        let length = (length as u64).min(MAX_WORKSPACE_RANGE_BYTES);
+
+        use std::io::{Read, Seek, SeekFrom};
+        let mut file = std::fs::File::open(&resolved)
+            .map_err(|error| format!("打开文件 {path} 失败: {error}"))?;
+        let file_len = file
+            .metadata()
+            .map_err(|error| format!("读取文件大小 {path} 失败: {error}"))?
+            .len();
+        if offset >= file_len {
+            return Ok(String::new());
+        }
+        file.seek(SeekFrom::Start(offset))
+            .map_err(|error| format!("定位文件偏移 {path} 失败: {error}"))?;
+
+        // 多读一些字节保证 UTF-8 边界可截断，再裁剪到完整字符边界
+        let mut buffer = vec![0u8; (length as usize + 4).min((file_len - offset) as usize + 4)];
+        let mut read_total = 0usize;
+        loop {
+            let read = file
+                .read(&mut buffer[read_total..])
+                .map_err(|error| format!("读取文件 {path} 失败: {error}"))?;
+            if read == 0 {
+                break;
+            }
+            read_total += read;
+            if read_total >= buffer.len() {
+                break;
+            }
+        }
+        buffer.truncate(read_total);
+        buffer.truncate(buffer.len().min(length as usize + 3));
+        // 截到 UTF-8 字符边界（拒绝截断半个多字节字符）
+        let mut end = buffer.len().min(length as usize);
+        while end > 0 && std::str::from_utf8(&buffer[..end]).is_err() {
+            end -= 1;
+        }
+        String::from_utf8(buffer[..end].to_vec())
+            .map_err(|error| format!("文件 {path} 不是有效的 UTF-8 文本: {error}"))
+    }
+
+    fn get_workspace_file_metadata(&mut self, path: String) -> Result<ContextFileEntry, String> {
+        self.require_granted("workspace.read")?;
+        let resolved = self.resolve_workspace_path(&path)?;
+        let metadata = std::fs::metadata(&resolved)
+            .map_err(|error| format!("读取文件元数据 {path} 失败: {error}"))?;
+        Ok(ContextFileEntry {
+            name: resolved
+                .file_name()
+                .map(|name| name.to_string_lossy().to_string())
+                .unwrap_or_else(|| path.clone()),
+            is_directory: metadata.is_dir(),
+            size_bytes: metadata.len(),
+        })
+    }
+
     fn write_workspace_file(&mut self, path: String, content: String) -> Result<bool, String> {
         // 写文件必须显式持有 workspace.write：read 不能顶替 write。
         // 修复此前"设置里的 workspace.write 开关对行为零影响"的装饰性问题。
-        if self.require("workspace.write")? != ContextPermissionState::Granted {
-            return Err("缺少 workspace.write 权限".to_string());
-        }
+        self.require_granted("workspace.write")?;
         let root = self
             .workspace_root
             .as_ref()
@@ -370,9 +585,7 @@ impl aurona::extensions::context::Host for ExtensionContext {
         directory: String,
         max_count: u32,
     ) -> Result<Vec<ContextFileEntry>, String> {
-        if self.require("workspace.read")? != ContextPermissionState::Granted {
-            return Err("缺少 workspace.read 权限".to_string());
-        }
+        self.require_granted("workspace.read")?;
         let root = self
             .workspace_root
             .as_ref()
@@ -436,47 +649,18 @@ impl aurona::extensions::context::Host for ExtensionContext {
         Ok(entries)
     }
 
-    fn watch_workspace_path(&mut self, path: String) -> Result<u64, String> {
-        let root = self
-            .workspace_root
-            .as_ref()
-            .ok_or_else(|| "当前未打开工作区".to_string())?;
-        if self.require("workspace.read")? != ContextPermissionState::Granted {
-            return Err("缺少 workspace.read 权限".to_string());
-        }
-
-        let rel_path = Path::new(&path);
-        let mut safe = true;
-        for comp in rel_path.components() {
-            match comp {
-                Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
-                    safe = false;
-                    break;
-                }
-                _ => {}
-            }
-        }
-        if !safe {
-            return Err(format!("不安全的文件监听路径: {path}"));
-        }
-
-        let canonical_root = root
-            .canonicalize()
-            .map_err(|error| format!("无法解析工作区根目录 {}: {error}", root.display()))?;
-        let target = if path.is_empty() || path == "." {
-            canonical_root.clone()
-        } else {
-            canonical_root.join(rel_path)
-        };
-
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        std::hash::Hash::hash(&target.to_string_lossy(), &mut hasher);
-        let watch_id = std::hash::Hasher::finish(&hasher);
-        Ok(watch_id)
+    fn watch_workspace_path(&mut self, _path: String) -> Result<u64, String> {
+        // 显式不支持：此前的实现返回路径哈希冒充 watch id，既无 watcher 也无事件推送，
+        // 会误导扩展以为订阅成功后进入永久等待。渲染刷新由宿主驱动（前端订阅文档变更
+        // 后重新调用 render），扩展无需自行 watch；明确报错胜过假成功。
+        Err(
+            "[api.unsupported] watch_workspace_path 尚未实现：视图刷新由宿主驱动，无需订阅"
+                .to_string(),
+        )
     }
 
     fn unwatch_workspace_path(&mut self, _watch_id: u64) -> Result<bool, String> {
-        Ok(true)
+        Err("[api.unsupported] unwatch_workspace_path 尚未实现".to_string())
     }
 
     fn log(&mut self, level: String, message: String) {
@@ -484,19 +668,55 @@ impl aurona::extensions::context::Host for ExtensionContext {
     }
 
     fn show_notification(&mut self, level: String, message: String) -> Result<bool, String> {
-        eprintln!("[aurona-notification][{level}] {message}");
+        // 通知走前端 toast（glass 语言），不再只落 stderr
+        self.emit_to_frontend(
+            "extension://notification",
+            serde_json::json!({
+                "extensionId": self.extension_id,
+                "level": level,
+                "message": message,
+            }),
+        )?;
         Ok(true)
     }
 
-    fn write_clipboard(&mut self, _text: String) -> Result<bool, String> {
-        // 占位实现：本版本未提供剪贴板通路。明确报错而不是假装成功。
-        self.require("clipboard.access")?;
-        Err("剪贴板写入能力在当前版本尚未开放".to_string())
+    fn write_clipboard(&mut self, text: String) -> Result<bool, String> {
+        // 剪贴板经前端桥接（webview 持有系统能力），clipboard.access 已开放
+        self.require_granted("clipboard.access")?;
+        let response = self.request_frontend_blocking(
+            "clipboard-write",
+            serde_json::json!({ "text": text }),
+            std::time::Duration::from_secs(5),
+        )?;
+        let value = Self::parse_host_response(&response)?;
+        match value.get("error") {
+            Some(error) => Err(format!(
+                "[clipboard.error] 剪贴板写入失败: {}",
+                error.as_str().unwrap_or("unknown")
+            )),
+            None => Ok(true),
+        }
     }
 
     fn read_clipboard(&mut self) -> Result<String, String> {
-        self.require("clipboard.access")?;
-        Err("剪贴板读取能力在当前版本尚未开放".to_string())
+        self.require_granted("clipboard.access")?;
+        let response = self.request_frontend_blocking(
+            "clipboard-read",
+            serde_json::json!({}),
+            std::time::Duration::from_secs(5),
+        )?;
+        let value = Self::parse_host_response(&response)?;
+        match value.get("error") {
+            Some(error) => Err(format!(
+                "[clipboard.error] 剪贴板读取失败: {}",
+                error.as_str().unwrap_or("unknown")
+            )),
+            None => Ok(value
+                .get("value")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string()),
+        }
     }
 
     fn get_icon_svg(&mut self, name: String) -> Option<String> {
@@ -529,23 +749,47 @@ impl aurona::extensions::context::Host for ExtensionContext {
     fn execute_command(
         &mut self,
         command_id: String,
-        _arguments: Vec<String>,
+        arguments: Vec<String>,
     ) -> Result<String, String> {
-        eprintln!("[aurona-command] execute: {command_id}");
-        Ok("ok".to_string())
+        // 命令走前端命令注册表执行（请求-响应桥），结果或错误回传扩展
+        let response = self.request_frontend_blocking(
+            "command",
+            serde_json::json!({
+                "commandId": command_id,
+                "arguments": arguments,
+            }),
+            std::time::Duration::from_secs(15),
+        )?;
+        let value = Self::parse_host_response(&response)?;
+        match value.get("error") {
+            Some(error) => Err(format!(
+                "[command.error] 命令执行失败: {}",
+                error.as_str().unwrap_or("unknown")
+            )),
+            None => Ok(value
+                .get("result")
+                .and_then(|v| v.as_str())
+                .unwrap_or("ok")
+                .to_string()),
+        }
     }
 
     fn set_status_message(&mut self, message: String, _timeout_ms: u32) -> Result<bool, String> {
-        eprintln!("[aurona-status-message] {message}");
+        // 状态栏消息由前端 StatusBar 渲染（transient item）
+        self.emit_to_frontend(
+            "extension://status-message",
+            serde_json::json!({
+                "extensionId": self.extension_id,
+                "message": message,
+            }),
+        )?;
         Ok(true)
     }
 
     fn insert_editor_text(&mut self, text: String) -> Result<bool, String> {
         // 写入通路：require 权限后，把插入请求以事件交给前端编辑器桥
         // （ExtensionEditorBridge → EditorAdapter → 活动引擎）。
-        if self.require("editor.current.write")? != ContextPermissionState::Granted {
-            return Err("缺少 editor.current.write 权限".to_string());
-        }
+        self.require_granted("editor.current.write")?;
         self.emit_to_frontend(
             "extension://editor/insert-text",
             serde_json::json!({
@@ -558,9 +802,7 @@ impl aurona::extensions::context::Host for ExtensionContext {
 
     fn reveal_editor_line(&mut self, line: u32) -> Result<bool, String> {
         // 定位到某行属于编辑器操控，与插入文本同属 editor.current.write。
-        if self.require("editor.current.write")? != ContextPermissionState::Granted {
-            return Err("缺少 editor.current.write 权限".to_string());
-        }
+        self.require_granted("editor.current.write")?;
         self.emit_to_frontend(
             "extension://editor/reveal-line",
             serde_json::json!({
@@ -581,9 +823,7 @@ impl aurona::extensions::context::Host for ExtensionContext {
     ) -> Result<bool, String> {
         // 与 request-permission 走同一条 require() 路径，
         // 修复此前"扩展主动请求 fliuno.search 恒为 Denied，但宿主却单独放行"的双轨问题。
-        if self.require("fliuno.search")? != ContextPermissionState::Granted {
-            return Err("缺少 fliuno.search 权限".to_string());
-        }
+        self.require_granted("fliuno.search")?;
         if items.len() > MAX_FLIUNO_ITEMS {
             return Err(format!(
                 "Fliuno 贡献项超出上限（最多 {MAX_FLIUNO_ITEMS} 个）"
@@ -758,8 +998,83 @@ impl aurona::extensions::context::Host for ExtensionContext {
     }
 
     fn show_dialog_confirm(&mut self, title: String, message: String) -> Result<bool, String> {
-        eprintln!("[aurona-dialog-confirm] {title}: {message}");
-        Ok(true)
+        // 确认对话框走前端 Modal（请求-响应桥），用户取消/确认都有应答
+        let response = self.request_frontend_blocking(
+            "confirm",
+            serde_json::json!({
+                "title": title,
+                "message": message,
+            }),
+            std::time::Duration::from_secs(120),
+        )?;
+        let value = Self::parse_host_response(&response)?;
+        Ok(value
+            .get("confirmed")
+            .and_then(|confirmed| confirmed.as_bool())
+            .unwrap_or(false))
+    }
+
+    fn show_input_box(
+        &mut self,
+        title: String,
+        placeholder: String,
+    ) -> Result<Option<String>, String> {
+        let response = self.request_frontend_blocking(
+            "input",
+            serde_json::json!({
+                "title": title,
+                "placeholder": placeholder,
+            }),
+            std::time::Duration::from_secs(120),
+        )?;
+        let value = Self::parse_host_response(&response)?;
+        if value.get("cancelled").and_then(|c| c.as_bool()) == Some(true) {
+            return Ok(None);
+        }
+        Ok(Some(
+            value
+                .get("value")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+        ))
+    }
+
+    fn show_quick_pick(
+        &mut self,
+        items: Vec<aurona::extensions::context::QuickPickItem>,
+        title: String,
+        placeholder: String,
+    ) -> Result<Option<String>, String> {
+        let payload: Vec<serde_json::Value> = items
+            .into_iter()
+            .map(|item| {
+                serde_json::json!({
+                    "id": item.id,
+                    "label": item.label,
+                    "detail": item.detail,
+                    "icon": item.icon,
+                })
+            })
+            .collect();
+        let response = self.request_frontend_blocking(
+            "quick-pick",
+            serde_json::json!({
+                "items": payload,
+                "title": title,
+                "placeholder": placeholder,
+            }),
+            std::time::Duration::from_secs(120),
+        )?;
+        let value = Self::parse_host_response(&response)?;
+        if value.get("cancelled").and_then(|c| c.as_bool()) == Some(true) {
+            return Ok(None);
+        }
+        Ok(value.get("id").and_then(|id| id.as_str()).map(String::from))
+    }
+
+    fn poll_events(&mut self) -> Vec<String> {
+        drain_host_events(&self.extension_id)
     }
 
     fn storage_clear(&mut self) -> Result<bool, String> {

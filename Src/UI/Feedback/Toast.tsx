@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
+import { computeGlassAccent } from "../Core/GlassManager";
 import { Icons } from "../Icons/IconManager";
 
 export type ToastType = "info" | "success" | "warning" | "error" | "confirm";
@@ -101,19 +102,23 @@ export function ToastContainer() {
     <div className="fixed bottom-[calc(var(--StatusBarHeight)+16px)] right-6 z-[100] flex flex-col-reverse gap-3 pointer-events-none max-w-sm w-full">
       {toasts.map((toast) => {
         const hasTitle = Boolean(toast.title);
+        const tint = STATUS_TINT[toast.type];
         return (
           <div
             key={toast.id}
-            className={`glass-layer-overlay pointer-events-auto relative flex flex-col gap-2.5 overflow-hidden rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)]/95 p-3.5 backdrop-blur-[var(--glass-blur-overlay)] shadow-2xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group`}
-            style={{
-              // iOS 26 liquid glass 染色：整卡轻染状态色，替代左缘色条
-              backgroundColor: `color-mix(in srgb, ${STATUS_TINT[toast.type]} 9%, var(--material-overlay))`,
-              borderColor: `color-mix(in srgb, ${STATUS_TINT[toast.type]} 14%, var(--border-overlay))`,
-            }}
+            className={`glass-layer-overlay glass-accent-halo pointer-events-auto relative flex flex-col gap-2.5 overflow-hidden rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)]/95 p-3.5 backdrop-blur-[var(--glass-blur-overlay)] shadow-2xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group`}
+            style={
+              {
+                // 状态色改为点缀：极弱底染 + 边缘勾色，右上角光斑交给 .glass-accent-halo
+                ...computeGlassAccent(tint, tint),
+                "--GlassAccent-Halo": tint,
+              } as CSSProperties
+            }
           >
             <div className={`flex ${hasTitle ? "items-start" : "items-center"} gap-3`}>
               <div
-                className={`flex h-8 w-8 shrink-0 items-center justify-center ${STATUS_TEXT_CLASS[toast.type]}`}
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${STATUS_TEXT_CLASS[toast.type]}`}
+                style={{ backgroundColor: `color-mix(in srgb, ${tint} 16%, transparent)` }}
               >
                 {toast.type === "success" && <Icons.Checks size={16} stroke={2} />}
                 {toast.type === "error" && <Icons.Close size={16} stroke={2} />}

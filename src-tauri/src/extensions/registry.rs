@@ -50,16 +50,36 @@ impl ExtensionDescriptor {
     }
 }
 
+/// 单个扩展包加载失败的诊断记录。目录扫描是容错的：一个坏包不拖垮其他包，
+/// 失败原因进入诊断列表（前端可通过 IPC 拉取），而不是中断整个目录。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryDiagnostic {
+    pub source: String,
+    pub message: String,
+}
+
+/// 聚合诊断载荷（IPC `extensions_get_diagnostics` 返回值）。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryDiagnostics {
+    pub load: Vec<RegistryDiagnostic>,
+    pub last_runtime_failure: Option<String>,
+    pub installed: Vec<String>,
+}
+
 /// Discovers and owns the bundled AURX packages. Discovery opens and validates
 /// package structure, but never compiles or instantiates the WASM component.
 pub struct ExtensionRegistry {
     packages: Mutex<HashMap<String, Arc<ExtensionPackage>>>,
+    diagnostics: Mutex<Vec<RegistryDiagnostic>>,
 }
 
 impl ExtensionRegistry {
     pub fn new() -> Self {
         Self {
             packages: Mutex::new(HashMap::new()),
+            diagnostics: Mutex::new(Vec::new()),
         }
     }
 
@@ -94,17 +114,45 @@ impl ExtensionRegistry {
         for entry in std::fs::read_dir(dir)
             .map_err(|error| format!("读取扩展目录失败 {}: {error}", dir.display()))?
         {
-            let entry = entry.map_err(|error| format!("读取扩展目录条目失败: {error}"))?;
+            // 目录级容错：逐条目隔离失败（含 read_dir 条目错误），
+            // 记入诊断后继续扫描，保证单个损坏包不影响其余扩展加载。
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(error) => {
+                    self.push_diagnostic(
+                        dir.display().to_string(),
+                        format!("读取扩展目录条目失败: {error}"),
+                    );
+                    continue;
+                }
+            };
             let path = entry.path();
             if path
                 .extension()
                 .is_some_and(|extension| extension == "aurx" || extension == "vsix")
             {
-                let _package = self.load_file(&path)?;
-                loaded += 1;
+                match self.load_file(&path) {
+                    Ok(_package) => loaded += 1,
+                    Err(error) => self.push_diagnostic(path.display().to_string(), error),
+                }
             }
         }
         Ok(loaded)
+    }
+
+    fn push_diagnostic(&self, source: String, message: String) {
+        eprintln!("[Extensions] 包加载失败: {source}: {message}");
+        if let Ok(mut guard) = self.diagnostics.lock() {
+            guard.push(RegistryDiagnostic { source, message });
+        }
+    }
+
+    /// 取出自上次扫描以来累积的加载诊断（读取后不清空，便于前端随时拉取）。
+    pub fn diagnostics(&self) -> Vec<RegistryDiagnostic> {
+        self.diagnostics
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or_default()
     }
 
     pub fn descriptors(&self) -> Vec<ExtensionDescriptor> {
@@ -254,6 +302,28 @@ mod tests {
         std::fs::write(&path, b"not a zip").unwrap();
         let registry = ExtensionRegistry::new();
         assert!(registry.load_file(&path).is_err());
+        std::fs::remove_dir_all(&temp).ok();
+    }
+
+    #[test]
+    fn directory_scan_isolates_corrupt_packages() {
+        let temp = std::env::temp_dir().join(format!(
+            "aurona-ext-registry-tolerant-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&temp).unwrap();
+        write_package(&temp, "auronalabs.markdown.aurx", None);
+        std::fs::write(temp.join("broken.aurx"), b"not a zip").unwrap();
+
+        let registry = ExtensionRegistry::new();
+        let count = registry.load_directory(&temp).unwrap();
+        // 坏包不拖垮目录：好包照常加载
+        assert_eq!(count, 1);
+        assert!(registry.package("auronalabs.markdown").is_some());
+        // 失败原因进入诊断列表
+        let diagnostics = registry.diagnostics();
+        assert_eq!(diagnostics.len(), 1);
+        assert!(diagnostics[0].source.contains("broken.aurx"));
         std::fs::remove_dir_all(&temp).ok();
     }
 

@@ -1,4 +1,4 @@
-﻿import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { type LanguageServerInfo, LspClient } from "../../Core/Language/LspClient";
 import { EventBus } from "../../Foundation/EventBus";
@@ -205,9 +205,12 @@ function SettingRow({
           {description}
         </p>
       </div>
+      {/* 控件在前，重置按钮右置：hover 才完全显形，弱化破坏性操作的视觉权重 */}
       <div className="flex shrink-0 items-center gap-2">
-        <SettingResetButton label={title} onReset={onReset} />
         {control}
+        <span className="ml-1 flex">
+          <SettingResetButton label={title} onReset={onReset} />
+        </span>
       </div>
     </div>
   );

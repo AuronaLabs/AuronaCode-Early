@@ -1,6 +1,6 @@
-import { CHANGELOG_DATA } from "../Src/Features/Settings/ChangelogData";
 import fs from "fs";
 import path from "path";
+import { CHANGELOG_DATA } from "../Src/Features/Settings/ChangelogData";
 
 const tag = process.env.GITHUB_REF_NAME || "v0.0.0";
 const version = tag.toLowerCase().replace("v", "");

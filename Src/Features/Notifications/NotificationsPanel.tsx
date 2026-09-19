@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { type CSSProperties, useEffect, useState } from "react";
 import { type NotificationItem, NotificationService } from "../../Core/NotificationService";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { Card } from "../../UI/Components/Card";
 import { EmptyState } from "../../UI/Components/EmptyState";
 import { FilterChips } from "../../UI/Components/FilterChips";
+import { computeGlassAccent } from "../../UI/Core/GlassManager";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
@@ -149,15 +150,21 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
                 <Card
                   key={item.id}
                   layer="base"
-                  className="group relative z-10 flex gap-3 overflow-hidden p-3 transition-colors duration-150 hover:bg-[var(--material-interactive-hover)]"
-                  style={{
-                    // iOS 26 liquid glass 染色：整卡轻染状态色，替代左缘色条
-                    backgroundColor: `color-mix(in srgb, ${statusColor} 9%, var(--surface-base))`,
-                    borderColor: `color-mix(in srgb, ${statusColor} 14%, var(--border-subtle))`,
-                  }}
+                  className="glass-accent-halo group relative z-10 flex gap-3 overflow-hidden p-3 transition-colors duration-150 hover:bg-[var(--material-interactive-hover)]"
+                  style={
+                    {
+                      // 状态色改为点缀：极弱底染 + 边缘勾色，右上角光斑交给 .glass-accent-halo
+                      ...computeGlassAccent(statusColor, statusColor),
+                      "--GlassAccent-Halo": statusColor,
+                    } as CSSProperties
+                  }
                 >
                   <div
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center text-[${statusColor}]`}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                    style={{
+                      color: statusColor,
+                      backgroundColor: `color-mix(in srgb, ${statusColor} 16%, transparent)`,
+                    }}
                   >
                     <Icon size={15} />
                   </div>

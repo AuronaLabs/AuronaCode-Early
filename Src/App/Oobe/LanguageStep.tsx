@@ -12,7 +12,7 @@ const LANGUAGE_OPTIONS: Array<{ id: Locale; sub: I18nKey }> = [
   { id: "ja", sub: "settings.languageJa" },
 ];
 
-/** 步骤二：界面语言选择，选择即刻生效。 */
+/** 步骤二：界面语言选择（色卡式），选择即刻生效。 */
 export function LanguageStep({ onSelect }: { onSelect: (next: Locale) => void }) {
   const { t, locale } = useLocale();
   return (
@@ -36,25 +36,49 @@ export function LanguageStep({ onSelect }: { onSelect: (next: Locale) => void })
               role="button"
               aria-pressed={selected}
               onClick={() => onSelect(option.id)}
-              className={`flex cursor-pointer items-center justify-between gap-2 p-3.5 text-left transition-shadow duration-150 ${
+              className={`group flex cursor-pointer flex-col gap-2.5 p-3 transition-shadow duration-150 ${
                 selected
-                  ? "cursor-default shadow-[0_0_0_1.5px_color-mix(in_srgb,var(--color-accent)_55%,transparent),0_8px_24px_rgb(0_0_0/20%)]"
+                  ? "cursor-default shadow-[0_0_0_1.5px_color-mix(in_srgb,var(--color-accent)_55%,transparent),0_8px_24px_rgb(0_0_0/20%),inset_0_1px_0_var(--GlassSurface-Rim)]"
                   : ""
               }`}
+              style={
+                selected
+                  ? {
+                      backgroundColor:
+                        "color-mix(in srgb, var(--color-accent) 10%, var(--surface-base))",
+                    }
+                  : undefined
+              }
             >
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="truncate text-[14px] font-semibold text-[var(--color-text-highlight)]">
+              {/* 小预览：母语自名呈现在迷你文字场景中，选中时随 accent 轻染 */}
+              <div
+                className="relative h-[64px] w-full overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--material-overlay)] backdrop-blur-[var(--glass-blur-overlay)]"
+                style={
+                  selected
+                    ? {
+                        backgroundColor:
+                          "color-mix(in srgb, var(--color-accent) 8%, var(--material-overlay))",
+                      }
+                    : undefined
+                }
+              >
+                <span className="absolute top-3 left-3 text-[15px] font-bold tracking-tight text-[var(--color-text-highlight)]">
                   {LOCALE_NATIVE_NAMES[option.id]}
                 </span>
+                <span className="absolute top-9 left-3 h-1.5 w-16 rounded-full bg-[var(--color-text-highlight)]/25" />
+                <span className="absolute top-12 left-3 h-1.5 w-10 rounded-full bg-[var(--color-text-highlight)]/15" />
+                <span className="absolute top-3 right-3 size-1.5 rounded-full bg-[var(--color-accent)] shadow-[0_0_6px_color-mix(in_srgb,var(--color-accent)_60%,transparent)]" />
+              </div>
+              <div className="flex items-center justify-between gap-2">
                 <span className="truncate text-[11px] text-[var(--color-text-muted)]">
                   {t(option.sub)}
                 </span>
-              </span>
-              {selected && (
-                <span className="flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-white shadow-[0_2px_8px_color-mix(in_srgb,var(--color-accent)_45%,transparent)]">
-                  <Icons.Check size={12} />
-                </span>
-              )}
+                {selected && (
+                  <span className="flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-white shadow-[0_2px_8px_color-mix(in_srgb,var(--color-accent)_45%,transparent)]">
+                    <Icons.Check size={12} />
+                  </span>
+                )}
+              </div>
             </GlassContainer>
           );
         })}

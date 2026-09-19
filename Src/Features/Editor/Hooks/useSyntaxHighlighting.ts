@@ -66,7 +66,29 @@ export function useSyntaxHighlighting({
       highlightWorkerRef.current = worker;
       worker.onmessage = (event: MessageEvent<WorkerResult>) => {
         if (event.data.id === latestHighlightIdRef.current) {
-          setLinesTokens(event.data.tokens);
+          setLinesTokens((previous) => {
+            const next = event.data.tokens;
+            // 引用稳定化：未变化行的 token 数组复用旧引用，
+            // 让 EditorLine 的 React.memo 在高亮刷新时也能命中（0.4.6 增量渲染）。
+            if (previous.length !== next.length) return next;
+            let changed = false;
+            const merged = new Array<number[]>(next.length);
+            for (let i = 0; i < next.length; i++) {
+              const previousLine = previous[i];
+              const nextLine = next[i];
+              if (
+                previousLine !== undefined &&
+                previousLine.length === nextLine.length &&
+                previousLine.every((value, index) => value === nextLine[index])
+              ) {
+                merged[i] = previousLine;
+              } else {
+                merged[i] = nextLine;
+                changed = true;
+              }
+            }
+            return changed ? merged : previous;
+          });
         }
       };
       setWorkerReady(true);

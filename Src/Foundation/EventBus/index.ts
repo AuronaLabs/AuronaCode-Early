@@ -68,6 +68,15 @@ export interface EventMap {
     character: number;
   };
   "language:open-location-results": undefined;
+  "language:peek-locations": {
+    locations: Array<{
+      uri: string;
+      range: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+      };
+    }>;
+  };
   "language:symbol-search-request": { path: string; language: string };
   "workspace:trust-request": { root: string; language: string };
 
@@ -83,6 +92,8 @@ export interface EventMap {
 
   "git:changes-count": number;
 
+  "extension:status-message": { message: string };
+
   "settings:nav":
     | "general"
     | "appearance"
@@ -91,6 +102,7 @@ export interface EventMap {
     | "terminalRun"
     | "sourceControl"
     | "network"
+    | "ai"
     | "accountCloud"
     | "extensions"
     | "system"

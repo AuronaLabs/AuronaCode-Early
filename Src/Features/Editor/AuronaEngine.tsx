@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
+import { CommandRegistry } from "../../Extension/CommandRegistry";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
@@ -18,6 +19,7 @@ import { BracketPairGuides } from "./Brackets/BracketPairGuides";
 import { useBracketMatching } from "./Brackets/useBracketMatching";
 import { AutocompleteMenu } from "./components/AutocompleteMenu";
 import { HoverCard } from "./components/HoverCard";
+import { type PeekLocation, PeekPanel } from "./components/PeekPanel";
 import { SearchWidget } from "./components/SearchWidget";
 import { useCodeFolding } from "./Folding/useCodeFolding";
 import { GitGutterPopover } from "./GitGutter/GitGutterPopover";
@@ -61,6 +63,9 @@ const DEFAULT_PREFS: Required<LanguageFeaturePreferences> = {
   automaticCompletion: true,
 };
 
+/** 无折叠时常量空 Map（保持引用稳定，供 memo 依赖比较） */
+const EMPTY_FOLDED_COUNTS: Map<number, number> = new Map();
+
 export const AuronaEngine = React.memo(function AuronaEngine({
   value,
   language,
@@ -78,6 +83,10 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const isBracketGuideEnabled = useFeatureFlagStore((s) =>
     s.isFeatureEnabled("editor.bracketPairColorization"),
   );
+  // 真实折叠（0.4.6）：折叠块真正从布局收起，光标/滚动/小地图同步适配
+  const isTrueFoldingEnabled = useFeatureFlagStore((s) => s.isFeatureEnabled("editor.trueFolding"));
+  // smoothCaret（0.4.6 接线）：光标平滑插值，flag 关闭时无过渡
+  const isSmoothCaretEnabled = useFeatureFlagStore((s) => s.isFeatureEnabled("editor.smoothCaret"));
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineElementsRef = useRef(new Map<number, HTMLButtonElement>());
@@ -118,6 +127,27 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setMaxLineLength(max);
   }, []);
 
+  // 1.5 代码折叠系统 (Folding)：真实折叠需要先于视口构建可视行映射
+  const { foldableRanges, foldedStartLines, activeFoldedRanges, lineMap, toggleFold } =
+    useCodeFolding(documentLines);
+  const effectiveLineMap = isTrueFoldingEnabled ? lineMap : null;
+  const effectiveVisibleLineCount =
+    isTrueFoldingEnabled && foldedStartLines.size > 0 ? lineMap.visibleLineCount : totalLines;
+  const toVisualLine = useCallback(
+    (line: number) =>
+      effectiveLineMap && foldedStartLines.size > 0 ? effectiveLineMap.getVisibleLine(line) : line,
+    [effectiveLineMap, foldedStartLines.size],
+  );
+  // 折叠起始行 → 隐藏行数（折叠胶囊计数）
+  const foldedHiddenCounts = useMemo(() => {
+    if (foldedStartLines.size === 0) return EMPTY_FOLDED_COUNTS;
+    const map = new Map<number, number>();
+    for (const range of activeFoldedRanges) {
+      map.set(range.startLine, range.endLine - range.startLine);
+    }
+    return map;
+  }, [activeFoldedRanges, foldedStartLines.size]);
+
   // 2. 硬件 RAF 滚动与视口管理 (Performance)
   const {
     scrollTop,
@@ -129,6 +159,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     scrollToLine,
   } = useEditorViewport({
     totalLines,
+    visibleLineCount: effectiveVisibleLineCount,
+    toVisualLine,
     layout,
     containerRef,
   });
@@ -218,10 +250,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     lineHeight: layout.lineHeight,
   });
 
-  // 7. 代码折叠系统 (Folding)
-  const { foldableRanges, foldedStartLines, toggleFold } = useCodeFolding(documentLines);
-
-  // 8. 彩虹括号与作用域引导线 (Brackets)
+  // 7. 彩虹括号与作用域引导线 (Brackets)
   const { activeMatchedPair } = useBracketMatching(documentLines, cursor);
 
   // 9. 多光标编辑与相同标识符全高亮 (MultiCursor)
@@ -247,6 +276,22 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const handleOpenHunk = useCallback((hunk: GitGutterHunk, anchor: DOMRect) => {
     setOpenHunk({ hunk, anchorTop: anchor.top, anchorRight: anchor.right });
   }, []);
+
+  // 10.5 Peek 定义浮层（0.4.6）：language:peek-locations → 内嵌浮窗
+  const [peekState, setPeekState] = useState<{
+    locations: PeekLocation[];
+    top: number;
+    left: number;
+  } | null>(null);
+  useEffect(() => {
+    return EventBus.on("language:peek-locations", ({ locations }) => {
+      setPeekState({
+        locations,
+        top: layout.contentInsetTop + (toVisualLine(cursor.line) + 1) * layout.lineHeight,
+        left: layout.contentInsetX + 24,
+      });
+    });
+  }, [layout.contentInsetTop, layout.contentInsetX, layout.lineHeight, toVisualLine, cursor.line]);
 
   // 11. 文档更新与同步（提交路径抽至 useEditorCommit）
   // triggerAutocompleteRef 打破循环：补全 hook 依赖 commitEdit，而 commit 路径（插入/多光标）
@@ -318,6 +363,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     documentLines,
     cursor,
     replaceDocumentLines,
+    toVisualLine,
     triggerAutocompleteRef,
   });
 
@@ -329,7 +375,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     (pos: { line: number; char: number }) => {
       const container = containerRef.current;
       if (!container) return;
-      const lineTop = layout.contentInsetTop + pos.line * layout.lineHeight;
+      // 真实折叠启用时光标 Y 按可视行计算（光标落在折叠块内则贴到折叠头行）
+      const visualLine = toVisualLine(pos.line);
+      const lineTop = layout.contentInsetTop + visualLine * layout.lineHeight;
       let targetTop: number | null = null;
       if (lineTop < container.scrollTop) {
         targetTop = Math.max(0, lineTop);
@@ -364,7 +412,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         container.scrollLeft = caretX - container.clientWidth + layout.contentInsetX + 24;
       }
     },
-    [documentLines, layout, smoothScrollingEnabled],
+    [documentLines, layout, smoothScrollingEnabled, toVisualLine],
   );
 
   // 卸载时终止未完成的平滑滚动动画
@@ -572,6 +620,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     currentMatchIndex,
     foldedStartLines,
     foldableRanges,
+    lineMap: effectiveLineMap,
+    foldedHiddenCounts,
     occurrences,
     isComposing,
     compositionText,
@@ -612,12 +662,12 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         .hl-token-8 { color: var(--SyntaxBuiltin, #38bdf8); }
         .hl-token-9 { color: var(--SyntaxTypeHint, var(--color-accent)); }
 
-        .hl-bracket-0 { color: #f59e0b; }
-        .hl-bracket-1 { color: #c084fc; }
-        .hl-bracket-2 { color: #38bdf8; }
-        .hl-bracket-3 { color: #4ade80; }
-        .hl-bracket-4 { color: #f43f5e; }
-        .hl-bracket-5 { color: #e2e8f0; }
+        .hl-bracket-0 { color: var(--EditorBracket0, #f59e0b); }
+        .hl-bracket-1 { color: var(--EditorBracket1, #c084fc); }
+        .hl-bracket-2 { color: var(--EditorBracket2, #38bdf8); }
+        .hl-bracket-3 { color: var(--EditorBracket3, #98c379); }
+        .hl-bracket-4 { color: var(--EditorBracket4, #f43f5e); }
+        .hl-bracket-5 { color: var(--EditorBracket5, #94a3b8); }
 
         .hl-occurrence { background-color: color-mix(in srgb, var(--color-accent) 12%, transparent); border-radius: 2px; }
         .hl-search { background-color: var(--EditorSearchMatchBg, rgba(245, 158, 11, 0.3)); }
@@ -683,7 +733,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
             <div
               className="relative"
               style={{
-                height: `${layout.contentInsetTop + totalLines * layout.lineHeight + 100}px`,
+                height: `${
+                  layout.contentInsetTop + effectiveVisibleLineCount * layout.lineHeight + 100
+                }px`,
                 width: `${maxLineLength * singleCharWidth + 200}px`,
                 minWidth: "100%",
               }}
@@ -696,6 +748,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
                   charWidth={singleCharWidth}
                   contentInsetX={layout.contentInsetX}
                   contentInsetTop={layout.contentInsetTop}
+                  toVisualLine={toVisualLine}
                 />
               )}
 
@@ -716,7 +769,19 @@ export const AuronaEngine = React.memo(function AuronaEngine({
                 contentInsetX={layout.contentInsetX}
                 contentInsetTop={layout.contentInsetTop}
                 isActive={isActive}
+                toVisualLine={toVisualLine}
+                smoothCaret={isSmoothCaretEnabled}
               />
+
+              {/* Peek 定义浮层 */}
+              {peekState && (
+                <PeekPanel
+                  locations={peekState.locations}
+                  top={peekState.top}
+                  left={peekState.left}
+                  onClose={() => setPeekState(null)}
+                />
+              )}
 
               {/* 隐藏代理 Textarea */}
               <textarea
@@ -743,7 +808,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
               />
             </div>
           </ContextMenuTrigger>
-          <ContextMenuContent className="w-64">
+          <ContextMenuContent className="w-52">
             <ContextMenuItem label={t("editor.contextUndo")} onSelect={handleUndo} />
             <ContextMenuItem label={t("editor.contextRedo")} onSelect={handleRedo} />
             <ContextMenuDivider />
@@ -764,6 +829,27 @@ export const AuronaEngine = React.memo(function AuronaEngine({
               label={t("editor.contextSelectAll")}
               onSelect={() => executeEditorAction("selectAll")}
             />
+            <ContextMenuDivider />
+            <ContextMenuItem
+              label={t("commands.goToDefinition")}
+              onSelect={() => void CommandRegistry.execute("editor.action.goToDefinition")}
+            />
+            <ContextMenuItem
+              label={t("commands.peekDefinition")}
+              onSelect={() => void CommandRegistry.execute("editor.action.peekDefinition")}
+            />
+            <ContextMenuItem
+              label={t("commands.findReferences")}
+              onSelect={() => void CommandRegistry.execute("editor.action.findReferences")}
+            />
+            <ContextMenuItem
+              label={t("commands.rename")}
+              onSelect={() => void CommandRegistry.execute("editor.action.rename")}
+            />
+            <ContextMenuItem
+              label={t("commands.formatDocument")}
+              onSelect={() => void CommandRegistry.execute("editor.action.formatDocument")}
+            />
           </ContextMenuContent>
         </ContextMenuRoot>
       </div>
@@ -773,7 +859,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         <CanvasMinimap
           documentLines={documentLines}
           linesTokens={linesTokens}
-          totalLines={totalLines}
+          totalLines={effectiveVisibleLineCount}
           scrollTop={scrollTop}
           viewportHeight={viewportHeight}
           lineHeight={layout.lineHeight}

@@ -1,4 +1,5 @@
 mod account_auth;
+mod ai_chat;
 mod commands;
 mod content_length;
 mod dap;
@@ -17,9 +18,10 @@ pub mod toolchains;
 use commands::dap_cmds::DapState;
 pub use commands::lsp_cmds::LspState;
 use extensions::commands::{
-    extensions_get_permission, extensions_get_view, extensions_install,
-    extensions_install_default_vscode, extensions_install_vscode, extensions_list,
-    extensions_on_action, extensions_permission_catalog, extensions_render,
+    extensions_get_diagnostics, extensions_get_permission, extensions_get_view,
+    extensions_host_response, extensions_install, extensions_install_default_vscode,
+    extensions_install_vscode, extensions_list, extensions_on_action,
+    extensions_permission_catalog, extensions_push_event, extensions_render,
     extensions_revoke_permission, extensions_set_permission, extensions_set_session_permission,
     extensions_uninstall,
 };
@@ -42,6 +44,7 @@ pub fn run() {
         .manage(LspState::new())
         .manage(DapState::new())
         .manage(account_auth::AccountAuthState::default())
+        .manage(ai_chat::AiChatState::default())
         .manage(commands::fs::WorkspaceState::new())
         .manage(ExtensionState::new())
         .manage(commands::ipc::ExitCleanupState::default())
@@ -54,6 +57,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             extensions_list,
+            extensions_get_diagnostics,
+            extensions_host_response,
+            extensions_push_event,
             extensions_get_view,
             extensions_get_permission,
             extensions_set_permission,
@@ -74,6 +80,8 @@ pub fn run() {
             account_auth::account_auth_restore,
             account_auth::account_auth_logout,
             account_auth::account_auth_shutdown,
+            ai_chat::ai_chat_send,
+            ai_chat::ai_chat_abort,
             commands::git::git_check_is_repo,
             commands::git::git_init,
             commands::git::git_status,

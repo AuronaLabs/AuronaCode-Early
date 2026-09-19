@@ -6,19 +6,21 @@ import { Select } from "../../UI/Components/Select";
 import { SettingResetButton } from "../../UI/Components/SettingResetButton";
 import { Slider } from "../../UI/Components/Slider";
 import { Switch } from "../../UI/Components/Switch";
-import { GlassContainer, type GlassIntensity } from "../../UI/Core/GlassManager";
+import { GlassContainer } from "../../UI/Core/GlassManager";
 import { Icons } from "../../UI/Icons/IconManager";
-
-const INTENSITY_ORDER: GlassIntensity[] = ["light", "medium", "heavy"];
 
 interface AppearanceSettingsSectionProps {
   accentTheme: AccentThemeId;
-  intensity: GlassIntensity;
+  /** Aurona 玻璃强度连续值 0-100（0 轻透 / 50 均衡 / 100 醇厚锚点） */
+  intensity: number;
   liquidTexture: boolean;
   boldText: boolean;
   interfaceFontSize: "compact" | "default" | "comfortable" | "large";
   onAccentThemeChange: (accent: AccentThemeId) => void;
-  onIntensityChange: (intensity: GlassIntensity) => void;
+  /** 拖动中实时回调（连续值，即时应用到玻璃材质） */
+  onIntensityChange: (intensity: number) => void;
+  /** 松手提交（值稳定，用于持久化） */
+  onIntensityCommit: (intensity: number) => void;
   onLiquidTextureChange: (enabled: boolean) => void;
   onBoldTextChange: (enabled: boolean) => void;
   onInterfaceFontSizeChange: (size: "compact" | "default" | "comfortable" | "large") => void;
@@ -32,6 +34,7 @@ export function AppearanceSettingsSection({
   interfaceFontSize,
   onAccentThemeChange,
   onIntensityChange,
+  onIntensityCommit,
   onLiquidTextureChange,
   onBoldTextChange,
   onInterfaceFontSizeChange,
@@ -77,8 +80,8 @@ export function AppearanceSettingsSection({
                   onClick={() => onAccentThemeChange(accent.id)}
                   className={`group relative flex flex-col items-stretch gap-1.5 overflow-hidden rounded-2xl border p-1.5 pb-1 text-left backdrop-blur-[var(--glass-blur-raised)] transition-[border-color,box-shadow,transform,background-color] duration-200 ${
                     selected
-                      ? "-translate-y-px border-[color-mix(in_srgb,rgb(var(--AccentPrimary))_45%,var(--border-overlay))] shadow-[0_0_0_1px_color-mix(in_srgb,rgb(var(--AccentPrimary))_30%,transparent),0_10px_28px_color-mix(in_srgb,rgb(var(--AccentPrimary))_20%,transparent),inset_0_1px_0_var(--GlassSurface-Rim)]"
-                      : "border-[var(--border-subtle)] bg-[var(--material-surface)] shadow-[inset_0_1px_0_var(--GlassSurface-Rim)] hover:-translate-y-px hover:border-[var(--border-overlay)] hover:bg-[var(--material-interactive-hover)]"
+                      ? "-translate-y-px border-[color-mix(in_srgb,var(--color-accent)_40%,transparent)] shadow-[0_0_0_1.5px_color-mix(in_srgb,var(--color-accent)_55%,transparent),0_0_24px_color-mix(in_srgb,var(--color-accent)_25%,transparent)]"
+                      : "border-transparent bg-[var(--material-surface)] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--GlassSurface-Rim)_72%,transparent),inset_0_1px_0_var(--GlassSurface-Rim)] hover:-translate-y-px hover:bg-[var(--material-interactive-hover)] hover:shadow-[inset_0_0_0_1px_var(--GlassSurface-Rim),inset_0_1px_0_var(--GlassSurface-Rim)]"
                   }`}
                   style={
                     selected
@@ -155,17 +158,17 @@ export function AppearanceSettingsSection({
           </div>
           <div className="w-[220px] shrink-0">
             <Slider
-              value={INTENSITY_ORDER.indexOf(intensity) + 1}
-              onValueChange={(index) => onIntensityChange(INTENSITY_ORDER[index - 1] ?? "medium")}
-              min={1}
-              max={3}
+              value={intensity}
+              onValueChange={onIntensityChange}
+              onValueCommit={onIntensityCommit}
+              min={0}
+              max={100}
               step={1}
-              snapOnRelease
               ariaLabel={t("settings.appearanceSection.intensity")}
               marks={[
-                { value: 1, label: t("settings.appearanceSection.intensityLight") },
-                { value: 2, label: t("settings.appearanceSection.intensityMedium") },
-                { value: 3, label: t("settings.appearanceSection.intensityHeavy") },
+                { value: 0, label: t("settings.appearanceSection.intensityLight") },
+                { value: 50, label: t("settings.appearanceSection.intensityMedium") },
+                { value: 100, label: t("settings.appearanceSection.intensityHeavy") },
               ]}
             />
           </div>

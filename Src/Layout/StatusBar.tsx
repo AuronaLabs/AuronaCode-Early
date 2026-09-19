@@ -91,6 +91,8 @@ export function StatusBar() {
   );
   // 语言服务安装状态：null 未知 / false 未安装（驱动「点击安装」引导）
   const [lspInstalled, setLspInstalled] = useState<boolean | null>(null);
+  // 扩展 set-status-message 的临时消息（自动消失）
+  const [extensionStatusMessage, setExtensionStatusMessage] = useState<string | null>(null);
   const signedInProfile = account.phase === "signedIn" ? account.profile : null;
   const accountDisplayName =
     signedInProfile?.preferredUsername || signedInProfile?.name || t("account.defaultDisplayName");
@@ -131,13 +133,31 @@ export function StatusBar() {
     };
   }, [activeLanguage, activeFilePath]);
 
+  // 扩展状态栏消息：4s 自动消失，新消息重置计时
+  useEffect(() => {
+    return EventBus.on("extension:status-message", ({ message }) => {
+      setExtensionStatusMessage(message);
+    });
+  }, []);
+  useEffect(() => {
+    if (!extensionStatusMessage) return;
+    const timer = window.setTimeout(() => setExtensionStatusMessage(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [extensionStatusMessage]);
+
   return (
     <footer className="flex h-[var(--StatusBarHeight)] shrink-0 items-center bg-transparent px-4 text-xs text-[var(--color-text-muted)] font-medium overflow-hidden">
       <div className="flex items-center gap-3 min-w-0">
-        <span className="cursor-default truncate">
-          {editorStatus.errors} {t("statusBar.errors")}, {editorStatus.warnings}{" "}
-          {t("statusBar.warnings")}
-        </span>
+        {extensionStatusMessage ? (
+          <span className="cursor-default truncate text-[var(--color-text-highlight)]">
+            {extensionStatusMessage}
+          </span>
+        ) : (
+          <span className="cursor-default truncate">
+            {editorStatus.errors} {t("statusBar.errors")}, {editorStatus.warnings}{" "}
+            {t("statusBar.warnings")}
+          </span>
+        )}
         {activeFilePath && editorStatus.hasEditor && (
           <span className="cursor-default truncate">
             {t("statusBar.line")} {editorStatus.line}, {t("statusBar.column")} {editorStatus.column}

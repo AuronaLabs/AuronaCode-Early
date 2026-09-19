@@ -10,6 +10,10 @@ export interface MultiCursorCaretLayerProps {
   contentInsetX: number;
   contentInsetTop: number;
   isActive?: boolean;
+  /** 真实行 → 可视行转换（真实折叠启用时由引擎传入） */
+  toVisualLine?: (line: number) => number;
+  /** smoothCaret flag：光标平滑插值过渡（0.4.6 接线，此前为无条件写死） */
+  smoothCaret?: boolean;
 }
 
 export const MultiCursorCaretLayer = React.memo(function MultiCursorCaretLayer({
@@ -20,9 +24,12 @@ export const MultiCursorCaretLayer = React.memo(function MultiCursorCaretLayer({
   contentInsetX,
   contentInsetTop,
   isActive = true,
+  toVisualLine,
+  smoothCaret = false,
 }: MultiCursorCaretLayerProps) {
   if (!isActive) return null;
 
+  const toVisual = toVisualLine ?? ((line: number) => line);
   const allCursors = [primaryCursor, ...extras.map((item) => item.cursor)];
 
   return (
@@ -40,7 +47,7 @@ export const MultiCursorCaretLayer = React.memo(function MultiCursorCaretLayer({
             className="absolute bg-[var(--EditorSelectionBg)] pointer-events-none"
             style={{
               left: `${left}px`,
-              top: `${contentInsetTop + start.line * lineHeight}px`,
+              top: `${contentInsetTop + toVisual(start.line) * lineHeight}px`,
               width: `${width}px`,
               height: `${lineHeight}px`,
             }}
@@ -49,12 +56,14 @@ export const MultiCursorCaretLayer = React.memo(function MultiCursorCaretLayer({
       })}
       {allCursors.map((c) => {
         const x = contentInsetX + c.char * charWidth;
-        const y = contentInsetTop + c.line * lineHeight;
+        const y = contentInsetTop + toVisual(c.line) * lineHeight;
 
         return (
           <div
             key={`caret-${c.line}-${c.char}`}
-            className="absolute w-[2px] bg-[var(--color-accent)] editor-caret transition-all duration-75 ease-out"
+            className={`absolute w-[2px] bg-[var(--color-accent)] editor-caret ease-out ${
+              smoothCaret ? "transition-all duration-75" : ""
+            }`}
             style={{
               left: `${x}px`,
               top: `${y}px`,

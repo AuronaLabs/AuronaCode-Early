@@ -134,7 +134,9 @@ function zipStore(entries) {
 function main() {
   if (!existsSync(join(guestDir, "Cargo.toml"))) {
     if (existsSync(outputPath)) {
-      console.log(`[build:planner] 源码目录不在本工作区，但产物已存在 (${outputPath})，直接跳过构建。`);
+      console.log(
+        `[build:planner] 源码目录不在本工作区，但产物已存在 (${outputPath})，直接跳过构建。`,
+      );
       return;
     }
   }
@@ -173,7 +175,8 @@ function main() {
     version: "0.1.2",
     engine: { auronaCode: ">=0.3.12" },
     permissions: ["workspace.read", "workspace.readwrite", "clipboard.write"],
-    changelog: "v0.1.2: 升级现代双行筛选排版（状态与优先级分离）、全新原地安全授权系统，全语言本地化增强。",
+    changelog:
+      "v0.1.2: 升级现代双行筛选排版（状态与优先级分离）、全新原地安全授权系统，全语言本地化增强。",
     runtime: { component: "extension.wasm" },
     sidebar: {
       title: "Planner",

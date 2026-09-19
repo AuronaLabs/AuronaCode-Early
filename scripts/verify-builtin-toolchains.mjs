@@ -1,9 +1,9 @@
+import { execFile as execFileCallback } from "node:child_process";
 import { constants } from "node:fs";
 import { access, readFile, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { execFile as execFileCallback } from "node:child_process";
-import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const toolchainsRoot = join(repositoryRoot, "src-tauri", "resources", "toolchains");

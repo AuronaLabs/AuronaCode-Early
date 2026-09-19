@@ -70,8 +70,8 @@ pub const PERMISSIONS: &[PermissionDefinition] = &[
         level: PermissionLevel::Normal,
         title_key: "extensions.permission.clipboardAccess.name",
         description_key: "extensions.permission.clipboardAccess.description",
-        // read/write_clipboard 目前是占位实现，见 runtime.rs
-        available: false,
+        // 0.4.6：read/write_clipboard 经前端桥接真实读写系统剪贴板
+        available: true,
     },
     PermissionDefinition {
         id: "fliuno.search",

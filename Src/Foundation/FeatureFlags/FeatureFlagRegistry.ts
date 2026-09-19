@@ -39,6 +39,17 @@ export const OFFICIAL_FEATURE_FLAGS: FeatureFlagDefinition[] = [
     descriptionKey: "settings.featureFlags.editorCodeFolding.desc",
   },
   {
+    id: "editor.trueFolding",
+    stage: "beta",
+    category: "editor",
+    defaultByChannel: {
+      stable: true,
+      pioneer: true,
+    },
+    titleKey: "settings.featureFlags.editorTrueFolding.title",
+    descriptionKey: "settings.featureFlags.editorTrueFolding.desc",
+  },
+  {
     id: "editor.smoothCaret",
     stage: "beta",
     category: "editor",

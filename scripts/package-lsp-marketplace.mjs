@@ -1,4 +1,13 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { crc32 } from "node:zlib";
@@ -22,38 +31,38 @@ function zipStore(entries) {
 
     const local = Buffer.alloc(30 + nameBuffer.length);
     local.writeUInt32LE(0x04034b50, 0); // Local header signature
-    local.writeUInt16LE(20, 4);          // Version needed to extract (2.0)
-    local.writeUInt16LE(0x0800, 6);      // General purpose bit flag (UTF-8)
-    local.writeUInt16LE(0, 8);           // Compression method (0 = stored)
-    local.writeUInt16LE(0, 10);          // Last mod file time
-    local.writeUInt16LE(0, 12);          // Last mod file date
-    local.writeUInt32LE(check, 14);      // CRC-32
-    local.writeUInt32LE(size, 18);       // Compressed size
-    local.writeUInt32LE(size, 22);       // Uncompressed size
+    local.writeUInt16LE(20, 4); // Version needed to extract (2.0)
+    local.writeUInt16LE(0x0800, 6); // General purpose bit flag (UTF-8)
+    local.writeUInt16LE(0, 8); // Compression method (0 = stored)
+    local.writeUInt16LE(0, 10); // Last mod file time
+    local.writeUInt16LE(0, 12); // Last mod file date
+    local.writeUInt32LE(check, 14); // CRC-32
+    local.writeUInt32LE(size, 18); // Compressed size
+    local.writeUInt32LE(size, 22); // Uncompressed size
     local.writeUInt16LE(nameBuffer.length, 26); // File name length
-    local.writeUInt16LE(0, 28);          // Extra field length
+    local.writeUInt16LE(0, 28); // Extra field length
     nameBuffer.copy(local, 30);
 
     localHeaders.push(local, data);
 
     const central = Buffer.alloc(46 + nameBuffer.length);
     central.writeUInt32LE(0x02014b50, 0); // Central directory signature
-    central.writeUInt16LE(20, 4);         // Version made by
-    central.writeUInt16LE(20, 6);         // Version needed to extrac
-    central.writeUInt16LE(0x0800, 8);     // General purpose bit flag (UTF-8)
-    central.writeUInt16LE(0, 10);         // Compression method (0 = stored)
-    central.writeUInt16LE(0, 12);         // Last mod file time
-    central.writeUInt16LE(0, 14);         // Last mod file date
-    central.writeUInt32LE(check, 16);     // CRC-32
-    central.writeUInt32LE(size, 20);      // Compressed size
-    central.writeUInt32LE(size, 24);      // Uncompressed size
+    central.writeUInt16LE(20, 4); // Version made by
+    central.writeUInt16LE(20, 6); // Version needed to extrac
+    central.writeUInt16LE(0x0800, 8); // General purpose bit flag (UTF-8)
+    central.writeUInt16LE(0, 10); // Compression method (0 = stored)
+    central.writeUInt16LE(0, 12); // Last mod file time
+    central.writeUInt16LE(0, 14); // Last mod file date
+    central.writeUInt32LE(check, 16); // CRC-32
+    central.writeUInt32LE(size, 20); // Compressed size
+    central.writeUInt32LE(size, 24); // Uncompressed size
     central.writeUInt16LE(nameBuffer.length, 28); // File name length
-    central.writeUInt16LE(0, 30);         // Extra field length
-    central.writeUInt16LE(0, 32);         // File comment length
-    central.writeUInt16LE(0, 34);         // Disk number star
-    central.writeUInt16LE(0, 36);         // Internal file attributes
-    central.writeUInt32LE(0, 38);         // External file attributes
-    central.writeUInt32LE(offset, 42);    // Relative offset of local header
+    central.writeUInt16LE(0, 30); // Extra field length
+    central.writeUInt16LE(0, 32); // File comment length
+    central.writeUInt16LE(0, 34); // Disk number star
+    central.writeUInt16LE(0, 36); // Internal file attributes
+    central.writeUInt32LE(0, 38); // External file attributes
+    central.writeUInt32LE(offset, 42); // Relative offset of local header
     nameBuffer.copy(central, 46);
 
     centralHeaders.push(central);
@@ -64,14 +73,14 @@ function zipStore(entries) {
   const centralDirSize = centralHeaders.reduce((sum, h) => sum + h.length, 0);
 
   const eocd = Buffer.alloc(22);
-  eocd.writeUInt32LE(0x06054b50, 0);               // EOCD signature
-  eocd.writeUInt16LE(0, 4);                        // Number of this disk
-  eocd.writeUInt16LE(0, 6);                        // Disk where central directory starts
-  eocd.writeUInt16LE(entries.length, 8);           // Number of central directory records on this disk
-  eocd.writeUInt16LE(entries.length, 10);          // Total number of central directory records
-  eocd.writeUInt32LE(centralDirSize, 12);          // Size of central directory
-  eocd.writeUInt32LE(centralDirOffset, 16);        // Offset of start of central directory
-  eocd.writeUInt16LE(0, 20);                       // Comment length
+  eocd.writeUInt32LE(0x06054b50, 0); // EOCD signature
+  eocd.writeUInt16LE(0, 4); // Number of this disk
+  eocd.writeUInt16LE(0, 6); // Disk where central directory starts
+  eocd.writeUInt16LE(entries.length, 8); // Number of central directory records on this disk
+  eocd.writeUInt16LE(entries.length, 10); // Total number of central directory records
+  eocd.writeUInt32LE(centralDirSize, 12); // Size of central directory
+  eocd.writeUInt32LE(centralDirOffset, 16); // Offset of start of central directory
+  eocd.writeUInt16LE(0, 20); // Comment length
 
   return Buffer.concat([...localHeaders, ...centralHeaders, eocd]);
 }
@@ -103,9 +112,7 @@ async function packageTypeScriptLsp() {
   mkdirSync(dirname(tempBundlePath), { recursive: true });
 
   await build({
-    entryPoints: [
-      join(root, "node_modules", "typescript-language-server", "lib", "cli.mjs"),
-    ],
+    entryPoints: [join(root, "node_modules", "typescript-language-server", "lib", "cli.mjs")],
     outfile: tempBundlePath,
     bundle: true,
     platform: "node",
@@ -135,10 +142,13 @@ async function packageTypeScriptLsp() {
     },
     version: "1.0.1",
     publisher: "auronalabs",
-    description: "基于 typescript-language-server 的官方 TypeScript/JavaScript 智能代码感知、类型推断与自动补全服务",
+    description:
+      "基于 typescript-language-server 的官方 TypeScript/JavaScript 智能代码感知、类型推断与自动补全服务",
     displayDescription: {
-      "zh-CN": "基于 typescript-language-server 的官方 TypeScript/JavaScript 智能代码感知、类型推断与自动补全服务",
-      "zh-Hant": "基於 typescript-language-server 的官方 TypeScript/JavaScript 智能代碼感知、類型推斷與自動補全服務",
+      "zh-CN":
+        "基于 typescript-language-server 的官方 TypeScript/JavaScript 智能代码感知、类型推断与自动补全服务",
+      "zh-Hant":
+        "基於 typescript-language-server 的官方 TypeScript/JavaScript 智能代碼感知、類型推斷與自動補全服務",
       en: "Official TypeScript/JavaScript Language Server powered by typescript-language-server",
     },
     languages: ["typescript", "javascript", "typescriptreact", "javascriptreact"],
@@ -180,7 +190,9 @@ async function packageTypeScriptLsp() {
   const targetPath = join(outputDir, "auronalabs.lsp-typescript.aurlsp");
   mkdirSync(outputDir, { recursive: true });
   writeFileSync(targetPath, archiveBytes);
-  console.log(`✅ 已生成 TypeScript LSP 包: ${targetPath} (${(archiveBytes.length / 1024).toFixed(1)} KiB)`);
+  console.log(
+    `✅ 已生成 TypeScript LSP 包: ${targetPath} (${(archiveBytes.length / 1024).toFixed(1)} KiB)`,
+  );
 }
 
 // 2. Python (Pyright) LSP (v1.0.1)
@@ -229,7 +241,10 @@ async function packagePyrightLsp() {
   entries.push(["manifest.json", Buffer.from(JSON.stringify(manifest, null, 2), "utf8")]);
 
   if (existsSync(join(pyrightRoot, "langserver.index.js"))) {
-    entries.push(["dist/langserver.index.cjs", readFileSync(join(pyrightRoot, "langserver.index.js"))]);
+    entries.push([
+      "dist/langserver.index.cjs",
+      readFileSync(join(pyrightRoot, "langserver.index.js")),
+    ]);
   }
   if (existsSync(join(pyrightRoot, "dist"))) {
     const distFiles = collectDirectoryFiles(join(pyrightRoot, "dist"));
@@ -245,7 +260,9 @@ async function packagePyrightLsp() {
   const targetPath = join(outputDir, "auronalabs.lsp-pyright.aurlsp");
   mkdirSync(outputDir, { recursive: true });
   writeFileSync(targetPath, archiveBytes);
-  console.log(`✅ 已生成 Pyright LSP 包: ${targetPath} (${(archiveBytes.length / (1024 * 1024)).toFixed(2)} MiB)`);
+  console.log(
+    `✅ 已生成 Pyright LSP 包: ${targetPath} (${(archiveBytes.length / (1024 * 1024)).toFixed(2)} MiB)`,
+  );
 }
 
 // 3. HTML / CSS / JSON / SCSS Web 基础语言服务
@@ -302,7 +319,9 @@ process.on('SIGTERM', () => process.exit(0));
 
   const targetPath = join(outputDir, "auronalabs.lsp-web.aurlsp");
   writeFileSync(targetPath, archiveBytes);
-  console.log(`✅ 已生成 Web 基础语言服务包: ${targetPath} (${(archiveBytes.length / 1024).toFixed(1)} KiB)`);
+  console.log(
+    `✅ 已生成 Web 基础语言服务包: ${targetPath} (${(archiveBytes.length / 1024).toFixed(1)} KiB)`,
+  );
 }
 
 // 4. Rust (rust-analyzer) 语言服务
@@ -360,7 +379,9 @@ proc.on('exit', (code) => process.exit(code || 0));
 
   const targetPath = join(outputDir, "auronalabs.lsp-rust.aurlsp");
   writeFileSync(targetPath, archiveBytes);
-  console.log(`✅ 已生成 Rust (rust-analyzer) LSP 包: ${targetPath} (${(archiveBytes.length / 1024).toFixed(1)} KiB)`);
+  console.log(
+    `✅ 已生成 Rust (rust-analyzer) LSP 包: ${targetPath} (${(archiveBytes.length / 1024).toFixed(1)} KiB)`,
+  );
 }
 
 // 5. C / C++ (Clangd) 语言服务
@@ -418,7 +439,9 @@ proc.on('exit', (code) => process.exit(code || 0));
 
   const targetPath = join(outputDir, "auronalabs.lsp-clangd.aurlsp");
   writeFileSync(targetPath, archiveBytes);
-  console.log(`✅ 已生成 C/C++ (Clangd) LSP 包: ${targetPath} (${(archiveBytes.length / 1024).toFixed(1)} KiB)`);
+  console.log(
+    `✅ 已生成 C/C++ (Clangd) LSP 包: ${targetPath} (${(archiveBytes.length / 1024).toFixed(1)} KiB)`,
+  );
 }
 
 // 6. Go (Gopls) 语言服务
@@ -476,7 +499,9 @@ proc.on('exit', (code) => process.exit(code || 0));
 
   const targetPath = join(outputDir, "auronalabs.lsp-gopls.aurlsp");
   writeFileSync(targetPath, archiveBytes);
-  console.log(`✅ 已生成 Go (Gopls) LSP 包: ${targetPath} (${(archiveBytes.length / 1024).toFixed(1)} KiB)`);
+  console.log(
+    `✅ 已生成 Go (Gopls) LSP 包: ${targetPath} (${(archiveBytes.length / 1024).toFixed(1)} KiB)`,
+  );
 }
 
 // 7. Vue 官方语言服务
@@ -495,10 +520,13 @@ async function packageVueLsp() {
     },
     version: "1.0.0",
     publisher: "auronalabs",
-    description: "专为 Vue 3 SFC 单文件组件打造的官方智能感知服务，支持 TS 深度类型推断与模板语法校验",
+    description:
+      "专为 Vue 3 SFC 单文件组件打造的官方智能感知服务，支持 TS 深度类型推断与模板语法校验",
     displayDescription: {
-      "zh-CN": "专为 Vue 3 SFC 单文件组件打造的官方智能感知服务，支持 TS 深度类型推断与模板语法校验",
-      "zh-Hant": "專為 Vue 3 SFC 單文件組件打造的官方智能感知服務，支持 TS 深度類型推斷與模板語法校驗",
+      "zh-CN":
+        "专为 Vue 3 SFC 单文件组件打造的官方智能感知服务，支持 TS 深度类型推断与模板语法校验",
+      "zh-Hant":
+        "專為 Vue 3 SFC 單文件組件打造的官方智能感知服務，支持 TS 深度類型推斷與模板語法校驗",
       en: "Official Vue language server for Single File Components (SFC) and TypeScript template validation",
     },
     languages: ["vue"],
@@ -522,13 +550,18 @@ async function packageVueLsp() {
 
   const archiveBytes = zipStore([
     ["manifest.json", Buffer.from(JSON.stringify(manifest, null, 2), "utf8")],
-    ["dist/vue-server.cjs", Buffer.from("// Aurona Vue Language Server Bridge\nprocess.stdin.resume();\n", "utf8")],
+    [
+      "dist/vue-server.cjs",
+      Buffer.from("// Aurona Vue Language Server Bridge\nprocess.stdin.resume();\n", "utf8"),
+    ],
     ["LICENSE", Buffer.from("MIT License\n", "utf8")],
   ]);
 
   const targetPath = join(outputDir, "auronalabs.lsp-vue.aurlsp");
   writeFileSync(targetPath, archiveBytes);
-  console.log(`✅ 已生成 Vue 官方 LSP 包: ${targetPath} (${(archiveBytes.length / 1024).toFixed(1)} KiB)`);
+  console.log(
+    `✅ 已生成 Vue 官方 LSP 包: ${targetPath} (${(archiveBytes.length / 1024).toFixed(1)} KiB)`,
+  );
 }
 
 // 8. 官方共享 Node.js 运行时
@@ -571,7 +604,9 @@ async function packageSharedNodeRuntime() {
   const targetPath = join(outputDir, "auronalabs.runtime-node.zip");
   mkdirSync(outputDir, { recursive: true });
   writeFileSync(targetPath, archiveBytes);
-  console.log(`✅ 已生成共享 Node 运行时包: ${targetPath} (${(archiveBytes.length / (1024 * 1024)).toFixed(2)} MiB)`);
+  console.log(
+    `✅ 已生成共享 Node 运行时包: ${targetPath} (${(archiveBytes.length / (1024 * 1024)).toFixed(2)} MiB)`,
+  );
 }
 
 async function main() {

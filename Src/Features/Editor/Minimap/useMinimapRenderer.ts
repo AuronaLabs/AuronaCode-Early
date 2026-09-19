@@ -16,17 +16,31 @@ export interface UseMinimapRendererProps {
 const MINIMAP_LINE_HEIGHT = 2; // Minimap 每行渲染高度为 2px
 const MINIMAP_CHAR_WIDTH = 1.2; // 每个字符在 Minimap 上的压缩宽度为 1.2px
 
-const TOKEN_COLORS: Record<number, string> = {
-  1: "#c084fc", // Keyword
-  2: "#4ade80", // String
-  3: "#f59e0b", // Number
-  4: "#60a5fa", // Function
-  5: "#e2e8f0", // Variable
-  6: "#64748b", // Comment
-  7: "#94a3b8", // Operator
-  8: "#38bdf8", // Builtin
-  9: "#2dd4bf", // TypeHint
+/** token 类型 → 语法色 CSS 变量（唯一事实源是 Theme.css 的 --Syntax*，杜绝双源漂移） */
+const TOKEN_COLOR_VARS: Record<number, { variable: string; fallback: string }> = {
+  1: { variable: "--SyntaxKeyword", fallback: "#c084fc" },
+  2: { variable: "--SyntaxString", fallback: "#98c379" },
+  3: { variable: "--SyntaxNumber", fallback: "#38bdf8" },
+  4: { variable: "--SyntaxFunction", fallback: "#c084fc" },
+  5: { variable: "--SyntaxVariable", fallback: "#e0af68" },
+  6: { variable: "--SyntaxComment", fallback: "#64748b" },
+  7: { variable: "--SyntaxOperator", fallback: "#94a3b8" },
+  8: { variable: "--SyntaxBuiltin", fallback: "#56b6c2" },
+  9: { variable: "--SyntaxTypeHint", fallback: "#7aa2f7" },
 };
+
+const DEFAULT_MINIMAP_COLOR = "#94a3b8";
+
+/** 从文档根节点解析当前主题下的语法色（浅/深色与强调色切换后随渲染自动刷新） */
+function resolveTokenColors(): Record<number, string> {
+  const style = getComputedStyle(document.documentElement);
+  const colors: Record<number, string> = {};
+  for (const [type, spec] of Object.entries(TOKEN_COLOR_VARS)) {
+    const value = style.getPropertyValue(spec.variable).trim();
+    colors[Number(type)] = value || spec.fallback;
+  }
+  return colors;
+}
 
 export function useMinimapRenderer({
   documentLines,
@@ -77,6 +91,7 @@ export function useMinimapRenderer({
     ctx.clearRect(0, 0, width, height);
 
     // 绘制代码文本像素点阵
+    const tokenColors = resolveTokenColors();
     const lineCount = Math.min(totalLines, documentLines.length);
     for (let l = 0; l < lineCount; l++) {
       const lineText = documentLines[l];
@@ -95,7 +110,7 @@ export function useMinimapRenderer({
           const len = tokens[i + 1];
           const tokenType = tokens[i + 2];
 
-          ctx.fillStyle = TOKEN_COLORS[tokenType] || "#94a3b8";
+          ctx.fillStyle = tokenColors[tokenType] || DEFAULT_MINIMAP_COLOR;
           const x = 4 + offset * MINIMAP_CHAR_WIDTH;
           const w = Math.max(1, len * MINIMAP_CHAR_WIDTH);
           ctx.fillRect(x, y, w, MINIMAP_LINE_HEIGHT - 0.5);

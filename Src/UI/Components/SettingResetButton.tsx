@@ -8,7 +8,7 @@ export function SettingResetButton({ label, onReset }: { label: string; onReset:
         type="button"
         aria-label={label}
         onClick={onReset}
-        className="shrink-0 rounded-full p-1 text-[var(--color-text-muted)] opacity-60 transition-opacity hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] hover:opacity-100"
+        className="shrink-0 rounded-full p-1 text-[var(--color-text-muted)] opacity-40 transition-opacity hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] hover:opacity-100"
       >
         <Icons.Refresh size={12} />
       </button>

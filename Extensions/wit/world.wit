@@ -71,6 +71,13 @@ interface context {
     date: string,
   }
 
+  record quick-pick-item {
+    id: string,
+    label: string,
+    detail: option<string>,
+    icon: option<string>,
+  }
+
   enum permission-state {
     unknown,
     granted,
@@ -190,6 +197,31 @@ interface context {
 
   /// Displays an interactive modal confirmation dialog with the user.
   show-dialog-confirm: func(title: string, message: string) -> result<bool, string>;
+
+  /// SDK v1 增量（0.4.6）：以下方法为纯增量扩展，旧扩展组件不受影响。
+
+  /// Reads up to `length` UTF-8-safe characters of a workspace file starting
+  /// at byte `offset` when `workspace.read` is granted. Enables chunked reads
+  /// of large files without loading them entirely into memory.
+  read-workspace-range: func(path: string, offset: u64, length: u32) -> result<string, string>;
+
+  /// Returns metadata (name / size / is-directory) for a workspace-relative
+  /// path when `workspace.read` is granted.
+  get-workspace-file-metadata: func(path: string) -> result<file-entry, string>;
+
+  /// Shows a single-line text input modal. Resolves with the user's input, or
+  /// none when the dialog is cancelled. Blocks the caller until the user acts
+  /// or the host timeout expires.
+  show-input-box: func(title: string, placeholder: string) -> result<option<string>, string>;
+
+  /// Shows a quick-pick list modal. Resolves with the chosen item's id, or
+  /// none when the dialog is cancelled.
+  show-quick-pick: func(items: list<quick-pick-item>, title: string, placeholder: string) -> result<option<string>, string>;
+
+  /// Drains host-pushed events for this extension (document changes, saves,
+  /// workspace switches). Events are plain strings, most-recent last; each is
+  /// delivered exactly once. The queue is capped by the host.
+  poll-events: func() -> list<string>;
 }
 
 /// The extension's render contract.

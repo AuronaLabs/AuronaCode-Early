@@ -221,10 +221,12 @@ fn validate_manifest(manifest: &ExtensionManifest) -> Result<(), String> {
     {
         return Err("AURX manifest 缺少 id/name/publisher/version".to_string());
     }
+    // id 字符集：小写字母 / 数字 / 点（命名空间分隔）/ 连字符（如 aurona.vscode-compat）。
+    // 连字符此前被误拒，导致内置 VSCode 兼容层从未进入注册表（"兼容层未就绪"的根因）。
     if !manifest
         .id
         .chars()
-        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '.')
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '.' || c == '-')
         || !manifest.id.contains('.')
     {
         return Err(format!("AURX id 不合法: {}", manifest.id));
@@ -677,6 +679,17 @@ mod tests {
 
     fn valid_manifest() -> ExtensionManifest {
         valid_manifest_for_tests()
+    }
+
+    #[test]
+    fn manifest_id_allows_hyphen_segments() {
+        // 回归：aurona.vscode-compat 因连字符被误拒，导致兼容层从未进入注册表
+        let mut manifest = valid_manifest();
+        manifest.id = "aurona.vscode-compat".to_string();
+        assert!(validate_manifest(&manifest).is_ok());
+        let mut underscore_denied = valid_manifest();
+        underscore_denied.id = "aurona.vscode_compat".to_string();
+        assert!(validate_manifest(&underscore_denied).is_err());
     }
 
     fn pack(entries: &[(&str, &[u8])]) -> Vec<u8> {

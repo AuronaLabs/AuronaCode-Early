@@ -131,6 +131,27 @@ pub fn extensions_list(
     state.descriptors()
 }
 
+/// 扩展系统诊断：包加载失败列表、最近运行时失败与已安装清单。
+/// 用于「兼容层未就绪」「扩展无法启动」等问题的可视化排查（0.4.6）。
+#[tauri::command]
+pub fn extensions_get_diagnostics(
+    state: State<ExtensionState>,
+) -> super::registry::RegistryDiagnostics {
+    state.diagnostics()
+}
+
+/// 宿主请求-响应桥的前端应答回填（对话框/剪贴板/命令，0.4.6）。
+#[tauri::command]
+pub fn extensions_host_response(request_id: String, value: String) -> bool {
+    super::runtime::host_bridge_respond(&request_id, value)
+}
+
+/// 前端向扩展事件队列推送一条事件（文档变更等），扩展经 poll-events 拉取。
+#[tauri::command]
+pub fn extensions_push_event(extension_id: String, event: String) {
+    super::runtime::push_host_event(&extension_id, event);
+}
+
 #[tauri::command]
 pub fn extensions_install(
     app: tauri::AppHandle,
@@ -372,10 +393,13 @@ fn build_extension_context(
         .get("workspace.read")
         .copied()
         .unwrap_or(ContextPermissionState::Unknown);
-    if editor_read == ContextPermissionState::Denied
-        || workspace_read == ContextPermissionState::Denied
-    {
-        return Err("扩展需要权限: 权限已被拒绝".to_string());
+    if editor_read == ContextPermissionState::Denied {
+        return Err(
+            "[permission.denied:editor.current.read] 当前文档读取权限已被用户拒绝".to_string(),
+        );
+    }
+    if workspace_read == ContextPermissionState::Denied {
+        return Err("[permission.denied:workspace.read] 工作区读取权限已被用户拒绝".to_string());
     }
 
     let platform = if cfg!(target_os = "windows") {

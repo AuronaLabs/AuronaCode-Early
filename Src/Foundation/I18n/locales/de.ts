@@ -19,6 +19,18 @@ export const de: LocaleMessages = {
     accountHint:
       "Die Autorisierung erfolgt in deinem Systembrowser; die App sieht oder speichert niemals dein Passwort.",
     accountSkip: "Nicht jetzt",
+    prefTitle: "Editor-Einstellungen",
+    prefDesc:
+      "Wähle passende Schriftgröße, Zeilenhöhe und Glaswirkung. Die Standardwerte genügen – alles lässt sich später in den Einstellungen anpassen.",
+    prefFontSize: "Editor-Schriftgröße",
+    prefFontSmall: "Klein",
+    prefFontMedium: "Mittel",
+    prefFontLarge: "Groß",
+    prefLineHeight: "Zeilenhöhe",
+    prefLineHeightCompact: "Kompakt",
+    prefLineHeightDefault: "Standard",
+    prefLineHeightRelaxed: "Lockerer",
+    prefGlass: "Glasintensität",
     readyTitle: "Alles bereit",
     readyDesc: "Dein Arbeitsbereich ist mit deinen Einstellungen vorbereitet. Los geht's.",
     back: "Zurück",
@@ -42,6 +54,8 @@ export const de: LocaleMessages = {
     copy: "Kopieren",
     close: "Schließen",
     confirm: "Bestätigen",
+    input: "Eingabe",
+    select: "Auswählen",
     ok: "OK",
     save: "Speichern",
     scrollLeft: "Nach links scrollen",
@@ -271,6 +285,7 @@ export const de: LocaleMessages = {
     notifications: "Benachrichtigungen",
     settings: "Einstellungen",
     hideExtension: "Aus der Seitenleiste ausblenden",
+    ai: "KI-Assistent",
   },
   outline: {
     title: "Gliederung",
@@ -322,6 +337,7 @@ export const de: LocaleMessages = {
     loadingGit: "Quelltextverwaltung wird geladen…",
     loadingNotifications: "Benachrichtigungen werden geladen…",
     loadingDebug: "Debug wird geladen…",
+    loadingAiAssistant: "KI-Assistent wird geladen…",
     adjustSidebar: "Seitenleistenbreite anpassen",
     adjustBottomPanel: "Höhe des unteren Panels anpassen",
     outputSource: "Ausgabequelle",
@@ -734,6 +750,7 @@ export const de: LocaleMessages = {
       terminalRun: "Terminal & Ausführen",
       sourceControl: "Quelltextverwaltung",
       network: "Netzwerk",
+      ai: "KI-Assistent",
       accountCloud: "Aurona Account",
       extensions: "Erweiterungen",
       system: "Speicher",
@@ -769,6 +786,10 @@ export const de: LocaleMessages = {
       editorCodeFolding: {
         title: "Code-Folding-Engine",
         desc: "Einzugsbewusstes Code-Folding mit Chevrons und inline Platzhalter-Kapseln.",
+      },
+      editorTrueFolding: {
+        title: "Echtes Folding-Layout (Beta)",
+        desc: "Gefaltete Bereiche werden wirklich aus dem Layout entfernt und die Seitenhöhe schrumpft; Cursor und Scrollen bleiben synchron.",
       },
       editorSmoothCaret: {
         title: "Sanfte Cursor-Animation",
@@ -931,17 +952,14 @@ export const de: LocaleMessages = {
       marketplaceUnreachable:
         "Der Marketplace-Server konnte nicht erreicht werden. Bitte prüfe die URL",
       marketplaceConnectFailed: "Verbindung zum Marketplace-Server fehlgeschlagen",
-      vscodeCompatTitle: "VSCode-Kompatibilitätslaufzeit",
       builtinBadge: "Eingebaut",
-      vscodeCompatDescription:
-        "Stellt die vscode-API-Kompatibilitätslaufzeit für VSIX-Erweiterungen bereit. Sie gehört zu Aurona Code, ist in der Seitenleiste verborgen und kann nicht über den Marketplace deinstalliert werden.",
       vscodeCompatEnabledToast: "VSCode-Kompatibilitätslaufzeit aktiviert",
       vscodeCompatDisabledToast: "VSCode-Kompatibilitätslaufzeit deaktiviert",
-      vscodeTestTitle: "VSCode-Testerweiterungen",
+      vscodeTestTitle: "VSCode-kompatible Erweiterungen",
       vscodeTestDescription:
-        "Installiere das mitgelieferte offizielle Demo-Plugin mit einem Klick oder wähle eine lokale .vsix-Datei. Installierte Erweiterungen erscheinen in der Seitenleiste und können jederzeit deinstalliert werden.",
-      vscodeTestInstallDefault: "Standard-Testplugin installieren",
-      vscodeTestInstallLocal: "Lokale .vsix installieren…",
+        "Der VSCode-Kompatibilitätskern wird mit Aurona Code mitgeliefert und stellt der VSIX-Erweiterungen die vscode-API-Laufzeit bereit. Installiere das offizielle Demo-Plugin mit einem Klick oder importiere eine lokale .vsix-Datei, um den kompletten Ausführungspfad zu prüfen. Installierte Erweiterungen erscheinen in der Seitenleiste und können jederzeit deinstalliert werden.",
+      vscodeTestInstallDefault: "Demo-Plugin installieren",
+      vscodeTestInstallLocal: "VSCode-Erweiterung importieren & installieren…",
       vscodeTestInstalled: "{name} installiert",
       vscodeTestNotVsix: "Bitte wähle ein .vsix-Erweiterungspaket",
       vscodeTestUninstalled: "Erweiterung deinstalliert",
@@ -994,6 +1012,7 @@ export const de: LocaleMessages = {
       description:
         "Überwache und bereinige den von Aurona Code verwendeten Festplattenplatz nach echten Verzeichnissen",
       localDataUsed: "lokale Daten belegt",
+      reclaimPercent: "Entfernbar",
       appDataDir: "App-lokales Datenverzeichnis",
       openAppDataDir: "Datenverzeichnis öffnen",
       note: "Die Einträge oben entsprechen echten Dateien und Ordnern im App-Datenverzeichnis; der WebView-Cache wird automatisch neu aufgebaut, während Konfiguration, Workspace-Status und Wiederherstellungsschnappschüsse Kern Daten sind – mit Vorsicht löschen",
@@ -1251,6 +1270,7 @@ export const de: LocaleMessages = {
     paste: "Einfügen",
     selectAll: "Alles auswählen",
     goToDefinition: "Zur Definition springen",
+    peekDefinition: "Definition einblenden",
     findReferences: "Alle Verweise suchen",
     formatDocument: "Dokument formatieren",
     rename: "Symbol umbenennen",
@@ -1378,6 +1398,12 @@ export const de: LocaleMessages = {
     denied: "Abgelehnt",
     revoke: "Widerrufen",
     renderError: "Vorschau-Rendering fehlgeschlagen",
+    errors: {
+      compatNotReady:
+        "Die VSCode-Kompatibilitätsschicht ist nicht bereit; diese Erweiterung kann nicht starten",
+      permissionDenied:
+        "Berechtigung „{permission}“ wurde verweigert. In den Einstellungen erneut erteilen.",
+    },
     noEditor: "Öffne ein Markdown-Dokument, um es hier in der Vorschau zu sehen",
     noActiveEditor: "Kein aktives Dokument",
     nonMarkdownFile: "Kein Markdown-Dokument",
@@ -1497,6 +1523,55 @@ export const de: LocaleMessages = {
     dependencyTitle: "Erforderliche Abhängigkeit",
     confirmInstall: "Mit Abhängigkeit installieren",
     sectionLoadFailed: "Dieser Abschnitt konnte nicht geladen werden.",
+  },
+  ai: {
+    title: "KI-Assistent",
+    inputPlaceholder: "Nachricht eingeben — Enter senden, Shift+Enter für neue Zeile",
+    send: "Senden",
+    stop: "Stoppen",
+    clear: "Unterhaltung löschen",
+    localNote:
+      "Unterhaltungen bleiben auf diesem Gerät; der API-Schlüssel wird nur lokal gespeichert, keine Telemetrie",
+    notConfiguredTitle: "KI-Dienst nicht konfiguriert",
+    notConfiguredHint:
+      "Hinterlege Anbieter-URL und API-Schlüssel in den Einstellungen, um zu chatten",
+    goSettings: "Einstellungen öffnen",
+    welcomeTitle: "Neue Unterhaltung starten",
+    welcomeHint: "Frag die KI alles — Antworten erscheinen in Echtzeit als Stream",
+    quickPrompt1: "Erkläre die Wirkung eines Codeabschnitts in einfacher Sprache",
+    quickPrompt2: "Hilf mir, die Formulierung eines Satzes zu verbessern",
+    quickPrompt3: "Übersetze einen Text ins Englische",
+    errorNotConfigured:
+      "KI-Dienst ist nicht konfiguriert. API-URL und API-Schlüssel in den Einstellungen hinterlegen",
+    errorModelMissing: "Kein Modellname festgelegt. Bitte in den Einstellungen ergänzen",
+    errorConnect:
+      "Verbindung fehlgeschlagen: Dienst-URL nicht erreichbar. API-URL oder Proxy prüfen",
+    errorAuth:
+      "Authentifizierung fehlgeschlagen: API-Schlüssel ungültig oder ohne Berechtigung (401/403)",
+    errorRateLimit: "Rate-Limit (429): Zu viele Anfragen. Bitte später erneut versuchen",
+    errorTimeout: "Zeitüberschreitung: keine Antwort innerhalb von 120 Sekunden",
+    errorGeneric: "Anfrage fehlgeschlagen: {message}",
+    errorUnavailable: "Der KI-Dienst ist derzeit nicht verfügbar",
+    settingsDescription:
+      "OpenAI-kompatiblen Streaming-Chatdienst konfigurieren; Einstellungen bleiben lokal",
+    settingsEnabledTitle: "KI-Karte in der Seitenleiste aktivieren",
+    settingsEnabledDesc: "KI-Assistent-Eintrag in der Aktivitätsleiste anzeigen",
+    settingsProviderTitle: "Anbieter",
+    settingsProviderDesc:
+      "Voreingestellten Anbieter wählen oder benutzerdefinierte API-URL verwenden",
+    providerOpenai: "OpenAI",
+    providerDeepseek: "DeepSeek",
+    providerOpenrouter: "OpenRouter",
+    providerCustom: "Benutzerdefiniert",
+    settingsBaseUrlTitle: "API-URL",
+    settingsBaseUrlDesc: "OpenAI-kompatibler Chat-Completions-Endpunkt",
+    settingsApiKeyTitle: "API-Schlüssel",
+    settingsApiKeyDesc: "Wird nur lokal in der Benutzerkonfiguration gespeichert, nie hochgeladen",
+    settingsApiKeyPlaceholder: "sk-…",
+    settingsModelTitle: "Modellname",
+    settingsModelDesc: "z. B. gpt-4o-mini / deepseek-chat",
+    settingsPrivacyNote:
+      "Privatsphäre zuerst: Chatinhalte werden nur an den konfigurierten Anbieter gesendet. Aurona sammelt keine Telemetrie.",
   },
   commandCategories: {
     file: "Datei",

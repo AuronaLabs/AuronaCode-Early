@@ -72,6 +72,26 @@ export interface NetworkPreferences {
   proxyUrl?: string;
 }
 
+/** 外观段偏好：新外观设置的持久化入口 */
+export interface AppearancePreferences {
+  /** Aurona 玻璃强度连续值 0-100（0 轻透 / 50 均衡 / 100 醇厚锚点，松手提交时写入） */
+  glassIntensity?: number;
+}
+
+/** 0.4.6 批次 5：AI 助手偏好（纯聊天；API Key 仅存本地 UserConfig，零遥测） */
+export interface AiPreferences {
+  /** 是否在侧边栏启用 AI 助手卡片 */
+  enabled?: boolean;
+  /** 服务商预设：custom 时 baseUrl 手工填写 */
+  provider?: "openai" | "deepseek" | "openrouter" | "custom";
+  /** OpenAI 兼容 Chat Completions 接口地址 */
+  baseUrl?: string;
+  /** API Key（仅本机存储） */
+  apiKey?: string;
+  /** 模型名称 */
+  model?: string;
+}
+
 export interface UserConfig {
   theme?: "light" | "dark" | "system";
   accentTheme?: AccentThemeId;
@@ -113,4 +133,6 @@ export interface UserConfig {
   cleanup?: CleanupPreferences;
   windowState?: WindowStatePreferences;
   network?: NetworkPreferences;
+  appearance?: AppearancePreferences;
+  ai?: AiPreferences;
 }

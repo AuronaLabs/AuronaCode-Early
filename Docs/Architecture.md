@@ -1,5 +1,16 @@
 # Aurona Code 核心架构指南 (Corona+ Architecture Specification)
 
+## V0.4.6 性能与生态篇
+
+V0.4.6 聚焦「SDK 增量扩充、扩展可靠性与编辑器性能」：扩展兼容层修复与授权链路结构化、SDK 合约版本保持 1 的纯增量扩充、编辑器行级增量渲染与真实折叠（Beta）、AI 侧边栏（纯聊天）。
+
+- **扩展可靠性**：`load_directory` 单包容错（失败进 `RegistryDiagnostics`，IPC `extensions_get_diagnostics` 可拉取）；`runtime_for`/安装自检返回 `[compat.*]` 结构化错误码，前端 `parseExtensionError` 映射 i18n；权限错误统一 `[permission.required:<perm>]` / `[permission.denied:<perm>]`，前端通用 `ExtensionPermissionPrompt` 弹窗并自动重渲染；假 watch 下线为显式 `unsupported`。
+- **SDK v1 增量**（合约版本不变）：`read-workspace-range`（256KB 分块）/ `get-workspace-file-metadata` / `show-input-box` / `show-quick-pick` / `poll-events`；confirm / clipboard / execute-command 经宿主↔前端请求-响应桥（`extension://host-request` + `extensions_host_response`，超时保护）真实化；`clipboard.access` 权限开放；状态消息与通知走真实 UI。
+- **编辑器增量渲染**：搜索匹配按行 Map 预计算、诊断按 (line:length) 缓存、行事件处理器 latest-ref 恒定引用、高亮 worker 未变行引用稳定化——打字只重绘 1-2 行。
+- **真实折叠（editor.trueFolding Beta）**：`FoldingLineMap` 可视空间进入视口与渲染循环（visual↔real 双向映射），内容高度/光标/多光标层/括号引导线/补全锚点/scrollToLine/minimap 全坐标适配；折叠胶囊显示隐藏行数；灰度可回退。
+- **功能靠齐**：Peek 定义（`editor.action.peekDefinition`，Alt+F12，内嵌浮窗）；补全详情栏 Markdown 渲染；右键菜单收窄 w-52 并分组语言命令；smoothCaret flag 接线；彩虹括号 6 色接入 `--EditorBracket*` 主题变量；深色语法色板重调（泛白 token 修正）+ Minimap 改读 CSS 变量。
+- **AI 侧边栏（纯聊天）**：OpenAI 兼容协议经 Rust `ai_chat` 流式代理（SSE → `ai://chat-delta` 事件），走 `network::configure_client` 全局代理客户端；密钥仅存本地 UserConfig；会话历史 localStorage 持久化；内置卡片经 SidebarCardRegistry 收敛声明。
+
 ## V0.4.5 设计篇：玻璃染色 / 徽章体系 / 排版统一
 
 V0.4.5 设计篇聚焦「玻璃语言全面落地与不统一感大扫除」：品牌化改名补课、Slider 玻璃化重做、浮层材质查漏、通知玻璃染色、徽章体系统一、主题色卡玻璃染色、设置行规格统一、空间管理单卡总览、Git Diff 推翻重做与硬编码色清零。

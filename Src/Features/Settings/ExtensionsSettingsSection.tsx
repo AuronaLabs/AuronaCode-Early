@@ -517,98 +517,81 @@ export function ExtensionsSettingsSection() {
         </div>
       </Card>
 
-      {/* 2. VSCode 兼容内核：内置运行时，不作为侧边栏扩展 */}
-      <Card className="flex items-center justify-between gap-4 p-5">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
-            <Icons.FileCode size={17} />
-          </span>
-          <div className="flex min-w-0 flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[14px] font-bold text-[var(--color-text-highlight)]">
-                {t("settings.extensionsSettings.vscodeCompatTitle")}
-              </span>
-              <Badge variant="neutral">{t("settings.extensionsSettings.builtinBadge")}</Badge>
-            </div>
-            <span className="text-[11.5px] leading-relaxed text-[var(--color-text-muted)]">
-              {t("settings.extensionsSettings.vscodeCompatDescription")}
+      {/* 2. VSCode 兼容插件：兼容内核开关 + Demo/本地 .vsix 安装融合为一张卡（0.4.6） */}
+      <Card className={`flex flex-col gap-3 p-5 ${vscodeCompatEnabled ? "" : "opacity-60"}`}>
+        <div className="flex min-w-0 items-start justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
+              <Icons.FileCode size={17} />
             </span>
-          </div>
-        </div>
-        <Switch checked={vscodeCompatEnabled} onCheckedChange={handleVscodeCompatToggle} />
-      </Card>
-
-      {/* 2.5 VSCode 测试插件：随包内置 demo 一键装载 + 本地 .vsix 安装（§5.5/§5.7） */}
-      <Card
-        className={`flex flex-col gap-3 p-5 ${
-          vscodeCompatEnabled ? "" : "pointer-events-none opacity-50"
-        }`}
-      >
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
-            <Icons.Sparkles size={17} />
-          </span>
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-[14px] font-bold text-[var(--color-text-highlight)]">
-              {t("settings.extensionsSettings.vscodeTestTitle")}
-            </span>
-            <span className="text-[11.5px] leading-relaxed text-[var(--color-text-muted)]">
-              {t("settings.extensionsSettings.vscodeTestDescription")}
-            </span>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={!vscodeCompatEnabled || isInstallingVsix}
-            onClick={() => void handleInstallDefaultVsix()}
-            className="h-7 px-3 text-[11.5px]"
-          >
-            {t("settings.extensionsSettings.vscodeTestInstallDefault")}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={!vscodeCompatEnabled || isInstallingVsix}
-            onClick={() => void handleInstallLocalVsix()}
-            className="h-7 px-3 text-[11.5px]"
-          >
-            {t("settings.extensionsSettings.vscodeTestInstallLocal")}
-          </Button>
-        </div>
-
-        {vscodeTestExtensions.length > 0 && (
-          <div className="flex flex-col gap-1.5 border-t border-[var(--border-subtle)] pt-3">
-            {vscodeTestExtensions.map((desc) => (
-              <div
-                key={desc.id}
-                className="flex items-center justify-between gap-3 rounded-lg bg-[var(--color-surface-2)]/60 px-3 py-2"
-              >
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-[12.5px] font-medium text-[var(--color-text-primary)]">
-                    {resolveExtensionName(desc, locale) || desc.name}
-                    <span className="ml-2 font-mono text-[10.5px] text-[var(--color-text-muted)]">
-                      v{desc.version}
-                    </span>
-                  </span>
-                  <span className="truncate font-mono text-[10.5px] text-[var(--color-text-muted)]">
-                    {desc.id}
-                  </span>
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 shrink-0 px-2 text-[10.5px] text-[var(--color-text-muted)] hover:text-[var(--StatusError)]"
-                  onClick={() => void handleUninstallTestExtension(desc.id)}
-                >
-                  <Icons.Trash size={12} className="mr-1 inline" />
-                  {t("settings.extensionsSettings.vscodeTestUninstall")}
-                </Button>
+            <div className="flex min-w-0 flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[14px] font-bold text-[var(--color-text-highlight)]">
+                  {t("settings.extensionsSettings.vscodeTestTitle")}
+                </span>
+                <Badge variant="neutral">{t("settings.extensionsSettings.builtinBadge")}</Badge>
               </div>
-            ))}
+              <span className="text-[11.5px] leading-relaxed text-[var(--color-text-muted)]">
+                {t("settings.extensionsSettings.vscodeTestDescription")}
+              </span>
+            </div>
           </div>
-        )}
+          <Switch checked={vscodeCompatEnabled} onCheckedChange={handleVscodeCompatToggle} />
+        </div>
+        <div className={`flex flex-col gap-3 ${vscodeCompatEnabled ? "" : "pointer-events-none"}`}>
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!vscodeCompatEnabled || isInstallingVsix}
+              onClick={() => void handleInstallDefaultVsix()}
+              className="h-7 px-3 text-[11.5px]"
+            >
+              {t("settings.extensionsSettings.vscodeTestInstallDefault")}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!vscodeCompatEnabled || isInstallingVsix}
+              onClick={() => void handleInstallLocalVsix()}
+              className="h-7 px-3 text-[11.5px]"
+            >
+              {t("settings.extensionsSettings.vscodeTestInstallLocal")}
+            </Button>
+          </div>
+
+          {vscodeTestExtensions.length > 0 && (
+            <div className="flex flex-col gap-1.5 border-t border-[var(--border-subtle)] pt-3">
+              {vscodeTestExtensions.map((desc) => (
+                <div
+                  key={desc.id}
+                  className="flex items-center justify-between gap-3 rounded-lg bg-[var(--color-surface-2)]/60 px-3 py-2"
+                >
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-[12.5px] font-medium text-[var(--color-text-primary)]">
+                      {resolveExtensionName(desc, locale) || desc.name}
+                      <span className="ml-2 font-mono text-[10.5px] text-[var(--color-text-muted)]">
+                        v{desc.version}
+                      </span>
+                    </span>
+                    <span className="truncate font-mono text-[10.5px] text-[var(--color-text-muted)]">
+                      {desc.id}
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 shrink-0 px-2 text-[10.5px] text-[var(--color-text-muted)] hover:text-[var(--StatusError)]"
+                    onClick={() => void handleUninstallTestExtension(desc.id)}
+                  >
+                    <Icons.Trash size={12} className="mr-1 inline" />
+                    {t("settings.extensionsSettings.vscodeTestUninstall")}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </Card>
 
       {/* 3. 已安装扩展的独立权限矩阵 */}

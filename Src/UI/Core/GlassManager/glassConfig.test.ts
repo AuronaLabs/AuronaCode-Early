@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { DARK_GLASS_PRESETS, getGlassPreset, LIGHT_GLASS_PRESETS } from "./glassConfig";
+import {
+  DARK_GLASS_PRESETS,
+  getGlassPreset,
+  LIGHT_GLASS_PRESETS,
+  legacyGlassIntensityToNumber,
+  lerpGlassPreset,
+  resolveContinuousPreset,
+} from "./glassConfig";
 
 describe("glass intensity profiles", () => {
   it("adds a softer light profile and shifts the existing profiles upward", () => {
@@ -88,5 +95,44 @@ describe("glass intensity profiles", () => {
         );
       }
     }
+  });
+});
+
+describe("continuous glass intensity (0-100)", () => {
+  it("keeps the three tiers as exact anchors of the continuous range", () => {
+    expect(resolveContinuousPreset(0, "light")).toEqual(LIGHT_GLASS_PRESETS.light);
+    expect(resolveContinuousPreset(50, "light")).toEqual(LIGHT_GLASS_PRESETS.medium);
+    expect(resolveContinuousPreset(100, "light")).toEqual(LIGHT_GLASS_PRESETS.heavy);
+    expect(resolveContinuousPreset(0, "dark")).toEqual(DARK_GLASS_PRESETS.light);
+    expect(resolveContinuousPreset(50, "dark")).toEqual(DARK_GLASS_PRESETS.medium);
+    expect(resolveContinuousPreset(100, "dark")).toEqual(DARK_GLASS_PRESETS.heavy);
+  });
+
+  it("lerps every axis monotonically between adjacent anchors", () => {
+    const mid = resolveContinuousPreset(25, "light");
+    expect(mid.base).toBe("3px");
+    expect(mid.rimStrength).toBe("0.775");
+    expect(Number(mid.saturation)).toBeGreaterThan(Number(LIGHT_GLASS_PRESETS.light.saturation));
+    expect(Number(mid.saturation)).toBeLessThan(Number(LIGHT_GLASS_PRESETS.medium.saturation));
+    // lerp 端点与钳制
+    expect(lerpGlassPreset(LIGHT_GLASS_PRESETS.light, LIGHT_GLASS_PRESETS.medium, -1)).toEqual(
+      LIGHT_GLASS_PRESETS.light,
+    );
+    expect(lerpGlassPreset(LIGHT_GLASS_PRESETS.light, LIGHT_GLASS_PRESETS.medium, 2)).toEqual(
+      LIGHT_GLASS_PRESETS.medium,
+    );
+  });
+
+  it("clamps out-of-range intensities to the anchor presets", () => {
+    expect(resolveContinuousPreset(-5, "light")).toEqual(LIGHT_GLASS_PRESETS.light);
+    expect(resolveContinuousPreset(150, "dark")).toEqual(DARK_GLASS_PRESETS.heavy);
+  });
+
+  it("migrates legacy tier strings to the 0-100 scale", () => {
+    expect(legacyGlassIntensityToNumber("light")).toBe(0);
+    expect(legacyGlassIntensityToNumber("medium")).toBe(50);
+    expect(legacyGlassIntensityToNumber("balanced")).toBe(50);
+    expect(legacyGlassIntensityToNumber("heavy")).toBe(100);
+    expect(legacyGlassIntensityToNumber("rich")).toBe(100);
   });
 });

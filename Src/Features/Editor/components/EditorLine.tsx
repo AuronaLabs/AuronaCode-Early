@@ -40,6 +40,8 @@ interface EditorLineProps {
   compositionChar: number;
   layout: EditorLayoutMetrics;
   isFoldedStart?: boolean;
+  /** 真实折叠：该折叠块隐藏的行数（折叠胶囊计数） */
+  foldedHiddenCount?: number;
   onToggleFold?: (line: number) => void;
   occurrences?: OccurrenceMatch[];
 }
@@ -67,6 +69,7 @@ export const EditorLine = React.memo(function EditorLine({
   compositionChar,
   layout,
   isFoldedStart,
+  foldedHiddenCount,
   onToggleFold,
   occurrences,
 }: EditorLineProps) {
@@ -297,7 +300,9 @@ export const EditorLine = React.memo(function EditorLine({
       </span>
 
       {/* 折叠省略号占位符 */}
-      {isFoldedStart && onToggleFold && <FoldedPlaceholder onClick={() => onToggleFold(idx)} />}
+      {isFoldedStart && onToggleFold && (
+        <FoldedPlaceholder onClick={() => onToggleFold(idx)} hiddenCount={foldedHiddenCount} />
+      )}
 
       {isCurrent && isComposing && compositionText && (
         <span

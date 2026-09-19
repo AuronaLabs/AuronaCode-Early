@@ -1,10 +1,10 @@
-﻿<div align="center">
+<div align="center">
   <img src="public/logo.png" alt="Aurona Code" width="104" />
   <h1>Aurona Code</h1>
   <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.5-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.6-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
@@ -16,7 +16,7 @@
 Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造轻量、克制且具触感美学的沉浸式编码工作台。
 
 > [!NOTE]
-> 当前版本为 **V0.4.5**（Stable 正式通道），包含设计篇与功能篇两个批次。设计篇让玻璃语言全面落地：品牌化改名补课（Aurona 玻璃强度 / Aurona 流光，六语言统一）、Slider 玻璃化重做（自由拖动、松手吸附）、浮层材质查漏与 overlay 档位调优、通知玻璃染色（iOS 26 liquid glass）、Badge 徽章体系、主题色卡玻璃染色重做、设置行规格全分区统一、空间管理单卡总览、Git Diff 推翻重做与硬编码色清零。功能篇补齐顺手与可靠：Git gutter hunk 浮层、状态栏 LSP 友好提示、市场下载统一走代理客户端、危险清理二次确认。
+> 当前版本为 **V0.4.6**（性能与生态篇）。扩展 SDK 在合约版本保持 1 的前提下增量扩充（分块读、交互桥、剪贴板与命令真实化）；VSCode 兼容层可靠修复（坏包隔离、结构化错误码、安装自检）；编辑器落地增量渲染与真实折叠（Beta），新增 Peek 定义、补全文档气泡与右键语言菜单；深色高亮泛白全面修正。设计收尾：Slider 随心调节（玻璃强度 0-100 连续 + 三档锚点）、玻璃染色光晕化、流光增强、主题色卡液态描边、OOBE 重做（主题预览隔离 + 编辑器偏好步骤）、空间管理重排；并新增 AI 侧边栏（可用的纯聊天，OpenAI 兼容协议，密钥仅存本地）。
 
 ---
 
@@ -119,8 +119,8 @@ pnpm run format         # 自动格式化前端代码 (Biome)
 pnpm run typecheck      # TypeScript 类型检查
 pnpm run lint           # Biome 代码规范检查
 pnpm run smoke          # 发布元数据烟雾检查
-pnpm run test:frontend  # 运行前端 Vitest 单元测试 (269 项)
-pnpm run test:rust      # 运行 Rust 核心单元测试 (104 项)
+pnpm run test:frontend  # 运行前端 Vitest 单元测试 (273 项)
+pnpm run test:rust      # 运行 Rust 核心单元测试 (111 项)
 ```
 
 ---

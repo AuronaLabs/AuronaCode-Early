@@ -212,6 +212,26 @@ export function registerWorkbenchCommands(): () => void {
       },
     }),
     CommandRegistry.register({
+      id: "editor.action.peekDefinition",
+      title: "速览定义",
+      titleKey: "commands.peekDefinition",
+      category: "语言服务",
+      categoryKey: "commandCategories.language",
+      source: "core",
+      keybindings: [{ key: "F12", alt: true }],
+      canExecute: languageFeatureAvailable("definition"),
+      disabledReason: languageFeatureReason("definition"),
+      handler: async (_args, current) => {
+        const location = activeLanguageLocation(current);
+        await LanguageFeatureService.peekDefinition(
+          location.path,
+          location.language,
+          location.line,
+          location.character,
+        );
+      },
+    }),
+    CommandRegistry.register({
       id: "editor.action.findReferences",
       title: "查找所有引用",
       titleKey: "commands.findReferences",

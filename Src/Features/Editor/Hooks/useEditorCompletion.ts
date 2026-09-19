@@ -25,6 +25,8 @@ export interface UseEditorCompletionParams {
     nextCursor: { line: number; char: number },
     nextSelection?: SelectionRangeLike | null,
   ) => void;
+  /** 真实行 → 可视行转换（真实折叠启用时由引擎传入，用于候选锚点 Y） */
+  toVisualLine?: (line: number) => number;
   /** 经 ref 注入：useEditorCommit 在本 hook 之前装配，需要延迟绑定的补全触发器 */
   triggerAutocompleteRef: RefObject<TriggerAutocomplete>;
 }
@@ -45,6 +47,7 @@ export function useEditorCompletion({
   documentLines,
   cursor,
   replaceDocumentLines,
+  toVisualLine,
   triggerAutocompleteRef,
 }: UseEditorCompletionParams) {
   const isDraggingPointerRef = useRef(false);
@@ -66,14 +69,25 @@ export function useEditorCompletion({
 
   const singleCharWidth = useMemo(() => measureEditorText("M", layout), [layout]);
   // 候选框锚点：按实际前缀文本测量，宽字符/CJK 不再漂移（textarea 代理与补全面板共用）
+  // 真实折叠启用时 Y 按可视行计算
   const caretPos = useMemo(
     () => ({
       x:
         layout.contentInsetX +
         measureEditorText((documentLines[cursor.line] || "").substring(0, cursor.char), layout),
-      y: layout.contentInsetTop + cursor.line * layout.lineHeight,
+      y:
+        layout.contentInsetTop +
+        (toVisualLine ? toVisualLine(cursor.line) : cursor.line) * layout.lineHeight,
     }),
-    [cursor.char, cursor.line, documentLines, layout.contentInsetTop, layout.contentInsetX, layout],
+    [
+      cursor.char,
+      cursor.line,
+      documentLines,
+      layout.contentInsetTop,
+      layout.contentInsetX,
+      layout,
+      toVisualLine,
+    ],
   );
 
   const {

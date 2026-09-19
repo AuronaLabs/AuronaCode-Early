@@ -3,6 +3,10 @@ import type { EditorLayoutMetrics } from "../Utils/EditorLayoutMetrics";
 
 export interface UseEditorViewportProps {
   totalLines: number;
+  /** 真实折叠启用时的可视行总数（未折叠 = totalLines），虚拟化按可视空间计算 */
+  visibleLineCount?: number;
+  /** 真实行 → 可视行转换（滚动定位用）；未启用折叠可省略 */
+  toVisualLine?: (line: number) => number;
   layout: EditorLayoutMetrics;
   containerRef: React.RefObject<HTMLDivElement | null>;
   overscan?: number;
@@ -22,6 +26,8 @@ export interface EditorViewportState {
 
 export function useEditorViewport({
   totalLines,
+  visibleLineCount,
+  toVisualLine,
   layout,
   containerRef,
   overscan = 5,
@@ -81,7 +87,8 @@ export function useEditorViewport({
     };
   }, []);
 
-  // 3. 虚拟行视口与缓冲行计算
+  // 3. 虚拟行视口与缓冲行计算（可视空间；折叠启用时 = 折叠后行数）
+  const layoutLineCount = visibleLineCount ?? totalLines;
   const rawStartIndex = Math.floor(
     Math.max(0, scrollTop - layout.contentInsetTop) / layout.lineHeight,
   );
@@ -90,18 +97,19 @@ export function useEditorViewport({
   );
 
   const visibleStartIndex = Math.max(0, rawStartIndex - overscan);
-  const visibleEndIndex = Math.min(totalLines, rawEndIndex + overscan);
+  const visibleEndIndex = Math.min(layoutLineCount, rawEndIndex + overscan);
 
-  // Gutter 偏移量
+  // Gutter 偏移量（可视空间）
   const gutterOffsetY = visibleStartIndex * layout.lineHeight;
 
-  // 4. 滚动到指定行
+  // 4. 滚动到指定行（入参为真实行号，折叠启用时转换为可视行）
   const scrollToLine = useCallback(
     (lineIndex: number) => {
       const container = containerRef.current;
       if (!container) return;
 
-      const targetY = layout.contentInsetTop + lineIndex * layout.lineHeight;
+      const visualIndex = toVisualLine ? toVisualLine(lineIndex) : lineIndex;
+      const targetY = layout.contentInsetTop + visualIndex * layout.lineHeight;
       const currentScrollTop = container.scrollTop;
       const clientHeight = container.clientHeight;
 
@@ -111,7 +119,7 @@ export function useEditorViewport({
         container.scrollTop = targetY + layout.lineHeight - clientHeight;
       }
     },
-    [containerRef, layout.contentInsetTop, layout.lineHeight],
+    [containerRef, layout.contentInsetTop, layout.lineHeight, toVisualLine],
   );
 
   return {

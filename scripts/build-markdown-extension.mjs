@@ -134,7 +134,9 @@ function zipStore(entries) {
 function main() {
   if (!existsSync(join(guestDir, "Cargo.toml"))) {
     if (existsSync(outputPath)) {
-      console.log(`[build:markdown] 源码目录不在本工作区，但产物已存在 (${outputPath})，直接跳过构建。`);
+      console.log(
+        `[build:markdown] 源码目录不在本工作区，但产物已存在 (${outputPath})，直接跳过构建。`,
+      );
       return;
     }
   }
@@ -173,7 +175,8 @@ function main() {
     version: "0.1.2",
     engine: { auronaCode: ">=0.3.12" },
     permissions: ["editor.current.read"],
-    changelog: "v0.1.2: 适配全新非侵入式原地权限系统，升级三语国际化 (i18n)，全面提升大文档实时渲染性能。",
+    changelog:
+      "v0.1.2: 适配全新非侵入式原地权限系统，升级三语国际化 (i18n)，全面提升大文档实时渲染性能。",
     runtime: { component: "extension.wasm" },
     sidebar: {
       title: "Markdown",

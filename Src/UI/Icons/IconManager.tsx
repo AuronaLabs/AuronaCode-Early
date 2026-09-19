@@ -35,6 +35,7 @@ import IconDeviceDesktop from "@tabler/icons-react/dist/esm/icons/IconDeviceDesk
 import IconDeviceFloppy from "@tabler/icons-react/dist/esm/icons/IconDeviceFloppy.mjs";
 import IconDownload from "@tabler/icons-react/dist/esm/icons/IconDownload.mjs";
 import IconEraser from "@tabler/icons-react/dist/esm/icons/IconEraser.mjs";
+import IconEye from "@tabler/icons-react/dist/esm/icons/IconEye.mjs";
 import IconFile from "@tabler/icons-react/dist/esm/icons/IconFile.mjs";
 import IconFileCode from "@tabler/icons-react/dist/esm/icons/IconFileCode.mjs";
 import IconFilePlus from "@tabler/icons-react/dist/esm/icons/IconFilePlus.mjs";
@@ -142,6 +143,7 @@ export const Icons = {
 
   FileCode: IconFileCode,
   Code: IconFileCode,
+  Eye: IconEye,
   Save: IconDeviceFloppy,
 
   Github: IconBrandGithub,

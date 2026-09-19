@@ -3,6 +3,8 @@ import { RecoveryCoordinator } from "../Core/Recovery/RecoveryCoordinator";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EditorTabBar } from "../Features/Editor/EditorTabBar";
 import { startExtensionEditorBridge } from "../Features/Extensions/ExtensionEditorBridge";
+import { startExtensionHostBridge } from "../Features/Extensions/ExtensionHostBridge";
+import { ExtensionHostDialogs } from "../Features/Extensions/ExtensionHostDialogs";
 import { ExtensionSidebar } from "../Features/Extensions/ExtensionSidebar";
 import { ExtensionsPanel } from "../Features/Extensions/ExtensionsPanel";
 import { FliunoWorkspacePage } from "../Features/Fliuno/FliunoWorkspacePage";
@@ -17,6 +19,7 @@ import { useLocale } from "../Foundation/I18n";
 import type { TabItem } from "../Foundation/Types/Tab";
 import {
   extensionIdFromSidebar,
+  SIDEBAR_AI,
   SIDEBAR_DEBUG,
   SIDEBAR_EXPLORER,
   SIDEBAR_EXTENSIONS,
@@ -70,6 +73,12 @@ const DiffViewer = lazyChunk<DiffViewerProps>(() =>
 const MarketplaceDetailPage = lazyChunk<MarketplaceDetailPageProps>(() =>
   import("../Features/Extensions/Marketplace/MarketplaceDetailPage").then((m) => ({
     default: m.MarketplaceDetailPage,
+  })),
+);
+// 0.4.6 批次 5：AI 助手侧边栏卡片（按注册表声明挂载的新槽位）
+const AiAssistantPanel = lazyChunk<Record<string, never>>(() =>
+  import("../Features/AiAssistant/AiAssistantPanel").then((m) => ({
+    default: m.AiAssistantPanel,
   })),
 );
 
@@ -148,6 +157,14 @@ export function WorkspaceView() {
     };
   }, []);
 
+  // 扩展宿主桥（0.4.6）：剪贴板/命令/通知/状态消息的无头消费 + 对话框 UI 挂载
+  useEffect(() => {
+    const promise = startExtensionHostBridge();
+    return () => {
+      promise.then((dispose) => dispose()).catch(() => undefined);
+    };
+  }, []);
+
   useEffect(() => {
     if (currentExtId) {
       setMountedExtensions((prev) => {
@@ -163,6 +180,12 @@ export function WorkspaceView() {
   const [fliunoSidebarMounted, setFliunoSidebarMounted] = useState(false);
   useEffect(() => {
     if (activeSidebar === SIDEBAR_FLIUNO) setFliunoSidebarMounted(true);
+  }, [activeSidebar]);
+
+  // AI 助手侧栏面板：同样首次激活时挂载（0.4.6 批次 5）
+  const [aiSidebarMounted, setAiSidebarMounted] = useState(false);
+  useEffect(() => {
+    if (activeSidebar === SIDEBAR_AI) setAiSidebarMounted(true);
   }, [activeSidebar]);
 
   const workspaceRef = useRef<HTMLDivElement>(null);
@@ -196,6 +219,8 @@ export function WorkspaceView() {
       ref={workspaceRef}
       className="flex h-full w-full overflow-hidden bg-transparent pb-1 pl-0 pr-[var(--WorkspaceGap)] text-[13px]"
     >
+      {/* 扩展宿主对话框桥（confirm/input/quick-pick） */}
+      <ExtensionHostDialogs />
       {/* 侧边栏卡片 */}
       <Card
         className="z-10 flex shrink-0 flex-col"
@@ -294,6 +319,25 @@ export function WorkspaceView() {
             style={{ display: activeSidebar === SIDEBAR_FLIUNO ? "flex" : "none" }}
           >
             <FliunoWorkspacePage variant="sidebar" />
+          </div>
+        )}
+
+        {aiSidebarMounted && (
+          <div
+            className="flex flex-1 flex-col min-h-0"
+            style={{ display: activeSidebar === SIDEBAR_AI ? "flex" : "none" }}
+          >
+            <LazyChunkBoundary modulePath="Src/Features/AiAssistant/AiAssistantPanel.tsx">
+              <Suspense
+                fallback={
+                  <div className="p-4 text-[var(--color-text-muted)] text-xs">
+                    {t("workspace.loadingAiAssistant")}
+                  </div>
+                }
+              >
+                <AiAssistantPanel />
+              </Suspense>
+            </LazyChunkBoundary>
           </div>
         )}
 

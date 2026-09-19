@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { CompletionItem } from "../../../Foundation/Types/Lsp";
 
 import { cn } from "../../../Shared/Utils/cn";
+import { MarkdownRenderer } from "../../../UI/Components/MarkdownRenderer";
 import { glassVariants } from "../../../UI/Core/GlassManager/variants";
 import { positionEditorOverlay } from "../Utils/EditorOverlay";
 
@@ -131,10 +132,15 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
             <div className="mb-2 whitespace-pre-wrap break-all font-mono text-[12px] text-[var(--color-accent)]">
               {items[selectedIndex].detail}
             </div>
-            <div className="text-[12px] text-[var(--color-text-muted)] leading-relaxed whitespace-pre-wrap break-all">
-              {typeof items[selectedIndex].documentation === "string"
-                ? items[selectedIndex].documentation
-                : items[selectedIndex].documentation?.value}
+            {/* 文档气泡：Markdown 渲染（含代码块），LSP documentation 原生格式 */}
+            <div className="text-[12px] text-[var(--color-text-muted)] leading-relaxed break-words [&_code]:font-mono [&_code]:text-[11px] [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-[var(--border-subtle)] [&_pre]:bg-[var(--material-surface)] [&_pre]:p-2 [&_pre]:text-[11px] [&_pre]:leading-relaxed">
+              <MarkdownRenderer
+                content={
+                  typeof items[selectedIndex].documentation === "string"
+                    ? items[selectedIndex].documentation
+                    : (items[selectedIndex].documentation?.value ?? "")
+                }
+              />
             </div>
           </div>
         )}
