@@ -10,15 +10,17 @@ import {
   type FliunoCustomItem,
   type FliunoCustomProvider,
 } from "../../../Core/Fliuno/ExtensionFliunoRegistry";
-import { type OutputChannelId, OutputService } from "../../../Core/OutputService";
+import { OutputService } from "../../../Core/OutputService";
 import { StatusBarRegistry } from "../../../Core/StatusBar/StatusBarRegistry";
 import { CommandRegistry } from "../../../Extension/CommandRegistry";
 import { LocaleService } from "../../../Foundation/I18n";
+import { ExtensionIPC } from "../../../Foundation/IPC/ExtensionCommands";
 import { PlatformService } from "../../../Foundation/Platform";
 import type { TabItem } from "../../../Foundation/Types/Tab";
 import { GetLanguageFromPath } from "../../../Shared/Utils/LanguageUtils";
 import { useWorkbenchStore, type WorkbenchState } from "../../../State/useWorkspaceStore";
 import { showToast } from "../../../UI/Feedback/Toast";
+import { showSdkInputBox, showSdkQuickPick } from "./SdkHostDialogs";
 
 export type { FliunoCustomItem, FliunoCustomProvider };
 export { ExtensionFliunoRegistry };
@@ -410,14 +412,20 @@ export function createAuronaSDKHost(extensionId: string): AuronaSDK {
 
       async showQuickPick(
         items: string[] | QuickPickItem[],
-        _options?: QuickPickOptions,
+        options?: QuickPickOptions,
       ): Promise<string | QuickPickItem | undefined> {
-        if (!items || items.length === 0) return undefined;
-        return items[0];
+        const normalized = (items ?? []).map((item) =>
+          typeof item === "string" ? { label: item } : item,
+        );
+        if (normalized.length === 0) return undefined;
+        const picked = await showSdkQuickPick(extensionId, normalized, options);
+        if (!picked) return undefined;
+        // 字符串入参约定返回字符串，对象入参返回完整 QuickPickItem（与 VS Code 对齐）
+        return typeof items[0] === "string" ? picked.label : picked;
       },
 
       async showInputBox(options?: InputBoxOptions): Promise<string | undefined> {
-        return options?.value || "";
+        return showSdkInputBox(extensionId, options);
       },
 
       createStatusBarItem(options) {
@@ -458,14 +466,15 @@ export function createAuronaSDKHost(extensionId: string): AuronaSDK {
       },
 
       createOutputChannel(name: string): OutputChannel {
-        const channelId: OutputChannelId = "language-server";
+        // 扩展专属动态频道：ensureExtensionChannel 会归一化到 extension: 命名空间
+        const channelId = OutputService.ensureExtensionChannel(`${extensionId}.${name}`, name);
         return {
           name,
           append(value: string) {
-            OutputService.append(channelId, `[${name}] ${value}`, "info");
+            OutputService.append(channelId, value, "info");
           },
           appendLine(value: string) {
-            OutputService.append(channelId, `[${name}] ${value}`, "info");
+            OutputService.append(channelId, value, "info");
           },
           clear() {
             OutputService.clear(channelId);
@@ -474,7 +483,9 @@ export function createAuronaSDKHost(extensionId: string): AuronaSDK {
             useWorkbenchStore.getState().setActiveBottomPanel("output");
           },
           hide() {},
-          dispose() {},
+          dispose() {
+            // 频道历史保留在输出面板中，不做删除
+          },
         };
       },
     },
@@ -579,16 +590,35 @@ export function createAuronaSDKHost(extensionId: string): AuronaSDK {
     },
 
     permissions: {
-      async check(_permission: string): Promise<"granted" | "denied" | "unknown"> {
-        return "granted";
+      async check(permission: string): Promise<"granted" | "denied" | "unknown"> {
+        try {
+          const detail = await ExtensionIPC.getPermission(extensionId, permission);
+          return detail.state;
+        } catch {
+          // 后端不可用（如测试环境）时按未授权处理
+          return "unknown";
+        }
       },
 
-      async request(_permission: string, _options?: { prompt?: string }): Promise<boolean> {
-        return true;
+      async request(permission: string, _options?: { prompt?: string }): Promise<boolean> {
+        try {
+          const detail = await ExtensionIPC.getPermission(extensionId, permission);
+          if (detail.state === "granted") return true;
+          if (detail.state === "denied") return false;
+          // 未决定（unknown）时授予会话级权限，不影响持久授权记录
+          await ExtensionIPC.setSessionPermission(extensionId, permission, true);
+          return true;
+        } catch {
+          return false;
+        }
       },
 
-      async revoke(_permission: string): Promise<void> {
-        // 撤销权限
+      async revoke(permission: string): Promise<void> {
+        try {
+          await ExtensionIPC.revokePermission(extensionId, permission);
+        } catch {
+          // 后端不可用时忽略
+        }
       },
     },
 
@@ -615,8 +645,9 @@ export function createAuronaSDKHost(extensionId: string): AuronaSDK {
     },
 
     theme: {
-      getThemeMode() {
-        return "dark";
+      getThemeMode(): "dark" | "light" | "system" {
+        // system 由应用启动流程归约为 documentElement 上的实际 dark 类
+        return document.documentElement.classList.contains("dark") ? "dark" : "light";
       },
     },
 

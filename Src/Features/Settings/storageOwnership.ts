@@ -15,6 +15,9 @@ export const STORAGE_OWNERSHIP = {
     FLIUNO_RECENT_COMMANDS_KEY,
     FLIUNO_RECENT_FILES_KEY,
     LEGACY_RECENT_KEY,
+    // AI 聊天历史（v2 多会话；v1 为迁移前旧键，Factory Reset 一并清扫）
+    "aurona.ai.chat.sessions.v2",
+    "aurona.ai.chat.history.v1",
   ],
   workspace: [],
 } as const;

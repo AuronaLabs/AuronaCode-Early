@@ -1,5 +1,18 @@
 # Aurona Code 核心架构指南 (Corona+ Architecture Specification)
 
+## V0.4.7 智能与生态篇
+
+V0.4.7 聚焦「AI 从可用到可靠，扩展从跑得到跑得好」：AI 侧边栏稳定性与体验重做（超时分级、会话状态机、错误与内容分离、工具协议预留）、LSP didChange 增量同步、用户配置原子写；SDK 交互真实化、VSCodeCompat 能力补齐、`watch-workspace-path` 真实打通。
+
+- **AI 超时分级**：连接 15s（`connect_timeout`）/ 首 token 60s（覆盖响应头等待与首个 SSE 数据行）/ chunk 静默 90s（`tokio::time::timeout` 包 `stream.next()`）/ 总时长 600s 硬顶；错误码细分 `first_token_timeout` / `idle_timeout`，`classify_request_error` 中 connect 判定先于 timeout（connect_timeout 触发时两者皆真）。
+- **AI 会话状态机**：消息 `status`（pending/streaming/done/error/stopped）与快照 `phase`（idle/connecting/streaming，首个 delta 分相）分离；错误写入独立 `error` 字段不再替换正文，上下文窗口仅取 `status==="done"` 消息（修复错误文案污染模型上下文）；多会话 localStorage v2（20 会话 × 100 条，v1 自动迁移），`retry` 删除失败气泡后以前一条用户消息重发。
+- **AI 工具协议预留**：SSE 单次解析（`parse_sse_line` 一次取 content/finish_reason/tool_calls/usage），`delta.tool_calls` 按 index 增量聚合并随 `ai://chat-delta` 透传，前端仅存储与占位展示，执行端留待 agent 版本。
+- **LSP 增量同步**：客户端能力补声明 `textDocumentSync: { openClose, change: 2 }`；`DocumentService.applyEdits` 透传编辑区间，`LspClient.didChange` 以修改前文本 + 协商编码把 utf16 偏移换算为 range（`utf16OffsetToPosition`）；服务端未协商 incremental 或多编辑批次时自动回退整文。
+- **配置原子写**：`UserConfigStore` 落盘改走 `writeTextFileAtomic`（tmp → bak 让位 → rename → 清理，plugin-fs `rename` 按 `oldPathBaseDir/newPathBaseDir` 实现，位于 Foundation/Desktop 以守住边界）；AI 聊天历史键纳入 storageOwnership appGlobal。
+- **SDK 交互真实化**：TS 侧 SDK（独立于 Rust host 桥）新增 `SdkHostDialogs` Modal 桥——QuickPick/InputBox 真实交互；`permissions.check` 接 `get_permission` 真实状态；`getThemeMode` 实测 `documentElement.classList`；`OutputService.ensureExtensionChannel` 支持动态扩展频道（`extension:` 命名空间 + `(string & {})` 惯用法保住内置 id 补全）。
+- **VSCodeCompat 补齐**：`languages.createDiagnosticCollection` 按「集合自有条目」记账写入 DiagnosticsService（与 LSP 诊断互不覆盖）；ExtensionContext（subscriptions 生命周期）；TextDocument open/change/close 事件（DocumentService 订阅转译）；`edit().insert` 按位置生效。
+- **watch 打通**：`runtime.rs` 维护扩展监视注册表（watch_id → notify watcher，NonRecursive；文件路径转父目录 + 精确过滤），300ms 聚合后经 `push_host_event` 入 poll-events 队列；`require_granted("workspace.read")` 门控，unwatch 仅限本人注册项。
+
 ## V0.4.6 性能与生态篇
 
 V0.4.6 聚焦「SDK 增量扩充、扩展可靠性与编辑器性能」：扩展兼容层修复与授权链路结构化、SDK 合约版本保持 1 的纯增量扩充、编辑器行级增量渲染与真实折叠（Beta）、AI 侧边栏（纯聊天）。

@@ -4,7 +4,7 @@ import type { UserConfig } from "../Types/Config";
 
 const FILE = "user-config.json";
 const BASE = BaseDirectory.AppLocalData;
-const { exists, mkdir, readTextFile, writeTextFile } = desktopFileSystem;
+const { exists, mkdir, readTextFile, writeTextFileAtomic } = desktopFileSystem;
 
 let isWriting = false;
 let pendingWrite = false;
@@ -59,7 +59,8 @@ export const UserConfigStore = {
       isWriting = true;
       pendingWrite = false;
       try {
-        await writeTextFile(FILE, JSON.stringify(memoryCache, null, 2), {
+        // 原子写盘：tmp → bak 让位 → rename，断电/崩溃不会留下半截 JSON
+        await writeTextFileAtomic(FILE, JSON.stringify(memoryCache, null, 2), {
           baseDir: BASE,
         });
       } catch (error) {

@@ -1525,6 +1525,9 @@ export const it: LocaleMessages = {
     dependencyTitle: "Dipendenza richiesta",
     confirmInstall: "Installa con dipendenza",
     sectionLoadFailed: "Impossibile caricare questa sezione.",
+    sdkDialog: {
+      source: "Dall'estensione {extension}",
+    },
   },
   ai: {
     title: "Assistente AI",
@@ -1550,9 +1553,33 @@ export const it: LocaleMessages = {
       "Connessione non riuscita: URL del servizio irraggiungibile. Controlla l'URL API o il proxy",
     errorAuth: "Autenticazione non riuscita: chiave API non valida o non autorizzata (401/403)",
     errorRateLimit: "Limite di richieste (429): troppe richieste. Riprova più tardi",
-    errorTimeout: "Timeout della richiesta: nessuna risposta entro 120 secondi",
+    errorTimeout:
+      "Timeout della richiesta: durata totale della sessione superata, riprova più tardi",
+    errorFirstTokenTimeout:
+      "Timeout di connessione: il server ha impiegato troppo tempo per la prima risposta, verifica la rete o riprova più tardi",
+    errorIdleTimeout:
+      "Risposta interrotta: nessun nuovo contenuto per lungo tempo durante la generazione, riprova",
     errorGeneric: "Richiesta non riuscita: {message}",
     errorUnavailable: "Il servizio AI non è attualmente disponibile",
+    phaseConnecting: "Connessione…",
+    phaseGenerating: "Generazione · {seconds}s",
+    phaseDone: "Completato · {seconds}s",
+    stoppedNote: "Interrotto",
+    truncatedNote: "Risposta troncata a causa del limite di lunghezza",
+    toolCallNote:
+      "Il modello ha richiesto una chiamata a uno strumento (non eseguita in questa versione)",
+    retry: "Riprova",
+    copyMessage: "Copia messaggio",
+    copied: "Copiato",
+    copyCode: "Copia codice",
+    newChat: "Nuova sessione",
+    sessions: "Sessioni",
+    untitledSession: "Nuova sessione",
+    deleteSession: "Elimina sessione",
+    scrollBottom: "Vai in fondo",
+    clearConfirmTitle: "Svuota la sessione corrente",
+    clearConfirmMessage:
+      "Tutti i messaggi di questa sessione verranno eliminati. L'operazione non è annullabile",
     settingsDescription:
       "Configura un servizio di chat in streaming compatibile OpenAI; le impostazioni restano locali",
     settingsEnabledTitle: "Abilita la scheda AI nella barra laterale",

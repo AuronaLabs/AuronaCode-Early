@@ -64,7 +64,10 @@ describe("DocumentService", () => {
       version: 1,
       isDirty: true,
     });
-    expect(mocks.didChange).toHaveBeenCalledWith("typescript", path, "const value = 2;", 1);
+    // didChange 透传编辑区间（增量 LSP 同步用）
+    expect(mocks.didChange).toHaveBeenCalledWith("typescript", path, "const value = 2;", 1, [
+      { startUtf16: 14, endUtf16: 15, text: "2" },
+    ]);
     await DocumentService.close(path, true);
   });
 });

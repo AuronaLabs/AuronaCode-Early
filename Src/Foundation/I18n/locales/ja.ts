@@ -1504,6 +1504,9 @@ export const ja: LocaleMessages = {
     dependencyTitle: "必要な依存関係",
     confirmInstall: "依存関係を含めてインストール",
     sectionLoadFailed: "このセクションを読み込めませんでした",
+    sdkDialog: {
+      source: "拡張機能 {extension} から",
+    },
   },
   ai: {
     title: "AI アシスタント",
@@ -1527,9 +1530,31 @@ export const ja: LocaleMessages = {
       "接続に失敗しました：サービス URL にアクセスできません。API URL またはプロキシを確認してください",
     errorAuth: "認証に失敗しました：API キーが無効または権限がありません（401/403）",
     errorRateLimit: "レート制限（429）：リクエストが多すぎます。しばらくしてから再試行してください",
-    errorTimeout: "タイムアウト：120 秒以内に応答がありませんでした",
+    errorTimeout: "タイムアウト：セッションの総時間が上限を超えました。しばらくしてから再試行してください",
+    errorFirstTokenTimeout:
+      "接続タイムアウト：サーバーが最初の応答を返すまでに時間がかかりすぎています。ネットワークを確認するか、後でもう一度お試しください",
+    errorIdleTimeout:
+      "応答中断：生成中に長時間新しい内容がありません。再試行してください",
     errorGeneric: "リクエストに失敗しました：{message}",
     errorUnavailable: "AI サービスは現在利用できません",
+    phaseConnecting: "接続中…",
+    phaseGenerating: "生成中 · {seconds}s",
+    phaseDone: "完了 · 所要 {seconds}s",
+    stoppedNote: "停止済み",
+    truncatedNote: "長さ制限により応答が切り捨てられました",
+    toolCallNote: "モデルがツール呼び出しを要求しました（このバージョンでは未実行）",
+    retry: "再試行",
+    copyMessage: "全文をコピー",
+    copied: "コピーしました",
+    copyCode: "コードをコピー",
+    newChat: "新しいセッション",
+    sessions: "セッション",
+    untitledSession: "新しいセッション",
+    deleteSession: "セッションを削除",
+    scrollBottom: "一番下へ",
+    clearConfirmTitle: "現在のセッションを消去",
+    clearConfirmMessage:
+      "このセッションのすべてのメッセージが削除されます。この操作は元に戻せません",
     settingsDescription:
       "OpenAI 互換のストリーミング対話サービスを設定します。設定はローカルにのみ保存されます",
     settingsEnabledTitle: "サイドバーの AI カードを有効化",

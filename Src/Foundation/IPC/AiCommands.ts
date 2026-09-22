@@ -1,16 +1,33 @@
 import { invokeDesktop, listenDesktop } from "../Desktop";
 
 /** 0.4.6 批次 5：AI 助手流式聊天事件与命令封装 */
+/** 0.4.7：tool_calls 协议预留（解析与透传，不执行）、usage 透传、超时码细分 */
 
 /** Rust → 前端：会话开始 */
 export interface AiChatStartPayload {
   sessionId: string;
 }
 
-/** Rust → 前端：增量文本 */
+/** 单条 tool_calls 增量（前端按 index 聚合，argumentsDelta 为增量片段） */
+export interface AiChatToolCallDelta {
+  index: number;
+  id?: string;
+  name?: string;
+  argumentsDelta?: string;
+}
+
+/** Rust → 前端：增量文本（仅 tool_calls 增量时 delta 为空串） */
 export interface AiChatDeltaPayload {
   sessionId: string;
   delta: string;
+  toolCalls?: AiChatToolCallDelta[];
+}
+
+/** token 用量统计（服务端在收尾分片携带时透传） */
+export interface AiChatUsage {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
 }
 
 /** Rust → 前端：会话结束（正常完成或中止） */
@@ -20,10 +37,21 @@ export interface AiChatDonePayload {
   aborted: boolean;
   /** 结束原因：stop / length / tool_calls / aborted 等 */
   finishReason: string;
+  usage?: AiChatUsage;
 }
 
-/** 错误码：connect 连接失败 / auth 认证失败 / rate_limit 限流 / timeout 超时 / generic 其他 */
-export type AiChatErrorCode = "connect" | "auth" | "rate_limit" | "timeout" | "generic";
+/**
+ * 错误码：connect 连接失败 / auth 认证失败 / rate_limit 限流 / timeout 总时长超限 /
+ * first_token_timeout 首 token 超时 / idle_timeout 流式静默超时 / generic 其他
+ */
+export type AiChatErrorCode =
+  | "connect"
+  | "auth"
+  | "rate_limit"
+  | "timeout"
+  | "first_token_timeout"
+  | "idle_timeout"
+  | "generic";
 
 /** Rust → 前端：会话错误 */
 export interface AiChatErrorPayload {

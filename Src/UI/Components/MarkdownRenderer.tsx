@@ -1,9 +1,62 @@
-﻿import type React from "react";
-import { useMemo } from "react";
+import type React from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocale } from "../../Foundation/I18n";
+import { Icons } from "../Icons/IconManager";
 
 interface MarkdownRendererProps {
   content: string;
   className?: string;
+}
+
+/** 复制成功反馈时长（ms） */
+const COPY_FEEDBACK_MS = 1500;
+
+/**
+ * 代码块：语言标签 + 复制按钮（AI 聊天与补全详情栏共用）
+ */
+function CodeBlock({ language, code }: { language: string; code: string }) {
+  const { t } = useLocale();
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    [],
+  );
+  const handleCopy = () => {
+    void navigator.clipboard
+      .writeText(code)
+      .then(() => {
+        setCopied(true);
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
+      })
+      .catch(() => {
+        // 剪贴板不可用时静默跳过
+      });
+  };
+  return (
+    <div className="my-3.5 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/80 shadow-sm">
+      <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--color-surface-3)] px-3.5 py-1">
+        <span className="truncate font-mono text-[11px] text-[var(--color-text-muted)]">
+          {language}
+        </span>
+        <button
+          type="button"
+          aria-label={copied ? t("ai.copied") : t("ai.copyCode")}
+          onClick={handleCopy}
+          className="flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+        >
+          {copied ? <Icons.Check size={11} /> : <Icons.Copy size={11} />}
+          {copied ? t("ai.copied") : t("ai.copyCode")}
+        </button>
+      </div>
+      <pre className="overflow-x-auto p-3.5 font-mono text-[12.5px] leading-relaxed text-[var(--color-text-primary)]">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
 }
 
 /**
@@ -208,19 +261,11 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
       if (line.trim().startsWith("```")) {
         if (inCodeBlock) {
           elements.push(
-            <div
+            <CodeBlock
               key={`codeblock-${i}`}
-              className="rounded-xl overflow-hidden border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/80 my-3.5 shadow-sm"
-            >
-              {codeLanguage && (
-                <div className="px-3.5 py-1 bg-[var(--color-surface-3)] text-[11px] font-mono text-[var(--color-text-muted)] border-b border-[var(--border-subtle)] flex items-center justify-between">
-                  <span>{codeLanguage}</span>
-                </div>
-              )}
-              <pre className="p-3.5 text-[12.5px] font-mono leading-relaxed overflow-x-auto text-[var(--color-text-primary)]">
-                <code>{codeLines.join("\n")}</code>
-              </pre>
-            </div>,
+              language={codeLanguage}
+              code={codeLines.join("\n")}
+            />,
           );
           inCodeBlock = false;
           codeLines = [];

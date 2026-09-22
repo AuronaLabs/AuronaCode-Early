@@ -1,10 +1,25 @@
 import { EventBus } from "../../Foundation/EventBus";
-import { LanguageServerIPC } from "../../Foundation/IPC/LanguageServerCommands";
+import {
+  type LspContentChangePayload,
+  LanguageServerIPC,
+} from "../../Foundation/IPC/LanguageServerCommands";
 import type { CompletionItem } from "../../Foundation/Types/Lsp";
 import { type DiagnosticItem, DiagnosticsService } from "../DiagnosticsService";
 import { DocumentService } from "../DocumentService";
 import { OutputService } from "../OutputService";
-import { normalizePositionEncoding, positionForEncoding } from "./Position";
+import {
+  type LspPosition,
+  normalizePositionEncoding,
+  positionForEncoding,
+  utf16OffsetToPosition,
+} from "./Position";
+
+/** 编辑器 TextEdit（绝对 UTF-16 偏移） */
+interface EditorTextEdit {
+  startUtf16: number;
+  endUtf16: number;
+  text: string;
+}
 
 export type LanguageServerStatus =
   | "stopped"
@@ -267,11 +282,62 @@ export class LspClient {
     path: string,
     text: string,
     version: number,
+    edits?: EditorTextEdit[],
   ): Promise<void> {
+    const previousText = this.documentTexts.get(path);
     this.documentTexts.set(path, text);
     this.documentLanguages.set(path, language);
     if (this.getState(language)?.status !== "running") return;
-    await LanguageServerIPC.didChange(language, path, text, version);
+
+    // 增量同步：单条编辑 + 已知修改前文本 + server 协商 incremental 时构造 range 变更，否则整文回退
+    const change =
+      edits &&
+      edits.length === 1 &&
+      typeof previousText === "string" &&
+      this.serverSyncKind(language) === "incremental"
+        ? this.buildIncrementalChange(language, previousText, edits[0])
+        : null;
+    await LanguageServerIPC.didChange(
+      language,
+      path,
+      text,
+      version,
+      change ? [change] : undefined,
+    );
+  }
+
+  /** 服务端声明的 textDocumentSync：incremental / full / 未声明（视为 full，保持既有整文行为） */
+  private serverSyncKind(language: string): "full" | "incremental" {
+    const sync = this.getState(language)?.capabilities?.textDocumentSync;
+    const kind =
+      typeof sync === "number"
+        ? sync
+        : sync && typeof sync === "object"
+          ? (sync as { change?: number }).change
+          : undefined;
+    return typeof kind === "number" && kind >= 2 ? "incremental" : "full";
+  }
+
+  /** 单条编辑 → LSP 增量变更（range 基于修改前文本与协商编码）；无法可靠构造时返回 null 走全量 */
+  private buildIncrementalChange(
+    language: string,
+    previousText: string,
+    edit: EditorTextEdit,
+  ): LspContentChangePayload | null {
+    if (edit.startUtf16 < 0 || edit.endUtf16 < edit.startUtf16) return null;
+    const encoding = normalizePositionEncoding(this.getState(language)?.positionEncoding);
+    const start = utf16OffsetToPosition(previousText, edit.startUtf16);
+    const end = utf16OffsetToPosition(previousText, edit.endUtf16);
+    if (
+      end.line < start.line ||
+      (end.line === start.line && end.character < start.character)
+    ) {
+      return null;
+    }
+    const startLsp = positionForEncoding(previousText, start, encoding);
+    const endLsp = positionForEncoding(previousText, end, encoding);
+    const range: { start: LspPosition; end: LspPosition } = { start: startLsp, end: endLsp };
+    return { range, text: edit.text };
   }
 
   public async didSave(language: string, path: string, text?: string): Promise<void> {

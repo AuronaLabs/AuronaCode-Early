@@ -19,4 +19,16 @@ describe("OutputService", () => {
     }
     expect(OutputService.getChannel("core").entries).toHaveLength(5_000);
   });
+
+  it("registers and reuses dynamic extension channels under the extension namespace", () => {
+    const first = OutputService.ensureExtensionChannel("demo.ext.Build Log", "Build Log");
+    const second = OutputService.ensureExtensionChannel("demo.ext.Build Log", "Build Log");
+    expect(first).toBe("extension:demo.ext.Build Log");
+    expect(second).toBe(first);
+    expect(OutputService.getChannels().some((channel) => channel.id === first)).toBe(true);
+
+    OutputService.append(first, "build started");
+    expect(OutputService.getChannel(first).entries.at(-1)?.message).toBe("build started");
+    expect(OutputService.getChannel(first).label).toBe("Build Log");
+  });
 });

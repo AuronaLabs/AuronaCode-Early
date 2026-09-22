@@ -1478,6 +1478,9 @@ export const en: LocaleMessages = {
     dependencyTitle: "Required dependency",
     confirmInstall: "Install with dependency",
     sectionLoadFailed: "Unable to load this section.",
+    sdkDialog: {
+      source: "From extension {extension}",
+    },
   },
   ai: {
     title: "AI Assistant",
@@ -1500,9 +1503,31 @@ export const en: LocaleMessages = {
     errorConnect: "Connection failed: cannot reach the service URL. Check the API URL or proxy",
     errorAuth: "Authentication failed: the API key is invalid or unauthorized (401/403)",
     errorRateLimit: "Rate limited (429): too many requests. Please retry later",
-    errorTimeout: "Request timed out: no response within 120 seconds",
+    errorTimeout: "Request timed out: session duration limit reached, please try again later",
+    errorFirstTokenTimeout:
+      "Connection timed out: the server took too long to return the first response, check your network or try again later",
+    errorIdleTimeout:
+      "Response interrupted: no new content for a long time during generation, please retry",
     errorGeneric: "Request failed: {message}",
     errorUnavailable: "The AI service is currently unavailable",
+    phaseConnecting: "Connecting…",
+    phaseGenerating: "Generating · {seconds}s",
+    phaseDone: "Done · {seconds}s",
+    stoppedNote: "Stopped",
+    truncatedNote: "Reply truncated due to length limit",
+    toolCallNote: "The model requested a tool call (not executed in this version)",
+    retry: "Retry",
+    copyMessage: "Copy message",
+    copied: "Copied",
+    copyCode: "Copy code",
+    newChat: "New chat",
+    sessions: "Sessions",
+    untitledSession: "New session",
+    deleteSession: "Delete session",
+    scrollBottom: "Scroll to bottom",
+    clearConfirmTitle: "Clear current session",
+    clearConfirmMessage:
+      "All messages in this session will be deleted. This cannot be undone",
     settingsDescription:
       "Configure an OpenAI-compatible streaming chat service; settings stay local",
     settingsEnabledTitle: "Enable AI sidebar card",

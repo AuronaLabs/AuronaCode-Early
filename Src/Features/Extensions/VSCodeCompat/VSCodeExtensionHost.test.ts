@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { DiagnosticsService } from "../../../Core/DiagnosticsService";
+import { pathToFileUri } from "../../../Shared/Utils/UriUtils";
 import {
+  activateVSCodeExtension,
   createVSCodeExtensionHost,
+  deactivateVSCodeExtension,
+  DiagnosticSeverity,
+  Disposable,
   Position,
   Range,
   resolveConfigKey,
@@ -82,5 +88,75 @@ describe("VSCodeExtensionHost", () => {
     expect(executed).toBe(true);
 
     disposable.dispose();
+  });
+
+  it("publishes diagnostic collection entries without clobbering foreign sources", () => {
+    DiagnosticsService.clear();
+    const vscode = createVSCodeExtensionHost("test.ext");
+    const fileUri = Uri.file("C:/repo/index.ts");
+    const key = pathToFileUri("C:/repo/index.ts");
+
+    // 外部来源（如 LSP）先行写入同一文档
+    DiagnosticsService.update({
+      uri: key,
+      diagnostics: [
+        {
+          range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+          message: "from-lsp",
+          severity: 1,
+        },
+      ],
+    });
+
+    const collection = vscode.languages.createDiagnosticCollection("demo");
+    collection.set(fileUri, [
+      {
+        range: new Range(new Position(2, 0), new Position(2, 4)),
+        message: "demo-error",
+        severity: DiagnosticSeverity.Error,
+      },
+    ]);
+    expect(DiagnosticsService.get(key)?.diagnostics).toHaveLength(2);
+
+    // 集合重设：旧集合条目移除，外部来源保留
+    collection.set(fileUri, [
+      {
+        range: new Range(new Position(3, 1), new Position(3, 2)),
+        message: "demo-warning",
+        severity: DiagnosticSeverity.Warning,
+      },
+    ]);
+    expect(DiagnosticsService.get(key)?.diagnostics.map((item) => item.message)).toEqual([
+      "from-lsp",
+      "demo-warning",
+    ]);
+
+    collection.delete(fileUri);
+    expect(DiagnosticsService.get(key)?.diagnostics.map((item) => item.message)).toEqual([
+      "from-lsp",
+    ]);
+    collection.dispose();
+    DiagnosticsService.clear();
+  });
+
+  it("collects returned disposables into context subscriptions and disposes on deactivate", async () => {
+    const order: string[] = [];
+    const context = await activateVSCodeExtension("test.ext", (ctx) => {
+      expect(ctx.extensionUri.scheme).toBe("file");
+      ctx.subscriptions.push(new Disposable(() => order.push("pushed")));
+      return new Disposable(() => order.push("returned"));
+    });
+    expect(context.subscriptions).toHaveLength(2);
+
+    deactivateVSCodeExtension(context);
+    expect(order).toEqual(["returned", "pushed"]);
+    expect(context.subscriptions).toHaveLength(0);
+
+    const arrayContext = await activateVSCodeExtension("test.ext", () => [
+      new Disposable(() => {}),
+      { dispose: () => {} },
+      "not-a-disposable",
+    ]);
+    expect(arrayContext.subscriptions).toHaveLength(2);
   });
 });

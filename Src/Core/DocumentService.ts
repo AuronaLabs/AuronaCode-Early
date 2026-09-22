@@ -120,7 +120,7 @@ class DocumentServiceImpl {
         lastError: undefined,
       });
       const languageSync = LspClient.getInstance()
-        .didChange(record.languageId, path, nextContent, response.revision)
+        .didChange(record.languageId, path, nextContent, response.revision, edits)
         .catch((error) => {
           OutputService.append(
             "language-server",

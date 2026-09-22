@@ -145,6 +145,18 @@ fn drain_host_events(extension_id: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// 扩展文件监视注册表（SDK v1）：watch_id → 监视项。
+/// watcher 被 drop 即停止监听，事件线程随 channel 断开自动退出；
+/// 扩展应显式 unwatch，应用退出时随进程统一丢弃。
+struct ExtensionWatchEntry {
+    extension_id: String,
+    _watcher: notify::RecommendedWatcher,
+}
+
+static WATCH_REGISTRY: LazyLock<Mutex<HashMap<u64, ExtensionWatchEntry>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+static WATCH_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
 /// 供 commands.rs 调用的桥应答入口（`extensions_host_response`）。
 pub fn host_bridge_respond(request_id: &str, value: String) -> bool {
     host_bridge::respond(request_id, value)
@@ -649,18 +661,102 @@ impl aurona::extensions::context::Host for ExtensionContext {
         Ok(entries)
     }
 
-    fn watch_workspace_path(&mut self, _path: String) -> Result<u64, String> {
-        // 显式不支持：此前的实现返回路径哈希冒充 watch id，既无 watcher 也无事件推送，
-        // 会误导扩展以为订阅成功后进入永久等待。渲染刷新由宿主驱动（前端订阅文档变更
-        // 后重新调用 render），扩展无需自行 watch；明确报错胜过假成功。
-        Err(
-            "[api.unsupported] watch_workspace_path 尚未实现：视图刷新由宿主驱动，无需订阅"
-                .to_string(),
-        )
+    fn watch_workspace_path(&mut self, path: String) -> Result<u64, String> {
+        use notify::Watcher;
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        self.require_granted("workspace.read")?;
+        let target = self.resolve_workspace_path(&path)?;
+
+        // notify 只能监听目录：文件路径改为监听其父目录，并按精确路径过滤事件
+        let watch_target;
+        let filter_path: Option<std::path::PathBuf> = if target.is_dir() {
+            watch_target = target.clone();
+            None
+        } else {
+            watch_target = target
+                .parent()
+                .ok_or_else(|| format!("无法定位父目录: {path}"))?
+                .to_path_buf();
+            Some(target.clone())
+        };
+
+        let watch_id = WATCH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let registry_extension_id = self.extension_id.clone();
+        let thread_extension_id = self.extension_id.clone();
+
+        let (sender, receiver) = mpsc::channel::<notify::Result<notify::Event>>();
+        let mut watcher =
+            notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
+                let _ = sender.send(event);
+            })
+            .map_err(|error| format!("无法创建文件监听器: {error}"))?;
+        watcher
+            .watch(&watch_target, notify::RecursiveMode::NonRecursive)
+            .map_err(|error| format!("无法监听 {path}: {error}"))?;
+
+        // 聚合线程：300ms 窗口合并事件后写入扩展事件队列（poll-events 拉取）
+        std::thread::spawn(move || {
+            let mut pending: Vec<String> = Vec::new();
+            loop {
+                match receiver.recv_timeout(Duration::from_millis(300)) {
+                    Ok(Ok(event)) => {
+                        for changed in event.paths {
+                            if filter_path
+                                .as_ref()
+                                .is_some_and(|prefix| &changed != prefix)
+                            {
+                                continue;
+                            }
+                            pending.push(changed.to_string_lossy().into_owned());
+                        }
+                    }
+                    Ok(Err(_)) => {}
+                    Err(mpsc::RecvTimeoutError::Timeout) => {
+                        if !pending.is_empty() {
+                            let payload = serde_json::json!({
+                                "type": "workspace-changed",
+                                "watchId": watch_id,
+                                "paths": std::mem::take(&mut pending),
+                            });
+                            push_host_event(&thread_extension_id, payload.to_string());
+                        }
+                    }
+                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                }
+            }
+        });
+
+        match WATCH_REGISTRY.lock() {
+            Ok(mut guard) => {
+                guard.insert(
+                    watch_id,
+                    ExtensionWatchEntry {
+                        extension_id: registry_extension_id,
+                        _watcher: watcher,
+                    },
+                );
+            }
+            Err(_) => return Err("[host.error] 监视注册表不可用".to_string()),
+        }
+        Ok(watch_id)
     }
 
-    fn unwatch_workspace_path(&mut self, _watch_id: u64) -> Result<bool, String> {
-        Err("[api.unsupported] unwatch_workspace_path 尚未实现".to_string())
+    fn unwatch_workspace_path(&mut self, watch_id: u64) -> Result<bool, String> {
+        self.require_granted("workspace.read")?;
+        // 仅允许移除自己注册的 watch：其他扩展的监视项不可见也不可动
+        let removed = WATCH_REGISTRY.lock().ok().and_then(|mut guard| {
+            let owned = guard
+                .get(&watch_id)
+                .is_some_and(|entry| entry.extension_id == self.extension_id);
+            if owned {
+                guard.remove(&watch_id).map(|_| ())
+            } else {
+                None
+            }
+        });
+        Ok(removed.is_some())
     }
 
     fn log(&mut self, level: String, message: String) {

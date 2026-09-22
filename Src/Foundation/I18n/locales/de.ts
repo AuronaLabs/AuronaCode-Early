@@ -1523,6 +1523,9 @@ export const de: LocaleMessages = {
     dependencyTitle: "Erforderliche Abhängigkeit",
     confirmInstall: "Mit Abhängigkeit installieren",
     sectionLoadFailed: "Dieser Abschnitt konnte nicht geladen werden.",
+    sdkDialog: {
+      source: "Von Erweiterung {extension}",
+    },
   },
   ai: {
     title: "KI-Assistent",
@@ -1549,9 +1552,32 @@ export const de: LocaleMessages = {
     errorAuth:
       "Authentifizierung fehlgeschlagen: API-Schlüssel ungültig oder ohne Berechtigung (401/403)",
     errorRateLimit: "Rate-Limit (429): Zu viele Anfragen. Bitte später erneut versuchen",
-    errorTimeout: "Zeitüberschreitung: keine Antwort innerhalb von 120 Sekunden",
+    errorTimeout:
+      "Zeitüberschreitung: Sitzungsgesamtdauer überschritten, bitte später erneut versuchen",
+    errorFirstTokenTimeout:
+      "Verbindungs-Timeout: Der Server brauchte zu lange für die erste Antwort. Netzwerk prüfen oder später erneut versuchen",
+    errorIdleTimeout:
+      "Antwort abgebrochen: Während der Generierung kamen lange keine neuen Inhalte, bitte erneut versuchen",
     errorGeneric: "Anfrage fehlgeschlagen: {message}",
     errorUnavailable: "Der KI-Dienst ist derzeit nicht verfügbar",
+    phaseConnecting: "Verbindung wird hergestellt…",
+    phaseGenerating: "Generierung · {seconds}s",
+    phaseDone: "Fertig · {seconds}s",
+    stoppedNote: "Gestoppt",
+    truncatedNote: "Antwort wegen Längenbegrenzung gekürzt",
+    toolCallNote: "Das Modell hat einen Tool-Aufruf angefordert (in dieser Version nicht ausgeführt)",
+    retry: "Erneut versuchen",
+    copyMessage: "Nachricht kopieren",
+    copied: "Kopiert",
+    copyCode: "Code kopieren",
+    newChat: "Neue Sitzung",
+    sessions: "Sitzungen",
+    untitledSession: "Neue Sitzung",
+    deleteSession: "Sitzung löschen",
+    scrollBottom: "Nach unten scrollen",
+    clearConfirmTitle: "Aktuelle Sitzung leeren",
+    clearConfirmMessage:
+      "Alle Nachrichten dieser Sitzung werden gelöscht. Dies kann nicht rückgängig gemacht werden",
     settingsDescription:
       "OpenAI-kompatiblen Streaming-Chatdienst konfigurieren; Einstellungen bleiben lokal",
     settingsEnabledTitle: "KI-Karte in der Seitenleiste aktivieren",

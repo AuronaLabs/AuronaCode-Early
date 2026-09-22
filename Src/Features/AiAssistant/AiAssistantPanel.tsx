@@ -1,26 +1,40 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { AiChatService } from "../../Core/AiChatService";
+import { type AiChatMessage, AiChatService, describeAiError } from "../../Core/AiChatService";
 import { useLocale } from "../../Foundation/I18n";
+import { cn } from "../../Shared/Utils/cn";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { Badge } from "../../UI/Components/Badge";
 import { Button } from "../../UI/Components/Button";
 import { MarkdownRenderer } from "../../UI/Components/MarkdownRenderer";
+import { Select } from "../../UI/Components/Select";
+import { showConfirm } from "../../UI/Feedback/Toast";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 
 /**
- * 0.4.6 批次 5：AI 助手侧边栏卡片（纯聊天）。
- * 定位：可用的 LLM 流式纯聊天；不接编辑器上下文、不做 agent/工具/RAG。
+ * 0.4.7 重做：AI 助手侧边栏（纯聊天）。
+ * 状态机可视化（连接中/生成中·耗时/完成）、错误与内容分离 + 重试、
+ * 多会话管理、消息与代码块复制、输入框自动增高、滚动到底。
  */
+
+/** 会话选择器里标题的最大显示宽度（窄侧栏截断） */
+function shortTitle(title: string, fallback: string): string {
+  const text = title.trim() || fallback;
+  return text.length > 8 ? `${text.slice(0, 8)}…` : text;
+}
+
 export function AiAssistantPanel() {
   const { t } = useLocale();
   const chat = useSyncExternalStore(AiChatService.subscribe, AiChatService.getSnapshot);
   const [draft, setDraft] = useState("");
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  /** 用户是否停留在底部附近（决定是否自动滚动） */
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  /** 用户是否停留在底部附近（决定是否自动滚动与显示回底按钮） */
   const isNearBottomRef = useRef(true);
+  const [isNearBottom, setIsNearBottom] = useState(true);
 
   // 挂载时刷新配置快照（设置保存后由 AiSettingsSection 通知刷新）
   useEffect(() => {
@@ -34,19 +48,30 @@ export function AiAssistantPanel() {
     element.scrollTop = element.scrollHeight;
   }, [chat.messages]);
 
+  // 输入框自动增高（1-8 行，封顶 128px 后内部滚动）
+  // biome-ignore lint/correctness/useExhaustiveDependencies: draft 变化驱动高度自适应，内容本身不在 effect 内使用
+  useEffect(() => {
+    const element = textareaRef.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${Math.min(element.scrollHeight, 128)}px`;
+  }, [draft]);
+
   const handleScroll = useCallback(() => {
     const element = scrollRef.current;
     if (!element) return;
     const distance = element.scrollHeight - element.scrollTop - element.clientHeight;
-    isNearBottomRef.current = distance < 80;
+    const near = distance < 80;
+    isNearBottomRef.current = near;
+    setIsNearBottom(near);
   }, []);
 
   const handleSend = useCallback(() => {
     const text = draft.trim();
-    if (!text || chat.isGenerating) return;
+    if (!text || chat.phase !== "idle") return;
     setDraft("");
     void AiChatService.send(text);
-  }, [chat.isGenerating, draft]);
+  }, [chat.phase, draft]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -55,10 +80,21 @@ export function AiAssistantPanel() {
     }
   };
 
+  const handleClear = useCallback(() => {
+    showConfirm({
+      title: t("ai.clearConfirmTitle"),
+      message: t("ai.clearConfirmMessage"),
+      confirmLabel: t("common.confirm"),
+      cancelLabel: t("common.cancel"),
+      onConfirm: () => AiChatService.clear(),
+    });
+  }, [t]);
+
   const hasMessages = chat.messages.length > 0;
+  const generating = chat.phase !== "idle";
 
   return (
-    <div className="flex h-full w-full flex-col select-none bg-transparent">
+    <div className="flex h-full w-full flex-col bg-transparent">
       <SidebarPageHeader
         title={
           <>
@@ -67,56 +103,109 @@ export function AiAssistantPanel() {
           </>
         }
         actions={
-          hasMessages ? (
-            <Tooltip content={t("ai.clear")} delay={300}>
+          <div className="flex items-center gap-0.5">
+            {chat.sessions.length > 1 && (
+              <Select
+                value={chat.activeSessionId}
+                onChange={(value) => void AiChatService.switchSession(value)}
+                ariaLabel={t("ai.sessions")}
+                className="h-7 min-w-0 w-[112px] rounded-lg text-[11px]"
+                options={chat.sessions.map((session) => ({
+                  value: session.id,
+                  label: shortTitle(session.title, t("ai.untitledSession")),
+                }))}
+              />
+            )}
+            <Tooltip content={t("ai.newChat")} delay={300}>
               <button
                 type="button"
-                onClick={() => void AiChatService.clear()}
+                onClick={() => AiChatService.newSession()}
                 className="cursor-pointer rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
               >
-                <Icons.Trash size={14} />
+                <Icons.Plus size={14} />
               </button>
             </Tooltip>
-          ) : undefined
+            {hasMessages && (
+              <Tooltip content={t("ai.clear")} delay={300}>
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="cursor-pointer rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+                >
+                  <Icons.Trash size={14} />
+                </button>
+              </Tooltip>
+            )}
+          </div>
         }
       />
 
       {/* 消息流 / 空态 */}
       {hasMessages ? (
-        <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className="mx-[var(--PanelPaddingX)] mb-3 flex-1 overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 p-3"
-        >
-          <div className="flex flex-col gap-3">
-            {chat.messages.map((message) => (
-              <AiChatBubble key={message.id} message={message} />
-            ))}
+        <div className="relative mx-[var(--PanelPaddingX)] mb-3 flex-1 overflow-hidden">
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="h-full overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 p-3"
+          >
+            <div className="flex flex-col gap-3">
+              {chat.messages.map((message) => (
+                <AiChatBubble
+                  key={message.id}
+                  message={message}
+                  onRetry={(id) => void AiChatService.retry(id)}
+                />
+              ))}
+            </div>
           </div>
+          {!isNearBottom && (
+            <button
+              type="button"
+              onClick={() => {
+                const element = scrollRef.current;
+                if (element) element.scrollTop = element.scrollHeight;
+              }}
+              className="absolute bottom-3 right-4 flex cursor-pointer items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 py-1 text-[10.5px] text-[var(--color-text-secondary)] shadow-sm transition-colors hover:text-[var(--color-text-highlight)]"
+            >
+              <Icons.ArrowDown size={11} />
+              {t("ai.scrollBottom")}
+            </button>
+          )}
         </div>
       ) : (
-        <AiEmptyState configured={chat.configured} onQuickPrompt={setDraft} />
+        <AiEmptyState
+          configured={chat.configured}
+          onQuickPrompt={(text) => {
+            setDraft(text);
+            textareaRef.current?.focus();
+          }}
+        />
       )}
 
-      {/* 错误提示条（未配置/请求失败） */}
-      {chat.lastError && !hasMessages && (
-        <div className="mx-[var(--PanelPaddingX)] mb-2 rounded-xl border border-[var(--StatusError)]/25 bg-[var(--StatusError)]/10 p-2.5 text-[11.5px] leading-4 text-[var(--color-text-primary)]">
-          {chat.lastError}
+      {/* 错误提示条（请求失败，发送下一条或重试后自动清除） */}
+      {chat.lastError && !generating && (
+        <div className="mx-[var(--PanelPaddingX)] mb-2 flex items-start gap-1.5 rounded-xl border border-[var(--StatusError)]/25 bg-[var(--StatusError)]/10 p-2.5 text-[11.5px] leading-4 text-[var(--color-text-primary)]">
+          <Icons.AlertTriangle size={13} className="mt-0.5 shrink-0 text-[var(--StatusError)]" />
+          <span className="min-w-0 break-words">{chat.lastError}</span>
         </div>
       )}
+
+      {/* 生成状态条：连接中 → 生成中 · 已用时 */}
+      {generating && <PhaseStatusBar phase={chat.phase} startedAtMs={chat.startedAtMs} />}
 
       {/* 底部输入区 */}
       <div className="mx-[var(--PanelPaddingX)] mb-3 shrink-0">
         <div className="flex items-end gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 p-2 focus-within:border-[var(--color-text-muted)]/25">
           <textarea
+            ref={textareaRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={t("ai.inputPlaceholder")}
-            rows={2}
-            className="max-h-32 min-h-9 flex-1 resize-none bg-transparent px-1 text-[12.5px] leading-5 text-[var(--color-text-highlight)] outline-none placeholder:text-[var(--color-text-muted)]"
+            rows={1}
+            className="max-h-32 min-h-9 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-2 text-[12.5px] leading-5 text-[var(--color-text-highlight)] outline-none placeholder:text-[var(--color-text-muted)]"
           />
-          {chat.isGenerating ? (
+          {generating ? (
             <Button
               variant="secondary"
               className="h-8 shrink-0 px-3"
@@ -145,17 +234,72 @@ export function AiAssistantPanel() {
   );
 }
 
+/** 生成状态条：连接中/生成中 + 实时耗时（1s 步进） */
+function PhaseStatusBar({
+  phase,
+  startedAtMs,
+}: {
+  phase: "idle" | "connecting" | "streaming";
+  startedAtMs: number | null;
+}) {
+  const { t } = useLocale();
+  const [now, setNow] = useState(() => Date.now());
+  // biome-ignore lint/correctness/useExhaustiveDependencies: startedAtMs 变化驱动计时器重启，取值不在 effect 内
+  useEffect(() => {
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [startedAtMs]);
+  const seconds = startedAtMs == null ? 0 : Math.max(0, Math.floor((now - startedAtMs) / 1000));
+  return (
+    <div className="mx-[var(--PanelPaddingX)] mb-1.5 flex shrink-0 items-center gap-2 px-1 text-[11px] text-[var(--color-text-muted)]">
+      <span
+        aria-hidden="true"
+        className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-accent)]"
+      />
+      {phase === "connecting"
+        ? t("ai.phaseConnecting")
+        : t("ai.phaseGenerating").replace("{seconds}", String(seconds))}
+    </div>
+  );
+}
+
+/** 复制文本钩子：返回 [已复制, 执行复制] */
+function useCopyText(): [boolean, (text: string) => void] {
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    [],
+  );
+  const copy = useCallback((text: string) => {
+    void navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopied(true);
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {
+        // 剪贴板不可用时静默跳过
+      });
+  }, []);
+  return [copied, copy];
+}
+
 /** 单条消息气泡 */
 function AiChatBubble({
   message,
+  onRetry,
 }: {
-  message: {
-    role: "user" | "assistant";
-    content: string;
-    streaming?: boolean;
-    error?: boolean;
-  };
+  message: AiChatMessage;
+  onRetry: (id: string) => void;
 }) {
+  const { t } = useLocale();
+  const [copied, copy] = useCopyText();
+
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
@@ -165,17 +309,93 @@ function AiChatBubble({
       </div>
     );
   }
+
+  const isError = message.status === "error";
+  const isStopped = message.status === "stopped";
+  const truncated = message.finishReason === "length";
+  const hasToolCalls = (message.toolCalls?.length ?? 0) > 0;
+
   return (
-    <div className="flex justify-start">
+    <div className="group flex justify-start">
       <div
-        className={`max-w-[92%] break-words rounded-2xl rounded-bl-md border px-3.5 py-2 ${
-          message.error
-            ? "border-[var(--StatusError)]/25 bg-[var(--StatusError)]/10"
-            : "border-[var(--border-subtle)] bg-[var(--material-surface)]"
-        }`}
+        className={cn(
+          "max-w-[92%] rounded-2xl rounded-bl-md border px-3.5 py-2",
+          isError
+            ? "border-[var(--StatusError)]/25 bg-[var(--StatusError)]/5"
+            : "border-[var(--border-subtle)] bg-[var(--material-surface)]",
+        )}
       >
         <MarkdownContent content={message.content} />
-        {message.streaming && <StreamingCursor />}
+        {message.status === "streaming" || message.status === "pending" ? (
+          <StreamingCursor />
+        ) : null}
+
+        {/* 错误卡片：与已生成内容分离展示，支持重试 */}
+        {message.status === "error" && message.error && (
+          <div className="mt-2 rounded-xl border border-[var(--StatusError)]/25 bg-[var(--StatusError)]/10 p-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex min-w-0 items-center gap-1.5 text-[11.5px] leading-4 text-[var(--color-text-primary)]">
+                <Icons.AlertTriangle size={13} className="shrink-0 text-[var(--StatusError)]" />
+                <span className="min-w-0 break-words">
+                  {describeAiError(message.error.code, message.error.message)}
+                </span>
+              </span>
+              <Button
+                variant="secondary"
+                className="h-7 shrink-0 px-2.5 text-[11px]"
+                onClick={() => onRetry(message.id)}
+              >
+                <Icons.Refresh size={12} />
+                {t("ai.retry")}
+              </Button>
+            </div>
+            <p className="mt-1.5 break-words text-[10.5px] leading-4 text-[var(--color-text-muted)]">
+              {message.error.message}
+            </p>
+          </div>
+        )}
+
+        {/* 元信息行：耗时 / 状态徽章 / 复制 */}
+        {(message.status === "done" || isStopped) && (
+          <div className="mt-1.5 flex items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              {typeof message.durationMs === "number" && message.durationMs >= 0 && (
+                <span className="text-[10px] text-[var(--color-text-muted)]">
+                  {t("ai.phaseDone").replace(
+                    "{seconds}",
+                    String(Math.max(1, Math.round(message.durationMs / 1000))),
+                  )}
+                </span>
+              )}
+              {isStopped && <Badge variant="neutral">{t("ai.stoppedNote")}</Badge>}
+              {truncated && (
+                <Badge variant="tint" color="var(--StatusWarning)">
+                  {t("ai.truncatedNote")}
+                </Badge>
+              )}
+            </div>
+            {message.content !== "" && (
+              <Tooltip content={copied ? t("ai.copied") : t("ai.copyMessage")} delay={300}>
+                <button
+                  type="button"
+                  aria-label={copied ? t("ai.copied") : t("ai.copyMessage")}
+                  onClick={() => copy(message.content)}
+                  className="shrink-0 cursor-pointer rounded-lg p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] focus-visible:opacity-100"
+                >
+                  {copied ? <Icons.Check size={12} /> : <Icons.Copy size={12} />}
+                </button>
+              </Tooltip>
+            )}
+          </div>
+        )}
+
+        {/* 工具调用占位提示（0.4.7 仅预留协议，不执行） */}
+        {hasToolCalls && (
+          <div className="mt-1.5 flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/40 px-2 py-1.5 text-[10.5px] leading-4 text-[var(--color-text-muted)]">
+            <Icons.InfoCircle size={12} className="shrink-0" />
+            {t("ai.toolCallNote")}
+          </div>
+        )}
       </div>
     </div>
   );

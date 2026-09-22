@@ -7,6 +7,7 @@ import { startExtensionHostBridge } from "../Features/Extensions/ExtensionHostBr
 import { ExtensionHostDialogs } from "../Features/Extensions/ExtensionHostDialogs";
 import { ExtensionSidebar } from "../Features/Extensions/ExtensionSidebar";
 import { ExtensionsPanel } from "../Features/Extensions/ExtensionsPanel";
+import { SdkHostDialogs } from "../Features/Extensions/SDK/SdkHostDialogs";
 import { FliunoWorkspacePage } from "../Features/Fliuno/FliunoWorkspacePage";
 import { OutlineView } from "../Features/Language/OutlineView";
 import { AboutTab } from "../Features/Settings/AboutTab";
@@ -221,6 +222,8 @@ export function WorkspaceView() {
     >
       {/* 扩展宿主对话框桥（confirm/input/quick-pick） */}
       <ExtensionHostDialogs />
+      {/* Aurona SDK 宿主对话框桥（SDK showQuickPick / showInputBox） */}
+      <SdkHostDialogs />
       {/* 侧边栏卡片 */}
       <Card
         className="z-10 flex shrink-0 flex-col"

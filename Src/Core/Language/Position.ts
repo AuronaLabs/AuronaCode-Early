@@ -49,3 +49,22 @@ export function positionForEncoding(
     character: utf16ColumnToLsp(lineText, position.character, encoding),
   };
 }
+
+/**
+ * 绝对 UTF-16 偏移 → {line, character(行内 UTF-16 列)}，兼容 \n 与 \r\n 行尾。
+ * 偏移越界时钳制到文本长度；落点在 \r\n 的 \r 与 \n 之间时归入下一行行首。
+ */
+export function utf16OffsetToPosition(text: string, offset: number): LspPosition {
+  const safe = Math.max(0, Math.min(offset, text.length));
+  let line = 0;
+  let lineStart = 0;
+  let index = 0;
+  while (index < safe) {
+    const newlineIndex = text.indexOf("\n", index);
+    if (newlineIndex === -1 || newlineIndex >= safe) break;
+    line += 1;
+    index = newlineIndex + 1;
+    lineStart = index;
+  }
+  return { line, character: safe - lineStart };
+}

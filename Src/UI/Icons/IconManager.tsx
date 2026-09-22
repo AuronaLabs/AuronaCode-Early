@@ -1,4 +1,5 @@
 import IconAlertTriangle from "@tabler/icons-react/dist/esm/icons/IconAlertTriangle.mjs";
+import IconArrowDown from "@tabler/icons-react/dist/esm/icons/IconArrowDown.mjs";
 import IconArrowRight from "@tabler/icons-react/dist/esm/icons/IconArrowRight.mjs";
 import IconArrowRightBar from "@tabler/icons-react/dist/esm/icons/IconArrowRightBar.mjs";
 import IconArrowUp from "@tabler/icons-react/dist/esm/icons/IconArrowUp.mjs";
@@ -140,6 +141,7 @@ export const Icons = {
   Refresh: IconRefresh,
   ArrowRight: IconArrowRight,
   ArrowUp: IconArrowUp,
+  ArrowDown: IconArrowDown,
 
   FileCode: IconFileCode,
   Code: IconFileCode,

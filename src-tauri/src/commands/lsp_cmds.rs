@@ -326,7 +326,11 @@ fn client_capabilities() -> serde_json::Value {
                 "dynamicRegistration": false,
                 "willSave": false,
                 "willSaveWaitUntil": false,
-                "didSave": true
+                "didSave": true,
+                "textDocumentSync": {
+                    "openClose": true,
+                    "change": 2
+                }
             },
             "publishDiagnostics": {
                 "relatedInformation": true,
@@ -480,12 +484,34 @@ pub async fn lsp_did_open(
     Ok(())
 }
 
+/// LSP 位置（UTF-16 列，除非协商了其他编码）
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct LspPosition {
+    pub line: u32,
+    pub character: u32,
+}
+
+/// 增量变更的位置区间（基于修改前文本）
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct LspRange {
+    pub start: LspPosition,
+    pub end: LspPosition,
+}
+
+/// 单条内容变更：range 缺省时为全量替换
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct LspContentChange {
+    pub range: Option<LspRange>,
+    pub text: String,
+}
+
 #[tauri::command]
 pub async fn lsp_did_change(
     language: String,
     path: String,
     text: String,
     version: i32,
+    changes: Option<Vec<LspContentChange>>,
     state: State<'_, LspState>,
 ) -> Result<(), String> {
     if let Some(client) = get_client(&state, &language).await {
@@ -512,6 +538,14 @@ pub async fn lsp_did_change(
             return Ok(());
         }
 
+        // 增量变更优先；未提供（全量同步路径/旧调用方）时回退整文替换
+        let content_changes = match changes {
+            Some(list) if !list.is_empty() => {
+                serde_json::to_value(&list).unwrap_or_else(|_| serde_json::json!([{ "text": text }]))
+            }
+            _ => serde_json::json!([{ "text": text }]),
+        };
+
         client
             .notify(
                 "textDocument/didChange",
@@ -520,7 +554,7 @@ pub async fn lsp_did_change(
                         "uri": uri,
                         "version": version
                     },
-                    "contentChanges": [{ "text": text }]
+                    "contentChanges": content_changes
                 }),
             )
             .await?;

@@ -4,6 +4,7 @@ import {
   normalizePositionEncoding,
   positionForEncoding,
   utf16ColumnToLsp,
+  utf16OffsetToPosition,
 } from "./Position";
 
 describe("LSP position encoding", () => {
@@ -28,5 +29,18 @@ describe("LSP position encoding", () => {
     });
     expect(normalizePositionEncoding("UTF-8")).toBe("utf-8");
     expect(normalizePositionEncoding("utf-32")).toBe("utf-16");
+  });
+
+  it("maps absolute UTF-16 offsets to line/character across LF and CRLF", () => {
+    const text = "ab\ncd\r\nef";
+    expect(utf16OffsetToPosition(text, 0)).toEqual({ line: 0, character: 0 });
+    expect(utf16OffsetToPosition(text, 3)).toEqual({ line: 1, character: 0 });
+    // CRLF 占两个 UTF-16 码元：\r 所在行内列、\n 后进入下一行行首
+    expect(utf16OffsetToPosition(text, 5)).toEqual({ line: 1, character: 2 });
+    expect(utf16OffsetToPosition(text, 7)).toEqual({ line: 2, character: 0 });
+    expect(utf16OffsetToPosition(text, 9)).toEqual({ line: 2, character: 2 });
+    // 越界钳制
+    expect(utf16OffsetToPosition(text, 99)).toEqual({ line: 2, character: 2 });
+    expect(utf16OffsetToPosition(text, -1)).toEqual({ line: 0, character: 0 });
   });
 });

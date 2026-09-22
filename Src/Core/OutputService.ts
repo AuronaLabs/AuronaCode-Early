@@ -1,4 +1,5 @@
-export type OutputChannelId =
+/** 内置频道 id 保持封闭联合，获得字面量补全与拼写检查 */
+export type BuiltinOutputChannelId =
   | "core"
   | "filesystem"
   | "language-server"
@@ -6,6 +7,14 @@ export type OutputChannelId =
   | "source-control"
   | "terminal-task"
   | "rust-backend";
+
+/**
+ * 扩展动态频道统一挂到 extension: 命名空间（ensureExtensionChannel 归一化），
+ * (string & {}) 惯用法让自定义 id 可传入的同时保留内置 id 的自动补全。
+ */
+export type OutputChannelId = BuiltinOutputChannelId | (string & {});
+
+export const EXTENSION_CHANNEL_PREFIX = "extension:";
 
 export type OutputLevel = "debug" | "info" | "warn" | "error";
 
@@ -31,7 +40,7 @@ const MAX_BYTES = 2 * 1024 * 1024;
 const SECRET_PATTERN =
   /((?:api[_-]?key|access[_-]?token|authorization|password|secret)\s*[:=]\s*)([^\s,;]+)/gi;
 
-const LABELS: Record<OutputChannelId, string> = {
+const LABELS: Record<BuiltinOutputChannelId, string> = {
   core: "Aurona Code · Core",
   filesystem: "Aurona Code · File System",
   "language-server": "Language Services",
@@ -48,11 +57,31 @@ class OutputServiceImpl {
   private sequence = 0;
   private readonly listeners = new Set<Listener>();
   private readonly channels = new Map<OutputChannelId, OutputChannelSnapshot>(
-    (Object.keys(LABELS) as OutputChannelId[]).map((id) => [
+    (Object.keys(LABELS) as BuiltinOutputChannelId[]).map((id) => [
       id,
       { id, label: LABELS[id], entries: [], bytes: 0, revision: 0 },
     ]),
   );
+
+  /**
+   * 注册（或复用）动态扩展输出频道，id 自动归一化到 extension: 命名空间，
+   * 避免扩展自定义频道与内置频道或彼此之间冲突。
+   */
+  ensureExtensionChannel(id: string, label?: string): OutputChannelId {
+    const normalized = id.startsWith(EXTENSION_CHANNEL_PREFIX) ? id : `${EXTENSION_CHANNEL_PREFIX}${id}`;
+    const channelId = normalized as OutputChannelId;
+    if (!this.channels.has(channelId)) {
+      this.channels.set(channelId, {
+        id: channelId,
+        label: label || channelId,
+        entries: [],
+        bytes: 0,
+        revision: 0,
+      });
+      this.emit();
+    }
+    return channelId;
+  }
 
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);

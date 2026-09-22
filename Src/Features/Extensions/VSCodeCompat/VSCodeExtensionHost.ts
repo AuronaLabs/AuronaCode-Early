@@ -3,6 +3,11 @@
  * 为 VSIX 扩展与 Webview 插件提供标准 VS Code API 运行时环境
  */
 
+import { DocumentService, type DocumentRecord } from "../../../Core/DocumentService";
+import {
+  DiagnosticsService,
+  type DiagnosticItem,
+} from "../../../Core/DiagnosticsService";
 import { EditorAdapter } from "../../../Core/Editor/EditorAdapter";
 import { StatusBarRegistry } from "../../../Core/StatusBar/StatusBarRegistry";
 import { WorkspaceService } from "../../../Core/WorkspaceService";
@@ -12,7 +17,9 @@ import { LocaleService } from "../../../Foundation/I18n";
 import { FileSystemCommands } from "../../../Foundation/IPC/FileSystemCommands";
 import { UserConfigStore } from "../../../Foundation/Storage/UserConfigStore";
 import type { UserConfig } from "../../../Foundation/Types/Config";
+import type { TabItem } from "../../../Foundation/Types/Tab";
 import { GetLanguageFromPath } from "../../../Shared/Utils/LanguageUtils";
+import { pathToFileUri } from "../../../Shared/Utils/UriUtils";
 import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
 
 export class Uri {
@@ -150,6 +157,51 @@ export interface Diagnostic {
   code?: string | number;
 }
 
+/** 诊断集合：写入底层 DiagnosticsService，按集合跟踪自有条目，避免清掉 LSP 等其他来源 */
+export interface DiagnosticCollection {
+  readonly name: string;
+  set(uri: Uri, diagnostics: readonly Diagnostic[]): void;
+  delete(uri: Uri): void;
+  clear(): void;
+  dispose(): void;
+}
+
+export enum FileType {
+  Unknown = 0,
+  File = 1,
+  Directory = 2,
+  SymbolicLink = 64,
+}
+
+/** VS Code TextDocument 的兼容快照（简化版：全文 getText） */
+export interface VSCodeTextDocument {
+  readonly uri: Uri;
+  readonly fileName: string;
+  readonly languageId: string;
+  readonly version: number;
+  readonly isDirty: boolean;
+  getText(): string;
+}
+
+export interface TextDocumentContentChange {
+  readonly text: string;
+}
+
+/** 文档变更事件（contentChanges 简化为全文替换） */
+export interface TextDocumentChangeEvent {
+  readonly document: VSCodeTextDocument;
+  readonly contentChanges: readonly TextDocumentContentChange[];
+}
+
+/** VS Code 扩展激活上下文 */
+export interface VSCodeExtensionContext {
+  /** 扩展安装目录（前端侧暂无安装路径数据源，先以扩展 id 占位） */
+  readonly extensionPath: string;
+  readonly extensionUri: Uri;
+  /** 激活期间注册的 Disposable；禁用/停用时逆序 dispose */
+  readonly subscriptions: Disposable[];
+}
+
 export enum StatusBarAlignment {
   Left = 1,
   Right = 2,
@@ -187,7 +239,13 @@ export interface VSCodeExtensionAPI {
   Selection: typeof Selection;
   Disposable: typeof Disposable;
   DiagnosticSeverity: typeof DiagnosticSeverity;
+  FileType: typeof FileType;
   StatusBarAlignment: typeof StatusBarAlignment;
+
+  languages: {
+    createDiagnosticCollection(name: string): DiagnosticCollection;
+    DiagnosticSeverity: typeof DiagnosticSeverity;
+  };
 
   window: {
     showInformationMessage(message: string, ...items: string[]): Promise<string | undefined>;
@@ -221,6 +279,9 @@ export interface VSCodeExtensionAPI {
   workspace: {
     name: string | undefined;
     workspaceFolders: readonly VSCodeWorkspaceFolder[] | undefined;
+    onDidOpenTextDocument(listener: (document: VSCodeTextDocument) => void): Disposable;
+    onDidChangeTextDocument(listener: (event: TextDocumentChangeEvent) => void): Disposable;
+    onDidCloseTextDocument(listener: (document: VSCodeTextDocument) => void): Disposable;
     getConfiguration(section?: string): {
       get<T = unknown>(key: string, defaultValue?: T): Promise<T | undefined>;
       update(key: string, value: unknown): Promise<void>;
@@ -228,7 +289,7 @@ export interface VSCodeExtensionAPI {
     fs: {
       readFile(uri: Uri): Promise<Uint8Array>;
       writeFile(uri: Uri, content: Uint8Array): Promise<void>;
-      stat(uri: Uri): Promise<{ type: number; size: number; mtime: number }>;
+      stat(uri: Uri): Promise<{ type: FileType; size: number; mtime: number }>;
     };
   };
 
@@ -264,6 +325,260 @@ export function resolveConfigKey(section: string | undefined, key: string): stri
   return candidates;
 }
 
+/** 诊断文档 uri 统一走 pathToFileUri 规范化（与 LSP、问题面板的 key 约定一致） */
+function canonicalDiagnosticUri(uri: Uri): string {
+  return uri.scheme === "file" ? pathToFileUri(uri.fsPath) : uri.toString();
+}
+
+class DiagnosticCollectionImpl implements DiagnosticCollection {
+  /** 本集合已发布到各 uri 的条目（按引用跟踪，便于替换时保留其他来源诊断） */
+  private readonly published = new Map<string, DiagnosticItem[]>();
+  private disposed = false;
+
+  constructor(readonly name: string) {}
+
+  set(uri: Uri, diagnostics: readonly Diagnostic[]): void {
+    if (this.disposed) return;
+    this.replaceOwned(
+      canonicalDiagnosticUri(uri),
+      diagnostics.map((diagnostic) => this.toServiceDiagnostic(diagnostic)),
+    );
+  }
+
+  delete(uri: Uri): void {
+    if (this.disposed) return;
+    this.replaceOwned(canonicalDiagnosticUri(uri), []);
+  }
+
+  clear(): void {
+    if (this.disposed) return;
+    for (const key of [...this.published.keys()]) {
+      this.replaceOwned(key, []);
+    }
+  }
+
+  dispose(): void {
+    this.clear();
+    this.published.clear();
+    this.disposed = true;
+  }
+
+  private toServiceDiagnostic(diagnostic: Diagnostic): DiagnosticItem {
+    return {
+      range: {
+        start: { line: diagnostic.range.start.line, character: diagnostic.range.start.character },
+        end: { line: diagnostic.range.end.line, character: diagnostic.range.end.character },
+      },
+      message: diagnostic.message,
+      severity: diagnostic.severity,
+      source: diagnostic.source ?? this.name,
+      code: diagnostic.code,
+    };
+  }
+
+  /** 用本集合的新条目替换旧条目，同一文档上 LSP 等其他来源的诊断保持不动 */
+  private replaceOwned(key: string, owned: DiagnosticItem[]): void {
+    const previous = this.published.get(key);
+    const existing = DiagnosticsService.get(key)?.diagnostics ?? [];
+    const foreign = previous ? existing.filter((item) => !previous.includes(item)) : [...existing];
+    this.published.set(key, owned);
+    DiagnosticsService.update({ uri: key, diagnostics: [...foreign, ...owned] });
+  }
+}
+
+type PathWatcher = {
+  unlisten: () => void;
+  seen: boolean;
+  lastVersion: number;
+  lastDirty: boolean;
+  lastContent: string;
+  lastDocument: VSCodeTextDocument | null;
+};
+
+/**
+ * 文档事件中继：把 DocumentService 的按 path 订阅 + 工作区标签变化，
+ * 转译为 VS Code 风格的 onDidOpen/onDidChange/onDidClose 文档事件。
+ * 无监听者时不挂任何订阅，监听者全部注销后自动释放。
+ */
+class DocumentEventRelay {
+  private readonly openListeners = new Set<(document: VSCodeTextDocument) => void>();
+  private readonly changeListeners = new Set<(event: TextDocumentChangeEvent) => void>();
+  private readonly closeListeners = new Set<(document: VSCodeTextDocument) => void>();
+  private readonly watchers = new Map<string, PathWatcher>();
+  private storeUnlisten: (() => void) | null = null;
+
+  onDidOpenTextDocument(listener: (document: VSCodeTextDocument) => void): () => void {
+    this.openListeners.add(listener);
+    this.syncLifecycle();
+    return () => {
+      this.openListeners.delete(listener);
+      this.syncLifecycle();
+    };
+  }
+
+  onDidChangeTextDocument(listener: (event: TextDocumentChangeEvent) => void): () => void {
+    this.changeListeners.add(listener);
+    this.syncLifecycle();
+    return () => {
+      this.changeListeners.delete(listener);
+      this.syncLifecycle();
+    };
+  }
+
+  onDidCloseTextDocument(listener: (document: VSCodeTextDocument) => void): () => void {
+    this.closeListeners.add(listener);
+    this.syncLifecycle();
+    return () => {
+      this.closeListeners.delete(listener);
+      this.syncLifecycle();
+    };
+  }
+
+  private get listenerCount(): number {
+    return this.openListeners.size + this.changeListeners.size + this.closeListeners.size;
+  }
+
+  private syncLifecycle(): void {
+    if (this.listenerCount > 0) {
+      if (!this.storeUnlisten) {
+        this.storeUnlisten = useWorkbenchStore.subscribe((state) => this.syncWatched(state.tabs));
+        this.syncWatched(useWorkbenchStore.getState().tabs);
+      }
+      return;
+    }
+    this.storeUnlisten?.();
+    this.storeUnlisten = null;
+    for (const watcher of this.watchers.values()) watcher.unlisten();
+    this.watchers.clear();
+  }
+
+  private syncWatched(tabs: TabItem[]): void {
+    const paths = new Set<string>();
+    for (const tab of tabs) {
+      if (typeof tab.path === "string" && tab.path.length > 0) paths.add(tab.path);
+    }
+    for (const [path, watcher] of this.watchers) {
+      if (paths.has(path)) continue;
+      watcher.unlisten();
+      this.watchers.delete(path);
+      if (watcher.lastDocument) this.fireClose(watcher.lastDocument);
+    }
+    for (const path of paths) {
+      if (this.watchers.has(path)) continue;
+      const watcher: PathWatcher = {
+        unlisten: () => {},
+        seen: false,
+        lastVersion: -1,
+        lastDirty: false,
+        lastContent: "",
+        lastDocument: null,
+      };
+      watcher.unlisten = DocumentService.subscribe(path, (record) =>
+        this.handleRecord(watcher, record),
+      );
+      this.watchers.set(path, watcher);
+    }
+  }
+
+  private handleRecord(watcher: PathWatcher, record: DocumentRecord | undefined): void {
+    if (!record) {
+      if (watcher.lastDocument) {
+        const document = watcher.lastDocument;
+        watcher.lastDocument = null;
+        watcher.seen = false;
+        this.fireClose(document);
+      }
+      return;
+    }
+    const isFirst = !watcher.seen;
+    const changed =
+      !isFirst &&
+      (record.content !== watcher.lastContent ||
+        record.version !== watcher.lastVersion ||
+        record.isDirty !== watcher.lastDirty);
+    watcher.seen = true;
+    watcher.lastVersion = record.version;
+    watcher.lastDirty = record.isDirty;
+    watcher.lastContent = record.content;
+    const document = this.toTextDocument(record);
+    watcher.lastDocument = document;
+    if (isFirst) {
+      for (const listener of this.openListeners) listener(document);
+    } else if (changed) {
+      const event: TextDocumentChangeEvent = {
+        document,
+        contentChanges: [{ text: record.content }],
+      };
+      for (const listener of this.changeListeners) listener(event);
+    }
+  }
+
+  private fireClose(document: VSCodeTextDocument): void {
+    for (const listener of this.closeListeners) listener(document);
+  }
+
+  private toTextDocument(record: DocumentRecord): VSCodeTextDocument {
+    return {
+      uri: Uri.file(record.path),
+      fileName: record.path,
+      languageId: record.languageId,
+      version: record.version,
+      isDirty: record.isDirty,
+      getText: () => record.content,
+    };
+  }
+}
+
+const documentEventRelay = new DocumentEventRelay();
+
+/** vscode Position（line/character，utf16 单位）→ 全文 utf16 偏移 */
+function utf16OffsetAt(text: string, line: number, character: number): number {
+  const lines = text.split("\n");
+  const safeLine = Math.max(0, Math.min(line, lines.length - 1));
+  let offset = 0;
+  for (let index = 0; index < safeLine; index += 1) {
+    offset += lines[index].length + 1;
+  }
+  return offset + Math.max(0, Math.min(character, lines[safeLine]?.length ?? 0));
+}
+
+/** 按位置插入：优先走 DocumentService.applyEdit（utf16 偏移），未打开的文档退化为光标插入 */
+async function insertAtPosition(path: string, position: Position, text: string): Promise<void> {
+  const record = DocumentService.get(path);
+  if (!record) {
+    EditorAdapter.insertCode(text);
+    return;
+  }
+  const current = record.content;
+  const offset = Math.max(
+    0,
+    Math.min(utf16OffsetAt(current, position.line, position.character), current.length),
+  );
+  const nextContent = current.slice(0, offset) + text + current.slice(offset);
+  await DocumentService.applyEdit(path, offset, offset, text, nextContent);
+}
+
+function parentPath(path: string): string | null {
+  const normalized = path.replace(/[\\/]+$/, "");
+  const cut = Math.max(normalized.lastIndexOf("\\"), normalized.lastIndexOf("/"));
+  return cut > 0 ? normalized.slice(0, cut) : null;
+}
+
+/** 现有 IPC 无文件元数据命令：用父目录 readDirectory 判别文件/目录类型 */
+async function statType(path: string): Promise<FileType> {
+  const parent = parentPath(path);
+  if (!parent) return FileType.File;
+  try {
+    const entries = await FileSystemCommands.readDirectory(parent);
+    const name = path.split(/[\\/]/).pop() ?? "";
+    const entry = entries.find((candidate) => candidate.name === name);
+    if (!entry) return FileType.File;
+    return entry.isDirectory ? FileType.Directory : FileType.File;
+  } catch {
+    return FileType.File;
+  }
+}
+
 /**
  * 为指定扩展创建沙箱隔离的 VS Code 兼容 API 实例
  */
@@ -276,7 +591,15 @@ export function createVSCodeExtensionHost(extensionId: string): VSCodeExtensionA
     Selection,
     Disposable,
     DiagnosticSeverity,
+    FileType,
     StatusBarAlignment,
+
+    languages: {
+      createDiagnosticCollection(name: string): DiagnosticCollection {
+        return new DiagnosticCollectionImpl(name);
+      },
+      DiagnosticSeverity,
+    },
 
     window: {
       async showInformationMessage(message: string, ...items: string[]) {
@@ -377,6 +700,7 @@ export function createVSCodeExtensionHost(extensionId: string): VSCodeExtensionA
         if (activeTab?.type !== "file" || !activeTab.path) {
           return undefined;
         }
+        const docPath: string = activeTab.path;
 
         const editorStatus = EditorAdapter.getStatus();
         return {
@@ -397,18 +721,23 @@ export function createVSCodeExtensionHost(extensionId: string): VSCodeExtensionA
           ),
           async edit(callback: (editBuilder: TextEditorEdit) => void) {
             try {
+              const pendingInserts: { position: Position; text: string }[] = [];
               const editBuilder: TextEditorEdit = {
                 replace(range: Range, text: string) {
                   EditorAdapter.replaceRange(range.start.line, range.end.line, text);
                 },
-                insert(_pos: Position, text: string) {
-                  EditorAdapter.insertCode(text);
+                insert(position: Position, text: string) {
+                  // 先收集，回调返回后按位置经 DocumentService 落盘（utf16 偏移换算）
+                  pendingInserts.push({ position, text });
                 },
                 delete(range: Range) {
                   EditorAdapter.replaceRange(range.start.line, range.end.line, "");
                 },
               };
               callback(editBuilder);
+              for (const operation of pendingInserts) {
+                await insertAtPosition(docPath, operation.position, operation.text);
+              }
               return true;
             } catch {
               return false;
@@ -461,6 +790,18 @@ export function createVSCodeExtensionHost(extensionId: string): VSCodeExtensionA
         ];
       },
 
+      onDidOpenTextDocument(listener: (document: VSCodeTextDocument) => void): Disposable {
+        return new Disposable(documentEventRelay.onDidOpenTextDocument(listener));
+      },
+
+      onDidChangeTextDocument(listener: (event: TextDocumentChangeEvent) => void): Disposable {
+        return new Disposable(documentEventRelay.onDidChangeTextDocument(listener));
+      },
+
+      onDidCloseTextDocument(listener: (document: VSCodeTextDocument) => void): Disposable {
+        return new Disposable(documentEventRelay.onDidCloseTextDocument(listener));
+      },
+
       getConfiguration(section?: string) {
         const knownKey = async (key: string): Promise<string | undefined> => {
           const config = (await UserConfigStore.get()) as unknown as Record<string, unknown>;
@@ -502,8 +843,13 @@ export function createVSCodeExtensionHost(extensionId: string): VSCodeExtensionA
 
         async stat(uri: Uri) {
           const exists = await FileSystemCommands.exists(uri.fsPath);
+          if (!exists) {
+            return { type: FileType.Unknown, size: 0, mtime: 0 };
+          }
+          // 后端尚无文件元数据命令：type 经父目录判别；size/mtime 暂无真实来源（读全量内容代价过高），先返回占位值
+          const type = await statType(uri.fsPath);
           return {
-            type: exists ? 1 : 0,
+            type,
             size: 0,
             mtime: Date.now(),
           };
@@ -537,4 +883,35 @@ export function createVSCodeExtensionHost(extensionId: string): VSCodeExtensionA
       },
     },
   };
+}
+
+/**
+ * 执行 VS Code 扩展的 activate(context) 流程：
+ * 创建上下文并把 activate 返回的 Disposable（单个或数组）自动收进 subscriptions。
+ */
+export async function activateVSCodeExtension(
+  extensionId: string,
+  activate: (context: VSCodeExtensionContext) => unknown,
+): Promise<VSCodeExtensionContext> {
+  const context: VSCodeExtensionContext = {
+    extensionPath: extensionId,
+    extensionUri: Uri.file(extensionId),
+    subscriptions: [],
+  };
+  const returned = await activate(context);
+  const candidates = Array.isArray(returned) ? returned : [returned];
+  for (const candidate of candidates) {
+    if (candidate && typeof (candidate as Disposable).dispose === "function") {
+      context.subscriptions.push(candidate as Disposable);
+    }
+  }
+  return context;
+}
+
+/** 扩展禁用/停用：逆序 dispose subscriptions，避免依赖注册顺序的释放问题 */
+export function deactivateVSCodeExtension(context: VSCodeExtensionContext): void {
+  for (const disposable of [...context.subscriptions].reverse()) {
+    disposable.dispose();
+  }
+  context.subscriptions.length = 0;
 }

@@ -42,9 +42,6 @@ type ClearTarget =
 
 type StorageGroup = "core" | "extensions" | "toolchains" | "cache" | "logs" | "other";
 
-/** t 函数类型：直接取自 useLocale 返回值，保证签名兼容 */
-type TranslateFn = ReturnType<typeof useLocale>["t"];
-
 const ROW_GROUP: Record<ClearTarget, StorageGroup> = {
   config: "core",
   workspace: "core",
