@@ -1530,11 +1530,11 @@ export const ja: LocaleMessages = {
       "接続に失敗しました：サービス URL にアクセスできません。API URL またはプロキシを確認してください",
     errorAuth: "認証に失敗しました：API キーが無効または権限がありません（401/403）",
     errorRateLimit: "レート制限（429）：リクエストが多すぎます。しばらくしてから再試行してください",
-    errorTimeout: "タイムアウト：セッションの総時間が上限を超えました。しばらくしてから再試行してください",
+    errorTimeout:
+      "タイムアウト：セッションの総時間が上限を超えました。しばらくしてから再試行してください",
     errorFirstTokenTimeout:
       "接続タイムアウト：サーバーが最初の応答を返すまでに時間がかかりすぎています。ネットワークを確認するか、後でもう一度お試しください",
-    errorIdleTimeout:
-      "応答中断：生成中に長時間新しい内容がありません。再試行してください",
+    errorIdleTimeout: "応答中断：生成中に長時間新しい内容がありません。再試行してください",
     errorGeneric: "リクエストに失敗しました：{message}",
     errorUnavailable: "AI サービスは現在利用できません",
     phaseConnecting: "接続中…",

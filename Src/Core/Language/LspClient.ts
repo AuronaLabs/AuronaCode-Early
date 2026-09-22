@@ -1,7 +1,7 @@
 import { EventBus } from "../../Foundation/EventBus";
 import {
-  type LspContentChangePayload,
   LanguageServerIPC,
+  type LspContentChangePayload,
 } from "../../Foundation/IPC/LanguageServerCommands";
 import type { CompletionItem } from "../../Foundation/Types/Lsp";
 import { type DiagnosticItem, DiagnosticsService } from "../DiagnosticsService";
@@ -297,13 +297,7 @@ export class LspClient {
       this.serverSyncKind(language) === "incremental"
         ? this.buildIncrementalChange(language, previousText, edits[0])
         : null;
-    await LanguageServerIPC.didChange(
-      language,
-      path,
-      text,
-      version,
-      change ? [change] : undefined,
-    );
+    await LanguageServerIPC.didChange(language, path, text, version, change ? [change] : undefined);
   }
 
   /** 服务端声明的 textDocumentSync：incremental / full / 未声明（视为 full，保持既有整文行为） */
@@ -328,10 +322,7 @@ export class LspClient {
     const encoding = normalizePositionEncoding(this.getState(language)?.positionEncoding);
     const start = utf16OffsetToPosition(previousText, edit.startUtf16);
     const end = utf16OffsetToPosition(previousText, edit.endUtf16);
-    if (
-      end.line < start.line ||
-      (end.line === start.line && end.character < start.character)
-    ) {
+    if (end.line < start.line || (end.line === start.line && end.character < start.character)) {
       return null;
     }
     const startLsp = positionForEncoding(previousText, start, encoding);

@@ -68,7 +68,9 @@ class OutputServiceImpl {
    * 避免扩展自定义频道与内置频道或彼此之间冲突。
    */
   ensureExtensionChannel(id: string, label?: string): OutputChannelId {
-    const normalized = id.startsWith(EXTENSION_CHANNEL_PREFIX) ? id : `${EXTENSION_CHANNEL_PREFIX}${id}`;
+    const normalized = id.startsWith(EXTENSION_CHANNEL_PREFIX)
+      ? id
+      : `${EXTENSION_CHANNEL_PREFIX}${id}`;
     const channelId = normalized as OutputChannelId;
     if (!this.channels.has(channelId)) {
       this.channels.set(channelId, {

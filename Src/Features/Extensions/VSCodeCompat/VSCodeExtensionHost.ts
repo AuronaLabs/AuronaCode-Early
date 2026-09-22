@@ -3,11 +3,8 @@
  * 为 VSIX 扩展与 Webview 插件提供标准 VS Code API 运行时环境
  */
 
-import { DocumentService, type DocumentRecord } from "../../../Core/DocumentService";
-import {
-  DiagnosticsService,
-  type DiagnosticItem,
-} from "../../../Core/DiagnosticsService";
+import { type DiagnosticItem, DiagnosticsService } from "../../../Core/DiagnosticsService";
+import { type DocumentRecord, DocumentService } from "../../../Core/DocumentService";
 import { EditorAdapter } from "../../../Core/Editor/EditorAdapter";
 import { StatusBarRegistry } from "../../../Core/StatusBar/StatusBarRegistry";
 import { WorkspaceService } from "../../../Core/WorkspaceService";

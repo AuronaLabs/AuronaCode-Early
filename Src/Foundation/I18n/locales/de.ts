@@ -1565,7 +1565,8 @@ export const de: LocaleMessages = {
     phaseDone: "Fertig · {seconds}s",
     stoppedNote: "Gestoppt",
     truncatedNote: "Antwort wegen Längenbegrenzung gekürzt",
-    toolCallNote: "Das Modell hat einen Tool-Aufruf angefordert (in dieser Version nicht ausgeführt)",
+    toolCallNote:
+      "Das Modell hat einen Tool-Aufruf angefordert (in dieser Version nicht ausgeführt)",
     retry: "Erneut versuchen",
     copyMessage: "Nachricht kopieren",
     copied: "Kopiert",

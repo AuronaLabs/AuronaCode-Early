@@ -4,9 +4,9 @@ import { pathToFileUri } from "../../../Shared/Utils/UriUtils";
 import {
   activateVSCodeExtension,
   createVSCodeExtensionHost,
-  deactivateVSCodeExtension,
   DiagnosticSeverity,
   Disposable,
+  deactivateVSCodeExtension,
   Position,
   Range,
   resolveConfigKey,

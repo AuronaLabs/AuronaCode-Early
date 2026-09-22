@@ -54,10 +54,7 @@ export const desktopFileSystem = {
       // 失败回滚：清理 tmp，原文件仍在（或从 bak 还原）
       await remove(tmpPath, options).catch(() => undefined);
       try {
-        if (
-          (await exists(bakPath, options).catch(() => false)) &&
-          !(await exists(path, options))
-        ) {
+        if ((await exists(bakPath, options).catch(() => false)) && !(await exists(path, options))) {
           await rename(bakPath, path, {
             oldPathBaseDir: options.baseDir,
             newPathBaseDir: options.baseDir,

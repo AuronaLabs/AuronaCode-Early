@@ -2,8 +2,8 @@ import { type I18nKey, LocaleService } from "../Foundation/I18n";
 import {
   type AiChatDeltaPayload,
   type AiChatDonePayload,
-  type AiChatErrorPayload,
   type AiChatErrorCode,
+  type AiChatErrorPayload,
   type AiChatToolCallDelta,
   AiIPC,
 } from "../Foundation/IPC/AiCommands";
@@ -240,10 +240,13 @@ function loadStore(): ChatStore {
   } catch {
     // 存储损坏时回退迁移/空态
   }
-  return migrateV1() ?? (() => {
-    const created = emptySession();
-    return { activeSessionId: created.id, sessions: [created] };
-  })();
+  return (
+    migrateV1() ??
+    (() => {
+      const created = emptySession();
+      return { activeSessionId: created.id, sessions: [created] };
+    })()
+  );
 }
 
 function persistStore(current: ChatStore): void {
@@ -445,11 +448,7 @@ async function bindEvents(): Promise<void> {
         (messages) =>
           messages.filter(
             (item) =>
-              !(
-                item.id === assistantMessageId &&
-                item.content === "" &&
-                !item.toolCalls?.length
-              ),
+              !(item.id === assistantMessageId && item.content === "" && !item.toolCalls?.length),
           ),
         { persist: true },
       );
@@ -610,10 +609,9 @@ export const AiChatService = {
     }
     const userMessage = session.messages[index - 1];
     if (userMessage.role !== "user") return;
-    updateActiveMessages(
-      (messages) => messages.filter((item) => item.id !== messageId),
-      { persist: true },
-    );
+    updateActiveMessages((messages) => messages.filter((item) => item.id !== messageId), {
+      persist: true,
+    });
     await AiChatService.startGeneration();
   },
 

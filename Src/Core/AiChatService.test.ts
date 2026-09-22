@@ -34,15 +34,17 @@ const aiMock = vi.hoisted(() => {
 
 vi.mock("../Foundation/IPC/AiCommands", () => ({
   AiIPC: {
-    send: vi.fn(async (payload: {
-      sessionId: string;
-      baseUrl: string;
-      apiKey: string;
-      model: string;
-      messages: Array<{ role: string; content: string }>;
-    }) => {
-      aiMock.sentPayloads.push(payload);
-    }),
+    send: vi.fn(
+      async (payload: {
+        sessionId: string;
+        baseUrl: string;
+        apiKey: string;
+        model: string;
+        messages: Array<{ role: string; content: string }>;
+      }) => {
+        aiMock.sentPayloads.push(payload);
+      },
+    ),
     abort: vi.fn(async () => undefined),
     onChatStart: vi.fn(async () => undefined),
     onChatDelta: vi.fn(async (handler: (payload: never) => void) => {
@@ -155,7 +157,7 @@ describe("AiChatService", () => {
       code: "connect",
       message: "连接失败: boom",
     });
-    let snapshot = service.getSnapshot();
+    const snapshot = service.getSnapshot();
     const failed = snapshot.messages.at(-1);
     expect(failed?.status).toBe("error");
     expect(failed?.content).toBe("生成到一半");

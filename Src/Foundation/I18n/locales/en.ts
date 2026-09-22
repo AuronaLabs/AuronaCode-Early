@@ -1526,8 +1526,7 @@ export const en: LocaleMessages = {
     deleteSession: "Delete session",
     scrollBottom: "Scroll to bottom",
     clearConfirmTitle: "Clear current session",
-    clearConfirmMessage:
-      "All messages in this session will be deleted. This cannot be undone",
+    clearConfirmMessage: "All messages in this session will be deleted. This cannot be undone",
     settingsDescription:
       "Configure an OpenAI-compatible streaming chat service; settings stay local",
     settingsEnabledTitle: "Enable AI sidebar card",

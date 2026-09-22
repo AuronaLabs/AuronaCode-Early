@@ -540,9 +540,8 @@ pub async fn lsp_did_change(
 
         // 增量变更优先；未提供（全量同步路径/旧调用方）时回退整文替换
         let content_changes = match changes {
-            Some(list) if !list.is_empty() => {
-                serde_json::to_value(&list).unwrap_or_else(|_| serde_json::json!([{ "text": text }]))
-            }
+            Some(list) if !list.is_empty() => serde_json::to_value(&list)
+                .unwrap_or_else(|_| serde_json::json!([{ "text": text }])),
             _ => serde_json::json!([{ "text": text }]),
         };
 
