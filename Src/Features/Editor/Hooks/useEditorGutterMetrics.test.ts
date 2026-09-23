@@ -23,6 +23,14 @@ describe("useEditorGutterMetrics", () => {
     expect(width).toBe(40);
   });
 
+  it("gutter 宽度随行数位数增长（六位数行号）", () => {
+    const charWidth = 8;
+    // 6 digits * 8 + 16 = 64
+    expect(calculateGutterWidth(123456, charWidth, 16)).toBe(64);
+    // 位数不变时宽度稳定（999999 与 100000 同为 6 位）
+    expect(calculateGutterWidth(999999, charWidth, 16)).toBe(64);
+  });
+
   it("hook computes correct offsets and formatting", () => {
     const { result } = renderHook(() =>
       useEditorGutterMetrics({

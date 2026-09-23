@@ -10,10 +10,6 @@ export function canonicalExtensionId(id: string): string {
   return LEGACY_EXTENSION_ID_ALIASES[id as LegacyExtensionId] ?? id;
 }
 
-export function isLegacyExtensionId(id: string): id is LegacyExtensionId {
-  return id in LEGACY_EXTENSION_ID_ALIASES;
-}
-
 /**
  * Canonicalize and deduplicate extension-shaped records without discarding
  * records that cannot be understood. Canonical records take precedence when

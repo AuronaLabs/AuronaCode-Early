@@ -6,9 +6,7 @@ export interface LanguageServerConfiguration {
   env?: Record<string, string>;
   initializationOptions?: unknown;
   settings?: unknown;
-  startupTimeout?: number;
   requestTimeout?: number;
-  restartLimit?: number;
 }
 
 export interface LanguageFeaturePreferences {
@@ -82,6 +80,8 @@ export interface AppearancePreferences {
 export interface AiPreferences {
   /** 是否在侧边栏启用 AI 助手卡片 */
   enabled?: boolean;
+  /** 是否启用 agent 工具执行（读/搜/改文件、运行命令；写类操作始终需用户确认） */
+  agentEnabled?: boolean;
   /** 服务商预设：custom 时 baseUrl 手工填写 */
   provider?: "openai" | "deepseek" | "openrouter" | "custom";
   /** OpenAI 兼容 Chat Completions 接口地址 */
@@ -123,7 +123,6 @@ export interface UserConfig {
   languageFeatures?: LanguageFeaturePreferences;
   debug?: DebugPreferences;
   releaseChannel?: "stable" | "pioneer";
-  featureFlags?: Record<string, boolean>;
   marketplaceServerUrl?: string;
   /** Keep the built-in VSCode compatibility runtime available for VSIX extensions. */
   vscodeCompatEnabled?: boolean;

@@ -1,15 +1,5 @@
 import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
-
-function findVcvars64() {
-  const candidates = [
-    "D:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat",
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat",
-    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat",
-    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat",
-  ];
-  return candidates.find((p) => existsSync(p));
-}
+import { findVcvars64 } from "./lib/extension-build-common.mjs";
 
 function runRustTests() {
   const args = process.argv.slice(2);

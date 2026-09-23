@@ -26,11 +26,35 @@ const CHUNK_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
 /// 单次会话总时长硬顶（防止异常服务端无限流式）
 const OVERALL_TIMEOUT: Duration = Duration::from_secs(600);
 
-/// OpenAI 兼容聊天消息（字段名对齐 wire format，无需 camelCase）
+/// OpenAI 兼容 tool_calls 字段（上行回传，arguments 为完整字符串）
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatToolFunctionPayload {
+    pub name: String,
+    pub arguments: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatToolCallPayload {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub call_type: String,
+    pub function: ChatToolFunctionPayload,
+}
+
+/// OpenAI 兼容聊天消息（字段名对齐 wire format；camelCase 由 serde 转换）。
+/// content 可空：assistant 纯工具调用消息与 tool 结果消息按协议可缺省。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChatMessagePayload {
     pub role: String,
-    pub content: String,
+    #[serde(default)]
+    pub content: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<ChatToolCallPayload>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
 }
 
 /// 会话中止标记集合（sessionId → 是否请求中止）
@@ -515,5 +539,43 @@ mod tests {
         // 首个分片常只携带 role，无内容
         let line = r#"data: {"choices":[{"delta":{"role":"assistant"}}]}"#;
         assert_eq!(parse_sse_line(line), None);
+    }
+
+    #[test]
+    fn chat_message_payload_serializes_tool_fields() {
+        let message = ChatMessagePayload {
+            role: "assistant".to_string(),
+            content: None,
+            tool_calls: Some(vec![ChatToolCallPayload {
+                id: "call_1".to_string(),
+                call_type: "function".to_string(),
+                function: ChatToolFunctionPayload {
+                    name: "read_file".to_string(),
+                    arguments: r#"{"path":"src/main.rs"}"#.to_string(),
+                },
+            }]),
+            tool_call_id: None,
+        };
+        let value = serde_json::to_value(&message).expect("serialize");
+        assert_eq!(value["toolCalls"][0]["id"], "call_1");
+        assert_eq!(value["toolCalls"][0]["type"], "function");
+        assert_eq!(value["toolCalls"][0]["function"]["name"], "read_file");
+        // toolCallId 缺省时不出现在 wire format；content 以 null 序列化（assistant 纯工具调用）
+        assert!(value.get("toolCallId").is_none());
+        assert!(value["content"].is_null());
+
+        let back: ChatMessagePayload = serde_json::from_value(value).expect("deserialize");
+        assert_eq!(back.role, "assistant");
+        assert!(back.tool_calls.as_ref().expect("tool_calls").len() == 1);
+
+        let tool_message = ChatMessagePayload {
+            role: "tool".to_string(),
+            content: Some("file contents".to_string()),
+            tool_calls: None,
+            tool_call_id: Some("call_1".to_string()),
+        };
+        let tool_value = serde_json::to_value(&tool_message).expect("serialize tool");
+        assert_eq!(tool_value["toolCallId"], "call_1");
+        assert!(tool_value.get("toolCalls").is_none());
     }
 }

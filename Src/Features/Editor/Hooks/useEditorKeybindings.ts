@@ -84,10 +84,16 @@ export interface UseEditorKeybindingsProps {
   scrollToCursor: (pos?: { line: number; char: number }) => void;
   /** 一页对应的行数（PageUp/PageDown 用） */
   pageLines: number;
+  /** 缩进宽度（Tab/Enter 智能缩进用，来自编辑器布局度量） */
+  tabSize: number;
   /** 额外光标数量（多光标批量编辑开关） */
   extraCursorCount: number;
   /** Ctrl+D：选词或添加下一匹配 */
   handleCtrlD: () => void;
+  /** Alt+Shift+I：在选区行尾添加光标 */
+  handleAddCursorAtSelectionEnds: () => void;
+  /** Ctrl+Alt+Up/Down：在光标上/下方同列添加列光标 */
+  handleAddColumnCursor: (direction: -1 | 1) => void;
   clearExtraCursors: () => void;
   handleMultiCursorBackspace: () => void;
   handleMultiCursorDelete: () => void;
@@ -117,8 +123,11 @@ export function useEditorKeybindings({
   setIsSearchOpen,
   scrollToCursor,
   pageLines,
+  tabSize,
   extraCursorCount,
   handleCtrlD,
+  handleAddCursorAtSelectionEnds,
+  handleAddColumnCursor,
   clearExtraCursors,
   handleMultiCursorBackspace,
   handleMultiCursorDelete,
@@ -204,6 +213,20 @@ export function useEditorKeybindings({
       if (e.key === "Escape" && extraCursorCount > 0) {
         e.preventDefault();
         clearExtraCursors();
+        return;
+      }
+
+      // 多光标：Alt+Shift+I 在选区行尾添加光标
+      if (e.altKey && e.shiftKey && (e.key === "i" || e.key === "I")) {
+        e.preventDefault();
+        handleAddCursorAtSelectionEnds();
+        return;
+      }
+
+      // 多光标：Ctrl+Alt+Up/Down 列光标（必须在下方 Alt+Up/Down 移动行之前判断）
+      if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        e.preventDefault();
+        handleAddColumnCursor(e.key === "ArrowUp" ? -1 : 1);
         return;
       }
 
@@ -344,25 +367,29 @@ export function useEditorKeybindings({
         return;
       }
 
-      // 缩进 / 反缩进 Tab / Shift+Tab
+      // 缩进 / 反缩进 Tab / Shift+Tab（缩进宽度读编辑器 tabSize 配置）
       if (e.key === "Tab") {
         e.preventDefault();
         if (selection && selection.start.line !== selection.end.line) {
           const range = affectedLineRange(line, selection);
           if (e.shiftKey) {
-            const result = outdentLineRange(lines, range, 2);
+            const result = outdentLineRange(lines, range, tabSize);
             replaceDocumentLines(result.lines, cursor, selection);
           } else {
-            const nextLines = indentLineRange(lines, range, "  ");
+            const nextLines = indentLineRange(lines, range, " ".repeat(tabSize));
             replaceDocumentLines(nextLines, cursor, selection);
           }
         } else {
           if (e.shiftKey) {
             const range = affectedLineRange(line, selection);
-            const result = outdentLineRange(lines, range, 2);
-            replaceDocumentLines(result.lines, { ...cursor, char: Math.max(0, char - 2) }, null);
+            const result = outdentLineRange(lines, range, tabSize);
+            replaceDocumentLines(
+              result.lines,
+              { ...cursor, char: Math.max(0, char - tabSize) },
+              null,
+            );
           } else {
-            insertTextAtCursor("  ");
+            insertTextAtCursor(" ".repeat(tabSize));
           }
         }
         return;
@@ -490,7 +517,7 @@ export function useEditorKeybindings({
           (beforeCursor.endsWith("[") && afterCursor.startsWith("]"));
 
         if (isBetweenBrackets) {
-          const extraIndent = "  ";
+          const extraIndent = " ".repeat(tabSize);
           const nextLines = [...effectiveLines];
           nextLines[effLine] = beforeCursor;
           nextLines.splice(effLine + 1, 0, `${indent}${extraIndent}`, `${indent}${afterCursor}`);
@@ -502,7 +529,7 @@ export function useEditorKeybindings({
         }
 
         if (beforeCursor.trimEnd().endsWith("{") || beforeCursor.trimEnd().endsWith(":")) {
-          indent += "  ";
+          indent += " ".repeat(tabSize);
         }
 
         const nextLines = [...effectiveLines];
@@ -648,8 +675,11 @@ export function useEditorKeybindings({
       moveCursor,
       scrollToCursor,
       pageLines,
+      tabSize,
       extraCursorCount,
       handleCtrlD,
+      handleAddCursorAtSelectionEnds,
+      handleAddColumnCursor,
       clearExtraCursors,
       handleMultiCursorBackspace,
       handleMultiCursorDelete,

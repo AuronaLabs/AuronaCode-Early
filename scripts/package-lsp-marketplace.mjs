@@ -10,80 +10,11 @@ import {
 } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { crc32 } from "node:zlib";
 import { build } from "esbuild";
+import { zipStore } from "./lib/extension-build-common.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputDir = join(root, "MarketplacePackages");
-
-/**
- * 内存快速构造标准 ZIP 归档 (ZipStore 规范)
- */
-function zipStore(entries) {
-  const localHeaders = [];
-  const centralHeaders = [];
-  let offset = 0;
-
-  for (const [name, data] of entries) {
-    const nameBuffer = Buffer.from(name.replace(/\\/g, "/"), "utf8");
-    const check = crc32(data);
-    const size = data.length;
-
-    const local = Buffer.alloc(30 + nameBuffer.length);
-    local.writeUInt32LE(0x04034b50, 0); // Local header signature
-    local.writeUInt16LE(20, 4); // Version needed to extract (2.0)
-    local.writeUInt16LE(0x0800, 6); // General purpose bit flag (UTF-8)
-    local.writeUInt16LE(0, 8); // Compression method (0 = stored)
-    local.writeUInt16LE(0, 10); // Last mod file time
-    local.writeUInt16LE(0, 12); // Last mod file date
-    local.writeUInt32LE(check, 14); // CRC-32
-    local.writeUInt32LE(size, 18); // Compressed size
-    local.writeUInt32LE(size, 22); // Uncompressed size
-    local.writeUInt16LE(nameBuffer.length, 26); // File name length
-    local.writeUInt16LE(0, 28); // Extra field length
-    nameBuffer.copy(local, 30);
-
-    localHeaders.push(local, data);
-
-    const central = Buffer.alloc(46 + nameBuffer.length);
-    central.writeUInt32LE(0x02014b50, 0); // Central directory signature
-    central.writeUInt16LE(20, 4); // Version made by
-    central.writeUInt16LE(20, 6); // Version needed to extrac
-    central.writeUInt16LE(0x0800, 8); // General purpose bit flag (UTF-8)
-    central.writeUInt16LE(0, 10); // Compression method (0 = stored)
-    central.writeUInt16LE(0, 12); // Last mod file time
-    central.writeUInt16LE(0, 14); // Last mod file date
-    central.writeUInt32LE(check, 16); // CRC-32
-    central.writeUInt32LE(size, 20); // Compressed size
-    central.writeUInt32LE(size, 24); // Uncompressed size
-    central.writeUInt16LE(nameBuffer.length, 28); // File name length
-    central.writeUInt16LE(0, 30); // Extra field length
-    central.writeUInt16LE(0, 32); // File comment length
-    central.writeUInt16LE(0, 34); // Disk number star
-    central.writeUInt16LE(0, 36); // Internal file attributes
-    central.writeUInt32LE(0, 38); // External file attributes
-    central.writeUInt32LE(offset, 42); // Relative offset of local header
-    nameBuffer.copy(central, 46);
-
-    centralHeaders.push(central);
-    offset += local.length + data.length;
-  }
-
-  const centralDirOffset = offset;
-  const centralDirSize = centralHeaders.reduce((sum, h) => sum + h.length, 0);
-
-  const eocd = Buffer.alloc(22);
-  eocd.writeUInt32LE(0x06054b50, 0); // EOCD signature
-  eocd.writeUInt16LE(0, 4); // Number of this disk
-  eocd.writeUInt16LE(0, 6); // Disk where central directory starts
-  eocd.writeUInt16LE(entries.length, 8); // Number of central directory records on this disk
-  eocd.writeUInt16LE(entries.length, 10); // Total number of central directory records
-  eocd.writeUInt32LE(centralDirSize, 12); // Size of central directory
-  eocd.writeUInt32LE(centralDirOffset, 16); // Offset of start of central directory
-  eocd.writeUInt16LE(0, 20); // Comment length
-
-  return Buffer.concat([...localHeaders, ...centralHeaders, eocd]);
-}
 
 /**
  * 递归收集目录中所有文件

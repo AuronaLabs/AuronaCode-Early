@@ -23,7 +23,21 @@ export interface EditorStatus {
 }
 
 export type EditorStatusListener = (status: EditorStatus) => void;
-export type EditorAction = "undo" | "redo" | "cut" | "copy" | "paste" | "selectAll";
+export type EditorAction =
+  | "undo"
+  | "redo"
+  | "cut"
+  | "copy"
+  | "paste"
+  | "selectAll"
+  | "toggleLineComment"
+  | "moveLineUp"
+  | "moveLineDown"
+  | "copyLineDown"
+  | "deleteLine"
+  | "foldAll"
+  | "unfoldAll"
+  | "addCursorAtSelectionEnds";
 
 export const EMPTY_EDITOR_STATUS: EditorStatus = {
   hasEditor: false,

@@ -403,15 +403,19 @@ pub async fn close_splashscreen(
         tokio::time::sleep(remaining).await;
     }
 
-    if let Some(splashscreen) = app.get_webview_window("splashscreen") {
-        let _ = splashscreen.close();
-    }
-
+    // 先显示主窗口：splash 置顶继续遮盖，主窗口利用这个间隙合成首帧；
+    // 之后再关闭 splash，消除「先关 splash 再 show main」之间的无窗口空档
+    // 与透明首帧闪烁（WebView2 全局透明背景下空帧会透出桌面）。
     if let Some(main_window) = app.get_webview_window("main") {
         main_window
             .show()
             .map_err(|error| format!("Unable to show main window: {error}"))?;
         let _ = main_window.set_focus();
+        tokio::time::sleep(Duration::from_millis(160)).await;
+    }
+
+    if let Some(splashscreen) = app.get_webview_window("splashscreen") {
+        let _ = splashscreen.close();
     }
     Ok(())
 }

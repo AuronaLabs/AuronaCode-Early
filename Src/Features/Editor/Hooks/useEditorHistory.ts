@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useRef } from "react";
 
+/** 副光标快照（utf16 偏移形态，与主 selectionStart 同一坐标系） */
+export type HistoryExtra = {
+  cursor: number;
+  selectionStart: number;
+  selectionEnd: number;
+};
+
 type HistoryEntry = {
   content: string;
   selectionStart: number;
+  /** 撤销应还原的副光标（undo 取 beforeExtras，redo 取 afterExtras） */
+  extras?: HistoryExtra[];
 };
 
 type SingleOperation = {
@@ -12,6 +21,10 @@ type SingleOperation = {
   insertedText: string;
   beforeSelection: number;
   afterSelection: number;
+  /** 编辑前的副光标布局（多光标编辑时快照，单光标缺省） */
+  beforeExtras?: HistoryExtra[];
+  /** 编辑后的副光标布局 */
+  afterExtras?: HistoryExtra[];
   timestamp: number;
 };
 
@@ -21,6 +34,8 @@ type CompositeOperation = {
   operations: SingleOperation[];
   beforeSelection: number;
   afterSelection: number;
+  beforeExtras?: HistoryExtra[];
+  afterExtras?: HistoryExtra[];
   timestamp: number;
 };
 
@@ -121,7 +136,12 @@ export function useEditorHistory(initialValue: string) {
   }, []);
 
   const pushHistory = useCallback(
-    (content: string, selectionStart: number) => {
+    (
+      content: string,
+      selectionStart: number,
+      beforeExtras?: HistoryExtra[],
+      afterExtras?: HistoryExtra[],
+    ) => {
       const previousContent = currentContentRef.current;
       if (previousContent === content) {
         currentSelectionRef.current = selectionStart;
@@ -129,12 +149,17 @@ export function useEditorHistory(initialValue: string) {
       }
 
       const difference = diffText(previousContent, content);
+      const extrasSnapshot = {
+        ...(beforeExtras && beforeExtras.length > 0 ? { beforeExtras } : {}),
+        ...(afterExtras && afterExtras.length > 0 ? { afterExtras } : {}),
+      };
       const operation: SingleOperation = {
         kind: "single",
         ...difference,
         beforeSelection: currentSelectionRef.current,
         afterSelection: selectionStart,
         timestamp: Date.now(),
+        ...extrasSnapshot,
       };
       const operations = operationsRef.current.slice(0, appliedCountRef.current);
       const previous = operations.at(-1);
@@ -149,6 +174,7 @@ export function useEditorHistory(initialValue: string) {
       if (canMergeTyping) {
         previous.insertedText += operation.insertedText;
         previous.afterSelection = operation.afterSelection;
+        if (operation.afterExtras) previous.afterExtras = operation.afterExtras;
         previous.timestamp = operation.timestamp;
       } else {
         operations.push(operation);
@@ -167,6 +193,8 @@ export function useEditorHistory(initialValue: string) {
       operations: { startUtf16: number; deletedText: string; insertedText: string }[],
       selectionStart: number,
       nextContent: string,
+      beforeExtras?: HistoryExtra[],
+      afterExtras?: HistoryExtra[],
     ) => {
       if (operations.length === 0) return;
       const next = operationsRef.current.slice(0, appliedCountRef.current);
@@ -182,6 +210,8 @@ export function useEditorHistory(initialValue: string) {
         beforeSelection: currentSelectionRef.current,
         afterSelection: selectionStart,
         timestamp: Date.now(),
+        ...(beforeExtras && beforeExtras.length > 0 ? { beforeExtras } : {}),
+        ...(afterExtras && afterExtras.length > 0 ? { afterExtras } : {}),
       });
       trimAndStore(next);
       currentContentRef.current = nextContent;
@@ -213,7 +243,11 @@ export function useEditorHistory(initialValue: string) {
     appliedCountRef.current--;
     currentContentRef.current = content;
     currentSelectionRef.current = operation.beforeSelection;
-    return { content, selectionStart: operation.beforeSelection };
+    return {
+      content,
+      selectionStart: operation.beforeSelection,
+      ...(operation.beforeExtras ? { extras: operation.beforeExtras } : {}),
+    };
   }, []);
 
   const redo = useCallback((): HistoryEntry | null => {
@@ -223,7 +257,11 @@ export function useEditorHistory(initialValue: string) {
     appliedCountRef.current++;
     currentContentRef.current = content;
     currentSelectionRef.current = operation.afterSelection;
-    return { content, selectionStart: operation.afterSelection };
+    return {
+      content,
+      selectionStart: operation.afterSelection,
+      ...(operation.afterExtras ? { extras: operation.afterExtras } : {}),
+    };
   }, []);
 
   return { pushHistory, pushComposite, resetHistory, syncExternal, undo, redo, historyTimerRef };

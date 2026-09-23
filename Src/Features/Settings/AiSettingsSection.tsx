@@ -8,6 +8,7 @@ import { Input } from "../../UI/Components/Input";
 import { Select } from "../../UI/Components/Select";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
+import { syncAgentExecutorRegistration } from "../AiAssistant/AgentToolExecutor";
 
 /** 0.4.6 批次 5：AI 助手设置（服务商预设 / Base URL / API Key / 模型名）。 */
 
@@ -39,6 +40,7 @@ async function saveAiConfig(patch: Partial<AiPreferences>): Promise<void> {
 export function AiSettingsSection() {
   const { t } = useLocale();
   const [enabled, setEnabled] = useState(true);
+  const [agentEnabled, setAgentEnabled] = useState(true);
   const [provider, setProvider] = useState<AiProvider>("openai");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -72,6 +74,7 @@ export function AiSettingsSection() {
     UserConfigStore.get().then((config) => {
       const ai = config.ai;
       setEnabled(ai?.enabled ?? true);
+      setAgentEnabled(ai?.agentEnabled !== false);
       setProvider((ai?.provider ?? "openai") as AiProvider);
       setBaseUrl(ai?.baseUrl ?? "");
       setApiKey(ai?.apiKey ?? "");
@@ -82,6 +85,12 @@ export function AiSettingsSection() {
   const handleEnabledChange = (next: boolean) => {
     setEnabled(next);
     saveNow({ enabled: next });
+  };
+
+  const handleAgentEnabledChange = (next: boolean) => {
+    setAgentEnabled(next);
+    saveNow({ agentEnabled: next });
+    syncAgentExecutorRegistration();
   };
 
   const handleProviderChange = (next: AiProvider) => {
@@ -135,6 +144,22 @@ export function AiSettingsSection() {
             </p>
           </div>
           <Switch checked={enabled} onCheckedChange={handleEnabledChange} />
+        </div>
+
+        {/* 启用 agent 工具执行 */}
+        <div
+          data-setting-id="aiAgentEnabled"
+          className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5"
+        >
+          <div className="min-w-0">
+            <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              {t("ai.agent.settingsTitle")}
+            </div>
+            <p className="mt-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
+              {t("ai.agent.settingsDesc")}
+            </p>
+          </div>
+          <Switch checked={agentEnabled} onCheckedChange={handleAgentEnabledChange} />
         </div>
 
         {/* 服务商预设 */}

@@ -3,7 +3,7 @@ import { useCallback, useRef } from "react";
 import { DocumentService } from "../../../Core/DocumentService";
 import { sortSelection } from "../Utils/EditorMath";
 import { insertTextIntoLines } from "../Utils/EditorTextInsert";
-import { diffText } from "./useEditorHistory";
+import { diffText, type HistoryExtra } from "./useEditorHistory";
 import {
   getCursorFromUtf16Offset,
   getLineStartUtf16,
@@ -15,6 +15,31 @@ export type EditorPos = { line: number; char: number };
 export interface ExtraCursorItem {
   cursor: EditorPos;
   selection: SelectionRange | null;
+}
+
+/** 副光标行/列坐标 ↔ 撤销栈 utf16 偏移快照互转（undo/redo 还原多光标布局用） */
+export function extrasToUtf16(lines: string[], items: ExtraCursorItem[]): HistoryExtra[] {
+  return items.map((item) => {
+    const cursor = getLineStartUtf16(lines, item.cursor.line) + item.cursor.char;
+    if (!item.selection) return { cursor, selectionStart: cursor, selectionEnd: cursor };
+    const start = getLineStartUtf16(lines, item.selection.start.line) + item.selection.start.char;
+    const end = getLineStartUtf16(lines, item.selection.end.line) + item.selection.end.char;
+    return { cursor, selectionStart: start, selectionEnd: end };
+  });
+}
+
+export function extrasFromUtf16(lines: string[], items: HistoryExtra[]): ExtraCursorItem[] {
+  return items.map((item) => {
+    const cursor = getCursorFromUtf16Offset(lines, item.cursor);
+    if (item.selectionStart === item.selectionEnd) return { cursor, selection: null };
+    return {
+      cursor,
+      selection: {
+        start: getCursorFromUtf16Offset(lines, item.selectionStart),
+        end: getCursorFromUtf16Offset(lines, item.selectionEnd),
+      },
+    };
+  });
 }
 
 export interface MultiCursorEditRange {
@@ -45,14 +70,21 @@ export interface UseEditorCommitParams {
   setCursor: (cursor: EditorPos) => void;
   setSelection: React.Dispatch<React.SetStateAction<SelectionRange | null>>;
   updateMaxLineLength: (lines: string[]) => void;
-  pushHistory: (content: string, cursorUtf16: number) => void;
+  pushHistory: (
+    content: string,
+    cursorUtf16: number,
+    beforeExtras?: HistoryExtra[],
+    afterExtras?: HistoryExtra[],
+  ) => void;
   pushComposite: (
     edits: { startUtf16: number; deletedText: string; insertedText: string }[],
     cursorUtf16: number,
     content: string,
+    beforeExtras?: HistoryExtra[],
+    afterExtras?: HistoryExtra[],
   ) => void;
-  undo: () => { content: string; selectionStart: number } | null;
-  redo: () => { content: string; selectionStart: number } | null;
+  undo: () => { content: string; selectionStart: number; extras?: HistoryExtra[] } | null;
+  redo: () => { content: string; selectionStart: number; extras?: HistoryExtra[] } | null;
   replaceExtras: (items: ExtraCursorItem[]) => void;
   /** 经 ref 注入以打破「补全 hook 依赖 commitEdit、commit 路径又要触发补全」的循环 */
   triggerAutocompleteRef: React.RefObject<TriggerAutocomplete>;
@@ -115,13 +147,18 @@ export function useEditorCommit({
       setCursor(nextCursor);
       setSelection(nextSelection);
       updateMaxLineLength(nextLines);
-      pushHistory(nextContent, getLineStartUtf16(nextLines, nextCursor.line) + nextCursor.char);
+      pushHistory(
+        nextContent,
+        getLineStartUtf16(nextLines, nextCursor.line) + nextCursor.char,
+        extrasToUtf16(documentLines, extras),
+      );
       applyContentDiff(currentContent, nextContent);
       onChange?.(nextContent);
     },
     [
       applyContentDiff,
       documentLines,
+      extras,
       onChange,
       pushHistory,
       updateMaxLineLength,
@@ -144,6 +181,8 @@ export function useEditorCommit({
     setTotalLines(lines.length);
     setCursor(nextCursor);
     setSelection(null);
+    // 多光标编辑撤销：还原编辑前的副光标布局（快照为 utf16 偏移，映射回行/列）
+    if (entry.extras) replaceExtras(extrasFromUtf16(lines, entry.extras));
     updateMaxLineLength(lines);
     applyContentDiff(documentLines.join("\n"), entry.content);
     onChange?.(entry.content);
@@ -151,6 +190,7 @@ export function useEditorCommit({
     applyContentDiff,
     documentLines,
     onChange,
+    replaceExtras,
     undo,
     updateMaxLineLength,
     setDocumentLines,
@@ -168,6 +208,8 @@ export function useEditorCommit({
     setTotalLines(lines.length);
     setCursor(nextCursor);
     setSelection(null);
+    // 多光标编辑重做：还原编辑后的副光标布局
+    if (entry.extras) replaceExtras(extrasFromUtf16(lines, entry.extras));
     updateMaxLineLength(lines);
     applyContentDiff(documentLines.join("\n"), entry.content);
     onChange?.(entry.content);
@@ -176,6 +218,7 @@ export function useEditorCommit({
     documentLines,
     onChange,
     redo,
+    replaceExtras,
     updateMaxLineLength,
     setSelection,
     setTotalLines,
@@ -251,6 +294,8 @@ export function useEditorCommit({
         })),
         primaryCursorUtf16,
         nextContent,
+        extrasToUtf16(documentLines, extras),
+        extrasToUtf16(nextLines, nextExtras),
       );
 
       if (path) {
@@ -278,6 +323,7 @@ export function useEditorCommit({
     [
       cursor,
       documentLines,
+      extras,
       onChange,
       onSyncError,
       path,

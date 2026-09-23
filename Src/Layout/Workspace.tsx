@@ -1,6 +1,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { RecoveryCoordinator } from "../Core/Recovery/RecoveryCoordinator";
 import { CommandRegistry } from "../Extension/CommandRegistry";
+import { syncAgentExecutorRegistration } from "../Features/AiAssistant/AgentToolExecutor";
 import { EditorTabBar } from "../Features/Editor/EditorTabBar";
 import { startExtensionEditorBridge } from "../Features/Extensions/ExtensionEditorBridge";
 import { startExtensionHostBridge } from "../Features/Extensions/ExtensionHostBridge";
@@ -164,6 +165,11 @@ export function WorkspaceView() {
     return () => {
       promise.then((dispose) => dispose()).catch(() => undefined);
     };
+  }, []);
+
+  // AI agent 执行端注册（0.4.8）：按用户配置启停工具执行
+  useEffect(() => {
+    syncAgentExecutorRegistration();
   }, []);
 
   useEffect(() => {

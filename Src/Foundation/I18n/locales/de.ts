@@ -143,6 +143,14 @@ export const de: LocaleMessages = {
     contextSelectAll: "Alles auswählen",
     multiCursorLineOpsDegrade:
       "Zeilenoperationen werden im Multi-Cursor-Modus nur auf dem primären Cursor ausgeführt",
+    actionToggleLineComment: "Zeilenkommentar umschalten",
+    actionMoveLineUp: "Zeile nach oben",
+    actionMoveLineDown: "Zeile nach unten",
+    actionCopyLineDown: "Zeile nach unten kopieren",
+    actionDeleteLine: "Zeile löschen",
+    actionFoldAll: "Alle falten",
+    actionUnfoldAll: "Alle entfalten",
+    actionAddCursorAtSelectionEnds: "Cursor an den Enden der Auswahlen hinzufügen",
     recoveryRestored: "Lokalen Bearbeitungsschnappschuss wiederhergestellt",
     recoverySnapshotTitle: "Ungespeicherter lokaler Schnappschuss",
     recoverySnapshotMessage:
@@ -1579,6 +1587,19 @@ export const de: LocaleMessages = {
     clearConfirmTitle: "Aktuelle Sitzung leeren",
     clearConfirmMessage:
       "Alle Nachrichten dieser Sitzung werden gelöscht. Dies kann nicht rückgängig gemacht werden",
+    agent: {
+      settingsTitle: "Agent-Werkzeuge aktivieren",
+      settingsDesc:
+        "Erlaubt der KI, Arbeitsbereichdateien zu lesen, Code zu suchen und zu ändern sowie Editor-Befehle auszuführen; Schreiboperationen erfordern stets eine Bestätigung",
+      confirmTitle: "{tool} bestätigen",
+      confirmMessage: "Die KI fordert eine Schreiboperation an — Argumente prüfen und bestätigen",
+      roundLimit:
+        "Maximale Werkzeugrunden erreicht. Gib eine finale Antwort auf Basis der gesammelten Informationen",
+    },
+    toolCardDone: "Fertig",
+    toolCardFailed: "Fehlgeschlagen",
+    toolCardRunning: "Läuft…",
+    toolCardWaiting: "Ausstehend",
     settingsDescription:
       "OpenAI-kompatiblen Streaming-Chatdienst konfigurieren; Einstellungen bleiben lokal",
     settingsEnabledTitle: "KI-Karte in der Seitenleiste aktivieren",

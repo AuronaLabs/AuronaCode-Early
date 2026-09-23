@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  acronymOf,
-  fuzzyScore,
-  matchQuery,
-  mergeRanges,
-  parseFliunoQuery,
-  queryForScope,
-} from "./FliunoCore";
+import { acronymOf, matchQuery, mergeRanges, parseFliunoQuery, queryForScope } from "./FliunoCore";
 
 describe("parseFliunoQuery 前缀路由", () => {
   it("显式前缀路由到对应 scope 并剥离前缀", () => {
@@ -98,24 +91,6 @@ describe("matchQuery 字段加权与高亮区间", () => {
       titleRanges: [],
       descriptionRanges: [],
     });
-  });
-});
-
-describe("fuzzyScore 边界与连续性", () => {
-  it("直接前缀命中优于散乱子序列", () => {
-    expect(fuzzyScore("fileman", "fileman")).toBeGreaterThan(
-      fuzzyScore("f i l e m a n", "fileman"),
-    );
-  });
-
-  it("词边界命中优于驼峰散布", () => {
-    expect(fuzzyScore("f-man", "fman")).toBeGreaterThan(fuzzyScore("FileManager", "fman"));
-  });
-
-  it("多 token 全部命中才有得分", () => {
-    expect(fuzzyScore("Open Settings", "open sett")).toBeGreaterThan(0);
-    expect(fuzzyScore("Open Settings", "open missing")).toBe(-1);
-    expect(fuzzyScore("anything", "")).toBe(0);
   });
 });
 

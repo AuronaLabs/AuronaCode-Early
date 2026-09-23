@@ -232,18 +232,6 @@ export function matchQuery(query: string, fields: SearchField[]): QueryMatch | n
   return { score: total, titleRanges, descriptionRanges };
 }
 
-export function fuzzyScore(value: string, query: string): number {
-  const tokens = normalize(query).split(/\s+/).filter(Boolean);
-  if (!tokens.length) return 0;
-  let total = 0;
-  for (const token of tokens) {
-    const match = matchToken(token, value);
-    if (!match) return -1;
-    total += match.score;
-  }
-  return total;
-}
-
 export type FliunoCoreResultKind =
   | "command"
   | "file"

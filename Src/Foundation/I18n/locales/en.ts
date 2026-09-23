@@ -142,6 +142,14 @@ export const en: LocaleMessages = {
     contextSelectAll: "Select All",
     multiCursorLineOpsDegrade:
       "Line operations run on the primary cursor only in multi-cursor mode",
+    actionToggleLineComment: "Toggle Line Comment",
+    actionMoveLineUp: "Move Line Up",
+    actionMoveLineDown: "Move Line Down",
+    actionCopyLineDown: "Copy Line Down",
+    actionDeleteLine: "Delete Line",
+    actionFoldAll: "Fold All",
+    actionUnfoldAll: "Unfold All",
+    actionAddCursorAtSelectionEnds: "Add Cursors to Selection Ends",
     recoveryRestored: "Restored local edit snapshot",
     recoverySnapshotTitle: "Unsaved Local Snapshot",
     recoverySnapshotMessage: "Detected unsaved recovery snapshot for {file}. Restore it?",
@@ -1527,6 +1535,19 @@ export const en: LocaleMessages = {
     scrollBottom: "Scroll to bottom",
     clearConfirmTitle: "Clear current session",
     clearConfirmMessage: "All messages in this session will be deleted. This cannot be undone",
+    agent: {
+      settingsTitle: "Enable agent tool execution",
+      settingsDesc:
+        "Let the AI read workspace files, search and modify code, and run editor commands; write operations always require confirmation",
+      confirmTitle: "Confirm {tool}",
+      confirmMessage: "The AI requests a write operation — review the arguments and confirm",
+      roundLimit:
+        "Maximum tool rounds reached. Give a final answer based on the information gathered",
+    },
+    toolCardDone: "Done",
+    toolCardFailed: "Failed",
+    toolCardRunning: "Running…",
+    toolCardWaiting: "Pending",
     settingsDescription:
       "Configure an OpenAI-compatible streaming chat service; settings stay local",
     settingsEnabledTitle: "Enable AI sidebar card",

@@ -389,14 +389,86 @@ function AiChatBubble({
           </div>
         )}
 
-        {/* 工具调用占位提示（0.4.7 仅预留协议，不执行） */}
-        {hasToolCalls && (
-          <div className="mt-1.5 flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/40 px-2 py-1.5 text-[10.5px] leading-4 text-[var(--color-text-muted)]">
-            <Icons.InfoCircle size={12} className="shrink-0" />
-            {t("ai.toolCallNote")}
-          </div>
-        )}
+        {/* 工具调用卡片（0.4.8 agent）：每次调用一张，实时反映执行状态与结果 */}
+        {hasToolCalls && <ToolCallCards message={message} />}
       </div>
+    </div>
+  );
+}
+
+/** 参数摘要：解析 JSON 后逐键展示并截断 */
+function summarizeArgs(argumentsJson: string): string {
+  try {
+    const parsed = JSON.parse(argumentsJson) as Record<string, unknown>;
+    const parts = Object.entries(parsed).map(([key, value]) => {
+      const text = typeof value === "string" ? value : JSON.stringify(value);
+      const clipped = text.length > 48 ? `${text.slice(0, 48)}…` : text;
+      return `${key}: ${clipped}`;
+    });
+    return parts.join(" · ");
+  } catch {
+    const clipped = argumentsJson.length > 80 ? `${argumentsJson.slice(0, 80)}…` : argumentsJson;
+    return clipped || "(空参数)";
+  }
+}
+
+/** 单条工具调用卡片 */
+function ToolCallCards({ message }: { message: AiChatMessage }) {
+  const { t } = useLocale();
+  const calls = message.toolCalls ?? [];
+  return (
+    <div className="mt-1.5 flex flex-col gap-1">
+      {calls.map((call) => {
+        const callId = call.id ?? `call_${call.index}`;
+        const result = message.toolResults?.find((item) => item.toolCallId === callId);
+        const state = result
+          ? result.isError
+            ? "error"
+            : "ok"
+          : message.status === "done"
+            ? "running"
+            : "waiting";
+        return (
+          <div
+            key={callId}
+            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/40 px-2 py-1.5"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex min-w-0 items-center gap-1.5 font-mono text-[10.5px] text-[var(--color-text-highlight)]">
+                <Icons.InfoCircle size={11} className="shrink-0 text-[var(--color-text-muted)]" />
+                <span className="truncate">{call.name ?? "tool"}</span>
+              </span>
+              {state === "ok" && (
+                <Badge variant="tint" color="var(--StatusSuccess)">
+                  {t("ai.toolCardDone")}
+                </Badge>
+              )}
+              {state === "error" && (
+                <Badge variant="tint" color="var(--StatusError)">
+                  {t("ai.toolCardFailed")}
+                </Badge>
+              )}
+              {state === "running" && <Badge variant="tint">{t("ai.toolCardRunning")}</Badge>}
+              {state === "waiting" && <Badge variant="neutral">{t("ai.toolCardWaiting")}</Badge>}
+            </div>
+            <p className="mt-0.5 break-words font-mono text-[10px] leading-4 text-[var(--color-text-muted)]">
+              {summarizeArgs(call.arguments)}
+            </p>
+            {result && (
+              <p
+                className={cn(
+                  "mt-0.5 break-words text-[10px] leading-4",
+                  result.isError
+                    ? "text-[var(--StatusError)]"
+                    : "text-[var(--color-text-secondary)]",
+                )}
+              >
+                {result.content.length > 140 ? `${result.content.slice(0, 140)}…` : result.content}
+              </p>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

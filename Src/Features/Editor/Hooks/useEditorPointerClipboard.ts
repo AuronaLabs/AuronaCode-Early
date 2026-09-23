@@ -32,6 +32,14 @@ export interface UseEditorPointerClipboardParams {
   setCursor: React.Dispatch<React.SetStateAction<{ line: number; char: number }>>;
   handleUndo: () => void;
   handleRedo: () => void;
+  /** 编辑能力命令化（V0.4.8）：行操作 / 折叠 / 多光标动作由引擎注入 */
+  handleToggleLineComment: () => void;
+  handleMoveLine: (direction: -1 | 1) => void;
+  handleCopyLineDown: () => void;
+  handleDeleteLine: () => void;
+  handleFoldAll: () => void;
+  handleUnfoldAll: () => void;
+  handleAddCursorAtSelectionEnds: () => void;
 }
 
 /** 指针选区、剪贴板（剪切/复制/整行复制回退）与编辑器上下文菜单动作。 */
@@ -54,6 +62,13 @@ export function useEditorPointerClipboard({
   setCursor,
   handleUndo,
   handleRedo,
+  handleToggleLineComment,
+  handleMoveLine,
+  handleCopyLineDown,
+  handleDeleteLine,
+  handleFoldAll,
+  handleUnfoldAll,
+  handleAddCursorAtSelectionEnds,
 }: UseEditorPointerClipboardParams) {
   const getSelectionText = useCallback((): string => {
     if (!selection) return "";
@@ -98,13 +113,27 @@ export function useEditorPointerClipboard({
             char: documentLines[documentLines.length - 1].length,
           },
         });
-      }
+      } else if (action === "toggleLineComment") handleToggleLineComment();
+      else if (action === "moveLineUp") handleMoveLine(-1);
+      else if (action === "moveLineDown") handleMoveLine(1);
+      else if (action === "copyLineDown") handleCopyLineDown();
+      else if (action === "deleteLine") handleDeleteLine();
+      else if (action === "foldAll") handleFoldAll();
+      else if (action === "unfoldAll") handleUnfoldAll();
+      else if (action === "addCursorAtSelectionEnds") handleAddCursorAtSelectionEnds();
     },
     [
       documentLines,
       executeSelectionDelete,
       handleRedo,
       handleUndo,
+      handleToggleLineComment,
+      handleMoveLine,
+      handleCopyLineDown,
+      handleDeleteLine,
+      handleFoldAll,
+      handleUnfoldAll,
+      handleAddCursorAtSelectionEnds,
       selection,
       textareaRef.current?.focus,
       setSelection,

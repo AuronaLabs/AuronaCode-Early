@@ -1,5 +1,15 @@
 # Aurona Code 核心架构指南 (Corona+ Architecture Specification)
 
+## V0.4.8 修复与 agent 篇
+
+V0.4.8 聚焦「把上一版欠的修完，把 AI 推进 agent 时代」：更新检测端点按渠道拆分修复多版本检查失效、启动窗口交接治理闪烁、编辑器折叠接线与能力命令化、AI 工具执行端落地；同版完成死代码清债。
+
+- **更新渠道拆分**：主 conf updater endpoints 仅含 `releases/latest/download/latest.json`（stable/dev）；新增 `tauri.pioneer.conf.json` merge 覆盖为 `[pioneer-latest, releases/latest]`，release.yml 仅在 `AURONA_CHANNEL=pioneer` 时追加 `--config`——修复 stable 客户端被 pioneer-latest 固定 tag 的旧 manifest 短路而永远「已是最新」的结构性缺陷。
+- **启动交接**：splashscreen 窗口移至 conf 窗口数组首位（先建先加载，缩短 splash 出现前空等）；`close_splashscreen` 改为「先 `main.show()` → 160ms 合成间隙 → 再 close splash」（splash 置顶遮盖主窗首帧合成，消除无窗口空档与透明帧闪烁）。
+- **编辑器命令化**：EditorAction 扩展 8 项（toggleLineComment/moveLineUp/moveLineDown/copyLineDown/deleteLine/foldAll/unfoldAll/addCursorAtSelectionEnds），分发链 Types→executeEditorAction→引擎桥→CommandRegistry 四点贯通；foldAll/unfoldAll 受 `editor.trueFolding` 门控。多光标：Ctrl+D 词边界校验、Alt+Shift+I 选区行尾加光标、Ctrl+Alt+Up/Down 列光标（MAX_EXTRA_CURSORS=100）。手感：Tab/Enter 缩进读 `layout.tabSize`、gutter 宽度接回 `useEditorGutterMetrics` 自适应、括号配对改光标 ±500 行局部扫描（彩虹 lineBrackets 不动）、撤销栈增 `extras` 快照完整恢复副光标。
+- **AI agent 执行端**：`ChatMessagePayload` 扩展 `content?/toolCalls?/toolCallId?`（serde camelCase + skip_serializing_if，向后兼容）；`AgentToolExecutor`（Features 侧实现，经 `AiChatService.setAgentExecutor` 注入——Core 不反向依赖 Features）注册 7 工具：read_file/list_dir/search_workspace/edit_file/get_diagnostics/run_command/editor_context；`done(finishReason=tool_calls)` 进入工具执行→结果回填→续轮循环（MAX_AGENT_ROUNDS=25，abort 可断链）；写类工具（edit_file/run_command）走 showConfirm 确认，拒绝即返回且不重试；上下文按 OpenAI 协议序列化 assistant.toolCalls + role:"tool"（结果不全时降级纯文本防 API 400）。
+- **清债**：删除 VSCodeExtensionHost.ts+test（959 行零引用）、themePalettes（285 行）、IconButton、fuzzyScore、isLegacyExtensionId、FeatureFlagOverrides、UserConfig.featureFlags、LanguageServerConfiguration.startupTimeout/restartLimit、resolveTargetUpdateVersion；扩展构建脚本三合一至 `scripts/lib/extension-build-common.mjs`。
+
 ## V0.4.7 智能与生态篇
 
 V0.4.7 聚焦「AI 从可用到可靠，扩展从跑得到跑得好」：AI 侧边栏稳定性与体验重做（超时分级、会话状态机、错误与内容分离、工具协议预留）、LSP didChange 增量同步、用户配置原子写；SDK 交互真实化、VSCodeCompat 能力补齐、`watch-workspace-path` 真实打通。

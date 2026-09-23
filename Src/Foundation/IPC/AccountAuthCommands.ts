@@ -39,8 +39,8 @@ export interface AccountAuthStatus {
 }
 
 /**
- * Hidden account foundation. Do not import this client from product UI until
- * the Aurona Account experience is explicitly enabled for the product build.
+ * Aurona Account IPC client. Consumed by product UI surfaces
+ * (StatusBar / Oobe / AccountSettings) and MarketplaceService.
  */
 export const AccountAuthIPC = {
   status(): Promise<AccountAuthStatus> {

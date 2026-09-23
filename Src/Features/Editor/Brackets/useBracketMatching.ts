@@ -19,6 +19,60 @@ const BRACKET_CLOSE_TO_OPEN: Record<string, string> = {
   "}": "{",
 };
 
+/** 光标配对局部扫描窗口（主光标行向上/向下最多 500 行） */
+export const BRACKET_SCAN_WINDOW_LINES = 500;
+
+/**
+ * 光标邻近括号配对：在主光标行上/下最多 windowLines 行的窗口内做括号栈匹配。
+ * 纯函数（供测试）：只负责光标配对，彩虹层级全量计算仍由 hook 内 useMemo 承担。
+ */
+export function findMatchedPairNearCursor(
+  documentLines: string[],
+  cursor: { line: number; char: number },
+  windowLines = BRACKET_SCAN_WINDOW_LINES,
+): BracketPair | null {
+  const { line, char } = cursor;
+  const lineText = documentLines[line] || "";
+  const isBracket = (ch: string | undefined) =>
+    ch === "(" || ch === "[" || ch === "{" || ch === ")" || ch === "]" || ch === "}";
+  // 光标下或光标左侧字符为括号才需要配对（与 VSCode 行为一致）
+  if (!isBracket(lineText[char]) && !isBracket(lineText[char - 1])) return null;
+
+  const startLine = Math.max(0, line - windowLines);
+  const endLine = Math.min(documentLines.length - 1, line + windowLines);
+  const stack: Array<{ line: number; char: number; type: string; level: number }> = [];
+  const targetKeys = new Set([`${line}:${char}`, `${line}:${char - 1}`]);
+  let matched: BracketPair | null = null;
+
+  for (let l = startLine; l <= endLine && !matched; l++) {
+    const text = documentLines[l] || "";
+    for (let c = 0; c < text.length; c++) {
+      const ch = text[c];
+      if (ch === "(" || ch === "[" || ch === "{") {
+        stack.push({ line: l, char: c, type: ch, level: stack.length % 6 });
+      } else if (ch === ")" || ch === "]" || ch === "}") {
+        const expectedOpen = BRACKET_CLOSE_TO_OPEN[ch];
+        if (stack.length > 0 && stack[stack.length - 1].type === expectedOpen) {
+          const openBracket = stack.pop();
+          if (
+            openBracket &&
+            (targetKeys.has(`${openBracket.line}:${openBracket.char}`) ||
+              targetKeys.has(`${l}:${c}`))
+          ) {
+            matched = {
+              open: { line: openBracket.line, char: openBracket.char, type: openBracket.type },
+              close: { line: l, char: c, type: ch },
+              level: openBracket.level,
+            };
+            break;
+          }
+        }
+      }
+    }
+  }
+  return matched;
+}
+
 /**
  * 计算文档所有行括号彩虹层级及当前光标处配对括号
  */
@@ -79,20 +133,11 @@ export function useBracketMatching(
     return { lineBrackets, pairs };
   }, [documentLines]);
 
-  // 2. 匹配当前光标邻近的括号
-  const activeMatchedPair = useMemo(() => {
-    const { line, char } = cursor;
-    // 检查光标左侧或右侧的字符是否为括号
-    for (const pair of pairs) {
-      if (
-        (pair.open.line === line && (pair.open.char === char || pair.open.char === char - 1)) ||
-        (pair.close.line === line && (pair.close.char === char || pair.close.char === char - 1))
-      ) {
-        return pair;
-      }
-    }
-    return null;
-  }, [cursor, pairs]);
+  // 2. 匹配当前光标邻近的括号（局部扫描：窗口内栈匹配，替代全量 pairs 遍历）
+  const activeMatchedPair = useMemo(
+    () => findMatchedPairNearCursor(documentLines, cursor),
+    [cursor, documentLines],
+  );
 
   return {
     lineBrackets,

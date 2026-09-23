@@ -13,5 +13,3 @@ export interface FeatureFlagDefinition {
   descriptionKey: I18nKey;
   requiresReload?: boolean;
 }
-
-export type FeatureFlagOverrides = Record<string, boolean>;

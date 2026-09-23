@@ -6,19 +6,18 @@ import {
   type AiChatErrorPayload,
   type AiChatToolCallDelta,
   AiIPC,
+  type AiIpcMessage,
+  type AiIpcToolCall,
 } from "../Foundation/IPC/AiCommands";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 
 /**
- * AI 助手纯聊天服务（模块级单例，useSyncExternalStore 消费）。
+ * AI 助手服务（模块级单例，useSyncExternalStore 消费）。
  *
- * 0.4.7 架构重做：
- * - 消息状态机 status（pending/streaming/done/error/stopped）与 phase（idle/connecting/streaming）
- * - 错误与内容分离：错误不写入 content、不进入下一轮上下文（修复上下文污染）
- * - 多会话（localStorage v2，v1 一次性迁移），支持新建/切换/删除/重试
- * - tool_calls 协议预留：增量聚合存储，本版不执行
- *
- * 不接编辑器上下文、不做 agent/工具/RAG——纯 OpenAI 兼容流式聊天。
+ * 0.4.7：消息状态机、错误与内容分离、多会话、tool_calls 增量聚合（协议预留）。
+ * 0.4.8 agent 化：tool_calls 执行端经 setAgentExecutor 注入（Core 不反向依赖
+ * Features），done(finishReason=tool_calls) 进入「执行工具 → 回填结果 → 续轮」
+ * 循环，轮数上限 MAX_AGENT_ROUNDS；上下文按 OpenAI tool 协议序列化。
  */
 
 /** v1 历史键（迁移源，迁移成功后移除） */
@@ -29,13 +28,15 @@ const HISTORY_KEY_V2 = "aurona.ai.chat.sessions.v2";
 const SESSION_LIMIT = 20;
 /** 每会话消息历史上限（条） */
 const HISTORY_LIMIT = 100;
-/** 送入模型的多轮上下文最多保留最近 20 条 */
+/** 送入模型的多轮上下文最多保留最近 20 条消息 */
 const CONTEXT_WINDOW = 20;
+/** agent 单次对话的最大工具轮数（超限注入收尾提示后做最后一轮） */
+export const MAX_AGENT_ROUNDS = 25;
 
 /**
- * 系统提示词：面向代码编辑器场景的专业助手身份与输出规范
+ * 系统提示词基座：面向代码编辑器场景的专业助手身份与输出规范
  */
-const SYSTEM_PROMPT = [
+const SYSTEM_PROMPT_BASE = [
   "You are Aurona Assistant, the built-in AI of Aurona Code, a lightweight desktop code editor.",
   "Reply in the same language the user writes in.",
   "",
@@ -47,12 +48,51 @@ const SYSTEM_PROMPT = [
   "- Skip filler, apologies, and restating the question.",
 ].join("\n");
 
+/**
+ * agent 模式附加段：工具使用规范（对齐 codex 类编码 agent 的提示词惯例）
+ */
+const AGENT_PROMPT_SECTION = [
+  "",
+  "You operate as an agent inside the user's workspace. You have the following tools:",
+  "",
+  "{AGENT_TOOLS}",
+  "",
+  "Tool rules:",
+  "1. Prefer tools over guessing. Read files or search the workspace before making claims about code.",
+  "2. Read before you edit. Never modify a file you have not read in this conversation.",
+  "3. Make minimal diffs with edit_file: replace the smallest unique span that achieves the change. Rewriting whole files is forbidden.",
+  "4. Tool arguments are strict JSON. Match the parameter names exactly; never emit comments or trailing commas.",
+  "5. Call one logical batch of tools per turn, then stop and wait for results. Do not assume outcomes of calls you have not seen.",
+  "6. If a tool call fails, retry at most once with corrected arguments, then report the failure honestly.",
+  "7. Write operations (edit_file, run_command) require user confirmation. If the user rejects an operation, do not retry it; adjust your plan or explain instead.",
+  "8. Stay inside the workspace. Never attempt destructive commands or paths outside the workspace root.",
+  "9. After tool results arrive, continue: summarize what changed and what remains, then finish with a concise final answer.",
+].join("\n");
+
 export interface AiChatToolCall {
   index: number;
   id?: string;
   name?: string;
   /** 按 index 增量聚合后的完整 arguments 片段 */
   arguments: string;
+}
+
+/** 单条工具执行结果（agent loop 回填，UI 工具卡片消费） */
+export interface AiChatToolResult {
+  toolCallId: string;
+  name: string;
+  content: string;
+  isError: boolean;
+}
+
+/** agent 执行端注入接口（Core 不反向依赖 Features，由 Features 侧注册） */
+export interface AiAgentExecutor {
+  execute(invocation: { id: string; name: string; arguments: string }): Promise<{
+    content: string;
+    isError: boolean;
+  }>;
+  /** 系统提示词中追加的工具清单文档 */
+  toolPrompt: string;
 }
 
 export type AiChatMessageStatus = "pending" | "streaming" | "done" | "error" | "stopped";
@@ -69,8 +109,10 @@ export interface AiChatMessage {
   finishReason?: string;
   /** 错误信息（与 content 分离，不进入下一轮上下文） */
   error?: { code: AiChatErrorCode; message: string };
-  /** 模型请求的工具调用（0.4.7 仅聚合存储，不执行） */
+  /** 模型请求的工具调用（按 index 聚合） */
   toolCalls?: AiChatToolCall[];
+  /** 工具执行结果（agent loop 回填，与 toolCalls 按 toolCallId 对应） */
+  toolResults?: AiChatToolResult[];
 }
 
 export interface AiChatSessionMeta {
@@ -166,6 +208,7 @@ function sanitizeMessage(item: AiChatMessage): AiChatMessage | null {
     finishReason: typeof item.finishReason === "string" ? item.finishReason : undefined,
     error: item.error ?? undefined,
     toolCalls: Array.isArray(item.toolCalls) ? item.toolCalls : undefined,
+    toolResults: Array.isArray(item.toolResults) ? item.toolResults : undefined,
   };
 }
 
@@ -305,6 +348,109 @@ function mergeToolCalls(
   return list;
 }
 
+/** 生成系统提示词：基座 + agent 工具段（执行端已注册时） */
+function buildSystemPrompt(): string {
+  if (!agentExecutor) return SYSTEM_PROMPT_BASE;
+  return `${SYSTEM_PROMPT_BASE}\n${AGENT_PROMPT_SECTION.replace(
+    "{AGENT_TOOLS}",
+    agentExecutor.toolPrompt,
+  )}`;
+}
+
+/**
+ * 组装模型上下文：user/assistant 直传；带 toolCalls 的 assistant 按 OpenAI tool
+ * 协议展开为 assistant(toolCalls) + 若干 role:"tool" 结果消息。仅当工具结果齐全
+ * 时才展开（应用重启可能丢失未持久化的中间结果，此时降级为纯文本）。
+ */
+function buildContextMessages(assistantMessageId: string): AiIpcMessage[] {
+  const session = activeSession();
+  const relevant = (session?.messages ?? []).filter(
+    (item) =>
+      item.id !== assistantMessageId &&
+      (item.role === "user"
+        ? item.content !== ""
+        : item.status === "done" && (item.content !== "" || item.toolCalls?.length)),
+  );
+  const history: AiIpcMessage[] = [];
+  for (const item of relevant.slice(-CONTEXT_WINDOW)) {
+    if (item.role === "user") {
+      history.push({ role: "user", content: item.content });
+      continue;
+    }
+    const resultsComplete =
+      (item.toolResults?.length ?? 0) >= (item.toolCalls?.length ?? 0) &&
+      (item.toolCalls?.length ?? 0) > 0;
+    if (item.toolCalls?.length && resultsComplete) {
+      const toolCalls: AiIpcToolCall[] = item.toolCalls.map((call) => ({
+        id: call.id ?? `call_${call.index}`,
+        type: "function",
+        function: { name: call.name ?? "", arguments: call.arguments },
+      }));
+      history.push({
+        role: "assistant",
+        content: item.content !== "" ? item.content : undefined,
+        toolCalls,
+      });
+      for (const result of item.toolResults ?? []) {
+        history.push({ role: "tool", toolCallId: result.toolCallId, content: result.content });
+      }
+      continue;
+    }
+    if (item.content !== "") history.push({ role: "assistant", content: item.content });
+  }
+  return history;
+}
+
+/** agent 工具轮：顺序执行本轮全部工具调用并增量回填结果，随后开启续轮 */
+async function runAgentToolRound(generation: {
+  generationId: string;
+  assistantMessageId: string;
+  round: number;
+}): Promise<void> {
+  const session = activeSession();
+  const message = session?.messages.find((item) => item.id === generation.assistantMessageId);
+  const calls = message?.toolCalls ?? [];
+  const results: AiChatToolResult[] = [];
+  for (const call of calls) {
+    // abort 会在 activeGeneration 上置空：每次执行前检查，被中止则停止整链
+    if (!activeGeneration || activeGeneration.generationId !== generation.generationId) return;
+    const toolCallId = call.id ?? `call_${call.index}`;
+    let outcome: { content: string; isError: boolean };
+    if (!agentExecutor) {
+      outcome = { content: "工具执行未启用", isError: true };
+    } else {
+      outcome = await agentExecutor.execute({
+        id: toolCallId,
+        name: call.name ?? "",
+        arguments: call.arguments,
+      });
+    }
+    results.push({
+      toolCallId,
+      name: call.name ?? "",
+      content: outcome.content,
+      isError: outcome.isError,
+    });
+    patchAssistantById(
+      generation.assistantMessageId,
+      (item) => ({ ...item, toolResults: [...results] }),
+      { persist: true },
+    );
+  }
+  await startAgentFollowUp(generation);
+}
+
+/** 工具续轮：沿用会话开启新一轮生成（上下文已包含工具调用与结果） */
+async function startAgentFollowUp(previous: {
+  generationId: string;
+  assistantMessageId: string;
+  round: number;
+}): Promise<void> {
+  if (!activeGeneration || activeGeneration.generationId !== previous.generationId) return;
+  activeGeneration = null;
+  await AiChatService.startGeneration(previous.round + 1);
+}
+
 let store: ChatStore = loadStore();
 if (!localStorage.getItem(HISTORY_KEY_V2)) {
   persistStore(store);
@@ -323,12 +469,17 @@ let snapshot: AiChatSnapshot = {
 
 const listeners = new Set<ChatListener>();
 
+/** agent 执行端（Features 侧注册；null 表示未启用 agent 工具） */
+let agentExecutor: AiAgentExecutor | null = null;
+
 /** 当前进行中的生成（null 表示空闲） */
 let activeGeneration: {
   generationId: string;
   chatSessionId: string;
   assistantMessageId: string;
   startedAtMs: number;
+  /** 工具轮次（send 首轮为 0，工具续轮递增） */
+  round: number;
 } | null = null;
 
 /** 当前生成是否已收到首个增量（connecting → streaming 分相） */
@@ -429,30 +580,65 @@ async function bindEvents(): Promise<void> {
   });
   await AiIPC.onChatDone((payload: AiChatDonePayload) => {
     if (!activeGeneration || payload.sessionId !== activeGeneration.generationId) return;
-    const { assistantMessageId, startedAtMs } = activeGeneration;
-    activeGeneration = null;
+    const generation = activeGeneration;
     const finishedAt = Date.now();
     patchAssistantById(
-      assistantMessageId,
+      generation.assistantMessageId,
       (message) => ({
         ...message,
         status: payload.aborted ? "stopped" : "done",
         finishReason: payload.finishReason,
-        durationMs: finishedAt - startedAtMs,
+        durationMs: finishedAt - generation.startedAtMs,
       }),
       { persist: true },
     );
-    // 中止且无内容时移除空占位消息
+    // 中止：整链停止，移除空占位消息
     if (payload.aborted) {
+      activeGeneration = null;
       updateActiveMessages(
         (messages) =>
           messages.filter(
             (item) =>
-              !(item.id === assistantMessageId && item.content === "" && !item.toolCalls?.length),
+              !(
+                item.id === generation.assistantMessageId &&
+                item.content === "" &&
+                !item.toolCalls?.length
+              ),
           ),
         { persist: true },
       );
+      return;
     }
+    // agent loop：模型请求工具且执行端可用 → 执行并续轮（activeGeneration 保持，UI 维持生成态）
+    if (payload.finishReason === "tool_calls" && agentExecutor) {
+      if (generation.round >= MAX_AGENT_ROUNDS) {
+        // 轮数上限：注入收尾提示作为工具结果，做最后一轮让模型直接作答
+        const session = activeSession();
+        const calls =
+          session?.messages.find((item) => item.id === generation.assistantMessageId)?.toolCalls ??
+          [];
+        patchAssistantById(
+          generation.assistantMessageId,
+          (item) => ({
+            ...item,
+            toolResults: calls.map((call) => ({
+              toolCallId: call.id ?? `call_${call.index}`,
+              name: call.name ?? "",
+              content: LocaleService.translate("ai.agent.roundLimit"),
+              isError: false,
+            })),
+          }),
+          { persist: true },
+        );
+        void startAgentFollowUp(generation);
+        return;
+      }
+      void runAgentToolRound(generation);
+      return;
+    }
+    // 常规完成：收尾回到空闲
+    activeGeneration = null;
+    publish();
   });
   await AiIPC.onChatError((payload: AiChatErrorPayload) => {
     if (!activeGeneration || payload.sessionId !== activeGeneration.generationId) return;
@@ -495,6 +681,12 @@ export const AiChatService = {
     }
   },
 
+  /** 注册/注销 agent 执行端（Features 侧调用；null 关闭工具执行与工具提示词段） */
+  setAgentExecutor(executor: AiAgentExecutor | null): void {
+    agentExecutor = executor;
+    publish();
+  },
+
   /** 发送一条用户消息并开始流式生成 */
   async send(text: string): Promise<void> {
     const trimmed = text.trim();
@@ -512,11 +704,11 @@ export const AiChatService = {
   },
 
   /**
-   * 开启一次生成（send 与 retry 共用入口）：创建 pending 占位 assistant 消息
-   * 并发起 IPC。配置缺失时置错误提示。上下文 = system 提示词 + 最近 20 条
-   * 已完成消息（错误/中止/空内容不进入，修复上下文污染）。
+   * 开启一次生成（send / retry / agent 续轮共用入口）：创建 pending 占位
+   * assistant 消息并发起 IPC。配置缺失时置错误提示。上下文 = 系统提示词
+   * （agent 模式含工具规范）+ 最近 20 条已完成消息（错误/中止/空内容不进入）。
    */
-  async startGeneration(): Promise<void> {
+  async startGeneration(round = 0): Promise<void> {
     if (activeGeneration) return;
     const config = await UserConfigStore.get();
     const ai = config.ai;
@@ -552,24 +744,17 @@ export const AiChatService = {
       chatSessionId: store.activeSessionId,
       assistantMessageId: assistantMessage.id,
       startedAtMs,
+      round,
     };
     receivedFirstDelta = false;
     updateActiveMessages((messages) => [...messages, assistantMessage]);
     snapshot = { ...snapshot, lastError: null };
     publish();
 
-    const session = activeSession();
-    const history = (session?.messages ?? [])
-      .filter(
-        (item) =>
-          item.id !== assistantMessage.id &&
-          (item.role === "user"
-            ? item.content !== ""
-            : item.status === "done" && item.content !== "" && !item.toolCalls?.length),
-      )
-      .slice(-CONTEXT_WINDOW)
-      .map((item) => ({ role: item.role, content: item.content }));
-    const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...history];
+    const messages: AiIpcMessage[] = [
+      { role: "system", content: buildSystemPrompt() },
+      ...buildContextMessages(assistantMessage.id),
+    ];
 
     try {
       await AiIPC.send({ sessionId: generationId, baseUrl, apiKey, model, messages });
@@ -615,18 +800,22 @@ export const AiChatService = {
     await AiChatService.startGeneration();
   },
 
-  /** 中止当前生成（IPC abort + 本地收尾：保留已生成内容并标记已停止） */
+  /** 中止当前生成/工具链（IPC abort + 本地收尾：保留已生成内容并标记已停止） */
   async abort(): Promise<void> {
     if (!activeGeneration) return;
     const { generationId, assistantMessageId, startedAtMs } = activeGeneration;
     activeGeneration = null;
+    // 仅流式中的消息标记停止；已完成（含 tool_calls）的消息保留原状态
     patchAssistantById(
       assistantMessageId,
-      (message) => ({
-        ...message,
-        status: "stopped",
-        durationMs: Date.now() - startedAtMs,
-      }),
+      (message) =>
+        message.status === "pending" || message.status === "streaming"
+          ? {
+              ...message,
+              status: "stopped",
+              durationMs: Date.now() - startedAtMs,
+            }
+          : message,
       { persist: true },
     );
     // 无内容时移除空占位消息

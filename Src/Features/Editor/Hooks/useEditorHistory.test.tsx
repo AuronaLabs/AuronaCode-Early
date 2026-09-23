@@ -119,4 +119,37 @@ describe("useEditorHistory", () => {
     // composite 自身单独一步
     expect(result.current.undo()?.content).toBe("");
   });
+
+  it("多光标编辑入栈携带 extras：撤销还原编辑前布局，重做还原编辑后布局", () => {
+    const { result } = renderHook(() => useEditorHistory("ab"));
+
+    act(() => {
+      result.current.pushComposite(
+        [{ startUtf16: 2, deletedText: "", insertedText: "x" }],
+        3,
+        "abx",
+        [{ cursor: 0, selectionStart: 0, selectionEnd: 0 }],
+        [{ cursor: 1, selectionStart: 0, selectionEnd: 2 }],
+      );
+    });
+
+    const undone = result.current.undo();
+    expect(undone?.content).toBe("ab");
+    expect(undone?.extras).toEqual([{ cursor: 0, selectionStart: 0, selectionEnd: 0 }]);
+
+    const redone = result.current.redo();
+    expect(redone?.content).toBe("abx");
+    expect(redone?.extras).toEqual([{ cursor: 1, selectionStart: 0, selectionEnd: 2 }]);
+  });
+
+  it("单光标路径不入 extras：undo 返回体不含 extras 字段", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    const { result } = renderHook(() => useEditorHistory(""));
+
+    act(() => result.current.pushHistory("a", 1));
+
+    const entry = result.current.undo();
+    expect(entry?.extras).toBeUndefined();
+  });
 });

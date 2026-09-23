@@ -67,9 +67,27 @@ export const AI_CHAT_EVENTS = {
   error: "ai://chat-error",
 } as const;
 
+/** OpenAI 兼容 tool_calls 字段（上行回传，arguments 为完整字符串） */
+export interface AiIpcToolFunction {
+  name: string;
+  arguments: string;
+}
+
+export interface AiIpcToolCall {
+  id: string;
+  type: "function";
+  function: AiIpcToolFunction;
+}
+
+/**
+ * 聊天消息载荷。0.4.8 agent 化：assistant 消息可携带 toolCalls，
+ * 工具结果以 role:"tool" + toolCallId 回传（content 缺省表示 null content）。
+ */
 export interface AiIpcMessage {
   role: string;
-  content: string;
+  content?: string;
+  toolCalls?: AiIpcToolCall[];
+  toolCallId?: string;
 }
 
 export const AiIPC = {

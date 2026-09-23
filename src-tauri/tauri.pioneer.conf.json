@@ -1,0 +1,10 @@
+{
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/AuronaLabs/AuronaCode-Early/releases/download/pioneer-latest/latest.json",
+        "https://github.com/AuronaLabs/AuronaCode-Early/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

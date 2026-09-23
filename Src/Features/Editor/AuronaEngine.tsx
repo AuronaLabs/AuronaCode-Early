@@ -25,8 +25,10 @@ import { useCodeFolding } from "./Folding/useCodeFolding";
 import { GitGutterPopover } from "./GitGutter/GitGutterPopover";
 import type { GitGutterHunk } from "./GitGutter/parseUnifiedDiff";
 import { useGitGutterDiff } from "./GitGutter/useGitGutterDiff";
-import { useEditorCommit } from "./Hooks/useEditorCommit";
+import { useEditorActionHandlers } from "./Hooks/useEditorActionHandlers";
+import { extrasToUtf16, useEditorCommit } from "./Hooks/useEditorCommit";
 import { useEditorCompletion } from "./Hooks/useEditorCompletion";
+import { calculateGutterWidth } from "./Hooks/useEditorGutterMetrics";
 import { useEditorHistory } from "./Hooks/useEditorHistory";
 import { useEditorIME } from "./Hooks/useEditorIME";
 import { useEditorKeybindings } from "./Hooks/useEditorKeybindings";
@@ -128,8 +130,15 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   }, []);
 
   // 1.5 代码折叠系统 (Folding)：真实折叠需要先于视口构建可视行映射
-  const { foldableRanges, foldedStartLines, activeFoldedRanges, lineMap, toggleFold } =
-    useCodeFolding(documentLines);
+  const {
+    foldableRanges,
+    foldedStartLines,
+    activeFoldedRanges,
+    lineMap,
+    toggleFold,
+    foldAll,
+    unfoldAll,
+  } = useCodeFolding(documentLines);
   const effectiveLineMap = isTrueFoldingEnabled ? lineMap : null;
   const effectiveVisibleLineCount =
     isTrueFoldingEnabled && foldedStartLines.size > 0 ? lineMap.visibleLineCount : totalLines;
@@ -180,7 +189,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     updateMaxLineLength,
     setTotalLines,
     onChange,
-    onEditCommitted: (content, cursorUtf16) => pushHistory(content, cursorUtf16),
+    onEditCommitted: (content, cursorUtf16) =>
+      pushHistory(content, cursorUtf16, extrasToUtf16(documentLines, extras)),
   });
 
   // 5. 语言偏好设置与诊断
@@ -260,6 +270,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     addCursor,
     clearExtraCursors,
     selectNextOccurrence,
+    addCursorAtSelectionEnds,
+    addColumnCursors,
     replaceExtras,
   } = useMultiCursorOps(documentLines);
   const occurrences = useSelectionOccurrence(documentLines, selection);
@@ -331,6 +343,31 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   });
   insertTextAtCursorRef.current = insertTextAtCursor;
 
+  // 11.5 编辑能力命令化（V0.4.8）：行操作/折叠/多光标动作（EditorAction 命令与右键菜单路径）
+  const {
+    handleToggleLineComment,
+    handleMoveLine,
+    handleCopyLineDown,
+    handleDeleteLine,
+    handleFoldAll,
+    handleUnfoldAll,
+    handleAddCursorAtSelectionEnds,
+  } = useEditorActionHandlers({
+    language,
+    documentLines,
+    cursor,
+    selection,
+    extras,
+    hasTrueFolding: isTrueFoldingEnabled,
+    replaceDocumentLines,
+    clearExtraCursors,
+    setCursor,
+    setSelection,
+    foldAll,
+    unfoldAll,
+    addCursorAtSelectionEnds,
+  });
+
   // 12. Hover 与自动补全（抽至 useEditorCompletion）
   const {
     isDraggingPointerRef,
@@ -366,6 +403,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     toVisualLine,
     triggerAutocompleteRef,
   });
+
+  // gutter 动态宽度（V0.4.8）：按总行数位数计算，行数少时保留 52px 最小视觉宽度
+  const gutterWidth = Math.max(52, calculateGutterWidth(totalLines, singleCharWidth, 16));
 
   // 光标可见性保障：光标移动或编辑后确保主光标行完整位于视口内（纵向行级、横向按实际前缀宽度）。
   // 小幅位移（打字/逐行移动）瞬时贴合；大幅跳转（翻页/Ctrl+End/搜索跳转等）用 120ms 缓动，
@@ -479,6 +519,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setIsSearchOpen,
     scrollToCursor: (pos) => scrollToLine(pos?.line ?? cursor.line),
     pageLines: Math.max(1, Math.floor(viewportHeight / layout.lineHeight) - 1),
+    tabSize: layout.tabSize,
     extraCursorCount: extraCursors.length,
     handleCtrlD: () => {
       const result = selectNextOccurrence(cursor, selection, findWordBoundaries);
@@ -487,6 +528,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         setCursor(result.newPrimaryCursor);
       }
     },
+    handleAddCursorAtSelectionEnds,
+    handleAddColumnCursor: (direction: -1 | 1) => addColumnCursors(cursor, direction),
     clearExtraCursors,
     handleMultiCursorBackspace,
     handleMultiCursorDelete,
@@ -522,6 +565,13 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     setCursor,
     handleUndo,
     handleRedo,
+    handleToggleLineComment,
+    handleMoveLine,
+    handleCopyLineDown,
+    handleDeleteLine,
+    handleFoldAll,
+    handleUnfoldAll,
+    handleAddCursorAtSelectionEnds,
   });
 
   // 16. 外部内容同步 / revealLine / 布局测量（抽至 useExternalSync）
@@ -706,8 +756,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
 
       {/* 侧边行号与折叠 Gutter */}
       <div
-        className="w-[52px] shrink-0 border-r border-[var(--EditorGutterBorder)] py-0 flex flex-col overflow-hidden select-none"
+        className="shrink-0 border-r border-[var(--EditorGutterBorder)] py-0 flex flex-col overflow-hidden select-none"
         style={{
+          width: `${gutterWidth}px`,
           paddingTop: `${Math.max(0, layout.contentInsetTop - scrollTop)}px`,
           transform:
             scrollTop < layout.contentInsetTop
@@ -829,6 +880,13 @@ export const AuronaEngine = React.memo(function AuronaEngine({
               label={t("editor.contextSelectAll")}
               onSelect={() => executeEditorAction("selectAll")}
             />
+            <ContextMenuDivider />
+            <ContextMenuItem
+              label={t("editor.actionToggleLineComment")}
+              onSelect={handleToggleLineComment}
+            />
+            <ContextMenuItem label={t("editor.actionFoldAll")} onSelect={handleFoldAll} />
+            <ContextMenuItem label={t("editor.actionUnfoldAll")} onSelect={handleUnfoldAll} />
             <ContextMenuDivider />
             <ContextMenuItem
               label={t("commands.goToDefinition")}

@@ -142,6 +142,14 @@ export const it: LocaleMessages = {
     contextSelectAll: "Seleziona tutto",
     multiCursorLineOpsDegrade:
       "In modalità multi-cursore le operazioni di riga agiscono solo sul cursore principale",
+    actionToggleLineComment: "Attiva/disattiva commento di riga",
+    actionMoveLineUp: "Sposta riga in su",
+    actionMoveLineDown: "Sposta riga in giù",
+    actionCopyLineDown: "Duplica riga in basso",
+    actionDeleteLine: "Elimina riga",
+    actionFoldAll: "Comprimi tutto",
+    actionUnfoldAll: "Espandi tutto",
+    actionAddCursorAtSelectionEnds: "Aggiungi cursori alla fine delle selezioni",
     recoveryRestored: "Ripristinato lo snapshot locale delle modifiche",
     recoverySnapshotTitle: "Snapshot locale non salvato",
     recoverySnapshotMessage:
@@ -1580,6 +1588,19 @@ export const it: LocaleMessages = {
     clearConfirmTitle: "Svuota la sessione corrente",
     clearConfirmMessage:
       "Tutti i messaggi di questa sessione verranno eliminati. L'operazione non è annullabile",
+    agent: {
+      settingsTitle: "Abilita l'esecuzione degli strumenti agent",
+      settingsDesc:
+        "Consente all'IA di leggere i file dell'area di lavoro, cercare e modificare codice ed eseguire comandi dell'editor; le operazioni di scrittura richiedono sempre conferma",
+      confirmTitle: "Conferma {tool}",
+      confirmMessage: "L'IA richiede un'operazione di scrittura — verifica i parametri e conferma",
+      roundLimit:
+        "Numero massimo di round di strumenti raggiunto. Fornisci una risposta finale in base alle informazioni raccolte",
+    },
+    toolCardDone: "Completato",
+    toolCardFailed: "Non riuscito",
+    toolCardRunning: "In esecuzione…",
+    toolCardWaiting: "In attesa",
     settingsDescription:
       "Configura un servizio di chat in streaming compatibile OpenAI; le impostazioni restano locali",
     settingsEnabledTitle: "Abilita la scheda AI nella barra laterale",

@@ -72,6 +72,7 @@ export const UpdaterService = {
 
       this.currentUpdate = null;
       desktopUpdater.clear();
+      Logger.info(`Update check: no update available (channel=${channel})`);
       return { status: "up-to-date" };
     } catch (cause) {
       if (cause instanceof Error && cause.message === "update-check-timeout") {

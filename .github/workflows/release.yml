@@ -191,7 +191,8 @@ jobs:
           tagName: ${{ env.RELEASE_TAG }}
           releaseName: Aurona Code ${{ env.RELEASE_TAG }}
           assetNamePattern: AuronaCode-v[version]-[arch][setup][ext]
-          args: ${{ matrix.settings.args }}
+          # Pioneer 渠道 merge 覆盖更新端点（pioneer-latest 优先）；stable 保持主 conf 的 releases/latest
+          args: ${{ matrix.settings.args }} ${{ env.AURONA_CHANNEL == 'pioneer' && '--config src-tauri/tauri.pioneer.conf.json' || '' }}
           releaseBody: ${{ env.RELEASE_BODY }}
           releaseDraft: true
           prerelease: ${{ env.IS_PRERELEASE == 'true' }}

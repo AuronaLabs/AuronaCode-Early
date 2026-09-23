@@ -16,6 +16,16 @@ const aiMock = vi.hoisted(() => {
     code?: string;
     message?: string;
   }) => void;
+  type IpcMessage = {
+    role: string;
+    content?: string;
+    toolCalls?: Array<{
+      id: string;
+      type: string;
+      function: { name: string; arguments: string };
+    }>;
+    toolCallId?: string;
+  };
   const state: {
     handlers: { delta?: ChatHandler; done?: ChatHandler; error?: ChatHandler };
     sentPayloads: Array<{
@@ -23,7 +33,7 @@ const aiMock = vi.hoisted(() => {
       baseUrl: string;
       apiKey: string;
       model: string;
-      messages: Array<{ role: string; content: string }>;
+      messages: IpcMessage[];
     }>;
   } = {
     handlers: {},
@@ -217,6 +227,62 @@ describe("AiChatService", () => {
       false,
     );
     expect(secondId).toBeTruthy();
+  });
+
+  it("agent loop：tool_calls 触发工具执行并以 role:tool 结果续轮", async () => {
+    const service = await loadService();
+    const executed: Array<{ name: string; args: string }> = [];
+    service.setAgentExecutor({
+      execute: async ({ name, arguments: args }) => {
+        executed.push({ name, args });
+        return { content: "文件内容X", isError: false };
+      },
+      toolPrompt: "- read_file(path): 读取文件",
+    });
+    service.subscribe(() => {});
+    await service.send("读取 main.rs");
+    const firstSessionId = aiMock.sentPayloads.at(-1)?.sessionId ?? "";
+
+    // 模型流式聚合 tool_calls 后以 finishReason=tool_calls 收束
+    aiMock.handlers.delta?.({
+      sessionId: firstSessionId,
+      delta: "",
+      toolCalls: [{ index: 0, id: "call_1", name: "read_file", argumentsDelta: '{"pa' }],
+    });
+    aiMock.handlers.delta?.({
+      sessionId: firstSessionId,
+      delta: "",
+      toolCalls: [{ index: 0, argumentsDelta: 'th":"src/main.rs"}' }],
+    });
+    aiMock.handlers.done?.({
+      sessionId: firstSessionId,
+      aborted: false,
+      finishReason: "tool_calls",
+    });
+
+    // 工具链异步执行：等待自动续轮完成
+    await vi.waitFor(() => {
+      expect(aiMock.sentPayloads.length).toBe(2);
+    });
+    // 工具被执行且参数为聚合后的完整 JSON
+    expect(executed).toEqual([{ name: "read_file", args: '{"path":"src/main.rs"}' }]);
+    const followUp = aiMock.sentPayloads.at(-1);
+    const assistantTool = followUp?.messages.find((item) => item.toolCalls?.length);
+    expect(assistantTool?.toolCalls?.[0]?.function).toEqual({
+      name: "read_file",
+      arguments: '{"path":"src/main.rs"}',
+    });
+    const toolMessage = followUp?.messages.find((item) => item.role === "tool");
+    expect(toolMessage?.toolCallId).toBe("call_1");
+    expect(toolMessage?.content).toBe("文件内容X");
+
+    // 续轮正常完成 → 回到空闲
+    aiMock.handlers.done?.({
+      sessionId: followUp?.sessionId ?? "",
+      aborted: false,
+      finishReason: "stop",
+    });
+    expect(service.getSnapshot().phase).toBe("idle");
   });
 
   it("多会话：新建 / 切换 / 删除与消息隔离", async () => {

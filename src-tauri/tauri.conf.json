@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Aurona Code",
   "mainBinaryName": "Aurona Code",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "identifier": "com.aurona.code",
   "build": {
     "features": [
@@ -15,6 +15,20 @@
   },
   "app": {
     "windows": [
+      {
+        "label": "splashscreen",
+        "url": "/splash.html",
+        "title": "Aurona Code Initializing",
+        "width": 500,
+        "height": 300,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "center": true,
+        "visible": false,
+        "skipTaskbar": true
+      },
       {
         "label": "main",
         "title": "Aurona Code",
@@ -29,20 +43,6 @@
         "visible": false,
         "maximized": false,
         "dragDropEnabled": false
-      },
-      {
-        "label": "splashscreen",
-        "url": "/splash.html",
-        "title": "Aurona Code Initializing",
-        "width": 500,
-        "height": 300,
-        "decorations": false,
-        "transparent": true,
-        "resizable": false,
-        "alwaysOnTop": true,
-        "center": true,
-        "visible": false,
-        "skipTaskbar": true
       }
     ],
     "security": {
@@ -56,7 +56,6 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVGRjQxOURGODdCQ0I1MzIKUldReXRieUgzeG4wNzFtWi8vMXZxbVNvbC9aeXhjU2VuYlM4bVQrS3ZUeW1VdEdvRzBwRnlsQlIK",
       "endpoints": [
-        "https://github.com/AuronaLabs/AuronaCode-Early/releases/download/pioneer-latest/latest.json",
         "https://github.com/AuronaLabs/AuronaCode-Early/releases/latest/download/latest.json"
       ]
     }

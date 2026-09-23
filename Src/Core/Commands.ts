@@ -7,6 +7,7 @@ import { handleSmartRun } from "../Shared/Constants/RunConfig";
 import { SIDEBAR_DEBUG, SIDEBAR_EXTENSIONS } from "../Shared/Constants/Sidebar";
 import { useDebugStore } from "../State/useDebugStore";
 import { useEditorStore } from "../State/useEditorStore";
+import { useFeatureFlagStore } from "../State/useFeatureFlagStore";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
 import { registerAccountCommands } from "./AccountCommands";
 import { DebugConfigurationService } from "./DebugConfigurationService";
@@ -188,6 +189,49 @@ export function registerWorkbenchCommands(): () => void {
         category: "编辑",
         categoryKey: "commandCategories.edit",
         canExecute: (current) => current.hasActiveEditor,
+        handler: () => EditorAdapter.executeAction(action),
+      }),
+    ),
+    // V0.4.8 编辑能力命令化：行操作 / 多光标动作（titleKey 挂 editor.* 段）
+    ...(
+      [
+        {
+          action: "toggleLineComment",
+          title: "切换行注释",
+          titleKey: "editor.actionToggleLineComment",
+        },
+        { action: "moveLineUp", title: "上移行", titleKey: "editor.actionMoveLineUp" },
+        { action: "moveLineDown", title: "下移行", titleKey: "editor.actionMoveLineDown" },
+        { action: "copyLineDown", title: "向下复制行", titleKey: "editor.actionCopyLineDown" },
+        { action: "deleteLine", title: "删除行", titleKey: "editor.actionDeleteLine" },
+        {
+          action: "addCursorAtSelectionEnds",
+          title: "在选区行尾添加光标",
+          titleKey: "editor.actionAddCursorAtSelectionEnds",
+        },
+      ] as const
+    ).map(({ action, title, titleKey }) =>
+      CommandRegistry.register({
+        id: `editor.action.${action}`,
+        title,
+        titleKey,
+        category: "编辑",
+        categoryKey: "commandCategories.edit",
+        canExecute: (current) => current.hasActiveEditor,
+        handler: () => EditorAdapter.executeAction(action),
+      }),
+    ),
+    // 折叠命令：尊重 editor.trueFolding 特性开关（关闭时不可执行）
+    ...(["foldAll", "unfoldAll"] as const).map((action) =>
+      CommandRegistry.register({
+        id: `editor.action.${action}`,
+        title: action === "foldAll" ? "折叠全部" : "展开全部",
+        titleKey: action === "foldAll" ? "editor.actionFoldAll" : "editor.actionUnfoldAll",
+        category: "编辑",
+        categoryKey: "commandCategories.edit",
+        canExecute: (current) =>
+          current.hasActiveEditor &&
+          useFeatureFlagStore.getState().isFeatureEnabled("editor.trueFolding"),
         handler: () => EditorAdapter.executeAction(action),
       }),
     ),

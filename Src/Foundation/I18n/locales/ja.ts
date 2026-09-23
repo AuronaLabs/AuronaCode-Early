@@ -141,6 +141,14 @@ export const ja: LocaleMessages = {
     contextPaste: "貼り付け",
     contextSelectAll: "すべて選択",
     multiCursorLineOpsDegrade: "マルチカーソル時の行操作はプライマリカーソルのみに適用されます",
+    actionToggleLineComment: "行コメントの切り替え",
+    actionMoveLineUp: "行を上へ移動",
+    actionMoveLineDown: "行を下へ移動",
+    actionCopyLineDown: "行を下へコピー",
+    actionDeleteLine: "行を削除",
+    actionFoldAll: "すべて折りたたむ",
+    actionUnfoldAll: "すべて展開",
+    actionAddCursorAtSelectionEnds: "選択範囲の行末にカーソルを追加",
     recoveryRestored: "ローカルの編集スナップショットを復元しました",
     recoverySnapshotTitle: "未保存のローカルスナップショット",
     recoverySnapshotMessage:
@@ -1555,6 +1563,19 @@ export const ja: LocaleMessages = {
     clearConfirmTitle: "現在のセッションを消去",
     clearConfirmMessage:
       "このセッションのすべてのメッセージが削除されます。この操作は元に戻せません",
+    agent: {
+      settingsTitle: "agent ツール実行を有効化",
+      settingsDesc:
+        "AI がワークスペースのファイルを読み取り、コードを検索・変更し、エディターコマンドを実行できるようにします。書き込み操作には常に確認が必要です",
+      confirmTitle: "{tool} を確認",
+      confirmMessage: "AI が書き込み操作を要求しています。引数を確認して承認してください",
+      roundLimit:
+        "ツールの最大ラウンド数に達しました。収集した情報に基づいて最終回答を返してください",
+    },
+    toolCardDone: "完了",
+    toolCardFailed: "失敗",
+    toolCardRunning: "実行中…",
+    toolCardWaiting: "待機中",
     settingsDescription:
       "OpenAI 互換のストリーミング対話サービスを設定します。設定はローカルにのみ保存されます",
     settingsEnabledTitle: "サイドバーの AI カードを有効化",
