@@ -16,11 +16,6 @@ import { ErrorBoundary } from "../Layout/ErrorBoundary";
 
 Logger.init();
 
-// 超椭圆圆角（corner-shape）能力探测：便于排查是否命中渐进增强
-Logger.info(
-  `corner-shape supported: ${CSS.supports?.("corner-shape", "superellipse(3)") ?? false}`,
-);
-
 function RootApp() {
   const [bootKey, setBootKey] = React.useState(0);
 

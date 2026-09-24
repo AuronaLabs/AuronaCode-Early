@@ -3,8 +3,8 @@
 @import "tailwindcss";
 
 @theme {
-  /* 圆角阶梯（token 三档 + pill 特例）：控件 10 / 表面 12 / 浮层 16，语义类 rounded-control|surface|overlay */
-  --radius-control: 10px;
+  /* 圆角阶梯（token 三档 + pill 特例）：控件 12 / 表面 12 / 浮层 16，语义类 rounded-control|surface|overlay */
+  --radius-control: 12px;
   --radius-surface: 12px;
   --radius-overlay: 16px;
 

@@ -1,19 +1,7 @@
-/* materials.css —— 玻璃材质：超椭圆圆角渐进增强、玻璃分层与液态流光（liquid）动效。 */
+/* materials.css —— 玻璃材质：玻璃分层与液态流光（liquid）动效。 */
 
-/* 超椭圆圆角（squircle）渐进增强：corner-shape 为绘制属性，与 backdrop-filter 兼容、无合成层开销。
-   不支持时自动回退标准 border-radius；pill/微型标记等标准圆形元素显式保持 round。 */
-@supports (corner-shape: superellipse(4)) {
-  *,
-  *::before,
-  *::after {
-    corner-shape: superellipse(3);
-  }
-
-  .rounded-full,
-  .rounded-sm {
-    corner-shape: round;
-  }
-}
+/* 超椭圆（corner-shape）试验已撤：superellipse(3) 会把小半径圆角观感压方约三成，
+   在 8-12px 控件圆角上接近直角。0.4.10 若重试仅限 overlay 大表面，且需真机验证。 */
 
 /* 静态玻璃材质：基础与抬升层始终由 Aurona 玻璃效果档位决定。
    顶部受光、低饱和边缘与分档投影保持常驻，不依赖 Aurona 流光动效。 */
