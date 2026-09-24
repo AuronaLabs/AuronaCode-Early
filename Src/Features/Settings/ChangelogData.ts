@@ -12,9 +12,32 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-    version: "V0.4.9",
+    version: "V0.4.9.1",
     date: "2026-09-24",
     isLatest: true,
+    summary: "紧急修复圆角观感回退：撤除全局超椭圆试验，控件圆角恢复 12px 与 0.4.8 一致",
+    sections: [
+      {
+        title: "圆角回退修复",
+        description: "恢复 0.4.8 的圆润基线",
+        items: [
+          "**撤除超椭圆**：corner-shape superellipse(3) 在支持的 WebView2 上把 8-12px 圆角观感压方约三成、接近直角，本次全局撤除",
+          "**控件半径复原**：--radius-control 由 10px 恢复 12px；语义 token 体系（control / surface / overlay）保持不变",
+        ],
+      },
+      {
+        title: "后续计划",
+        description: "squircle 美化另择路径",
+        items: [
+          "**谨慎重试**：0.4.10 若重做超椭圆仅限浮层大表面，并逐台真机验证观感后再放量",
+        ],
+      },
+    ],
+  },
+  {
+    version: "V0.4.9",
+    date: "2026-09-24",
+    isLatest: false,
     summary:
       "圆角系统语义化重建并引入超椭圆观感、AI 设置升级为多模型配置档与顶栏快捷切换、配置真源治理与文案国际化清债",
     sections: [
