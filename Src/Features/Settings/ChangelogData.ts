@@ -12,7 +12,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-    version: "V0.4.9.1",
+    version: "V0.4.10",
     date: "2026-09-24",
     isLatest: true,
     summary: "紧急修复圆角观感回退：撤除全局超椭圆试验，控件圆角恢复 12px 与 0.4.8 一致",
@@ -28,7 +28,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
       {
         title: "后续计划",
         description: "squircle 美化另择路径",
-        items: ["**谨慎重试**：0.4.10 若重做超椭圆仅限浮层大表面，并逐台真机验证观感后再放量"],
+        items: ["**谨慎重试**：后续版本若重做超椭圆仅限浮层大表面，并逐台真机验证观感后再放量"],
       },
     ],
   },

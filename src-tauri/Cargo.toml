@@ -1,6 +1,6 @@
 [package]
 name = "aurona_code"
-version = "0.4.9.1"
+version = "0.4.10"
 description = "Aurona Code Preview"
 authors = ["Aurona Team"]
 edition = "2021"

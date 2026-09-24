@@ -6,7 +6,7 @@ Aurona Code 仍处于早期快速开发阶段，目前只为最新预览版本�
 
 | 版本 | 支持状态 |
 | --- | --- |
-| 0.4.9.1 | :white_check_mark: |
+| 0.4.10 | :white_check_mark: |
 | 0.4.9 | :white_check_mark: |
 | 0.4.8 | :white_check_mark: |
 | 0.4.5 | :white_check_mark: |
