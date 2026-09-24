@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { UserConfigStore } from "../Storage/UserConfigStore";
 
 export type Locale = "zh-CN" | "zh-Hant" | "en" | "de" | "it" | "ja";
 
@@ -75,12 +76,27 @@ class LocaleServiceImpl {
   set(locale: Locale): void {
     if (locale === this.current) return;
     this.current = locale;
+    this.writeSnapshot(locale);
+    // 真源写入 UserConfig（异步落盘）；localStorage 仅为下次启动的同步快照
+    void UserConfigStore.set({ locale });
+    for (const listener of this.listeners) listener();
+  }
+
+  /** 启动时以 UserConfig 为真源校正语言（不回写 UserConfig，避免多余写盘） */
+  syncFromConfig(locale: Locale): void {
+    if (locale === this.current) return;
+    this.current = locale;
+    this.writeSnapshot(locale);
+    for (const listener of this.listeners) listener();
+  }
+
+  /** localStorage 仅作下次启动的同步快照（真源为 UserConfig） */
+  private writeSnapshot(locale: Locale): void {
     try {
       localStorage.setItem(STORAGE_KEY, locale);
     } catch {
       // 语言偏好持久化失败不影响运行。
     }
-    for (const listener of this.listeners) listener();
   }
 
   subscribe(listener: () => void): () => void {
@@ -94,6 +110,13 @@ class LocaleServiceImpl {
 }
 
 export const LocaleService = new LocaleServiceImpl();
+
+/** 启动引导用：校验并应用 UserConfig 中的语言（非法值静默忽略，维持快照） */
+export function applyPersistedLocale(raw: unknown): void {
+  if (typeof raw !== "string") return;
+  if (!(Object.keys(MESSAGES) as string[]).includes(raw)) return;
+  LocaleService.syncFromConfig(raw as Locale);
+}
 
 export function useLocale() {
   const [locale, setLocale] = useState<Locale>(LocaleService.get());

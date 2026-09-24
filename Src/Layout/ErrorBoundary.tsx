@@ -74,7 +74,7 @@ export class ErrorBoundary extends Component<Props, State> {
               {LocaleService.translate("errorBoundary.hint")}
             </p>
             {this.state.logPath && (
-              <p className="max-w-full truncate rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-muted)]">
+              <p className="max-w-full truncate rounded-surface border border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 py-2 font-mono text-[11px] text-[var(--color-text-muted)]">
                 {this.state.logPath}
               </p>
             )}

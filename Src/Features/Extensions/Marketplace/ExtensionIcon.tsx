@@ -166,7 +166,7 @@ export function ExtensionIcon({
       height={size}
       style={{ width: size, height: size }}
       onError={() => setImageError(true)}
-      className={`shrink-0 rounded-lg object-contain ${className}`}
+      className={`shrink-0 rounded-control object-contain ${className}`}
     />
   );
 }

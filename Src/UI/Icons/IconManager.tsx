@@ -62,6 +62,7 @@ import IconMinus from "@tabler/icons-react/dist/esm/icons/IconMinus.mjs";
 import IconMoon from "@tabler/icons-react/dist/esm/icons/IconMoon.mjs";
 import IconPackage from "@tabler/icons-react/dist/esm/icons/IconPackage.mjs";
 import IconPalette from "@tabler/icons-react/dist/esm/icons/IconPalette.mjs";
+import IconPencil from "@tabler/icons-react/dist/esm/icons/IconPencil.mjs";
 import IconPhoto from "@tabler/icons-react/dist/esm/icons/IconPhoto.mjs";
 import IconPlayerPause from "@tabler/icons-react/dist/esm/icons/IconPlayerPause.mjs";
 import IconPlayerPlayFilled from "@tabler/icons-react/dist/esm/icons/IconPlayerPlayFilled.mjs";
@@ -103,6 +104,7 @@ export const Icons = {
   World: IconWorld,
   Checks: IconChecks,
   Check: IconCheck,
+  Pencil: IconPencil,
   Trash: IconTrash,
   Database: IconDatabase,
   Extensions: IconPuzzle,

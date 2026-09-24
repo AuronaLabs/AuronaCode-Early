@@ -31,17 +31,13 @@ export function registerAccountCommands(): () => void {
   const disposers = [
     CommandRegistry.register({
       id: "account.openSettings",
-      title: "打开账户设置",
       titleKey: "commands.accountOpenSettings",
-      category: "Aurona 账户",
       categoryKey: "commandCategories.account",
       handler: openAccountSettings,
     }),
     CommandRegistry.register({
       id: "account.login",
-      title: "登录 Aurona Account",
       titleKey: "commands.accountLogin",
-      category: "Aurona 账户",
       categoryKey: "commandCategories.account",
       canExecute: () => {
         const status = AccountService.getSnapshot();
@@ -61,9 +57,7 @@ export function registerAccountCommands(): () => void {
     }),
     CommandRegistry.register({
       id: "account.logout",
-      title: "退出登录",
       titleKey: "commands.accountLogout",
-      category: "Aurona 账户",
       categoryKey: "commandCategories.account",
       canExecute: () => AccountService.getSnapshot().phase === "signedIn",
       handler: async () => {
@@ -73,9 +67,7 @@ export function registerAccountCommands(): () => void {
     }),
     CommandRegistry.register({
       id: "account.refreshProfile",
-      title: "刷新账户资料",
       titleKey: "commands.accountRefresh",
-      category: "Aurona 账户",
       categoryKey: "commandCategories.account",
       canExecute: () => AccountService.getSnapshot().phase === "signedIn",
       handler: async () => {

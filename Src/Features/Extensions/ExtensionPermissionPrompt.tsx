@@ -41,10 +41,10 @@ export function ExtensionPermissionPrompt({
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-[var(--glass-blur-base)] transition-all animate-in fade-in duration-200">
       <GlassContainer
         layer="overlay"
-        className="w-full max-w-[280px] rounded-2xl p-5 shadow-[var(--shadow-overlay)] flex flex-col items-center text-center animate-in zoom-in-95 duration-200"
+        className="w-full max-w-[280px] rounded-overlay p-5 shadow-[var(--shadow-overlay)] flex flex-col items-center text-center animate-in zoom-in-95 duration-200"
       >
         {/* 顶部居中极简图标 */}
-        <div className="flex size-12 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--color-accent)] border border-[var(--border-subtle)] mb-3 shadow-inner">
+        <div className="flex size-12 items-center justify-center rounded-control bg-[var(--material-surface)] text-[var(--color-accent)] border border-[var(--border-subtle)] mb-3 shadow-inner">
           <Icons.ShieldCheck size={24} stroke={1.75} />
         </div>
 
@@ -69,7 +69,7 @@ export function ExtensionPermissionPrompt({
             size="sm"
             variant="primary"
             onClick={() => onResolve("once")}
-            className="h-8.5 w-full text-[12px] font-semibold rounded-xl"
+            className="h-8.5 w-full text-[12px] font-semibold rounded-control"
           >
             {t("extensions.permission.scopeOnce")}
           </Button>
@@ -77,7 +77,7 @@ export function ExtensionPermissionPrompt({
             size="sm"
             variant="secondary"
             onClick={() => onResolve("workspace")}
-            className="h-8.5 w-full text-[12px] font-medium rounded-xl"
+            className="h-8.5 w-full text-[12px] font-medium rounded-control"
           >
             {t("extensions.permission.scopeWorkspace")}
           </Button>
@@ -85,7 +85,7 @@ export function ExtensionPermissionPrompt({
             size="sm"
             variant="secondary"
             onClick={() => onResolve("global")}
-            className="h-8.5 w-full text-[12px] font-medium rounded-xl"
+            className="h-8.5 w-full text-[12px] font-medium rounded-control"
           >
             {t("extensions.permission.scopeGlobal")}
           </Button>
@@ -93,7 +93,7 @@ export function ExtensionPermissionPrompt({
             size="sm"
             variant="ghost"
             onClick={() => onResolve("deny")}
-            className="h-8 w-full text-[12px] text-[var(--color-text-muted)] hover:text-[var(--StatusError)] hover:bg-[var(--StatusError)]/10 rounded-xl"
+            className="h-8 w-full text-[12px] text-[var(--color-text-muted)] hover:text-[var(--StatusError)] hover:bg-[var(--StatusError)]/10 rounded-control"
           >
             {t("extensions.deny")}
           </Button>

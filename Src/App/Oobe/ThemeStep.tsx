@@ -71,7 +71,7 @@ function ThemePreview({ choice }: { choice: ThemeChoice }) {
     return (
       <div
         data-oobe-preview="light"
-        className="oobe-theme-preview relative flex h-[72px] w-full overflow-hidden rounded-lg"
+        className="oobe-theme-preview relative flex h-[72px] w-full overflow-hidden rounded-surface"
       >
         <div className="oobe-theme-preview-scene h-full w-1/2">
           <PreviewScene />
@@ -85,7 +85,7 @@ function ThemePreview({ choice }: { choice: ThemeChoice }) {
   return (
     <div
       data-oobe-preview={choice}
-      className="oobe-theme-preview relative h-[72px] w-full overflow-hidden rounded-lg"
+      className="oobe-theme-preview relative h-[72px] w-full overflow-hidden rounded-surface"
     >
       <PreviewScene />
     </div>

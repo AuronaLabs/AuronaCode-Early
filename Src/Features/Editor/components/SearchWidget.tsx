@@ -47,7 +47,7 @@ function ToggleOption({ label, ariaLabel, active, onToggle }: ToggleOptionProps)
       aria-pressed={active}
       onClick={onToggle}
       className={cn(
-        "h-7 min-w-7 px-1 rounded-lg flex items-center justify-center text-[12px] font-semibold transition-colors select-none",
+        "h-7 min-w-7 px-1 rounded-control flex items-center justify-center text-[12px] font-semibold transition-colors select-none",
         active
           ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
           : "text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]",
@@ -124,13 +124,13 @@ export function SearchWidget({
   };
 
   const toggleButtonClass =
-    "w-7 h-7 rounded-lg flex items-center justify-center text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors";
+    "w-7 h-7 rounded-control flex items-center justify-center text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors";
 
   return (
     <div
       className={cn(
         glassVariants({ layer: "overlay" }),
-        "absolute top-4 right-8 z-50 flex flex-col rounded-2xl overflow-hidden font-sans transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)] w-[400px]",
+        "absolute top-4 right-8 z-50 flex flex-col rounded-overlay overflow-hidden font-sans transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)] w-[400px]",
       )}
     >
       <div
@@ -251,7 +251,7 @@ export function SearchWidget({
             type="button"
             onClick={onReplace}
             disabled={totalMatches === 0}
-            className="h-7 px-2.5 mr-1 rounded-lg text-[11px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+            className="h-7 px-2.5 mr-1 rounded-control text-[11px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
           >
             {t("editor.searchReplace")}
           </button>
@@ -259,7 +259,7 @@ export function SearchWidget({
             type="button"
             onClick={onReplaceAll}
             disabled={totalMatches === 0}
-            className="h-7 px-2.5 rounded-lg text-[11px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+            className="h-7 px-2.5 rounded-control text-[11px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
           >
             {t("editor.searchReplaceAll")}
           </button>

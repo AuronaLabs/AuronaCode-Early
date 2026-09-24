@@ -40,7 +40,7 @@ function PreferenceGroup<T extends string | number>({
               key={String(option.id)}
               aria-pressed={selected}
               onClick={() => onChange(option.id)}
-              className={`flex cursor-pointer flex-col items-center gap-1 rounded-xl border px-3 py-2.5 text-center transition-all duration-150 ${
+              className={`flex cursor-pointer flex-col items-center gap-1 rounded-control border px-3 py-2.5 text-center transition-all duration-150 ${
                 selected
                   ? "border-transparent bg-[color-mix(in_srgb,var(--color-accent)_12%,var(--material-surface))] shadow-[0_0_0_1.5px_color-mix(in_srgb,var(--color-accent)_55%,transparent),0_6px_18px_color-mix(in_srgb,var(--color-accent)_18%,transparent)]"
                   : "border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-muted)] hover:border-[var(--border-overlay)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"

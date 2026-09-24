@@ -118,7 +118,7 @@ export function LocationResultsPanel() {
         {groups.map((group) => (
           <section
             key={group.path}
-            className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)]"
+            className="overflow-hidden rounded-surface border border-[var(--border-subtle)] bg-[var(--material-surface)]"
           >
             <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-1.5">
               <Icons.FileCode size={13} className="shrink-0 text-[var(--color-text-muted)]" />

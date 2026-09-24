@@ -159,7 +159,7 @@ export function WorkspaceBottomPanel() {
         <div className="flex items-center gap-1">
           <button
             type="button"
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-control text-[12px] font-medium transition-colors ${
               activeBottomPanel === "terminal"
                 ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
                 : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-hover)]"
@@ -171,7 +171,7 @@ export function WorkspaceBottomPanel() {
           </button>
           <button
             type="button"
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-control text-[12px] font-medium transition-colors ${
               activeBottomPanel === "output"
                 ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
                 : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-hover)]"
@@ -183,7 +183,7 @@ export function WorkspaceBottomPanel() {
           </button>
           <button
             type="button"
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-control text-[12px] font-medium transition-colors ${
               activeBottomPanel === "debug-console"
                 ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
                 : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-hover)]"
@@ -195,7 +195,7 @@ export function WorkspaceBottomPanel() {
           </button>
           <button
             type="button"
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-control text-[12px] font-medium transition-colors ${
               activeBottomPanel === "problems"
                 ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
                 : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-hover)]"
@@ -212,7 +212,7 @@ export function WorkspaceBottomPanel() {
           </button>
           <button
             type="button"
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-control text-[12px] font-medium transition-colors ${
               activeBottomPanel === "references"
                 ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
                 : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-hover)]"
@@ -236,7 +236,7 @@ export function WorkspaceBottomPanel() {
               >
                 <button
                   type="button"
-                  className={`flex h-[26px] w-[26px] items-center justify-center rounded-lg transition-colors ${
+                  className={`flex h-[26px] w-[26px] items-center justify-center rounded-control transition-colors ${
                     isTerminalListVisible
                       ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
                       : "text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)]"
@@ -251,7 +251,7 @@ export function WorkspaceBottomPanel() {
                 <Tooltip content={t("workspace.newTerminal")} delay={300} placement="top">
                   <button
                     type="button"
-                    className="flex h-[26px] w-[26px] items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] rounded-lg transition-colors"
+                    className="flex h-[26px] w-[26px] items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] rounded-control transition-colors"
                     onClick={() => TerminalManager.createTerminal()}
                   >
                     <Icons.Plus size={14} />
@@ -261,7 +261,7 @@ export function WorkspaceBottomPanel() {
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="flex h-[26px] w-[16px] items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] rounded-lg transition-colors absolute -right-4 top-0"
+                      className="flex h-[26px] w-[16px] items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] rounded-control transition-colors absolute -right-4 top-0"
                     >
                       <Icons.ChevronDown size={10} />
                     </button>
@@ -288,7 +288,7 @@ export function WorkspaceBottomPanel() {
           <Tooltip content={t("workspace.minimizePanel")} delay={300} placement="top">
             <button
               type="button"
-              className="flex h-[26px] w-[26px] items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] rounded-lg transition-colors"
+              className="flex h-[26px] w-[26px] items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] rounded-control transition-colors"
               onClick={() => setBottomPanelOpen(false)}
             >
               <Icons.Minimize size={14} />
@@ -306,7 +306,7 @@ export function WorkspaceBottomPanel() {
         >
           {terminalStartupError && terminals.length === 0 && (
             <div className="absolute inset-0 z-10 flex items-center justify-center p-4">
-              <div className="flex max-w-sm flex-col items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-panel)] p-5 text-center">
+              <div className="flex max-w-sm flex-col items-center gap-3 rounded-surface border border-[var(--border-subtle)] bg-[var(--material-panel)] p-5 text-center">
                 <Icons.AlertTriangle size={20} className="text-[var(--StatusWarning)]" />
                 <div className="text-[13px] font-medium text-[var(--color-text-highlight)]">
                   {t("terminal.failed")}
@@ -368,7 +368,7 @@ export function WorkspaceBottomPanel() {
                   setEditingTerminalId(term.id);
                   setEditingName(term.name);
                 }}
-                className={`group flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer select-none transition-colors ${
+                className={`group flex items-center justify-between px-2 py-1.5 rounded-control cursor-pointer select-none transition-colors ${
                   activeTerminalId === term.id
                     ? "bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
                     : "text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
@@ -426,7 +426,7 @@ export function WorkspaceBottomPanel() {
                   key={scope}
                   type="button"
                   onClick={() => setProblemsScope(scope)}
-                  className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  className={`rounded-control px-2.5 py-1 text-[11px] font-medium transition-colors ${
                     problemsScope === scope
                       ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
                       : "text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-primary)]"
@@ -450,7 +450,7 @@ export function WorkspaceBottomPanel() {
                     return (
                       <div key={problem.key} className="flex w-full flex-col gap-1">
                         {showGroupHeader && (
-                          <div className="flex w-full items-center gap-2 rounded-lg bg-[var(--material-surface)] px-2 py-1 text-[10px]">
+                          <div className="flex w-full items-center gap-2 rounded-control bg-[var(--material-surface)] px-2 py-1 text-[10px]">
                             <span className="min-w-0 flex-1 truncate font-mono text-[var(--color-text-muted)]">
                               {path ?? problem.uri}
                             </span>
@@ -462,7 +462,7 @@ export function WorkspaceBottomPanel() {
                             )}
                           </div>
                         )}
-                        <div className="group flex w-full items-start gap-2 rounded-lg p-2 transition-colors hover:bg-[var(--material-interactive-hover)]">
+                        <div className="group flex w-full items-start gap-2 rounded-control p-2 transition-colors hover:bg-[var(--material-interactive-hover)]">
                           <button
                             type="button"
                             onClick={() => {
@@ -505,7 +505,7 @@ export function WorkspaceBottomPanel() {
                                   character: problem.range.start.character,
                                 });
                               }}
-                              className="mt-0.5 shrink-0 rounded-md p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] group-hover:opacity-100"
+                              className="mt-0.5 shrink-0 rounded-control p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] group-hover:opacity-100"
                             >
                               <Icons.Sparkles size={14} stroke={1.8} />
                             </button>
@@ -560,7 +560,7 @@ export function WorkspaceBottomPanel() {
                     label: channel.label,
                   })),
                 ]}
-                className="h-7 min-w-[150px] rounded-lg font-sans text-[12px]"
+                className="h-7 min-w-[150px] rounded-control font-sans text-[12px]"
               />
               <button
                 type="button"
@@ -573,7 +573,7 @@ export function WorkspaceBottomPanel() {
                     OutputService.clear(activeOutputChannel);
                   }
                 }}
-                className="rounded-lg px-2 py-1 hover:bg-[var(--material-interactive-hover)]"
+                className="rounded-control px-2 py-1 hover:bg-[var(--material-interactive-hover)]"
               >
                 {t("common.clear")}
               </button>
@@ -599,7 +599,7 @@ export function WorkspaceBottomPanel() {
                       ),
                     );
                 }}
-                className="flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-[var(--material-interactive-hover)]"
+                className="flex items-center gap-1 rounded-control px-2 py-1 hover:bg-[var(--material-interactive-hover)]"
               >
                 <Icons.Copy size={12} />
                 {t("common.copy")}
@@ -642,7 +642,7 @@ export function WorkspaceBottomPanel() {
               <button
                 type="button"
                 onClick={() => OutputService.clear("debug-adapter")}
-                className="rounded-lg px-2 py-1 hover:bg-[var(--material-interactive-hover)]"
+                className="rounded-control px-2 py-1 hover:bg-[var(--material-interactive-hover)]"
               >
                 {t("common.clear")}
               </button>
@@ -666,7 +666,7 @@ export function WorkspaceBottomPanel() {
                       ),
                     );
                 }}
-                className="flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-[var(--material-interactive-hover)]"
+                className="flex items-center gap-1 rounded-control px-2 py-1 hover:bg-[var(--material-interactive-hover)]"
               >
                 <Icons.Copy size={12} />
                 {t("common.copy")}

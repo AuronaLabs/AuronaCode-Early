@@ -20,10 +20,10 @@ const buttonVariants = cva(
           "border border-[color-mix(in_srgb,var(--GlassSurface-Rim)_75%,var(--border-subtle))] bg-[var(--material-surface)] text-[var(--color-text-highlight)] shadow-[inset_0_1px_0_var(--GlassSurface-Highlight)] backdrop-blur-[var(--glass-blur-raised)] backdrop-saturate-[var(--GlassSaturation)] hover:border-[var(--border-overlay)] hover:bg-[var(--material-interactive-hover)] hover:shadow-[inset_0_1px_0_color-mix(in_srgb,var(--GlassSurface-Highlight)_160%,transparent)]",
       },
       size: {
-        default: "h-8 rounded-xl px-4 py-1.5",
+        default: "h-8 rounded-control px-4 py-1.5",
         sm: "h-7 rounded-full px-3.5 text-[12px]",
-        lg: "h-10 rounded-2xl px-8 text-[14px]",
-        icon: "h-8 w-8 rounded-xl",
+        lg: "h-10 rounded-control px-8 text-[14px]",
+        icon: "h-8 w-8 rounded-control",
       },
       fullWidth: {
         true: "w-full",

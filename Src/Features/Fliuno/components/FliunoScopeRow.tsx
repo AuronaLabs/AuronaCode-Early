@@ -23,7 +23,7 @@ interface FliunoScopeRowProps {
 
 const toggleButtonClass = (active: boolean) =>
   cn(
-    "rounded-lg p-1.5 transition-colors",
+    "rounded-control p-1.5 transition-colors",
     active
       ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
       : "text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)]",

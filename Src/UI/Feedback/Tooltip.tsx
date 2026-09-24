@@ -163,7 +163,7 @@ export function Tooltip({ content, children, delay = 300, placement = "top" }: T
             data-placement={position.placement}
             className={cn(
               glassVariants({ layer: "overlay" }),
-              "fixed z-[9999] pointer-events-none max-w-72 rounded-lg px-2.5 py-1.5 text-[12px] font-medium leading-snug text-[var(--color-text-highlight)] shadow-[var(--shadow-surface),var(--GlassSurface-Shadow-Base)] animate-in fade-in zoom-in-95 duration-150",
+              "fixed z-[9999] pointer-events-none max-w-72 rounded-overlay px-2.5 py-1.5 text-[12px] font-medium leading-snug text-[var(--color-text-highlight)] shadow-[var(--shadow-surface),var(--GlassSurface-Shadow-Base)] animate-in fade-in zoom-in-95 duration-150",
             )}
             style={{ left: position.left, top: position.top }}
           >

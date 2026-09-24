@@ -52,7 +52,7 @@ export function LanguageStep({ onSelect }: { onSelect: (next: Locale) => void })
             >
               {/* 小预览：母语自名呈现在迷你文字场景中，选中时随 accent 轻染 */}
               <div
-                className="relative h-[64px] w-full overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--material-overlay)] backdrop-blur-[var(--glass-blur-overlay)]"
+                className="relative h-[64px] w-full overflow-hidden rounded-surface border border-[var(--border-subtle)] bg-[var(--material-overlay)] backdrop-blur-[var(--glass-blur-overlay)]"
                 style={
                   selected
                     ? {

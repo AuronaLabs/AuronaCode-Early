@@ -28,7 +28,7 @@ export function Select({ options, value, onChange, className, ariaLabel, disable
         data-aurona-component-focus="true"
         className={cn(
           glassVariants({ layer: "raised" }),
-          "flex h-8 min-w-[120px] cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-1.5 text-[13px] text-[var(--color-text-highlight)] outline-none transition-[background-color,border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-[var(--color-text-muted)]/40",
+          "flex h-8 min-w-[120px] cursor-pointer items-center justify-between gap-3 rounded-control px-3 py-1.5 text-[13px] text-[var(--color-text-highlight)] outline-none transition-[background-color,border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-[var(--color-text-muted)]/40",
           className,
         )}
       >
@@ -42,7 +42,7 @@ export function Select({ options, value, onChange, className, ariaLabel, disable
         <SelectPrimitive.Content
           className={cn(
             glassVariants({ layer: "overlay" }),
-            "relative z-[9999] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl p-1 animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95",
+            "relative z-[9999] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-overlay p-1 animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95",
           )}
           position="popper"
           side="bottom"
@@ -59,7 +59,7 @@ export function Select({ options, value, onChange, className, ariaLabel, disable
                 value={opt.value}
                 disabled={opt.disabled}
                 className={cn(
-                  "relative flex min-h-8 w-full cursor-pointer select-none items-center rounded-lg py-1.5 pl-8 pr-2 text-[13px] text-[var(--color-text-primary)] outline-none transition-[background-color,color,box-shadow] data-[highlighted]:bg-[var(--material-interactive-hover)] data-[highlighted]:text-[var(--color-text-highlight)] data-[state=checked]:bg-[color-mix(in_srgb,var(--color-accent)_8%,transparent)] data-[state=checked]:text-[var(--color-text-highlight)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
+                  "relative flex min-h-8 w-full cursor-pointer select-none items-center rounded-control py-1.5 pl-8 pr-2 text-[13px] text-[var(--color-text-primary)] outline-none transition-[background-color,color,box-shadow] data-[highlighted]:bg-[var(--material-interactive-hover)] data-[highlighted]:text-[var(--color-text-highlight)] data-[state=checked]:bg-[color-mix(in_srgb,var(--color-accent)_8%,transparent)] data-[state=checked]:text-[var(--color-text-highlight)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
                 )}
               >
                 <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">

@@ -1,0 +1,64 @@
+/* editor-syntax.css —— 编辑器与语法高亮：Highlight.js 主题配色与编辑器内容区样式。 */
+
+/* Highlight.js Theme (Migrated from AuronaEngine.tsx) */
+.hljs,
+code {
+  color: var(--TextHighlight);
+  text-shadow: none;
+  font-family: var(--EditorFontFamily);
+  font-size: var(--EditorFontSize);
+  line-height: var(--EditorLineHeight);
+  direction: ltr;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  tab-size: 2;
+  hyphens: none;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--SyntaxComment);
+}
+.hljs-keyword,
+.hljs-selector-tag {
+  color: var(--SyntaxKeyword);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string {
+  color: var(--SyntaxString);
+}
+.hljs-number,
+.hljs-built_in,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+  color: var(--SyntaxNumber);
+}
+.hljs-title,
+.hljs-title.function_,
+.hljs-section,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: var(--SyntaxFunction);
+}
+.hljs-variable,
+.hljs-template-variable {
+  color: var(--SyntaxVariable);
+}
+.hljs-operator,
+.hljs-punctuation {
+  color: var(--SyntaxOperator);
+}
+
+/* Editor Quiet Zone：内容区保持中性高对比，不直接透出主题氛围。 */
+[data-editor-font] {
+  background-color: transparent;
+}

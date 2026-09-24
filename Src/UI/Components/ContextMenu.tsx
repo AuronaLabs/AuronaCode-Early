@@ -20,7 +20,7 @@ export const ContextMenuContent = React.forwardRef<
       ref={ref}
       className={cn(
         glassVariants({ layer: "overlay" }),
-        "p-1.5 z-[9999] flex flex-col min-w-[160px] rounded-xl overflow-hidden",
+        "p-1.5 z-[9999] flex flex-col min-w-[160px] rounded-overlay overflow-hidden",
         "animate-in fade-in duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out",
         className,
       )}
@@ -53,7 +53,7 @@ export const ContextMenuItem = React.forwardRef<
         ref={ref}
         disabled={disabled}
         className={cn(
-          "flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-[13px] transition-colors text-left w-full outline-none cursor-pointer select-none",
+          "flex items-center justify-between gap-2 px-3 py-1.5 rounded-control text-[13px] transition-colors text-left w-full outline-none cursor-pointer select-none",
           disabled && "opacity-50 cursor-not-allowed text-[var(--color-text-muted)]",
           !disabled && isDanger && "text-[var(--StatusError)] focus:bg-[var(--StatusError)]/10",
           !disabled &&

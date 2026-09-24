@@ -15,9 +15,9 @@ const FOCUS_WITHIN =
 const inputVariants = cva("transition-[border-color,box-shadow]", {
   variants: {
     inputSize: {
-      sm: "h-7 rounded-lg",
-      md: "h-9 rounded-xl",
-      lg: "h-10 rounded-2xl",
+      sm: "h-7 rounded-control",
+      md: "h-9 rounded-control",
+      lg: "h-10 rounded-control",
     },
   },
   defaultVariants: {

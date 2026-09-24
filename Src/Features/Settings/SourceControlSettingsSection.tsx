@@ -103,7 +103,7 @@ export function SourceControlSettingsSection() {
       ) : (
         <GlassContainer layer="raised" className="mt-2 flex max-w-3xl flex-col overflow-hidden">
           <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control border border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
               <Icons.Git size={18} />
             </div>
             <div className="min-w-0 flex-1">
@@ -130,7 +130,7 @@ export function SourceControlSettingsSection() {
                 </div>
                 <Icons.Github size={18} className="shrink-0 text-[var(--color-text-muted)]" />
               </div>
-              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--material-panel)] p-1 focus-within:border-[var(--color-text-muted)]/25 focus-within:ring-2 focus-within:ring-[var(--color-text-muted)]/20">
+              <div className="rounded-control border border-[var(--border-subtle)] bg-[var(--material-panel)] p-1 focus-within:border-[var(--color-text-muted)]/25 focus-within:ring-2 focus-within:ring-[var(--color-text-muted)]/20">
                 <Input
                   value={remoteUrl}
                   onChange={(e) => setRemoteUrl(e.target.value)}

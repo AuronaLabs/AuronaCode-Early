@@ -235,7 +235,7 @@ export function AccountSettings() {
                   </Button>
                 )
               ) : (
-                <p className="rounded-xl bg-[var(--material-panel)] px-4 py-3 text-[12px] text-[var(--color-text-muted)]">
+                <p className="rounded-surface bg-[var(--material-panel)] px-4 py-3 text-[12px] text-[var(--color-text-muted)]">
                   {t("account.notConfigured")}
                 </p>
               )}
@@ -244,7 +244,7 @@ export function AccountSettings() {
                 status.phase !== "signedIn" && (
                   <div
                     role="alert"
-                    className="max-w-lg rounded-xl border border-[var(--StatusError)]/15 bg-[var(--StatusError)]/5 px-4 py-3 text-[12px] leading-5 text-[var(--StatusError)]"
+                    className="max-w-lg rounded-surface border border-[var(--StatusError)]/15 bg-[var(--StatusError)]/5 px-4 py-3 text-[12px] leading-5 text-[var(--StatusError)]"
                   >
                     {interactionError || status.lastError?.userMessage}
                   </div>

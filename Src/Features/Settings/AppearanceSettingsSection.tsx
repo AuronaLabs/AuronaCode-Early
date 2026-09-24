@@ -78,7 +78,7 @@ export function AppearanceSettingsSection({
                   key={accent.id}
                   aria-pressed={selected}
                   onClick={() => onAccentThemeChange(accent.id)}
-                  className={`group relative flex flex-col items-stretch gap-1.5 overflow-hidden rounded-2xl border p-1.5 pb-1 text-left backdrop-blur-[var(--glass-blur-raised)] transition-[border-color,box-shadow,transform,background-color] duration-200 ${
+                  className={`group relative flex flex-col items-stretch gap-1.5 overflow-hidden rounded-surface border p-1.5 pb-1 text-left backdrop-blur-[var(--glass-blur-raised)] transition-[border-color,box-shadow,transform,background-color] duration-200 ${
                     selected
                       ? "-translate-y-px border-[color-mix(in_srgb,var(--color-accent)_40%,transparent)] shadow-[0_0_0_1.5px_color-mix(in_srgb,var(--color-accent)_55%,transparent),0_0_24px_color-mix(in_srgb,var(--color-accent)_25%,transparent)]"
                       : "border-transparent bg-[var(--material-surface)] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--GlassSurface-Rim)_72%,transparent),inset_0_1px_0_var(--GlassSurface-Rim)] hover:-translate-y-px hover:bg-[var(--material-interactive-hover)] hover:shadow-[inset_0_0_0_1px_var(--GlassSurface-Rim),inset_0_1px_0_var(--GlassSurface-Rim)]"
@@ -94,7 +94,7 @@ export function AppearanceSettingsSection({
                   {/* 玻璃染色预览：主题 accent 从玻璃里透出来，替代旧渐变位图 */}
                   <span
                     aria-hidden="true"
-                    className="glass-layer-overlay relative block h-11 w-full overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--material-overlay)] backdrop-blur-[var(--glass-blur-overlay)] backdrop-saturate-[var(--GlassSaturation)]"
+                    className="glass-layer-overlay relative block h-11 w-full overflow-hidden rounded-control border border-[var(--border-subtle)] bg-[var(--material-overlay)] backdrop-blur-[var(--glass-blur-overlay)] backdrop-saturate-[var(--GlassSaturation)]"
                     style={{
                       backgroundColor: `color-mix(in srgb, ${tint} 20%, var(--material-overlay))`,
                     }}

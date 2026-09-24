@@ -172,7 +172,7 @@ export const EditorTabBar = memo(function EditorTabBar() {
                   </div>
                   <button
                     type="button"
-                    className={`ml-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] transition-all z-10 relative ${
+                    className={`ml-3 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-control hover:bg-[var(--material-interactive-hover)] transition-all z-10 relative ${
                       isActive || tab.isDirty ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                     } ${isActive ? "text-[var(--color-text-highlight)]" : "text-[var(--color-text-muted)]"}`}
                     onClick={(e) => {
@@ -238,7 +238,7 @@ export const EditorTabBar = memo(function EditorTabBar() {
           aria-label={t("editorTabBar.scrollLeft")}
           onClick={() => scrollTabs(-1)}
           disabled={!canScrollLeft}
-          className="grid size-6 place-items-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--color-text-muted)]"
+          className="grid size-6 place-items-center rounded-control text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--color-text-muted)]"
         >
           <Icons.ChevronLeft size={15} stroke={2} />
         </button>
@@ -247,7 +247,7 @@ export const EditorTabBar = memo(function EditorTabBar() {
           aria-label={t("editorTabBar.scrollRight")}
           onClick={() => scrollTabs(1)}
           disabled={!canScrollRight}
-          className="grid size-6 place-items-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--color-text-muted)]"
+          className="grid size-6 place-items-center rounded-control text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--color-text-muted)]"
         >
           <Icons.ChevronRight size={15} stroke={2} />
         </button>

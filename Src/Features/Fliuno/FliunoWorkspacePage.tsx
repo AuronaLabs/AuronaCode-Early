@@ -148,7 +148,7 @@ export function FliunoWorkspacePage({
                       {presentation.contentGroups.map((fileGroup) => (
                         <div
                           key={fileGroup.path}
-                          className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)]"
+                          className="overflow-hidden rounded-surface border border-[var(--border-subtle)] bg-[var(--material-surface)]"
                         >
                           <div className="truncate border-b border-[var(--border-subtle)] px-3 py-2 font-mono text-[10px] text-[var(--color-text-muted)]">
                             {fileGroup.path}

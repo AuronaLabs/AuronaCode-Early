@@ -643,7 +643,7 @@ export function PerformanceBenchmarkPage() {
                 ].map(([label, value]) => (
                   <span
                     key={label}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 py-1.5 text-[11px] text-[var(--color-text-primary)]"
+                    className="inline-flex items-center gap-1.5 rounded-control border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 py-1.5 text-[11px] text-[var(--color-text-primary)]"
                   >
                     <span className="text-[var(--color-text-muted)]">{label}</span>
                     <b>{value}</b>
@@ -660,13 +660,13 @@ export function PerformanceBenchmarkPage() {
                 <span className="text-[11px] text-[var(--color-text-muted)]">
                   {t("performance.recentStartup")}
                 </span>
-                <span className="rounded-md bg-[var(--material-interactive-hover)] px-2 py-1 font-mono text-[11px] text-[var(--color-text-highlight)]">
+                <span className="rounded-control bg-[var(--material-interactive-hover)] px-2 py-1 font-mono text-[11px] text-[var(--color-text-highlight)]">
                   {t("performance.frontendMs").replace(
                     "{ms}",
                     startup.frontendBootstrapMs.toFixed(0),
                   )}
                 </span>
-                <span className="rounded-md bg-[var(--material-interactive-hover)] px-2 py-1 font-mono text-[11px] text-[var(--color-text-highlight)]">
+                <span className="rounded-control bg-[var(--material-interactive-hover)] px-2 py-1 font-mono text-[11px] text-[var(--color-text-highlight)]">
                   {t("performance.mainMs").replace("{ms}", startup.mainInteractiveMs.toFixed(0))}
                 </span>
               </div>
@@ -690,7 +690,7 @@ export function PerformanceBenchmarkPage() {
               <Card key={benchmark.id} className="flex min-w-0 flex-col gap-4 p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--color-accent)]/10 text-[var(--color-accent)]">
+                    <div className="grid size-10 shrink-0 place-items-center rounded-control bg-[var(--color-accent)]/10 text-[var(--color-accent)]">
                       <BenchmarkIcon id={benchmark.id} />
                     </div>
                     <div className="min-w-0">
@@ -704,7 +704,7 @@ export function PerformanceBenchmarkPage() {
                           </span>
                           {ok.statistics && (
                             <span
-                              className={`rounded-md px-1.5 py-0.5 text-[10px] ${
+                              className={`rounded-control px-1.5 py-0.5 text-[10px] ${
                                 ok.statistics.coefficientVariation <= 15
                                   ? "bg-[var(--StatusSuccess)]/10 text-[var(--StatusSuccess)]"
                                   : "bg-[var(--StatusWarning)]/10 text-[var(--StatusWarning)]"
@@ -718,7 +718,7 @@ export function PerformanceBenchmarkPage() {
                           )}
                           {delta !== null && (
                             <span
-                              className={`rounded-md px-1.5 py-0.5 text-[10px] ${
+                              className={`rounded-control px-1.5 py-0.5 text-[10px] ${
                                 delta > 5
                                   ? "bg-[var(--StatusWarning)]/10 text-[var(--StatusWarning)]"
                                   : delta < -5
@@ -737,7 +737,7 @@ export function PerformanceBenchmarkPage() {
                         </span>
                       ) : skippedResult ? (
                         <Tooltip content={skippedResult.details} placement="top">
-                          <span className="rounded-md bg-[var(--material-interactive-hover)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-muted)]">
+                          <span className="rounded-control bg-[var(--material-interactive-hover)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-muted)]">
                             {t("performance.skipped")}
                           </span>
                         </Tooltip>
@@ -845,7 +845,7 @@ export function PerformanceBenchmarkPage() {
             </div>
           </div>
           {leaderboard.length ? (
-            <div className="overflow-hidden rounded-lg border border-[var(--border-subtle)]">
+            <div className="overflow-hidden rounded-surface border border-[var(--border-subtle)]">
               {leaderboard.map((entry) => (
                 <div
                   key={`${entry.version}-${entry.generatedAt}`}
@@ -879,7 +879,7 @@ export function PerformanceBenchmarkPage() {
                       aria-label={t("performance.deleteRecord")}
                       disabled={!!runningKind}
                       onClick={() => void deleteHistoryEntry(entry.generatedAt)}
-                      className="shrink-0 rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--DiagError)] disabled:pointer-events-none disabled:opacity-40"
+                      className="shrink-0 rounded-control p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--DiagError)] disabled:pointer-events-none disabled:opacity-40"
                     >
                       <Icons.Trash size={13} />
                     </button>
@@ -1007,7 +1007,7 @@ function BenchmarkDetail({ kind, results }: { kind: BenchmarkKind; results: Benc
     }));
 
     return (
-      <div className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] p-3">
+      <div className="flex flex-col gap-3 rounded-surface border border-[var(--border-subtle)] bg-[var(--material-surface)] p-3">
         <div className="grid grid-cols-3 gap-2 text-[11px]">
           {[
             [
@@ -1020,7 +1020,7 @@ function BenchmarkDetail({ kind, results }: { kind: BenchmarkKind; results: Benc
             [t("performance.detailMax"), formatDuration(max)],
             [t("performance.detailVariation"), `${statistics.coefficientVariation.toFixed(1)}%`],
           ].map(([label, value]) => (
-            <div key={label} className="rounded-lg bg-[var(--material-panel)] px-2.5 py-2">
+            <div key={label} className="rounded-surface bg-[var(--material-panel)] px-2.5 py-2">
               <div className="text-[10px] text-[var(--color-text-muted)]">{label}</div>
               <div className="mt-0.5 font-mono text-[12px] font-semibold text-[var(--color-text-highlight)]">
                 {value}
@@ -1037,7 +1037,7 @@ function BenchmarkDetail({ kind, results }: { kind: BenchmarkKind; results: Benc
             />
           ))}
         </div>
-        <div className="flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-panel)] px-3 py-2 text-[11px] text-[var(--color-text-muted)]">
+        <div className="flex items-center gap-2 rounded-surface border border-[var(--border-subtle)] bg-[var(--material-panel)] px-3 py-2 text-[11px] text-[var(--color-text-muted)]">
           <span className="text-[var(--color-accent)]">
             <BenchmarkIcon id={kind} />
           </span>
@@ -1049,12 +1049,12 @@ function BenchmarkDetail({ kind, results }: { kind: BenchmarkKind; results: Benc
 
   // 多子项指标卡片呈现（针对 FS, Editor, Search, Encoding, WASM 等）
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--material-surface)] p-3">
+    <div className="flex flex-col gap-2 rounded-surface border border-[var(--border-subtle)] bg-[var(--material-surface)] p-3">
       <div className="grid gap-1.5">
         {results.map((item) => (
           <div
             key={item.id}
-            className="flex items-center justify-between rounded-lg bg-[var(--material-panel)] px-3 py-2 text-[11px]"
+            className="flex items-center justify-between rounded-surface bg-[var(--material-panel)] px-3 py-2 text-[11px]"
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="text-[var(--color-accent)] shrink-0">

@@ -316,7 +316,7 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
 
       {loadError ? (
         <div className="flex flex-1 flex-col items-center justify-center bg-transparent px-6 text-center text-[var(--color-text-primary)] select-none">
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--color-text-muted)]">
+          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-control bg-[var(--material-surface)] text-[var(--color-text-muted)]">
             <Icons.AlertTriangle size={38} stroke={1.2} />
           </div>
           <h3 className="mb-2 text-[16px] font-semibold text-[var(--color-text-highlight)]">
@@ -330,7 +330,7 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
         </div>
       ) : isBinaryWarning ? (
         <div className="flex flex-1 flex-col items-center justify-center bg-transparent text-[var(--color-text-primary)] select-none px-6 text-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--color-text-muted)] mb-6">
+          <div className="flex h-20 w-20 items-center justify-center rounded-control bg-[var(--material-surface)] text-[var(--color-text-muted)] mb-6">
             <Icons.FileCode size={40} stroke={1} />
           </div>
           <h3 className="text-[16px] font-semibold text-[var(--color-text-highlight)] mb-2">
@@ -345,7 +345,7 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
               setIsBinaryWarning(false);
               loadContent(path, true);
             }}
-            className="px-6 py-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white rounded-lg font-medium transition-colors cursor-pointer"
+            className="px-6 py-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white rounded-control font-medium transition-colors cursor-pointer"
           >
             {t("editor.forceOpenAction")}
           </button>
@@ -374,7 +374,7 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
             </>
           )}
           {isSaving && (
-            <div className="glass-layer-overlay absolute right-3 bottom-3 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-1.5 text-[12px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-overlay)] backdrop-saturate-[var(--GlassSaturation)]">
+            <div className="glass-layer-overlay absolute right-3 bottom-3 rounded-overlay border border-[var(--border-overlay)] bg-[var(--material-overlay)] px-3 py-1.5 text-[12px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-overlay)] backdrop-saturate-[var(--GlassSaturation)]">
               正在保存...
             </div>
           )}

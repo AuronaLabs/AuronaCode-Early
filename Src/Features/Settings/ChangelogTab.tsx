@@ -57,7 +57,7 @@ function ReleaseSections({ release }: { release: ChangelogEntry }) {
       {release.sections.map((section) => (
         <GlassContainer key={section.title} layer="base" className="flex flex-col gap-3 p-5">
           <div className="flex items-center gap-2.5">
-            <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-[var(--color-accent)]/10 text-[var(--color-accent)]">
+            <span className="grid size-8 shrink-0 place-items-center rounded-control bg-[var(--color-accent)]/10 text-[var(--color-accent)]">
               <Icons.Sparkles size={16} stroke={1.8} />
             </span>
             <h3 className="text-[14px] font-bold tracking-wide text-[var(--color-text-highlight)]">
@@ -172,7 +172,7 @@ export function ChangelogTab() {
       >
         {title}
       </span>
-      <span className="rounded-lg border border-[var(--border-subtle)] bg-[var(--material-panel)] px-2.5 py-0.5 text-[12px] font-medium text-[var(--color-text-muted)]">
+      <span className="rounded-control border border-[var(--border-subtle)] bg-[var(--material-panel)] px-2.5 py-0.5 text-[12px] font-medium text-[var(--color-text-muted)]">
         {release.date}
       </span>
       {release.isLatest && <Badge>{t("changelog.latest")}</Badge>}

@@ -6,6 +6,12 @@ import { cn } from "../../Shared/Utils/cn";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Badge } from "../../UI/Components/Badge";
 import { Button } from "../../UI/Components/Button";
+import {
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
+} from "../../UI/Components/DropdownMenu";
 import { MarkdownRenderer } from "../../UI/Components/MarkdownRenderer";
 import { Select } from "../../UI/Components/Select";
 import { showConfirm } from "../../UI/Feedback/Toast";
@@ -92,6 +98,7 @@ export function AiAssistantPanel() {
 
   const hasMessages = chat.messages.length > 0;
   const generating = chat.phase !== "idle";
+  const activeProfile = chat.profiles.find((profile) => profile.id === chat.activeProfileId);
 
   return (
     <div className="flex h-full w-full flex-col bg-transparent">
@@ -104,12 +111,46 @@ export function AiAssistantPanel() {
         }
         actions={
           <div className="flex items-center gap-0.5">
+            {chat.profiles.length > 0 && (
+              <DropdownMenuRoot>
+                <DropdownMenuTrigger
+                  aria-label={t("ai.switchModel")}
+                  className="flex h-7 min-w-0 max-w-[140px] cursor-pointer items-center gap-1 rounded-control px-2 text-[11px] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+                >
+                  <span className="truncate">
+                    {activeProfile?.name || activeProfile?.model || t("ai.profileUntitled")}
+                  </span>
+                  <Icons.ChevronDown size={12} className="shrink-0" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[200px]">
+                  {chat.profiles.map((profile) => (
+                    <DropdownMenuItem
+                      key={profile.id}
+                      icon={
+                        profile.id === chat.activeProfileId ? (
+                          <Icons.Check size={13} className="text-[var(--color-accent)]" />
+                        ) : null
+                      }
+                      label={
+                        <span className="truncate">
+                          {profile.name || profile.model || t("ai.profileUntitled")}
+                        </span>
+                      }
+                      rightElement={
+                        <span className="max-w-[96px] truncate font-mono">{profile.model}</span>
+                      }
+                      onSelect={() => void AiChatService.setActiveProfile(profile.id)}
+                    />
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenuRoot>
+            )}
             {chat.sessions.length > 1 && (
               <Select
                 value={chat.activeSessionId}
                 onChange={(value) => void AiChatService.switchSession(value)}
                 ariaLabel={t("ai.sessions")}
-                className="h-7 min-w-0 w-[112px] rounded-lg text-[11px]"
+                className="h-7 min-w-0 w-[112px] rounded-control text-[11px]"
                 options={chat.sessions.map((session) => ({
                   value: session.id,
                   label: shortTitle(session.title, t("ai.untitledSession")),
@@ -120,7 +161,7 @@ export function AiAssistantPanel() {
               <button
                 type="button"
                 onClick={() => AiChatService.newSession()}
-                className="cursor-pointer rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+                className="cursor-pointer rounded-control p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
               >
                 <Icons.Plus size={14} />
               </button>
@@ -130,7 +171,7 @@ export function AiAssistantPanel() {
                 <button
                   type="button"
                   onClick={handleClear}
-                  className="cursor-pointer rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+                  className="cursor-pointer rounded-control p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
                 >
                   <Icons.Trash size={14} />
                 </button>
@@ -146,7 +187,7 @@ export function AiAssistantPanel() {
           <div
             ref={scrollRef}
             onScroll={handleScroll}
-            className="h-full overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 p-3"
+            className="h-full overflow-y-auto rounded-surface border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 p-3"
           >
             <div className="flex flex-col gap-3">
               {chat.messages.map((message) => (
@@ -184,7 +225,7 @@ export function AiAssistantPanel() {
 
       {/* 错误提示条（请求失败，发送下一条或重试后自动清除） */}
       {chat.lastError && !generating && (
-        <div className="mx-[var(--PanelPaddingX)] mb-2 flex items-start gap-1.5 rounded-xl border border-[var(--StatusError)]/25 bg-[var(--StatusError)]/10 p-2.5 text-[11.5px] leading-4 text-[var(--color-text-primary)]">
+        <div className="mx-[var(--PanelPaddingX)] mb-2 flex items-start gap-1.5 rounded-surface border border-[var(--StatusError)]/25 bg-[var(--StatusError)]/10 p-2.5 text-[11.5px] leading-4 text-[var(--color-text-primary)]">
           <Icons.AlertTriangle size={13} className="mt-0.5 shrink-0 text-[var(--StatusError)]" />
           <span className="min-w-0 break-words">{chat.lastError}</span>
         </div>
@@ -195,7 +236,7 @@ export function AiAssistantPanel() {
 
       {/* 底部输入区 */}
       <div className="mx-[var(--PanelPaddingX)] mb-3 shrink-0">
-        <div className="flex items-end gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 p-2 focus-within:border-[var(--color-text-muted)]/25">
+        <div className="flex items-end gap-2 rounded-control border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 p-2 focus-within:border-[var(--color-text-muted)]/25">
           <textarea
             ref={textareaRef}
             value={draft}
@@ -303,7 +344,7 @@ function AiChatBubble({
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md border border-[var(--color-accent)]/20 bg-[var(--color-accent)]/10 px-3.5 py-2 text-[12.5px] leading-5 text-[var(--color-text-primary)]">
+        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-surface rounded-br-md border border-[var(--color-accent)]/20 bg-[var(--color-accent)]/10 px-3.5 py-2 text-[12.5px] leading-5 text-[var(--color-text-primary)]">
           {message.content}
         </div>
       </div>
@@ -319,7 +360,7 @@ function AiChatBubble({
     <div className="group flex justify-start">
       <div
         className={cn(
-          "max-w-[92%] rounded-2xl rounded-bl-md border px-3.5 py-2",
+          "max-w-[92%] rounded-surface rounded-bl-md border px-3.5 py-2",
           isError
             ? "border-[var(--StatusError)]/25 bg-[var(--StatusError)]/5"
             : "border-[var(--border-subtle)] bg-[var(--material-surface)]",
@@ -332,7 +373,7 @@ function AiChatBubble({
 
         {/* 错误卡片：与已生成内容分离展示，支持重试 */}
         {message.status === "error" && message.error && (
-          <div className="mt-2 rounded-xl border border-[var(--StatusError)]/25 bg-[var(--StatusError)]/10 p-2.5">
+          <div className="mt-2 rounded-surface border border-[var(--StatusError)]/25 bg-[var(--StatusError)]/10 p-2.5">
             <div className="flex items-center justify-between gap-2">
               <span className="flex min-w-0 items-center gap-1.5 text-[11.5px] leading-4 text-[var(--color-text-primary)]">
                 <Icons.AlertTriangle size={13} className="shrink-0 text-[var(--StatusError)]" />
@@ -380,7 +421,7 @@ function AiChatBubble({
                   type="button"
                   aria-label={copied ? t("ai.copied") : t("ai.copyMessage")}
                   onClick={() => copy(message.content)}
-                  className="shrink-0 cursor-pointer rounded-lg p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] focus-visible:opacity-100"
+                  className="shrink-0 cursor-pointer rounded-control p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] focus-visible:opacity-100"
                 >
                   {copied ? <Icons.Check size={12} /> : <Icons.Copy size={12} />}
                 </button>
@@ -431,7 +472,7 @@ function ToolCallCards({ message }: { message: AiChatMessage }) {
         return (
           <div
             key={callId}
-            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/40 px-2 py-1.5"
+            className="rounded-surface border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/40 px-2 py-1.5"
           >
             <div className="flex items-center justify-between gap-2">
               <span className="flex min-w-0 items-center gap-1.5 font-mono text-[10.5px] text-[var(--color-text-highlight)]">
@@ -511,7 +552,7 @@ function AiEmptyState({
   if (!configured) {
     return (
       <div className="mx-[var(--PanelPaddingX)] mb-3 flex flex-1 flex-col items-center justify-center gap-3 overflow-y-auto">
-        <div className="flex w-full flex-col items-center gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 px-5 py-7 text-center">
+        <div className="flex w-full flex-col items-center gap-2.5 rounded-surface border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 px-5 py-7 text-center">
           <Icons.Sparkles size={26} className="text-[var(--color-text-muted)]" />
           <p className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
             {t("ai.notConfiguredTitle")}
@@ -549,7 +590,7 @@ function AiEmptyState({
             key={key}
             type="button"
             onClick={() => onQuickPrompt(t(key))}
-            className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 px-3.5 py-2 text-left text-[12px] text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-text-muted)]/25 hover:text-[var(--color-text-highlight)]"
+            className="w-full rounded-control border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 px-3.5 py-2 text-left text-[12px] text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-text-muted)]/25 hover:text-[var(--color-text-highlight)]"
           >
             {t(key)}
           </button>

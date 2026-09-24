@@ -70,7 +70,7 @@ export function GeneralSettingsSection({
                   aria-pressed={theme === mode}
                   key={mode}
                   onClick={() => onThemeChange(mode)}
-                  className={`flex min-w-0 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-[background-color,border-color,color,box-shadow] duration-150 sm:min-w-[104px] cursor-pointer ${
+                  className={`flex min-w-0 items-center justify-center gap-2 rounded-control border px-3 py-2 text-[13px] font-medium transition-[background-color,border-color,color,box-shadow] duration-150 sm:min-w-[104px] cursor-pointer ${
                     theme === mode
                       ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
                       : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"

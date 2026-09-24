@@ -80,7 +80,7 @@ export const CanvasMinimap = React.memo(function CanvasMinimap({
       {/* 悬浮代码预览 Tooltip */}
       {hoveredLine && (
         <div
-          className="glass-layer-overlay absolute right-full mr-2 z-50 pointer-events-none px-2.5 py-1 rounded-lg border border-[var(--border-overlay)] bg-[var(--material-overlay)] backdrop-blur-[var(--glass-blur-overlay)] backdrop-saturate-[var(--GlassSaturation)] shadow-lg text-[11px] font-mono text-[var(--color-text-highlight)] max-w-sm truncate whitespace-pre"
+          className="glass-layer-overlay absolute right-full mr-2 z-50 pointer-events-none px-2.5 py-1 rounded-overlay border border-[var(--border-overlay)] bg-[var(--material-overlay)] backdrop-blur-[var(--glass-blur-overlay)] backdrop-saturate-[var(--GlassSaturation)] shadow-lg text-[11px] font-mono text-[var(--color-text-highlight)] max-w-sm truncate whitespace-pre"
           style={{
             top: `${Math.max(4, Math.min(viewportHeight - 32, hoveredLine.y - 12))}px`,
           }}

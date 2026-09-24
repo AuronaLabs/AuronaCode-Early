@@ -35,9 +35,9 @@ export function FliunoSearchRow({
       className={cn(
         variant === "modal" && "h-[52px] items-center gap-3 px-4",
         variant === "md" &&
-          "glass-layer-overlay h-12 shrink-0 items-center gap-3 rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-panel)] px-4 backdrop-blur-[var(--glass-blur-overlay)] backdrop-saturate-[var(--GlassSaturation)] transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)]",
+          "glass-layer-overlay h-12 shrink-0 items-center gap-3 rounded-control border border-[var(--border-overlay)] bg-[var(--material-panel)] px-4 backdrop-blur-[var(--glass-blur-overlay)] backdrop-saturate-[var(--GlassSaturation)] transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)]",
         variant === "sm" &&
-          "glass-layer-overlay h-10 shrink-0 items-center gap-2 rounded-xl border border-[var(--border-overlay)] bg-[var(--material-panel)] px-3 backdrop-blur-[var(--glass-blur-overlay)] backdrop-saturate-[var(--GlassSaturation)] transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)]",
+          "glass-layer-overlay h-10 shrink-0 items-center gap-2 rounded-control border border-[var(--border-overlay)] bg-[var(--material-panel)] px-3 backdrop-blur-[var(--glass-blur-overlay)] backdrop-saturate-[var(--GlassSaturation)] transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)]",
         "flex",
         className,
       )}
@@ -69,7 +69,7 @@ export function FliunoSearchRow({
           type="button"
           aria-label={t("common.clear")}
           onClick={onClear}
-          className="rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+          className="rounded-control p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
         >
           <Icons.Close size={14} />
         </button>

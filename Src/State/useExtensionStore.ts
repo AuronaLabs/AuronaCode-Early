@@ -8,6 +8,7 @@ import {
   type ExtensionPermissionState,
   type ExtensionViewPayload,
 } from "../Foundation/IPC/ExtensionCommands";
+import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 
 const HIDDEN_EXTENSIONS_STORAGE_KEY = "aurona:hidden-extensions";
 export const VSCODE_COMPAT_EXTENSION_ID = "aurona.vscode-compat";
@@ -58,12 +59,21 @@ function loadHiddenExtensions(): string[] {
   }
 }
 
+/** 规范化 id 列表（去重 + canonical），供快照与 UserConfig 双写共用 */
+function normalizeHiddenIds(raw: unknown[]): string[] {
+  return [
+    ...new Set(raw.filter((id): id is string => typeof id === "string").map(canonicalExtensionId)),
+  ];
+}
+
 function saveHiddenExtensions(ids: string[]): void {
   try {
     localStorage.setItem(HIDDEN_EXTENSIONS_STORAGE_KEY, JSON.stringify(ids));
   } catch {
     // Ignore storage failures.
   }
+  // 真源写入 UserConfig（异步落盘）；localStorage 仅为下次启动的同步快照
+  void UserConfigStore.set({ hiddenExtensionIds: ids });
 }
 
 export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
@@ -88,8 +98,19 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
             .filter((descriptor) => descriptor.id !== VSCODE_COMPAT_EXTENSION_ID)
             .map((descriptor) => ({ ...descriptor, id: canonicalExtensionId(descriptor.id) }))
         : [];
-      const hiddenExtensionIds = loadHiddenExtensions();
-      saveHiddenExtensions(hiddenExtensionIds);
+      let hiddenExtensionIds = loadHiddenExtensions();
+      try {
+        const config = await UserConfigStore.get();
+        if (Array.isArray(config.hiddenExtensionIds)) {
+          const fromConfig = normalizeHiddenIds(config.hiddenExtensionIds);
+          if (JSON.stringify(fromConfig) !== JSON.stringify(hiddenExtensionIds)) {
+            hiddenExtensionIds = fromConfig;
+            saveHiddenExtensions(fromConfig);
+          }
+        }
+      } catch {
+        // UserConfig 不可用时维持 localStorage 快照
+      }
       set({ descriptors, hiddenExtensionIds, initialized: true });
       // 权限目录：前端不维护自己的权限表，一律以后端为准
       void ExtensionIPC.permissionCatalog()

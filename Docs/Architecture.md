@@ -1,5 +1,15 @@
 # Aurona Code 核心架构指南 (Corona+ Architecture Specification)
 
+## V0.4.9 圆角与多模型篇
+
+V0.4.9 聚焦「视觉统一与 AI 配置专业化」：圆角系统按语义三档重建并引入 corner-shape 超椭圆渐进增强、AI 设置升级为多模型配置档并在聊天面板支持快捷切换；同版完成配置真源治理、状态栏快照修复与样式巨石拆分。
+
+- **圆角语义化**：Tailwind v4 `@theme` 注册 `--radius-control/surface/overlay`（10/12/16px）生成 `rounded-control/surface/overlay` 语义工具类，取代「按控件高度分档」的旧约定；GlassManager variants、全部 UI 原子组件与 Features/App 层约 200 处硬编码圆角（rounded-xl/2xl 等）收敛至三档；pill 白名单（badge/头像/滚动条/≤24px 图标件）保留 `rounded-full`。
+- **超椭圆（squircle）**：全局 `@supports (corner-shape: superellipse(3))` 渐进增强（materials.css），`.rounded-full/.rounded-sm` 显式回退 `corner-shape: round`；corner-shape 为绘制属性，与 backdrop-filter 兼容、不产生合成层开销；Main.tsx 启动日志输出 `CSS.supports` 探测结果便于问题排查。
+- **AI 多模型 Profile**：`AiPreferences.profiles[]` + `activeProfileId` 为真源，旧单配置四字段 deprecated 仅作迁移源；`resolveAiProfiles`（迁移→清洗→激活档回退）+ `AiProfiles.test.ts` 10 用例；AiChatService 快照增 `profiles` 摘要（不含 apiKey）与 `setActiveProfile`；AiSettingsSection 重做为配置档列表/展开编辑/删除确认/激活切换/测试连接（GET {baseUrl}/models + 15s 超时，成功/401/网络三态）；AiAssistantPanel 顶栏 DropdownMenu 快捷切换（激活项 Check 标记）。
+- **配置真源治理**：locale 与扩展隐藏列表迁入 UserConfig（`locale`/`hiddenExtensionIds`），localStorage 降级为启动同步快照；LocaleService.set 双写 + `syncFromConfig` 启动校正（applyPersistedLocale 挂 AppBootstrapper）；useExtensionStore.refresh 以 UserConfig 校正快照；Factory Reset 增加 `clearAppGlobalLocalState` 清快照防复活。
+- **修复与清债**：StatusBarRegistry.getSnapshot 由 `items.size` 改为递增 snapshotVersion（修复条目文本/可见性变更不重渲染）；CommandDefinition.title/category 改可选、AccountCommands 死回退移除；命令禁用原因、Toast 默认按钮、文件打开失败提示等十余处硬编码中文归 i18n；Theme.css（~1480 行）按职责纯移动拆分为 tokens/materials/components/editor-syntax 四文件；UI 原子组件新增 7 组件 40+ 用例。
+
 ## V0.4.8 修复与 agent 篇
 
 V0.4.8 聚焦「把上一版欠的修完，把 AI 推进 agent 时代」：更新检测端点按渠道拆分修复多版本检查失效、启动窗口交接治理闪烁、编辑器折叠接线与能力命令化、AI 工具执行端落地；同版完成死代码清债。

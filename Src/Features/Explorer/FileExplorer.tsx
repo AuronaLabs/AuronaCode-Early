@@ -196,7 +196,7 @@ export const FileExplorer = React.memo(function FileExplorer({
                 <Tooltip content={t("explorer.newFile")} placement="bottom">
                   <button
                     type="button"
-                    className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
+                    className="p-1.5 rounded-control text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
                     onClick={() => startInlineCreate("file")}
                   >
                     <Icons.FilePlus size={16} />
@@ -205,7 +205,7 @@ export const FileExplorer = React.memo(function FileExplorer({
                 <Tooltip content={t("explorer.newFolder")} placement="bottom">
                   <button
                     type="button"
-                    className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
+                    className="p-1.5 rounded-control text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
                     onClick={() => startInlineCreate("folder")}
                   >
                     <Icons.FolderPlus size={16} />
@@ -215,7 +215,7 @@ export const FileExplorer = React.memo(function FileExplorer({
                 <Tooltip content={t("explorer.collapseAll")} placement="bottom">
                   <button
                     type="button"
-                    className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
+                    className="p-1.5 rounded-control text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
                     onClick={collapseAll}
                   >
                     <Icons.Minus size={16} />
@@ -224,7 +224,7 @@ export const FileExplorer = React.memo(function FileExplorer({
                 <Tooltip content={t("explorer.refresh")} placement="bottom">
                   <button
                     type="button"
-                    className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
+                    className="p-1.5 rounded-control text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)] transition-colors"
                     onClick={() =>
                       refreshDirectory(rootNode.path).catch((error) =>
                         showToast(

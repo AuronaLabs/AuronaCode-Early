@@ -23,7 +23,7 @@ export function WelcomeStep({ version }: { version: string }) {
       </div>
       {version && (
         <span
-          className="rounded-lg border border-[var(--border-subtle)] bg-[var(--material-panel)] px-2.5 py-1 text-[11px] font-medium tracking-[0.08em] text-[var(--color-text-muted)]"
+          className="rounded-control border border-[var(--border-subtle)] bg-[var(--material-panel)] px-2.5 py-1 text-[11px] font-medium tracking-[0.08em] text-[var(--color-text-muted)]"
           style={{ fontFamily: '"JetBrains Mono", monospace' }}
         >
           {version}

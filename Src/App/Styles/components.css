@@ -1,0 +1,206 @@
+/* components.css —— 应用组件类：标签栏、面板分隔、滚动条、终端容器与全局动效降级。 */
+
+.aurona-tab {
+  position: relative;
+  height: var(--TabActiveHeight);
+  background: transparent;
+  color: var(--TextPrimary);
+  border-radius: var(--radius-control);
+  transition:
+    background var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) ease,
+    border-color var(--duration-fast) var(--ease-smooth);
+  will-change: background;
+  margin-bottom: 0;
+  border: 1px solid transparent;
+}
+
+.aurona-tab-active {
+  background: var(--material-surface);
+  border-color: var(--border-subtle);
+  color: var(--TextHighlight);
+  box-shadow:
+    var(--shadow-surface),
+    inset 0 1px 0 var(--GlassSurface-Rim);
+  z-index: 10;
+}
+
+.aurona-tabbar {
+  overflow: hidden;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+  pointer-events: auto;
+}
+
+.aurona-tabbar-scroll {
+  position: relative;
+  z-index: 1;
+}
+
+.aurona-tab:not(.aurona-tab-active):hover {
+  background-color: var(--GlassHover);
+}
+
+.aurona-panel-resizer::after {
+  position: absolute;
+  content: "";
+  pointer-events: none;
+  border-radius: 9999px;
+  background: transparent;
+  transition:
+    background-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+}
+
+/* xterm 自定义滚动条，与 Material 主题变量联动 */
+.xterm-viewport::-webkit-scrollbar {
+  width: 10px;
+}
+.xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+.xterm-viewport::-webkit-scrollbar-thumb {
+  background-color: var(--border-subtle);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background-color: var(--TextMuted);
+}
+
+.aurona-panel-resizer[data-orientation="vertical"]::after {
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+}
+
+.aurona-panel-resizer[data-orientation="horizontal"]::after {
+  top: 50%;
+  right: 8px;
+  left: 8px;
+  height: 1px;
+  transform: translateY(-50%);
+}
+
+.aurona-panel-resizer:hover::after,
+.aurona-panel-resizer:focus-visible::after {
+  background: var(--AccentPrimary);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--AccentPrimary) 45%, transparent);
+}
+
+/* 隐藏滚动条但仍保留滚动能力：标签栏等需要程序化滚动而不是可见滚动条 */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--GlassBorder);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--TextMuted);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@keyframes setting-reveal-pulse {
+  0%,
+  100% {
+    background-color: transparent;
+    border-color: var(--border-subtle);
+  }
+  25% {
+    background-color: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--border-subtle));
+  }
+}
+
+.setting-reveal-flash {
+  animation: setting-reveal-pulse 1.5s ease-out;
+  border-radius: var(--radius-surface);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: transparent;
+}
+
+:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(121, 121, 121, 0.4);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 100, 100, 0.7);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+  }
+}
+
+/* xterm's canvas is transparent; the host and viewport must remain transparent in both themes. */
+.terminal-host,
+.terminal-host .xterm,
+.terminal-host .xterm-viewport,
+.terminal-host .xterm-screen,
+.terminal-host .xterm-screen canvas,
+.terminal-host .xterm-helper-textarea {
+  background: transparent;
+  background-color: transparent;
+}
+
+.aurona-scroll::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+.aurona-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.aurona-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--GlassBorder);
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+.aurona-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--TextMuted);
+}

@@ -12,9 +12,83 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.4.9",
+    date: "2026-09-24",
+    isLatest: true,
+    summary:
+      "圆角系统语义化重建并引入超椭圆观感、AI 设置升级为多模型配置档与顶栏快捷切换、配置真源治理与文案国际化清债",
+    sections: [
+      {
+        title: "圆角系统重建",
+        description: "三档语义取代临时决定",
+        items: [
+          "**语义三档**：@theme 注册控件 10px / 表面 12px / 浮层 16px 三档 token，生成 rounded-control/surface/overlay 语义类",
+          "**全量收敛**：GlassManager variants 与全部 UI 组件、Features/App 层约 200 处硬编码圆角归档到三档",
+          "**pill 白名单**：徽章、头像、滚动条等小圆件保留 rounded-full，统一而不一刀切",
+        ],
+      },
+      {
+        title: "超椭圆圆角",
+        description: "更接近连续曲率的观感",
+        items: [
+          "**渐进增强**：支持 corner-shape 的设备自动启用 superellipse(3)，不支持时回退标准圆角",
+          "**零开销**：corner-shape 为绘制属性，与玻璃 backdrop-filter 兼容，不产生合成层成本",
+          "**启动探测**：启动日志输出能力探测结果，便于排查增强是否命中",
+        ],
+      },
+      {
+        title: "AI 多模型配置档",
+        description: "设置页的专业形态",
+        items: [
+          "**多档管理**：添加多个服务商配置档，名称、地址、密钥、模型一处编辑，测试连接一键验证",
+          "**无感迁移**：旧单模型配置自动升级为默认配置档，数据不丢",
+          "**激活即用**：点击条目切换使用中的配置档，删除有二次确认",
+        ],
+      },
+      {
+        title: "模型快捷切换",
+        description: "聊天顶栏一键换挡",
+        items: [
+          "**顶栏切换**：AI 助手顶栏显示当前模型，下拉即可在配置档间切换，当前档带勾选标记",
+          "**快照安全**：配置摘要不含 API Key，UI 层零密钥泄漏",
+        ],
+      },
+      {
+        title: "配置真源治理",
+        description: "语言与扩展状态归位",
+        items: [
+          "**语言真源**：界面语言迁入用户配置，localStorage 降级为启动同步快照，多窗口不再打架",
+          "**扩展隐藏**：隐藏扩展列表同步进用户配置，清理后不再复活",
+          "**重置补全**：Factory Reset 一并清理应用全局快照键",
+        ],
+      },
+      {
+        title: "状态栏修复",
+        description: "条目变化即时可见",
+        items: ["**快照版本**：状态栏快照改用递增版本号，条目文本与可见性变更不再漏渲染"],
+      },
+      {
+        title: "文案国际化",
+        description: "硬编码中文清债",
+        items: [
+          "**十余处归 i18n**：命令禁用原因、Toast 默认按钮、文件打开失败提示、头像替代文本等全部接入六语言",
+        ],
+      },
+      {
+        title: "工程健康",
+        description: "样式巨石拆分与测试补强",
+        items: [
+          "**样式拆分**：Theme.css（约 1480 行）按职责纯移动拆分为 tokens/materials/components/editor-syntax 四文件",
+          "**UI 测试**：Badge/Button/Input/Modal/Select/Switch/Toast 七个原子组件 40+ 用例",
+          "**AI 配置档测试**：迁移、清洗、激活回退逻辑 10 用例覆盖",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.4.8",
     date: "2026-09-23",
-    isLatest: true,
+    isLatest: false,
     summary:
       "更新检测修复与启动治理、编辑器二轮优化（折叠接线/命令化/多光标增强）、AI 正式 agent 化（工具执行端与专业提示词）、垃圾代码清债",
     sections: [

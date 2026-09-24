@@ -10,6 +10,8 @@ import {
   type AiIpcToolCall,
 } from "../Foundation/IPC/AiCommands";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
+import type { AiProfile } from "../Foundation/Types/Config";
+import { LEGACY_AI_PROFILE_ID, needsAiProfileMigration, resolveAiProfiles } from "./AiProfiles";
 
 /**
  * AI 助手服务（模块级单例，useSyncExternalStore 消费）。
@@ -124,6 +126,14 @@ export interface AiChatSessionMeta {
 
 export type AiChatPhase = "idle" | "connecting" | "streaming";
 
+/** 配置档摘要（快照消费；不含 apiKey，避免 UI 层泄漏密钥） */
+export interface AiChatProfileSummary {
+  id: string;
+  name: string;
+  provider?: AiProfile["provider"];
+  model: string;
+}
+
 export interface AiChatSnapshot {
   sessions: AiChatSessionMeta[];
   activeSessionId: string;
@@ -137,6 +147,10 @@ export interface AiChatSnapshot {
   configured: boolean;
   /** 侧边栏 AI 卡片是否启用（ai.enabled，默认开启） */
   cardEnabled: boolean;
+  /** 模型配置档摘要（不含 apiKey） */
+  profiles: AiChatProfileSummary[];
+  /** 当前激活配置档 id（null 表示未配置） */
+  activeProfileId: string | null;
 }
 
 interface StoredSession {
@@ -417,7 +431,7 @@ async function runAgentToolRound(generation: {
     const toolCallId = call.id ?? `call_${call.index}`;
     let outcome: { content: string; isError: boolean };
     if (!agentExecutor) {
-      outcome = { content: "工具执行未启用", isError: true };
+      outcome = { content: LocaleService.translate("ai.toolExecutionDisabled"), isError: true };
     } else {
       outcome = await agentExecutor.execute({
         id: toolCallId,
@@ -465,6 +479,8 @@ let snapshot: AiChatSnapshot = {
   lastError: null,
   configured: false,
   cardEnabled: true,
+  profiles: [],
+  activeProfileId: null,
 };
 
 const listeners = new Set<ChatListener>();
@@ -524,6 +540,8 @@ function publish(): void {
     lastError: snapshot.lastError,
     configured: snapshot.configured,
     cardEnabled: snapshot.cardEnabled,
+    profiles: snapshot.profiles,
+    activeProfileId: snapshot.activeProfileId,
   };
   for (const listener of listeners) listener();
 }
@@ -673,12 +691,45 @@ export const AiChatService = {
   async refreshConfig(): Promise<void> {
     const config = await UserConfigStore.get();
     const ai = config.ai;
-    const configured = Boolean(ai?.baseUrl?.trim() && ai?.apiKey?.trim());
+    // 0.4.8 及以前单配置无感迁移：profiles 为空且旧字段可用时一次性写回
+    if (needsAiProfileMigration(ai)) {
+      const resolved = resolveAiProfiles(ai);
+      await UserConfigStore.set({
+        ai: { ...ai, profiles: resolved.profiles, activeProfileId: LEGACY_AI_PROFILE_ID },
+      });
+    }
+    const { profiles, active } = resolveAiProfiles(ai);
+    const summaries: AiChatProfileSummary[] = profiles.map((item) => ({
+      id: item.id,
+      name: item.name,
+      provider: item.provider,
+      model: item.model,
+    }));
+    const configured = Boolean(active);
     const cardEnabled = ai?.enabled !== false;
-    if (configured !== snapshot.configured || cardEnabled !== snapshot.cardEnabled) {
-      snapshot = { ...snapshot, configured, cardEnabled };
+    if (
+      configured !== snapshot.configured ||
+      cardEnabled !== snapshot.cardEnabled ||
+      active?.id !== snapshot.activeProfileId ||
+      JSON.stringify(summaries) !== JSON.stringify(snapshot.profiles)
+    ) {
+      snapshot = {
+        ...snapshot,
+        configured,
+        cardEnabled,
+        profiles: summaries,
+        activeProfileId: active?.id ?? null,
+      };
       publish();
     }
+  },
+
+  /** 切换激活配置档（设置页与聊天顶栏共用；保存后刷新快照） */
+  async setActiveProfile(id: string): Promise<void> {
+    const config = await UserConfigStore.get();
+    if (config.ai?.activeProfileId === id) return;
+    await UserConfigStore.set({ ai: { ...config.ai, activeProfileId: id } });
+    await AiChatService.refreshConfig();
   },
 
   /** 注册/注销 agent 执行端（Features 侧调用；null 关闭工具执行与工具提示词段） */
@@ -711,10 +762,10 @@ export const AiChatService = {
   async startGeneration(round = 0): Promise<void> {
     if (activeGeneration) return;
     const config = await UserConfigStore.get();
-    const ai = config.ai;
-    const baseUrl = ai?.baseUrl?.trim();
-    const apiKey = ai?.apiKey?.trim();
-    const model = ai?.model?.trim();
+    const { active } = resolveAiProfiles(config.ai);
+    const baseUrl = active?.baseUrl.trim();
+    const apiKey = active?.apiKey.trim();
+    const model = active?.model.trim();
     if (!baseUrl || !apiKey || !model) {
       snapshot = {
         ...snapshot,

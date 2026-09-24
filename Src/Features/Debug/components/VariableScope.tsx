@@ -32,7 +32,7 @@ export function VariableScope({
   };
 
   return (
-    <div className="overflow-hidden rounded-lg bg-[var(--material-panel)]">
+    <div className="overflow-hidden rounded-surface bg-[var(--material-panel)]">
       <div className="flex h-7 items-center gap-2 px-2.5 text-[10px] font-semibold text-[var(--color-text-muted)]">
         <Icons.ChevronRight size={11} className="rotate-90" />
         <span className="truncate">{name}</span>
@@ -90,7 +90,7 @@ function VariableRow({
   return (
     <>
       <div
-        className="group grid h-7 w-full min-w-0 grid-cols-[minmax(70px,0.8fr)_minmax(0,1.2fr)_auto] items-center gap-1 rounded-md pr-1 text-left text-[10px] hover:bg-[var(--material-interactive-hover)]"
+        className="group grid h-7 w-full min-w-0 grid-cols-[minmax(70px,0.8fr)_minmax(0,1.2fr)_auto] items-center gap-1 rounded-control pr-1 text-left text-[10px] hover:bg-[var(--material-interactive-hover)]"
         style={{ paddingLeft: `${8 + depth * 14}px` }}
       >
         <button
@@ -170,7 +170,7 @@ function VariableRow({
       {expanded && pagination?.hasMore && (
         <button
           type="button"
-          className="rounded-md py-1 pr-2 text-[9px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+          className="rounded-control py-1 pr-2 text-[9px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
           style={{ paddingLeft: `${18 + depth * 14}px` }}
           onClick={() =>
             void DebugService.loadVariables(

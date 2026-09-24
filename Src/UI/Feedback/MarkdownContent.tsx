@@ -61,7 +61,7 @@ export function MarkdownContent({ source }: { source: string }) {
         blocks.push(
           <pre
             key={`code-${blocks.length}`}
-            className="overflow-x-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--material-panel)] p-3 font-mono text-[12px]"
+            className="overflow-x-auto rounded-surface border border-[var(--border-subtle)] bg-[var(--material-panel)] p-3 font-mono text-[12px]"
           >
             <code>{code.join("\n")}</code>
           </pre>,
@@ -104,7 +104,7 @@ export function MarkdownContent({ source }: { source: string }) {
     blocks.push(
       <pre
         key="code-final"
-        className="overflow-x-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--material-panel)] p-3 font-mono text-[12px]"
+        className="overflow-x-auto rounded-surface border border-[var(--border-subtle)] bg-[var(--material-panel)] p-3 font-mono text-[12px]"
       >
         <code>{trailingCode.join("\n")}</code>
       </pre>,

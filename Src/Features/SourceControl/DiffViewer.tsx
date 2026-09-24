@@ -184,11 +184,11 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
         <div
           className={cn(
             glassVariants({ layer: "raised" }),
-            "flex min-h-[68px] items-center justify-between gap-4 rounded-2xl px-4 py-3",
+            "flex min-h-[68px] items-center justify-between gap-4 rounded-surface px-4 py-3",
           )}
         >
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--material-overlay)] text-[var(--color-accent)] shadow-[inset_0_1px_0_var(--GlassSurface-Rim)] backdrop-blur-[var(--glass-blur-overlay)]">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control border border-[var(--border-subtle)] bg-[var(--material-overlay)] text-[var(--color-accent)] shadow-[inset_0_1px_0_var(--GlassSurface-Rim)] backdrop-blur-[var(--glass-blur-overlay)]">
               <Icons.GitCommit size={18} />
             </div>
             <div className="min-w-0">
@@ -250,11 +250,14 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
               return (
                 <div
                   key={`${file.oldName}-${file.newName}`}
-                  className={cn(glassVariants({ layer: "raised" }), "overflow-hidden rounded-2xl")}
+                  className={cn(
+                    glassVariants({ layer: "raised" }),
+                    "overflow-hidden rounded-surface",
+                  )}
                 >
                   <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-base)] px-3 py-2.5 backdrop-blur-[var(--surface-blur-base)] backdrop-saturate-[var(--GlassSaturation)]">
                     <div className="flex min-w-0 items-center gap-2.5">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-accent)]">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-accent)]">
                         <Icons.FileCode size={14} />
                       </div>
                       <span className="truncate font-mono text-[12px] font-semibold text-[var(--color-text-highlight)]">

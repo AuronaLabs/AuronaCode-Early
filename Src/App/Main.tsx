@@ -1,7 +1,10 @@
 import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import "./Styles/Theme.css";
+import "./Styles/tokens.css";
+import "./Styles/materials.css";
+import "./Styles/components.css";
+import "./Styles/editor-syntax.css";
 import "@fontsource/righteous";
 import "@fontsource/jetbrains-mono";
 import { AppBootstrapper } from "../Core/AppBootstrapper";
@@ -12,6 +15,11 @@ import { PlatformService } from "../Foundation/Platform";
 import { ErrorBoundary } from "../Layout/ErrorBoundary";
 
 Logger.init();
+
+// 超椭圆圆角（corner-shape）能力探测：便于排查是否命中渐进增强
+Logger.info(
+  `corner-shape supported: ${CSS.supports?.("corner-shape", "superellipse(3)") ?? false}`,
+);
 
 function RootApp() {
   const [bootKey, setBootKey] = React.useState(0);

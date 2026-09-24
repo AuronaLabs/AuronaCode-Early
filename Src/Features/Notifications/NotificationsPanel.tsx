@@ -48,7 +48,7 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
               <button
                 type="button"
                 onClick={handleClear}
-                className="p-1.5 hover:bg-[var(--material-interactive-hover)] rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-colors cursor-pointer"
+                className="p-1.5 hover:bg-[var(--material-interactive-hover)] rounded-control text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-colors cursor-pointer"
               >
                 <Icons.Checks size={14} />
               </button>
@@ -160,7 +160,7 @@ export const NotificationsPanel = React.memo(function NotificationsPanel() {
                   }
                 >
                   <div
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control"
                     style={{
                       color: statusColor,
                       backgroundColor: `color-mix(in srgb, ${statusColor} 16%, transparent)`,

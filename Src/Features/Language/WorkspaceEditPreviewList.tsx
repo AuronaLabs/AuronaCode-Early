@@ -7,11 +7,11 @@ import { Icons } from "../../UI/Icons/IconManager";
 export function WorkspaceEditPreviewList({ preview }: { preview: WorkspaceEditPreview }) {
   const { t } = useLocale();
   return (
-    <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl bg-[var(--material-surface)] p-2 aurona-scroll">
+    <div className="max-h-64 space-y-2 overflow-y-auto rounded-surface bg-[var(--material-surface)] p-2 aurona-scroll">
       {preview.files.map((file) => (
         <section
           key={file.uri}
-          className="overflow-hidden rounded-lg border border-[var(--border-subtle)]"
+          className="overflow-hidden rounded-surface border border-[var(--border-subtle)]"
         >
           <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-2.5 py-1.5">
             <Icons.FileCode size={13} className="shrink-0 text-[var(--color-text-muted)]" />

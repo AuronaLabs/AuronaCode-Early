@@ -76,6 +76,22 @@ export interface AppearancePreferences {
   glassIntensity?: number;
 }
 
+/** 单条 AI 模型配置档（0.4.9 多模型；密钥仅存本地 UserConfig，零遥测） */
+export interface AiProfile {
+  /** 稳定 id（前端生成，uuid） */
+  id: string;
+  /** 显示名称（空串时 UI 回退显示模型名或占位） */
+  name: string;
+  /** 服务商预设：custom 时 baseUrl 手工填写 */
+  provider?: "openai" | "deepseek" | "openrouter" | "custom";
+  /** OpenAI 兼容 Chat Completions 接口地址 */
+  baseUrl: string;
+  /** API Key（仅本机存储） */
+  apiKey: string;
+  /** 模型名称 */
+  model: string;
+}
+
 /** 0.4.6 批次 5：AI 助手偏好（纯聊天；API Key 仅存本地 UserConfig，零遥测） */
 export interface AiPreferences {
   /** 是否在侧边栏启用 AI 助手卡片 */
@@ -84,16 +100,22 @@ export interface AiPreferences {
   agentEnabled?: boolean;
   /** 服务商预设：custom 时 baseUrl 手工填写 */
   provider?: "openai" | "deepseek" | "openrouter" | "custom";
-  /** OpenAI 兼容 Chat Completions 接口地址 */
+  /** OpenAI 兼容 Chat Completions 接口地址（deprecated：0.4.9 起由 profiles 承载，仅作迁移源） */
   baseUrl?: string;
-  /** API Key（仅本机存储） */
+  /** API Key（仅本机存储）（deprecated：0.4.9 起由 profiles 承载，仅作迁移源） */
   apiKey?: string;
-  /** 模型名称 */
+  /** 模型名称（deprecated：0.4.9 起由 profiles 承载，仅作迁移源） */
   model?: string;
+  /** 模型配置档列表（真源；旧单配置四字段仅作迁移源） */
+  profiles?: AiProfile[];
+  /** 当前激活配置档 id（缺失或无效时回退 profiles[0]） */
+  activeProfileId?: string;
 }
 
 export interface UserConfig {
   theme?: "light" | "dark" | "system";
+  /** 界面语言（真源为 UserConfig；localStorage 仅为启动同步快照） */
+  locale?: "zh-CN" | "zh-Hant" | "en" | "de" | "it" | "ja";
   accentTheme?: AccentThemeId;
   accentInBackground?: boolean;
   liquidTexture?: boolean;
@@ -134,4 +156,6 @@ export interface UserConfig {
   network?: NetworkPreferences;
   appearance?: AppearancePreferences;
   ai?: AiPreferences;
+  /** 隐藏的扩展 id 列表（真源为 UserConfig；localStorage 仅为启动同步快照） */
+  hiddenExtensionIds?: string[];
 }

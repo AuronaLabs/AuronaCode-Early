@@ -1,5 +1,6 @@
 import { type CSSProperties, useEffect, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
+import { LocaleService, useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { computeGlassAccent } from "../Core/GlassManager";
 import { Icons } from "../Icons/IconManager";
@@ -49,6 +50,7 @@ export interface ShowToastOptions {
 }
 
 export function ToastContainer() {
+  const { t } = useLocale();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   useEffect(() => {
@@ -106,7 +108,7 @@ export function ToastContainer() {
         return (
           <div
             key={toast.id}
-            className={`glass-layer-overlay glass-accent-halo pointer-events-auto relative flex flex-col gap-2.5 overflow-hidden rounded-2xl border border-[var(--border-overlay)] bg-[var(--material-overlay)]/95 p-3.5 backdrop-blur-[var(--glass-blur-overlay)] shadow-2xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group`}
+            className={`glass-layer-overlay glass-accent-halo pointer-events-auto relative flex flex-col gap-2.5 overflow-hidden rounded-overlay border border-[var(--border-overlay)] bg-[var(--material-overlay)]/95 p-3.5 backdrop-blur-[var(--glass-blur-overlay)] shadow-2xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 fade-in duration-300 ease-out transform transition-all group`}
             style={
               {
                 // 状态色改为点缀：极弱底染 + 边缘勾色，右上角光斑交给 .glass-accent-halo
@@ -117,7 +119,7 @@ export function ToastContainer() {
           >
             <div className={`flex ${hasTitle ? "items-start" : "items-center"} gap-3`}>
               <div
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${STATUS_TEXT_CLASS[toast.type]}`}
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-control ${STATUS_TEXT_CLASS[toast.type]}`}
                 style={{ backgroundColor: `color-mix(in srgb, ${tint} 16%, transparent)` }}
               >
                 {toast.type === "success" && <Icons.Checks size={16} stroke={2} />}
@@ -149,8 +151,8 @@ export function ToastContainer() {
                 onClick={() => dismissToast(toast.id)}
                 className={`absolute right-2.5 ${
                   hasTitle ? "top-2.5" : "top-1/2 -translate-y-1/2"
-                } p-1 rounded-lg opacity-60 hover:opacity-100 hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-all cursor-pointer`}
-                aria-label="关闭通知"
+                } p-1 rounded-full opacity-60 hover:opacity-100 hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-all cursor-pointer`}
+                aria-label={t("common.dismissNotification")}
               >
                 <Icons.Close size={13} stroke={2} />
               </button>
@@ -163,7 +165,7 @@ export function ToastContainer() {
                     key={action.label}
                     type="button"
                     onClick={() => void handleActionClick(toast.id, action)}
-                    className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all cursor-pointer select-none ${
+                    className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all cursor-pointer select-none ${
                       action.primary || action.variant === "primary"
                         ? "bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white shadow-sm"
                         : action.variant === "danger"
@@ -225,12 +227,12 @@ export const showConfirm = (options: {
     duration: null,
     actions: [
       {
-        label: options.cancelLabel ?? "取消",
+        label: options.cancelLabel ?? LocaleService.translate("common.cancel"),
         variant: "secondary",
         onClick: options.onCancel,
       },
       {
-        label: options.confirmLabel ?? "确定",
+        label: options.confirmLabel ?? LocaleService.translate("common.ok"),
         primary: true,
         onClick: options.onConfirm,
       },

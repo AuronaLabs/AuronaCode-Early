@@ -4,6 +4,7 @@ import { OobeOverlay } from "../App/Oobe";
 import { useOobeStore } from "../App/Oobe/useOobeStore";
 import { applyAccentTheme, applyLiquidTexture } from "../App/ThemeAccent";
 import { desktopWindow } from "../Foundation/Desktop";
+import { applyPersistedLocale } from "../Foundation/I18n";
 import { AppLifecycleIPC } from "../Foundation/IPC/AppLifecycleCommands";
 import { NetworkIPC } from "../Foundation/IPC/NetworkCommands";
 import { StorageIPC } from "../Foundation/IPC/StorageCommands";
@@ -55,6 +56,9 @@ export function AppBootstrapper({ children }: Props) {
         setPathPlatform(PlatformService.current());
 
         const userConfig = await UserConfigStore.get();
+
+        // 语言以 UserConfig 为真源，启动时校正 localStorage 快照（首帧已用快照渲染，晚于此处）
+        applyPersistedLocale(userConfig.locale);
 
         // 首次运行判定直接复用配置读取结果（首次加载即无 user-config.json），
         // 覆盖层在 ready 后随工作台同帧挂载，底层工作台并行启动不受阻塞。

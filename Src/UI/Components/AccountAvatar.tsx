@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocale } from "../../Foundation/I18n";
 
 function profileInitial(name: string): string {
   return Array.from(name.trim())[0]?.toUpperCase() ?? "A";
@@ -13,6 +14,7 @@ interface AccountAvatarProps {
 
 export function AccountAvatar({ name, picture, size = 112, className = "" }: AccountAvatarProps) {
   const [failed, setFailed] = useState(false);
+  const { t } = useLocale();
   return (
     <div
       className={`grid shrink-0 select-none place-items-center overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] font-semibold text-[var(--color-accent)] ${className}`}
@@ -21,7 +23,7 @@ export function AccountAvatar({ name, picture, size = 112, className = "" }: Acc
       {picture && !failed ? (
         <img
           src={picture}
-          alt={`${name} 的头像`}
+          alt={`${t("account.avatarAlt")}${name}`}
           className="size-full object-cover"
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}

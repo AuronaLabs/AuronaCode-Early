@@ -71,7 +71,7 @@ export function OutlineView() {
           <button
             type="button"
             aria-label={t("outline.refresh")}
-            className="rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+            className="rounded-control p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
             onClick={() => activeFilePath && void load(activeFilePath)}
           >
             <Icons.Refresh size={16} />
@@ -102,7 +102,7 @@ export function OutlineView() {
                   openFile(activeFilePath);
                   requestReveal(activeFilePath, symbol.line);
                 }}
-                className="flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] transition-colors hover:bg-[var(--material-interactive-hover)]"
+                className="flex w-full min-w-0 items-center gap-2 rounded-control px-2 py-1.5 text-left text-[11px] transition-colors hover:bg-[var(--material-interactive-hover)]"
                 style={{ paddingLeft: `${8 + symbol.depth * 14}px` }}
               >
                 <span className="shrink-0 text-[var(--color-accent)]">

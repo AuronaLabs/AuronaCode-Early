@@ -174,7 +174,7 @@ export function SdkHostDialogs() {
               key={`${item.label}:${item.description ?? ""}:${item.detail ?? ""}`}
               type="button"
               onClick={() => settle(active, item)}
-              className="flex flex-col gap-0.5 rounded-xl px-3 py-2 text-left transition-colors hover:bg-[var(--material-interactive-hover)] cursor-pointer"
+              className="flex flex-col gap-0.5 rounded-control px-3 py-2 text-left transition-colors hover:bg-[var(--material-interactive-hover)] cursor-pointer"
             >
               <span className="flex items-baseline gap-2">
                 <span className="text-[13px] font-medium text-[var(--color-text-primary)]">

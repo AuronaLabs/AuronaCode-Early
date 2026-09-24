@@ -78,14 +78,14 @@ export function ModalResultRow({
       disabled={!enabled}
       onMouseMove={onSelect}
       onClick={() => onExecute(result)}
-      className={`group flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-1.5 text-left transition-colors ${
+      className={`group flex min-h-[44px] w-full items-center gap-3 rounded-control px-3 py-1.5 text-left transition-colors ${
         selected
           ? "bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
           : "text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-hover)]"
       } ${enabled ? "" : "cursor-not-allowed opacity-45"}`}
     >
       <span
-        className={`grid size-7 shrink-0 place-items-center rounded-lg ${
+        className={`grid size-7 shrink-0 place-items-center rounded-control ${
           result.kind === "command"
             ? "bg-[var(--material-panel)] text-[var(--color-text-muted)]"
             : "bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
@@ -114,7 +114,7 @@ export function ModalResultRow({
         </span>
       )}
       {keybinding && (
-        <kbd className="rounded-md border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--color-text-muted)]">
+        <kbd className="rounded-control border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--color-text-muted)]">
           {keybinding}
         </kbd>
       )}
@@ -145,14 +145,14 @@ export function PageResultCard({
         data-fliuno-index={index}
         onClick={() => onExecute(result)}
         onMouseMove={onSelect}
-        className={`flex items-center gap-2.5 rounded-lg border p-2 text-left transition-colors ${
+        className={`flex items-center gap-2.5 rounded-control border p-2 text-left transition-colors ${
           selected
             ? "border-transparent bg-[var(--material-interactive-active)]"
             : "border-transparent hover:bg-[var(--material-interactive-hover)]"
         }`}
       >
         <span
-          className={`grid size-7 shrink-0 place-items-center rounded-lg ${
+          className={`grid size-7 shrink-0 place-items-center rounded-control ${
             result.kind === "command"
               ? "bg-[var(--material-panel)] text-[var(--color-text-muted)]"
               : "bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
@@ -178,7 +178,7 @@ export function PageResultCard({
       data-fliuno-index={index}
       onClick={() => onExecute(result)}
       onMouseMove={onSelect}
-      className={`flex min-h-[72px] flex-col justify-between gap-2 rounded-xl border p-3 text-left transition-all ${
+      className={`flex min-h-[72px] flex-col justify-between gap-2 rounded-control border p-3 text-left transition-all ${
         selected
           ? "border-transparent bg-[var(--material-interactive-active)]"
           : "border-[var(--border-subtle)] bg-[var(--material-surface)] hover:border-[var(--border-overlay)] hover:bg-[var(--material-interactive-hover)]"
@@ -186,7 +186,7 @@ export function PageResultCard({
     >
       <span className="flex min-w-0 items-center gap-2.5">
         <span
-          className={`grid size-8 shrink-0 place-items-center rounded-lg ${
+          className={`grid size-8 shrink-0 place-items-center rounded-control ${
             result.kind === "command"
               ? "bg-[var(--material-panel)] text-[var(--color-text-muted)]"
               : "bg-[var(--color-accent)]/10 text-[var(--color-accent)]"

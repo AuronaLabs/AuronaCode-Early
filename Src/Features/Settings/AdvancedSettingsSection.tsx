@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useOobeStore } from "../../App/Oobe/useOobeStore";
 import { UpdaterService } from "../../Core/UpdaterService";
 import { BaseDirectory, desktopFileSystem } from "../../Foundation/Desktop";
@@ -12,6 +12,7 @@ import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
+import { clearAppGlobalLocalState } from "./storageOwnership";
 
 export function AdvancedSettingsSection() {
   const { t } = useLocale();
@@ -139,6 +140,7 @@ export function AdvancedSettingsSection() {
             variant="danger"
             className="h-8 text-[12px] px-3.5"
             onClick={async () => {
+              clearAppGlobalLocalState();
               try {
                 await desktopFileSystem.remove("user-config.json", {
                   baseDir: BaseDirectory.AppLocalData,

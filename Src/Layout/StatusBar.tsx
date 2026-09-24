@@ -50,7 +50,7 @@ function DynamicStatusBarItem({ item }: { item: StatusBarItemHandle }) {
     <button
       type="button"
       onClick={handleClick}
-      className={`flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors cursor-pointer hover:bg-[var(--material-interactive-hover)] ${item.className || ""}`}
+      className={`flex items-center gap-1.5 rounded-control px-1.5 py-0.5 transition-colors cursor-pointer hover:bg-[var(--material-interactive-hover)] ${item.className || ""}`}
     >
       <span>{item.text}</span>
     </button>
@@ -181,7 +181,7 @@ export function StatusBar() {
               void CommandRegistry.execute("workbench.action.openSettings");
               EventBus.emit("settings:nav", "accountCloud");
             }}
-            className="flex max-w-[180px] items-center gap-2 rounded-md px-1.5 py-0.5 hover:bg-[var(--material-interactive-hover)] cursor-pointer"
+            className="flex max-w-[180px] items-center gap-2 rounded-control px-1.5 py-0.5 hover:bg-[var(--material-interactive-hover)] cursor-pointer"
           >
             <AccountAvatar name={accountDisplayName} picture={signedInProfile.picture} size={20} />
             <span className="max-w-[120px] truncate text-[var(--color-text-highlight)]">
@@ -213,7 +213,7 @@ export function StatusBar() {
                   setActiveBottomPanel("output");
                 }}
                 aria-label={getLspTooltip(activeLanguage, languageServer, lspInstalled)}
-                className="flex h-5 w-5 items-center justify-center rounded-md hover:bg-[var(--material-interactive-hover)] cursor-pointer"
+                className="flex h-5 w-5 items-center justify-center rounded-control hover:bg-[var(--material-interactive-hover)] cursor-pointer"
               >
                 <span
                   className={`h-2 w-2 rounded-full transition-all ${languageServerStatusColor(languageServer?.status, lspInstalled === false)}`}

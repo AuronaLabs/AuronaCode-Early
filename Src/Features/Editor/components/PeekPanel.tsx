@@ -101,7 +101,7 @@ export function PeekPanel({ locations, top, left, onClose }: PeekPanelProps) {
 
   return (
     <div
-      className={`absolute z-40 w-[420px] max-w-[90%] rounded-xl overflow-hidden shadow-[var(--shadow-overlay)] ${glassVariants({ layer: "overlay" })}`}
+      className={`absolute z-40 w-[420px] max-w-[90%] rounded-overlay overflow-hidden shadow-[var(--shadow-overlay)] ${glassVariants({ layer: "overlay" })}`}
       style={{ top: `${top}px`, left: `${left}px` }}
       data-peek-panel
     >

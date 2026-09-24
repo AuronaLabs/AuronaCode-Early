@@ -242,7 +242,8 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     persistWorkbench(get());
   },
   openFile: (path) => {
-    const title = FileSystemService.basename(path) || "未知文件";
+    const title =
+      FileSystemService.basename(path) || LocaleService.translate("workspace.unknownFile");
     set((state) => {
       const existing = findOpenFileTab(state.tabs, path);
       return existing
@@ -350,7 +351,10 @@ export async function initializeWorkbenchStore(): Promise<() => void> {
         const snapshot = await EditorIPC.openDialog();
         if (snapshot) useWorkbenchStore.getState().openFile(snapshot.path);
       } catch (error) {
-        showToast(`打开文件失败：${FileSystemService.toMessage(error)}`, "error");
+        showToast(
+          `${LocaleService.translate("workspace.openFailed")}${FileSystemService.toMessage(error)}`,
+          "error",
+        );
       }
     }),
     EventBus.on("app:open-tab", (tab) => useWorkbenchStore.getState().openTab(tab)),

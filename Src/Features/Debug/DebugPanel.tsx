@@ -165,7 +165,7 @@ export function DebugPanel() {
               />
             )}
             {debug.error && (
-              <div className="mx-[var(--PanelPaddingX)] mb-2 rounded-xl bg-[var(--StatusError)]/10 px-3 py-2.5 text-[11px] leading-5 text-[var(--StatusError)]">
+              <div className="mx-[var(--PanelPaddingX)] mb-2 rounded-surface bg-[var(--StatusError)]/10 px-3 py-2.5 text-[11px] leading-5 text-[var(--StatusError)]">
                 {debug.error}
               </div>
             )}
@@ -271,21 +271,21 @@ export function DebugPanel() {
                   <div className="flex items-center gap-1 px-1 pb-1">
                     <button
                       type="button"
-                      className="rounded-md px-1.5 py-1 text-[9px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+                      className="rounded-control px-1.5 py-1 text-[9px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
                       onClick={() => void DebugService.setAllBreakpointsEnabled(true)}
                     >
                       {t("debug.enableAll")}
                     </button>
                     <button
                       type="button"
-                      className="rounded-md px-1.5 py-1 text-[9px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+                      className="rounded-control px-1.5 py-1 text-[9px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
                       onClick={() => void DebugService.setAllBreakpointsEnabled(false)}
                     >
                       {t("debug.disableAll")}
                     </button>
                     <button
                       type="button"
-                      className="ml-auto rounded-md px-1.5 py-1 text-[9px] text-[var(--StatusError)]/80 hover:bg-[var(--StatusError)]/10 hover:text-[var(--StatusError)]"
+                      className="ml-auto rounded-control px-1.5 py-1 text-[9px] text-[var(--StatusError)]/80 hover:bg-[var(--StatusError)]/10 hover:text-[var(--StatusError)]"
                       onClick={() => void DebugService.removeAllBreakpoints()}
                     >
                       {t("debug.removeAll")}
@@ -351,7 +351,7 @@ export function DebugPanel() {
                     <button
                       type="button"
                       aria-label={t("debug.editBreakpoint")}
-                      className="rounded-md p-1 text-[9px] text-[var(--color-text-muted)] opacity-0 transition-opacity hover:text-[var(--color-text-highlight)] group-hover:opacity-100 focus-visible:opacity-100"
+                      className="rounded-control p-1 text-[9px] text-[var(--color-text-muted)] opacity-0 transition-opacity hover:text-[var(--color-text-highlight)] group-hover:opacity-100 focus-visible:opacity-100"
                       onClick={() => {
                         setBreakpointDraft({
                           condition: breakpoint.condition ?? "",
@@ -366,7 +366,7 @@ export function DebugPanel() {
                     <button
                       type="button"
                       aria-label={`移除 ${fileName(breakpoint.path)} 第 ${breakpoint.line} 行断点`}
-                      className="rounded-md p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:text-[var(--StatusError)] group-hover:opacity-100 focus-visible:opacity-100"
+                      className="rounded-control p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:text-[var(--StatusError)] group-hover:opacity-100 focus-visible:opacity-100"
                       onClick={() => {
                         debug.toggleBreakpoint(breakpoint.path, breakpoint.line);
                         void DebugService.syncBreakpoints();
@@ -463,7 +463,7 @@ function HeaderAction({
       <button
         type="button"
         aria-label={label}
-        className="rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+        className="rounded-control p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
         onClick={onClick}
       >
         {icon}
@@ -503,7 +503,7 @@ function SessionStatus({
       />
       {stateLabels[state]}
       {configuration && (
-        <span className="ml-auto max-w-[160px] truncate rounded-md bg-[var(--material-interactive-hover)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--color-text-primary)]">
+        <span className="ml-auto max-w-[160px] truncate rounded-control bg-[var(--material-interactive-hover)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--color-text-primary)]">
           {configuration}
         </span>
       )}
@@ -541,7 +541,7 @@ function DebugToolbar({ paused, onRestart }: { paused: boolean; onRestart: () =>
             type="button"
             aria-label={action.label}
             onClick={() => void DebugService.request(action.command)}
-            className="rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+            className="rounded-control p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
           >
             {action.icon}
           </button>
@@ -553,7 +553,7 @@ function DebugToolbar({ paused, onRestart }: { paused: boolean; onRestart: () =>
           type="button"
           aria-label={t("debug.restartSession")}
           onClick={onRestart}
-          className="rounded-lg p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+          className="rounded-control p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
         >
           <Icons.Refresh size={15} />
         </button>
@@ -563,7 +563,7 @@ function DebugToolbar({ paused, onRestart }: { paused: boolean; onRestart: () =>
           type="button"
           aria-label={t("debug.stopDebug")}
           onClick={() => void DebugService.stop()}
-          className="rounded-lg p-1.5 text-[var(--StatusError)] transition-colors hover:bg-[var(--StatusError)]/10"
+          className="rounded-control p-1.5 text-[var(--StatusError)] transition-colors hover:bg-[var(--StatusError)]/10"
         >
           <Icons.Stop size={15} />
         </button>
@@ -583,7 +583,7 @@ function DependencyPrompt({
 }) {
   const { t } = useLocale();
   return (
-    <div className="mx-[var(--PanelPaddingX)] mb-3 rounded-xl border border-[var(--StatusWarning)]/20 bg-[var(--StatusWarning)]/10 p-3">
+    <div className="mx-[var(--PanelPaddingX)] mb-3 rounded-surface border border-[var(--StatusWarning)]/20 bg-[var(--StatusWarning)]/10 p-3">
       <div className="flex items-start gap-2.5">
         <Icons.Download className="mt-0.5 shrink-0 text-[var(--StatusWarning)]" size={15} />
         <div className="min-w-0 flex-1">
@@ -679,7 +679,7 @@ function WatchSection() {
           type="button"
           disabled={!draft.trim()}
           onClick={add}
-          className="rounded-md px-1.5 py-1 text-[9px] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-control px-1.5 py-1 text-[9px] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:cursor-not-allowed disabled:opacity-40"
         >
           {t("debug.addWatch")}
         </button>
@@ -707,7 +707,7 @@ function WatchSection() {
           <button
             type="button"
             aria-label={`${t("debug.removeWatch")} ${entry.expression}`}
-            className="rounded-md p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:text-[var(--StatusError)] group-hover:opacity-100 focus-visible:opacity-100"
+            className="rounded-control p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:text-[var(--StatusError)] group-hover:opacity-100 focus-visible:opacity-100"
             onClick={() => DebugService.removeWatch(entry.id)}
           >
             <Icons.Close size={11} />

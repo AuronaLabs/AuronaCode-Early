@@ -147,7 +147,7 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
             aria-selected={isActive}
             aria-expanded={node.isDirectory ? node.isOpen : undefined}
             draggable={true}
-            className={`group/tree relative flex items-center gap-1.5 py-[3px] mx-1 pr-2 rounded-lg text-[13px] cursor-pointer select-none transition-colors outline-none ${
+            className={`group/tree relative flex items-center gap-1.5 py-[3px] mx-1 pr-2 rounded-control text-[13px] cursor-pointer select-none transition-colors outline-none ${
               isDragHover
                 ? "bg-[var(--material-overlay)] border border-[var(--border-subtle)]"
                 : isActive

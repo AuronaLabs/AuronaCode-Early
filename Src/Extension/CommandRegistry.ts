@@ -22,8 +22,9 @@ export type CommandPlacement = "file-menu" | "edit-menu" | "run-menu" | "help-me
 
 export interface CommandDefinition<Args = undefined> {
   id: string;
-  title: string;
-  category: string;
+  /** 展示层回退标题；提供 titleKey 时翻译优先，title 可省略 */
+  title?: string;
+  category?: string;
   /** 可选国际化标题；提供后 Fliuno 等展示层优先使用翻译，缺省回退到 title。 */
   titleKey?: I18nKey;
   /** 可选国际化分类；提供后展示层优先使用翻译，缺省回退到 category。 */
@@ -38,11 +39,15 @@ export interface CommandDefinition<Args = undefined> {
 }
 
 export function getCommandTitle(command: CommandDefinition<unknown>): string {
-  return command.titleKey ? LocaleService.translate(command.titleKey) : command.title;
+  return command.titleKey
+    ? LocaleService.translate(command.titleKey)
+    : (command.title ?? command.id);
 }
 
 export function getCommandCategory(command: CommandDefinition<unknown>): string {
-  return command.categoryKey ? LocaleService.translate(command.categoryKey) : command.category;
+  return command.categoryKey
+    ? LocaleService.translate(command.categoryKey)
+    : (command.category ?? "");
 }
 
 export interface CommandExecutionResult {
@@ -120,7 +125,10 @@ class CommandRegistryImpl {
     return [...this.commands.values()]
       .filter((command) => !command.when || command.when(context))
       .sort((left, right) =>
-        `${left.category}:${left.title}`.localeCompare(`${right.category}:${right.title}`, "zh-CN"),
+        `${left.category ?? ""}:${left.title ?? left.id}`.localeCompare(
+          `${right.category ?? ""}:${right.title ?? right.id}`,
+          "zh-CN",
+        ),
       );
   }
 
@@ -134,10 +142,14 @@ class CommandRegistryImpl {
 
   getDisabledReason(command: CommandDefinition<unknown>): string | undefined {
     const context = this.contextProvider();
-    if (command.when && !command.when(context)) return "当前上下文不适用";
+    if (command.when && !command.when(context)) {
+      return LocaleService.translate("fliuno.contextUnavailable");
+    }
     return (
       command.disabledReason?.(context) ??
-      (command.canExecute && !command.canExecute(context) ? "当前不可用" : undefined)
+      (command.canExecute && !command.canExecute(context)
+        ? LocaleService.translate("fliuno.commandUnavailable")
+        : undefined)
     );
   }
 

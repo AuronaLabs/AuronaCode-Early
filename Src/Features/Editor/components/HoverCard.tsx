@@ -106,7 +106,7 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
       onMouseLeave={onMouseLeave}
       className={cn(
         glassVariants({ layer: "overlay" }),
-        "fixed z-[80] max-h-[320px] w-max min-w-[240px] max-w-[440px] overflow-y-auto rounded-xl p-3 font-sans text-[12px] text-[var(--color-text-primary)] aurona-scroll",
+        "fixed z-[80] max-h-[320px] w-max min-w-[240px] max-w-[440px] overflow-y-auto rounded-overlay p-3 font-sans text-[12px] text-[var(--color-text-primary)] aurona-scroll",
         hover.tone === "warning" && "border-amber-500/30",
         hover.tone === "error" && "border-red-500/30",
       )}
@@ -131,7 +131,7 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
           block.kind === "code" ? (
             <div
               key={block.id}
-              className="overflow-x-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] p-2.5 font-mono text-[11px] leading-relaxed text-[var(--color-text-highlight)]"
+              className="overflow-x-auto rounded-surface border border-[var(--border-subtle)] bg-[var(--material-surface)] p-2.5 font-mono text-[11px] leading-relaxed text-[var(--color-text-highlight)]"
             >
               {block.language && (
                 <div className="mb-1 text-[9px] uppercase tracking-wide text-[var(--color-text-muted)]">

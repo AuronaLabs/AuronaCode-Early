@@ -37,7 +37,7 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
       });
   };
   return (
-    <div className="my-3.5 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/80 shadow-sm">
+    <div className="my-3.5 overflow-hidden rounded-surface border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/80 shadow-sm">
       <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--color-surface-3)] px-3.5 py-1">
         <span className="truncate font-mono text-[11px] text-[var(--color-text-muted)]">
           {language}
@@ -46,7 +46,7 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
           type="button"
           aria-label={copied ? t("ai.copied") : t("ai.copyCode")}
           onClick={handleCopy}
-          className="flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+          className="flex shrink-0 cursor-pointer items-center gap-1 rounded-control px-1.5 py-0.5 text-[10.5px] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
         >
           {copied ? <Icons.Check size={11} /> : <Icons.Copy size={11} />}
           {copied ? t("ai.copied") : t("ai.copyCode")}
@@ -77,7 +77,7 @@ function renderInlineMarkdown(text: string): React.ReactNode {
       tokens.push(
         <code
           key={`code-${keyIndex++}`}
-          className="px-1.5 py-0.5 rounded-md bg-[var(--color-surface-3)] font-mono text-[12px] text-[var(--StatusInfo)] border border-[var(--border-subtle)]"
+          className="px-1.5 py-0.5 rounded-control bg-[var(--color-surface-3)] font-mono text-[12px] text-[var(--StatusInfo)] border border-[var(--border-subtle)]"
         >
           {codeMatch[1]}
         </code>,
@@ -210,7 +210,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
       elements.push(
         <div
           key={`table-${key}`}
-          className="my-4 w-full overflow-x-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/40 shadow-sm"
+          className="my-4 w-full overflow-x-auto rounded-surface border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/40 shadow-sm"
         >
           <table className="w-full text-left text-[12.5px] border-collapse">
             {headerRow && (

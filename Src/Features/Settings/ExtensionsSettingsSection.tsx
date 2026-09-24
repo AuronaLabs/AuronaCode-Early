@@ -163,7 +163,7 @@ function ExtensionPermissionCard({ descriptor }: { descriptor: ExtensionDescript
     <Card className="flex flex-col gap-3 p-5">
       <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-xl bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
+          <span className="flex size-8 items-center justify-center rounded-control bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
             <Icons.Extensions size={16} />
           </span>
           <div className="flex flex-col">
@@ -521,7 +521,7 @@ export function ExtensionsSettingsSection() {
       <Card className={`flex flex-col gap-3 p-5 ${vscodeCompatEnabled ? "" : "opacity-60"}`}>
         <div className="flex min-w-0 items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]">
               <Icons.FileCode size={17} />
             </span>
             <div className="flex min-w-0 flex-col gap-1">
@@ -565,7 +565,7 @@ export function ExtensionsSettingsSection() {
               {vscodeTestExtensions.map((desc) => (
                 <div
                   key={desc.id}
-                  className="flex items-center justify-between gap-3 rounded-lg bg-[var(--color-surface-2)]/60 px-3 py-2"
+                  className="flex items-center justify-between gap-3 rounded-surface bg-[var(--color-surface-2)]/60 px-3 py-2"
                 >
                   <div className="flex min-w-0 flex-col">
                     <span className="truncate text-[12.5px] font-medium text-[var(--color-text-primary)]">

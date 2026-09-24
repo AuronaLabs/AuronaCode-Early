@@ -34,7 +34,7 @@ export function Modal({ isOpen, onClose, title, children, footer, icon, classNam
                   {title}
                 </DialogPrimitive.Title>
                 {onClose && (
-                  <DialogPrimitive.Close className="p-1 rounded-lg text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/50 cursor-pointer">
+                  <DialogPrimitive.Close className="p-1 rounded-control text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/50 cursor-pointer">
                     <Icons.Close size={16} stroke={2} />
                   </DialogPrimitive.Close>
                 )}

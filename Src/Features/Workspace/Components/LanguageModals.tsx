@@ -254,7 +254,7 @@ export function LanguageModals() {
                   setCodeActionError(error instanceof Error ? error.message : String(error));
                 }
               }}
-              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[13px] hover:bg-[var(--material-interactive-hover)] disabled:cursor-not-allowed disabled:opacity-45"
+              className="flex w-full items-center justify-between rounded-control px-3 py-2 text-left text-[13px] hover:bg-[var(--material-interactive-hover)] disabled:cursor-not-allowed disabled:opacity-45"
             >
               <span>{action.title}</span>
               <span className="text-[10px] text-[var(--color-text-muted)]">
@@ -360,7 +360,7 @@ export function LanguageModals() {
               {t("language.noSymbols")}
             </div>
           )}
-          <div className="max-h-72 space-y-0.5 overflow-y-auto rounded-xl bg-[var(--material-surface)] p-1.5 aurona-scroll">
+          <div className="max-h-72 space-y-0.5 overflow-y-auto rounded-surface bg-[var(--material-surface)] p-1.5 aurona-scroll">
             {filteredSymbols.map((symbol, index) => (
               <button
                 type="button"
@@ -372,7 +372,7 @@ export function LanguageModals() {
                   setSymbolSearch(null);
                 }}
                 onMouseMove={() => setSymbolIndex(index)}
-                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[12px] transition-colors ${
+                className={`flex w-full items-center gap-2 rounded-control px-2 py-1 text-left text-[12px] transition-colors ${
                   index === symbolIndex
                     ? "bg-[var(--material-interactive-active)]"
                     : "hover:bg-[var(--material-interactive-hover)]"
@@ -426,7 +426,7 @@ export function LanguageModals() {
       >
         <div className="space-y-2 text-[13px] leading-relaxed text-[var(--color-text-primary)]">
           <p>{t("workspace.trustBody")}</p>
-          <p className="rounded-lg bg-[var(--material-surface)] p-2 font-mono text-[11px]">
+          <p className="rounded-surface bg-[var(--material-surface)] p-2 font-mono text-[11px]">
             {trustRequest?.root}
           </p>
           <p className="text-[12px] text-[var(--color-text-muted)]">{t("workspace.trustHint")}</p>

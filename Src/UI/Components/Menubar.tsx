@@ -29,7 +29,7 @@ export const MenubarTrigger = React.forwardRef<
   <MenubarPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-[26px] cursor-pointer items-center rounded-lg px-2.5 outline-none select-none text-[var(--color-text-primary)] text-[13px]",
+      "flex h-[26px] cursor-pointer items-center rounded-control px-2.5 outline-none select-none text-[var(--color-text-primary)] text-[13px]",
       "hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors",
       "data-[state=open]:bg-[var(--material-interactive-active)] data-[state=open]:text-[var(--color-text-highlight)]",
       className,
@@ -51,7 +51,7 @@ export const MenubarContent = React.forwardRef<
       sideOffset={sideOffset}
       className={cn(
         glassVariants({ layer: "overlay" }),
-        "rounded-xl p-1 z-[9999] flex flex-col min-w-[160px] overflow-hidden",
+        "rounded-overlay p-1 z-[9999] flex flex-col min-w-[160px] overflow-hidden",
         "animate-in fade-in duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out",
         className,
       )}
@@ -84,7 +84,7 @@ export const MenubarItem = React.forwardRef<
         ref={ref}
         disabled={disabled}
         className={cn(
-          "flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-[13px] transition-colors text-left w-full outline-none cursor-pointer select-none",
+          "flex items-center justify-between gap-2 px-3 py-1.5 rounded-control text-[13px] transition-colors text-left w-full outline-none cursor-pointer select-none",
           disabled && "opacity-50 cursor-not-allowed text-[var(--color-text-muted)]",
           !disabled && isDanger && "text-[var(--StatusError)] focus:bg-[var(--StatusError)]/10",
           !disabled &&

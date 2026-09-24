@@ -65,7 +65,7 @@ export function GitGutterPopover({ hunk, anchorTop, anchorRight, onClose }: GitG
       ref={panelRef}
       className={cn(
         glassVariants({ layer: "overlay" }),
-        "fixed z-[9998] w-[400px] max-w-[90vw] rounded-xl overflow-hidden shadow-[var(--shadow-surface),var(--GlassSurface-Shadow-Base)] animate-in fade-in zoom-in-95 duration-150 motion-reduce:animate-none",
+        "fixed z-[9998] w-[400px] max-w-[90vw] rounded-overlay overflow-hidden shadow-[var(--shadow-surface),var(--GlassSurface-Shadow-Base)] animate-in fade-in zoom-in-95 duration-150 motion-reduce:animate-none",
       )}
       style={{ left: position.left, top: position.top }}
     >
@@ -79,7 +79,7 @@ export function GitGutterPopover({ hunk, anchorTop, anchorRight, onClose }: GitG
           type="button"
           onClick={onClose}
           aria-label="close"
-          className="flex h-4 w-4 items-center justify-center rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] cursor-pointer"
+          className="flex h-4 w-4 items-center justify-center rounded-control text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] cursor-pointer"
         >
           <Icons.Close size={12} />
         </button>

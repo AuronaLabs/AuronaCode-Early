@@ -506,7 +506,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
             <Button
               size="sm"
               variant="ghost"
-              className="size-8 rounded-lg p-0 text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
+              className="size-8 rounded-control p-0 text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
               aria-label="刷新视图"
               onClick={() => void refresh()}
             >
@@ -520,7 +520,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
       {isPlanner && isPermissionGranted && (
         <div className="mx-[var(--PanelPaddingX)] mb-2 flex flex-col gap-2.5">
           {/* 快速新建任务卡片 */}
-          <Card className="flex items-center gap-1.5 rounded-xl p-1.5 transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)]">
+          <Card className="flex items-center gap-1.5 rounded-control p-1.5 transition-[border-color,box-shadow] focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)]">
             <input
               type="text"
               data-aurona-input="embedded"
@@ -550,7 +550,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               size="sm"
               onClick={handleAddNewTask}
               disabled={!newTaskTitle.trim()}
-              className="h-7 shrink-0 px-2.5 text-[11px] rounded-lg shadow-sm"
+              className="h-7 shrink-0 px-2.5 text-[11px] rounded-control shadow-sm"
             >
               <Icons.Plus size={13} className="mr-0.5" />
               添加
@@ -560,11 +560,11 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
           {/* 筛选与搜索 (两行现代排版) */}
           <div className="flex flex-col gap-2">
             {/* 第一行：状态切换分段按钮 (3 列平分) */}
-            <div className="grid grid-cols-3 gap-1 p-0.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/80 shadow-2xs">
+            <div className="grid grid-cols-3 gap-1 p-0.5 rounded-surface border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/80 shadow-2xs">
               <button
                 type="button"
                 onClick={() => setStatusFilter("all")}
-                className={`py-1 text-[11.5px] font-medium rounded-lg transition-all cursor-pointer text-center ${
+                className={`py-1 text-[11.5px] font-medium rounded-control transition-all cursor-pointer text-center ${
                   statusFilter === "all"
                     ? "bg-[var(--color-surface-3)] text-[var(--color-text-highlight)] shadow-xs font-semibold"
                     : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
@@ -575,7 +575,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               <button
                 type="button"
                 onClick={() => setStatusFilter("todo")}
-                className={`py-1 text-[11.5px] font-medium rounded-lg transition-all cursor-pointer text-center ${
+                className={`py-1 text-[11.5px] font-medium rounded-control transition-all cursor-pointer text-center ${
                   statusFilter === "todo"
                     ? "bg-[var(--color-surface-3)] text-[var(--color-text-highlight)] shadow-xs font-semibold"
                     : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
@@ -586,7 +586,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               <button
                 type="button"
                 onClick={() => setStatusFilter("done")}
-                className={`py-1 text-[11.5px] font-medium rounded-lg transition-all cursor-pointer text-center ${
+                className={`py-1 text-[11.5px] font-medium rounded-control transition-all cursor-pointer text-center ${
                   statusFilter === "done"
                     ? "bg-[var(--color-surface-3)] text-[var(--color-text-highlight)] shadow-xs font-semibold"
                     : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
@@ -608,7 +608,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
                     { label: "普通优先级", value: "normal" },
                     { label: "低优先级", value: "low" },
                   ]}
-                  className="h-[28px] w-full min-w-0 text-[11.5px] px-2.5 py-0.5 rounded-lg border-[var(--border-subtle)] bg-[var(--material-surface)]"
+                  className="h-[28px] w-full min-w-0 text-[11.5px] px-2.5 py-0.5 rounded-control border-[var(--border-subtle)] bg-[var(--material-surface)]"
                 />
               </div>
               <div className="flex-1 min-w-0">
@@ -629,14 +629,14 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
       {/* 核心内卡片容器：统一使用系统内边距 */}
       {isPlanner && plannerSaveError && (
-        <div className="mx-[var(--PanelPaddingX)] mb-2 rounded-lg border border-[var(--StatusError)]/30 bg-[var(--StatusError)]/10 px-3 py-2 text-[11px] text-[var(--StatusError)]">
+        <div className="mx-[var(--PanelPaddingX)] mb-2 rounded-surface border border-[var(--StatusError)]/30 bg-[var(--StatusError)]/10 px-3 py-2 text-[11px] text-[var(--StatusError)]">
           Planner 保存失败：{plannerSaveError}
         </div>
       )}
-      <div className="relative mx-[var(--PanelPaddingX)] mb-2.5 flex min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/30 shadow-[inset_0_1px_1px_var(--material-inset)]">
+      <div className="relative mx-[var(--PanelPaddingX)] mb-2.5 flex min-h-0 flex-1 overflow-hidden rounded-surface border border-[var(--color-border)] bg-[var(--color-surface-2)]/30 shadow-[inset_0_1px_1px_var(--material-inset)]">
         {!isStandalone && !isPermissionGranted ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-6 text-center animate-in fade-in duration-200">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-[var(--material-surface)] text-[var(--color-accent)] border border-[var(--border-subtle)] shadow-inner">
+            <div className="flex size-12 items-center justify-center rounded-control bg-[var(--material-surface)] text-[var(--color-accent)] border border-[var(--border-subtle)] shadow-inner">
               <Icons.ShieldCheck size={26} stroke={1.75} />
             </div>
             <div className="flex flex-col gap-1 max-w-[240px]">
@@ -651,7 +651,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               <Button
                 size="sm"
                 variant="primary"
-                className="h-8 text-[12px] font-semibold rounded-xl w-full"
+                className="h-8 text-[12px] font-semibold rounded-control w-full"
                 onClick={() => void resolvePermission("editor.current.read", "global")}
               >
                 {t("extensions.permissionAllowAlways")}
@@ -659,7 +659,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
               <Button
                 size="sm"
                 variant="secondary"
-                className="h-8 text-[12px] rounded-xl w-full"
+                className="h-8 text-[12px] rounded-control w-full"
                 onClick={() => void resolvePermission("editor.current.read", "once")}
               >
                 {t("extensions.permissionAllowOnce")}
@@ -672,7 +672,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
           </div>
         ) : !isStandalone && !activePath ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-6 text-center">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-[var(--material-surface)] text-[var(--color-text-muted)]">
+            <div className="flex size-10 items-center justify-center rounded-control bg-[var(--material-surface)] text-[var(--color-text-muted)]">
               <Icons.FileText size={20} stroke={1.5} />
             </div>
             <span className="text-[13px] font-medium text-[var(--color-text-primary)]">
@@ -684,7 +684,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
           </div>
         ) : !isStandalone && !isMarkdownFile(activePath) ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-6 text-center">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-[var(--material-surface)] text-[var(--color-text-muted)]">
+            <div className="flex size-10 items-center justify-center rounded-control bg-[var(--material-surface)] text-[var(--color-text-muted)]">
               <Icons.FileText size={20} stroke={1.5} />
             </div>
             <span className="text-[13px] font-medium text-[var(--color-text-primary)]">

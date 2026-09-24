@@ -35,7 +35,7 @@ export function InlineInput({
           />
         ))}
       <div
-        className="flex items-center gap-1.5 py-1 px-1 rounded-lg"
+        className="flex items-center gap-1.5 py-1 px-1 rounded-control"
         style={{ paddingLeft: `calc(${depth} * var(--TreeIndent) + 4px)` }}
       >
         <div className="w-4 h-4 flex items-center justify-center shrink-0" />

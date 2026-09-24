@@ -91,7 +91,7 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
       ref={menuRef}
       className={cn(
         glassVariants({ layer: "overlay" }),
-        "fixed z-50 rounded-xl overflow-hidden flex font-sans",
+        "fixed z-50 rounded-overlay overflow-hidden flex font-sans",
       )}
       style={{ left: position.left, top: position.top, maxHeight: "300px" }}
     >
@@ -133,7 +133,7 @@ export function AutocompleteMenu({ x, y, items, selectedIndex, onSelect }: Autoc
               {items[selectedIndex].detail}
             </div>
             {/* 文档气泡：Markdown 渲染（含代码块），LSP documentation 原生格式 */}
-            <div className="text-[12px] text-[var(--color-text-muted)] leading-relaxed break-words [&_code]:font-mono [&_code]:text-[11px] [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-[var(--border-subtle)] [&_pre]:bg-[var(--material-surface)] [&_pre]:p-2 [&_pre]:text-[11px] [&_pre]:leading-relaxed">
+            <div className="text-[12px] text-[var(--color-text-muted)] leading-relaxed break-words [&_code]:font-mono [&_code]:text-[11px] [&_pre]:overflow-x-auto [&_pre]:rounded-surface [&_pre]:border [&_pre]:border-[var(--border-subtle)] [&_pre]:bg-[var(--material-surface)] [&_pre]:p-2 [&_pre]:text-[11px] [&_pre]:leading-relaxed">
               <MarkdownRenderer
                 content={
                   typeof items[selectedIndex].documentation === "string"

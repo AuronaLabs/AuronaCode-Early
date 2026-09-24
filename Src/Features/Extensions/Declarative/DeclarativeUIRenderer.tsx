@@ -34,7 +34,7 @@ export function DeclarativeUIRenderer({ ui, onAction }: DeclarativeUIRendererPro
           <GlassContainer
             key={card.id ?? `card_${index}`}
             layer="raised"
-            className="flex flex-col gap-3 rounded-xl p-4"
+            className="flex flex-col gap-3 rounded-surface p-4"
           >
             {card.title && (
               <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2 mb-1">

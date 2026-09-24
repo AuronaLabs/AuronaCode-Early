@@ -238,7 +238,7 @@ export function TitleBar({
             <Tooltip content={t("fliuno.titleBarTooltip")} delay={300} placement="bottom">
               <button
                 type="button"
-                className="mr-2 flex h-[26px] cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 text-[12px] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+                className="mr-2 flex h-[26px] cursor-pointer items-center gap-1.5 rounded-control border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 text-[12px] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
                 onClick={() => runCommand("workbench.action.openFliuno")}
               >
                 <Icons.Search size={14} stroke={1.8} />
@@ -250,7 +250,7 @@ export function TitleBar({
               <Tooltip content={t("titleBar.runActiveFile")} delay={300} placement="bottom">
                 <button
                   type="button"
-                  className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-highlight)] transition-colors mr-2"
+                  className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-control hover:bg-[var(--material-interactive-hover)] text-[var(--color-text-highlight)] transition-colors mr-2"
                   onClick={() => runCommand("workbench.action.runActiveFile")}
                 >
                   <Icons.Play size={16} stroke={2} />
@@ -262,7 +262,7 @@ export function TitleBar({
               <Tooltip content={t("titleBar.updateAvailable")} delay={300} placement="bottom">
                 <button
                   type="button"
-                  className="relative mr-1 flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg text-[var(--color-accent)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-accent-hover)]"
+                  className="relative mr-1 flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-control text-[var(--color-accent)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-accent-hover)]"
                   onClick={() => EventBus.emit("app:show-update-modal")}
                 >
                   <Icons.Download size={16} stroke={2} />
@@ -274,7 +274,7 @@ export function TitleBar({
             <Tooltip content={t("titleBar.togglePanel")} delay={500} placement="bottom">
               <button
                 type="button"
-                className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
+                className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-control hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
                 onClick={() => runCommand("workbench.action.togglePanel")}
               >
                 {isTerminalOpen ? (
@@ -290,7 +290,7 @@ export function TitleBar({
         <Tooltip content={t("titleBar.minimize")} delay={500} placement="bottom">
           <button
             type="button"
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
+            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-control hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
             onClick={() => appWindow.minimize()}
           >
             <Icons.Minimize size={15} stroke={2} />
@@ -303,7 +303,7 @@ export function TitleBar({
         >
           <button
             type="button"
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
+            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-control hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] transition-colors"
             onClick={toggleMaximize}
           >
             {isMaximized ? (
@@ -316,7 +316,7 @@ export function TitleBar({
         <Tooltip content={t("titleBar.close")} delay={500} placement="bottom">
           <button
             type="button"
-            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-lg hover:bg-[var(--DiagError)] hover:text-white transition-colors"
+            className="flex h-[28px] w-[28px] cursor-pointer items-center justify-center rounded-control hover:bg-[var(--DiagError)] hover:text-white transition-colors"
             onClick={() => (onClose ? onClose() : void appWindow.close())}
           >
             <Icons.Close size={15} stroke={2} />
