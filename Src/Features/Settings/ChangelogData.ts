@@ -28,9 +28,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
       {
         title: "后续计划",
         description: "squircle 美化另择路径",
-        items: [
-          "**谨慎重试**：0.4.10 若重做超椭圆仅限浮层大表面，并逐台真机验证观感后再放量",
-        ],
+        items: ["**谨慎重试**：0.4.10 若重做超椭圆仅限浮层大表面，并逐台真机验证观感后再放量"],
       },
     ],
   },
