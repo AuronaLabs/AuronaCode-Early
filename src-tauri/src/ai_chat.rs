@@ -224,6 +224,9 @@ fn classify_request_error(error: &reqwest::Error) -> (&'static str, String) {
 /// 发起流式对话。命令本身不返回错误——请求失败通过 `ai://chat-error` 事件
 /// 携带结构化 code（connect/auth/rate_limit/timeout/first_token_timeout/
 /// idle_timeout/generic）推回前端。
+// Keep the Tauri command parameters explicit: these names form the stable IPC payload
+// and grouping them would change the frontend invoke contract.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn ai_chat_send(
     app: AppHandle,
