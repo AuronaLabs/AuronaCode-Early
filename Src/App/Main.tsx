@@ -2,6 +2,8 @@ import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./Styles/tokens.css";
+import "./Styles/themes.css";
+import "./Styles/base.css";
 import "./Styles/materials.css";
 import "./Styles/components.css";
 import "./Styles/editor-syntax.css";

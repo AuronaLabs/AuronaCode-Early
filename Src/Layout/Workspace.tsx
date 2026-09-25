@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { EditorSaveRegistry } from "../Core/EditorSaveRegistry";
 import { RecoveryCoordinator } from "../Core/Recovery/RecoveryCoordinator";
-import { CommandRegistry } from "../Extension/CommandRegistry";
 import { syncAgentExecutorRegistration } from "../Features/AiAssistant/AgentToolExecutor";
 import { EditorTabBar } from "../Features/Editor/EditorTabBar";
 import { startExtensionEditorBridge } from "../Features/Extensions/ExtensionEditorBridge";
@@ -191,6 +191,7 @@ export function WorkspaceView() {
 
   // AI 助手侧栏面板：同样首次激活时挂载（0.4.6 批次 5）
   const [aiSidebarMounted, setAiSidebarMounted] = useState(false);
+  const [isClosingAfterSave, setIsClosingAfterSave] = useState(false);
   useEffect(() => {
     if (activeSidebar === SIDEBAR_AI) setAiSidebarMounted(true);
   }, [activeSidebar]);
@@ -212,13 +213,18 @@ export function WorkspaceView() {
   }, []);
 
   const handleSaveAndClose = async () => {
-    if (pendingCloseTab) {
-      if (pendingCloseTab.path) {
-        await CommandRegistry.execute("file.save");
-      }
-      closeTabById(pendingCloseTab.id);
+    if (!pendingCloseTab || isClosingAfterSave) return;
+    const tab = pendingCloseTab;
+    if (!tab.path) return;
+    setIsClosingAfterSave(true);
+    try {
+      if (!(await EditorSaveRegistry.save(tab.path))) return;
+      if (useWorkbenchStore.getState().pendingCloseTab?.id !== tab.id) return;
+      closeTabById(tab.id);
+      setPendingCloseTab(null);
+    } finally {
+      setIsClosingAfterSave(false);
     }
-    setPendingCloseTab(null);
   };
 
   return (
@@ -466,19 +472,26 @@ export function WorkspaceView() {
       {/* 未保存修改关闭确认弹窗 */}
       <Modal
         isOpen={!!pendingCloseTab}
-        onClose={() => setPendingCloseTab(null)}
+        onClose={() => {
+          if (!isClosingAfterSave) setPendingCloseTab(null);
+        }}
         title={t("workspace.unsavedTitle")}
         icon={<Icons.AlertTriangle className="text-[var(--color-accent)]" size={18} stroke={2} />}
         footer={
           <>
-            <Button variant="secondary" onClick={() => setPendingCloseTab(null)}>
+            <Button
+              variant="secondary"
+              disabled={isClosingAfterSave}
+              onClick={() => setPendingCloseTab(null)}
+            >
               {t("common.cancel")}
             </Button>
-            <Button variant="primary" onClick={handleSaveAndClose}>
+            <Button variant="primary" onClick={handleSaveAndClose} disabled={isClosingAfterSave}>
               {t("workspace.saveAndClose")}
             </Button>
             <Button
               variant="danger"
+              disabled={isClosingAfterSave}
               onClick={() => {
                 if (pendingCloseTab) {
                   if (pendingCloseTab.path) void RecoveryCoordinator.discard(pendingCloseTab.path);

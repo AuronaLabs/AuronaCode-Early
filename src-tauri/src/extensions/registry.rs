@@ -92,18 +92,48 @@ impl ExtensionRegistry {
         } else {
             open_package(&bytes)?
         };
+        self.register_package(package)
+    }
+
+    fn register_package(
+        &self,
+        package: Arc<ExtensionPackage>,
+    ) -> Result<Arc<ExtensionPackage>, String> {
         let id = canonical_extension_id(package.id()).to_string();
         self.packages
             .lock()
             .map_err(|_| "扩展注册表锁已损坏".to_string())?
             .entry(id.clone())
             .and_modify(|existing| {
-                if existing.id() != id && package.id() == id {
+                if package.id() == id || existing.id() != id {
                     *existing = package.clone();
                 }
             })
             .or_insert_with(|| package.clone());
         Ok(package)
+    }
+
+    pub fn load_bundled_compat(&self, dir: &Path) -> usize {
+        let path = dir.join("aurona.vscode-compat.aurx");
+        if !path.is_file() {
+            return 0;
+        }
+        let result = std::fs::read(&path)
+            .map_err(|error| format!("读取扩展包失败 {}: {error}", path.display()))
+            .and_then(|bytes| open_package(&bytes))
+            .and_then(|package| {
+                if package.id() != "aurona.vscode-compat" {
+                    return Err(format!("内置兼容层包 ID 不符: {}", package.id()));
+                }
+                self.register_package(package)
+            });
+        match result {
+            Ok(_) => 1,
+            Err(error) => {
+                self.push_diagnostic(path.display().to_string(), error);
+                0
+            }
+        }
     }
 
     pub fn load_directory(&self, dir: &Path) -> Result<usize, String> {
@@ -277,6 +307,68 @@ mod tests {
             reverse.package("aurona.markdown").unwrap().manifest.name,
             "Canonical"
         );
+        std::fs::remove_dir_all(&temp).ok();
+    }
+
+    #[test]
+    fn same_id_reload_replaces_installed_package() {
+        let temp =
+            std::env::temp_dir().join(format!("aurona-ext-registry-update-{}", std::process::id()));
+        std::fs::create_dir_all(&temp).unwrap();
+        let old = write_package(
+            &temp,
+            "old.aurx",
+            Some(json!({ "id": "auronalabs.markdown", "version": "0.1.0" })),
+        );
+        let updated = write_package(
+            &temp,
+            "updated.aurx",
+            Some(json!({ "id": "auronalabs.markdown", "version": "0.2.0" })),
+        );
+        let registry = ExtensionRegistry::new();
+        registry.load_file(&old).unwrap();
+        registry.load_file(&updated).unwrap();
+        assert_eq!(registry.descriptors()[0].version, "0.2.0");
+        assert_eq!(
+            registry
+                .package("auronalabs.markdown")
+                .unwrap()
+                .manifest
+                .version,
+            "0.2.0"
+        );
+        std::fs::remove_dir_all(&temp).ok();
+    }
+
+    #[test]
+    fn bundled_scan_only_loads_valid_compat_package() {
+        let temp = std::env::temp_dir().join(format!(
+            "aurona-ext-registry-bundled-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&temp).unwrap();
+        let compat = write_package(
+            &temp,
+            "aurona.vscode-compat.aurx",
+            Some(json!({ "id": "aurona.vscode-compat" })),
+        );
+        write_package(&temp, "aurona.markdown.aurx", None);
+        let registry = ExtensionRegistry::new();
+        assert_eq!(registry.load_bundled_compat(&temp), 1);
+        assert_eq!(registry.descriptors().len(), 1);
+        assert!(registry.package("aurona.vscode-compat").is_some());
+        assert!(registry.package("auronalabs.markdown").is_none());
+
+        write_package(
+            &temp,
+            "aurona.vscode-compat.aurx",
+            Some(json!({ "id": "auronalabs.markdown" })),
+        );
+        let fresh_registry = ExtensionRegistry::new();
+        assert_eq!(fresh_registry.load_bundled_compat(&temp), 0);
+        assert!(fresh_registry.descriptors().is_empty());
+        assert_eq!(fresh_registry.diagnostics().len(), 1);
+        std::fs::remove_file(compat).ok();
         std::fs::remove_dir_all(&temp).ok();
     }
 

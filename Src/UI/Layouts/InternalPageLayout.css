@@ -1,0 +1,43 @@
+.internal-page-frame {
+  container: internal-page / inline-size;
+}
+
+.internal-page-heading {
+  overflow-wrap: anywhere;
+}
+
+@container internal-page (max-width: 720px) {
+  .internal-page-layout {
+    flex-direction: column;
+  }
+
+  .internal-page-sidebar {
+    width: 100%;
+    max-height: min(180px, 30%);
+    padding: 18px 20px 0;
+  }
+
+  .internal-page-content {
+    padding: 20px;
+  }
+
+  .internal-page-header,
+  .internal-page-header-main {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .internal-page-header {
+    margin-bottom: 20px;
+  }
+}
+
+@container internal-page (max-width: 480px) {
+  .internal-page-sidebar {
+    max-height: 140px;
+  }
+
+  .internal-page-content {
+    padding: 16px;
+  }
+}

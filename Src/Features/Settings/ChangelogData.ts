@@ -12,9 +12,49 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.4.11",
+    date: "2026-09-26",
+    isLatest: true,
+    summary: "Marketplace 连接与扩展生态修复，原生 Markdown、AI 胶囊、Git 与玻璃设计系统继续完善",
+    sections: [
+      {
+        title: "Marketplace 连接修复",
+        description: "让本地开发与已部署服务使用同一套连接契约",
+        items: [
+          "**在线状态修复**：识别 localhost、127.0.0.1、tauri.localhost 与 tauri://localhost 等 Tauri/WebView 来源，避免本地服务被误判为离线",
+          "**地址归一化**：统一 Marketplace 页面与 API 地址，修复本地 5218 页面访问 5219 API 时的请求链路不一致",
+        ],
+      },
+      {
+        title: "扩展生态与 SDK",
+        description: "明确内置边界并对齐 Marketplace 契约",
+        items: [
+          "**内置边界**：安装包只保留 VSCode 兼容层与 Demo 插件；Markdown、Planner、LSP 和 Runtime 按需从 Marketplace 安装",
+          "**契约同步**：排行榜、扩展详情、Runtime、权限与版本字段兼容 Marketplace 服务端的新旧响应格式",
+        ],
+      },
+      {
+        title: "编辑器与 AI 工作流",
+        description: "把常用阅读和操作能力收回编辑器本身",
+        items: [
+          "**原生 Markdown**：编辑器内置源码 / GFM 预览切换，预览读取未保存缓冲区并保留当前文件状态",
+          "**Aurona AI 胶囊与 Agent**：优化胶囊的层次和交互状态，整理 AI 设置、Agent 面板、权限提示与会话工具展示",
+        ],
+      },
+      {
+        title: "设计系统与开发体验",
+        description: "让玻璃材质、Git 工具和工程结构保持同一套语言",
+        items: [
+          "**玻璃系统**：拆分 tokens、themes、materials、components 与基础样式，统一控件、表面和浮层的圆角与边缘高光",
+          "**工作台工具**：Git 设置、提交搜索、Diff、更新检查和热重载相关流程得到修复与整理，减少开发环境中的状态错乱",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.4.10",
     date: "2026-09-24",
-    isLatest: true,
+    isLatest: false,
     summary: "紧急修复圆角观感回退：撤除全局超椭圆试验，控件圆角恢复 12px 与 0.4.8 一致",
     sections: [
       {

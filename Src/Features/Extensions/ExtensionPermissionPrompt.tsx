@@ -41,7 +41,7 @@ export function ExtensionPermissionPrompt({
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-[var(--glass-blur-base)] transition-all animate-in fade-in duration-200">
       <GlassContainer
         layer="overlay"
-        className="w-full max-w-[280px] rounded-overlay p-5 shadow-[var(--shadow-overlay)] flex flex-col items-center text-center animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-[280px] rounded-overlay p-5 shadow-[var(--shadow-overlay)] flex flex-col items-center text-center animate-in zoom-in-95 duration-200"
       >
         {/* 顶部居中极简图标 */}
         <div className="flex size-12 items-center justify-center rounded-control bg-[var(--material-surface)] text-[var(--color-accent)] border border-[var(--border-subtle)] mb-3 shadow-inner">

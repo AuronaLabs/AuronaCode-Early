@@ -393,15 +393,6 @@ fn build_extension_context(
         .get("workspace.read")
         .copied()
         .unwrap_or(ContextPermissionState::Unknown);
-    if editor_read == ContextPermissionState::Denied {
-        return Err(
-            "[permission.denied:editor.current.read] 当前文档读取权限已被用户拒绝".to_string(),
-        );
-    }
-    if workspace_read == ContextPermissionState::Denied {
-        return Err("[permission.denied:workspace.read] 工作区读取权限已被用户拒绝".to_string());
-    }
-
     let platform = if cfg!(target_os = "windows") {
         "windows"
     } else if cfg!(target_os = "macos") {

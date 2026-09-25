@@ -25,6 +25,7 @@ vi.mock("../../Foundation/Desktop", () => ({
     mkdir: vi.fn(async () => undefined),
     readTextFile: vi.fn(async () => ""),
     writeTextFile: vi.fn(async () => undefined),
+    writeTextFileAtomic: vi.fn(async () => undefined),
   },
   invokeDesktop: vi.fn(async () => undefined),
   listenDesktop: vi.fn(async () => () => undefined),
@@ -109,10 +110,13 @@ vi.mock("./AuronaEngine", async () => {
 vi.mock("../../UI/Feedback/Toast", () => ({ showToast: vi.fn() }));
 
 import { DocumentService } from "../../Core/DocumentService";
+import { EditorSaveRegistry } from "../../Core/EditorSaveRegistry";
+import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { EditorTab } from "./EditorTab";
 
 describe("EditorTab save checkpoints", () => {
   beforeEach(() => {
+    UserConfigStore.resetCache();
     mocks.handlers.clear();
     mocks.resolveSave = null;
     mocks.changeValues = ["edited", "edited again"];
@@ -170,5 +174,65 @@ describe("EditorTab save checkpoints", () => {
     await waitFor(() =>
       expect(screen.getByTestId("external-content")).toHaveTextContent("updated external content"),
     );
+  });
+
+  it("previews unsaved Markdown while keeping the source editor mounted", async () => {
+    mocks.changeValues = ["# Draft heading"];
+    render(<EditorTab path={"C:\\draft.md"} isActive />);
+    const editor = await screen.findByTestId("editor-change");
+    fireEvent.click(editor);
+
+    fireEvent.click(screen.getByRole("button", { name: "预览" }));
+    expect(await screen.findByRole("heading", { name: "Draft heading" })).toBeInTheDocument();
+    expect(screen.getByTestId("editor-change")).toBe(editor);
+
+    fireEvent.click(screen.getByRole("button", { name: "源码" }));
+    expect(screen.getByTestId("editor-change")).toBe(editor);
+    expect(screen.queryByRole("heading", { name: "Draft heading" })).not.toBeInTheDocument();
+  });
+
+  it("hides the capsule and returns to source when disabled in settings", async () => {
+    mocks.changeValues = ["# Capsule preview"];
+    render(<EditorTab path={"C:\\capsule.md"} isActive />);
+    fireEvent.click(await screen.findByTestId("editor-change"));
+    const capsule = await screen.findByRole("toolbar", { name: "Aurona AI Capsule" });
+    fireEvent.click(capsule.querySelectorAll("button")[1]);
+    expect(await screen.findByRole("heading", { name: "Capsule preview" })).toBeInTheDocument();
+
+    await act(async () => {
+      await UserConfigStore.set({ editorCapsuleEnabled: false });
+      mocks.handlers.get("settings:editor-changed")?.();
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole("toolbar", { name: "Aurona AI Capsule" })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("heading", { name: "Capsule preview" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("editor-change")).toBeInTheDocument();
+
+    await act(async () => {
+      await UserConfigStore.set({ editorCapsuleEnabled: true });
+      mocks.handlers.get("settings:editor-changed")?.();
+    });
+    expect(await screen.findByRole("toolbar", { name: "Aurona AI Capsule" })).toBeInTheDocument();
+  });
+
+  it("saves an inactive tab by path and keeps it open when edits continue", async () => {
+    render(<EditorTab path={"C:\\inactive.ts"} isActive={false} />);
+    const change = await screen.findByTestId("editor-change");
+    fireEvent.click(change);
+
+    let saved: Promise<boolean> = Promise.resolve(false);
+    act(() => {
+      saved = EditorSaveRegistry.save("C:\\inactive.ts");
+    });
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce());
+    fireEvent.click(change);
+    let result = true;
+    await act(async () => {
+      mocks.resolveSave?.({ revision: 1, diskFingerprint: "disk-2" });
+      result = await saved;
+    });
+    expect(result).toBe(false);
+    expect(mocks.emit).toHaveBeenCalledWith("editor:dirty-set", { path: "C:\\inactive.ts" });
   });
 });

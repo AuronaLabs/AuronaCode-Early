@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { GitService } from "../../Core/GitService";
+import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { GitIPC } from "../../Foundation/IPC/GitCommands";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
@@ -6,6 +8,7 @@ import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { cn } from "../../Shared/Utils/cn";
 import { EmptyState } from "../../UI/Components/EmptyState";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
+import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 
 interface DiffViewerProps {
@@ -30,12 +33,34 @@ interface DiffLine {
   rightLineNum: number | null;
 }
 
+function supportsHunkAction(diff: string): boolean {
+  if (diff.length > 2_000_000) return false;
+  const header = diff.split("\n@@ -", 1)[0];
+  return (
+    header.startsWith("diff --git ") &&
+    header.includes("\n--- ") &&
+    header.includes("\n+++ ") &&
+    !diff.slice(header.length).includes("\ndiff --git ") &&
+    !header
+      .split("\n")
+      .some((line) =>
+        /^(new file mode |deleted file mode |old mode |new mode |rename |copy |similarity index |Binary files |GIT binary patch|--- \/dev\/null|\+\+\+ \/dev\/null)/.test(
+          line,
+        ),
+      )
+  );
+}
+
 export function DiffViewer({ diffTarget }: DiffViewerProps) {
   const { t } = useLocale();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [commitMessage, setCommitMessage] = useState("");
   const [files, setFiles] = useState<ParsedDiffFile[]>([]);
+  const [repoPath, setRepoPath] = useState<string | null>(null);
+  const [rawDiff, setRawDiff] = useState("");
+  const [busyHunk, setBusyHunk] = useState<number | null>(null);
+  const loadRequestRef = useRef(0);
   const workingTarget = diffTarget.match(/^working:(staged|unstaged):(.*)$/);
   const workingFile = workingTarget ? decodeURIComponent(workingTarget[2]) : null;
   const isStaged = workingTarget?.[1] === "staged";
@@ -115,27 +140,51 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
     setFiles(parsedFiles);
   }, []);
 
-  useEffect(() => {
-    async function loadDiff() {
-      try {
-        setLoading(true);
-        setError(null);
+  const loadDiff = useCallback(async () => {
+    const requestId = ++loadRequestRef.current;
+    try {
+      setLoading(true);
+      setError(null);
 
-        const config = await WorkspaceStore.get();
-        const repoPath = config.lastOpenedPath || ".";
+      const config = await WorkspaceStore.get();
+      const path = config.lastOpenedPath || ".";
 
-        const rawDiff = workingFile
-          ? await GitIPC.getWorktreeDiff(repoPath, workingFile, isStaged)
-          : await GitIPC.getCommitDiff(repoPath, diffTarget);
-        parseGitDiff(rawDiff);
-      } catch (err) {
-        setError(String(err));
-      } finally {
-        setLoading(false);
-      }
+      const rawDiff = workingFile
+        ? await GitIPC.getWorktreeDiff(path, workingFile, isStaged)
+        : await GitIPC.getCommitDiff(path, diffTarget);
+      if (requestId !== loadRequestRef.current) return;
+      setRepoPath(path);
+      setRawDiff(rawDiff);
+      parseGitDiff(rawDiff);
+    } catch (err) {
+      if (requestId === loadRequestRef.current) setError(String(err));
+    } finally {
+      if (requestId === loadRequestRef.current) setLoading(false);
     }
-    loadDiff();
   }, [diffTarget, isStaged, parseGitDiff, workingFile]);
+
+  useEffect(() => {
+    void loadDiff();
+    return () => {
+      loadRequestRef.current += 1;
+    };
+  }, [loadDiff]);
+
+  const applyHunk = async (hunkIndex: number) => {
+    if (!repoPath || !workingFile || busyHunk !== null) return;
+    setBusyHunk(hunkIndex);
+    try {
+      await GitIPC.applyHunk(repoPath, workingFile, isStaged, hunkIndex, rawDiff);
+      await loadDiff();
+      const cache = await GitService.refresh(repoPath);
+      if (cache?.repoPath === repoPath) EventBus.emit("git:changes-count", cache.files.length);
+    } catch (error) {
+      showToast(t("sourceControl.hunkFailed").replace("{message}", String(error)), "error");
+      await loadDiff();
+    } finally {
+      setBusyHunk(null);
+    }
+  };
 
   const summary = files.reduce(
     (totals, file) => {
@@ -277,13 +326,26 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
                   </div>
 
                   <div className="flex flex-col bg-[var(--material-panel)] font-mono text-[12px] leading-[1.6]">
-                    {file.hunks.map((hunk) => (
+                    {file.hunks.map((hunk, hunkIndex) => (
                       <div
                         key={hunk.header}
                         className="flex flex-col border-b border-[var(--border-subtle)] last:border-b-0"
                       >
-                        <div className="border-b border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 py-1.5 font-mono text-[10.5px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-raised)]">
-                          {hunk.header}
+                        <div className="flex min-h-8 items-center justify-between gap-3 border-b border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 py-1.5 font-mono text-[10.5px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-raised)]">
+                          <span className="min-w-0 truncate">{hunk.header}</span>
+                          {workingFile && supportsHunkAction(rawDiff) && (
+                            <button
+                              type="button"
+                              onClick={() => void applyHunk(hunkIndex)}
+                              disabled={busyHunk !== null}
+                              className="flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-control px-2 text-[10.5px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {isStaged ? <Icons.Minus size={12} /> : <Icons.Plus size={12} />}
+                              {isStaged
+                                ? t("sourceControl.unstageHunk")
+                                : t("sourceControl.stageHunk")}
+                            </button>
+                          )}
                         </div>
                         <div className="flex w-full">
                           {/* Left Pane */}

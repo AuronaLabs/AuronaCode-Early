@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::path::Path;
 use std::process::Stdio;
 use std::time::Duration;
@@ -157,6 +158,18 @@ impl ProtectedStdChild {
             .map_err(|error| format!("Failed to wait for child process: {error}"))
     }
 
+    fn write_input(&mut self, input: &[u8]) -> Result<(), String> {
+        let stdin = self
+            .child
+            .as_mut()
+            .and_then(|child| child.stdin.take())
+            .ok_or_else(|| "Child process stdin is unavailable".to_string())?;
+        let mut stdin = stdin;
+        stdin
+            .write_all(input)
+            .map_err(|error| format!("Failed to write process input: {error}"))
+    }
+
     pub fn wait_timeout(mut self, timeout: Duration) -> Result<std::process::Output, String> {
         let Some(child) = self.child.take() else {
             return Err("Child process already finished".to_string());
@@ -208,11 +221,16 @@ fn spawn_protected(
     program: &str,
     args: &[&str],
     current_dir: Option<&Path>,
+    stdin_piped: bool,
 ) -> Result<ProtectedStdChild, String> {
     let mut command = create_command(program);
     command.args(args);
     command
-        .stdin(Stdio::null())
+        .stdin(if stdin_piped {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     if let Some(directory) = current_dir {
@@ -235,7 +253,20 @@ pub fn capture(
     args: &[&str],
     current_dir: Option<&Path>,
 ) -> Result<std::process::Output, String> {
-    spawn_protected(program, args, current_dir)?.wait()
+    spawn_protected(program, args, current_dir, false)?.wait()
+}
+
+/// Runs a short-lived protected command with input supplied through stdin.
+pub fn capture_with_input(
+    program: &str,
+    args: &[&str],
+    current_dir: Option<&Path>,
+    input: &[u8],
+    timeout: Duration,
+) -> Result<std::process::Output, String> {
+    let mut child = spawn_protected(program, args, current_dir, true)?;
+    child.write_input(input)?;
+    child.wait_timeout(timeout)
 }
 
 /// Runs a short-lived command with a bounded wait; the whole process group is
@@ -246,7 +277,7 @@ pub fn capture_with_timeout(
     current_dir: Option<&Path>,
     timeout: Duration,
 ) -> Result<std::process::Output, String> {
-    spawn_protected(program, args, current_dir)?.wait_timeout(timeout)
+    spawn_protected(program, args, current_dir, false)?.wait_timeout(timeout)
 }
 
 #[cfg(windows)]

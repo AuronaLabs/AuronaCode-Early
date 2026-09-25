@@ -51,33 +51,31 @@ impl ExtensionState {
         Ok(loaded)
     }
 
-    /// 扫描并汇聚所有候选路径下的 .aurx 扩展包（优先源码资源目录）
+    /// 资源目录仅加载内置兼容层；用户目录加载自行安装的扩展包。
     pub fn scan_extensions(&self, app: &AppHandle) -> usize {
-        let mut candidate_roots = Vec::new();
+        let mut bundled_roots = Vec::new();
         // 1. 源码工程目录：仅开发构建使用，便于改完即生效。
         //    发布构建里 CARGO_MANIFEST_DIR 是编译机的路径，在用户机器上无意义；
         //    更糟的是若该路径恰好存在，会把用户磁盘上的仓库当成扩展来源。
         #[cfg(debug_assertions)]
-        candidate_roots.push(
+        bundled_roots.push(
             PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                 .join("resources")
                 .join("extensions"),
         );
         // 2. 打包后的资源目录
         if let Ok(resource_dir) = app.path().resource_dir() {
-            candidate_roots.push(resource_dir.join("extensions"));
-            candidate_roots.push(resource_dir.join("resources").join("extensions"));
+            bundled_roots.push(resource_dir.join("extensions"));
+            bundled_roots.push(resource_dir.join("resources").join("extensions"));
+        }
+        let mut loaded = 0usize;
+        for dir in bundled_roots {
+            loaded += self.registry.load_bundled_compat(&dir);
         }
         if let Ok(local_data_dir) = app.path().app_local_data_dir() {
-            candidate_roots.push(local_data_dir.join("extensions"));
-        }
-
-        let mut loaded = 0usize;
-        for dir in candidate_roots {
-            if dir.is_dir() {
-                if let Ok(count) = self.registry.load_directory(&dir) {
-                    loaded += count;
-                }
+            let dir = local_data_dir.join("extensions");
+            if let Ok(count) = self.registry.load_directory(&dir) {
+                loaded += count;
             }
         }
         loaded
@@ -217,17 +215,7 @@ impl ExtensionState {
             .app_local_data_dir()
             .map_err(|error| format!("无法定位扩展目录: {error}"))?
             .join("extensions");
-        // 兼容两种落盘格式：AURX 包（市场扩展）与 VSIX（VSCode 兼容扩展）
-        let target_aurx = extension_dir.join(format!("{id}.aurx"));
-        let target_vsix = extension_dir.join(format!("{id}.vsix"));
-        let target = if target_aurx.exists() {
-            target_aurx
-        } else if target_vsix.exists() {
-            target_vsix
-        } else {
-            return Err(format!("未找到已安装扩展: {id}"));
-        };
-        std::fs::remove_file(&target).map_err(|error| format!("无法卸载扩展安装包: {error}"))?;
+        remove_installed_package_files(&extension_dir, id)?;
         self.runtimes
             .lock()
             .map_err(|_| "扩展运行时状态锁定失败".to_string())?
@@ -619,6 +607,39 @@ fn is_builtin_extension(extension_id: &str) -> bool {
     matches!(extension_id, "aurona.vscode-compat")
 }
 
+fn remove_installed_package_files(extension_dir: &std::path::Path, id: &str) -> Result<(), String> {
+    if id.is_empty()
+        || id.starts_with('.')
+        || id.ends_with('.')
+        || id.contains("..")
+        || !id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
+    {
+        return Err("Invalid extension ID".to_string());
+    }
+    let legacy_id = match id {
+        "auronalabs.markdown" => Some("aurona.markdown"),
+        "auronalabs.planner" => Some("aurona.planner"),
+        _ => None,
+    };
+    let mut removed = false;
+    for package_id in std::iter::once(id).chain(legacy_id) {
+        for extension in ["aurx", "vsix"] {
+            let target = extension_dir.join(format!("{package_id}.{extension}"));
+            if target.exists() {
+                std::fs::remove_file(&target)
+                    .map_err(|error| format!("无法卸载扩展安装包: {error}"))?;
+                removed = true;
+            }
+        }
+    }
+    if !removed {
+        return Err(format!("未找到已安装扩展: {id}"));
+    }
+    Ok(())
+}
+
 /// 把结构化错误串（`[code] 详细消息`）转成面向用户的友好文案。
 /// 错误码前缀保留在输出里（前端据此映射 i18n），中文详情供日志与兜底展示。
 fn localized_compat_error(error: &str) -> String {
@@ -669,6 +690,54 @@ pub fn workspace_identity(root: Option<&std::path::Path>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn uninstall_removes_canonical_and_legacy_package_files() {
+        let temp =
+            std::env::temp_dir().join(format!("aurona-ext-uninstall-alias-{}", std::process::id()));
+        std::fs::create_dir_all(&temp).unwrap();
+        for id in ["aurona.markdown", "auronalabs.markdown"] {
+            std::fs::write(temp.join(format!("{id}.aurx")), b"package").unwrap();
+        }
+        std::fs::write(temp.join("unrelated.aurx"), b"keep").unwrap();
+
+        remove_installed_package_files(&temp, "auronalabs.markdown").unwrap();
+        assert!(!temp.join("aurona.markdown.aurx").exists());
+        assert!(!temp.join("auronalabs.markdown.aurx").exists());
+        assert!(temp.join("unrelated.aurx").exists());
+        assert!(remove_installed_package_files(&temp, "auronalabs.markdown").is_err());
+        std::fs::remove_dir_all(&temp).ok();
+    }
+
+    #[test]
+    fn uninstall_accepts_legacy_planner_filename() {
+        let temp = std::env::temp_dir().join(format!(
+            "aurona-ext-uninstall-planner-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&temp).unwrap();
+        std::fs::write(temp.join("aurona.planner.aurx"), b"package").unwrap();
+        remove_installed_package_files(&temp, "auronalabs.planner").unwrap();
+        assert!(!temp.join("aurona.planner.aurx").exists());
+        std::fs::remove_dir_all(&temp).ok();
+    }
+
+    #[test]
+    fn uninstall_rejects_path_like_ids() {
+        let temp =
+            std::env::temp_dir().join(format!("aurona-ext-uninstall-path-{}", std::process::id()));
+        std::fs::create_dir_all(&temp).unwrap();
+        for id in [
+            "../outside",
+            "..\\outside",
+            "/absolute",
+            "C:\\outside",
+            "a..b",
+        ] {
+            assert!(remove_installed_package_files(&temp, id).is_err());
+        }
+        std::fs::remove_dir_all(&temp).ok();
+    }
 
     #[test]
     fn permission_keys_migrate_legacy_extension_ids() {

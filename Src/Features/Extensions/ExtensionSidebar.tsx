@@ -49,6 +49,10 @@ function currentTheme(): string {
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
+function currentExtensionAccent(): string {
+  return getComputedStyle(document.documentElement).getPropertyValue("--AccentPrimary").trim();
+}
+
 const isMarkdownFile = (filePath: string | null): boolean => {
   if (!filePath) return false;
   return /\.(md|markdown|mdown|mkd|mdx)$/i.test(filePath);
@@ -698,6 +702,13 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
           <ExtensionViewHost
             viewHtml={view.html}
             theme={currentTheme()}
+            accentColor={currentExtensionAccent()}
+            fontSize={window.document.documentElement.getAttribute("data-font-size") || "default"}
+            fontWeight={
+              window.document.documentElement.getAttribute("data-bold-text") === "true"
+                ? "bold"
+                : "normal"
+            }
             renderState={renderState}
             onAction={(actionId, payload) => void runAction(actionId, payload)}
           />

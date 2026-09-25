@@ -1,5 +1,9 @@
 # Aurona Code 扩展开发实战指南
 
+## V0.4.11 SDK 边界
+
+当前开发版本为 `0.4.11`。应用安装包只内置 VSCode 兼容层和 Demo 插件；Markdown、Planner、LSP 与 Runtime 通过 Marketplace 分发。扩展 API、权限、Runtime 和版本字段以 Marketplace 服务端契约为准，发布前应同时验证本地开发地址和线上 API 地址。
+
 ## Pioneer 6 UI 约束
 
 扩展 UI 继续复用 Aurona 的 `Button`、`Input`、`Select`、`Switch`、`Card` 和 `GlassContainer`。扩展不得通过页面级 class 创建新的 surface 层级、嵌套大卡片或依赖装饰性渐变表达结构；详情、设置和工具链状态应使用标题、分隔线与明确的 loading/empty/error 状态。
@@ -61,7 +65,7 @@ my-extension.aurx
 
 | 扩展 ID | 扩展名称 | 运行模式 / 资产类型 | 核心能力 |
 | :--- | :--- | :--- | :--- |
-| `auronalabs.markdown` | **Markdown 预览** | Marketplace `.aurx` 扩展 | 实时监听当前激活的 Markdown 文档并极速流式渲染为精美 HTML |
+| `auronalabs.markdown` | **旧版 Markdown 预览** | 过渡期 Marketplace `.aurx` 扩展 | 编辑器已内置 Markdown/GFM 预览；该扩展不随应用安装，后续将从 Marketplace 下线 |
 | `auronalabs.planner` | **任务面板** | Marketplace `.aurx` 扩展 | 独立任务管理看板，支持分类/优先级，自动安全持久化到 `.aurona/planner.json` |
 | `auronalabs.lsp-pyright` | **Python 语言服务** | Marketplace LSP 包 | 基于 Microsoft Pyright 的 Python 3.x 静态类型检查与智能语义服务 |
 | `auronalabs.lsp-typescript` | **TypeScript 语言服务** | Marketplace LSP 包 | 基于 typescript-language-server 的前端全栈代码智能服务 |

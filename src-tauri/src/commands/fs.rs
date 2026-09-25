@@ -1,8 +1,9 @@
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use notify::Watcher;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::io;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
@@ -478,6 +479,49 @@ pub async fn fs_read_text_file(app: tauri::AppHandle, path: String) -> Result<St
     })
     .await
     .map_err(|error| workspace_error(format!("读取文件任务失败: {error}")))?
+}
+
+fn image_mime(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        Some("image/png")
+    } else if bytes.starts_with(b"\xff\xd8\xff") {
+        Some("image/jpeg")
+    } else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+        Some("image/gif")
+    } else if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        Some("image/webp")
+    } else {
+        None
+    }
+}
+
+#[tauri::command]
+pub async fn fs_read_image_data_url(app: tauri::AppHandle, path: String) -> Result<String, String> {
+    const MAX_IMAGE_BYTES: u64 = 8 * 1024 * 1024;
+    let state = app.state::<WorkspaceState>();
+    let root = current_root(&state)?;
+    let resolved = resolve_workspace_path(&root, &path, true)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let file = fs::File::open(&resolved).map_err(|error| error.to_string())?;
+        if !file
+            .metadata()
+            .map_err(|error| error.to_string())?
+            .is_file()
+        {
+            return Err("Image path is not a file".to_string());
+        }
+        let mut bytes = Vec::new();
+        file.take(MAX_IMAGE_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|error| error.to_string())?;
+        if bytes.len() as u64 > MAX_IMAGE_BYTES {
+            return Err("Image exceeds the 8 MiB preview limit".to_string());
+        }
+        let mime = image_mime(&bytes).ok_or_else(|| "Unsupported image format".to_string())?;
+        Ok(format!("data:{mime};base64,{}", STANDARD.encode(bytes)))
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]

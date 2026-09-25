@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { LocaleService, useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
@@ -86,11 +86,15 @@ export function ToastContainer() {
     return EventBus.on("app:toast", (p) => void handleToast(p));
   }, []);
 
-  const dismissToast = (id: string) => {
-    const target = toasts.find((t) => t.id === id);
-    target?.onDismiss?.();
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => {
+      const target = prev.find((t) => t.id === id);
+      target?.onDismiss?.();
+      return prev.filter((t) => t.id !== id);
+    });
+  }, []);
+
+  useEffect(() => EventBus.on("app:dismiss-toast", dismissToast), [dismissToast]);
 
   const handleActionClick = async (toastId: string, action: ToastAction) => {
     try {
@@ -213,14 +217,23 @@ export const showNotification = (options: {
 };
 
 export const showConfirm = (options: {
+  id?: string;
   title: string;
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm: () => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
-}) => {
+}): string => {
+  const id = options.id ?? `confirm-${Date.now()}-${Math.random()}`;
+  let settled = false;
+  const settle = async (action?: () => void | Promise<void>) => {
+    if (settled) return;
+    settled = true;
+    await action?.();
+  };
   showNotification({
+    id,
     title: options.title,
     message: options.message,
     type: "confirm",
@@ -229,13 +242,19 @@ export const showConfirm = (options: {
       {
         label: options.cancelLabel ?? LocaleService.translate("common.cancel"),
         variant: "secondary",
-        onClick: options.onCancel,
+        onClick: () => settle(options.onCancel),
       },
       {
         label: options.confirmLabel ?? LocaleService.translate("common.ok"),
         primary: true,
-        onClick: options.onConfirm,
+        onClick: () => settle(options.onConfirm),
       },
     ],
+    onDismiss: () => void settle(options.onCancel),
   });
+  return id;
+};
+
+export const dismissNotification = (id: string): void => {
+  EventBus.emit("app:dismiss-toast", id);
 };

@@ -1,0 +1,99 @@
+/* Global element rules and focus behavior. */
+:root {
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#Root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--AppBg);
+  color: var(--TextPrimary);
+  font-family:
+    "Segoe UI Variable", "PingFang SC", "Microsoft YaHei UI", "Noto Sans CJK SC", system-ui,
+    sans-serif;
+  font-size: var(--FontSizeBase);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--AccentPrimary) 72%, transparent);
+  outline-offset: 2px;
+}
+
+/* Aurona inputs render their focus state on the glass shell instead of the
+   browser's inner blue outline. Other keyboard-focusable controls keep the
+   global accessible focus ring above. */
+[data-aurona-input]:focus-visible {
+  outline: none;
+}
+
+[data-aurona-component-focus]:focus-visible {
+  outline: none;
+}
+
+/* Radix 菜单与下拉列表的选中态由背景高亮表达，不叠加主题焦点描边。
+   菜单项在鼠标划过时会被程序化聚焦，Chromium 的 focus-visible 判定
+   取决于上一次输入方式，导致概率性出现蓝框；这里统一收敛。
+   作用域收在菜单与列表内部，顶部菜单栏按钮仍保留键盘焦点环。 */
+[role="menu"] [role="menuitem"]:focus-visible,
+[role="menu"] [role="menuitemradio"]:focus-visible,
+[role="menu"] [role="menuitemcheckbox"]:focus-visible,
+[role="listbox"] [role="option"]:focus-visible {
+  outline: none;
+  outline-offset: 0;
+  box-shadow: none;
+}
+
+/* Fliuno 输入框的焦点由容器材质表达，不显示浏览器/主题焦点描边。 */
+[data-fliuno-input]:focus,
+[data-fliuno-input]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+:root[data-bold-text="true"] body,
+:root[data-bold-text="true"] button,
+:root[data-bold-text="true"] input,
+:root[data-bold-text="true"] select,
+:root[data-bold-text="true"] textarea {
+  font-weight: 550;
+}

@@ -9,8 +9,9 @@ import { LocaleService } from "../../Foundation/I18n";
 import { FileSystemCommands } from "../../Foundation/IPC/FileSystemCommands";
 import { WorkspaceSearchIPC } from "../../Foundation/IPC/WorkspaceSearchCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
+import type { AiPreferences } from "../../Foundation/Types/Config";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
-import { showConfirm } from "../../UI/Feedback/Toast";
+import { dismissNotification, showConfirm } from "../../UI/Feedback/Toast";
 
 /**
  * 0.4.8 AI agent 工具执行端：把 0.4.7 预留的 tool_calls 协议接到真实能力上。
@@ -33,6 +34,7 @@ export interface AiAgentToolInvocation {
   id: string;
   name: string;
   arguments: string;
+  signal?: AbortSignal;
 }
 
 /** 工具单次输出上限（字符） */
@@ -45,6 +47,9 @@ const EDITOR_CONTEXT_LIMIT = 24_000;
 const DIAGNOSTICS_LIMIT = 40;
 /** 搜索结果展示条数上限 */
 const SEARCH_RESULT_LIMIT = 30;
+
+type AgentPermission = NonNullable<AiPreferences["agentPermission"]>;
+let agentPermission: AgentPermission = "ask";
 
 function truncate(text: string, limit: number): string {
   return text.length > limit ? `${text.slice(0, limit)}\n…(截断，共 ${text.length} 字符)` : text;
@@ -72,16 +77,33 @@ function readStringArg(args: Record<string, unknown>, key: string): string | nul
 }
 
 /** 确认弹窗：确认返回 true，取消/拒绝返回 false */
-async function confirmWriteAction(title: string, message: string): Promise<boolean> {
+async function confirmWriteAction(
+  title: string,
+  message: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  if (signal?.aborted) return false;
   return new Promise((resolve) => {
+    const id = `agent-confirm-${Date.now()}-${Math.random()}`;
+    const onAbort = () => {
+      dismissNotification(id);
+      finish(false);
+    };
+    const finish = (confirmed: boolean) => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve(confirmed);
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
     showConfirm({
+      id,
       title,
       message,
       confirmLabel: LocaleService.translate("common.confirm"),
       cancelLabel: LocaleService.translate("common.cancel"),
-      onConfirm: () => resolve(true),
-      onCancel: () => resolve(false),
+      onConfirm: () => finish(!signal?.aborted),
+      onCancel: () => finish(false),
     });
+    if (signal?.aborted) onAbort();
   });
 }
 
@@ -91,7 +113,7 @@ interface AiAgentTool {
   signature: string;
   description: string;
   requiresConfirmation: boolean;
-  execute(args: Record<string, unknown>): Promise<string>;
+  execute(args: Record<string, unknown>, signal?: AbortSignal): Promise<string>;
 }
 
 const tools: AiAgentTool[] = [
@@ -153,7 +175,7 @@ const tools: AiAgentTool[] = [
     description:
       "在工作区内文件中做一次精确文本替换（old_text 必须在文件中唯一）。文件会在编辑器中打开并可见，改动即时同步语言服务，保存仍由用户决定",
     requiresConfirmation: true,
-    async execute(args) {
+    async execute(args, signal) {
       const path = readStringArg(args, "path");
       const oldText = readStringArg(args, "old_text");
       if (!path || oldText === null) return "缺少参数 path / old_text";
@@ -163,6 +185,7 @@ const tools: AiAgentTool[] = [
       const record = DocumentService.get(path);
       const isOpen = record?.openState === "open";
       if (!isOpen) await DocumentService.open(path);
+      if (signal?.aborted) throw new Error("Agent operation cancelled");
       const current = DocumentService.get(path);
       const content = current?.content ?? "";
       const firstMatch = content.indexOf(oldText);
@@ -170,6 +193,7 @@ const tools: AiAgentTool[] = [
       if (content.indexOf(oldText, firstMatch + 1) >= 0) {
         return "编辑失败：old_text 在文件中出现多次，请加入更多上下文使其唯一";
       }
+      if (signal?.aborted) throw new Error("Agent operation cancelled");
       await DocumentService.applyEdits(
         path,
         [{ startUtf16: firstMatch, endUtf16: firstMatch + oldText.length, text: newText }],
@@ -205,9 +229,10 @@ const tools: AiAgentTool[] = [
     signature: "run_command(command)",
     description: "执行一条编辑器命令（editor.* / workbench.* 等，与命令面板同源）",
     requiresConfirmation: true,
-    async execute(args) {
+    async execute(args, signal) {
       const command = readStringArg(args, "command");
       if (!command) return "缺少参数 command";
+      if (signal?.aborted) throw new Error("Agent operation cancelled");
       const result = await CommandRegistry.execute(command);
       return result.ok
         ? `命令 ${command} 已执行`
@@ -253,7 +278,8 @@ function describeArgs(name: string, args: Record<string, unknown>): string {
  */
 export function syncAgentExecutorRegistration(): void {
   void UserConfigStore.get().then((config) => {
-    const enabled = config.ai?.agentEnabled !== false;
+    const enabled = config.ai?.enabled !== false;
+    agentPermission = config.ai?.agentPermission ?? "ask";
     AiChatService.setAgentExecutor(
       enabled ? { execute: executeAgentToolCall, toolPrompt: getAgentToolPromptDocs() } : null,
     );
@@ -264,6 +290,7 @@ export function syncAgentExecutorRegistration(): void {
 export async function executeAgentToolCall(
   invocation: AiAgentToolInvocation,
 ): Promise<AiAgentToolOutcome> {
+  if (invocation.signal?.aborted) return { content: "Agent operation cancelled", isError: true };
   const tool = tools.find((candidate) => candidate.name === invocation.name);
   if (!tool) {
     return {
@@ -275,10 +302,22 @@ export async function executeAgentToolCall(
   if (!args) {
     return { content: "参数不是合法的 JSON 对象，请以严格 JSON 重试", isError: true };
   }
-  if (tool.requiresConfirmation) {
+  const readOnlyTool = [
+    "read_file",
+    "list_dir",
+    "search_workspace",
+    "get_diagnostics",
+    "editor_context",
+  ].includes(tool.name);
+  const requiresPermission =
+    agentPermission === "ask" ||
+    (!readOnlyTool && agentPermission === "read") ||
+    (!readOnlyTool && agentPermission === "edit" && tool.name === "run_command");
+  if (requiresPermission || (tool.requiresConfirmation && agentPermission !== "full")) {
     const confirmed = await confirmWriteAction(
       LocaleService.translate("ai.agent.confirmTitle").replace("{tool}", tool.name),
       `${describeArgs(tool.name, args)}\n${LocaleService.translate("ai.agent.confirmMessage")}`,
+      invocation.signal,
     );
     if (!confirmed) {
       return {
@@ -287,8 +326,9 @@ export async function executeAgentToolCall(
       };
     }
   }
+  if (invocation.signal?.aborted) return { content: "Agent operation cancelled", isError: true };
   try {
-    return { content: await tool.execute(args), isError: false };
+    return { content: await tool.execute(args, invocation.signal), isError: false };
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause);
     OutputService.append("core", `AI agent tool ${tool.name} failed: ${message}`, "warn");

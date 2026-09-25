@@ -126,6 +126,8 @@ export const en: LocaleMessages = {
     scrollRight: "Scroll tabs right",
   },
   editor: {
+    sourceView: "Source",
+    previewView: "Preview",
     searchPlaceholder: "Search…",
     searchNoResults: "No results",
     searchToggleReplace: "Toggle Replace",
@@ -428,6 +430,9 @@ export const en: LocaleMessages = {
     commitPlaceholder: "Describe your code changes...",
     unstageAll: "Unstage All",
     stageAll: "Stage All",
+    stageHunk: "Stage hunk",
+    unstageHunk: "Unstage hunk",
+    hunkFailed: "Hunk update failed: {message}",
     branchPlaceholder: "e.g. feature/editor-overlays",
     discardTitle: "Discard File Changes",
     createAndSwitch: "Create and Switch",
@@ -819,6 +824,8 @@ export const en: LocaleMessages = {
       },
     },
     editorSection: {
+      capsule: "Smart Capsule",
+      capsuleDescription: "Show the source and preview switcher in Markdown editors",
       title: "Editor Settings",
       description: "Configure the look and behavior of the code editor",
       fontSize: "Font Size",
@@ -841,6 +848,8 @@ export const en: LocaleMessages = {
       cursorBlinkDescription: "Whether the terminal cursor breathes",
     },
     sourceControlSection: {
+      remoteMissing: "No origin remote configured",
+      remoteReadFailed: "Unable to read origin: {message}",
       noRepo: "No Git workspace detected",
       noRepoDescription:
         "No valid directory is open in the workspace. Open a folder containing a Git repository in the explorer, then configure credentials here",
@@ -1535,15 +1544,22 @@ export const en: LocaleMessages = {
     copyCode: "Copy code",
     newChat: "New chat",
     sessions: "Sessions",
+    deleteSessionConfirm: "Delete this session and its history? This cannot be undone.",
+    you: "You",
+    toolCalls: "{count} tool actions",
     untitledSession: "New session",
     deleteSession: "Delete session",
     scrollBottom: "Scroll to bottom",
     clearConfirmTitle: "Clear current session",
     clearConfirmMessage: "All messages in this session will be deleted. This cannot be undone",
     agent: {
-      settingsTitle: "Enable agent tool execution",
+      settingsTitle: "Agent permissions",
       settingsDesc:
         "Let the AI read workspace files, search and modify code, and run editor commands; write operations always require confirmation",
+      permissionAsk: "Ask before actions",
+      permissionRead: "Read only",
+      permissionEdit: "Edit with confirmation",
+      permissionFull: "Full tool access",
       confirmTitle: "Confirm {tool}",
       confirmMessage: "The AI requests a write operation — review the arguments and confirm",
       roundLimit:

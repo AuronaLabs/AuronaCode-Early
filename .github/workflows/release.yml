@@ -178,6 +178,9 @@ jobs:
             echo "VITE_AURONA_CHANNEL=stable" >> "$GITHUB_ENV"
           fi
 
+      - name: Verify bundled extensions
+        run: pnpm run check:bundled-extensions
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:

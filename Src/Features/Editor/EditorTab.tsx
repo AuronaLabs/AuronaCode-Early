@@ -1,17 +1,21 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { DocumentService } from "../../Core/DocumentService";
+import { EditorSaveRegistry } from "../../Core/EditorSaveRegistry";
 import { FileSystemService } from "../../Core/FileSystemService";
 import { RecoveryCoordinator } from "../../Core/Recovery/RecoveryCoordinator";
 import { RecoveryStore } from "../../Core/Recovery/RecoveryStore";
 import { DesktopError } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
+import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { isBinaryExtension } from "../../Shared/Constants/FileTypes";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
 import { showNotification, showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { AuronaEngine } from "./AuronaEngine";
 import { EditorBreadcrumb } from "./components/EditorBreadcrumb";
+import { EditorCapsule, type EditorViewMode } from "./components/EditorCapsule";
+import { MarkdownPreview } from "./components/MarkdownPreview";
 
 type EditorTabProps = {
   path: string;
@@ -40,6 +44,13 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
   const [syncError, setSyncError] = useState<Error | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [diskFingerprint, setDiskFingerprint] = useState("");
+  const [viewState, setViewState] = useState<{ path: string; mode: EditorViewMode }>({
+    path,
+    mode: "source",
+  });
+  const [focusRequest, setFocusRequest] = useState(0);
+  const [capsuleEnabled, setCapsuleEnabled] = useState(false);
+  const previewScrollTop = useRef(0);
   const [externalContent, setExternalContent] = useState<{
     content: string;
     nonce: number;
@@ -48,9 +59,38 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
   const loadedPathRef = useRef<string | null>(null);
   const contentRef = useRef("");
   const savedContentRef = useRef("");
-  const saveInFlightRef = useRef<Promise<void> | null>(null);
+  const saveInFlightRef = useRef<Promise<boolean> | null>(null);
 
   const isDirty = fileContent !== savedContent;
+  const isMarkdown = ["md", "markdown"].includes(getExtension(path));
+  const viewMode = viewState.path === path ? viewState.mode : "source";
+
+  const changeViewMode = useCallback(
+    (mode: EditorViewMode) => {
+      if (mode === viewMode) return;
+      setViewState({ path, mode });
+      if (mode === "source") setFocusRequest((request) => request + 1);
+    },
+    [path, viewMode],
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    const refreshCapsuleSetting = () => {
+      void UserConfigStore.get().then((config) => {
+        if (!mounted) return;
+        const enabled = config.editorCapsuleEnabled ?? true;
+        setCapsuleEnabled(enabled);
+        if (!enabled) setViewState({ path, mode: "source" });
+      });
+    };
+    refreshCapsuleSetting();
+    const unsubscribe = EventBus.on("settings:editor-changed", refreshCapsuleSetting);
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, [path]);
 
   const loadContent = useCallback(
     async (filePath: string, force = false) => {
@@ -150,45 +190,60 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
     [path],
   );
 
-  const saveContent = useCallback(async () => {
-    if (!isActive || isBinaryWarning) return;
-    if (saveInFlightRef.current) return saveInFlightRef.current;
-    if (contentRef.current === savedContentRef.current) {
-      return;
-    }
-
-    const contentCheckpoint = contentRef.current;
-    const saving = (async () => {
-      try {
-        setIsSaving(true);
-        const response = await DocumentService.save(path);
-        setDiskFingerprint(response.diskFingerprint);
-        savedContentRef.current = contentCheckpoint;
-        setSavedContent(contentCheckpoint);
-
-        if (contentRef.current === contentCheckpoint) {
-          await RecoveryCoordinator.discard(path);
-          EventBus.emit("editor:dirty-cleared", { path });
-          EventBus.emit("editor:file-saved", { path });
-        } else {
-          RecoveryCoordinator.update(path, contentRef.current, response.diskFingerprint, true);
-          await RecoveryCoordinator.flush(path);
-          EventBus.emit("editor:dirty-set", { path });
-        }
-      } catch (error) {
-        setSyncError(error instanceof Error ? error : new Error(String(error)));
-        showToast(`保存失败：${FileSystemService.toMessage(error)}`, "error");
-      } finally {
-        setIsSaving(false);
+  const saveContent = useCallback(
+    async (allowInactive = false): Promise<boolean> => {
+      if ((!isActive && !allowInactive) || isBinaryWarning) return false;
+      if (saveInFlightRef.current) return saveInFlightRef.current;
+      if (contentRef.current === savedContentRef.current) {
+        return true;
       }
-    })();
-    saveInFlightRef.current = saving;
-    try {
-      await saving;
-    } finally {
-      if (saveInFlightRef.current === saving) saveInFlightRef.current = null;
-    }
-  }, [isActive, isBinaryWarning, path]);
+
+      const contentCheckpoint = contentRef.current;
+      const saving = (async () => {
+        try {
+          setIsSaving(true);
+          const response = await DocumentService.save(path);
+          setDiskFingerprint(response.diskFingerprint);
+          savedContentRef.current = contentCheckpoint;
+          setSavedContent(contentCheckpoint);
+
+          if (contentRef.current === contentCheckpoint) {
+            await RecoveryCoordinator.discard(path);
+            EventBus.emit("editor:dirty-cleared", { path });
+            EventBus.emit("editor:file-saved", { path });
+            return true;
+          } else {
+            RecoveryCoordinator.update(path, contentRef.current, response.diskFingerprint, true);
+            await RecoveryCoordinator.flush(path);
+            EventBus.emit("editor:dirty-set", { path });
+            return false;
+          }
+        } catch (error) {
+          setSyncError(error instanceof Error ? error : new Error(String(error)));
+          showToast(`保存失败：${FileSystemService.toMessage(error)}`, "error");
+          return false;
+        } finally {
+          setIsSaving(false);
+        }
+      })();
+      saveInFlightRef.current = saving;
+      try {
+        return await saving;
+      } finally {
+        if (saveInFlightRef.current === saving) saveInFlightRef.current = null;
+      }
+    },
+    [isActive, isBinaryWarning, path],
+  );
+
+  useEffect(
+    () =>
+      EditorSaveRegistry.register(path, {
+        save: () => saveContent(true),
+        isDirty: () => contentRef.current !== savedContentRef.current,
+      }),
+    [path, saveContent],
+  );
 
   const handleContentChange = useCallback((content: string) => {
     contentRef.current = content;
@@ -298,7 +353,9 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
   }, [isActive, saveContent]);
 
   useEffect(() => {
-    return EventBus.on("app:save-file", saveContent);
+    return EventBus.on("app:save-file", () => {
+      void saveContent();
+    });
   }, [saveContent]);
 
   return (
@@ -357,19 +414,43 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
           {isEditorReady && (
             <>
               <EditorBreadcrumb path={path} language={GetLanguageFromPath(path)} />
-              <div className="min-h-0 flex-1">
-                <AuronaEngine
-                  key={editorKey}
-                  value={fileContent}
-                  language={GetLanguageFromPath(path)}
-                  isActive={isActive}
-                  onChange={handleContentChange}
-                  path={path}
-                  externalContent={externalContent}
-                  revealLine={revealLine}
-                  onRevealHandled={onRevealHandled}
-                  onSyncError={setSyncError}
-                />
+              <div className="relative min-h-0 flex-1">
+                <div
+                  className="h-full"
+                  style={{ display: viewMode === "preview" ? "none" : undefined }}
+                >
+                  <AuronaEngine
+                    key={editorKey}
+                    value={fileContent}
+                    language={GetLanguageFromPath(path)}
+                    isActive={isActive && viewMode === "source"}
+                    focusRequest={focusRequest}
+                    onChange={handleContentChange}
+                    path={path}
+                    externalContent={externalContent}
+                    revealLine={revealLine}
+                    onRevealHandled={onRevealHandled}
+                    onSyncError={setSyncError}
+                  />
+                </div>
+                {isMarkdown && viewMode === "preview" && (
+                  <MarkdownPreview
+                    content={fileContent}
+                    path={path}
+                    initialScrollTop={previewScrollTop.current}
+                    onScrollTopChange={(scrollTop) => {
+                      previewScrollTop.current = scrollTop;
+                    }}
+                  />
+                )}
+                {isMarkdown && isActive && capsuleEnabled && (
+                  <EditorCapsule
+                    mode={viewMode}
+                    onModeChange={changeViewMode}
+                    sourceLabel={t("editor.sourceView")}
+                    previewLabel={t("editor.previewView")}
+                  />
+                )}
               </div>
             </>
           )}

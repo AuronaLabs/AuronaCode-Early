@@ -79,6 +79,15 @@ export interface AiIpcToolCall {
   function: AiIpcToolFunction;
 }
 
+export interface AiIpcToolDefinition {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+}
+
 /**
  * 聊天消息载荷。0.4.8 agent 化：assistant 消息可携带 toolCalls，
  * 工具结果以 role:"tool" + toolCallId 回传（content 缺省表示 null content）。
@@ -91,6 +100,9 @@ export interface AiIpcMessage {
 }
 
 export const AiIPC = {
+  /** Rust 侧测试 provider，避免浏览器 CORS 阻断本地桌面请求。 */
+  testConnection: (payload: { baseUrl: string; apiKey: string }) =>
+    invokeDesktop<number>("ai_test_connection", payload),
   /** 发起流式对话（结果通过 ai://chat-* 事件异步推回） */
   send: (payload: {
     sessionId: string;
@@ -98,6 +110,7 @@ export const AiIPC = {
     apiKey: string;
     model: string;
     messages: AiIpcMessage[];
+    tools?: AiIpcToolDefinition[];
   }) => invokeDesktop<void>("ai_chat_send", payload),
 
   /** 中止当前会话的流式输出 */

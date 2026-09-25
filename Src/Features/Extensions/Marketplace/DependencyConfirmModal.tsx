@@ -48,7 +48,7 @@ export function DependencyConfirmModal({
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 backdrop-blur-[var(--surface-blur-base)]">
-      <GlassContainer layer="overlay" className="w-full max-w-[360px] p-5">
+      <GlassContainer layer="overlay" className="relative w-full max-w-[360px] p-5">
         <div className="flex items-start gap-3">
           <div className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-subtle)] text-[var(--StatusWarning)]">
             <Icons.Terminal size={18} />

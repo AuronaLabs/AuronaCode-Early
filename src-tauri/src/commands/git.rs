@@ -281,6 +281,8 @@ pub(crate) fn git_worktree_diff_internal(
             &[
                 "diff",
                 "--no-index",
+                "--no-ext-diff",
+                "--no-textconv",
                 "--color=never",
                 "--",
                 "/dev/null",
@@ -292,7 +294,7 @@ pub(crate) fn git_worktree_diff_internal(
         }
         return Err(command_error(&output));
     }
-    let mut args = vec!["diff"];
+    let mut args = vec!["diff", "--no-ext-diff", "--no-textconv"];
     if staged {
         args.push("--cached");
     }
@@ -300,6 +302,81 @@ pub(crate) fn git_worktree_diff_internal(
     let output = git_output(&path, &args)?;
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err(command_error(&output))
+    }
+}
+
+fn selected_hunk_patch(diff: &str, hunk_index: usize) -> Result<String, String> {
+    let first_hunk = diff
+        .find("@@ -")
+        .ok_or_else(|| "This file has no text hunks to apply".to_string())?;
+    let header = &diff[..first_hunk];
+    if !header.starts_with("diff --git ")
+        || !header.contains("\n--- ")
+        || !header.contains("\n+++ ")
+        || header.lines().any(|line| {
+            line.starts_with("new file mode ")
+                || line.starts_with("deleted file mode ")
+                || line.starts_with("old mode ")
+                || line.starts_with("new mode ")
+                || line.starts_with("rename ")
+                || line.starts_with("copy ")
+                || line.starts_with("similarity index ")
+                || line.starts_with("Binary files ")
+                || line.starts_with("GIT binary patch")
+                || line == "--- /dev/null"
+                || line == "+++ /dev/null"
+        })
+        || diff[first_hunk..].contains("\ndiff --git ")
+    {
+        return Err("Partial staging is unavailable for this file change".to_string());
+    }
+
+    let mut starts = vec![first_hunk];
+    starts.extend(
+        diff[first_hunk..]
+            .match_indices("\n@@ -")
+            .map(|(position, _)| first_hunk + position + 1),
+    );
+    let start = *starts
+        .get(hunk_index)
+        .ok_or_else(|| "Selected hunk is no longer available".to_string())?;
+    let end = starts.get(hunk_index + 1).copied().unwrap_or(diff.len());
+    Ok(format!("{}{}", header, &diff[start..end]))
+}
+
+fn git_apply_hunk_internal(
+    path: String,
+    file: String,
+    staged: bool,
+    hunk_index: usize,
+    expected_diff: String,
+) -> Result<(), String> {
+    if expected_diff.len() > 2_000_000 {
+        return Err("Diff is too large for partial staging".to_string());
+    }
+    let current_diff = git_worktree_diff_internal(path.clone(), file.clone(), staged)?;
+    if current_diff != expected_diff {
+        return Err(
+            "File changes have moved; refresh the diff before applying this hunk".to_string(),
+        );
+    }
+    let patch = selected_hunk_patch(&current_diff, hunk_index)?;
+    let args = if staged {
+        &["apply", "--cached", "--reverse", "--recount", "-"][..]
+    } else {
+        &["apply", "--cached", "--recount", "-"][..]
+    };
+    let output = crate::process_service::capture_with_input(
+        "git",
+        args,
+        Some(Path::new(&path)),
+        patch.as_bytes(),
+        std::time::Duration::from_secs(15),
+    )?;
+    if output.status.success() {
+        Ok(())
     } else {
         Err(command_error(&output))
     }
@@ -388,12 +465,30 @@ fn git_unstage_all_internal(path: String) -> Result<(), String> {
 }
 
 pub(crate) fn git_get_remote_internal(path: String) -> Result<String, String> {
-    let output = git_output(&path, &["remote", "get-url", "origin"])?;
-
-    if output.status.success() {
+    let configured_url = git_output(&path, &["config", "--local", "--get", "remote.origin.url"])?;
+    if configured_url.status.success() {
+        if configured_url.stdout.trim_ascii().is_empty() {
+            return Err("origin has an empty URL".to_string());
+        }
+        let output = git_output(&path, &["remote", "get-url", "origin"])?;
+        if !output.status.success() {
+            return Err(command_error(&output));
+        }
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else if configured_url.status.code() == Some(1) {
+        let configured_origin = git_output(
+            &path,
+            &["config", "--local", "--get-regexp", "^remote\\.origin\\."],
+        )?;
+        if configured_origin.status.success() {
+            Err("origin is configured without a URL".to_string())
+        } else if configured_origin.status.code() == Some(1) {
+            Ok(String::new())
+        } else {
+            Err(command_error(&configured_origin))
+        }
     } else {
-        Ok("".to_string())
+        Err(command_error(&configured_url))
     }
 }
 
@@ -525,6 +620,18 @@ pub async fn git_create_branch(path: String, branch: String) -> Result<(), Strin
 #[tauri::command]
 pub async fn git_worktree_diff(path: String, file: String, staged: bool) -> Result<String, String> {
     run_blocking(move || git_worktree_diff_internal(path, file, staged)).await
+}
+
+#[tauri::command]
+pub async fn git_apply_hunk(
+    path: String,
+    file: String,
+    staged: bool,
+    hunk_index: usize,
+    expected_diff: String,
+) -> Result<(), String> {
+    run_blocking(move || git_apply_hunk_internal(path, file, staged, hunk_index, expected_diff))
+        .await
 }
 
 #[tauri::command]
@@ -693,5 +800,77 @@ mod tests {
         git_discard_file_internal(path, "new.txt".to_string())
             .expect("untracked file should be discarded");
         assert!(!repository.0.join("new.txt").exists());
+    }
+
+    #[test]
+    fn distinguishes_missing_origin_from_broken_origin() {
+        let repository = create_test_repository();
+        let path = repository.0.to_string_lossy().to_string();
+        assert_eq!(git_get_remote_internal(path.clone()).unwrap(), "");
+
+        run_git(
+            &repository.0,
+            &["remote", "add", "origin", "https://example.com/repo.git"],
+        );
+        assert_eq!(
+            git_get_remote_internal(path.clone()).unwrap(),
+            "https://example.com/repo.git"
+        );
+
+        run_git(&repository.0, &["config", "--unset", "remote.origin.url"]);
+        assert!(git_get_remote_internal(path).is_err());
+    }
+
+    #[test]
+    fn stages_and_unstages_one_hunk_without_touching_other_changes() {
+        let repository = create_test_repository();
+        let path = repository.0.to_string_lossy().to_string();
+        let original = (1..=25)
+            .map(|number| format!("line {number}\n"))
+            .collect::<String>();
+        fs::write(repository.0.join("main.txt"), &original).unwrap();
+        run_git(&repository.0, &["add", "--", "main.txt"]);
+        run_git(&repository.0, &["commit", "-m", "expand fixture"]);
+
+        let changed = original
+            .replace("line 3\n", "line 3 changed\n")
+            .replace("line 20\n", "line 20 changed\n");
+        fs::write(repository.0.join("main.txt"), changed).unwrap();
+
+        let unstaged = git_worktree_diff_internal(path.clone(), "main.txt".into(), false).unwrap();
+        assert_eq!(unstaged.matches("\n@@ -").count(), 2);
+        git_apply_hunk_internal(path.clone(), "main.txt".into(), false, 0, unstaged.clone())
+            .expect("first hunk should stage");
+
+        let staged = git_worktree_diff_internal(path.clone(), "main.txt".into(), true).unwrap();
+        assert!(staged.contains("+line 3 changed"));
+        assert!(!staged.contains("+line 20 changed"));
+        let remaining = git_worktree_diff_internal(path.clone(), "main.txt".into(), false).unwrap();
+        assert!(!remaining.contains("+line 3 changed"));
+        assert!(remaining.contains("+line 20 changed"));
+        assert!(
+            git_apply_hunk_internal(path.clone(), "main.txt".into(), false, 0, unstaged).is_err()
+        );
+
+        git_apply_hunk_internal(path.clone(), "main.txt".into(), true, 0, staged)
+            .expect("staged hunk should unstage");
+        assert!(
+            git_worktree_diff_internal(path.clone(), "main.txt".into(), true)
+                .unwrap()
+                .is_empty()
+        );
+        let restored = git_worktree_diff_internal(path, "main.txt".into(), false).unwrap();
+        assert!(restored.contains("+line 3 changed"));
+        assert!(restored.contains("+line 20 changed"));
+    }
+
+    #[test]
+    fn does_not_offer_partial_staging_for_new_files() {
+        let repository = create_test_repository();
+        let path = repository.0.to_string_lossy().to_string();
+        fs::write(repository.0.join("new.txt"), "new file\n").unwrap();
+        run_git(&repository.0, &["add", "--", "new.txt"]);
+        let diff = git_worktree_diff_internal(path, "new.txt".into(), true).unwrap();
+        assert!(selected_hunk_patch(&diff, 0).is_err());
     }
 }

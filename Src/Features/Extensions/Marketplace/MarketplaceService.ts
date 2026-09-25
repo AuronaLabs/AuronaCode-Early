@@ -238,9 +238,11 @@ export interface MarketplaceFetchResult {
 }
 
 export interface MarketplaceRankingResult {
+  topDownloaded: MarketplaceExtensionItem[];
   topDownloads: MarketplaceExtensionItem[];
   topRated: MarketplaceExtensionItem[];
-  newlyAdded: MarketplaceExtensionItem[];
+  topStarred: MarketplaceExtensionItem[];
+  trending: MarketplaceExtensionItem[];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -498,7 +500,7 @@ export const MarketplaceService = {
     const configured = config.marketplaceServerUrl?.trim();
     if (
       configured &&
-      /^(https?:\/\/)?127\.0\.0\.1:5218\/?$/.test(configured.replace(/\/api\/?$/, ""))
+      /^(https?:\/\/)?(?:127\.0\.0\.1|localhost):5218\/?$/.test(configured.replace(/\/api\/?$/, ""))
     ) {
       await UserConfigStore.set({ marketplaceServerUrl: LOCAL_DEV_MARKETPLACE_URL });
       return LOCAL_DEV_MARKETPLACE_URL;
@@ -813,18 +815,23 @@ export const MarketplaceService = {
     const res = await requestCandidateUrls<{
       success: boolean;
       data: {
-        topDownloads: Record<string, unknown>[];
+        topDownloaded: Record<string, unknown>[];
+        topDownloads?: Record<string, unknown>[];
         topRated: Record<string, unknown>[];
-        newlyAdded: Record<string, unknown>[];
+        topStarred: Record<string, unknown>[];
+        trending: Record<string, unknown>[];
       };
     }>(serverUrl, "extensions/ranking");
 
     if (!res?.data?.data) return null;
-    const { topDownloads, topRated, newlyAdded } = res.data.data;
+    const { topDownloaded, topDownloads, topRated, topStarred, trending } = res.data.data;
+    const downloads = topDownloads ?? topDownloaded ?? [];
     return {
-      topDownloads: (topDownloads || []).map(normalizeExtension),
+      topDownloaded: downloads.map(normalizeExtension),
+      topDownloads: downloads.map(normalizeExtension),
       topRated: (topRated || []).map(normalizeExtension),
-      newlyAdded: (newlyAdded || []).map(normalizeExtension),
+      topStarred: (topStarred || []).map(normalizeExtension),
+      trending: (trending || []).map(normalizeExtension),
     };
   },
 

@@ -127,6 +127,8 @@ export const de: LocaleMessages = {
     scrollRight: "Tabs nach rechts scrollen",
   },
   editor: {
+    sourceView: "Quelltext",
+    previewView: "Vorschau",
     searchPlaceholder: "Suchen…",
     searchNoResults: "Keine Ergebnisse",
     searchToggleReplace: "Ersetzen ein-/ausblenden",
@@ -433,6 +435,9 @@ export const de: LocaleMessages = {
     commitPlaceholder: "Beschreibe deine Codeänderungen…",
     unstageAll: "Alle aus der Bereitstellung entfernen",
     stageAll: "Alle bereitstellen",
+    stageHunk: "Hunk bereitstellen",
+    unstageHunk: "Hunk aus Staging entfernen",
+    hunkFailed: "Hunk-Aktualisierung fehlgeschlagen: {message}",
     branchPlaceholder: "z. B. feature/editor-overlays",
     discardTitle: "Dateiänderungen verwerfen",
     createAndSwitch: "Erstellen und wechseln",
@@ -825,6 +830,9 @@ export const de: LocaleMessages = {
       },
     },
     editorSection: {
+      capsule: "Intelligente Kapsel",
+      capsuleDescription:
+        "Umschalter zwischen Quelltext und Vorschau in Markdown-Editoren anzeigen",
       title: "Editor-Einstellungen",
       description: "Konfiguriere Aussehen und Verhalten des Code-Editors",
       fontSize: "Schriftgröße",
@@ -847,6 +855,8 @@ export const de: LocaleMessages = {
       cursorBlinkDescription: "Ob der Terminal-Cursor atmet",
     },
     sourceControlSection: {
+      remoteMissing: "Kein origin-Remote konfiguriert",
+      remoteReadFailed: "origin konnte nicht gelesen werden: {message}",
       noRepo: "Kein Git-Arbeitsbereich erkannt",
       noRepoDescription:
         "Im Arbeitsbereich ist kein gültiges Verzeichnis geöffnet. Öffne einen Ordner mit Git-Repository im Explorer und konfiguriere hier die Zugangsdaten",
@@ -1586,6 +1596,10 @@ export const de: LocaleMessages = {
     copyCode: "Code kopieren",
     newChat: "Neue Sitzung",
     sessions: "Sitzungen",
+    deleteSessionConfirm:
+      "Diese Sitzung und ihren Verlauf löschen? Dies kann nicht rückgängig gemacht werden.",
+    you: "Du",
+    toolCalls: "{count} Werkzeugaktionen",
     untitledSession: "Neue Sitzung",
     deleteSession: "Sitzung löschen",
     scrollBottom: "Nach unten scrollen",
@@ -1596,6 +1610,10 @@ export const de: LocaleMessages = {
       settingsTitle: "Agent-Werkzeuge aktivieren",
       settingsDesc:
         "Erlaubt der KI, Arbeitsbereichdateien zu lesen, Code zu suchen und zu ändern sowie Editor-Befehle auszuführen; Schreiboperationen erfordern stets eine Bestätigung",
+      permissionAsk: "Vor jeder Aktion fragen",
+      permissionRead: "Nur lesen",
+      permissionEdit: "Bearbeiten mit Bestätigung",
+      permissionFull: "Vollständiger Werkzeugzugriff",
       confirmTitle: "{tool} bestätigen",
       confirmMessage: "Die KI fordert eine Schreiboperation an — Argumente prüfen und bestätigen",
       roundLimit:

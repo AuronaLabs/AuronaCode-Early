@@ -50,6 +50,30 @@ export interface MultiCursorEditRange {
   cursorOffsetInText: number;
 }
 
+type OffsetEdit = { startUtf16: number; endUtf16: number; text: string };
+
+export function cursorOffsetAfterBatchEdits(
+  originalOffset: number,
+  edits: readonly OffsetEdit[],
+  ownEdit?: { startUtf16: number; cursorOffsetInText: number },
+): number {
+  const ordered = [...edits].sort((a, b) => a.startUtf16 - b.startUtf16);
+  let shift = 0;
+  for (const edit of ordered) {
+    const delta = edit.text.length - (edit.endUtf16 - edit.startUtf16);
+    if (ownEdit) {
+      if (edit.startUtf16 < ownEdit.startUtf16) shift += delta;
+    } else if (edit.endUtf16 <= originalOffset) {
+      shift += delta;
+    } else if (edit.startUtf16 <= originalOffset) {
+      return edit.startUtf16 + shift + Math.min(originalOffset - edit.startUtf16, edit.text.length);
+    } else {
+      break;
+    }
+  }
+  return ownEdit ? ownEdit.startUtf16 + ownEdit.cursorOffsetInText + shift : originalOffset + shift;
+}
+
 type TriggerAutocomplete = (
   lines: string[],
   lineIndex: number,
@@ -242,7 +266,7 @@ export function useEditorCommit({
       let lastStart = Number.MAX_SAFE_INTEGER;
       for (const item of withOffsets) {
         // 与右侧已应用区间重叠（如重复光标）：防御性跳过
-        if (item.endUtf16 > lastStart) continue;
+        if (item.endUtf16 > lastStart || item.startUtf16 === lastStart) continue;
         applied.push(item);
         lastStart = item.startUtf16;
       }
@@ -258,34 +282,46 @@ export function useEditorCommit({
       // 新光标：extras 按原位置升序重建；被跳过的区间光标保持原位
       const skipped = withOffsets.filter((item) => !applied.includes(item));
       const primary = applied.find((item) => item.isPrimary);
+      const primarySkipped = skipped.find((item) => item.isPrimary);
       const extraEdits = applied.filter((item) => !item.isPrimary);
       const nextExtras = [
         ...extraEdits
           .sort((a, b) => a.startUtf16 - b.startUtf16)
           .map((item) => ({
-            cursor: getCursorFromUtf16Offset(nextLines, item.startUtf16 + item.cursorOffsetInText),
+            cursor: getCursorFromUtf16Offset(
+              nextLines,
+              cursorOffsetAfterBatchEdits(item.startUtf16, applied, item),
+            ),
             selection: null,
           })),
         ...skipped
           .filter((item) => !item.isPrimary)
           .sort((a, b) => a.startUtf16 - b.startUtf16)
-          .map((item) => ({ cursor: item.start, selection: null })),
+          .map((item) => ({
+            cursor: getCursorFromUtf16Offset(
+              nextLines,
+              cursorOffsetAfterBatchEdits(item.startUtf16, applied),
+            ),
+            selection: null,
+          })),
       ];
 
       setDocumentLines(nextLines);
       setTotalLines(nextLines.length);
-      if (primary) {
-        setCursor(
-          getCursorFromUtf16Offset(nextLines, primary.startUtf16 + primary.cursorOffsetInText),
-        );
+      const primaryCursorUtf16 = primary
+        ? cursorOffsetAfterBatchEdits(primary.startUtf16, applied, primary)
+        : cursorOffsetAfterBatchEdits(
+            primarySkipped?.startUtf16 ??
+              getLineStartUtf16(documentLines, cursor.line) + cursor.char,
+            applied,
+          );
+      if (primary || primarySkipped) {
+        setCursor(getCursorFromUtf16Offset(nextLines, primaryCursorUtf16));
         setSelection(null);
       }
       replaceExtras(nextExtras);
       updateMaxLineLength(nextLines);
 
-      const primaryCursorUtf16 = primary
-        ? primary.startUtf16 + primary.cursorOffsetInText
-        : getLineStartUtf16(nextLines, cursor.line) + cursor.char;
       pushComposite(
         applied.map((item) => ({
           startUtf16: item.startUtf16,

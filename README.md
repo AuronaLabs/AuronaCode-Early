@@ -4,7 +4,7 @@
   <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.10-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.11-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
@@ -16,7 +16,7 @@
 Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造轻量、克制且具触感美学的沉浸式编码工作台。
 
 > [!NOTE]
-> 当前版本为 **V0.4.6**（性能与生态篇）。扩展 SDK 在合约版本保持 1 的前提下增量扩充（分块读、交互桥、剪贴板与命令真实化）；VSCode 兼容层可靠修复（坏包隔离、结构化错误码、安装自检）；编辑器落地增量渲染与真实折叠（Beta），新增 Peek 定义、补全文档气泡与右键语言菜单；深色高亮泛白全面修正。设计收尾：Slider 随心调节（玻璃强度 0-100 连续 + 三档锚点）、玻璃染色光晕化、流光增强、主题色卡液态描边、OOBE 重做（主题预览隔离 + 编辑器偏好步骤）、空间管理重排；并新增 AI 侧边栏（可用的纯聊天，OpenAI 兼容协议，密钥仅存本地）。
+> 当前开发版本为 **V0.4.11**。本版修复 Marketplace 本地连接与在线状态判断，统一扩展详情、Runtime、权限和版本字段的 API 契约；安装包继续只内置 VSCode 兼容层与 Demo 插件，Markdown、Planner、LSP 和 Runtime 按需从 Marketplace 安装。编辑器内置 Markdown/GFM 预览与 Aurona AI 胶囊，AI/Agent、Git 工作流和玻璃设计系统同步整理，设置与扩展页面沿用统一的控件、表面和浮层语义。
 
 ---
 
@@ -55,7 +55,7 @@ Aurona Code 的扩展资产分为两组：**随安装包内置**（VSCode 兼容
 
 | 资产名称 | 唯一标识符 ID | 资产类型 | 特性描述 |
 | :--- | :--- | :--- | :--- |
-| **Markdown 预览** | `auronalabs.markdown` | WASM 扩展包 (`.aurx`) | 实时双向同步预览、结构化大纲树、GFM 规范支持 |
+| **旧版 Markdown 预览** | `auronalabs.markdown` | 过渡期 Marketplace 扩展 (`.aurx`) | 供既有用户迁移；新用户直接使用编辑器内置预览，不需安装此扩展 |
 | **任务面板** | `auronalabs.planner` | WASM 扩展包 (`.aurx`) | 敏捷看板、多级任务清单、测试用例追踪、Markdown 导出 |
 | **Python 语言服务** | `auronalabs.lsp-pyright` | LSP 语言服务包 (`.aurlsp`) | 基于 Pyright，提供 Python 3.x 静态类型检查与智能补全 |
 | **TypeScript / JS 语言服务** | `auronalabs.lsp-typescript` | LSP 语言服务包 (`.aurlsp`) | 基于 TS Language Server，提供全栈代码智能与重构 |
@@ -67,6 +67,8 @@ Aurona Code 的扩展资产分为两组：**随安装包内置**（VSCode 兼容
 | **Node.js 官方公共运行时** | `auronalabs.runtime-node` | 共享运行时包 (`.zip`) | Node.js 22.x LTS 隔离环境，供所有 Node-based LSP 共享复用 |
 
 > **全新 UI 双模架构 (Dual UI Modes)**：插件开发者可自由选择**「官方原生声明式组件模式 (Declarative Native UI)」**（直接复用官方 Select、Switch、Card、Button 等组件，零额外体积开销）或**「自定义 Webview 容器模式 (Custom Webview Host)」**（完全自主绘制 HTML/CSS/Canvas 视图）。
+
+Markdown 文件在编辑器中通过 Aurona AI 胶囊切换源码与原生 GFM 预览。预览直接读取未保存的编辑缓冲区；本地图片受工作区与文件大小限制。旧 Markdown 扩展在 Marketplace 下线前仍可由已安装用户使用，但不随应用安装。
 
 ---
 

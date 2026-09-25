@@ -126,6 +126,8 @@ export const it: LocaleMessages = {
     scrollRight: "Scorri schede a destra",
   },
   editor: {
+    sourceView: "Codice",
+    previewView: "Anteprima",
     searchPlaceholder: "Cerca…",
     searchNoResults: "Nessun risultato",
     searchToggleReplace: "Mostra/Nascondi sostituzione",
@@ -434,6 +436,9 @@ export const it: LocaleMessages = {
     commitPlaceholder: "Descrivi le modifiche al codice…",
     unstageAll: "Togli tutto dallo stage",
     stageAll: "Metti tutto in stage",
+    stageHunk: "Metti hunk in stage",
+    unstageHunk: "Rimuovi hunk dallo stage",
+    hunkFailed: "Aggiornamento hunk non riuscito: {message}",
     branchPlaceholder: "es. feature/editor-overlays",
     discardTitle: "Scarta modifiche del file",
     createAndSwitch: "Crea e passa",
@@ -829,6 +834,8 @@ export const it: LocaleMessages = {
       },
     },
     editorSection: {
+      capsule: "Capsula intelligente",
+      capsuleDescription: "Mostra il selettore tra codice e anteprima negli editor Markdown",
       title: "Impostazioni editor",
       description: "Configura l'aspetto e il comportamento dell'editor di codice",
       fontSize: "Dimensione carattere",
@@ -852,6 +859,8 @@ export const it: LocaleMessages = {
       cursorBlinkDescription: "Se il cursore del terminale respira",
     },
     sourceControlSection: {
+      remoteMissing: "Nessun remote origin configurato",
+      remoteReadFailed: "Impossibile leggere origin: {message}",
       noRepo: "Nessun workspace Git rilevato",
       noRepoDescription:
         "Nessuna directory valida aperta nel workspace. Apri una cartella contenente un repository Git nell'esplora risorse, poi configura qui le credenziali",
@@ -1587,6 +1596,10 @@ export const it: LocaleMessages = {
     copyCode: "Copia codice",
     newChat: "Nuova sessione",
     sessions: "Sessioni",
+    deleteSessionConfirm:
+      "Eliminare questa sessione e la cronologia? L'azione non può essere annullata.",
+    you: "Tu",
+    toolCalls: "{count} azioni degli strumenti",
     untitledSession: "Nuova sessione",
     deleteSession: "Elimina sessione",
     scrollBottom: "Vai in fondo",
@@ -1597,6 +1610,10 @@ export const it: LocaleMessages = {
       settingsTitle: "Abilita l'esecuzione degli strumenti agent",
       settingsDesc:
         "Consente all'IA di leggere i file dell'area di lavoro, cercare e modificare codice ed eseguire comandi dell'editor; le operazioni di scrittura richiedono sempre conferma",
+      permissionAsk: "Chiedi prima delle azioni",
+      permissionRead: "Solo lettura",
+      permissionEdit: "Modifica con conferma",
+      permissionFull: "Accesso completo agli strumenti",
       confirmTitle: "Conferma {tool}",
       confirmMessage: "L'IA richiede un'operazione di scrittura — verifica i parametri e conferma",
       roundLimit:

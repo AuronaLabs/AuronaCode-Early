@@ -30,12 +30,14 @@ export function EditorSettingsSection({
 }: EditorSettingsSectionProps) {
   const { t } = useLocale();
   const [editorMinimap, setEditorMinimap] = useState(false);
+  const [editorCapsuleEnabled, setEditorCapsuleEnabled] = useState(true);
   const [cursorSmoothCaret, setCursorSmoothCaret] = useState(true);
   const [smoothScrolling, setSmoothScrolling] = useState(true);
 
   useEffect(() => {
     UserConfigStore.get().then((config) => {
       setEditorMinimap(config.editorMinimap ?? false);
+      setEditorCapsuleEnabled(config.editorCapsuleEnabled ?? true);
       const smooth = config.editorCursorSmoothCaret ?? true;
       setCursorSmoothCaret(smooth);
       setSmoothScrolling(config.editorSmoothScrolling ?? true);
@@ -74,6 +76,12 @@ export function EditorSettingsSection({
   const handleMinimapChange = (checked: boolean) => {
     setEditorMinimap(checked);
     void UserConfigStore.set({ editorMinimap: checked });
+    EventBus.emit("settings:editor-changed");
+  };
+
+  const handleCapsuleChange = (checked: boolean) => {
+    setEditorCapsuleEnabled(checked);
+    void UserConfigStore.set({ editorCapsuleEnabled: checked });
     EventBus.emit("settings:editor-changed");
   };
 
@@ -242,6 +250,31 @@ export function EditorSettingsSection({
             <SettingResetButton
               label={t("settings.reset")}
               onReset={() => handleMinimapChange(false)}
+            />
+          </div>
+        </div>
+
+        <div
+          data-setting-id="editorCapsuleEnabled"
+          className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
+        >
+          <div className="flex flex-col gap-1">
+            <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+              {t("settings.editorSection.capsule")}
+            </span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">
+              {t("settings.editorSection.capsuleDescription")}
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Switch
+              checked={editorCapsuleEnabled}
+              onCheckedChange={handleCapsuleChange}
+              aria-label={t("settings.editorSection.capsule")}
+            />
+            <SettingResetButton
+              label={t("settings.reset")}
+              onReset={() => handleCapsuleChange(true)}
             />
           </div>
         </div>

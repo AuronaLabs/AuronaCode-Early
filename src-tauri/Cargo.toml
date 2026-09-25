@@ -1,6 +1,6 @@
 [package]
 name = "aurona_code"
-version = "0.4.10"
+version = "0.4.11"
 description = "Aurona Code Preview"
 authors = ["Aurona Team"]
 edition = "2021"
@@ -24,6 +24,8 @@ opt-level = 2
 
 [profile.dev]
 opt-level = 1
+# Windows/MSVC incremental objects can leave Wasmtime host-resource symbols unresolved at link time.
+incremental = false
 
 [build-dependencies]
 dotenvy = "0.15"

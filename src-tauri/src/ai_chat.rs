@@ -46,14 +46,23 @@ pub struct ChatToolCallPayload {
 /// OpenAI 兼容聊天消息（字段名对齐 wire format；camelCase 由 serde 转换）。
 /// content 可空：assistant 纯工具调用消息与 tool 结果消息按协议可缺省。
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ChatMessagePayload {
     pub role: String,
     #[serde(default)]
     pub content: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "tool_calls",
+        alias = "toolCalls",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub tool_calls: Option<Vec<ChatToolCallPayload>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "tool_call_id",
+        alias = "toolCallId",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub tool_call_id: Option<String>,
 }
 
@@ -61,6 +70,21 @@ pub struct ChatMessagePayload {
 #[derive(Default)]
 pub struct AiChatState {
     aborts: Mutex<HashSet<String>>,
+}
+
+/// 在 Rust 网络层测试 OpenAI 兼容 provider，前端不会触发浏览器 CORS 预检。
+#[tauri::command]
+pub async fn ai_test_connection(base_url: String, api_key: String) -> Result<u16, String> {
+    let url = format!("{}/models", base_url.trim().trim_end_matches('/'));
+    let client = crate::network::configure_client(reqwest::Client::builder())?;
+    let response = client
+        .get(url)
+        .bearer_auth(api_key.trim())
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|error| format!("连接失败: {error}"))?;
+    Ok(response.status().as_u16())
 }
 
 impl AiChatState {
@@ -209,6 +233,7 @@ pub async fn ai_chat_send(
     api_key: String,
     model: String,
     messages: Vec<ChatMessagePayload>,
+    tools: Option<Vec<serde_json::Value>>,
 ) -> Result<(), String> {
     // 发送前检查 abort 标记
     if state.has_abort(&session_id) {
@@ -221,11 +246,15 @@ pub async fn ai_chat_send(
     }
 
     let url = format!("{}/chat/completions", base_url.trim().trim_end_matches('/'));
-    let body = json!({
+    let mut body = json!({
         "model": model,
         "messages": messages,
         "stream": true,
     });
+    if let Some(tools) = tools {
+        body["tools"] = json!(tools);
+        body["tool_choice"] = json!("auto");
+    }
 
     // 必须走全局代理客户端：代理设置覆盖一切 Rust 侧网络。
     // 不设整体 timeout（会掐断长流式），分级超时在下方逐一施加。
@@ -557,16 +586,32 @@ mod tests {
             tool_call_id: None,
         };
         let value = serde_json::to_value(&message).expect("serialize");
-        assert_eq!(value["toolCalls"][0]["id"], "call_1");
-        assert_eq!(value["toolCalls"][0]["type"], "function");
-        assert_eq!(value["toolCalls"][0]["function"]["name"], "read_file");
+        assert_eq!(value["tool_calls"][0]["id"], "call_1");
+        assert_eq!(value["tool_calls"][0]["type"], "function");
+        assert_eq!(value["tool_calls"][0]["function"]["name"], "read_file");
         // toolCallId 缺省时不出现在 wire format；content 以 null 序列化（assistant 纯工具调用）
-        assert!(value.get("toolCallId").is_none());
+        assert!(value.get("tool_call_id").is_none());
         assert!(value["content"].is_null());
 
-        let back: ChatMessagePayload = serde_json::from_value(value).expect("deserialize");
+        let back: ChatMessagePayload = serde_json::from_value(value).expect("deserialize wire");
         assert_eq!(back.role, "assistant");
         assert!(back.tool_calls.as_ref().expect("tool_calls").len() == 1);
+
+        let frontend_value = serde_json::json!({
+            "role": "assistant",
+            "content": null,
+            "toolCalls": [{
+                "id": "call_2",
+                "type": "function",
+                "function": { "name": "list_dir", "arguments": "{}" }
+            }]
+        });
+        let frontend: ChatMessagePayload =
+            serde_json::from_value(frontend_value).expect("deserialize frontend payload");
+        assert_eq!(
+            frontend.tool_calls.as_ref().expect("tool calls")[0].id,
+            "call_2"
+        );
 
         let tool_message = ChatMessagePayload {
             role: "tool".to_string(),
@@ -575,7 +620,16 @@ mod tests {
             tool_call_id: Some("call_1".to_string()),
         };
         let tool_value = serde_json::to_value(&tool_message).expect("serialize tool");
-        assert_eq!(tool_value["toolCallId"], "call_1");
-        assert!(tool_value.get("toolCalls").is_none());
+        assert_eq!(tool_value["tool_call_id"], "call_1");
+        assert!(tool_value.get("tool_calls").is_none());
+
+        let frontend_tool = serde_json::json!({
+            "role": "tool",
+            "content": "file contents",
+            "toolCallId": "call_2"
+        });
+        let parsed_frontend_tool: ChatMessagePayload =
+            serde_json::from_value(frontend_tool).expect("deserialize frontend tool result");
+        assert_eq!(parsed_frontend_tool.tool_call_id.as_deref(), Some("call_2"));
     }
 }

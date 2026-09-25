@@ -141,31 +141,6 @@
   border-radius: var(--radius-surface);
 }
 
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background-color: transparent;
-}
-
-:hover::-webkit-scrollbar-thumb {
-  background-color: rgba(121, 121, 121, 0.4);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(100, 100, 100, 0.7);
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

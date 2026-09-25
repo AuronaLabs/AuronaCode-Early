@@ -126,6 +126,8 @@ export const ja: LocaleMessages = {
     scrollRight: "タブを右へスクロール",
   },
   editor: {
+    sourceView: "ソース",
+    previewView: "プレビュー",
     searchPlaceholder: "検索…",
     searchNoResults: "結果なし",
     searchToggleReplace: "置換の表示切り替え",
@@ -428,6 +430,9 @@ export const ja: LocaleMessages = {
     commitPlaceholder: "コードの変更を説明してください…",
     unstageAll: "すべてステージから外す",
     stageAll: "すべてステージ",
+    stageHunk: "この hunk をステージ",
+    unstageHunk: "この hunk のステージを解除",
+    hunkFailed: "hunk の更新に失敗しました: {message}",
     branchPlaceholder: "例: feature/editor-overlays",
     discardTitle: "ファイルの変更を破棄",
     createAndSwitch: "作成して切り替え",
@@ -818,6 +823,8 @@ export const ja: LocaleMessages = {
       },
     },
     editorSection: {
+      capsule: "スマートカプセル",
+      capsuleDescription: "Markdown エディターにソースとプレビューの切り替えを表示",
       title: "エディター設定",
       description: "コードエディターの見た目と動作を構成します",
       fontSize: "フォントサイズ",
@@ -840,6 +847,8 @@ export const ja: LocaleMessages = {
       cursorBlinkDescription: "ターミナルカーソルを点滅させるかどうか",
     },
     sourceControlSection: {
+      remoteMissing: "origin リモートが設定されていません",
+      remoteReadFailed: "origin を読み取れません: {message}",
       noRepo: "Git ワークスペースが検出されません",
       noRepoDescription:
         "ワークスペースに有効なディレクトリが開かれていません、エクスプローラーで Git リポジトリを含むフォルダーを開いてから、ここで認証情報を構成してください",
@@ -1562,6 +1571,9 @@ export const ja: LocaleMessages = {
     copyCode: "コードをコピー",
     newChat: "新しいセッション",
     sessions: "セッション",
+    deleteSessionConfirm: "このセッションと履歴を削除しますか？元に戻せません。",
+    you: "あなた",
+    toolCalls: "ツール操作 {count} 件",
     untitledSession: "新しいセッション",
     deleteSession: "セッションを削除",
     scrollBottom: "一番下へ",
@@ -1572,6 +1584,10 @@ export const ja: LocaleMessages = {
       settingsTitle: "agent ツール実行を有効化",
       settingsDesc:
         "AI がワークスペースのファイルを読み取り、コードを検索・変更し、エディターコマンドを実行できるようにします。書き込み操作には常に確認が必要です",
+      permissionAsk: "操作前に確認",
+      permissionRead: "読み取り専用",
+      permissionEdit: "確認付き編集",
+      permissionFull: "ツールへの完全アクセス",
       confirmTitle: "{tool} を確認",
       confirmMessage: "AI が書き込み操作を要求しています。引数を確認して承認してください",
       roundLimit:

@@ -136,13 +136,7 @@ export function AppShell({ Children }: AppShellProps) {
       className="flex h-dvh w-screen flex-col text-[var(--color-text-primary)] overflow-hidden"
       style={{ background: "var(--AppBackground, var(--AppBg))" }}
     >
-      <div className="liquid-texture" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-        <span />
-        <span />
-      </div>
+      <div className="liquid-texture" aria-hidden="true" />
 
       <div className="relative z-[1]">
         <TitleBar />

@@ -8,6 +8,7 @@ import {
   AiIPC,
   type AiIpcMessage,
   type AiIpcToolCall,
+  type AiIpcToolDefinition,
 } from "../Foundation/IPC/AiCommands";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 import type { AiProfile } from "../Foundation/Types/Config";
@@ -71,6 +72,83 @@ const AGENT_PROMPT_SECTION = [
   "9. After tool results arrive, continue: summarize what changed and what remains, then finish with a concise final answer.",
 ].join("\n");
 
+/** OpenAI-compatible function schemas. Keeping these beside the transport makes providers
+ * receive real tool calls instead of being asked to imitate them in plain text. */
+const AI_AGENT_TOOL_DEFINITIONS: AiIpcToolDefinition[] = [
+  {
+    type: "function",
+    function: {
+      name: "read_file",
+      description: "Read a text file inside the workspace.",
+      parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_dir",
+      description: "List entries in a workspace directory.",
+      parameters: { type: "object", properties: { path: { type: "string" } } },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_workspace",
+      description: "Search text across workspace files.",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string" } },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "edit_file",
+      description: "Replace one unique text span in a workspace file.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string" },
+          old_text: { type: "string" },
+          new_text: { type: "string" },
+        },
+        required: ["path", "old_text", "new_text"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_diagnostics",
+      description: "Read current language diagnostics.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "run_command",
+      description: "Run one registered editor command.",
+      parameters: {
+        type: "object",
+        properties: { command: { type: "string" } },
+        required: ["command"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "editor_context",
+      description: "Read the active editor path, language, selection, and content.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+];
+
 export interface AiChatToolCall {
   index: number;
   id?: string;
@@ -89,7 +167,12 @@ export interface AiChatToolResult {
 
 /** agent 执行端注入接口（Core 不反向依赖 Features，由 Features 侧注册） */
 export interface AiAgentExecutor {
-  execute(invocation: { id: string; name: string; arguments: string }): Promise<{
+  execute(invocation: {
+    id: string;
+    name: string;
+    arguments: string;
+    signal?: AbortSignal;
+  }): Promise<{
     content: string;
     isError: boolean;
   }>;
@@ -428,6 +511,7 @@ async function runAgentToolRound(generation: {
   for (const call of calls) {
     // abort 会在 activeGeneration 上置空：每次执行前检查，被中止则停止整链
     if (!activeGeneration || activeGeneration.generationId !== generation.generationId) return;
+    const signal = activeGeneration.controller.signal;
     const toolCallId = call.id ?? `call_${call.index}`;
     let outcome: { content: string; isError: boolean };
     if (!agentExecutor) {
@@ -437,8 +521,10 @@ async function runAgentToolRound(generation: {
         id: toolCallId,
         name: call.name ?? "",
         arguments: call.arguments,
+        signal,
       });
     }
+    if (signal.aborted || activeGeneration?.generationId !== generation.generationId) return;
     results.push({
       toolCallId,
       name: call.name ?? "",
@@ -496,7 +582,10 @@ let activeGeneration: {
   startedAtMs: number;
   /** 工具轮次（send 首轮为 0，工具续轮递增） */
   round: number;
+  controller: AbortController;
 } | null = null;
+let generationStarting = false;
+let generationStartEpoch = 0;
 
 /** 当前生成是否已收到首个增量（connecting → streaming 分相） */
 let receivedFirstDelta = false;
@@ -741,7 +830,7 @@ export const AiChatService = {
   /** 发送一条用户消息并开始流式生成 */
   async send(text: string): Promise<void> {
     const trimmed = text.trim();
-    if (!trimmed || activeGeneration) return;
+    if (!trimmed || activeGeneration || generationStarting) return;
     ensureActiveSession();
     const userMessage: AiChatMessage = {
       id: createId(),
@@ -760,80 +849,98 @@ export const AiChatService = {
    * （agent 模式含工具规范）+ 最近 20 条已完成消息（错误/中止/空内容不进入）。
    */
   async startGeneration(round = 0): Promise<void> {
-    if (activeGeneration) return;
-    const config = await UserConfigStore.get();
-    const { active } = resolveAiProfiles(config.ai);
-    const baseUrl = active?.baseUrl.trim();
-    const apiKey = active?.apiKey.trim();
-    const model = active?.model.trim();
-    if (!baseUrl || !apiKey || !model) {
-      snapshot = {
-        ...snapshot,
-        lastError: LocaleService.translate(
-          !baseUrl || !apiKey ? "ai.errorNotConfigured" : "ai.errorModelMissing",
-        ),
-      };
-      publish();
-      return;
-    }
-
-    await bindEvents();
-    ensureActiveSession();
-
-    const generationId = createId();
-    const assistantMessage: AiChatMessage = {
-      id: createId(),
-      role: "assistant",
-      content: "",
-      status: "pending",
-      createdAt: Date.now(),
-      model,
-    };
-    const startedAtMs = Date.now();
-    activeGeneration = {
-      generationId,
-      chatSessionId: store.activeSessionId,
-      assistantMessageId: assistantMessage.id,
-      startedAtMs,
-      round,
-    };
-    receivedFirstDelta = false;
-    updateActiveMessages((messages) => [...messages, assistantMessage]);
-    snapshot = { ...snapshot, lastError: null };
-    publish();
-
-    const messages: AiIpcMessage[] = [
-      { role: "system", content: buildSystemPrompt() },
-      ...buildContextMessages(assistantMessage.id),
-    ];
-
+    if (activeGeneration || generationStarting) return;
+    generationStarting = true;
+    const startEpoch = ++generationStartEpoch;
     try {
-      await AiIPC.send({ sessionId: generationId, baseUrl, apiKey, model, messages });
-    } catch {
-      // invoke 层失败（命令不可达等）：本地收尾并提示
-      activeGeneration = null;
-      const friendly = LocaleService.translate("ai.errorGeneric").replace(
-        "{message}",
-        LocaleService.translate("ai.errorUnavailable"),
-      );
-      patchAssistantById(
-        assistantMessage.id,
-        (message) => ({
-          ...message,
-          status: "error",
-          durationMs: Date.now() - startedAtMs,
-          error: { code: "generic", message: friendly },
-        }),
-        { persist: true },
-      );
-      snapshot = { ...snapshot, lastError: friendly };
+      const config = await UserConfigStore.get();
+      if (startEpoch !== generationStartEpoch) return;
+      const { active } = resolveAiProfiles(config.ai);
+      const baseUrl = active?.baseUrl.trim();
+      const apiKey = active?.apiKey.trim();
+      const model = active?.model.trim();
+      if (!baseUrl || !apiKey || !model) {
+        snapshot = {
+          ...snapshot,
+          lastError: LocaleService.translate(
+            !baseUrl || !apiKey ? "ai.errorNotConfigured" : "ai.errorModelMissing",
+          ),
+        };
+        publish();
+        return;
+      }
+
+      await bindEvents();
+      if (startEpoch !== generationStartEpoch) return;
+      ensureActiveSession();
+
+      const generationId = createId();
+      const assistantMessage: AiChatMessage = {
+        id: createId(),
+        role: "assistant",
+        content: "",
+        status: "pending",
+        createdAt: Date.now(),
+        model,
+      };
+      const startedAtMs = Date.now();
+      activeGeneration = {
+        generationId,
+        chatSessionId: store.activeSessionId,
+        assistantMessageId: assistantMessage.id,
+        startedAtMs,
+        round,
+        controller: new AbortController(),
+      };
+      generationStarting = false;
+      receivedFirstDelta = false;
+      updateActiveMessages((messages) => [...messages, assistantMessage]);
+      snapshot = { ...snapshot, lastError: null };
       publish();
+
+      const messages: AiIpcMessage[] = [
+        { role: "system", content: buildSystemPrompt() },
+        ...buildContextMessages(assistantMessage.id),
+      ];
+
+      try {
+        await AiIPC.send({
+          sessionId: generationId,
+          baseUrl,
+          apiKey,
+          model,
+          messages,
+          ...(agentExecutor ? { tools: AI_AGENT_TOOL_DEFINITIONS } : {}),
+        });
+      } catch {
+        if (activeGeneration?.generationId !== generationId) return;
+        // invoke 层失败（命令不可达等）：本地收尾并提示
+        activeGeneration = null;
+        const friendly = LocaleService.translate("ai.errorGeneric").replace(
+          "{message}",
+          LocaleService.translate("ai.errorUnavailable"),
+        );
+        patchAssistantById(
+          assistantMessage.id,
+          (message) => ({
+            ...message,
+            status: "error",
+            durationMs: Date.now() - startedAtMs,
+            error: { code: "generic", message: friendly },
+          }),
+          { persist: true },
+        );
+        snapshot = { ...snapshot, lastError: friendly };
+        publish();
+      }
+    } finally {
+      if (startEpoch === generationStartEpoch) generationStarting = false;
     }
   },
 
   /** 重试一条失败/中止的 assistant 消息（移除后以其前一条用户消息重发） */
   async retry(messageId: string): Promise<void> {
-    if (activeGeneration) return;
+    if (activeGeneration || generationStarting) return;
     ensureActiveSession();
     const session = activeSession();
     if (!session) return;
@@ -853,8 +960,16 @@ export const AiChatService = {
 
   /** 中止当前生成/工具链（IPC abort + 本地收尾：保留已生成内容并标记已停止） */
   async abort(): Promise<void> {
-    if (!activeGeneration) return;
+    if (!activeGeneration) {
+      if (generationStarting) {
+        generationStartEpoch += 1;
+        generationStarting = false;
+        publish();
+      }
+      return;
+    }
     const { generationId, assistantMessageId, startedAtMs } = activeGeneration;
+    activeGeneration.controller.abort();
     activeGeneration = null;
     // 仅流式中的消息标记停止；已完成（含 tool_calls）的消息保留原状态
     patchAssistantById(

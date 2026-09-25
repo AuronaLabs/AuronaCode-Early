@@ -124,6 +124,8 @@ export const zhHant: LocaleMessages = {
     scrollRight: "向右捲動標籤",
   },
   editor: {
+    sourceView: "原始碼",
+    previewView: "預覽",
     searchPlaceholder: "搜尋...",
     searchNoResults: "無結果",
     searchToggleReplace: "切換取代",
@@ -420,6 +422,9 @@ export const zhHant: LocaleMessages = {
     commitPlaceholder: "描述你的程式碼變更...",
     unstageAll: "全部取消暫存",
     stageAll: "全部暫存",
+    stageHunk: "暫存此區塊",
+    unstageHunk: "取消暫存此區塊",
+    hunkFailed: "變更區塊操作失敗：{message}",
     branchPlaceholder: "例如 feature/editor-overlays",
     discardTitle: "捨棄檔案變更",
     createAndSwitch: "建立並切換",
@@ -797,6 +802,8 @@ export const zhHant: LocaleMessages = {
       },
     },
     editorSection: {
+      capsule: "智慧膠囊",
+      capsuleDescription: "在 Markdown 編輯器中顯示原始碼與預覽切換膠囊",
       title: "編輯器設定",
       description: "設定程式碼編輯器的外觀與行為",
       fontSize: "字型大小",
@@ -818,6 +825,8 @@ export const zhHant: LocaleMessages = {
       cursorBlinkDescription: "是否開啟終端機游標的呼吸閃爍效果",
     },
     sourceControlSection: {
+      remoteMissing: "尚未設定 origin 遠端儲存庫",
+      remoteReadFailed: "讀取 origin 失敗：{message}",
       noRepo: "未偵測到 Git 工作區",
       noRepoDescription:
         "目前未在工作區開啟任何有效的目錄；請先在檔案總管中開啟包含 Git 儲存庫的資料夾，然後在此處設定憑證",
@@ -1432,6 +1441,9 @@ export const zhHant: LocaleMessages = {
     copyCode: "複製程式碼",
     newChat: "新建會話",
     sessions: "會話",
+    deleteSessionConfirm: "確定刪除目前會話及其紀錄？此操作無法復原。",
+    you: "你",
+    toolCalls: "{count} 項工具操作",
     untitledSession: "新會話",
     deleteSession: "刪除會話",
     scrollBottom: "回到底部",
@@ -1440,6 +1452,10 @@ export const zhHant: LocaleMessages = {
     agent: {
       settingsTitle: "啟用 agent 工具執行",
       settingsDesc: "允許 AI 讀取工作區檔案、搜尋與修改程式碼、執行編輯器命令；寫操作始終需要確認",
+      permissionAsk: "執行前詢問",
+      permissionRead: "僅供讀取",
+      permissionEdit: "可編輯（需確認）",
+      permissionFull: "完整工具權限",
       confirmTitle: "確認執行 {tool}",
       confirmMessage: "AI 請求執行寫操作，請核對參數後確認",
       roundLimit: "已達單次對話最大工具輪數，請基於現有資訊直接給出最終回答",

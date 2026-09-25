@@ -51,6 +51,7 @@ export type AuronaEngineProps = {
   value: string;
   language: string;
   isActive?: boolean;
+  focusRequest?: number;
   onChange?: (value: string) => void;
   path?: string;
   revealLine?: number;
@@ -72,6 +73,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   value,
   language,
   isActive = true,
+  focusRequest = 0,
   onChange,
   path,
   revealLine,
@@ -91,6 +93,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const isSmoothCaretEnabled = useFeatureFlagStore((s) => s.isFeatureEnabled("editor.smoothCaret"));
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (focusRequest > 0 && isActive) textareaRef.current?.focus();
+  }, [focusRequest, isActive]);
   const lineElementsRef = useRef(new Map<number, HTMLButtonElement>());
 
   // 1. 文档核心数据

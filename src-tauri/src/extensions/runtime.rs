@@ -35,6 +35,71 @@ const MAX_WORKSPACE_LIST_ENTRIES: u32 = 1000;
 const MAX_FLIUNO_ITEMS: usize = 50;
 const MAX_GIT_LOG_ENTRIES: usize = 100;
 
+fn validate_storage_dir(storage_dir: &Path) -> Result<(), String> {
+    if !storage_dir.exists() {
+        return Ok(());
+    }
+    let metadata = std::fs::symlink_metadata(storage_dir).map_err(|error| error.to_string())?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err("Extension storage directory is not a regular directory".to_string());
+    }
+    let parent = storage_dir
+        .parent()
+        .ok_or_else(|| "Invalid extension storage directory".to_string())?
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
+    let canonical = storage_dir
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
+    if canonical.parent() != Some(parent.as_path()) {
+        return Err("Extension storage directory escaped its parent".to_string());
+    }
+    Ok(())
+}
+
+fn ensure_workspace_write_location(root: &Path, existing: &Path) -> Result<(), String> {
+    let canonical = existing.canonicalize().map_err(|error| error.to_string())?;
+    let relative = canonical
+        .strip_prefix(root)
+        .map_err(|_| "Workspace write path escaped the workspace".to_string())?;
+    if relative.components().any(|part| {
+        part.as_os_str()
+            .to_string_lossy()
+            .eq_ignore_ascii_case(".git")
+    }) {
+        return Err("Workspace write path resolves into .git".to_string());
+    }
+    Ok(())
+}
+
+fn resolve_storage_file(storage_dir: &Path, key: &str) -> Result<std::path::PathBuf, String> {
+    if key.is_empty()
+        || key.len() > 128
+        || key == "."
+        || key == ".."
+        || !key
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
+    {
+        return Err("Invalid extension storage key".to_string());
+    }
+    validate_storage_dir(storage_dir)?;
+    let path = storage_dir.join(format!("{key}.json"));
+    if let Ok(metadata) = std::fs::symlink_metadata(&path) {
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err("Extension storage entry is not a regular file".to_string());
+        }
+        let canonical = path.canonicalize().map_err(|error| error.to_string())?;
+        let parent = storage_dir
+            .canonicalize()
+            .map_err(|error| error.to_string())?;
+        if canonical.parent() != Some(parent.as_path()) {
+            return Err("Extension storage entry escaped its directory".to_string());
+        }
+    }
+    Ok(path)
+}
+
 /// Fliuno 贡献项的宿主侧载荷（bindgen 类型未实现 Serialize，事件里用它）。
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct FliunoContributedItem {
@@ -582,8 +647,23 @@ impl aurona::extensions::context::Host for ExtensionContext {
 
         let target_path = canonical_root.join(requested);
         if let Some(parent) = target_path.parent() {
+            let mut existing = parent;
+            while !existing.exists() {
+                existing = existing
+                    .parent()
+                    .ok_or_else(|| "Workspace write path has no existing ancestor".to_string())?;
+            }
+            ensure_workspace_write_location(&canonical_root, existing)?;
             std::fs::create_dir_all(parent)
                 .map_err(|error| format!("创建父目录失败 {}: {error}", parent.display()))?;
+            ensure_workspace_write_location(&canonical_root, parent)?;
+        }
+
+        if let Ok(metadata) = std::fs::symlink_metadata(&target_path) {
+            if metadata.file_type().is_symlink() || !metadata.is_file() {
+                return Err("Workspace write target is not a regular file".to_string());
+            }
+            ensure_workspace_write_location(&canonical_root, &target_path)?;
         }
 
         std::fs::write(&target_path, content.as_bytes())
@@ -1048,7 +1128,7 @@ impl aurona::extensions::context::Host for ExtensionContext {
     fn storage_get(&mut self, key: String) -> Result<Option<String>, String> {
         // 沙箱键值存储：每个扩展按 id 分离保存在 APPDATA 下
         let storage_dir = self.get_storage_dir();
-        let file_path = storage_dir.join(format!("{key}.json"));
+        let file_path = resolve_storage_file(&storage_dir, &key)?;
         if file_path.exists() {
             let content =
                 std::fs::read_to_string(&file_path).map_err(|e| format!("读取存储项失败: {e}"))?;
@@ -1061,16 +1141,16 @@ impl aurona::extensions::context::Host for ExtensionContext {
     fn storage_set(&mut self, key: String, value: String) -> Result<bool, String> {
         let storage_dir = self.get_storage_dir();
         std::fs::create_dir_all(&storage_dir).map_err(|e| format!("创建存储目录失败: {e}"))?;
-        let file_path = storage_dir.join(format!("{key}.json"));
+        let file_path = resolve_storage_file(&storage_dir, &key)?;
         std::fs::write(&file_path, value).map_err(|e| format!("写入存储项失败: {e}"))?;
         Ok(true)
     }
 
     fn storage_delete(&mut self, key: String) -> Result<bool, String> {
         let storage_dir = self.get_storage_dir();
-        let file_path = storage_dir.join(format!("{key}.json"));
+        let file_path = resolve_storage_file(&storage_dir, &key)?;
         if file_path.exists() {
-            let _ = std::fs::remove_file(file_path);
+            std::fs::remove_file(file_path).map_err(|error| error.to_string())?;
         }
         Ok(true)
     }
@@ -1080,6 +1160,7 @@ impl aurona::extensions::context::Host for ExtensionContext {
         if !storage_dir.exists() {
             return Ok(Vec::new());
         }
+        validate_storage_dir(&storage_dir)?;
         let mut keys = Vec::new();
         if let Ok(entries) = std::fs::read_dir(storage_dir) {
             for entry in entries.flatten() {
@@ -1178,6 +1259,7 @@ impl aurona::extensions::context::Host for ExtensionContext {
         if !storage_dir.exists() {
             return Ok(true);
         }
+        validate_storage_dir(&storage_dir)?;
         std::fs::remove_dir_all(&storage_dir).map_err(|e| format!("清空存储失败: {e}"))?;
         Ok(true)
     }
@@ -1530,5 +1612,74 @@ mod tests {
     fn invalid_component_is_rejected() {
         let result = ExtensionRuntime::new(b"not a wasm component", ExtensionLimits::default());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn workspace_write_rejects_linked_parents_and_git_targets() {
+        let root = std::env::temp_dir().join(format!(
+            "aurona-ext-write-links-{}-{}",
+            std::process::id(),
+            rand::random::<u64>()
+        ));
+        let outside = std::env::temp_dir().join(format!(
+            "aurona-ext-write-outside-{}-{}",
+            std::process::id(),
+            rand::random::<u64>()
+        ));
+        std::fs::create_dir_all(root.join(".git")).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        let mut host = test_context(Some(root.clone()));
+        grant(&mut host, "workspace.write");
+
+        #[cfg(unix)]
+        let linked = std::os::unix::fs::symlink(&outside, root.join("linked"));
+        #[cfg(windows)]
+        let linked = std::os::windows::fs::symlink_dir(&outside, root.join("linked"));
+        if linked.is_ok() {
+            assert!(host
+                .write_workspace_file("linked/nested/file.txt".to_string(), "bad".to_string())
+                .is_err());
+            assert!(!outside.join("nested").exists());
+        }
+
+        #[cfg(unix)]
+        let git_link = std::os::unix::fs::symlink(root.join(".git"), root.join("git-alias"));
+        #[cfg(windows)]
+        let git_link = std::os::windows::fs::symlink_dir(root.join(".git"), root.join("git-alias"));
+        if git_link.is_ok() {
+            assert!(host
+                .write_workspace_file("git-alias/config".to_string(), "bad".to_string())
+                .is_err());
+            assert!(!root.join(".git").join("config").exists());
+        }
+
+        std::fs::remove_dir_all(root).ok();
+        std::fs::remove_dir_all(outside).ok();
+    }
+
+    #[test]
+    fn storage_keys_cannot_escape_the_extension_directory() {
+        let directory = std::env::temp_dir().join(format!(
+            "aurona-extension-storage-test-{}-{}",
+            std::process::id(),
+            rand::random::<u64>()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        assert_eq!(
+            resolve_storage_file(&directory, "normal-key_1").unwrap(),
+            directory.join("normal-key_1.json")
+        );
+        for key in [
+            "",
+            ".",
+            "..",
+            "../../extensions-permissions",
+            "a/b",
+            "a\\b",
+            "C:evil",
+        ] {
+            assert!(resolve_storage_file(&directory, key).is_err(), "{key}");
+        }
+        std::fs::remove_dir_all(directory).unwrap();
     }
 }

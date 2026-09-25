@@ -2,6 +2,8 @@ import type React from "react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { type AiChatMessage, AiChatService, describeAiError } from "../../Core/AiChatService";
 import { useLocale } from "../../Foundation/I18n";
+import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
+import type { AiPreferences } from "../../Foundation/Types/Config";
 import { cn } from "../../Shared/Utils/cn";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Badge } from "../../UI/Components/Badge";
@@ -13,28 +15,18 @@ import {
   DropdownMenuTrigger,
 } from "../../UI/Components/DropdownMenu";
 import { MarkdownRenderer } from "../../UI/Components/MarkdownRenderer";
-import { Select } from "../../UI/Components/Select";
 import { showConfirm } from "../../UI/Feedback/Toast";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
-
-/**
- * 0.4.7 重做：AI 助手侧边栏（纯聊天）。
- * 状态机可视化（连接中/生成中·耗时/完成）、错误与内容分离 + 重试、
- * 多会话管理、消息与代码块复制、输入框自动增高、滚动到底。
- */
-
-/** 会话选择器里标题的最大显示宽度（窄侧栏截断） */
-function shortTitle(title: string, fallback: string): string {
-  const text = title.trim() || fallback;
-  return text.length > 8 ? `${text.slice(0, 8)}…` : text;
-}
+import "./AiAssistantPanel.css";
 
 export function AiAssistantPanel() {
   const { t } = useLocale();
   const chat = useSyncExternalStore(AiChatService.subscribe, AiChatService.getSnapshot);
   const [draft, setDraft] = useState("");
+  const [agentPermission, setAgentPermission] =
+    useState<NonNullable<AiPreferences["agentPermission"]>>("ask");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -45,7 +37,20 @@ export function AiAssistantPanel() {
   // 挂载时刷新配置快照（设置保存后由 AiSettingsSection 通知刷新）
   useEffect(() => {
     void AiChatService.refreshConfig();
+    void UserConfigStore.get().then((config) =>
+      setAgentPermission(config.ai?.agentPermission ?? "ask"),
+    );
   }, []);
+
+  const updateAgentPermission = useCallback(
+    (permission: NonNullable<AiPreferences["agentPermission"]>) => {
+      setAgentPermission(permission);
+      void UserConfigStore.get().then((config) =>
+        UserConfigStore.set({ ai: { ...config.ai, agentPermission: permission } }),
+      );
+    },
+    [],
+  );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: messages 变化驱动自动滚动，内容本身不在 effect 内使用
   useEffect(() => {
@@ -96,9 +101,20 @@ export function AiAssistantPanel() {
     });
   }, [t]);
 
+  const handleDeleteSession = useCallback(() => {
+    showConfirm({
+      title: t("ai.deleteSession"),
+      message: t("ai.deleteSessionConfirm"),
+      confirmLabel: t("ai.deleteSession"),
+      cancelLabel: t("common.cancel"),
+      onConfirm: () => AiChatService.deleteSession(chat.activeSessionId),
+    });
+  }, [chat.activeSessionId, t]);
+
   const hasMessages = chat.messages.length > 0;
   const generating = chat.phase !== "idle";
   const activeProfile = chat.profiles.find((profile) => profile.id === chat.activeProfileId);
+  const activeSession = chat.sessions.find((session) => session.id === chat.activeSessionId);
 
   return (
     <div className="flex h-full w-full flex-col bg-transparent">
@@ -110,86 +126,115 @@ export function AiAssistantPanel() {
           </>
         }
         actions={
-          <div className="flex items-center gap-0.5">
-            {chat.profiles.length > 0 && (
-              <DropdownMenuRoot>
-                <DropdownMenuTrigger
-                  aria-label={t("ai.switchModel")}
-                  className="flex h-7 min-w-0 max-w-[140px] cursor-pointer items-center gap-1 rounded-control px-2 text-[11px] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
-                >
-                  <span className="truncate">
-                    {activeProfile?.name || activeProfile?.model || t("ai.profileUntitled")}
-                  </span>
-                  <Icons.ChevronDown size={12} className="shrink-0" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[200px]">
-                  {chat.profiles.map((profile) => (
-                    <DropdownMenuItem
-                      key={profile.id}
-                      icon={
-                        profile.id === chat.activeProfileId ? (
-                          <Icons.Check size={13} className="text-[var(--color-accent)]" />
-                        ) : null
-                      }
-                      label={
-                        <span className="truncate">
-                          {profile.name || profile.model || t("ai.profileUntitled")}
-                        </span>
-                      }
-                      rightElement={
-                        <span className="max-w-[96px] truncate font-mono">{profile.model}</span>
-                      }
-                      onSelect={() => void AiChatService.setActiveProfile(profile.id)}
-                    />
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenuRoot>
-            )}
-            {chat.sessions.length > 1 && (
-              <Select
-                value={chat.activeSessionId}
-                onChange={(value) => void AiChatService.switchSession(value)}
-                ariaLabel={t("ai.sessions")}
-                className="h-7 min-w-0 w-[112px] rounded-control text-[11px]"
-                options={chat.sessions.map((session) => ({
-                  value: session.id,
-                  label: shortTitle(session.title, t("ai.untitledSession")),
-                }))}
-              />
-            )}
-            <Tooltip content={t("ai.newChat")} delay={300}>
-              <button
-                type="button"
-                onClick={() => AiChatService.newSession()}
-                className="cursor-pointer rounded-control p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
-              >
-                <Icons.Plus size={14} />
-              </button>
-            </Tooltip>
-            {hasMessages && (
-              <Tooltip content={t("ai.clear")} delay={300}>
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  className="cursor-pointer rounded-control p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
-                >
-                  <Icons.Trash size={14} />
-                </button>
-              </Tooltip>
-            )}
-          </div>
+          <Tooltip content={t("ai.newChat")} delay={300}>
+            <button
+              type="button"
+              aria-label={t("ai.newChat")}
+              onClick={() => AiChatService.newSession()}
+              className="cursor-pointer rounded-control p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
+            >
+              <Icons.Plus size={15} />
+            </button>
+          </Tooltip>
         }
       />
 
+      <div className="ai-panel-context mx-[var(--PanelPaddingX)] mb-2 flex shrink-0 flex-col gap-2 pb-3 pt-1">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <DropdownMenuRoot>
+            <DropdownMenuTrigger
+              aria-label={`${t("ai.sessions")}: ${activeSession?.title || t("ai.untitledSession")}`}
+              className="ai-panel-session-trigger flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-control px-2.5 text-left text-[12.5px] font-medium text-[var(--color-text-highlight)]"
+            >
+              <Icons.History size={14} className="shrink-0 text-[var(--color-text-muted)]" />
+              <span className="min-w-0 flex-1 truncate">
+                {activeSession?.title || t("ai.untitledSession")}
+              </span>
+              <Icons.ChevronDown size={12} className="shrink-0 text-[var(--color-text-muted)]" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[220px] max-w-[280px]">
+              {chat.sessions.map((session) => (
+                <DropdownMenuItem
+                  key={session.id}
+                  label={
+                    <span className="block max-w-[215px] break-words">
+                      {session.title || t("ai.untitledSession")}
+                    </span>
+                  }
+                  rightElement={
+                    session.id === chat.activeSessionId ? <Icons.Check size={13} /> : null
+                  }
+                  onSelect={() => void AiChatService.switchSession(session.id)}
+                />
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenuRoot>
+          <Tooltip content={t("ai.deleteSession")} delay={300}>
+            <button
+              type="button"
+              aria-label={t("ai.deleteSession")}
+              onClick={handleDeleteSession}
+              className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-control text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--StatusError)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+            >
+              <Icons.Trash size={14} />
+            </button>
+          </Tooltip>
+        </div>
+        <div className="flex min-w-0 items-center gap-1.5">
+          {chat.profiles.length > 0 && (
+            <DropdownMenuRoot>
+              <DropdownMenuTrigger
+                aria-label={`${t("ai.switchModel")}: ${activeProfile?.name || activeProfile?.model || t("ai.profileUntitled")}`}
+                className="ai-panel-model-trigger flex h-8 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-control px-2.5 text-[11.5px] text-[var(--color-text-secondary)]"
+              >
+                <Icons.Sparkles size={13} className="shrink-0" />
+                <span className="min-w-0 flex-1 truncate text-left">
+                  {activeProfile?.name || activeProfile?.model || t("ai.profileUntitled")}
+                </span>
+                <Icons.ChevronDown size={12} className="shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[200px]">
+                {chat.profiles.map((profile) => (
+                  <DropdownMenuItem
+                    key={profile.id}
+                    icon={
+                      profile.id === chat.activeProfileId ? (
+                        <Icons.Check size={13} className="text-[var(--color-accent)]" />
+                      ) : null
+                    }
+                    label={
+                      <span className="truncate">
+                        {profile.name || profile.model || t("ai.profileUntitled")}
+                      </span>
+                    }
+                    rightElement={
+                      <span className="max-w-[96px] truncate font-mono">{profile.model}</span>
+                    }
+                    onSelect={() => void AiChatService.setActiveProfile(profile.id)}
+                  />
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenuRoot>
+          )}
+          {hasMessages && (
+            <Tooltip content={t("ai.clear")} delay={300}>
+              <button
+                type="button"
+                aria-label={t("ai.clear")}
+                onClick={handleClear}
+                className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-control text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+              >
+                <Icons.Eraser size={14} />
+              </button>
+            </Tooltip>
+          )}
+        </div>
+      </div>
       {/* 消息流 / 空态 */}
       {hasMessages ? (
-        <div className="relative mx-[var(--PanelPaddingX)] mb-3 flex-1 overflow-hidden">
-          <div
-            ref={scrollRef}
-            onScroll={handleScroll}
-            className="h-full overflow-y-auto rounded-surface border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 p-3"
-          >
-            <div className="flex flex-col gap-3">
+        <div className="relative mx-[var(--PanelPaddingX)] mb-3 min-h-0 flex-1 overflow-hidden">
+          <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto px-1 py-3">
+            <div className="flex flex-col">
               {chat.messages.map((message) => (
                 <AiChatBubble
                   key={message.id}
@@ -236,7 +281,7 @@ export function AiAssistantPanel() {
 
       {/* 底部输入区 */}
       <div className="mx-[var(--PanelPaddingX)] mb-3 shrink-0">
-        <div className="flex items-end gap-2 rounded-control border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 p-2 focus-within:border-[var(--color-text-muted)]/25">
+        <div className="ai-panel-composer rounded-control p-3">
           <textarea
             ref={textareaRef}
             value={draft}
@@ -244,28 +289,77 @@ export function AiAssistantPanel() {
             onKeyDown={handleKeyDown}
             placeholder={t("ai.inputPlaceholder")}
             rows={1}
-            className="max-h-32 min-h-9 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-2 text-[12.5px] leading-5 text-[var(--color-text-highlight)] outline-none placeholder:text-[var(--color-text-muted)]"
+            className="max-h-32 min-h-12 min-w-0 resize-none overflow-y-auto bg-transparent px-0 py-0 text-[13px] leading-5 text-[var(--color-text-highlight)] outline-none placeholder:text-[var(--color-text-muted)]"
           />
-          {generating ? (
-            <Button
-              variant="secondary"
-              className="h-8 shrink-0 px-3"
-              onClick={() => void AiChatService.abort()}
+          <div className="mt-1 flex items-center gap-1.5">
+            <button
+              type="button"
+              aria-label="Attach"
+              className="ai-panel-composer-action grid size-7 place-items-center rounded-control"
             >
-              <Icons.Stop size={14} />
-              {t("ai.stop")}
-            </Button>
-          ) : (
-            <Button
-              variant="primary"
-              className="h-8 shrink-0 px-3"
-              disabled={!draft.trim()}
-              onClick={handleSend}
-            >
-              <Icons.ArrowUp size={14} />
-              {t("ai.send")}
-            </Button>
-          )}
+              <Icons.Plus size={16} />
+            </button>
+            <DropdownMenuRoot>
+              <DropdownMenuTrigger className="ai-panel-permission-trigger flex h-7 items-center gap-1 rounded-control px-2 text-[11px] text-[var(--color-text-secondary)]">
+                <Icons.ShieldCheck size={13} />
+                {agentPermission === "ask"
+                  ? t("ai.agent.permissionAsk")
+                  : agentPermission === "read"
+                    ? t("ai.agent.permissionRead")
+                    : agentPermission === "edit"
+                      ? t("ai.agent.permissionEdit")
+                      : t("ai.agent.permissionFull")}
+                <Icons.ChevronDown size={11} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[150px]">
+                {(["ask", "read", "edit", "full"] as const).map((permission) => (
+                  <DropdownMenuItem
+                    key={permission}
+                    label={
+                      permission === "ask"
+                        ? t("ai.agent.permissionAsk")
+                        : permission === "read"
+                          ? t("ai.agent.permissionRead")
+                          : permission === "edit"
+                            ? t("ai.agent.permissionEdit")
+                            : t("ai.agent.permissionFull")
+                    }
+                    rightElement={permission === agentPermission ? <Icons.Check size={13} /> : null}
+                    onSelect={() => updateAgentPermission(permission)}
+                  />
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenuRoot>
+            <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--color-text-muted)]">
+              {activeProfile?.model || t("ai.profileUntitled")}
+            </span>
+            {generating ? (
+              <Tooltip content={t("ai.stop")} delay={300}>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="size-8 shrink-0"
+                  aria-label={t("ai.stop")}
+                  onClick={() => void AiChatService.abort()}
+                >
+                  <Icons.Stop size={15} />
+                </Button>
+              </Tooltip>
+            ) : (
+              <Tooltip content={t("ai.send")} delay={300}>
+                <Button
+                  variant="primary"
+                  size="icon"
+                  className="size-8 shrink-0"
+                  aria-label={t("ai.send")}
+                  disabled={!draft.trim()}
+                  onClick={handleSend}
+                >
+                  <Icons.ArrowUp size={15} />
+                </Button>
+              </Tooltip>
+            )}
+          </div>
         </div>
         <p className="mt-1.5 px-1 text-[10.5px] leading-4 text-[var(--color-text-muted)]">
           {t("ai.localNote")}
@@ -330,7 +424,7 @@ function useCopyText(): [boolean, (text: string) => void] {
   return [copied, copy];
 }
 
-/** 单条消息气泡 */
+/** One request or assistant step in the task timeline. */
 function AiChatBubble({
   message,
   onRetry,
@@ -343,11 +437,19 @@ function AiChatBubble({
 
   if (message.role === "user") {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-surface rounded-br-md border border-[var(--color-accent)]/20 bg-[var(--color-accent)]/10 px-3.5 py-2 text-[12.5px] leading-5 text-[var(--color-text-primary)]">
+      <section className="relative border-l border-[var(--border-subtle)] pb-5 pl-5">
+        <span
+          aria-hidden="true"
+          className="absolute -left-[5px] top-1 size-[9px] rounded-full border-2 border-[var(--color-accent)] bg-[var(--AppBg)]"
+        />
+        <div className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-semibold text-[var(--color-text-muted)]">
+          <Icons.User size={13} />
+          {t("ai.you")}
+        </div>
+        <div className="whitespace-pre-wrap break-words text-[12.5px] leading-5 text-[var(--color-text-primary)]">
           {message.content}
         </div>
-      </div>
+      </section>
     );
   }
 
@@ -357,15 +459,19 @@ function AiChatBubble({
   const hasToolCalls = (message.toolCalls?.length ?? 0) > 0;
 
   return (
-    <div className="group flex justify-start">
-      <div
+    <section className="group relative min-w-0 border-l border-[var(--border-subtle)] pb-5 pl-5">
+      <span
+        aria-hidden="true"
         className={cn(
-          "max-w-[92%] rounded-surface rounded-bl-md border px-3.5 py-2",
-          isError
-            ? "border-[var(--StatusError)]/25 bg-[var(--StatusError)]/5"
-            : "border-[var(--border-subtle)] bg-[var(--material-surface)]",
+          "absolute -left-[5px] top-1 size-[9px] rounded-full border-2 bg-[var(--AppBg)]",
+          isError ? "border-[var(--StatusError)]" : "border-[var(--color-accent)]",
         )}
-      >
+      />
+      <div className="min-w-0">
+        <div className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-semibold text-[var(--color-text-muted)]">
+          <Icons.Sparkles size={13} className="text-[var(--color-accent)]" />
+          {t("ai.title")}
+        </div>
         <MarkdownContent content={message.content} />
         {message.status === "streaming" || message.status === "pending" ? (
           <StreamingCursor />
@@ -430,10 +536,10 @@ function AiChatBubble({
           </div>
         )}
 
-        {/* 工具调用卡片（0.4.8 agent）：每次调用一张，实时反映执行状态与结果 */}
+        {/* Tool details stay available without dominating the task timeline. */}
         {hasToolCalls && <ToolCallCards message={message} />}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -453,75 +559,101 @@ function summarizeArgs(argumentsJson: string): string {
   }
 }
 
-/** 单条工具调用卡片 */
+/** Collapsed tool activity under the assistant step. */
 function ToolCallCards({ message }: { message: AiChatMessage }) {
   const { t } = useLocale();
   const calls = message.toolCalls ?? [];
+  const [expanded, setExpanded] = useState(
+    message.status === "pending" || message.status === "streaming",
+  );
   return (
-    <div className="mt-1.5 flex flex-col gap-1">
-      {calls.map((call) => {
-        const callId = call.id ?? `call_${call.index}`;
-        const result = message.toolResults?.find((item) => item.toolCallId === callId);
-        const state = result
-          ? result.isError
-            ? "error"
-            : "ok"
-          : message.status === "done"
-            ? "running"
-            : "waiting";
-        return (
-          <div
-            key={callId}
-            className="rounded-surface border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/40 px-2 py-1.5"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="flex min-w-0 items-center gap-1.5 font-mono text-[10.5px] text-[var(--color-text-highlight)]">
-                <Icons.InfoCircle size={11} className="shrink-0 text-[var(--color-text-muted)]" />
-                <span className="truncate">{call.name ?? "tool"}</span>
-              </span>
-              {state === "ok" && (
-                <Badge variant="tint" color="var(--StatusSuccess)">
-                  {t("ai.toolCardDone")}
-                </Badge>
-              )}
-              {state === "error" && (
-                <Badge variant="tint" color="var(--StatusError)">
-                  {t("ai.toolCardFailed")}
-                </Badge>
-              )}
-              {state === "running" && <Badge variant="tint">{t("ai.toolCardRunning")}</Badge>}
-              {state === "waiting" && <Badge variant="neutral">{t("ai.toolCardWaiting")}</Badge>}
-            </div>
-            <p className="mt-0.5 break-words font-mono text-[10px] leading-4 text-[var(--color-text-muted)]">
-              {summarizeArgs(call.arguments)}
-            </p>
-            {result && (
-              <p
-                className={cn(
-                  "mt-0.5 break-words text-[10px] leading-4",
-                  result.isError
-                    ? "text-[var(--StatusError)]"
-                    : "text-[var(--color-text-secondary)]",
+    <details
+      className="group/tools mt-2 border-t border-[var(--border-subtle)] pt-1.5"
+      open={expanded}
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-control py-1 text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] [&::-webkit-details-marker]:hidden">
+        <Icons.ChevronRight
+          size={12}
+          className="shrink-0 transition-transform group-open/tools:rotate-90"
+        />
+        {t("ai.toolCalls").replace("{count}", String(calls.length))}
+      </summary>
+      <div className="mt-1 border-l border-[var(--border-subtle)] pl-2.5">
+        {calls.map((call) => {
+          const callId = call.id ?? `call_${call.index}`;
+          const result = message.toolResults?.find((item) => item.toolCallId === callId);
+          const state = result
+            ? result.isError
+              ? "error"
+              : "ok"
+            : message.status === "done"
+              ? "running"
+              : "waiting";
+          return (
+            <div
+              key={callId}
+              className="border-b border-[var(--border-subtle)] py-2 last:border-b-0"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-1.5 font-mono text-[10.5px] text-[var(--color-text-highlight)]">
+                  <Icons.InfoCircle size={11} className="shrink-0 text-[var(--color-text-muted)]" />
+                  <span className="truncate">{call.name ?? "tool"}</span>
+                </span>
+                {state === "ok" && (
+                  <Badge variant="tint" color="var(--StatusSuccess)">
+                    {t("ai.toolCardDone")}
+                  </Badge>
                 )}
-              >
-                {result.content.length > 140 ? `${result.content.slice(0, 140)}…` : result.content}
+                {state === "error" && (
+                  <Badge variant="tint" color="var(--StatusError)">
+                    {t("ai.toolCardFailed")}
+                  </Badge>
+                )}
+                {state === "running" && <Badge variant="tint">{t("ai.toolCardRunning")}</Badge>}
+                {state === "waiting" && <Badge variant="neutral">{t("ai.toolCardWaiting")}</Badge>}
+              </div>
+              <p className="mt-0.5 break-words font-mono text-[10px] leading-4 text-[var(--color-text-muted)]">
+                {summarizeArgs(call.arguments)}
               </p>
-            )}
-          </div>
-        );
-      })}
-    </div>
+              {result && (
+                <p
+                  className={cn(
+                    "mt-0.5 break-words text-[10px] leading-4",
+                    result.isError
+                      ? "text-[var(--StatusError)]"
+                      : "text-[var(--color-text-secondary)]",
+                  )}
+                >
+                  {result.content.length > 140
+                    ? `${result.content.slice(0, 140)}…`
+                    : result.content}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </details>
   );
 }
 
 /** AI 消息正文（Markdown 渲染；空内容时占位） */
 function MarkdownContent({ content }: { content: string }) {
+  const cleaned = content
+    .replace(/\bto=[\w.-]+\s+(?:code|tool_call):\s*/gim, "")
+    .replace(/^\s*\{\s*"(?:path|query|command|old_text|new_text)"[\s\S]*?\}\s*$/gim, "")
+    .replace(/\{[^{}\n]*"(?:path|query|command|old_text|new_text)"[^{}\n]*\}/g, "")
+    .replace(/\\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (!cleaned) return null;
   if (!content) {
     return <p className="text-[12.5px] leading-5 text-[var(--color-text-muted)]">…</p>;
   }
   return (
     <div className="text-[12.5px]">
-      <MarkdownRenderer content={content} />
+      <MarkdownRenderer content={cleaned} />
     </div>
   );
 }
@@ -575,22 +707,26 @@ function AiEmptyState({
 
   return (
     <div className="mx-[var(--PanelPaddingX)] mb-3 flex flex-1 flex-col items-center justify-center gap-4 overflow-y-auto">
-      <div className="flex flex-col items-center gap-2 text-center">
-        <Icons.Sparkles size={26} className="text-[var(--color-accent)]" />
-        <p className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
-          {t("ai.welcomeTitle")}
-        </p>
-        <p className="max-w-[260px] text-[11.5px] leading-5 text-[var(--color-text-muted)]">
-          {t("ai.welcomeHint")}
-        </p>
+      <div className="ai-empty-welcome flex w-full flex-col items-center gap-2.5 rounded-surface px-5 py-6 text-center">
+        <span className="grid size-11 place-items-center rounded-full border border-[color-mix(in_srgb,var(--color-accent)_28%,transparent)] bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] text-[var(--color-accent)]">
+          <Icons.Sparkles size={22} />
+        </span>
+        <div>
+          <p className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
+            {t("ai.welcomeTitle")}
+          </p>
+          <p className="mt-1 max-w-[260px] text-[11.5px] leading-5 text-[var(--color-text-muted)]">
+            {t("ai.welcomeHint")}
+          </p>
+        </div>
       </div>
-      <div className="flex w-full flex-col gap-1.5">
+      <div className="flex w-full flex-col gap-2">
         {(["ai.quickPrompt1", "ai.quickPrompt2", "ai.quickPrompt3"] as const).map((key) => (
           <button
             key={key}
             type="button"
             onClick={() => onQuickPrompt(t(key))}
-            className="w-full rounded-control border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 px-3.5 py-2 text-left text-[12px] text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-text-muted)]/25 hover:text-[var(--color-text-highlight)]"
+            className="w-full rounded-control border border-[var(--border-subtle)] bg-[var(--material-surface)]/45 px-3.5 py-2.5 text-left text-[12px] text-[var(--color-text-secondary)] transition-colors hover:border-[color-mix(in_srgb,var(--color-accent)_35%,var(--border-subtle))] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
           >
             {t(key)}
           </button>

@@ -11,6 +11,9 @@ export interface ExtensionRenderState {
 interface ExtensionViewHostProps {
   viewHtml: string;
   theme: string;
+  accentColor: string;
+  fontSize: string;
+  fontWeight: string;
   renderState: ExtensionRenderState | null;
   onAction?: (actionId: string, payload?: unknown) => void;
 }
@@ -47,6 +50,9 @@ function tryParseDeclarativeUI(raw: string): DeclarativeUIRoot | null {
 export function ExtensionViewHost({
   viewHtml,
   theme,
+  accentColor,
+  fontSize,
+  fontWeight,
   renderState,
   onAction,
 }: ExtensionViewHostProps) {
@@ -75,7 +81,37 @@ export function ExtensionViewHost({
       });
     }
 
-    const transparentStyle = `<style>html, body { background: transparent !important; color-scheme: ${effectiveTheme}; }</style>`;
+    const safeAccent = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/i.test(accentColor)
+      ? accentColor
+      : "#2563eb";
+    const fontSizePx =
+      fontSize === "compact"
+        ? "12px"
+        : fontSize === "comfortable"
+          ? "14px"
+          : fontSize === "large"
+            ? "15px"
+            : "13px";
+    const effectiveWeight = fontWeight === "bold" ? "600" : "400";
+    const isDark = effectiveTheme === "dark";
+    const transparentStyle = `<style>
+      :root {
+        --AuronaAccent: ${safeAccent};
+        --AuronaText: ${isDark ? "#f3f4f6" : "#1f2937"};
+        --AuronaMuted: ${isDark ? "#9ca3af" : "#667085"};
+        --AuronaSurface: ${isDark ? "rgba(255,255,255,.055)" : "rgba(255,255,255,.48)"};
+        --AuronaSurfaceHover: ${isDark ? "rgba(255,255,255,.09)" : "rgba(255,255,255,.72)"};
+        --AuronaBorder: ${isDark ? "rgba(255,255,255,.12)" : "rgba(31,41,55,.10)"};
+        --AuronaFontSize: ${fontSizePx};
+        --AuronaFontWeight: ${effectiveWeight};
+      }
+      html, body {
+        background: transparent !important;
+        color-scheme: ${effectiveTheme};
+        font-size: var(--AuronaFontSize);
+        font-weight: var(--AuronaFontWeight);
+      }
+    </style>`;
     if (result.includes("</head>")) {
       result = result.replace("</head>", `${transparentStyle}</head>`);
     } else {
@@ -83,7 +119,7 @@ export function ExtensionViewHost({
     }
 
     return result.replace(RENDER_SLOT, html).replace(STATUS_SLOT, status);
-  }, [declarativeUI, viewHtml, theme, renderState]);
+  }, [accentColor, declarativeUI, fontSize, fontWeight, viewHtml, theme, renderState]);
 
   // 如果是官方原生声明式组件模式，直接由 React 现代玻璃组件树驱动渲染
   if (declarativeUI) {

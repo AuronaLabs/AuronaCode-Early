@@ -1,0 +1,268 @@
+.markdown-preview-scroll {
+  background: color-mix(in srgb, var(--material-canvas) 76%, var(--surface-base));
+}
+
+.markdown-preview-document {
+  min-height: 100%;
+}
+
+.markdown-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.markdown-preview-outline {
+  position: relative;
+  margin-left: auto;
+}
+.markdown-preview-outline summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 8px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  list-style: none;
+}
+.markdown-preview-outline summary::-webkit-details-marker {
+  display: none;
+}
+.markdown-preview-outline summary:hover {
+  background: var(--material-interactive-hover);
+  color: var(--color-text-highlight);
+}
+.markdown-preview-outline nav {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  width: min(300px, calc(100vw - 48px));
+  max-height: min(45vh, 360px);
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-overlay);
+  background: var(--surface-overlay);
+  box-shadow: var(--shadow-overlay);
+  backdrop-filter: blur(var(--surface-blur-overlay));
+}
+.markdown-preview-outline :where(nav button) {
+  overflow: hidden;
+  padding: 7px 10px;
+  border-radius: var(--radius-control);
+  color: var(--color-text-secondary);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.markdown-preview-outline :where(nav button:hover) {
+  background: var(--material-interactive-hover);
+  color: var(--color-text-highlight);
+}
+.markdown-preview-outline nav button.markdown-preview-outline-level-2 {
+  padding-left: 22px;
+}
+.markdown-preview-outline nav button.markdown-preview-outline-level-3 {
+  padding-left: 34px;
+}
+
+.markdown-preview-prose {
+  color: var(--color-text-primary);
+  font-size: 15px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.markdown-preview-prose > :first-child {
+  margin-top: 28px;
+}
+
+.markdown-preview-prose h1,
+.markdown-preview-prose h2,
+.markdown-preview-prose h3,
+.markdown-preview-prose h4,
+.markdown-preview-prose h5,
+.markdown-preview-prose h6 {
+  color: var(--color-text-highlight);
+  font-weight: 650;
+  line-height: 1.3;
+  scroll-margin-top: 28px;
+}
+
+.markdown-preview-prose h1 {
+  font-size: 29px;
+  margin: 36px 0 18px;
+}
+.markdown-preview-prose h2 {
+  font-size: 23px;
+  margin: 36px 0 16px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.markdown-preview-prose h3 {
+  font-size: 18px;
+  margin: 30px 0 12px;
+}
+.markdown-preview-prose h4,
+.markdown-preview-prose h5,
+.markdown-preview-prose h6 {
+  font-size: 15px;
+  margin: 24px 0 10px;
+}
+
+.markdown-preview-prose p,
+.markdown-preview-prose ul,
+.markdown-preview-prose ol,
+.markdown-preview-prose blockquote,
+.markdown-preview-prose table {
+  margin: 0 0 18px;
+}
+
+.markdown-preview-prose ul {
+  list-style: disc;
+  padding-left: 26px;
+}
+.markdown-preview-prose ol {
+  list-style: decimal;
+  padding-left: 26px;
+}
+.markdown-preview-prose li {
+  padding-left: 3px;
+  margin: 4px 0;
+}
+.markdown-preview-prose li > p {
+  margin-bottom: 6px;
+}
+.markdown-preview-prose li:has(> input[type="checkbox"]) {
+  list-style: none;
+}
+.markdown-preview-prose input[type="checkbox"] {
+  accent-color: var(--color-accent);
+  margin-right: 8px;
+}
+
+.markdown-preview-prose a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.markdown-preview-prose a:hover {
+  color: var(--color-accent-hover);
+}
+.markdown-preview-prose strong {
+  color: var(--color-text-highlight);
+  font-weight: 650;
+}
+.markdown-preview-prose hr {
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  margin: 30px 0;
+}
+.markdown-preview-prose blockquote {
+  border-left: 3px solid var(--color-accent);
+  padding: 5px 0 5px 18px;
+  color: var(--color-text-muted);
+}
+.markdown-preview-prose blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-preview-prose :not(pre) > code {
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  background: var(--material-surface);
+  padding: 2px 5px;
+  font-size: 0.88em;
+}
+
+.markdown-preview-code {
+  margin: 22px 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--material-panel);
+}
+
+.markdown-preview-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 35px;
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.markdown-preview-code-header button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.markdown-preview-code-header button:hover {
+  background: var(--material-interactive-hover);
+  color: var(--color-text-highlight);
+}
+.markdown-preview-code pre {
+  margin: 0;
+  overflow-x: auto;
+  padding: 17px 18px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.markdown-preview-prose table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.markdown-preview-prose th,
+.markdown-preview-prose td {
+  border: 1px solid var(--border-subtle);
+  padding: 8px 12px;
+  text-align: left;
+}
+.markdown-preview-prose th {
+  background: var(--material-surface);
+  color: var(--color-text-highlight);
+  font-weight: 650;
+}
+.markdown-preview-prose tr:nth-child(even) {
+  background: color-mix(in srgb, var(--material-surface) 55%, transparent);
+}
+.markdown-preview-prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 20px auto;
+  border-radius: var(--radius-surface);
+}
+.markdown-preview-image-placeholder {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .markdown-preview-scroll {
+    scroll-behavior: auto;
+  }
+}

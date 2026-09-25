@@ -98,6 +98,8 @@ export interface AiPreferences {
   enabled?: boolean;
   /** 是否启用 agent 工具执行（读/搜/改文件、运行命令；写类操作始终需用户确认） */
   agentEnabled?: boolean;
+  /** Agent 工具权限：询问、只读、可编辑或完整访问。 */
+  agentPermission?: "ask" | "read" | "edit" | "full";
   /** 服务商预设：custom 时 baseUrl 手工填写 */
   provider?: "openai" | "deepseek" | "openrouter" | "custom";
   /** OpenAI 兼容 Chat Completions 接口地址（deprecated：0.4.9 起由 profiles 承载，仅作迁移源） */
@@ -130,6 +132,7 @@ export interface UserConfig {
   editorTabSize?: number;
   editorWordWrap?: "on" | "off" | "wordWrapColumn" | "bounded";
   editorMinimap?: boolean;
+  editorCapsuleEnabled?: boolean;
   editorCursorSmoothCaret?: boolean;
   /** 光标大幅跳转时的 120ms 缓动滚动开关 */
   editorSmoothScrolling?: boolean;

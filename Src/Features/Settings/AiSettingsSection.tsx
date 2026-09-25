@@ -1,13 +1,14 @@
-import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { AiChatService } from "../../Core/AiChatService";
 import { resolveAiProfiles } from "../../Core/AiProfiles";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
+import { AiIPC } from "../../Foundation/IPC/AiCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { AiPreferences, AiProfile } from "../../Foundation/Types/Config";
 import { Badge } from "../../UI/Components/Badge";
 import { Button } from "../../UI/Components/Button";
 import { Input } from "../../UI/Components/Input";
+import { Modal } from "../../UI/Components/Modal";
 import { Select } from "../../UI/Components/Select";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
@@ -70,7 +71,8 @@ async function writeAi(patch: Partial<AiPreferences>): Promise<void> {
 export function AiSettingsSection() {
   const { t } = useLocale();
   const [enabled, setEnabled] = useState(true);
-  const [agentEnabled, setAgentEnabled] = useState(true);
+  const [agentPermission, setAgentPermission] =
+    useState<NonNullable<AiPreferences["agentPermission"]>>("ask");
   const [profiles, setProfiles] = useState<AiProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [editor, setEditor] = useState<ProfileEditorState | null>(null);
@@ -80,7 +82,7 @@ export function AiSettingsSection() {
   useEffect(() => {
     UserConfigStore.get().then((config) => {
       setEnabled(config.ai?.enabled ?? true);
-      setAgentEnabled(config.ai?.agentEnabled !== false);
+      setAgentPermission(config.ai?.agentPermission ?? "ask");
       const resolved = resolveAiProfiles(config.ai);
       setProfiles(resolved.profiles);
       setActiveProfileId(resolved.active?.id ?? null);
@@ -100,9 +102,9 @@ export function AiSettingsSection() {
     void writeAi({ enabled: next });
   };
 
-  const handleAgentEnabledChange = (next: boolean) => {
-    setAgentEnabled(next);
-    void writeAi({ agentEnabled: next });
+  const handleAgentPermissionChange = (next: NonNullable<AiPreferences["agentPermission"]>) => {
+    setAgentPermission(next);
+    void writeAi({ agentPermission: next });
     syncAgentExecutorRegistration();
   };
 
@@ -208,12 +210,9 @@ export function AiSettingsSection() {
     abortRef.current = controller;
     const timer = setTimeout(() => controller.abort(), 15_000);
     try {
-      const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/models`, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-        signal: controller.signal,
-      });
-      if (response.ok) setTestStatus("ok");
-      else if (response.status === 401 || response.status === 403) setTestStatus("auth");
+      const response = await AiIPC.testConnection({ baseUrl, apiKey });
+      if (response >= 200 && response < 300) setTestStatus("ok");
+      else if (response === 401 || response === 403) setTestStatus("auth");
       else setTestStatus("network");
     } catch {
       // 超时（abort）与 DNS/连接失败统一按网络不可达处理
@@ -221,13 +220,6 @@ export function AiSettingsSection() {
     } finally {
       clearTimeout(timer);
       if (abortRef.current === controller) abortRef.current = null;
-    }
-  };
-
-  const handleRowKeyDown = (event: React.KeyboardEvent, id: string) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      void activateProfile(id);
     }
   };
 
@@ -258,42 +250,63 @@ export function AiSettingsSection() {
         {/* 启用侧边栏 AI 卡片 */}
         <div
           data-setting-id="aiEnabled"
-          className="flex min-h-14 items-center justify-between gap-6 p-5"
+          className="flex min-h-20 items-center justify-between gap-5 px-5 py-4"
         >
-          <div className="min-w-0">
-            <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+          <div className="min-w-0 flex-1">
+            <div className="text-[13.5px] font-semibold text-[var(--color-text-highlight)]">
               {t("ai.settingsEnabledTitle")}
             </div>
             <p className="mt-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
               {t("ai.settingsEnabledDesc")}
             </p>
           </div>
-          <Switch checked={enabled} onCheckedChange={handleEnabledChange} />
+          <Switch
+            checked={enabled}
+            onCheckedChange={handleEnabledChange}
+            aria-label={t("ai.settingsEnabledTitle")}
+          />
         </div>
 
         {/* 启用 agent 工具执行 */}
         <div
           data-setting-id="aiAgentEnabled"
-          className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5"
+          className="flex min-h-20 items-center justify-between gap-5 border-t border-[var(--border-subtle)] px-5 py-4"
         >
-          <div className="min-w-0">
-            <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+          <div className="min-w-0 flex-1">
+            <div className="text-[13.5px] font-semibold text-[var(--color-text-highlight)]">
               {t("ai.agent.settingsTitle")}
             </div>
             <p className="mt-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
               {t("ai.agent.settingsDesc")}
             </p>
           </div>
-          <Switch checked={agentEnabled} onCheckedChange={handleAgentEnabledChange} />
+          <div className="flex shrink-0 items-center gap-2">
+            <Select
+              value={agentPermission}
+              onChange={(value) =>
+                handleAgentPermissionChange(value as NonNullable<AiPreferences["agentPermission"]>)
+              }
+              ariaLabel={t("ai.agent.settingsTitle")}
+              className="min-w-[168px]"
+              options={[
+                { value: "ask", label: t("ai.agent.permissionAsk") },
+                { value: "read", label: t("ai.agent.permissionRead") },
+                { value: "edit", label: t("ai.agent.permissionEdit") },
+                { value: "full", label: t("ai.agent.permissionFull") },
+              ]}
+            />
+          </div>
         </div>
+      </GlassContainer>
 
+      <GlassContainer layer="raised" className="overflow-hidden">
         {/* 模型配置：标题行 + 添加入口 */}
         <div
           data-setting-id="aiProfiles"
-          className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5"
+          className="flex flex-wrap items-center justify-between gap-4 px-5 py-4"
         >
-          <div className="min-w-0">
-            <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
+          <div className="min-w-0 flex-1">
+            <div className="text-[13.5px] font-semibold text-[var(--color-text-highlight)]">
               {t("ai.profilesTitle")}
             </div>
             <p className="mt-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
@@ -311,77 +324,78 @@ export function AiSettingsSection() {
         </div>
 
         {/* 配置档条目：点击行激活；行内编辑/删除按钮 */}
+        {profiles.length === 0 && (
+          <div className="flex items-center gap-3 border-t border-[var(--border-subtle)] px-5 py-5 text-[12px] text-[var(--color-text-muted)]">
+            <Icons.Sparkles size={16} className="shrink-0 text-[var(--color-accent)]" />
+            {t("ai.notConfiguredTitle")}
+          </div>
+        )}
         {profiles.map((profile) => {
           const isActive = profile.id === activeProfileId;
           return (
             <div
               key={profile.id}
-              className="border-t border-[var(--border-subtle)] px-5 py-3 transition-colors"
+              className={`flex min-w-0 items-center gap-2 border-t border-[var(--border-subtle)] py-2 pl-3 pr-4 transition-colors ${
+                isActive ? "bg-[color-mix(in_srgb,var(--color-accent)_7%,transparent)]" : ""
+              }`}
             >
-              {/* biome-ignore lint/a11y/useSemanticElements: 行内含嵌套交互按钮，不能用语义 button */}
-              <div
-                role="button"
-                tabIndex={0}
+              <button
+                type="button"
+                aria-pressed={isActive}
                 onClick={() => void activateProfile(profile.id)}
-                onKeyDown={(event) => handleRowKeyDown(event, profile.id)}
-                className={`-mx-2 flex cursor-pointer items-center gap-3 rounded-control px-2 py-2 transition-colors ${
-                  isActive
-                    ? "bg-[var(--material-interactive-hover)]"
-                    : "hover:bg-[var(--material-interactive-hover)]/60"
-                }`}
+                className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-control px-2 py-2.5 text-left transition-colors hover:bg-[var(--material-interactive-hover)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)]"
               >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-[13.5px] font-medium text-[var(--color-text-highlight)]">
-                      {profile.name || profile.model || t("ai.profileUntitled")}
-                    </span>
-                    {isActive && (
-                      <Badge variant="tint" color="var(--StatusSuccess)">
-                        {t("ai.profileInUse")}
-                      </Badge>
-                    )}
-                    {profile.provider && (
-                      <Badge variant="neutral">{t(PROVIDER_LABEL_KEY[profile.provider])}</Badge>
-                    )}
-                  </div>
-                  <div className="truncate font-mono text-[11.5px] text-[var(--color-text-muted)]">
+                <span
+                  className={`grid size-9 shrink-0 place-items-center rounded-control border ${
+                    isActive
+                      ? "border-[color-mix(in_srgb,var(--color-accent)_28%,transparent)] bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] text-[var(--color-accent)]"
+                      : "border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-muted)]"
+                  }`}
+                >
+                  <Icons.Sparkles size={16} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-semibold text-[var(--color-text-highlight)]">
+                    {profile.name || profile.model || t("ai.profileUntitled")}
+                  </span>
+                  <span className="block truncate text-[11px] text-[var(--color-text-muted)]">
                     {profile.model || t("ai.profileModelMissing")}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    startEditProfile(profile);
-                  }}
-                  className="grid size-7 shrink-0 place-items-center rounded-full text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
-                  aria-label={t("ai.profileEdit")}
-                >
-                  <Icons.Pencil size={14} />
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    deleteProfile(profile.id);
-                  }}
-                  className="grid size-7 shrink-0 place-items-center rounded-full text-[var(--color-text-muted)] transition-colors hover:bg-[var(--StatusError)]/15 hover:text-[var(--StatusError)]"
-                  aria-label={t("ai.profileDelete")}
-                >
-                  <Icons.Trash size={14} />
-                </button>
-              </div>
+                    {profile.provider ? ` · ${t(PROVIDER_LABEL_KEY[profile.provider])}` : ""}
+                  </span>
+                </span>
+                {isActive && <Badge variant="tint">{t("ai.profileInUse")}</Badge>}
+              </button>
+              <button
+                type="button"
+                onClick={() => startEditProfile(profile)}
+                className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-control text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+                aria-label={`${t("ai.profileEdit")}: ${profile.name || profile.model || t("ai.profileUntitled")}`}
+              >
+                <Icons.Pencil size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteProfile(profile.id)}
+                className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-control text-[var(--color-text-muted)] transition-colors hover:bg-[color-mix(in_srgb,var(--StatusError)_12%,transparent)] hover:text-[var(--StatusError)] focus-visible:outline-2 focus-visible:outline-[var(--StatusError)]"
+                aria-label={`${t("ai.profileDelete")}: ${profile.name || profile.model || t("ai.profileUntitled")}`}
+              >
+                <Icons.Trash size={15} />
+              </button>
             </div>
           );
         })}
 
         {/* 展开编辑器：新增 / 编辑共用 */}
+      </GlassContainer>
+      <Modal
+        isOpen={Boolean(editor)}
+        onClose={closeEditor}
+        title={editor?.isNew ? t("ai.profileAddTitle") : t("ai.profileEditTitle")}
+        icon={<Icons.Sparkles size={18} className="text-[var(--color-accent)]" />}
+        className="max-h-[calc(100vh-24px)] max-w-[min(580px,calc(100vw-24px))]"
+      >
         {editor && (
-          <div className="flex flex-col gap-4 border-t border-[var(--border-subtle)] p-5">
-            <div className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
-              {editor.isNew ? t("ai.profileAddTitle") : t("ai.profileEditTitle")}
-            </div>
-
+          <div className="flex max-h-[calc(100vh-110px)] flex-col gap-4 overflow-y-auto pr-1">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <span className="text-[12px] text-[var(--color-text-muted)]">
@@ -486,7 +500,7 @@ export function AiSettingsSection() {
             </div>
           </div>
         )}
-      </GlassContainer>
+      </Modal>
     </div>
   );
 }

@@ -45,6 +45,7 @@ export interface EventMap {
     }>;
     onDismiss?: () => void;
   };
+  "app:dismiss-toast": string;
   "app:show-fliuno": undefined;
 
   "app:toggle-terminal": boolean | undefined;

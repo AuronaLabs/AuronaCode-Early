@@ -20,6 +20,8 @@ export const FileSystemCommands = {
 
   readTextFile: (path: string) => invokeDesktop<string>("fs_read_text_file", { path }),
 
+  readImageDataUrl: (path: string) => invokeDesktop<string>("fs_read_image_data_url", { path }),
+
   writeTextFile: (path: string, contents: string) =>
     invokeDesktop<void>("fs_write_text_file", { path, contents }),
 

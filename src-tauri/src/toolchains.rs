@@ -96,6 +96,54 @@ pub fn get_toolchains_base_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf,
     Ok(dir)
 }
 
+fn validate_toolchain_segment(value: &str) -> Result<(), String> {
+    if value.is_empty()
+        || value.len() > 128
+        || value.starts_with('.')
+        || value.ends_with('.')
+        || value.contains("..")
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_' | b'+'))
+    {
+        return Err(format!("Invalid toolchain path segment: {value}"));
+    }
+    Ok(())
+}
+
+fn checked_child_directory(parent: &Path, child: &str, create: bool) -> Result<PathBuf, String> {
+    validate_toolchain_segment(child)?;
+    let canonical_parent = parent.canonicalize().map_err(|error| error.to_string())?;
+    let path = parent.join(child);
+    if create && !path.exists() {
+        fs::create_dir(&path).map_err(|error| error.to_string())?;
+    }
+    if path.exists() {
+        let metadata = fs::symlink_metadata(&path).map_err(|error| error.to_string())?;
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err(format!("Unsafe toolchain directory: {}", path.display()));
+        }
+        let canonical = path.canonicalize().map_err(|error| error.to_string())?;
+        if canonical.parent() != Some(canonical_parent.as_path()) {
+            return Err(format!(
+                "Toolchain directory escaped its parent: {}",
+                path.display()
+            ));
+        }
+    }
+    Ok(path)
+}
+
+struct InstallStagingDir(PathBuf);
+
+impl Drop for InstallStagingDir {
+    fn drop(&mut self) {
+        if self.0.exists() {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+}
+
 fn calculate_directory_size(path: &Path) -> u64 {
     if !path.exists() {
         return 0;
@@ -323,22 +371,33 @@ pub fn install_toolchain_file(
         .and_then(|v| v.as_str())
         .unwrap_or("1.0.0");
 
+    validate_toolchain_segment(id)?;
+    validate_toolchain_segment(version)?;
+
     let base = get_toolchains_base_dir(app_handle)?;
 
-    let target_dir = if kind == "runtime" {
+    let install_dir = if kind == "runtime" {
         let r_type = manifest_val
             .get("runtimeType")
             .and_then(|v| v.as_str())
             .unwrap_or("node");
-        base.join("runtimes").join(r_type).join(version)
+        let runtimes = checked_child_directory(&base, "runtimes", true)?;
+        let runtime = checked_child_directory(&runtimes, r_type, true)?;
+        checked_child_directory(&runtime, version, false)?
     } else {
-        base.join("servers").join(id).join(version)
+        let servers = checked_child_directory(&base, "servers", true)?;
+        let server = checked_child_directory(&servers, id, true)?;
+        checked_child_directory(&server, version, false)?
     };
 
+    let install_parent = install_dir
+        .parent()
+        .ok_or_else(|| "Invalid toolchain install directory".to_string())?;
+    let staging_name = format!("stage-{}-{}", std::process::id(), rand::random::<u64>());
+    let target_dir = checked_child_directory(install_parent, &staging_name, true)?;
+    let _staging_guard = InstallStagingDir(target_dir.clone());
+
     // 清理旧版本目录并重建
-    if target_dir.exists() {
-        let _ = fs::remove_dir_all(&target_dir);
-    }
     fs::create_dir_all(&target_dir)
         .map_err(|e| format!("无法创建目标目录 {}: {e}", target_dir.display()))?;
 
@@ -420,13 +479,38 @@ pub fn install_toolchain_file(
         .unwrap_or("node")
         .to_string();
 
+    let backup_dir = install_parent.join(format!(
+        "backup-{}-{}",
+        std::process::id(),
+        rand::random::<u64>()
+    ));
+    if backup_dir.exists() {
+        return Err("Toolchain backup directory already exists".to_string());
+    }
+    let had_previous = install_dir.exists();
+    if had_previous {
+        fs::rename(&install_dir, &backup_dir)
+            .map_err(|error| format!("Unable to preserve previous toolchain: {error}"))?;
+    }
+    if let Err(error) = fs::rename(&target_dir, &install_dir) {
+        if had_previous {
+            fs::rename(&backup_dir, &install_dir).map_err(|rollback| {
+                format!("Toolchain replacement failed: {error}; rollback failed: {rollback}")
+            })?;
+        }
+        return Err(format!("Unable to install toolchain: {error}"));
+    }
+    if had_previous {
+        let _ = fs::remove_dir_all(&backup_dir);
+    }
+
     Ok(InstalledToolchainSummary {
         id: id.to_string(),
         name,
         version: version.to_string(),
         languages,
         runtime_type,
-        install_path: target_dir.to_string_lossy().to_string(),
+        install_path: install_dir.to_string_lossy().to_string(),
         disk_size_bytes: disk_size,
     })
 }
@@ -678,8 +762,13 @@ pub fn list_all_installed_toolchains(app_handle: &tauri::AppHandle) -> Toolchain
 
 /// 卸载指定的 LSP 语言服务
 pub fn uninstall_toolchain_server(app_handle: &tauri::AppHandle, id: &str) -> Result<(), String> {
+    validate_toolchain_segment(id)?;
     let base = get_toolchains_base_dir(app_handle)?;
-    let server_dir = base.join("servers").join(id);
+    let servers = checked_child_directory(&base, "servers", false)?;
+    if !servers.exists() {
+        return Ok(());
+    }
+    let server_dir = checked_child_directory(&servers, id, false)?;
     if server_dir.exists() {
         fs::remove_dir_all(&server_dir).map_err(|e| format!("卸载语言服务 {id} 失败: {e}"))?;
     }
@@ -691,8 +780,13 @@ pub fn uninstall_toolchain_runtime(
     app_handle: &tauri::AppHandle,
     runtime_type: &str,
 ) -> Result<(), String> {
+    validate_toolchain_segment(runtime_type)?;
     let base = get_toolchains_base_dir(app_handle)?;
-    let runtime_dir = base.join("runtimes").join(runtime_type);
+    let runtimes = checked_child_directory(&base, "runtimes", false)?;
+    if !runtimes.exists() {
+        return Ok(());
+    }
+    let runtime_dir = checked_child_directory(&runtimes, runtime_type, false)?;
     if runtime_dir.exists() {
         fs::remove_dir_all(&runtime_dir)
             .map_err(|e| format!("卸载共享运行时 {runtime_type} 失败: {e}"))?;
@@ -703,6 +797,30 @@ pub fn uninstall_toolchain_runtime(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn toolchain_path_segments_reject_traversal_and_absolute_paths() {
+        for value in [
+            "",
+            ".",
+            "..",
+            "../outside",
+            "..\\outside",
+            "/outside",
+            "C:\\outside",
+            "a..b",
+        ] {
+            assert!(validate_toolchain_segment(value).is_err(), "{value}");
+        }
+        for value in [
+            "auronalabs.pyright",
+            "0.4.0-pioneer.2",
+            "1.2.3+build.4",
+            "node_22",
+        ] {
+            assert!(validate_toolchain_segment(value).is_ok(), "{value}");
+        }
+    }
 
     #[test]
     fn installed_runtime_summary_reads_the_local_manifest() {

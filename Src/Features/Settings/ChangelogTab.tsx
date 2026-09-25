@@ -35,7 +35,9 @@ const preReleaseLabel = (version: string): string | null => {
 /** 大版本族 ID：主版本.次版本，如 "0.4" */
 const familyIdOf = (version: string) => {
   const parsed = parseAuronaVersion(version);
-  return `${parsed.major}.${parsed.minor}`;
+  const core = `${parsed.major}.${parsed.minor}.${parsed.patch}`;
+  // Stable 0.4.0 与 0.4.0-pioneer.* 共用一张卡片；其余稳定版本各自成卡。
+  return parsed.preReleaseTag === "pioneer" || parsed.patch === 0 ? `${core}.pioneer` : core;
 };
 
 interface VersionFamily {
@@ -102,26 +104,28 @@ export function ChangelogTab() {
     }
     return Array.from(buckets.entries()).map(([id, releases]) => {
       const parsed = parseAuronaVersion(releases[0].version);
-      const isPioneerFamily = releases.some((release) => preReleaseLabel(release.version) !== null);
+      const isPioneerFamily = releases.some(
+        (release) => parseAuronaVersion(release.version).preReleaseTag === "pioneer",
+      );
       return {
         id,
-        label: `${id}.x`,
+        label: isPioneerFamily
+          ? `${parsed.major}.${parsed.minor}.${parsed.patch} Pioneer`
+          : formatDisplayVersion(releases[0].version),
         isPioneerFamily,
         // Pioneer 卡标题固定为 "x.y.z Pioneer"，不含迭代号（迭代号由卡内菜单切换）
         pioneerLabel: isPioneerFamily
-          ? `${parsed.major}.${parsed.minor}.${parsed.patch} ${
-              (parsed.preReleaseTag ?? "").charAt(0).toUpperCase() +
-              (parsed.preReleaseTag ?? "").slice(1)
-            }`
+          ? `${parsed.major}.${parsed.minor}.${parsed.patch} Pioneer`
           : null,
         releases,
       };
     });
   }, []);
 
-  const pioneerFamily = families.find((family) => family.isPioneerFamily);
   const [selectedFamilyId, setSelectedFamilyId] = useState(families[0]?.id ?? "");
-  const [pioneerVersion, setPioneerVersion] = useState(pioneerFamily?.releases[0]?.version ?? "");
+  const [pioneerVersion, setPioneerVersion] = useState(
+    families.find((family) => family.isPioneerFamily)?.releases[0]?.version ?? "",
+  );
   // 卡片展开/收缩：键为版本号（普通卡片）或族 ID（Pioneer 卡）
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => {
     const first = CHANGELOG_DATA[0];
@@ -131,9 +135,10 @@ export function ChangelogTab() {
   });
 
   const selectedFamily = families.find((family) => family.id === selectedFamilyId) ?? families[0];
-  const pioneerRelease =
-    pioneerFamily?.releases.find((release) => release.version === pioneerVersion) ??
-    pioneerFamily?.releases[0];
+  const pioneerRelease = selectedFamily?.isPioneerFamily
+    ? (selectedFamily.releases.find((release) => release.version === pioneerVersion) ??
+      selectedFamily.releases[0])
+    : undefined;
 
   const toggleKey = (key: string) => {
     setExpandedKeys((previous) => {
@@ -148,6 +153,7 @@ export function ChangelogTab() {
     setSelectedFamilyId(id);
     // 切换大版本族时重置展开状态：默认展开该族最新的一张卡
     const family = families.find((item) => item.id === id);
+    setPioneerVersion(family?.releases[0]?.version ?? "");
     setExpandedKeys(new Set(family?.isPioneerFamily ? [id] : [family?.releases[0]?.version ?? ""]));
   };
 

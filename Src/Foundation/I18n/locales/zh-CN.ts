@@ -122,6 +122,8 @@ export const zhCN = {
     scrollRight: "向右滚动标签",
   },
   editor: {
+    sourceView: "源码",
+    previewView: "预览",
     searchPlaceholder: "搜索...",
     searchNoResults: "无结果",
     searchToggleReplace: "切换替换",
@@ -418,6 +420,9 @@ export const zhCN = {
     commitPlaceholder: "描述你的代码变更...",
     unstageAll: "全部取消暂存",
     stageAll: "全部暂存",
+    stageHunk: "暂存此块",
+    unstageHunk: "取消暂存此块",
+    hunkFailed: "变更块操作失败：{message}",
     branchPlaceholder: "例如 feature/editor-overlays",
     discardTitle: "放弃文件更改",
     createAndSwitch: "创建并切换",
@@ -793,6 +798,8 @@ export const zhCN = {
       },
     },
     editorSection: {
+      capsule: "智能胶囊",
+      capsuleDescription: "在 Markdown 编辑器中显示源码与预览切换胶囊",
       title: "编辑器设置",
       description: "配置代码编辑器的外观和行为",
       fontSize: "字体大小",
@@ -814,6 +821,8 @@ export const zhCN = {
       cursorBlinkDescription: "是否开启终端光标的呼吸闪烁效果",
     },
     sourceControlSection: {
+      remoteMissing: "尚未配置 origin 远端仓库",
+      remoteReadFailed: "读取 origin 失败：{message}",
       noRepo: "未检测到 Git 工作区",
       noRepoDescription:
         "当前未在工作区打开任何有效的目录；请先在资源管理器中打开包含 Git 仓库的文件夹，然后在此处配置凭据",
@@ -1425,6 +1434,9 @@ export const zhCN = {
     copyCode: "复制代码",
     newChat: "新建会话",
     sessions: "会话",
+    deleteSessionConfirm: "确定删除当前会话及其记录？此操作无法撤销。",
+    you: "你",
+    toolCalls: "{count} 项工具操作",
     untitledSession: "新会话",
     deleteSession: "删除会话",
     scrollBottom: "回到底部",
@@ -1433,6 +1445,10 @@ export const zhCN = {
     agent: {
       settingsTitle: "启用 agent 工具执行",
       settingsDesc: "允许 AI 读取工作区文件、搜索与修改代码、运行编辑器命令；写操作始终需要确认",
+      permissionAsk: "执行前询问",
+      permissionRead: "仅阅读",
+      permissionEdit: "可编辑（需确认）",
+      permissionFull: "完整工具权限",
       confirmTitle: "确认执行 {tool}",
       confirmMessage: "AI 请求执行写操作，请核对参数后确认",
       roundLimit: "已达单次对话最大工具轮数，请基于现有信息直接给出最终回答",

@@ -152,12 +152,14 @@ export const SourceControl = React.memo(function SourceControl() {
 
   useEffect(() => {
     let mounted = true;
+    let activeRoot: string | null = null;
 
     const init = async () => {
       try {
         const config = await WorkspaceStore.get();
         const path = config.lastOpenedPath || null;
         if (!mounted) return;
+        activeRoot = path;
 
         if (!path) {
           setIsLoading(false);
@@ -181,6 +183,7 @@ export const SourceControl = React.memo(function SourceControl() {
     init();
 
     const unsubRootChanged = EventBus.on("workspace:root-changed", (path: string) => {
+      activeRoot = path;
       const cached = GitService.getCache(path);
       if (cached) {
         applyCache(cached);
@@ -190,10 +193,14 @@ export const SourceControl = React.memo(function SourceControl() {
         checkRepo(path);
       }
     });
+    const unsubCache = GitService.subscribe((cache) => {
+      if (mounted && cache?.repoPath === activeRoot) applyCache(cache);
+    });
 
     return () => {
       mounted = false;
       unsubRootChanged();
+      unsubCache();
     };
   }, [applyCache, checkRepo]);
 

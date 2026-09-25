@@ -320,4 +320,56 @@ describe("AiChatService", () => {
     expect(snapshot.messages).toHaveLength(0);
     expect(snapshot.sessions).toHaveLength(1);
   });
+
+  it("accepts only one send while configuration is still loading", async () => {
+    const service = await loadService();
+    const { UserConfigStore } = await import("../Foundation/Storage/UserConfigStore");
+    const config = await UserConfigStore.get();
+    let release: (() => void) | undefined;
+    vi.mocked(UserConfigStore.get).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve(config);
+        }),
+    );
+
+    const first = service.send("first request");
+    await service.send("second request");
+    expect(
+      service.getSnapshot().messages.filter((message) => message.role === "user"),
+    ).toHaveLength(1);
+    release?.();
+    await first;
+    expect(aiMock.sentPayloads).toHaveLength(1);
+  });
+
+  it("aborts a pending tool confirmation without starting a follow-up", async () => {
+    const service = await loadService();
+    let signal: AbortSignal | undefined;
+    let finish: ((value: { content: string; isError: boolean }) => void) | undefined;
+    service.setAgentExecutor({
+      execute: ({ signal: currentSignal }) =>
+        new Promise((resolve) => {
+          signal = currentSignal;
+          finish = resolve;
+        }),
+      toolPrompt: "- run_command(command)",
+    });
+    await service.send("run a command");
+    const sessionId = aiMock.sentPayloads[0].sessionId;
+    aiMock.handlers.delta?.({
+      sessionId,
+      toolCalls: [
+        { index: 0, id: "call_1", name: "run_command", argumentsDelta: '{"command":"test"}' },
+      ],
+    });
+    aiMock.handlers.done?.({ sessionId, aborted: false, finishReason: "tool_calls" });
+    await vi.waitFor(() => expect(signal).toBeDefined());
+
+    await service.abort();
+    expect(signal?.aborted).toBe(true);
+    finish?.({ content: "cancelled", isError: true });
+    await Promise.resolve();
+    expect(aiMock.sentPayloads).toHaveLength(1);
+  });
 });

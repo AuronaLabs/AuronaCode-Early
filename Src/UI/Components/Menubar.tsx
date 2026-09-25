@@ -51,7 +51,7 @@ export const MenubarContent = React.forwardRef<
       sideOffset={sideOffset}
       className={cn(
         glassVariants({ layer: "overlay" }),
-        "rounded-overlay p-1 z-[9999] flex flex-col min-w-[160px] overflow-hidden",
+        "relative rounded-overlay p-1 z-[9999] flex flex-col min-w-[160px] overflow-hidden",
         "animate-in fade-in duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out",
         className,
       )}

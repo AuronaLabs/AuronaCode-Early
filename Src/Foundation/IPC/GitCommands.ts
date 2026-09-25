@@ -63,6 +63,14 @@ export const GitIPC = {
   getWorktreeDiff: (path: string, file: string, staged: boolean) =>
     invokeDesktop<string>("git_worktree_diff", { path, file, staged }),
 
+  applyHunk: (
+    path: string,
+    file: string,
+    staged: boolean,
+    hunkIndex: number,
+    expectedDiff: string,
+  ) => invokeDesktop<void>("git_apply_hunk", { path, file, staged, hunkIndex, expectedDiff }),
+
   discardFile: (path: string, file: string) =>
     invokeDesktop<void>("git_discard_file", { path, file }),
 

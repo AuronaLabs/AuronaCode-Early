@@ -109,6 +109,22 @@ describe("ToastContainer + showToast/showConfirm", () => {
     expect(screen.queryByText("确定要删除 main.ts 吗？")).not.toBeInTheDocument();
   });
 
+  it("treats the close button as cancellation exactly once", async () => {
+    const onConfirm = vi.fn();
+    const onCancel = vi.fn();
+    render(<ToastContainer />);
+    act(() => {
+      showConfirm({ title: "Review", message: "Continue?", onConfirm, onCancel });
+    });
+    await act(async () => {});
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭通知" }));
+    await act(async () => {});
+
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
   it("does not show a non-critical toast when muted", async () => {
     render(<ToastContainer />);
 

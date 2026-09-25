@@ -1,0 +1,96 @@
+.ai-panel-context {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ai-panel-session-trigger,
+.ai-panel-model-trigger {
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--material-surface) 64%, transparent);
+  transition:
+    background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease,
+    color var(--duration-fast) ease;
+}
+
+.ai-panel-session-trigger:hover,
+.ai-panel-model-trigger:hover {
+  border-color: var(--border-subtle);
+  background: var(--material-interactive-hover);
+  color: var(--color-text-highlight);
+}
+
+.ai-panel-session-trigger:focus-visible,
+.ai-panel-model-trigger:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-text-muted) 48%, transparent);
+  outline-offset: 1px;
+}
+
+.ai-panel-composer {
+  border: 1px solid var(--border-subtle);
+  background: var(--material-surface);
+  box-shadow:
+    inset 0 1px 0 var(--GlassSurface-Highlight),
+    0 8px 20px color-mix(in srgb, var(--AppBg) 35%, transparent);
+  backdrop-filter: blur(var(--surface-blur-raised)) saturate(var(--GlassSaturation));
+  transition:
+    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+}
+
+/* Keep the multiline composer on the same embedded input surface as Git's commit editor.
+ * WebView focus rings are otherwise painted as a bright blue rectangle around textarea. */
+.ai-panel-composer textarea {
+  display: block;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  appearance: none;
+}
+
+.ai-panel-composer textarea:focus {
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+}
+
+.ai-panel-composer:focus-within {
+  border-color: color-mix(in srgb, var(--color-text-muted) 28%, var(--border-subtle));
+  box-shadow:
+    inset 0 1px 0 var(--GlassSurface-Highlight),
+    0 0 0 2px color-mix(in srgb, var(--color-text-muted) 10%, transparent),
+    0 8px 20px color-mix(in srgb, var(--AppBg) 35%, transparent);
+}
+
+.ai-panel-composer-action,
+.ai-panel-permission-trigger {
+  color: var(--color-text-muted);
+  transition:
+    background-color var(--duration-fast) ease,
+    color var(--duration-fast) ease;
+}
+
+.ai-panel-composer-action:hover,
+.ai-panel-permission-trigger:hover {
+  background: var(--material-interactive-hover);
+  color: var(--color-text-highlight);
+}
+
+.ai-panel-context + .relative .border-l {
+  border-color: var(--border-subtle);
+}
+
+.ai-empty-welcome {
+  border: 1px solid color-mix(in srgb, var(--GlassSurface-Rim) 62%, var(--border-subtle));
+  background:
+    radial-gradient(
+      circle at 50% -30%,
+      color-mix(in srgb, var(--color-accent) 12%, transparent),
+      transparent 68%
+    ),
+    color-mix(in srgb, var(--surface-raised) 66%, transparent);
+  box-shadow:
+    inset 0 1px 0 var(--GlassSurface-Highlight),
+    0 12px 28px color-mix(in srgb, var(--AppBg) 26%, transparent);
+  backdrop-filter: blur(var(--surface-blur-raised)) saturate(var(--GlassSaturation));
+}

@@ -1,7 +1,7 @@
 {
   "name": "aurona-code",
   "private": true,
-  "version": "0.4.10",
+  "version": "0.4.11",
   "packageManager": "pnpm@12.4.1",
   "type": "module",
   "scripts": {
@@ -15,7 +15,8 @@
     "build:vscode-compat": "node scripts/build-vscode-compat-extension.mjs",
     "verify:vscode-compat": "node scripts/verify-vscode-compat-extension.mjs",
     "build:vscode-demo": "node scripts/build-vscode-demo-extension.mjs",
-    "prepare:extensions": "pnpm run build:vscode-compat && pnpm run verify:vscode-compat && pnpm run build:vscode-demo",
+    "prepare:extensions": "pnpm run build:vscode-compat && pnpm run verify:vscode-compat && pnpm run build:vscode-demo && pnpm run check:bundled-extensions",
+    "check:bundled-extensions": "node scripts/check-bundled-extensions.mjs",
     "build:marketplace": "pnpm run build:markdown && pnpm run verify:markdown && pnpm run build:planner && pnpm run verify:planner",
     "typecheck": "tsc --noEmit",
     "check": "biome ci Src",
@@ -61,6 +62,9 @@
     "highlight.js": "^11.9.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-markdown": "^10.1.0",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.6.0",
     "zustand": "^5.0.14"
   },
