@@ -4,7 +4,7 @@
   <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.12-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.13-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
@@ -16,7 +16,7 @@
 Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造轻量、克制且具触感美学的沉浸式编码工作台。
 
 > [!NOTE]
-> 当前开发版本为 **V0.4.11**。本版修复 Marketplace 本地连接与在线状态判断，统一扩展详情、Runtime、权限和版本字段的 API 契约；安装包继续只内置 VSCode 兼容层与 Demo 插件，Markdown、Planner、LSP 和 Runtime 按需从 Marketplace 安装。编辑器内置 Markdown/GFM 预览与 Aurona AI 胶囊，AI/Agent、Git 工作流和玻璃设计系统同步整理，设置与扩展页面沿用统一的控件、表面和浮层语义。
+> 当前开发版本为 **V0.4.13**。0.4.12 已完成 Agent 工作台、Responses API、Markdown 回复、工具调用摘要和 Editor 状态协作；本版本将在此基线上继续推进 Agent 与 Editor 的体验和可靠性。
 
 ---
 

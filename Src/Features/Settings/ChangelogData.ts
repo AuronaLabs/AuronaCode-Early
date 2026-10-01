@@ -12,9 +12,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-    version: "V0.4.12",
+    version: "V0.4.13",
     date: "2026-10-01",
     isLatest: true,
+    summary: "0.4.12 发布后的开发基线：继续推进 Agent 与 Editor 的协作体验和运行可靠性。",
+    sections: [
+      {
+        title: "开发基线",
+        description: "0.4.13 从已发布的 Agent 工作台和 Editor 协作能力继续演进。",
+        items: ["沿用 Responses API、Markdown 回复、工具调用摘要、检查点和编辑器视图状态持久化。"],
+      },
+      {
+        title: "后续方向",
+        description: "本版本的具体功能将在开发过程中持续补充并经过 Quality 门禁验证。",
+        items: ["优先处理 Agent 工具可靠性、Editor 协作细节和真实 Tauri/WebView2 验收反馈。"],
+      },
+    ],
+  },
+  {
+    version: "V0.4.12",
+    date: "2026-10-01",
+    isLatest: false,
     summary:
       "Agent 工作台与 Editor 协作升级：统一事件运行时、可恢复检查点、Responses API、Markdown 回复和更紧凑的工具状态展示。",
     sections: [
