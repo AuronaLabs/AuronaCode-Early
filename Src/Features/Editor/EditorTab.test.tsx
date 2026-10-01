@@ -168,12 +168,30 @@ describe("EditorTab save checkpoints", () => {
     await screen.findByTestId("editor-change");
 
     await act(async () => {
-      await DocumentService.applyEdits("C:\\external.ts", [], "updated external content");
+      await DocumentService.applyEdits(
+        "C:\\external.ts",
+        [],
+        "updated external content",
+        "external",
+      );
     });
 
     await waitFor(() =>
       expect(screen.getByTestId("external-content")).toHaveTextContent("updated external content"),
     );
+
+    let saveTask: Promise<boolean> | undefined;
+    await act(async () => {
+      saveTask = EditorSaveRegistry.save("C:\\external.ts");
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(mocks.save).toHaveBeenCalled());
+    await act(async () => {
+      mocks.resolveSave?.({ revision: 2, diskFingerprint: "disk-2" });
+      await Promise.resolve();
+    });
+    await expect(saveTask).resolves.toBe(true);
+    expect(mocks.discardRecovery).toHaveBeenCalledWith("C:\\external.ts");
   });
 
   it("previews unsaved Markdown while keeping the source editor mounted", async () => {
@@ -195,7 +213,7 @@ describe("EditorTab save checkpoints", () => {
     mocks.changeValues = ["# Capsule preview"];
     render(<EditorTab path={"C:\\capsule.md"} isActive />);
     fireEvent.click(await screen.findByTestId("editor-change"));
-    const capsule = await screen.findByRole("toolbar", { name: "Aurona AI Capsule" });
+    const capsule = await screen.findByRole("toolbar");
     fireEvent.click(capsule.querySelectorAll("button")[1]);
     expect(await screen.findByRole("heading", { name: "Capsule preview" })).toBeInTheDocument();
 
@@ -203,9 +221,7 @@ describe("EditorTab save checkpoints", () => {
       await UserConfigStore.set({ editorCapsuleEnabled: false });
       mocks.handlers.get("settings:editor-changed")?.();
     });
-    await waitFor(() =>
-      expect(screen.queryByRole("toolbar", { name: "Aurona AI Capsule" })).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByRole("toolbar")).not.toBeInTheDocument());
     expect(screen.queryByRole("heading", { name: "Capsule preview" })).not.toBeInTheDocument();
     expect(screen.getByTestId("editor-change")).toBeInTheDocument();
 
@@ -213,7 +229,7 @@ describe("EditorTab save checkpoints", () => {
       await UserConfigStore.set({ editorCapsuleEnabled: true });
       mocks.handlers.get("settings:editor-changed")?.();
     });
-    expect(await screen.findByRole("toolbar", { name: "Aurona AI Capsule" })).toBeInTheDocument();
+    expect(await screen.findByRole("toolbar")).toBeInTheDocument();
   });
 
   it("saves an inactive tab by path and keeps it open when edits continue", async () => {

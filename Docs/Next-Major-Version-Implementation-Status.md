@@ -1,31 +1,63 @@
-# 下一大版本实施状态
+# 0.4.13 第二波实施状态
 
-当前开发版本：`v0.4.11`。本文件记录从 `v0.4.10` 审计基线推进到当前工作区的实施状态；发布前仍需完成完整构建与 Tauri 运行验证。
+## 0.4.13 second-wave runtime contracts
 
-更新于 2026-09-26。范围依据 [存量问题计划](Next-Major-Version-Audit-Plan.md)、[设计系统计划](Next-Major-Version-Design-System-Audit.md) 和 [产品体验计划](Next-Major-Version-Product-Experience-Plan.md)。三个计划保留原始审计证据；本文件记录代码进度，不代表发布验收。
+- `AgentToolMetadata` describes effects, permission, checkpoint policy, recoverability, and input
+  schema for each built-in tool. Checkpoints use declared write or workspace-change effects rather
+  than `edit_file` or `run_command` name checks.
+- Tool argument and workspace-boundary validation runs before approval. Tool failures return
+  `isError: true`; `get_tool_help` exposes capability metadata. Affected-file resolution is
+  available for file edits and collects open documents for command execution.
+- `WorkspaceContextProvider` provides project root, active/open files, language, selection, cursor,
+  diagnostics, and recent changes without project indexing. `MemoryProvider` and its bounded
+  in-memory implementation establish the interface for a later persistent store.
+- Focused tests cover metadata, pre-approval validation, capability help, workspace context, and
+  in-memory memory query/store behavior.
 
-## 已实现
+Smart Capsule remains design-only. The current Sidebar Assistant and its interaction model are
+unchanged in 0.4.13.
 
-- 修复通用 Modal 与玻璃材质定位冲突；圆角令牌改为控件 10px、表面 14px、浮层 18px，移除全局焦点半径覆盖。
-- 将设计样式拆为令牌、主题、基础、材质和组件层；流光收敛为启用时显示的背景场，降低动态效果时停止动画。
-- Markdown 原生预览直接集成编辑器：胶囊切换源码和预览，保留编辑器挂载与每页签状态，渲染未保存内容、GFM、代码复制、文内大纲和受限本地图片。
-- 智能胶囊改为独立长椭圆玻璃外形，增大两个图标按钮的间距，并下移到编辑区底部上方的稳定位置。编辑器设置加入可持久化的胶囊开关；关闭时若正在预览，会返回源码视图。
-- 扩展资源扫描只自动加载 VSCode 兼容层，Demo 仍由按需入口安装；加入打包资源白名单校验。保留旧 Markdown/Planner 用户安装包和权限数据。
-- 修复扩展存储键、工作区写入和工具链目录的路径边界；工具链安装改用暂存及失败回滚。修复脏页签保存关闭、Agent 停止后确认执行、确认关闭悬挂和并发发送。
-- Git 设置页增加仓库概览、状态、远端配置、初始化与抓取；区分缺失与损坏的 origin。Agent 侧栏改为活动时间线、独立会话/模型工具行及会话删除；模型编辑改为悬浮窗。
-- 多光标批量编辑按先前修改的长度变化重新计算光标。拒绝扩展读取权限不再阻断无关 UI 渲染。
+当前开发版本为 `v0.4.13`。本文件记录第二波 Agent Runtime 稳定化与 Workspace Intelligence 基础已经落地、可以复核的工作，以及仍需完成的发布门禁，不再把旧的 0.4.12 规划当作当前状态。
 
-## 尚待完成或验证
+## 已落地
 
-- 真实 Tauri/WebView2 窗口：更新弹窗完整流程、Markdown 胶囊、设置窄窗口、深浅主题、缩放、键盘焦点、OOBE 和 Fliuno。Vite 单独在浏览器中无法提供 Tauri IPC，不能替代桌面验收。
-- Git 侧栏的搜索式分支切换、提交前变更摘要及逐块暂存/取消暂存；需覆盖同一文件同时有暂存与未暂存修改、冲突、重命名和换行变化。
-- Agent 的结构化计划、文件变更、审批历史与产物仍需事件模型；当前时间线只呈现已有消息和工具结果。
-- WebView2 帧率、GPU、内存与玻璃强度对比；安装包最终内容、旧版升级路径和跨平台打包验证。
-- 旧 Markdown Marketplace 包的下架与发布路径调整需与 Marketplace 同步；不能自动删除既有用户插件或数据。
-- 版本号、发行说明、签名、发布候选产物和正式发布尚未确定或执行。
+- 编辑器继续使用 AuronaEngine，Markdown 原生预览支持 GFM、代码块和数学公式。
+- Agent 使用 Responses API，工具调用、审批、停止和会话存储走统一事件模型。
+- Agent 系统提示词明确了 Markdown、GFM、LaTeX、工具参数和审批边界。
+- Agent 工具胶囊、Markdown 渲染、模型选择和会话切换已接入现有侧边栏设计系统。
+- 扩展资源、工具链和写入路径已有基础路径边界校验，Marketplace 扩展按独立包分发。
+- Git 状态、Problems、Code Action、Rename、Definition、References、Peek 和格式化能力已接入编辑器工作流。
+- 主题、材质、玻璃层和 OOBE 使用共享 token 与组件，旧聊天历史不会再进入新 Agent 会话。
 
-## 当前代码验证
+## 第二波已落地
 
-- TypeScript、Vite 构建、i18n 结构、材质/桌面边界及定向前端测试通过。
-- Rust `cargo test --no-default-features --features aurona-account --lib`：126 通过、1 项依赖本地账号服务而跳过；`cargo fmt --check` 通过。
-- 全量 Biome 格式检查受工作区既有 CRLF/LF 差异影响，需在确认换行策略后重新执行；定向 lint 已通过。
+- Agent 事件序号在裁剪和清空后仍保持单调，reducer 保持纯函数，会话与 checkpoint 存储支持校验、staging 和损坏备份。
+- 写操作和命令执行前统一创建 checkpoint，恢复前校验文件指纹；停止、切换会话和审批取消不会再产生迟到的成功事件。
+- Responses SSE 支持增量文本、函数参数、EOF、异常、超时、abort 和终态补发，运行时已移除旧 Chat Completions 路径。
+- Code Action、WorkspaceEdit、Agent 修改和外部变更统一经过编辑器事务链，标签页保存、视图状态和恢复快照可持久化。
+- OOBE 重跑会读取现有偏好，取消或保存失败会恢复草稿；脏标签页批量关闭进入真实保存流程。
+
+## 后续批次
+
+- 继续迁移前端硬编码文案；当前 i18n 检查报告 94 条非阻断警告，后续继续收敛。
+- 完成真实 Tauri/WebView2 的窄窗口、Markdown、Editor、AI、OOBE、Fliuno 和 GPU/帧率验收。
+- 继续审计命令可能修改多文件时的 checkpoint 覆盖范围，并补充真实桌面恢复流程。
+
+## 已完成的自动门禁
+
+- 前端：`pnpm run typecheck`、`pnpm run check`、`pnpm run i18n:check`、边界检查、扩展完整性、smoke、Vitest 和 Vite 构建已通过。
+- 测试规模：前端 96 个测试文件、367 个测试通过；Rust 128 passed、1 ignored。
+- Rust：VS2022 Build Tools 环境下的 fmt、Clippy、锁定依赖检查和测试已通过。
+- Responses：本地 SSE fixture 覆盖增量文本、函数参数增量、usage、错误、超时、abort、无换行 EOF 和终态补发。
+- Agent：事件 reducer、队列、steer、停止/继续、审批取消、checkpoint 指纹和旧数据迁移测试。
+- Editor：差异应用/拒绝/撤销、上下文采集、标签页视图状态和外部变更测试。
+- Agent / Editor：事件 reducer、工具元数据、checkpoint 指纹、Workspace Context、编辑器上下文和标签页视图状态测试已通过。
+
+## 尚待真实桌面验收
+
+- 在 Tauri/WebView2 中验证窄窗口、Markdown、Editor、AI、OOBE、Fliuno、GPU/帧率以及 checkpoint 恢复流程。
+- 继续迁移前端硬编码文案；当前 i18n 检查报告 94 条非阻断警告。
+
+## 本版明确不做
+
+云 Agent、并行 Agent、worktree、Git commit/stash 编排和 Marketplace 升级路径留到 0.5.x 以后；本版只保证单本地 Agent 的可靠性和编辑器协作闭环。

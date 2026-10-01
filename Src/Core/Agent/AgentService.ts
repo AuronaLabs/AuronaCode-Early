@@ -3,7 +3,10 @@ import { AiIPC, type AiResponseEventPayload } from "../../Foundation/IPC/AiComma
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { AiProfile } from "../../Foundation/Types/Config";
 import { isAiProfileUsable, resolveAiProfiles } from "../AiProfiles";
+import { EditorAdapter } from "../Editor/EditorAdapter";
+import { WorkspaceService } from "../WorkspaceService";
 import { AgentCheckpointStore } from "./AgentCheckpointStore";
+import { reduceAgentEvent, validEventSeq } from "./AgentEventReducer";
 import { AgentSessionStore } from "./AgentSessionStore";
 import type {
   AgentEvent,
@@ -12,8 +15,11 @@ import type {
   AgentSnapshot,
   AgentTaskSnapshot,
   AgentToolExecutor,
+  AgentToolMetadata,
   AgentToolOutcome,
 } from "./AgentTypes";
+
+export { reduceAgentEvent, replayAgentTask } from "./AgentEventReducer";
 
 const SYSTEM_INSTRUCTIONS = [
   "You are Aurona Agent, a careful coding assistant inside Aurona Code.",
@@ -29,7 +35,20 @@ const SYSTEM_INSTRUCTIONS = [
   "When finished, summarize the changes and the checks you actually ran. Do not narrate every token or internal step.",
 ].join("\n");
 
-const MAX_STEPS = 40;
+const KNOWN_RESPONSE_EVENT_TYPES = new Set([
+  "response.created",
+  "response.in_progress",
+  "response.output_text.delta",
+  "response.output_text.done",
+  "response.function_call_arguments.delta",
+  "response.function_call_arguments.done",
+  "response.output_item.added",
+  "response.output_item.done",
+  "response.completed",
+  "response.incomplete",
+  "response.failed",
+  "error",
+]);
 
 type AgentListener = () => void;
 
@@ -66,122 +85,8 @@ function event(
   return { id: createId("event"), taskId, seq, timestamp: Date.now(), type, payload, stepId };
 }
 
-function textFromEvent(item: AgentEvent): string {
-  return typeof item.payload.content === "string" ? item.payload.content : "";
-}
-
-function titleFromInput(input: string): string {
-  const compact = input.trim().replace(/\s+/g, " ");
-  return compact.length > 48 ? `${compact.slice(0, 48)}...` : compact;
-}
-
 function inputItem(text: string): Record<string, unknown> {
   return { role: "user", content: [{ type: "input_text", text }] };
-}
-
-export function reduceAgentEvent(task: AgentTaskSnapshot, next: AgentEvent): AgentTaskSnapshot {
-  const events = [...task.events, next].slice(-500);
-  const updated: AgentTaskSnapshot = { ...task, events, updatedAt: next.timestamp };
-  switch (next.type) {
-    case "task.created":
-      updated.input = textFromEvent(next) || updated.input;
-      updated.title = updated.title || titleFromInput(updated.input);
-      updated.status = "planning";
-      break;
-    case "task.queued":
-      if (typeof next.payload.content === "string") {
-        updated.queuedInputs = [...updated.queuedInputs, next.payload.content].slice(0, 20);
-      }
-      if (updated.status === "idle") updated.status = "queued";
-      break;
-    case "task.paused":
-      updated.status = "paused";
-      break;
-    case "task.resumed":
-      updated.status = "running";
-      break;
-    case "task.steered":
-      updated.status = "running";
-      break;
-    case "task.completed":
-      updated.status = "completed";
-      break;
-    case "task.failed":
-      updated.status = "failed";
-      updated.lastError =
-        typeof next.payload.message === "string" ? next.payload.message : "Agent failed";
-      break;
-    case "task.aborted":
-      updated.status = "aborted";
-      break;
-    case "step.started":
-      updated.status = "running";
-      updated.steps = [
-        ...updated.steps,
-        {
-          id: next.stepId ?? createId("step"),
-          title: typeof next.payload.title === "string" ? next.payload.title : "Agent step",
-          kind: (next.payload.kind === "tool" ? "tool" : "model") as "tool" | "model",
-          status: "running" as const,
-          toolName: typeof next.payload.toolName === "string" ? next.payload.toolName : undefined,
-          startedAt: next.timestamp,
-        },
-      ].slice(-MAX_STEPS);
-      break;
-    case "step.delta": {
-      const step = updated.steps.find((item) => item.id === next.stepId);
-      if (step && typeof next.payload.content === "string") {
-        step.detail = `${step.detail ?? ""}${next.payload.content}`;
-      }
-      break;
-    }
-    case "step.completed": {
-      const step = updated.steps.find((item) => item.id === next.stepId);
-      if (step) {
-        step.status = "completed";
-        step.completedAt = next.timestamp;
-        if (typeof next.payload.content === "string") step.detail = next.payload.content;
-      }
-      break;
-    }
-    case "tool.started": {
-      const step = updated.steps.find((item) => item.id === next.stepId);
-      if (step) step.status = "running";
-      break;
-    }
-    case "tool.completed": {
-      const step = updated.steps.find((item) => item.id === next.stepId);
-      if (step) {
-        step.status = next.payload.isError === true ? "failed" : "completed";
-        step.completedAt = next.timestamp;
-        step.detail = typeof next.payload.content === "string" ? next.payload.content : step.detail;
-      }
-      break;
-    }
-    case "approval.requested":
-      updated.status = "waiting_approval";
-      updated.pendingApproval = next.payload.approval as AgentTaskSnapshot["pendingApproval"];
-      break;
-    case "approval.approved":
-    case "approval.rejected":
-    case "approval.cancelled":
-      updated.pendingApproval = null;
-      if (updated.status === "waiting_approval") updated.status = "running";
-      break;
-    case "checkpoint.created":
-      updated.activeCheckpointId =
-        typeof next.payload.checkpointId === "string" ? next.payload.checkpointId : null;
-      break;
-    case "checkpoint.restored":
-      updated.activeCheckpointId =
-        typeof next.payload.checkpointId === "string"
-          ? next.payload.checkpointId
-          : updated.activeCheckpointId;
-      break;
-    default:
-      break;
-  }
-  return updated;
 }
 
 class AgentServiceImpl {
@@ -290,22 +195,29 @@ class AgentServiceImpl {
 
   newSession(): string {
     this.abortTask(this.activeTaskId(), "aborted");
-    const task = this.store.createTask();
+    const task = this.store.createSession();
     this.publish();
     return task.id;
   }
 
   async switchSession(id: string): Promise<void> {
-    if (id === this.activeTaskId()) return;
+    const target = this.store.getState().sessions.find((session) => session.id === id);
+    const taskId = target?.activeTaskId ?? id;
+    if (taskId === this.activeTaskId()) return;
     this.abortTask(this.activeTaskId(), "aborted");
-    this.store.setActiveTask(id);
+    if (target) this.store.setActiveSession(id);
+    else this.store.setActiveTask(id);
     this.publish();
   }
 
   deleteSession(id: string): void {
-    this.abortTask(id, "aborted");
-    this.checkpoints.deleteForTask(id);
-    this.store.deleteTask(id);
+    const session = this.store.getState().sessions.find((item) => item.id === id);
+    const taskIds = session?.taskIds ?? [id];
+    for (const taskId of taskIds) {
+      this.abortTask(taskId, "aborted");
+      this.checkpoints.deleteForTask(taskId);
+    }
+    this.store.deleteSession(id);
     this.publish();
   }
 
@@ -315,7 +227,10 @@ class AgentServiceImpl {
     this.store.updateTask(task.id, (current) => ({
       ...current,
       events: [],
+      // Keep the sequence watermark when the visible event history is cleared. New events must
+      // never reuse ids from a previous run of this task.
       steps: [],
+      replayBase: undefined,
       input: "",
       title: "",
       queuedInputs: [],
@@ -329,13 +244,21 @@ class AgentServiceImpl {
   async send(text: string): Promise<void> {
     const input = text.trim();
     if (!input) return;
-    const task = this.activeTask();
-    if (this.isBusy(task.status)) {
-      this.append(task.id, "task.queued", { content: input });
+    const current = this.activeTask();
+    if (this.isBusy(current.status)) {
+      this.append(current.id, "task.queued", { content: input });
       this.publish();
       return;
     }
-    this.append(task.id, "task.created", { content: input });
+    // A Session is the user's conversation context and a Task owns the full
+    // execution thread. Follow-up instructions stay on that Task; explicit
+    // task creation remains available through the SessionStore API.
+    const task = current;
+    this.append(
+      task.id,
+      task.events.length === 0 && task.status === "idle" ? "task.created" : "task.steered",
+      { content: input },
+    );
     this.publish();
     await this.run(task.id, input);
   }
@@ -399,14 +322,43 @@ class AgentServiceImpl {
   }
 
   private buildSnapshot(task: AgentTaskSnapshot): AgentSnapshot {
+    const state = this.store.getState();
+    const taskMeta = (item: AgentTaskSnapshot) => ({
+      id: item.id,
+      sessionId: item.sessionId ?? "",
+      parentTaskId: item.parentTaskId,
+      title: item.title,
+      status: item.status,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      eventCount: item.events.length,
+    });
     return {
-      sessions: this.store.getState().tasks.map((item) => ({
-        id: item.id,
-        title: item.title,
-        status: item.status,
-        updatedAt: item.updatedAt,
-        eventCount: item.events.length,
-      })),
+      sessions: state.sessions.map((session) => {
+        const sessionTasks = session.taskIds
+          .map((id) => state.tasks.find((item) => item.id === id))
+          .filter((item): item is AgentTaskSnapshot => Boolean(item));
+        const active =
+          sessionTasks.find((item) => item.id === session.activeTaskId) ?? sessionTasks[0];
+        return {
+          id: session.id,
+          title: session.title || active?.title || "",
+          createdAt: session.createdAt,
+          status: active?.status ?? "idle",
+          updatedAt: session.updatedAt,
+          eventCount: sessionTasks.reduce((count, item) => count + item.events.length, 0),
+          activeTaskId: session.activeTaskId,
+          taskCount: sessionTasks.length,
+          tasks: sessionTasks.map(taskMeta),
+        };
+      }),
+      session: state.sessions.find((item) => item.id === state.activeSessionId),
+      sessionTasks: (
+        state.sessions.find((item) => item.id === state.activeSessionId)?.taskIds ?? []
+      )
+        .map((id) => state.tasks.find((item) => item.id === id))
+        .filter((item): item is AgentTaskSnapshot => Boolean(item)),
+      taskHistory: state.tasks.map(taskMeta),
       activeTaskId: task.id,
       activeTask: task,
       configured: this.configured,
@@ -434,7 +386,11 @@ class AgentServiceImpl {
   ): AgentEvent {
     const current = this.store.getState().tasks.find((item) => item.id === taskId);
     if (!current) throw new Error("Agent task not found");
-    const next = event(taskId, current.events.length + 1, type, payload, stepId);
+    const lastEventSeq = Math.max(
+      validEventSeq(current.lastEventSeq),
+      ...current.events.map((item) => validEventSeq(item.seq)),
+    );
+    const next = event(taskId, lastEventSeq + 1, type, payload, stepId);
     this.store.updateTask(taskId, (task) => reduceAgentEvent(task, next));
     return next;
   }
@@ -470,13 +426,43 @@ class AgentServiceImpl {
   private dequeueInput(taskId: string): string | null {
     const task = this.store.getState().tasks.find((item) => item.id === taskId);
     const next = task?.queuedInputs[0] ?? null;
-    if (next) {
-      this.store.updateTask(taskId, (current) => ({
-        ...current,
-        queuedInputs: current.queuedInputs.slice(1),
-      }));
-    }
+    if (next) this.append(taskId, "task.input_consumed", { content: next });
     return next;
+  }
+
+  private buildRuntimeInput(taskId: string, initialInput: string): unknown[] {
+    const state = this.store.getState();
+    const task = state.tasks.find((item) => item.id === taskId);
+    if (!task) return [inputItem(initialInput)];
+    const session = state.sessions.find((item) => item.id === task.sessionId);
+    const tasks = (session?.taskIds ?? [taskId])
+      .map((id) => state.tasks.find((item) => item.id === id))
+      .filter((item): item is AgentTaskSnapshot => Boolean(item))
+      .sort((a, b) => a.createdAt - b.createdAt);
+    const input: unknown[] = [];
+    for (const current of tasks) {
+      for (const item of [...current.events].sort((a, b) => a.seq - b.seq)) {
+        if (
+          (item.type === "task.created" || item.type === "task.steered") &&
+          typeof item.payload.content === "string" &&
+          item.payload.content.trim()
+        ) {
+          input.push(inputItem(item.payload.content));
+        } else if (
+          item.type === "step.completed" &&
+          typeof item.payload.content === "string" &&
+          item.payload.content.trim()
+        ) {
+          input.push({
+            role: "assistant",
+            content: [{ type: "output_text", text: item.payload.content }],
+          });
+        }
+      }
+    }
+    const currentInput = inputItem(initialInput);
+    if (JSON.stringify(input.at(-1)) !== JSON.stringify(currentInput)) input.push(currentInput);
+    return input.slice(-80);
   }
 
   private async bindResponseEvents(): Promise<void> {
@@ -498,7 +484,7 @@ class AgentServiceImpl {
       requestId: null,
       responseText: "",
       calls: new Map(),
-      input: [inputItem(initialInput)],
+      input: this.buildRuntimeInput(taskId, initialInput),
     };
     this.runtimes.set(taskId, runtime);
     const stepId = createId("step");
@@ -553,9 +539,31 @@ class AgentServiceImpl {
       .reverse()
       .find((step) => step.kind === "model" && step.status === "running")?.id;
     if (payload.responseId) runtime.responseId = payload.responseId;
+    if (!KNOWN_RESPONSE_EVENT_TYPES.has(payload.type)) {
+      // Gateways can add event kinds before this client learns about them. Keep
+      // the raw payload in the event log so replay/debugging does not lose data.
+      this.append(taskId, "response.event", {
+        eventType: payload.type,
+        rawEvent: payload.rawEvent ?? payload.raw ?? payload,
+      });
+      this.publish();
+      return;
+    }
+    if (payload.type === "response.created" || payload.type === "response.in_progress") {
+      this.publish();
+      return;
+    }
     if (payload.type === "response.output_text.delta") {
       runtime.responseText += payload.delta ?? "";
       if (stepId) this.append(taskId, "step.delta", { content: payload.delta ?? "" }, stepId);
+      this.publish();
+      return;
+    }
+    if (payload.type === "response.output_text.done") {
+      if (typeof payload.text === "string" && !runtime.responseText.endsWith(payload.text)) {
+        runtime.responseText += payload.text;
+        if (stepId) this.append(taskId, "step.delta", { content: payload.text }, stepId);
+      }
       this.publish();
       return;
     }
@@ -573,7 +581,24 @@ class AgentServiceImpl {
       this.publish();
       return;
     }
-    if (payload.type === "response.output_item.done") {
+    if (payload.type === "response.function_call_arguments.done") {
+      const id = payload.callId ?? payload.itemId ?? `call-${payload.outputIndex ?? 0}`;
+      const existing = runtime.calls.get(id) ??
+        [...runtime.calls.values()].find(
+          (call) => call.id === `call-${payload.outputIndex ?? -1}` || !call.name,
+        ) ?? { id, name: payload.name ?? "", arguments: "" };
+      if (existing.id !== id) runtime.calls.delete(existing.id);
+      existing.id = id;
+      existing.name = payload.name ?? existing.name;
+      if (typeof payload.arguments === "string") existing.arguments = payload.arguments;
+      runtime.calls.set(id, existing);
+      this.publish();
+      return;
+    }
+    if (
+      payload.type === "response.output_item.added" ||
+      payload.type === "response.output_item.done"
+    ) {
       const raw =
         payload.raw && typeof payload.raw === "object"
           ? (payload.raw as Record<string, unknown>)
@@ -605,9 +630,17 @@ class AgentServiceImpl {
       }
       return;
     }
-    if (payload.type === "error" || payload.type === "response.failed") {
+    if (
+      payload.type === "error" ||
+      payload.type === "response.failed" ||
+      payload.type === "response.incomplete"
+    ) {
       this.append(taskId, "task.failed", {
-        message: payload.message ?? "Responses request failed",
+        message:
+          payload.message ??
+          (payload.finishReason
+            ? `Responses response ${payload.finishReason}`
+            : "Responses request failed"),
       });
       this.runtimes.delete(taskId);
       this.publish();
@@ -638,6 +671,7 @@ class AgentServiceImpl {
         toolStepId,
       );
       const checkpoint = await this.createCheckpointForCall(taskId, call);
+      if (runtime.controller.signal.aborted) return;
       if (checkpoint)
         this.append(
           taskId,
@@ -646,19 +680,53 @@ class AgentServiceImpl {
           toolStepId,
         );
       this.append(taskId, "tool.started", { name: call.name }, toolStepId);
+      const metadata = this.toolMetadata(call.name);
+      if (metadata && this.requiresCheckpoint(metadata) && !checkpoint) {
+        const content = "Unable to create a checkpoint before this tool call; operation skipped.";
+        this.append(
+          taskId,
+          "tool.completed",
+          { name: call.name, content, isError: true },
+          toolStepId,
+        );
+        this.append(taskId, "step.completed", { content }, toolStepId);
+        runtime.input.push({
+          type: "function_call",
+          call_id: call.id,
+          name: call.name,
+          arguments: call.arguments,
+        });
+        runtime.input.push({
+          type: "function_call_output",
+          call_id: call.id,
+          output: content,
+        });
+        continue;
+      }
       let outcome: AgentToolOutcome;
       if (!this.executor) {
         outcome = { content: "No Agent tools are registered", isError: true };
       } else {
-        outcome = await this.executor.execute({
-          id: call.id,
-          taskId,
-          stepId: toolStepId,
-          name: call.name,
-          arguments: call.arguments,
-          signal: runtime.controller.signal,
-        });
+        try {
+          outcome = await this.executor.execute({
+            id: call.id,
+            taskId,
+            stepId: toolStepId,
+            name: call.name,
+            arguments: call.arguments,
+            signal: runtime.controller.signal,
+          });
+        } catch (error) {
+          if (runtime.controller.signal.aborted) return;
+          outcome = {
+            content: error instanceof Error ? error.message : String(error),
+            isError: true,
+          };
+        }
       }
+      // A pending approval or tool can resolve after stop/switch. Do not append a successful
+      // completion event or start another Responses turn for an already-aborted runtime.
+      if (runtime.controller.signal.aborted) return;
       this.append(
         taskId,
         "tool.completed",
@@ -689,15 +757,85 @@ class AgentServiceImpl {
   }
 
   private async createCheckpointForCall(taskId: string, call: RuntimeCall) {
-    const name = call.name.trim().split(/[.:/]/).pop();
-    if (name !== "edit_file") return null;
+    const metadata = this.toolMetadata(call.name);
+    if (!metadata || !this.requiresCheckpoint(metadata)) return null;
     try {
+      const invocation = {
+        id: call.id,
+        taskId,
+        stepId: "checkpoint",
+        name: call.name,
+        arguments: call.arguments,
+        signal: this.runtimes.get(taskId)?.controller.signal ?? new AbortController().signal,
+      };
+      const resolved = this.executor?.resolveAffectedFiles
+        ? await this.executor.resolveAffectedFiles(invocation)
+        : [];
       const args = JSON.parse(call.arguments) as { path?: string };
-      if (!args.path) return null;
-      return await this.checkpoints.capture(taskId, [args.path], `Before ${call.name}`);
+      const fallback = this.resolveCheckpointPath(args.path) ?? EditorAdapter.getStatus().path;
+      const paths = [
+        ...new Set(
+          resolved
+            .map((path) => this.resolveCheckpointPath(path))
+            .filter((path): path is string => Boolean(path)),
+        ),
+      ];
+      // A command may run with no editor tab. Keep an empty checkpoint as the
+      // durable execution boundary instead of silently disabling the tool.
+      return await this.checkpoints.capture(
+        taskId,
+        paths.length > 0 ? paths : fallback ? [fallback] : [],
+        `Before ${call.name}`,
+      );
     } catch {
       return null;
     }
+  }
+
+  private toolMetadata(name: string): AgentToolMetadata | undefined {
+    const normalized = name.trim().split(/[.:/]/).pop() ?? name.trim();
+    return (
+      this.executor?.getToolMetadata?.(normalized) ??
+      this.executor?.metadata?.find((item) => item.name === normalized)
+    );
+  }
+
+  private requiresCheckpoint(metadata: AgentToolMetadata): boolean {
+    if (metadata.checkpointPolicy === "always") return true;
+    if (metadata.checkpointPolicy !== "before-write") return false;
+    return metadata.effects.some((effect) =>
+      ["filesystem.write", "workspace.modify", "workspace.change", "editor.modify"].includes(
+        effect,
+      ),
+    );
+  }
+
+  private resolveCheckpointPath(input: string | undefined): string | null {
+    const raw = input?.trim() ?? "";
+    if (!raw) return null;
+    const root = WorkspaceService.getCurrent().primaryRoot;
+    if (!root) return null;
+    const normalizedRoot = root.replaceAll("\\", "/").replace(/\/+$/, "");
+    const candidate = raw.replaceAll("\\", "/");
+    const isAbsolute = /^[A-Za-z]:\//.test(candidate) || candidate.startsWith("/");
+    const base = isAbsolute ? candidate : `${normalizedRoot}/${candidate}`;
+    const rootSegments = normalizedRoot.split("/").filter(Boolean).length;
+    const parts = base.split("/");
+    const normalized: string[] = [];
+    for (const part of parts) {
+      if (!part || part === ".") continue;
+      if (part === "..") {
+        if (normalized.length <= rootSegments) return null;
+        normalized.pop();
+      } else {
+        normalized.push(part);
+      }
+    }
+    const resolved = (candidate.startsWith("/") ? "/" : "") + normalized.join("/");
+    const lowerRoot = normalizedRoot.toLowerCase();
+    const lowerResolved = resolved.toLowerCase();
+    if (lowerResolved !== lowerRoot && !lowerResolved.startsWith(`${lowerRoot}/`)) return null;
+    return resolved;
   }
 
   private finishOrDrain(taskId: string): void {

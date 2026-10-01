@@ -1,8 +1,16 @@
 # Aurona Code 核心架构指南 (Corona+ Architecture Specification)
 
-## V0.4.11 当前版本说明
+## V0.4.13 当前版本说明
 
-V0.4.11 在 V0.4.10 的设计系统重构基础上继续收敛运行时边界：Marketplace 连接与 API 响应归一化由前端统一处理，安装包内置扩展严格限制为 VSCode 兼容层与 Demo，Markdown 预览由编辑器原生接管；AI 胶囊、Agent、Git 和玻璃材质继续复用同一套组件与语义令牌。本文后续的 V0.4.10 章节保留为历史架构记录。
+V0.4.13 在 V0.4.12 的 Agent 工作台与 Editor 协作基础上继续收敛运行时边界：Responses API 成为唯一模型协议，事件、审批、checkpoint 和工具执行由 Agent 统一编排；编辑器继续使用 AuronaEngine，并通过差异审阅和状态持久化承接 Agent 修改。本文后续的旧版本章节保留为历史架构记录。
+
+### 0.4.13 运行时边界
+
+- **事件驱动状态**：`AgentSession` 保存用户交互上下文，`AgentTask` 表示一次执行；`AgentEventReducer` 从有序事件重建当前状态，事件序号在裁剪和清空后仍保持单调。
+- **工具能力模型**：内置工具通过 `AgentToolMetadata` 声明 effects、权限、输入 schema、checkpoint 策略和可恢复性。审批前完成参数与工作区边界校验，失败结果不会被记录为成功。
+- **恢复与存储**：写入或工作区修改根据 effects 创建 checkpoint，恢复前校验文件指纹；会话与 checkpoint 使用应用数据存储，不写入工作区或 Git，并保留损坏数据备份。
+- **Workspace Context**：`WorkspaceContextProvider` 只提供项目根目录、活动/打开文件、语言、选区、光标、诊断和最近变更，不建立完整项目索引；`MemoryProvider` 只作为后续持久化记忆的接口。
+- **编辑器协作**：Agent 修改通过 Editor/WorkspaceEdit 事务链和差异审阅应用，AuronaEngine 继续负责文本编辑、视图状态和 Markdown 源码/预览切换。
 
 ## V0.4.9 圆角与多模型篇
 

@@ -16,7 +16,7 @@
 Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造轻量、克制且具触感美学的沉浸式编码工作台。
 
 > [!NOTE]
-> 当前开发版本为 **V0.4.13**。0.4.12 已完成 Agent 工作台、Responses API、Markdown 回复、工具调用摘要和 Editor 状态协作；本版本将在此基线上继续推进 Agent 与 Editor 的体验和可靠性。
+> 当前开发版本为 **V0.4.13**。0.4.12 已完成 Agent 工作台、Responses API、Markdown 回复、工具调用摘要和 Editor 状态协作；本版本已补齐 Session/Task 生命周期、事件回放、工具能力元数据、checkpoint 恢复和 Workspace Context，为后续 Agent 平台演进打基础。
 
 ---
 
@@ -34,6 +34,8 @@ Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面�
 - **网络代理设置**：跟随系统 / 自定义 / 直连三档代理，统一覆盖更新检查、工具链下载与扩展市场下载，自定义代理即时生效。
 - **窗口状态记忆与液态玻璃流光**：窗口尺寸与位置跨会话记忆（异常自动回退最大化、首启自动最大化）；可开关的液态玻璃流光为背景与浮层玻璃带来折射质感，支持动效降级与三档强度联动。
 - **集成透明终端**：基于 `portable-pty` 与 `xterm.js`，配色完整跟随明暗主题与强调色即时切换，背景与主题卡片浑然一体。
+- **Agent 与 Editor 协作**：侧边栏 Assistant 使用 Responses API 和持久化事件流，工具权限、审批、checkpoint、失败重试和恢复状态可追踪；Agent 修改通过 WorkspaceEdit 与编辑器差异流程应用。
+- **Workspace Context 与恢复**：Agent 可读取受限的项目根目录、活动文件、选区、光标、诊断和最近变更；编辑器标签页、Markdown 模式和未保存内容在切换与恢复后保持一致。
 - **全链路国际化**：简体中文 (zh-CN)、繁體中文 (zh-Hant)、English、Deutsch、Italiano 与日本語实时无缝切换，语言选择以各语言自名显示。
 - **首启欢迎引导 (OOBE) 与安装器多语言**：Windows 安装程序支持多语言界面选择；首次启动主程序直接呈现全屏欢迎引导（欢迎 → 语言 → 外观主题 → 编辑器偏好 → 账户登录，可跳过），完成直达工作台。
 - **权限安全生命周期**：卸载插件立即彻底销毁并持久化清除所有授权，严格保护用户工作区数据。
@@ -97,7 +99,7 @@ Rust Core Runtime (aurona_code_lib)
 ## 快速上手与本地开发
 
 ### 1. 环境准备
-- [Node.js](https://nodejs.org/) (>= 22.x) 与 [pnpm](https://pnpm.io/) (>= 11.x)
+- [Node.js](https://nodejs.org/) (>= 22.x) 与 [pnpm](https://pnpm.io/) (12.4.1)
 - [Rust](https://rustup.rs/) (>= 1.95.0)，并安装 WASM 目标：
   ```bash
   rustup target add wasm32-wasip2
@@ -121,8 +123,8 @@ pnpm run format         # 自动格式化前端代码 (Biome)
 pnpm run typecheck      # TypeScript 类型检查
 pnpm run lint           # Biome 代码规范检查
 pnpm run smoke          # 发布元数据烟雾检查
-pnpm run test:frontend  # 运行前端 Vitest 单元测试 (273 项)
-pnpm run test:rust      # 运行 Rust 核心单元测试 (111 项)
+pnpm run test:frontend  # 运行前端 Vitest 单元测试 (367 个)
+pnpm run test:rust      # 运行 Rust 核心单元测试 (128 passed, 1 ignored)
 ```
 
 ---
@@ -134,6 +136,8 @@ pnpm run test:rust      # 运行 Rust 核心单元测试 (111 项)
 - [Extension SDK 参考手册](Docs/Extension-SDK-Reference.md)
 - [设计哲学与材质规范](Docs/Design-Principles.md)
 - [产品愿景与演进路线](Docs/Product-Vision.md)
+- [0.4.13 Agent 与 Editor 协作](Docs/Agent-Workbench-0.4.13.md)
+- [0.5 Smart Capsule 设计草案](Docs/Smart-Capsule-0.5-Design.md)
 
 ---
 

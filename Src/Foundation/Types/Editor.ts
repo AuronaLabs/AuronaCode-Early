@@ -45,6 +45,8 @@ export interface EditorViewState {
   column: number;
   scrollTop: number;
   scrollLeft: number;
+  /** Scroll position of the Markdown preview for the same editor tab. */
+  previewScrollTop?: number;
   selectionStart?: { line: number; column: number };
   selectionEnd?: { line: number; column: number };
   foldedLines?: number[];

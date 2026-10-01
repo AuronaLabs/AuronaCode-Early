@@ -35,7 +35,12 @@ import {
 
 describe("workbench file identity", () => {
   beforeEach(() => {
-    useWorkbenchStore.setState({ tabs: [], activeTabId: null });
+    useWorkbenchStore.setState({
+      tabs: [],
+      activeTabId: null,
+      pendingCloseTab: null,
+      pendingCloseTabs: [],
+    });
   });
 
   it("normalizes Windows separators and case", () => {
@@ -87,6 +92,40 @@ describe("workbench file identity", () => {
     store.closeTab(tab);
 
     expect(DiagnosticsService.get(uri)).toBeUndefined();
+  });
+
+  it("closes clean tabs and queues dirty tabs for confirmation", () => {
+    const clean = { id: "clean", type: "file" as const, title: "clean.ts", path: "clean.ts" };
+    const dirty = {
+      id: "dirty",
+      type: "file" as const,
+      title: "dirty.ts",
+      path: "dirty.ts",
+      isDirty: true,
+    };
+    const laterDirty = {
+      id: "later-dirty",
+      type: "file" as const,
+      title: "later.ts",
+      path: "later.ts",
+      isDirty: true,
+    };
+    useWorkbenchStore.setState({ tabs: [clean, dirty, laterDirty], activeTabId: "clean" });
+
+    useWorkbenchStore.getState().requestCloseTabs([clean, dirty, laterDirty]);
+
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      tabs: [dirty, laterDirty],
+      pendingCloseTab: dirty,
+      pendingCloseTabs: [laterDirty],
+    });
+
+    useWorkbenchStore.getState().advancePendingCloseTab();
+
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      pendingCloseTab: laterDirty,
+      pendingCloseTabs: [],
+    });
   });
 
   it("migrates legacy extension tabs and keeps a canonical duplicate", () => {

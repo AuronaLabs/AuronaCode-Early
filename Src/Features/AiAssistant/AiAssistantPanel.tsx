@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { AgentService } from "../../Core/Agent/AgentService";
 import type { AgentEvent, AgentTaskSnapshot, AgentTaskStatus } from "../../Core/Agent/AgentTypes";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
+import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
+import type { AiPreferences } from "../../Foundation/Types/Config";
 import { Button } from "../../UI/Components/Button";
 import {
   DropdownMenuContent,
@@ -13,7 +15,7 @@ import { GlassList, glassListRowStyles } from "../../UI/Components/GlassList";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 import { AgentMarkdown } from "./AgentMarkdown";
-import { syncAgentExecutorRegistration } from "./AgentToolExecutor";
+import { getAgentPermission, syncAgentExecutorRegistration } from "./AgentToolExecutor";
 import "./AiAssistantPanel.css";
 
 type ConversationItem =
@@ -48,12 +50,13 @@ function eventText(event: AgentEvent): string {
 }
 
 function toolName(event: AgentEvent): string {
-  return typeof event.payload.name === "string" && event.payload.name.trim()
-    ? event.payload.name.trim()
-    : "tool";
+  const name = [event.payload.name, event.payload.toolName, event.payload.tool_name].find(
+    (value): value is string => typeof value === "string" && value.trim().length > 0,
+  );
+  return name?.trim() ?? "tool";
 }
 
-function buildConversation(task: AgentTaskSnapshot): ConversationItem[] {
+function buildTaskConversation(task: AgentTaskSnapshot): ConversationItem[] {
   const items: ConversationItem[] = [];
   const assistantByStep = new Map<string, ConversationItem & { type: "assistant" }>();
   const toolByStep = new Map<string, ConversationItem & { type: "tool" }>();
@@ -168,6 +171,13 @@ function buildConversation(task: AgentTaskSnapshot): ConversationItem[] {
   return visibleItems;
 }
 
+function buildConversation(tasks: AgentTaskSnapshot[]): ConversationItem[] {
+  return tasks
+    .slice()
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .flatMap((task) => buildTaskConversation(task));
+}
+
 function toolStatusLabel(
   item: ConversationItem & { type: "tool" },
   t: (key: I18nKey) => string,
@@ -182,10 +192,40 @@ function formatDuration(durationMs: number): { minutes: number; seconds: number 
   return { minutes: Math.floor(totalSeconds / 60), seconds: totalSeconds % 60 };
 }
 
+function taskStatusLabel(status: AgentTaskStatus, t: (key: I18nKey) => string): string {
+  switch (status) {
+    case "waiting_approval":
+      return t("ai.agentUi.approvalRequired");
+    case "planning":
+    case "running":
+    case "queued":
+      return t("ai.agentUi.eventToolRunning");
+    case "completed":
+      return t("ai.agentUi.eventToolCompleted");
+    case "failed":
+      return t("ai.agentUi.eventToolFailed");
+    case "paused":
+    case "aborted":
+      return t("ai.agentUi.resumeTask");
+    default:
+      return t("ai.agentUi.newTask");
+  }
+}
+
+const permissionLabelKeys: Record<NonNullable<AiPreferences["agentPermission"]>, I18nKey> = {
+  ask: "ai.agent.permissionAsk",
+  read: "ai.agent.permissionRead",
+  edit: "ai.agent.permissionEdit",
+  full: "ai.agent.permissionFull",
+};
+
 export function AiAssistantPanel() {
   const snapshot = useSyncExternalStore(AgentService.subscribe, AgentService.getSnapshot);
   const { t } = useLocale();
   const [draft, setDraft] = useState("");
+  const [agentPermission, setAgentPermission] = useState<
+    NonNullable<AiPreferences["agentPermission"]>
+  >(() => getAgentPermission());
   const task = snapshot.activeTask;
   const busy = isBusy(task.status);
   const canResume =
@@ -193,12 +233,20 @@ export function AiAssistantPanel() {
   const activeProfile = snapshot.profiles.find(
     (profile) => profile.id === snapshot.activeProfileId,
   );
-  const conversation = useMemo(() => buildConversation(task), [task]);
+  const conversation = useMemo(
+    () => buildConversation(snapshot.sessionTasks.length > 0 ? snapshot.sessionTasks : [task]),
+    [snapshot.sessionTasks, task],
+  );
 
   useEffect(() => {
     void syncAgentExecutorRegistration();
     void AgentService.refreshConfig();
+    void UserConfigStore.get().then((config) => {
+      setAgentPermission(config.ai?.agentPermission ?? "ask");
+    });
   }, []);
+
+  useEffect(() => AgentService.subscribe(() => setAgentPermission(getAgentPermission())), []);
 
   const submit = useCallback(async () => {
     const value = draft.trim();
@@ -207,6 +255,16 @@ export function AiAssistantPanel() {
     await syncAgentExecutorRegistration();
     void AgentService.send(value);
   }, [draft, snapshot.configured]);
+
+  const updatePermission = useCallback(
+    async (next: NonNullable<AiPreferences["agentPermission"]>) => {
+      setAgentPermission(next);
+      const config = await UserConfigStore.get();
+      await UserConfigStore.set({ ai: { ...config.ai, agentPermission: next } });
+      await syncAgentExecutorRegistration();
+    },
+    [],
+  );
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -236,7 +294,16 @@ export function AiAssistantPanel() {
   return (
     <div className="agent-panel">
       <SidebarPageHeader
-        title={t("ai.agentUi.title")}
+        title={
+          <>
+            <Icons.Sparkles size={15} className="agent-title-icon" aria-hidden="true" />
+            <span className="truncate">{t("ai.agentUi.title")}</span>
+            <span className={`agent-status-pill agent-status-${task.status}`} aria-live="polite">
+              <span className="agent-status-dot" aria-hidden="true" />
+              {taskStatusLabel(task.status, t)}
+            </span>
+          </>
+        }
         actions={
           <button
             type="button"
@@ -252,7 +319,7 @@ export function AiAssistantPanel() {
       <div className="agent-session-bar">
         <DropdownMenuRoot>
           <DropdownMenuTrigger className={`${glassListRowStyles} agent-session-trigger`}>
-            <Icons.Compass size={14} />
+            <Icons.History size={14} className="agent-session-icon" aria-hidden="true" />
             <span className="min-w-0 flex-1 truncate">{task.title || t("ai.agentUi.newTask")}</span>
             <Icons.ChevronDown size={12} />
           </DropdownMenuTrigger>
@@ -286,13 +353,22 @@ export function AiAssistantPanel() {
               if (item.type === "user") {
                 return (
                   <div className="agent-message agent-message-user" key={item.id}>
-                    {item.content}
+                    <span className="agent-message-mark agent-message-mark-user" aria-hidden="true">
+                      <Icons.User size={12} />
+                    </span>
+                    <span className="agent-message-content">{item.content}</span>
                   </div>
                 );
               }
               if (item.type === "assistant") {
                 return (
                   <div className="agent-message agent-message-assistant" key={item.id}>
+                    <span
+                      className="agent-message-mark agent-message-mark-assistant"
+                      aria-hidden="true"
+                    >
+                      <Icons.Sparkles size={12} />
+                    </span>
                     <AgentMarkdown content={item.content} />
                   </div>
                 );
@@ -342,7 +418,15 @@ export function AiAssistantPanel() {
               }
               return (
                 <div className={`agent-tool-line agent-tool-${item.status}`} key={item.id}>
-                  <span className="agent-tool-dot" />
+                  <span className="agent-tool-icon" aria-hidden="true">
+                    {item.status === "completed" ? (
+                      <Icons.Check size={11} />
+                    ) : item.status === "failed" ? (
+                      <Icons.AlertTriangle size={11} />
+                    ) : (
+                      <span className="agent-tool-dot" />
+                    )}
+                  </span>
                   <span className="agent-tool-status">{toolStatusLabel(item, t)}</span>
                   <code>{item.name}</code>
                   {item.detail && <span className="agent-tool-detail">{item.detail}</span>}
@@ -360,6 +444,10 @@ export function AiAssistantPanel() {
             <div>
               <strong>{t("ai.agentUi.approvalRequired")}</strong>
               <span>{task.pendingApproval.summary}</span>
+              <div className="agent-approval-detail">
+                <code>{task.pendingApproval.toolName}</code>
+                <span>{task.pendingApproval.args}</span>
+              </div>
             </div>
           </div>
         </GlassList>
@@ -396,6 +484,32 @@ export function AiAssistantPanel() {
                       </span>
                     }
                     onSelect={() => void AgentService.setActiveProfile(profile.id)}
+                  />
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenuRoot>
+            <DropdownMenuRoot>
+              <DropdownMenuTrigger
+                className="agent-permission-pill"
+                aria-label={t("ai.agent.settingsTitle")}
+                disabled={busy}
+              >
+                <Icons.ShieldCheck size={12} aria-hidden="true" />
+                <span className="agent-permission-label">
+                  {t(permissionLabelKeys[agentPermission])}
+                </span>
+                <Icons.ChevronDown size={10} aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[170px]">
+                {(
+                  Object.keys(permissionLabelKeys) as Array<
+                    NonNullable<AiPreferences["agentPermission"]>
+                  >
+                ).map((permission) => (
+                  <DropdownMenuItem
+                    key={permission}
+                    label={t(permissionLabelKeys[permission])}
+                    onSelect={() => void updatePermission(permission)}
                   />
                 ))}
               </DropdownMenuContent>

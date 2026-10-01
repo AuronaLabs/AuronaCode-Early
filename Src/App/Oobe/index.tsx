@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { desktopApp, desktopWindow } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
 import { type Locale, LocaleService, useLocale } from "../../Foundation/I18n";
@@ -7,6 +7,7 @@ import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { TitleBar } from "../../Layout/TitleBar/TitleBar";
 import { Button } from "../../UI/Components/Button";
 import { useGlassStore } from "../../UI/Core/GlassManager";
+import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { AccountStep } from "./AccountStep";
 import {
@@ -51,6 +52,40 @@ export function OobeOverlay() {
   const [glassStrength, setGlassStrength] = useState<GlassStrengthChoice>(50);
   const [version, setVersion] = useState<string>("");
   const [finishing, setFinishing] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const initialLocaleRef = useRef(locale);
+  const originalRef = useRef<{
+    locale: Locale;
+    themeClass: boolean;
+    editorFontSize: number;
+    editorLineHeight: number;
+    glassStrength: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void UserConfigStore.get().then((config) => {
+      if (cancelled) return;
+      const savedFont = config.editorFontSize ?? 14;
+      const savedLineHeight = config.editorLineHeight ?? 24;
+      const savedGlass = useGlassStore.getState().intensity;
+      originalRef.current = {
+        locale: initialLocaleRef.current,
+        themeClass: document.documentElement.classList.contains("dark"),
+        editorFontSize: savedFont,
+        editorLineHeight: savedLineHeight,
+        glassStrength: savedGlass,
+      };
+      setTheme(config.theme ?? "system");
+      setEditorFontSize(savedFont as EditorFontSizeChoice);
+      setEditorLineHeight(savedLineHeight as EditorLineHeightChoice);
+      setGlassStrength(savedGlass as GlassStrengthChoice);
+      setDraftReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     desktopApp
@@ -77,26 +112,65 @@ export function OobeOverlay() {
   }, [theme]);
 
   const finish = useCallback(async () => {
+    if (!draftReady) return;
     setFinishing(true);
     try {
       // 主题与编辑器偏好统一在此落盘（与设置页复用相同字段与默认值）
-      await UserConfigStore.set({ theme, editorFontSize, editorLineHeight });
+      await UserConfigStore.set({
+        theme,
+        locale,
+        editorFontSize,
+        editorLineHeight,
+        appearance: { glassIntensity: glassStrength },
+      });
       // 编辑器排版即时生效（CSS 变量），并通知已打开的编辑器重读设置（重游场景）
       document.documentElement.style.setProperty("--EditorFontSize", `${editorFontSize}px`);
       document.documentElement.style.setProperty("--EditorLineHeight", `${editorLineHeight}px`);
       EventBus.emit("settings:editor-changed");
       // 玻璃强度走独立玻璃商店（持久化 + DOM 令牌应用）
       setGlassIntensity(glassStrength);
+      closeOobe();
+    } catch (error) {
+      showToast(
+        LocaleService.translate("settings.toast.saveFailed").replace("{message}", String(error)),
+        "error",
+      );
     } finally {
       setFinishing(false);
-      closeOobe();
     }
-  }, [theme, editorFontSize, editorLineHeight, glassStrength, setGlassIntensity, closeOobe]);
+  }, [
+    draftReady,
+    theme,
+    locale,
+    editorFontSize,
+    editorLineHeight,
+    glassStrength,
+    setGlassIntensity,
+    closeOobe,
+  ]);
 
   const selectLanguage = useCallback((next: Locale) => {
     // 语言写入 localStorage 后全局订阅者（含底层工作台）即刻响应
-    LocaleService.set(next);
+    LocaleService.syncFromConfig(next);
   }, []);
+
+  const cancelDraft = useCallback(() => {
+    const original = originalRef.current;
+    if (original) {
+      LocaleService.syncFromConfig(original.locale);
+      document.documentElement.classList.toggle("dark", original.themeClass);
+      document.documentElement.style.setProperty(
+        "--EditorFontSize",
+        `${original.editorFontSize}px`,
+      );
+      document.documentElement.style.setProperty(
+        "--EditorLineHeight",
+        `${original.editorLineHeight}px`,
+      );
+      setGlassIntensity(original.glassStrength);
+    }
+    closeOobe();
+  }, [closeOobe, setGlassIntensity]);
 
   // 首次运行中关闭引导 = 退出应用（主窗口是唯一窗口）；重游模式下仅收起覆盖层
   const handleClose = useCallback(() => {
@@ -104,8 +178,8 @@ export function OobeOverlay() {
       void desktopWindow.close();
       return;
     }
-    closeOobe();
-  }, [mode, closeOobe]);
+    cancelDraft();
+  }, [mode, cancelDraft]);
 
   if (!mode) return null;
 
@@ -141,7 +215,7 @@ export function OobeOverlay() {
           />
         </div>
       </div>
-      <main className="relative z-10 flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-5 py-8 sm:px-10">
+      <main className="relative z-10 flex min-h-0 flex-1 items-start justify-center overflow-y-auto px-5 py-6 sm:items-center sm:px-10 sm:py-8">
         <div key={step} className="oobe-step-enter flex w-full justify-center">
           {step === 0 && <WelcomeStep version={version ? formatDisplayVersion(version) : ""} />}
           {step === 1 && (
@@ -174,7 +248,9 @@ export function OobeOverlay() {
               />
             </div>
           )}
-          {step === 5 && <ReadyStep onFinish={() => void finish()} finishing={finishing} />}
+          {step === 5 && (
+            <ReadyStep onFinish={() => void finish()} finishing={finishing || !draftReady} />
+          )}
         </div>
       </main>
 

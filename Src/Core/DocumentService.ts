@@ -10,6 +10,7 @@ import { OutputService } from "./OutputService";
 
 export type DocumentOpenState = "opening" | "open" | "closing" | "closed" | "error";
 export type DocumentSaveState = "idle" | "saving" | "error";
+export type DocumentChangeOrigin = "local" | "external" | "save";
 
 export interface DocumentRecord {
   uri?: string;
@@ -25,6 +26,8 @@ export interface DocumentRecord {
   openState: DocumentOpenState;
   saveState: DocumentSaveState;
   diskFingerprint: string;
+  /** Identifies the source of the last content notification for tab syncing. */
+  changeOrigin?: DocumentChangeOrigin;
   lastError?: string;
 }
 
@@ -105,11 +108,17 @@ class DocumentServiceImpl {
     endUtf16: number,
     text: string,
     nextContent: string,
+    origin: DocumentChangeOrigin = "local",
   ): Promise<void> {
-    await this.applyEdits(path, [{ startUtf16, endUtf16, text }], nextContent);
+    await this.applyEdits(path, [{ startUtf16, endUtf16, text }], nextContent, origin);
   }
 
-  async applyEdits(path: string, edits: TextEdit[], nextContent: string): Promise<void> {
+  async applyEdits(
+    path: string,
+    edits: TextEdit[],
+    nextContent: string,
+    origin: DocumentChangeOrigin = "local",
+  ): Promise<void> {
     const record = this.require(path);
     try {
       const response = await EditorIPC.applyEdits(path, edits);
@@ -117,6 +126,7 @@ class DocumentServiceImpl {
         content: nextContent,
         version: response.revision,
         isDirty: response.dirty,
+        changeOrigin: origin,
         lastError: undefined,
       });
       const languageSync = LspClient.getInstance()
@@ -147,6 +157,7 @@ class DocumentServiceImpl {
         diskFingerprint: response.diskFingerprint,
         isDirty: false,
         saveState: "idle",
+        changeOrigin: "save",
         lastError: undefined,
       });
       void LspClient.getInstance()

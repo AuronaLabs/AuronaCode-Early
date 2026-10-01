@@ -33,6 +33,7 @@ export interface WorkbenchState {
   activeBottomPanel: BottomPanel;
   bottomPanelHeight: number;
   pendingCloseTab: TabItem | null;
+  pendingCloseTabs: TabItem[];
   pendingReveal: { path: string; line: number } | null;
 
   setActiveTabId(id: string | null): void;
@@ -43,6 +44,8 @@ export interface WorkbenchState {
   setActiveBottomPanel(panel: BottomPanel): void;
   setBottomPanelHeight(height: number, persist?: boolean): void;
   setPendingCloseTab(tab: TabItem | null): void;
+  requestCloseTabs(tabs: TabItem[]): void;
+  advancePendingCloseTab(): void;
   requestReveal(path: string, line: number): void;
   clearPendingReveal(path: string, line: number): void;
   openFile(path: string): void;
@@ -181,6 +184,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   activeBottomPanel: "problems",
   bottomPanelHeight: DEFAULT_BOTTOM_PANEL_HEIGHT,
   pendingCloseTab: null,
+  pendingCloseTabs: [],
   pendingReveal: null,
 
   setActiveTabId: (id) => {
@@ -216,7 +220,41 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     });
     if (persist) persistWorkbench(get());
   },
-  setPendingCloseTab: (tab) => set({ pendingCloseTab: tab }),
+  setPendingCloseTab: (tab) =>
+    set((_state) =>
+      tab ? { pendingCloseTab: tab } : { pendingCloseTab: null, pendingCloseTabs: [] },
+    ),
+  requestCloseTabs: (requestedTabs) => {
+    const requestedIds = new Set(requestedTabs.map((tab) => tab.id));
+    const current = get();
+    const selected = current.tabs.filter((tab) => requestedIds.has(tab.id));
+    const cleanIds = new Set(selected.filter((tab) => !tab.isDirty).map((tab) => tab.id));
+    const dirty = selected.filter((tab) => tab.isDirty);
+
+    if (cleanIds.size > 0) {
+      set((state) => {
+        const closing = state.tabs.filter((tab) => cleanIds.has(tab.id));
+        for (const tab of closing) {
+          if (tab.type === "file" && tab.path) {
+            DiagnosticsService.clear(pathToFileUri(tab.path));
+          }
+        }
+        const tabs = state.tabs.filter((tab) => !cleanIds.has(tab.id));
+        const activeTabId = cleanIds.has(state.activeTabId ?? "")
+          ? (tabs.at(-1)?.id ?? null)
+          : state.activeTabId;
+        return { tabs, activeTabId };
+      });
+    }
+
+    set({ pendingCloseTab: dirty[0] ?? null, pendingCloseTabs: dirty.slice(1) });
+    persistWorkbench(get());
+  },
+  advancePendingCloseTab: () =>
+    set((state) => {
+      const [next, ...remaining] = state.pendingCloseTabs;
+      return { pendingCloseTab: next ?? null, pendingCloseTabs: remaining };
+    }),
   requestReveal: (path, line) => set({ pendingReveal: { path, line } }),
   clearPendingReveal: (path, line) =>
     set((state) =>
@@ -401,7 +439,7 @@ export async function initializeWorkbenchStore(): Promise<() => void> {
       const store = useWorkbenchStore.getState();
       if (store.pendingCloseTab?.path === path) {
         store.closeTabById(store.pendingCloseTab.id);
-        store.setPendingCloseTab(null);
+        store.advancePendingCloseTab();
       }
     }),
     EventBus.on("editor:reveal-location", ({ path, line }) => {

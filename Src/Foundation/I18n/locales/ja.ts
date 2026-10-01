@@ -128,6 +128,8 @@ export const ja: LocaleMessages = {
   editor: {
     sourceView: "ソース",
     previewView: "プレビュー",
+    capsuleLabel: "エディターカプセル",
+    unsavedChanges: "未保存の変更",
     searchPlaceholder: "検索…",
     searchNoResults: "結果なし",
     searchToggleReplace: "置換の表示切り替え",
@@ -310,6 +312,13 @@ export const ja: LocaleMessages = {
     expand: "展開",
     collapse: "折りたたむ",
     versionPicker: "バージョンを選択",
+
+    versionLines: "バージョン系列",
+    releaseCount: "{count} 件のバージョン",
+    searchPlaceholder: "バージョン、日付、変更内容を検索",
+    noSearchResults: "一致するバージョンがありません",
+    clearSearch: "検索をクリア",
+    searchResults: "検索結果",
   },
   notifications: {
     title: "通知",
@@ -1585,9 +1594,15 @@ export const ja: LocaleMessages = {
       settingsDesc:
         "AI がワークスペースのファイルを読み取り、コードを検索・変更し、エディターコマンドを実行できるようにします。書き込み操作には常に確認が必要です",
       permissionAsk: "操作前に確認",
+      permissionAskDescription:
+        "読み取り、編集、コマンドの前に毎回確認します。最も厳格なモードです。",
       permissionRead: "読み取り専用",
+      permissionReadDescription:
+        "ワークスペースの読み取りと検索を許可します。書き込みとコマンドには確認が必要です。",
       permissionEdit: "確認付き編集",
+      permissionEditDescription: "読み取りと編集の準備を許可します。書き込みは毎回確認します。",
       permissionFull: "ツールへの完全アクセス",
+      permissionFullDescription: "登録済みツールを自動実行します。ツールの安全境界は適用されます。",
       confirmTitle: "{tool} を確認",
       confirmMessage: "AI が書き込み操作を要求しています。引数を確認して承認してください",
       roundLimit:

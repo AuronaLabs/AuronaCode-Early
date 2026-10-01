@@ -129,6 +129,8 @@ export const de: LocaleMessages = {
   editor: {
     sourceView: "Quelltext",
     previewView: "Vorschau",
+    capsuleLabel: "Editor-Kapsel",
+    unsavedChanges: "Ungespeicherte Änderungen",
     searchPlaceholder: "Suchen…",
     searchNoResults: "Keine Ergebnisse",
     searchToggleReplace: "Ersetzen ein-/ausblenden",
@@ -315,6 +317,13 @@ export const de: LocaleMessages = {
     expand: "Ausklappen",
     collapse: "Einklappen",
     versionPicker: "Version auswählen",
+
+    versionLines: "Versionslinien",
+    releaseCount: "{count} Versionen",
+    searchPlaceholder: "Versionen, Daten oder Änderungen suchen",
+    noSearchResults: "Keine passenden Versionen",
+    clearSearch: "Suche löschen",
+    searchResults: "Suchergebnisse",
   },
   notifications: {
     title: "Benachrichtigungen",
@@ -1611,9 +1620,17 @@ export const de: LocaleMessages = {
       settingsDesc:
         "Erlaubt der KI, Arbeitsbereichdateien zu lesen, Code zu suchen und zu ändern sowie Editor-Befehle auszuführen; Schreiboperationen erfordern stets eine Bestätigung",
       permissionAsk: "Vor jeder Aktion fragen",
+      permissionAskDescription:
+        "Vor jedem Lesen, Bearbeiten oder Befehl fragen. Der strengste Modus.",
       permissionRead: "Nur lesen",
+      permissionReadDescription:
+        "Arbeitsbereich lesen und durchsuchen; Schreiben und Befehle brauchen weiterhin Bestätigung.",
       permissionEdit: "Bearbeiten mit Bestätigung",
+      permissionEditDescription:
+        "Lesen und vorbereitete Änderungen erlauben; jeder Schreibvorgang wird bestätigt.",
       permissionFull: "Vollständiger Werkzeugzugriff",
+      permissionFullDescription:
+        "Registrierte Werkzeuge automatisch ausführen; Sicherheitsgrenzen bleiben aktiv.",
       confirmTitle: "{tool} bestätigen",
       confirmMessage: "Die KI fordert eine Schreiboperation an — Argumente prüfen und bestätigen",
       roundLimit:

@@ -63,11 +63,21 @@ describe("DocumentService", () => {
       content: "const value = 2;",
       version: 1,
       isDirty: true,
+      changeOrigin: "local",
     });
     // didChange 透传编辑区间（增量 LSP 同步用）
     expect(mocks.didChange).toHaveBeenCalledWith("typescript", path, "const value = 2;", 1, [
       { startUtf16: 14, endUtf16: 15, text: "2" },
     ]);
+    await DocumentService.close(path, true);
+  });
+
+  it("keeps external edit notifications distinguishable from local typing", async () => {
+    const path = "C:\\work\\main.ts";
+    await DocumentService.open(path);
+    await DocumentService.applyEdits(path, [], "const value = 3;", "external");
+
+    expect(DocumentService.get(path)?.changeOrigin).toBe("external");
     await DocumentService.close(path, true);
   });
 });

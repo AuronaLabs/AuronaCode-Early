@@ -1,5 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useLocale } from "../../../Foundation/I18n";
 import { cn } from "../../../Shared/Utils/cn";
 import { glassVariants } from "../../../UI/Core/GlassManager/variants";
 import { type EditorOverlayAnchor, positionEditorOverlay } from "../Utils/EditorOverlay";
@@ -71,6 +72,7 @@ const renderRichText = (value: string) => {
 };
 
 export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps) {
+  const { t } = useLocale();
   const blocks = useMemo(() => parseHoverBlocks(hover.text), [hover.text]);
   const cardRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState(() =>
@@ -117,7 +119,7 @@ export function HoverCard({ hover, onMouseEnter, onMouseLeave }: HoverCardProps)
         <div className="mb-2 flex items-center justify-between gap-4 border-b border-[var(--border-subtle)] pb-2">
           <span className="flex items-center gap-2 font-semibold text-[var(--color-text-highlight)]">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
-            {hover.title ?? "语言服务"}
+            {hover.title ?? t("settings.codeIntelligence.serversTitle")}
           </span>
           {hover.source && (
             <span className="font-mono text-[10px] text-[var(--color-text-muted)]">

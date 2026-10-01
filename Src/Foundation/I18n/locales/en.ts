@@ -128,6 +128,8 @@ export const en: LocaleMessages = {
   editor: {
     sourceView: "Source",
     previewView: "Preview",
+    capsuleLabel: "Editor Capsule",
+    unsavedChanges: "Unsaved changes",
     searchPlaceholder: "Search…",
     searchNoResults: "No results",
     searchToggleReplace: "Toggle Replace",
@@ -311,6 +313,13 @@ export const en: LocaleMessages = {
     expand: "Expand",
     collapse: "Collapse",
     versionPicker: "Select a version",
+
+    versionLines: "Version lines",
+    releaseCount: "{count} releases",
+    searchPlaceholder: "Search versions, dates, or changes",
+    noSearchResults: "No matching releases",
+    clearSearch: "Clear search",
+    searchResults: "Search results",
   },
   notifications: {
     title: "Notifications",
@@ -1557,9 +1566,16 @@ export const en: LocaleMessages = {
       settingsDesc:
         "Let the AI read workspace files, search and modify code, and run editor commands; write operations always require confirmation",
       permissionAsk: "Ask before actions",
+      permissionAskDescription: "Ask before every read, edit, or command. The strictest mode.",
       permissionRead: "Read only",
+      permissionReadDescription:
+        "Allow workspace reads and search; writes and commands still require approval.",
       permissionEdit: "Edit with confirmation",
+      permissionEditDescription:
+        "Allow reads and prepared edits; every write is shown for approval.",
       permissionFull: "Full tool access",
+      permissionFullDescription:
+        "Allow registered tools to run automatically while tool safety boundaries still apply.",
       confirmTitle: "Confirm {tool}",
       confirmMessage: "The AI requests a write operation — review the arguments and confirm",
       roundLimit:

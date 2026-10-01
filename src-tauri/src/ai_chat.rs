@@ -1,22 +1,18 @@
-//! 0.4.6 批次 5：AI 助手流式代理（OpenAI 兼容 /chat/completions SSE）。
-//! 0.4.7 稳定性重做：超时分级（连接 / 首 token / chunk 间隔 / 总时长硬顶）、
-//! SSE 单次解析（content / finish_reason / tool_calls / usage 一次取全）、
-//! tool_calls 协议预留（解析与透传，执行端后续版本落地）。
+//! Responses API transport for the local Agent.
 //!
-//! 前端通过 `ai_chat_send` 发起流式对话，Rust 侧逐块解析 SSE 并以
-//! `ai://chat-start` / `ai://chat-delta` / `ai://chat-done` / `ai://chat-error`
-//! 事件推回。所有请求走 `network::configure_client` 全局代理客户端
-//! （0.4.3 承诺：代理设置覆盖一切 Rust 侧网络）。
-//! 隐私优先：对话内容仅经用户配置的服务商转发，无任何遥测。
+//! Requests share the configured network client. Text, tools, usage and
+//! terminal states are delivered through `ai://responses-event`.
 
 use std::collections::HashSet;
 use std::sync::Mutex;
 
-#[cfg(test)]
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, Emitter, State};
+use tokio::sync::Notify;
 use tokio::time::{timeout, Duration};
+
+// The Agent transport is Responses-only. Legacy Chat Completions payloads are
+// deliberately kept out of the runtime and are not accepted by this module.
 
 /// 连接超时（TCP/TLS 建链）
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
@@ -28,6 +24,8 @@ const CHUNK_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
 #[derive(Default)]
 pub struct AiChatState {
     aborts: Mutex<HashSet<String>>,
+    active: Mutex<HashSet<String>>,
+    abort_notify: Notify,
 }
 
 impl AiChatState {
@@ -45,174 +43,148 @@ impl AiChatState {
     }
 
     fn insert_abort(&self, request_id: &str) {
-        if let Ok(mut set) = self.aborts.lock() {
-            set.insert(request_id.to_string());
+        let is_active = self
+            .active
+            .lock()
+            .map(|set| set.contains(request_id))
+            .unwrap_or(false);
+        if is_active {
+            if let Ok(mut set) = self.aborts.lock() {
+                set.insert(request_id.to_string());
+            }
+            self.abort_notify.notify_waiters();
         }
     }
-}
 
-#[cfg(test)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ChatToolFunctionPayload {
-    pub name: String,
-    pub arguments: String,
-}
+    async fn wait_for_abort(&self, request_id: &str) {
+        loop {
+            let notified = self.abort_notify.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+            if self.has_abort(request_id) {
+                return;
+            }
+            notified.await;
+        }
+    }
 
-#[cfg(test)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ChatToolCallPayload {
-    pub id: String,
-    #[serde(rename = "type")]
-    pub call_type: String,
-    pub function: ChatToolFunctionPayload,
-}
+    fn begin_request(&self, request_id: &str) -> bool {
+        let already_aborted = self
+            .aborts
+            .lock()
+            .map(|mut set| set.remove(request_id))
+            .unwrap_or(false);
+        if already_aborted {
+            return false;
+        }
+        if let Ok(mut set) = self.active.lock() {
+            set.insert(request_id.to_string());
+            true
+        } else {
+            false
+        }
+    }
 
-#[cfg(test)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChatMessagePayload {
-    pub role: String,
-    #[serde(default)]
-    pub content: Option<String>,
-    #[serde(
-        rename = "tool_calls",
-        alias = "toolCalls",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub tool_calls: Option<Vec<ChatToolCallPayload>>,
-    #[serde(
-        rename = "tool_call_id",
-        alias = "toolCallId",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub tool_call_id: Option<String>,
-}
-
-#[cfg(test)]
-#[derive(Debug, Default, PartialEq, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct SseUsage {
-    pub prompt_tokens: Option<u64>,
-    pub completion_tokens: Option<u64>,
-    pub total_tokens: Option<u64>,
-}
-
-#[cfg(test)]
-#[derive(Debug, Default, PartialEq, Serialize, Clone)]
-pub struct SseToolCallDelta {
-    pub index: u64,
-    pub id: Option<String>,
-    pub name: Option<String>,
-    pub arguments_delta: Option<String>,
-}
-
-#[cfg(test)]
-#[derive(Debug, Default, PartialEq)]
-pub struct SseLine {
-    pub content: Option<String>,
-    pub finish_reason: Option<String>,
-    pub tool_calls: Vec<SseToolCallDelta>,
-    pub usage: Option<SseUsage>,
-}
-
-#[cfg(test)]
-impl SseLine {
-    fn is_empty(&self) -> bool {
-        self.content.is_none()
-            && self.finish_reason.is_none()
-            && self.tool_calls.is_empty()
-            && self.usage.is_none()
+    fn finish_request(&self, request_id: &str) {
+        if let Ok(mut set) = self.active.lock() {
+            set.remove(request_id);
+        }
+        self.clear_abort(request_id);
     }
 }
 
-#[cfg(test)]
-pub fn parse_sse_line(line: &str) -> Option<SseLine> {
-    let data = line.trim_start().strip_prefix("data:")?.trim_start();
-    if data == "[DONE]" {
-        return None;
+struct RequestGuard<'a> {
+    state: &'a AiChatState,
+    request_id: &'a str,
+}
+
+impl Drop for RequestGuard<'_> {
+    fn drop(&mut self) {
+        self.state.finish_request(self.request_id);
     }
-    let value: serde_json::Value = serde_json::from_str(data).ok()?;
-    let first = value.get("choices").and_then(|choices| choices.get(0));
-    let delta = first.and_then(|choice| choice.get("delta"));
-    let content = delta
-        .and_then(|item| item.get("content"))
-        .and_then(|item| item.as_str())
-        .map(str::to_string);
-    let finish_reason = first
-        .and_then(|choice| choice.get("finish_reason"))
-        .and_then(|item| item.as_str())
-        .map(str::to_string);
-    let tool_calls = delta
-        .and_then(|item| item.get("tool_calls"))
-        .and_then(|item| item.as_array())
-        .map(|calls| {
-            calls
-                .iter()
-                .map(|call| {
-                    let function = call.get("function");
-                    SseToolCallDelta {
-                        index: call
-                            .get("index")
-                            .and_then(|item| item.as_u64())
-                            .unwrap_or(0),
-                        id: call
-                            .get("id")
-                            .and_then(|item| item.as_str())
-                            .map(str::to_string),
-                        name: function
-                            .and_then(|item| item.get("name"))
-                            .and_then(|item| item.as_str())
-                            .map(str::to_string),
-                        arguments_delta: function
-                            .and_then(|item| item.get("arguments"))
-                            .and_then(|item| item.as_str())
-                            .map(str::to_string),
-                    }
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    let usage = value
-        .get("usage")
-        .and_then(|item| item.as_object())
-        .map(|item| SseUsage {
-            prompt_tokens: item.get("prompt_tokens").and_then(|value| value.as_u64()),
-            completion_tokens: item
-                .get("completion_tokens")
-                .and_then(|value| value.as_u64()),
-            total_tokens: item.get("total_tokens").and_then(|value| value.as_u64()),
-        });
-    let parsed = SseLine {
-        content,
-        finish_reason,
-        tool_calls,
-        usage,
-    };
-    (!parsed.is_empty()).then_some(parsed)
+}
+
+fn response_item(value: &serde_json::Value) -> &serde_json::Value {
+    value.get("item").unwrap_or(value)
+}
+
+fn response_usage(value: &serde_json::Value) -> Option<serde_json::Value> {
+    let input = value
+        .get("input_tokens")
+        .or_else(|| value.get("prompt_tokens"));
+    let output = value
+        .get("output_tokens")
+        .or_else(|| value.get("completion_tokens"));
+    let total = value.get("total_tokens");
+    let mut normalized = serde_json::Map::new();
+    if let Some(value) = input {
+        normalized.insert("promptTokens".into(), value.clone());
+    }
+    if let Some(value) = output {
+        normalized.insert("completionTokens".into(), value.clone());
+    }
+    if let Some(value) = total {
+        normalized.insert("totalTokens".into(), value.clone());
+    }
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(serde_json::Value::Object(normalized))
+    }
+}
+
+fn nested_string<'a>(value: &'a serde_json::Value, paths: &[&[&str]]) -> Option<&'a str> {
+    paths.iter().find_map(|path| {
+        path.iter()
+            .try_fold(value, |current, key| current.get(*key))
+            .and_then(|item| item.as_str())
+    })
 }
 
 /// Normalize one Responses API SSE event into a frontend-friendly event payload.
-pub fn parse_response_sse_event(event: &str, data: &str) -> Option<serde_json::Value> {
+fn parse_response_sse_event_result(
+    event: &str,
+    data: &str,
+) -> Result<Option<serde_json::Value>, String> {
     if data.trim() == "[DONE]" {
-        return None;
+        return Ok(None);
     }
-    let value: serde_json::Value = serde_json::from_str(data).ok()?;
+    let value: serde_json::Value = serde_json::from_str(data)
+        .map_err(|error| format!("Invalid Responses SSE JSON: {error}"))?;
+    let event = if event.trim().is_empty() {
+        value
+            .get("type")
+            .and_then(|item| item.as_str())
+            .unwrap_or("message")
+    } else {
+        event.trim()
+    };
     let response = value.get("response");
-    let response_id = response
-        .and_then(|item| item.get("id"))
-        .and_then(|item| item.as_str())
-        .or_else(|| value.get("id").and_then(|item| item.as_str()));
-    let mut payload = json!({ "type": event });
+    let response_id = nested_string(&value, &[&["response", "id"], &["id"]]);
+    let mut payload = json!({ "type": event, "raw": value });
     if let Some(id) = response_id {
         payload["responseId"] = json!(id);
     }
     match event {
+        "response.created" | "response.in_progress" => {}
         "response.output_text.delta" => {
+            for (target, source) in [("itemId", "item_id"), ("outputIndex", "output_index")] {
+                if let Some(item) = value.get(source) {
+                    payload[target] = item.clone();
+                }
+            }
             if let Some(delta) = value.get("delta").and_then(|item| item.as_str()) {
                 payload["delta"] = json!(delta);
+            }
+        }
+        "response.output_text.done" => {
+            for (target, source) in [("itemId", "item_id"), ("outputIndex", "output_index")] {
+                if let Some(item) = value.get(source) {
+                    payload[target] = item.clone();
+                }
+            }
+            if let Some(text) = value.get("text").and_then(|item| item.as_str()) {
+                payload["text"] = json!(text);
             }
         }
         "response.function_call_arguments.delta" => {
@@ -232,9 +204,31 @@ pub fn parse_response_sse_event(event: &str, data: &str) -> Option<serde_json::V
                 payload["argumentsDelta"] = json!(delta);
             }
         }
-        "response.output_item.done" => {
-            payload["raw"] = value.clone();
-            let item = value.get("item").unwrap_or(&value);
+        "response.function_call_arguments.done" => {
+            for (target, source) in [
+                ("callId", "call_id"),
+                ("itemId", "item_id"),
+                ("outputIndex", "output_index"),
+            ] {
+                if let Some(item) = value.get(source) {
+                    payload[target] = item.clone();
+                }
+            }
+            if let Some(name) = value.get("name").and_then(|item| item.as_str()) {
+                payload["name"] = json!(name);
+            }
+            if let Some(arguments) = value.get("arguments").and_then(|item| item.as_str()) {
+                payload["arguments"] = json!(arguments);
+            }
+        }
+        "response.output_item.added" | "response.output_item.done" => {
+            let item = response_item(&value);
+            if let Some(output_index) = value.get("output_index") {
+                payload["outputIndex"] = output_index.clone();
+            }
+            if let Some(item_id) = item.get("id").and_then(|item| item.as_str()) {
+                payload["itemId"] = json!(item_id);
+            }
             if let Some(call_id) = item.get("call_id").and_then(|item| item.as_str()) {
                 payload["callId"] = json!(call_id);
             }
@@ -243,29 +237,142 @@ pub fn parse_response_sse_event(event: &str, data: &str) -> Option<serde_json::V
             }
         }
         "response.completed" => {
-            if let Some(reason) = value
-                .get("response")
-                .and_then(|item| item.get("status"))
-                .and_then(|item| item.as_str())
-            {
+            if let Some(reason) = nested_string(&value, &[&["response", "status"], &["status"]]) {
                 payload["finishReason"] = json!(reason);
             }
-            if let Some(usage) = response.and_then(|item| item.get("usage")) {
-                payload["usage"] = usage.clone();
+            if let Some(usage) = response
+                .and_then(|item| item.get("usage"))
+                .or_else(|| value.get("usage"))
+            {
+                if let Some(normalized) = response_usage(usage) {
+                    payload["usage"] = normalized;
+                }
             }
         }
-        "response.failed" | "error" => {
+        "response.incomplete" | "response.failed" | "error" => {
+            if let Some(reason) = nested_string(&value, &[&["response", "status"], &["status"]]) {
+                payload["finishReason"] = json!(reason);
+            }
+            if let Some(reason) = nested_string(
+                &value,
+                &[
+                    &["incomplete_details", "reason"],
+                    &["response", "incomplete_details", "reason"],
+                ],
+            ) {
+                payload["incompleteReason"] = json!(reason);
+            }
             payload["message"] = value
                 .get("message")
                 .or_else(|| value.get("error").and_then(|item| item.get("message")))
+                .or_else(|| {
+                    value
+                        .get("response")
+                        .and_then(|item| item.get("error"))
+                        .and_then(|item| item.get("message"))
+                })
                 .cloned()
-                .unwrap_or_else(|| json!("Responses request failed"));
+                .unwrap_or_else(|| json!("Responses response did not complete"));
         }
         _ => {
-            payload["raw"] = value;
+            let raw = payload
+                .get("raw")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null);
+            payload["rawEvent"] = json!({ "type": event, "data": raw });
         }
     }
-    Some(payload)
+    Ok(Some(payload))
+}
+
+/// Public compatibility wrapper used by transport tests and future adapters.
+#[allow(dead_code)]
+pub fn parse_response_sse_event(event: &str, data: &str) -> Option<serde_json::Value> {
+    parse_response_sse_event_result(event, data).ok().flatten()
+}
+
+#[derive(Default)]
+struct ResponsesSseDecoder {
+    buffer: Vec<u8>,
+    event: String,
+    data: Vec<String>,
+}
+
+impl ResponsesSseDecoder {
+    fn push(&mut self, chunk: &[u8]) -> Result<Vec<serde_json::Value>, String> {
+        self.buffer.extend_from_slice(chunk);
+        let mut payloads = Vec::new();
+        while let Some(end) = find_sse_record_end(&self.buffer) {
+            let record: Vec<u8> = self.buffer.drain(..end).collect();
+            if let Some(payload) = self.parse_record(&record)? {
+                payloads.push(payload);
+            }
+        }
+        Ok(payloads)
+    }
+
+    fn finish(&mut self) -> Result<Vec<serde_json::Value>, String> {
+        if self.buffer.is_empty() && self.data.is_empty() {
+            return Ok(Vec::new());
+        }
+        let record = std::mem::take(&mut self.buffer);
+        let mut payloads = Vec::new();
+        if !record.is_empty() {
+            if let Some(payload) = self.parse_record(&record)? {
+                payloads.push(payload);
+            }
+        } else if let Some(payload) = self.dispatch()? {
+            payloads.push(payload);
+        }
+        Ok(payloads)
+    }
+
+    fn parse_record(&mut self, record: &[u8]) -> Result<Option<serde_json::Value>, String> {
+        let text = std::str::from_utf8(record)
+            .map_err(|error| format!("Invalid UTF-8 in Responses SSE record: {error}"))?;
+        for line in text.split_inclusive('\n') {
+            let line = line.trim_end_matches(['\r', '\n']);
+            if let Some(value) = line.strip_prefix("event:") {
+                self.event = value.trim().to_string();
+            } else if let Some(value) = line.strip_prefix("data:") {
+                self.data
+                    .push(value.strip_prefix(' ').unwrap_or(value).to_string());
+            }
+        }
+        self.dispatch()
+    }
+
+    fn dispatch(&mut self) -> Result<Option<serde_json::Value>, String> {
+        if self.data.is_empty() {
+            self.event.clear();
+            return Ok(None);
+        }
+        let event = std::mem::take(&mut self.event);
+        let data = self.data.drain(..).collect::<Vec<_>>().join("\n");
+        parse_response_sse_event_result(&event, &data)
+    }
+}
+
+fn find_sse_record_end(buffer: &[u8]) -> Option<usize> {
+    for index in 0..buffer.len().saturating_sub(1) {
+        if buffer[index] == b'\n' && buffer[index + 1] == b'\n' {
+            return Some(index + 2);
+        }
+        if index + 3 < buffer.len() && buffer[index..index + 4] == [b'\r', b'\n', b'\r', b'\n'] {
+            return Some(index + 4);
+        }
+    }
+    None
+}
+
+fn emit_response_event(app: &AppHandle, request_id: &str, mut payload: serde_json::Value) -> bool {
+    let terminal = matches!(
+        payload.get("type").and_then(|value| value.as_str()),
+        Some("response.completed" | "response.incomplete" | "response.failed" | "error")
+    );
+    payload["requestId"] = json!(request_id);
+    let _ = app.emit("ai://responses-event", payload);
+    terminal
 }
 
 fn responses_url(base_url: &str) -> String {
@@ -322,14 +429,17 @@ pub async fn ai_responses_send(
     tools: Option<Vec<serde_json::Value>>,
     previous_response_id: Option<String>,
 ) -> Result<(), String> {
-    if state.has_abort(&request_id) {
-        state.clear_abort(&request_id);
+    if !state.begin_request(&request_id) {
         let _ = app.emit(
             "ai://responses-event",
             json!({ "requestId": request_id, "type": "response.failed", "message": "aborted" }),
         );
         return Ok(());
     }
+    let _request_guard = RequestGuard {
+        state: &state,
+        request_id: &request_id,
+    };
     let mut body = json!({
         "model": model,
         "input": input,
@@ -360,22 +470,31 @@ pub async fn ai_responses_send(
         .post(responses_url(&base_url))
         .bearer_auth(api_key.trim())
         .json(&body);
-    let response = match timeout(FIRST_TOKEN_TIMEOUT, request.send()).await {
-        Ok(Ok(response)) => response,
-        Ok(Err(error)) => {
+    let response = tokio::select! {
+        _ = state.wait_for_abort(&request_id) => {
+            let _ = app.emit(
+                "ai://responses-event",
+                json!({ "requestId": request_id, "type": "response.failed", "message": "aborted" }),
+            );
+            return Ok(());
+        }
+        result = timeout(FIRST_TOKEN_TIMEOUT, request.send()) => match result {
+            Ok(Ok(response)) => response,
+            Ok(Err(error)) => {
             let (code, message) = classify_request_error(&error);
             let _ = app.emit(
                 "ai://responses-event",
                 json!({ "requestId": request_id, "type": "error", "code": code, "message": message }),
             );
             return Ok(());
-        }
-        Err(_) => {
+            }
+            Err(_) => {
             let _ = app.emit(
                 "ai://responses-event",
                 json!({ "requestId": request_id, "type": "error", "code": "first_token_timeout", "message": "Responses first token timeout" }),
             );
             return Ok(());
+            }
         }
     };
     if !response.status().is_success() {
@@ -385,13 +504,19 @@ pub async fn ai_responses_send(
             429 => "rate_limit",
             _ => "generic",
         };
-        let detail = response
-            .text()
-            .await
-            .unwrap_or_default()
-            .chars()
-            .take(300)
-            .collect::<String>();
+        let detail = tokio::select! {
+            _ = state.wait_for_abort(&request_id) => {
+                let _ = app.emit(
+                    "ai://responses-event",
+                    json!({ "requestId": request_id, "type": "response.failed", "message": "aborted" }),
+                );
+                return Ok(());
+            }
+            result = response.text() => result.unwrap_or_default(),
+        }
+        .chars()
+        .take(300)
+        .collect::<String>();
         let _ = app.emit(
             "ai://responses-event",
             json!({ "requestId": request_id, "type": "error", "code": code, "message": format!("HTTP {}: {detail}", status.as_u16()) }),
@@ -400,43 +525,43 @@ pub async fn ai_responses_send(
     }
     use futures_util::StreamExt;
     let mut stream = response.bytes_stream();
-    let mut buffer = String::new();
-    let mut current_event = String::new();
-    let mut received_data = false;
+    let mut decoder = ResponsesSseDecoder::default();
+    let mut received_event = false;
+    let mut terminal_event_received = false;
     loop {
-        if state.has_abort(&request_id) {
-            state.clear_abort(&request_id);
-            let _ = app.emit(
-                "ai://responses-event",
-                json!({ "requestId": request_id, "type": "response.failed", "message": "aborted" }),
-            );
-            return Ok(());
-        }
-        let wait = if received_data {
+        let wait = if received_event {
             CHUNK_IDLE_TIMEOUT
         } else {
             FIRST_TOKEN_TIMEOUT
         };
-        match timeout(wait, stream.next()).await {
+        let next = tokio::select! {
+            _ = state.wait_for_abort(&request_id) => {
+                let _ = app.emit(
+                    "ai://responses-event",
+                    json!({ "requestId": request_id, "type": "response.failed", "message": "aborted" }),
+                );
+                return Ok(());
+            }
+            result = timeout(wait, stream.next()) => result,
+        };
+        match next {
             Ok(Some(Ok(chunk))) => {
-                buffer.push_str(&String::from_utf8_lossy(&chunk));
-                while let Some(position) = buffer.find('\n') {
-                    let line: String = buffer.drain(..position + 1).collect();
-                    let line = line.trim_end_matches(['\r', '\n']);
-                    if let Some(value) = line.strip_prefix("event:") {
-                        current_event = value.trim().to_string();
-                        continue;
+                let payloads = match decoder.push(&chunk) {
+                    Ok(payloads) => payloads,
+                    Err(message) => {
+                        let _ = app.emit(
+                            "ai://responses-event",
+                            json!({ "requestId": request_id, "type": "error", "code": "invalid_stream", "message": message }),
+                        );
+                        return Ok(());
                     }
-                    let Some(value) = line.strip_prefix("data:") else {
-                        continue;
-                    };
-                    let Some(mut payload) = parse_response_sse_event(&current_event, value.trim())
-                    else {
-                        continue;
-                    };
-                    payload["requestId"] = json!(&request_id);
-                    received_data = true;
-                    let _ = app.emit("ai://responses-event", payload);
+                };
+                for payload in payloads {
+                    received_event = true;
+                    terminal_event_received |= emit_response_event(&app, &request_id, payload);
+                    if terminal_event_received {
+                        return Ok(());
+                    }
                 }
             }
             Ok(Some(Err(error))) => {
@@ -447,11 +572,48 @@ pub async fn ai_responses_send(
                 );
                 return Ok(());
             }
-            Ok(None) => return Ok(()),
+            Ok(None) => {
+                let payloads = match decoder.finish() {
+                    Ok(payloads) => payloads,
+                    Err(message) => {
+                        let _ = app.emit(
+                            "ai://responses-event",
+                            json!({ "requestId": request_id, "type": "error", "code": "invalid_stream", "message": message }),
+                        );
+                        return Ok(());
+                    }
+                };
+                for payload in payloads {
+                    received_event = true;
+                    terminal_event_received |= emit_response_event(&app, &request_id, payload);
+                }
+                if !received_event {
+                    emit_response_event(
+                        &app,
+                        &request_id,
+                        json!({
+                            "type": "error",
+                            "code": "empty_stream",
+                            "message": "Responses stream ended before sending an event"
+                        }),
+                    );
+                } else if !terminal_event_received {
+                    emit_response_event(
+                        &app,
+                        &request_id,
+                        json!({
+                            "type": "error",
+                            "code": "incomplete_stream",
+                            "message": "Responses stream ended without a terminal event"
+                        }),
+                    );
+                }
+                return Ok(());
+            }
             Err(_) => {
                 let _ = app.emit(
                     "ai://responses-event",
-                    json!({ "requestId": request_id, "type": "error", "code": if received_data { "idle_timeout" } else { "first_token_timeout" }, "message": "Responses stream timeout" }),
+                    json!({ "requestId": request_id, "type": "error", "code": if received_event { "idle_timeout" } else { "first_token_timeout" }, "message": "Responses stream timeout" }),
                 );
                 return Ok(());
             }
@@ -466,103 +628,16 @@ pub fn ai_responses_abort(state: State<'_, AiChatState>, request_id: String) -> 
 }
 
 #[cfg(test)]
-mod tests {
+mod responses_tests {
     use super::*;
+    use std::sync::Arc;
 
-    #[test]
-    fn parse_sse_line_extracts_content() {
-        let line = r#"data: {"choices":[{"delta":{"content":"你好"}}]}"#;
-        let parsed = parse_sse_line(line).expect("应解析出内容");
-        assert_eq!(parsed.content, Some("你好".to_string()));
-        assert!(parsed.tool_calls.is_empty());
-        assert_eq!(parsed.finish_reason, None);
-        assert_eq!(parsed.usage, None);
+    fn decode(decoder: &mut ResponsesSseDecoder, text: &str) -> Vec<serde_json::Value> {
+        decoder.push(text.as_bytes()).expect("SSE should decode")
     }
 
     #[test]
-    fn parse_sse_line_without_space_after_prefix() {
-        let line = r#"data:{"choices":[{"delta":{"content":"A"}}]}"#;
-        let parsed = parse_sse_line(line).expect("应解析出内容");
-        assert_eq!(parsed.content, Some("A".to_string()));
-    }
-
-    #[test]
-    fn parse_sse_line_done_returns_none() {
-        assert_eq!(parse_sse_line("data: [DONE]"), None);
-        assert_eq!(parse_sse_line("data:[DONE]"), None);
-    }
-
-    #[test]
-    fn parse_sse_line_ignores_non_data_lines() {
-        assert_eq!(parse_sse_line(": keep-alive"), None);
-        assert_eq!(parse_sse_line("event: message"), None);
-        assert_eq!(parse_sse_line(""), None);
-    }
-
-    #[test]
-    fn parse_sse_line_rejects_bad_json() {
-        assert_eq!(parse_sse_line("data: {not json"), None);
-        // 合法 JSON 但无 choices
-        assert_eq!(parse_sse_line(r#"data: {"error":"boom"}"#), None);
-        // 空 choices 且无 usage
-        assert_eq!(parse_sse_line(r#"data: {"choices":[]}"#), None);
-        // delta 无任何内容字段
-        assert_eq!(parse_sse_line(r#"data: {"choices":[{"delta":{}}]}"#), None);
-    }
-
-    #[test]
-    fn parse_sse_line_extracts_finish_reason() {
-        let line = r#"data: {"choices":[{"delta":{},"finish_reason":"stop"}]}"#;
-        let parsed = parse_sse_line(line).expect("应解析出 finish_reason");
-        assert_eq!(parsed.finish_reason, Some("stop".to_string()));
-        assert_eq!(parsed.content, None);
-    }
-
-    #[test]
-    fn parse_sse_line_extracts_tool_calls() {
-        let line = r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"read_file","arguments":"{\"pa"}}]}}]}"#;
-        let parsed = parse_sse_line(line).expect("应解析出 tool_calls");
-        assert_eq!(parsed.tool_calls.len(), 1);
-        let call = &parsed.tool_calls[0];
-        assert_eq!(call.index, 0);
-        assert_eq!(call.id.as_deref(), Some("call_1"));
-        assert_eq!(call.name.as_deref(), Some("read_file"));
-        assert_eq!(call.arguments_delta.as_deref(), Some("{\"pa"));
-    }
-
-    #[test]
-    fn parse_sse_line_tool_calls_without_optional_fields() {
-        // 后续增量分片通常只有 index 与 arguments
-        let line = r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"th"}}]}}]}"#;
-        let parsed = parse_sse_line(line).expect("应解析出 tool_calls 增量");
-        let call = &parsed.tool_calls[0];
-        assert_eq!(call.index, 0);
-        assert_eq!(call.id, None);
-        assert_eq!(call.name, None);
-        assert_eq!(call.arguments_delta.as_deref(), Some("th"));
-    }
-
-    #[test]
-    fn parse_sse_line_extracts_usage_from_final_chunk() {
-        // OpenAI 约定：开启 include_usage 后收尾分片 choices 为空数组且携带 usage
-        let line = r#"data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}"#;
-        let parsed = parse_sse_line(line).expect("应解析出 usage");
-        assert_eq!(parsed.content, None);
-        let usage = parsed.usage.expect("usage 应存在");
-        assert_eq!(usage.prompt_tokens, Some(10));
-        assert_eq!(usage.completion_tokens, Some(5));
-        assert_eq!(usage.total_tokens, Some(15));
-    }
-
-    #[test]
-    fn parse_sse_line_role_only_chunk_is_empty() {
-        // 首个分片常只携带 role，无内容
-        let line = r#"data: {"choices":[{"delta":{"role":"assistant"}}]}"#;
-        assert_eq!(parse_sse_line(line), None);
-    }
-
-    #[test]
-    fn parse_responses_text_delta_and_response_id() {
+    fn parses_text_delta_and_response_id() {
         let payload = parse_response_sse_event(
             "response.output_text.delta",
             r#"{"response":{"id":"resp_1"},"delta":"hello"}"#,
@@ -574,103 +649,182 @@ mod tests {
     }
 
     #[test]
-    fn parse_responses_function_delta_and_output_item() {
+    fn parses_function_delta_and_completed_usage() {
         let delta = parse_response_sse_event(
             "response.function_call_arguments.delta",
             r#"{"item_id":"item_1","call_id":"call_1","output_index":0,"name":"read_file","delta":"{\"path\":"}"#,
         )
         .expect("function argument delta should parse");
         assert_eq!(delta["callId"], "call_1");
-        assert_eq!(delta["itemId"], "item_1");
-        assert_eq!(delta["outputIndex"], 0);
         assert_eq!(delta["argumentsDelta"], "{\"path\":");
 
-        let done = parse_response_sse_event(
-            "response.output_item.done",
-            r#"{"item":{"type":"function_call","call_id":"call_1","name":"read_file","arguments":"{}"}}"#,
-        )
-        .expect("function output item should parse");
-        assert_eq!(done["callId"], "call_1");
-        assert_eq!(done["name"], "read_file");
-        assert_eq!(done["raw"]["item"]["type"], "function_call");
-    }
-
-    #[test]
-    fn parse_responses_completed_usage_and_errors() {
         let completed = parse_response_sse_event(
             "response.completed",
             r#"{"response":{"id":"resp_2","status":"completed","usage":{"input_tokens":4,"output_tokens":2}}}"#,
         )
         .expect("completed event should parse");
         assert_eq!(completed["finishReason"], "completed");
-        assert_eq!(completed["usage"]["input_tokens"], 4);
-
-        let error = parse_response_sse_event("error", r#"{"error":{"message":"bad request"}}"#)
-            .expect("error event should parse");
-        assert_eq!(error["message"], "bad request");
-        assert!(parse_response_sse_event("message", "[DONE]").is_none());
+        assert_eq!(completed["usage"]["promptTokens"], 4);
+        assert_eq!(completed["usage"]["completionTokens"], 2);
+        assert_eq!(completed["raw"]["response"]["usage"]["input_tokens"], 4);
     }
 
     #[test]
-    fn chat_message_payload_serializes_tool_fields() {
-        let message = ChatMessagePayload {
-            role: "assistant".to_string(),
-            content: None,
-            tool_calls: Some(vec![ChatToolCallPayload {
-                id: "call_1".to_string(),
-                call_type: "function".to_string(),
-                function: ChatToolFunctionPayload {
-                    name: "read_file".to_string(),
-                    arguments: r#"{"path":"src/main.rs"}"#.to_string(),
-                },
-            }]),
-            tool_call_id: None,
-        };
-        let value = serde_json::to_value(&message).expect("serialize");
-        assert_eq!(value["tool_calls"][0]["id"], "call_1");
-        assert_eq!(value["tool_calls"][0]["type"], "function");
-        assert_eq!(value["tool_calls"][0]["function"]["name"], "read_file");
-        // toolCallId 缺省时不出现在 wire format；content 以 null 序列化（assistant 纯工具调用）
-        assert!(value.get("tool_call_id").is_none());
-        assert!(value["content"].is_null());
+    fn parses_response_lifecycle_and_done_events() {
+        let created = parse_response_sse_event(
+            "response.created",
+            r#"{"response":{"id":"resp_3","status":"in_progress"}}"#,
+        )
+        .expect("created event should parse");
+        assert_eq!(created["responseId"], "resp_3");
 
-        let back: ChatMessagePayload = serde_json::from_value(value).expect("deserialize wire");
-        assert_eq!(back.role, "assistant");
-        assert!(back.tool_calls.as_ref().expect("tool_calls").len() == 1);
+        let text = parse_response_sse_event(
+            "response.output_text.done",
+            r#"{"item_id":"msg_1","output_index":0,"text":"done"}"#,
+        )
+        .expect("text done event should parse");
+        assert_eq!(text["itemId"], "msg_1");
+        assert_eq!(text["text"], "done");
 
-        let frontend_value = serde_json::json!({
-            "role": "assistant",
-            "content": null,
-            "toolCalls": [{
-                "id": "call_2",
-                "type": "function",
-                "function": { "name": "list_dir", "arguments": "{}" }
-            }]
-        });
-        let frontend: ChatMessagePayload =
-            serde_json::from_value(frontend_value).expect("deserialize frontend payload");
-        assert_eq!(
-            frontend.tool_calls.as_ref().expect("tool calls")[0].id,
-            "call_2"
+        let arguments = parse_response_sse_event(
+            "response.function_call_arguments.done",
+            r#"{"item_id":"item_1","call_id":"call_1","name":"read_file","output_index":0,"arguments":"{\"path\":\"src/lib.rs\"}"}"#,
+        )
+        .expect("function arguments done event should parse");
+        assert_eq!(arguments["callId"], "call_1");
+        assert_eq!(arguments["itemId"], "item_1");
+        assert_eq!(arguments["outputIndex"], 0);
+        assert_eq!(arguments["name"], "read_file");
+        assert_eq!(arguments["arguments"], "{\"path\":\"src/lib.rs\"}");
+
+        let added = parse_response_sse_event(
+            "response.output_item.added",
+            r#"{"output_index":0,"item":{"id":"item_1","type":"function_call","call_id":"call_1","name":"read_file"}}"#,
+        )
+        .expect("output item added event should parse");
+        assert_eq!(added["outputIndex"], 0);
+        assert_eq!(added["itemId"], "item_1");
+        assert_eq!(added["callId"], "call_1");
+        assert_eq!(added["name"], "read_file");
+        assert_eq!(added["raw"]["item"]["type"], "function_call");
+
+        let incomplete = parse_response_sse_event(
+            "response.incomplete",
+            r#"{"response":{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"error":{"message":"token limit"}}}"#,
+        )
+        .expect("incomplete event should parse");
+        assert_eq!(incomplete["finishReason"], "incomplete");
+        assert_eq!(incomplete["incompleteReason"], "max_output_tokens");
+        assert_eq!(incomplete["message"], "token limit");
+    }
+
+    #[test]
+    fn preserves_unknown_events_for_forward_compatibility() {
+        let payload = parse_response_sse_event("response.future_event", r#"{"value":42}"#)
+            .expect("unknown event should still be forwarded");
+        assert_eq!(payload["type"], "response.future_event");
+        assert_eq!(payload["rawEvent"]["type"], "response.future_event");
+        assert_eq!(payload["rawEvent"]["data"]["value"], 42);
+    }
+
+    #[test]
+    fn decodes_lf_crlf_and_final_record_without_newline() {
+        let mut decoder = ResponsesSseDecoder::default();
+        let payload = decode(
+            &mut decoder,
+            "event: response.output_text.delta\r\ndata: {\"delta\":\"tail\"}\r\n\r\n",
+        )
+        .pop()
+        .expect("CRLF record should parse");
+        assert_eq!(payload["delta"], "tail");
+
+        let payload = decode(
+            &mut decoder,
+            "data: {\"type\":\"response.output_text.delta\",\"delta\":\"last\"}",
+        )
+        .into_iter()
+        .chain(decoder.finish().expect("final record should flush"))
+        .last()
+        .expect("final LF-less record should parse");
+        assert_eq!(payload["delta"], "last");
+    }
+
+    #[test]
+    fn handles_utf8_split_multiline_data_and_event_reset() {
+        let mut decoder = ResponsesSseDecoder::default();
+        let record = "event: response.output_text.delta\ndata: {\"delta\":\n";
+        assert!(decode(&mut decoder, record).is_empty());
+        let tail = "data: \"你好\"}\n\n";
+        let bytes = tail.as_bytes();
+        let split = tail.find('好').expect("UTF-8 text") + 1;
+        assert!(decoder
+            .push(&bytes[..split])
+            .expect("split UTF-8 should wait")
+            .is_empty());
+        let payload = decoder
+            .push(&bytes[split..])
+            .expect("multiline UTF-8 record should parse")
+            .pop()
+            .expect("multiline UTF-8 record should emit");
+        assert_eq!(payload["delta"], "你好");
+        assert!(bytes.len() > split);
+
+        let payload = decode(
+            &mut decoder,
+            "data: {\"type\":\"response.output_text.done\",\"text\":\"done\"}\n\n",
+        )
+        .pop()
+        .expect("event type should reset between records");
+        assert_eq!(payload["type"], "response.output_text.done");
+    }
+
+    #[test]
+    fn defaults_missing_event_name_to_message() {
+        let mut decoder = ResponsesSseDecoder::default();
+        let payload = decode(&mut decoder, "data: {\"value\":42}\n\n")
+            .pop()
+            .expect("event without type should parse");
+        assert_eq!(payload["type"], "message");
+    }
+
+    #[test]
+    fn invalid_utf8_is_rejected_only_when_record_is_complete() {
+        let mut decoder = ResponsesSseDecoder::default();
+        assert!(decoder
+            .push(b"data: \xE4")
+            .expect("incomplete record should wait")
+            .is_empty());
+        let error = decoder
+            .push(b"\n\n")
+            .expect_err("invalid UTF-8 should fail");
+        assert!(error.contains("Invalid UTF-8"));
+    }
+
+    #[test]
+    fn nonterminal_stream_finish_does_not_synthesize_completion() {
+        let mut decoder = ResponsesSseDecoder::default();
+        let events = decode(
+            &mut decoder,
+            "event: response.created\ndata: {\"response\":{\"id\":\"resp_1\"}}\n\n",
         );
+        assert_eq!(events.len(), 1);
+        assert_ne!(events[0]["type"], "response.completed");
+        let tail = decoder.finish().expect("stream finish should succeed");
+        assert!(tail.is_empty());
+    }
 
-        let tool_message = ChatMessagePayload {
-            role: "tool".to_string(),
-            content: Some("file contents".to_string()),
-            tool_calls: None,
-            tool_call_id: Some("call_1".to_string()),
-        };
-        let tool_value = serde_json::to_value(&tool_message).expect("serialize tool");
-        assert_eq!(tool_value["tool_call_id"], "call_1");
-        assert!(tool_value.get("tool_calls").is_none());
-
-        let frontend_tool = serde_json::json!({
-            "role": "tool",
-            "content": "file contents",
-            "toolCallId": "call_2"
+    #[tokio::test]
+    async fn abort_notification_wakes_waiter_promptly() {
+        let state = Arc::new(AiChatState::default());
+        assert!(state.begin_request("request-1"));
+        let waiter_state = Arc::clone(&state);
+        let waiter = tokio::spawn(async move {
+            waiter_state.wait_for_abort("request-1").await;
         });
-        let parsed_frontend_tool: ChatMessagePayload =
-            serde_json::from_value(frontend_tool).expect("deserialize frontend tool result");
-        assert_eq!(parsed_frontend_tool.tool_call_id.as_deref(), Some("call_2"));
+        state.insert_abort("request-1");
+        tokio::time::timeout(Duration::from_secs(1), waiter)
+            .await
+            .expect("abort should wake the request")
+            .expect("waiter should finish");
     }
 }

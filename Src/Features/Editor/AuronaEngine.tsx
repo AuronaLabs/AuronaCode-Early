@@ -6,6 +6,7 @@ import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { LanguageFeaturePreferences } from "../../Foundation/Types/Config";
+import { pathToFileUri } from "../../Shared/Utils/UriUtils";
 import { useDebugStore } from "../../State/useDebugStore";
 import { useFeatureFlagStore } from "../../State/useFeatureFlagStore";
 import {
@@ -221,6 +222,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   // 2. 硬件 RAF 滚动与视口管理 (Performance)
   const {
     scrollTop,
+    scrollLeft,
     viewportHeight,
     visibleStartIndex,
     visibleEndIndex,
@@ -296,7 +298,10 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   useEffect(() => {
     if (!path) return;
     const mapDiags = () => {
-      const raw = DiagnosticsService.get(path)?.diagnostics ?? [];
+      const raw =
+        DiagnosticsService.get(pathToFileUri(path))?.diagnostics ??
+        DiagnosticsService.get(path)?.diagnostics ??
+        [];
       return raw.map((item) => ({
         range: item.range,
         message: item.message,
@@ -662,13 +667,18 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       getSelectionText,
       insertCode: insertTextAtCursor,
       replaceRange: (startLine, endLine, newText) => {
-        const first = Math.max(0, startLine - 1);
-        const last = Math.min(documentLines.length - 1, Math.max(first, endLine - 1));
+        const normalizedStart = Number.isFinite(startLine) ? Math.trunc(startLine) : 1;
+        const normalizedEnd = Number.isFinite(endLine) ? Math.trunc(endLine) : normalizedStart;
+        const first = Math.min(documentLines.length - 1, Math.max(0, normalizedStart - 1));
+        const last = Math.min(documentLines.length - 1, Math.max(first, normalizedEnd - 1));
         const next = [...documentLines];
         next.splice(first, last - first + 1, ...newText.split("\n"));
-        setDocumentLines(next);
-        setTotalLines(next.length);
-        onChange?.(next.join("\n"));
+        const nextLine = Math.min(cursor.line, Math.max(0, next.length - 1));
+        const nextCursor = {
+          line: nextLine,
+          char: Math.min(cursor.char, (next[nextLine] ?? "").length),
+        };
+        replaceDocumentLines(next, nextCursor);
       },
       revealLine: (line) => {
         if (!Number.isFinite(line) || line < 1) return;
@@ -688,7 +698,20 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         lineEnding: "LF",
         errors: diagnostics.filter((d) => d.severity === 1).length,
         warnings: diagnostics.filter((d) => d.severity === 2).length,
-        markers: [],
+        markers: diagnostics.map((diagnostic) => ({
+          message: diagnostic.message,
+          severity:
+            diagnostic.severity === 1
+              ? "error"
+              : diagnostic.severity === 2
+                ? "warning"
+                : diagnostic.severity === 3
+                  ? "info"
+                  : "hint",
+          line: diagnostic.range.start.line + 1,
+          column: diagnostic.range.start.character + 1,
+          source: diagnostic.source,
+        })),
       }),
       onStatusChange: (l) => {
         l(engine.getStatus());
@@ -699,8 +722,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         path,
         line: cursor.line + 1,
         column: cursor.char + 1,
-        scrollTop,
-        scrollLeft: containerRef.current?.scrollLeft ?? 0,
+        scrollTop: containerRef.current?.scrollTop ?? scrollTop,
+        scrollLeft: containerRef.current?.scrollLeft ?? scrollLeft,
         selectionStart: selection
           ? { line: selection.start.line + 1, column: selection.start.char + 1 }
           : undefined,
@@ -747,9 +770,10 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     isActive,
     language,
     layout.tabSize,
-    onChange,
     path,
+    replaceDocumentLines,
     scrollToLine,
+    scrollLeft,
     totalLines,
     scrollTop,
     selection,
@@ -763,8 +787,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
       path,
       line: cursor.line + 1,
       column: cursor.char + 1,
-      scrollTop,
-      scrollLeft: containerRef.current?.scrollLeft ?? 0,
+      scrollTop: containerRef.current?.scrollTop ?? scrollTop,
+      scrollLeft: containerRef.current?.scrollLeft ?? scrollLeft,
       selectionStart: selection
         ? { line: selection.start.line + 1, column: selection.start.char + 1 }
         : undefined,
@@ -773,7 +797,7 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         : undefined,
       foldedLines: [...foldedStartLines],
     });
-  }, [cursor, foldedStartLines, onViewStateChange, path, scrollTop, selection]);
+  }, [cursor, foldedStartLines, onViewStateChange, path, scrollLeft, scrollTop, selection]);
 
   const { minimapDecorations, visibleLinesDOM, lineNumbersDOM } = useEditorRenderData({
     documentLines,

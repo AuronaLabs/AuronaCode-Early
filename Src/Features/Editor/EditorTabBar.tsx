@@ -13,20 +13,17 @@ import { Icons } from "../../UI/Icons/IconManager";
 
 export const EditorTabBar = memo(function EditorTabBar() {
   const { t } = useLocale();
-  const { tabs, activeTabId, setActiveTabId, closeTab, closeTabById } = useWorkbenchStore();
+  const { tabs, activeTabId, setActiveTabId, closeTab, closeTabById, requestCloseTabs } =
+    useWorkbenchStore();
 
   const handleCloseToRight = (id: string) => {
     const idx = tabs.findIndex((t) => t.id === id);
     if (idx === -1) return;
-    tabs.slice(idx + 1).forEach((t) => {
-      if (!t.isDirty) closeTabById(t.id);
-    });
+    requestCloseTabs(tabs.slice(idx + 1));
   };
 
   const handleCloseAll = () => {
-    tabs.forEach((t) => {
-      if (!t.isDirty) closeTabById(t.id);
-    });
+    requestCloseTabs(tabs);
   };
 
   const handleCloseCurrent = (id: string) => {

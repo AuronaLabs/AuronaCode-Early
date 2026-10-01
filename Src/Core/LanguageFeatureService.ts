@@ -65,7 +65,7 @@ class LanguageFeatureServiceImpl {
     const edits = (await LspClient.getInstance().formatDocument(language, path)) as LspTextEdit[];
     if (!edits?.length) return;
     const applied = applyLspTextEdits(document.content, edits);
-    await DocumentService.applyEdits(path, applied.documentEdits, applied.content);
+    await DocumentService.applyEdits(path, applied.documentEdits, applied.content, "external");
   }
 
   async goToDefinition(
@@ -328,6 +328,7 @@ class LanguageFeatureServiceImpl {
           item.path,
           item.applied.documentEdits,
           item.applied.content,
+          "external",
         );
       } else {
         await FileSystemCommands.writeTextFile(item.path, item.applied.content);

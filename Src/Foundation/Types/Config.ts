@@ -90,7 +90,7 @@ export interface AiProfile {
   apiKey: string;
   /** 模型名称 */
   model: string;
-  /** 0.4.12 uses the Responses API as the only runtime protocol. */
+  /** 0.4.13 uses the Responses API as the only runtime protocol. */
   protocol?: "responses";
 }
 

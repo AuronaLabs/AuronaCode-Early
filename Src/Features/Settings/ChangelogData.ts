@@ -15,17 +15,40 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
     version: "V0.4.13",
     date: "2026-10-01",
     isLatest: true,
-    summary: "0.4.12 发布后的开发基线：继续推进 Agent 与 Editor 的协作体验和运行可靠性。",
+    summary:
+      "0.4.13 完善 Agent Runtime 与 Editor 协作闭环，补齐事件回放、工具能力元数据、checkpoint 恢复和 Workspace Context。",
     sections: [
       {
-        title: "开发基线",
-        description: "0.4.13 从已发布的 Agent 工作台和 Editor 协作能力继续演进。",
-        items: ["沿用 Responses API、Markdown 回复、工具调用摘要、检查点和编辑器视图状态持久化。"],
+        title: "Agent Runtime",
+        description: "把会话、任务、工具、审批和恢复统一到可持久化事件流。",
+        items: [
+          "事件序号在历史裁剪后保持单调，reducer 通过事件回放重建状态；会话与 checkpoint 存储支持校验、staging 和损坏备份。",
+          "停止、继续、失败重试、会话切换和审批取消共享统一的生命周期，旧 Chat Completions 路径不再参与运行时。",
+        ],
       },
       {
-        title: "后续方向",
-        description: "本版本的具体功能将在开发过程中持续补充并经过 Quality 门禁验证。",
-        items: ["优先处理 Agent 工具可靠性、Editor 协作细节和真实 Tauri/WebView2 验收反馈。"],
+        title: "工具与 Workspace Intelligence",
+        description: "用能力元数据和受限上下文支撑可恢复的工具执行。",
+        items: [
+          "工具声明 effects、权限、checkpoint 策略和可恢复性，写入、工作区修改和命令执行根据能力元数据建立恢复边界。",
+          "新增 Workspace Context 与 MemoryProvider 抽象，提供活动文件、选区、诊断和最近变更，不建立完整项目索引。",
+        ],
+      },
+      {
+        title: "Editor 与 OOBE",
+        description: "把 Agent 修改、标签页状态和首启设置接入现有编辑器工作流。",
+        items: [
+          "Agent 修改和 WorkspaceEdit 经过编辑器事务链；标签页保存、光标/选区/滚动/折叠状态和 Markdown 模式可恢复。",
+          "脏标签页批量关闭进入真实保存流程，OOBE 重跑读取现有偏好，取消或保存失败时保留草稿。",
+        ],
+      },
+      {
+        title: "验证与发布边界",
+        description: "代码质量门禁已通过，剩余工作集中在真实桌面环境验收。",
+        items: [
+          "TypeScript、Biome、i18n、边界检查、扩展完整性、smoke、前端测试和 Vite 构建已通过；Rust 测试 128 passed、1 ignored。",
+          "发布前仍需在真实 Tauri/WebView2 中验收窄窗口、Markdown、Editor、AI、OOBE、Fliuno 以及 GPU/帧率和恢复流程。",
+        ],
       },
     ],
   },

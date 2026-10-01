@@ -32,10 +32,18 @@ export const RecoveryStore = {
       if (!(await desktopFileSystem.exists(target, { baseDir: BaseDirectory.AppLocalData }))) {
         return null;
       }
-      const value = JSON.parse(
-        await desktopFileSystem.readTextFile(target, { baseDir: BaseDirectory.AppLocalData }),
-      ) as RecoverySnapshot;
-      return value.schema === 1 && value.path === path ? value : null;
+      const raw = await desktopFileSystem.readTextFile(target, {
+        baseDir: BaseDirectory.AppLocalData,
+      });
+      if (raw.length > MAX_RECOVERY_BYTES * 2) return null;
+      const value = JSON.parse(raw) as Partial<RecoverySnapshot>;
+      return value.schema === 1 &&
+        value.path === path &&
+        typeof value.text === "string" &&
+        typeof value.diskFingerprint === "string" &&
+        typeof value.createdAt === "number"
+        ? (value as RecoverySnapshot)
+        : null;
     } catch (error) {
       Logger.warn("Unable to load editor recovery snapshot", error);
       return null;
@@ -61,7 +69,7 @@ export const RecoveryStore = {
         diskFingerprint,
         createdAt: Date.now(),
       };
-      await desktopFileSystem.writeTextFile(recoveryPath(path), JSON.stringify(snapshot), {
+      await desktopFileSystem.writeTextFileAtomic(recoveryPath(path), JSON.stringify(snapshot), {
         baseDir: BaseDirectory.AppLocalData,
       });
     } catch (error) {

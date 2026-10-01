@@ -1,8 +1,8 @@
 # Aurona Code 扩展开发实战指南
 
-## V0.4.11 SDK 边界
+## V0.4.13 SDK 边界
 
-当前开发版本为 `0.4.11`。应用安装包只内置 VSCode 兼容层和 Demo 插件；Markdown、Planner、LSP 与 Runtime 通过 Marketplace 分发。扩展 API、权限、Runtime 和版本字段以 Marketplace 服务端契约为准，发布前应同时验证本地开发地址和线上 API 地址。
+当前开发版本为 `0.4.13`。应用安装包只内置 VSCode 兼容层和 Demo 插件；Markdown、Planner、LSP 与 Runtime 通过 Marketplace 分发。扩展 API、权限、Runtime 和版本字段以 Marketplace 服务端契约为准，发布前应同时验证本地开发地址和线上 API 地址。
 
 ## Pioneer 6 UI 约束
 

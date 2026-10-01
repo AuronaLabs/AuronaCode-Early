@@ -803,6 +803,19 @@ mod tests {
     }
 
     #[test]
+    fn reports_the_destination_path_for_a_staged_rename() {
+        let repository = create_test_repository();
+        let path = repository.0.to_string_lossy().to_string();
+        run_git(&repository.0, &["mv", "main.txt", "renamed.txt"]);
+
+        let files = git_status_internal(path).expect("status should load");
+        assert!(files
+            .iter()
+            .any(|file| { file.path == "renamed.txt" && file.status == "R" && file.is_staged }));
+        assert!(!files.iter().any(|file| file.path == "main.txt"));
+    }
+
+    #[test]
     fn distinguishes_missing_origin_from_broken_origin() {
         let repository = create_test_repository();
         let path = repository.0.to_string_lossy().to_string();

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { DocumentService } from "../../../Core/DocumentService";
 import { EventBus } from "../../../Foundation/EventBus";
+import { useLocale } from "../../../Foundation/I18n";
 import { fileUriToPath } from "../../../Shared/Utils/UriUtils";
 import { glassVariants } from "../../../UI/Core/GlassManager/variants";
 import { Icons } from "../../../UI/Icons/IconManager";
@@ -85,6 +86,7 @@ function usePeekRows(locations: PeekLocation[]): PeekRow[] {
 
 /** 编辑器内嵌 Peek 定义浮层（0.4.6 简化版）：内嵌浮窗列出定义位置，点击跳转。 */
 export function PeekPanel({ locations, top, left, onClose }: PeekPanelProps) {
+  const { t } = useLocale();
   const rows = usePeekRows(locations);
 
   // Esc 关闭 + 点击面板外部关闭
@@ -108,13 +110,13 @@ export function PeekPanel({ locations, top, left, onClose }: PeekPanelProps) {
       <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-1.5">
         <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--color-text-highlight)]">
           <Icons.Eye size={13} stroke={1.75} />
-          {locations.length} 个定义
+          {t("locationResults.resultsCount").replace("{count}", String(locations.length))}
         </span>
         <button
           type="button"
           onClick={onClose}
           className="text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] cursor-pointer"
-          aria-label="关闭 Peek"
+          aria-label={t("locationResults.close")}
         >
           <Icons.Close size={13} stroke={1.75} />
         </button>

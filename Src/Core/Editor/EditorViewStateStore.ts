@@ -23,13 +23,22 @@ function write(state: StoredState): void {
 }
 
 export function loadEditorViewState(path: string): EditorViewState | null {
-  const state = read()[path];
-  if (!state || typeof state !== "object") return null;
-  return state;
+  const state = read();
+  const view = state[path];
+  if (view) {
+    // Reinsert the entry so the bounded store evicts the least recently used
+    // tab rather than the oldest tab that happened to be opened.
+    delete state[path];
+    state[path] = view;
+    write(state);
+  }
+  if (!view || typeof view !== "object") return null;
+  return view;
 }
 
 export function saveEditorViewState(path: string, view: EditorViewState): void {
   const state = read();
+  delete state[path];
   const next: StoredState = { ...state, [path]: view };
   const keys = Object.keys(next);
   if (keys.length > MAX_ENTRIES) {

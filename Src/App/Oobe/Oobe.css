@@ -21,6 +21,7 @@
    不能作为 background-color 使用。 */
 .oobe-backdrop {
   background: var(--AppBackground, var(--AppBg));
+  min-height: 100dvh;
 }
 
 .oobe-progress {
@@ -44,22 +45,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(
-      68% 58% at 18% -8%,
-      color-mix(in srgb, var(--AccentPrimary) 26%, transparent) 0%,
-      transparent 62%
-    ),
-    radial-gradient(
-      52% 44% at 86% 14%,
-      color-mix(in srgb, var(--StatusInfo) 14%, transparent) 0%,
-      transparent 65%
-    ),
-    radial-gradient(
-      60% 52% at 74% 112%,
-      color-mix(in srgb, var(--AccentPrimary) 12%, transparent) 0%,
-      transparent 60%
-    );
+  background: color-mix(in srgb, var(--color-accent) 2%, transparent);
 }
 
 /* 品牌光圈：欢迎页 logo 背后的柔光 */
@@ -133,24 +119,9 @@
   height: 480px;
   transform: translateX(-50%);
   pointer-events: none;
-  background:
-    radial-gradient(
-      circle,
-      color-mix(in srgb, var(--color-accent) 16%, transparent) 0%,
-      transparent 52%
-    ),
-    radial-gradient(
-      circle,
-      color-mix(in srgb, var(--color-accent) 9%, transparent) 26%,
-      transparent 68%
-    ),
-    radial-gradient(
-      circle,
-      color-mix(in srgb, var(--color-accent) 5%, transparent) 48%,
-      transparent 82%
-    );
-  filter: blur(8px);
-  animation: oobe-ready-breathe 5.6s ease-in-out infinite;
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  filter: blur(18px);
+  opacity: 0.55;
 }
 
 /* 结束页：柔光缓慢呼吸（transform 需带回 translateX 居中偏移） */
@@ -163,5 +134,23 @@
   50% {
     opacity: 0.85;
     transform: translateX(-50%) scale(1.05);
+  }
+}
+
+@media (max-height: 620px) {
+  .oobe-progress {
+    padding-top: 0.35rem;
+  }
+
+  .oobe-step-enter {
+    transform-origin: top center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oobe-step-enter,
+  .oobe-ready-pop,
+  .oobe-ready-glow {
+    animation: none;
   }
 }

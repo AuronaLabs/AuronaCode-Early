@@ -140,6 +140,7 @@ export function WorkspaceView() {
     bottomPanelHeight,
     pendingCloseTab,
     setPendingCloseTab,
+    advancePendingCloseTab,
     setSidebarWidth,
     setBottomPanelHeight,
     openFile,
@@ -221,7 +222,7 @@ export function WorkspaceView() {
       if (!(await EditorSaveRegistry.save(tab.path))) return;
       if (useWorkbenchStore.getState().pendingCloseTab?.id !== tab.id) return;
       closeTabById(tab.id);
-      setPendingCloseTab(null);
+      advancePendingCloseTab();
     } finally {
       setIsClosingAfterSave(false);
     }
@@ -496,8 +497,8 @@ export function WorkspaceView() {
                 if (pendingCloseTab) {
                   if (pendingCloseTab.path) void RecoveryCoordinator.discard(pendingCloseTab.path);
                   closeTabById(pendingCloseTab.id);
+                  advancePendingCloseTab();
                 }
-                setPendingCloseTab(null);
               }}
             >
               {t("workspace.discardChanges")}

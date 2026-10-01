@@ -31,6 +31,8 @@ const getExtension = (filePath: string) => {
   return index >= 0 ? filePath.slice(index + 1).toLowerCase() : "";
 };
 
+const getFileName = (filePath: string) => filePath.split(/[\\/]/).filter(Boolean).pop() ?? filePath;
+
 export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab({
   path,
   isActive,
@@ -53,35 +55,92 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
   });
   const [focusRequest, setFocusRequest] = useState(0);
   const [capsuleEnabled, setCapsuleEnabled] = useState(false);
-  const previewScrollTop = useRef(0);
+  const previewScrollTop = useRef(persistedViewState?.previewScrollTop ?? 0);
   const [externalContent, setExternalContent] = useState<{
     content: string;
     nonce: number;
   } | null>(null);
   const [loadError, setLoadError] = useState<{ code?: string; message: string } | null>(null);
   const loadedPathRef = useRef<string | null>(null);
+  const loadGenerationRef = useRef(0);
+  const mountedRef = useRef(true);
   const contentRef = useRef("");
   const savedContentRef = useRef("");
   const saveInFlightRef = useRef<Promise<boolean> | null>(null);
+  const pendingViewStateRef = useRef<EditorViewState | null>(null);
+  const viewStateTimerRef = useRef<number | null>(null);
 
   const isDirty = fileContent !== savedContent;
   const isMarkdown = ["md", "markdown"].includes(getExtension(path));
   const viewMode = viewState.path === path ? viewState.mode : "source";
 
+  const flushViewState = useCallback(() => {
+    if (viewStateTimerRef.current !== null) {
+      window.clearTimeout(viewStateTimerRef.current);
+      viewStateTimerRef.current = null;
+    }
+    const pending = pendingViewStateRef.current;
+    if (!pending) return;
+    pendingViewStateRef.current = null;
+    saveEditorViewState(pending.path ?? path, pending);
+  }, [path]);
+
+  const scheduleViewStateSave = useCallback(
+    (state: EditorViewState) => {
+      pendingViewStateRef.current = state;
+      if (viewStateTimerRef.current !== null) window.clearTimeout(viewStateTimerRef.current);
+      viewStateTimerRef.current = window.setTimeout(() => {
+        viewStateTimerRef.current = null;
+        const pending = pendingViewStateRef.current;
+        if (!pending) return;
+        pendingViewStateRef.current = null;
+        saveEditorViewState(pending.path ?? path, pending);
+      }, 120);
+    },
+    [path],
+  );
+
+  useEffect(() => () => flushViewState(), [flushViewState]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const handleViewStateChange = useCallback(
     (state: EditorViewState) => {
-      saveEditorViewState(path, { ...state, mode: viewMode });
+      scheduleViewStateSave({
+        ...state,
+        mode: viewMode,
+        previewScrollTop: previewScrollTop.current,
+      });
     },
-    [path, viewMode],
+    [scheduleViewStateSave, viewMode],
   );
 
   const changeViewMode = useCallback(
     (mode: EditorViewMode) => {
       if (mode === viewMode) return;
       setViewState({ path, mode });
+      const base = pendingViewStateRef.current ??
+        loadEditorViewState(path) ?? {
+          path,
+          line: 1,
+          column: 1,
+          scrollTop: 0,
+          scrollLeft: 0,
+        };
+      scheduleViewStateSave({
+        ...base,
+        path,
+        mode,
+        previewScrollTop: previewScrollTop.current,
+      });
       if (mode === "source") setFocusRequest((request) => request + 1);
     },
-    [path, viewMode],
+    [path, scheduleViewStateSave, viewMode],
   );
 
   useEffect(() => {
@@ -91,7 +150,23 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
         if (!mounted) return;
         const enabled = config.editorCapsuleEnabled ?? true;
         setCapsuleEnabled(enabled);
-        if (!enabled) setViewState({ path, mode: "source" });
+        if (!enabled) {
+          setViewState({ path, mode: "source" });
+          const base = pendingViewStateRef.current ??
+            loadEditorViewState(path) ?? {
+              path,
+              line: 1,
+              column: 1,
+              scrollTop: 0,
+              scrollLeft: 0,
+            };
+          scheduleViewStateSave({
+            ...base,
+            path,
+            mode: "source",
+            previewScrollTop: previewScrollTop.current,
+          });
+        }
       });
     };
     refreshCapsuleSetting();
@@ -100,13 +175,19 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
       mounted = false;
       unsubscribe();
     };
-  }, [path]);
+  }, [path, scheduleViewStateSave]);
 
   const loadContent = useCallback(
     async (filePath: string, force = false) => {
+      const generation = ++loadGenerationRef.current;
+      const isCurrentLoad = () =>
+        mountedRef.current &&
+        generation === loadGenerationRef.current &&
+        loadedPathRef.current === filePath;
       try {
         const ext = getExtension(filePath);
         if (!force && isBinaryExtension(ext)) {
+          if (!isCurrentLoad()) return;
           setLoadError(null);
           setIsBinaryWarning(true);
           setFileContent("");
@@ -121,8 +202,10 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
         DocumentService.clearSyncError(filePath);
         setIsEditorReady(false);
         const document = await DocumentService.open(filePath);
+        if (!isCurrentLoad()) return;
         const content = document.content;
         const recovery = await RecoveryStore.load(filePath);
+        if (!isCurrentLoad()) return;
         if (recovery && recovery.text !== content) {
           const fileName = filePath.split(/[\\/]/).pop() || filePath;
           showNotification({
@@ -137,6 +220,7 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
                 primary: true,
                 onClick: async () => {
                   try {
+                    if (!isCurrentLoad()) return;
                     await DocumentService.applyEdit(
                       filePath,
                       0,
@@ -144,6 +228,7 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
                       recovery.text,
                       recovery.text,
                     );
+                    if (!isCurrentLoad()) return;
                     contentRef.current = recovery.text;
                     setFileContent(recovery.text);
                     showToast(t("editor.recoveryRestored"), "success");
@@ -170,6 +255,7 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
         setIsEditorReady(true);
         EventBus.emit("editor:dirty-cleared", { path: filePath });
       } catch (error) {
+        if (!isCurrentLoad()) return;
         const message = FileSystemService.toMessage(error);
         if (!force && /utf-8|invalid data|stream did not contain/i.test(message)) {
           setIsBinaryWarning(true);
@@ -194,7 +280,18 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
   useEffect(
     () =>
       DocumentService.subscribe(path, (record) => {
-        if (!record || record.content === contentRef.current) return;
+        if (record?.changeOrigin !== "external" || record.content === contentRef.current) {
+          return;
+        }
+
+        // Keep the controlled editor value and its save checkpoint in sync
+        // when a rename/code action updates the shared document session.
+        contentRef.current = record.content;
+        setFileContent(record.content);
+        if (!record.isDirty) {
+          savedContentRef.current = record.content;
+          setSavedContent(record.content);
+        }
         setExternalContent({ content: record.content, nonce: Date.now() });
       }),
     [path],
@@ -291,6 +388,16 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
       );
     }
   }, [t]);
+
+  const handleCopyPath = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(path);
+      showToast(t("editorTabBar.copyPath"), "info");
+    } catch {
+      // Clipboard access can be unavailable in a locked-down WebView; the capsule remains
+      // useful as a source/preview switcher in that case.
+    }
+  }, [path, t]);
 
   useEffect(() => {
     if (!syncError) return;
@@ -452,6 +559,20 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
                     initialScrollTop={previewScrollTop.current}
                     onScrollTopChange={(scrollTop) => {
                       previewScrollTop.current = scrollTop;
+                      const base = pendingViewStateRef.current ??
+                        loadEditorViewState(path) ?? {
+                          path,
+                          line: 1,
+                          column: 1,
+                          scrollTop: 0,
+                          scrollLeft: 0,
+                        };
+                      scheduleViewStateSave({
+                        ...base,
+                        path,
+                        mode: viewMode,
+                        previewScrollTop: scrollTop,
+                      });
                     }}
                   />
                 )}
@@ -461,6 +582,14 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
                     onModeChange={changeViewMode}
                     sourceLabel={t("editor.sourceView")}
                     previewLabel={t("editor.previewView")}
+                    capsuleLabel={t("editor.capsuleLabel")}
+                    dirtyLabel={t("workspace.unsavedTitle")}
+                    fileName={getFileName(path)}
+                    filePath={path}
+                    language={GetLanguageFromPath(path)}
+                    isDirty={isDirty}
+                    copyPathLabel={t("editorTabBar.copyPath")}
+                    onCopyPath={() => void handleCopyPath()}
                   />
                 )}
               </div>

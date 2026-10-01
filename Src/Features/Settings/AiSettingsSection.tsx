@@ -108,6 +108,16 @@ export function AiSettingsSection() {
     syncAgentExecutorRegistration();
   };
 
+  const agentPermissionDescriptionKey: Record<
+    NonNullable<AiPreferences["agentPermission"]>,
+    I18nKey
+  > = {
+    ask: "ai.agent.permissionAskDescription",
+    read: "ai.agent.permissionReadDescription",
+    edit: "ai.agent.permissionEditDescription",
+    full: "ai.agent.permissionFullDescription",
+  };
+
   /** 点击条目行激活配置档（顶栏快捷切换与设置页共用 setActiveProfile） */
   const activateProfile = async (id: string) => {
     if (id === activeProfileId) return;
@@ -276,7 +286,7 @@ export function AiSettingsSection() {
         {/* 启用 agent 工具执行 */}
         <div
           data-setting-id="aiAgentEnabled"
-          className="flex min-h-20 items-center justify-between gap-5 border-t border-[var(--border-subtle)] px-5 py-4"
+          className="flex min-h-20 flex-wrap items-center justify-between gap-5 border-t border-[var(--border-subtle)] px-5 py-4"
         >
           <div className="min-w-0 flex-1">
             <div className="text-[13.5px] font-semibold text-[var(--color-text-highlight)]">
@@ -286,22 +296,36 @@ export function AiSettingsSection() {
               {t("ai.agent.settingsDesc")}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Select
-              value={agentPermission}
-              onChange={(value) =>
-                handleAgentPermissionChange(value as NonNullable<AiPreferences["agentPermission"]>)
-              }
-              ariaLabel={t("ai.agent.settingsTitle")}
-              className="min-w-[168px]"
-              options={[
-                { value: "ask", label: t("ai.agent.permissionAsk") },
-                { value: "read", label: t("ai.agent.permissionRead") },
-                { value: "edit", label: t("ai.agent.permissionEdit") },
-                { value: "full", label: t("ai.agent.permissionFull") },
-              ]}
-            />
+          <div className="ai-permission-picker grid shrink-0 grid-cols-2 gap-1 rounded-control border border-[var(--border-subtle)] bg-[var(--material-surface)] p-1">
+            {(
+              [
+                ["ask", "ai.agent.permissionAsk"],
+                ["read", "ai.agent.permissionRead"],
+                ["edit", "ai.agent.permissionEdit"],
+                ["full", "ai.agent.permissionFull"],
+              ] as const
+            ).map(([value, labelKey]) => {
+              const selected = agentPermission === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => handleAgentPermissionChange(value)}
+                  className={`min-h-7 rounded-[calc(var(--radius-control)-3px)] px-2 text-left text-[11px] transition-colors ${
+                    selected
+                      ? "bg-[color-mix(in_srgb,var(--color-accent)_14%,var(--material-overlay))] font-semibold text-[var(--color-text-highlight)] shadow-[inset_0_1px_0_var(--GlassSurface-Highlight)]"
+                      : "text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-primary)]"
+                  }`}
+                >
+                  {t(labelKey)}
+                </button>
+              );
+            })}
           </div>
+          <p className="basis-full text-[11px] leading-4 text-[var(--color-text-muted)]">
+            {t(agentPermissionDescriptionKey[agentPermission])}
+          </p>
         </div>
       </GlassContainer>
 

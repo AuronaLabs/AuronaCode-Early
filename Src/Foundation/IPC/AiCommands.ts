@@ -13,31 +13,47 @@ export type AiResponseErrorCode =
   | "timeout"
   | "first_token_timeout"
   | "idle_timeout"
+  | "empty_stream"
+  | "incomplete_stream"
+  | "invalid_stream"
   | "generic";
 
 export interface AiResponseEventPayload {
   requestId: string;
-  type:
-    | "response.created"
-    | "response.output_text.delta"
-    | "response.function_call_arguments.delta"
-    | "response.output_item.done"
-    | "response.completed"
-    | "response.failed"
-    | "error";
+  /** Known Responses events plus forward-compatible gateway events. */
+  type: AiResponseEventType | (string & {});
   responseId?: string;
   itemId?: string;
   outputIndex?: number;
   delta?: string;
+  text?: string;
   name?: string;
   argumentsDelta?: string;
+  arguments?: string;
   callId?: string;
   finishReason?: string;
+  incompleteReason?: string;
   usage?: AiResponseUsage;
   code?: AiResponseErrorCode;
   message?: string;
   raw?: unknown;
+  /** Original event name and payload for events unknown to this client build. */
+  rawEvent?: { type?: string; data?: unknown } | unknown;
 }
+
+export type AiResponseEventType =
+  | "response.created"
+  | "response.in_progress"
+  | "response.output_text.delta"
+  | "response.output_text.done"
+  | "response.function_call_arguments.delta"
+  | "response.function_call_arguments.done"
+  | "response.output_item.added"
+  | "response.output_item.done"
+  | "response.completed"
+  | "response.incomplete"
+  | "response.failed"
+  | "error";
 
 export const AI_RESPONSES_EVENTS = {
   event: "ai://responses-event",

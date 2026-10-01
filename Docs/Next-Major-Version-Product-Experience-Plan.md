@@ -1,6 +1,6 @@
 # 下一大版本：Aurona AI 胶囊、Git 与 Agent 产品计划
 
-状态：2026-09-26 产品与技术方案草案，审计基于 `v0.4.10` / `5662f8b`，当前开发版本为 `v0.4.11`；本文件保留方案形成时的只读审查记录，已落地内容以当前源码和 `V0.4.11` Changelog 为准。存量缺陷、安全边界见 [第一部分计划](Next-Major-Version-Audit-Plan.md)，圆角、材质、排版与更新弹窗见 [设计系统计划](Next-Major-Version-Design-System-Audit.md)。
+状态：2026-09-26 产品与技术方案草案，审计基于 `v0.4.10` / `5662f8b`，当前开发版本为 `v0.4.13`；本文件保留方案形成时的只读审查记录，已落地内容以当前源码和 `V0.4.13` Changelog 为准。存量缺陷、安全边界见 [第一部分计划](Next-Major-Version-Audit-Plan.md)，圆角、材质、排版与更新弹窗见 [设计系统计划](Next-Major-Version-Design-System-Audit.md)。
 
 ## 本轮确定的产品边界
 

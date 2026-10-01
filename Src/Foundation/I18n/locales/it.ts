@@ -128,6 +128,8 @@ export const it: LocaleMessages = {
   editor: {
     sourceView: "Codice",
     previewView: "Anteprima",
+    capsuleLabel: "Capsula editor",
+    unsavedChanges: "Modifiche non salvate",
     searchPlaceholder: "Cerca…",
     searchNoResults: "Nessun risultato",
     searchToggleReplace: "Mostra/Nascondi sostituzione",
@@ -315,6 +317,13 @@ export const it: LocaleMessages = {
     expand: "Espandi",
     collapse: "Comprimi",
     versionPicker: "Seleziona una versione",
+
+    versionLines: "Linee di versione",
+    releaseCount: "{count} versioni",
+    searchPlaceholder: "Cerca versioni, date o modifiche",
+    noSearchResults: "Nessuna versione corrispondente",
+    clearSearch: "Cancella ricerca",
+    searchResults: "Risultati della ricerca",
   },
   notifications: {
     title: "Notifiche",
@@ -1611,9 +1620,17 @@ export const it: LocaleMessages = {
       settingsDesc:
         "Consente all'IA di leggere i file dell'area di lavoro, cercare e modificare codice ed eseguire comandi dell'editor; le operazioni di scrittura richiedono sempre conferma",
       permissionAsk: "Chiedi prima delle azioni",
+      permissionAskDescription:
+        "Chiedi prima di ogni lettura, modifica o comando. Modalità più restrittiva.",
       permissionRead: "Solo lettura",
+      permissionReadDescription:
+        "Consenti lettura e ricerca nell’area di lavoro; scritture e comandi richiedono conferma.",
       permissionEdit: "Modifica con conferma",
+      permissionEditDescription:
+        "Consenti letture e modifiche preparate; ogni scrittura viene mostrata per conferma.",
       permissionFull: "Accesso completo agli strumenti",
+      permissionFullDescription:
+        "Consenti l’esecuzione automatica degli strumenti registrati, mantenendo i limiti di sicurezza.",
       confirmTitle: "Conferma {tool}",
       confirmMessage: "L'IA richiede un'operazione di scrittura — verifica i parametri e conferma",
       roundLimit:

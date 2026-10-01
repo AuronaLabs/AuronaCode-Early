@@ -24,4 +24,23 @@ describe("EditorViewStateStore", () => {
     removeEditorViewState(state.path);
     expect(loadEditorViewState(state.path)).toBeNull();
   });
+
+  it("evicts the least recently used tab state", () => {
+    const view = (path: string) => ({
+      path,
+      line: 1,
+      column: 1,
+      scrollTop: 0,
+      scrollLeft: 0,
+    });
+    for (let index = 0; index < 100; index++) {
+      saveEditorViewState(`C:\\work\\file-${index}.ts`, view(`C:\\work\\file-${index}.ts`));
+    }
+
+    expect(loadEditorViewState("C:\\work\\file-0.ts")).not.toBeNull();
+    saveEditorViewState("C:\\work\\file-100.ts", view("C:\\work\\file-100.ts"));
+
+    expect(loadEditorViewState("C:\\work\\file-0.ts")).not.toBeNull();
+    expect(loadEditorViewState("C:\\work\\file-1.ts")).toBeNull();
+  });
 });

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DocumentService } from "../../../Core/DocumentService";
 import { LspClient } from "../../../Core/Language/LspClient";
 import { OutputService } from "../../../Core/OutputService";
+import { useLocale } from "../../../Foundation/I18n";
 import type { LanguageFeaturePreferences } from "../../../Foundation/Types/Config";
 import type { EditorHoverState } from "../components/HoverCard";
 import type { EditorOverlayAnchor } from "../Utils/EditorOverlay";
@@ -32,6 +33,7 @@ export function useEditorHover({
   preferences,
   interactionBlocked,
 }: UseEditorHoverOptions) {
+  const { t } = useLocale();
   const [tooltip, setTooltip] = useState<EditorHoverState | null>(null);
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const hoverTimerRef = useRef<number | null>(null);
@@ -98,7 +100,12 @@ export function useEditorHover({
             }
             const text = hoverText(hover.contents);
             if (text) {
-              setTooltip({ anchor, title: "语言信息", source: language, text });
+              setTooltip({
+                anchor,
+                title: t("settings.codeIntelligence.hover"),
+                source: language,
+                text,
+              });
             }
           })
           .catch((error) => {
@@ -114,7 +121,7 @@ export function useEditorHover({
           });
       }, preferences.hoverDelayMs);
     },
-    [interactionBlocked, language, path, preferences],
+    [interactionBlocked, language, path, preferences, t],
   );
 
   const handleLineMouseLeave = useCallback(() => {
