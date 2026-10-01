@@ -32,7 +32,13 @@ function phaseMessage(t: (key: I18nKey) => string, phase: AccountAuthPhase): str
  * 步骤四：Aurona 账户登录（可跳过）。与设置页共用 AccountService 登录流程，
  * 授权在系统浏览器完成；「暂不登录」或底部「下一步」均可跳过。
  */
-export function AccountStep({ onSkip }: { onSkip: () => void }) {
+export function AccountStep({
+  onSkip,
+  onContinue,
+}: {
+  onSkip: () => void;
+  onContinue?: () => void;
+}) {
   const { t } = useLocale();
   const status = useSyncExternalStore(
     AccountService.subscribe,
@@ -117,6 +123,10 @@ export function AccountStep({ onSkip }: { onSkip: () => void }) {
               <p className="text-[12.5px] text-[var(--color-text-muted)]">{profile.email}</p>
             )}
           </div>
+          <Button size="lg" className="min-w-[180px]" onClick={onContinue ?? onSkip}>
+            {t("oobe.next")}
+            <Icons.ArrowRight size={15} />
+          </Button>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-5">

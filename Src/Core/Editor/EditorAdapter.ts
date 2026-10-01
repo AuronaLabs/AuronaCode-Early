@@ -2,6 +2,7 @@ import {
   type EditorAction,
   type EditorStatus,
   type EditorStatusListener,
+  type EditorViewState,
   EMPTY_EDITOR_STATUS,
   type IEditorEngine,
 } from "../../Foundation/Types/Editor";
@@ -66,6 +67,14 @@ class GlobalEditorAdapter {
     this.listeners.forEach((listener) => {
       listener(status);
     });
+  }
+
+  public getViewState(): EditorViewState | null {
+    return this.activeEngine?.getViewState?.() ?? null;
+  }
+
+  public restoreViewState(state: EditorViewState): void {
+    this.activeEngine?.restoreViewState?.(state);
   }
 }
 

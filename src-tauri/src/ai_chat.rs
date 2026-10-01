@@ -12,10 +12,11 @@
 use std::collections::HashSet;
 use std::sync::Mutex;
 
+#[cfg(test)]
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, Emitter, State};
-use tokio::time::{timeout, Duration, Instant};
+use tokio::time::{timeout, Duration};
 
 /// 连接超时（TCP/TLS 建链）
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
@@ -23,10 +24,34 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 const FIRST_TOKEN_TIMEOUT: Duration = Duration::from_secs(60);
 /// chunk 间隔超时：流式过程中相邻数据块的最大静默间隔
 const CHUNK_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
-/// 单次会话总时长硬顶（防止异常服务端无限流式）
-const OVERALL_TIMEOUT: Duration = Duration::from_secs(600);
+/// Session-scoped cancellation flags for in-flight Responses requests.
+#[derive(Default)]
+pub struct AiChatState {
+    aborts: Mutex<HashSet<String>>,
+}
 
-/// OpenAI 兼容 tool_calls 字段（上行回传，arguments 为完整字符串）
+impl AiChatState {
+    fn has_abort(&self, request_id: &str) -> bool {
+        self.aborts
+            .lock()
+            .map(|set| set.contains(request_id))
+            .unwrap_or(false)
+    }
+
+    fn clear_abort(&self, request_id: &str) {
+        if let Ok(mut set) = self.aborts.lock() {
+            set.remove(request_id);
+        }
+    }
+
+    fn insert_abort(&self, request_id: &str) {
+        if let Ok(mut set) = self.aborts.lock() {
+            set.insert(request_id.to_string());
+        }
+    }
+}
+
+#[cfg(test)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatToolFunctionPayload {
@@ -34,6 +59,7 @@ pub struct ChatToolFunctionPayload {
     pub arguments: String,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatToolCallPayload {
@@ -43,8 +69,7 @@ pub struct ChatToolCallPayload {
     pub function: ChatToolFunctionPayload,
 }
 
-/// OpenAI 兼容聊天消息（字段名对齐 wire format；camelCase 由 serde 转换）。
-/// content 可空：assistant 纯工具调用消息与 tool 结果消息按协议可缺省。
+#[cfg(test)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessagePayload {
     pub role: String,
@@ -66,49 +91,7 @@ pub struct ChatMessagePayload {
     pub tool_call_id: Option<String>,
 }
 
-/// 会话中止标记集合（sessionId → 是否请求中止）
-#[derive(Default)]
-pub struct AiChatState {
-    aborts: Mutex<HashSet<String>>,
-}
-
-/// 在 Rust 网络层测试 OpenAI 兼容 provider，前端不会触发浏览器 CORS 预检。
-#[tauri::command]
-pub async fn ai_test_connection(base_url: String, api_key: String) -> Result<u16, String> {
-    let url = format!("{}/models", base_url.trim().trim_end_matches('/'));
-    let client = crate::network::configure_client(reqwest::Client::builder())?;
-    let response = client
-        .get(url)
-        .bearer_auth(api_key.trim())
-        .timeout(std::time::Duration::from_secs(15))
-        .send()
-        .await
-        .map_err(|error| format!("连接失败: {error}"))?;
-    Ok(response.status().as_u16())
-}
-
-impl AiChatState {
-    fn has_abort(&self, session_id: &str) -> bool {
-        self.aborts
-            .lock()
-            .map(|set| set.contains(session_id))
-            .unwrap_or(false)
-    }
-
-    fn clear_abort(&self, session_id: &str) {
-        if let Ok(mut set) = self.aborts.lock() {
-            set.remove(session_id);
-        }
-    }
-
-    fn insert_abort(&self, session_id: &str) {
-        if let Ok(mut set) = self.aborts.lock() {
-            set.insert(session_id.to_string());
-        }
-    }
-}
-
-/// token 用量统计（服务端在末尾分片携带时透传）
+#[cfg(test)]
 #[derive(Debug, Default, PartialEq, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SseUsage {
@@ -117,7 +100,7 @@ pub struct SseUsage {
     pub total_tokens: Option<u64>,
 }
 
-/// 单条 tool_calls 增量（前端按 index 聚合，arguments 为增量片段）
+#[cfg(test)]
 #[derive(Debug, Default, PartialEq, Serialize, Clone)]
 pub struct SseToolCallDelta {
     pub index: u64,
@@ -126,7 +109,7 @@ pub struct SseToolCallDelta {
     pub arguments_delta: Option<String>,
 }
 
-/// 单行 SSE 解析结果（单次 JSON parse 取全四类字段）
+#[cfg(test)]
 #[derive(Debug, Default, PartialEq)]
 pub struct SseLine {
     pub content: Option<String>,
@@ -135,6 +118,7 @@ pub struct SseLine {
     pub usage: Option<SseUsage>,
 }
 
+#[cfg(test)]
 impl SseLine {
     fn is_empty(&self) -> bool {
         self.content.is_none()
@@ -144,336 +128,340 @@ impl SseLine {
     }
 }
 
-/// 解析单行 SSE 数据。非 `data:` 行 / [DONE] / 无法解析时返回 None；
-/// 合法分片返回 SseLine（各字段可为空，usage-only 的收尾分片 choices 可能为空数组）。
+#[cfg(test)]
 pub fn parse_sse_line(line: &str) -> Option<SseLine> {
-    let data = line.trim_start().strip_prefix("data:")?;
-    let data = data.trim_start();
+    let data = line.trim_start().strip_prefix("data:")?.trim_start();
     if data == "[DONE]" {
         return None;
     }
     let value: serde_json::Value = serde_json::from_str(data).ok()?;
-
     let first = value.get("choices").and_then(|choices| choices.get(0));
     let delta = first.and_then(|choice| choice.get("delta"));
     let content = delta
-        .and_then(|d| d.get("content"))
-        .and_then(|c| c.as_str())
+        .and_then(|item| item.get("content"))
+        .and_then(|item| item.as_str())
         .map(str::to_string);
     let finish_reason = first
         .and_then(|choice| choice.get("finish_reason"))
-        .and_then(|r| r.as_str())
+        .and_then(|item| item.as_str())
         .map(str::to_string);
-
-    let mut tool_calls = Vec::new();
-    if let Some(list) = delta
-        .and_then(|d| d.get("tool_calls"))
-        .and_then(|t| t.as_array())
-    {
-        for call in list {
-            let function = call.get("function");
-            tool_calls.push(SseToolCallDelta {
-                index: call.get("index").and_then(|i| i.as_u64()).unwrap_or(0),
-                id: call.get("id").and_then(|v| v.as_str()).map(str::to_string),
-                name: function
-                    .and_then(|f| f.get("name"))
-                    .and_then(|v| v.as_str())
-                    .map(str::to_string),
-                arguments_delta: function
-                    .and_then(|f| f.get("arguments"))
-                    .and_then(|v| v.as_str())
-                    .map(str::to_string),
-            });
-        }
-    }
-
+    let tool_calls = delta
+        .and_then(|item| item.get("tool_calls"))
+        .and_then(|item| item.as_array())
+        .map(|calls| {
+            calls
+                .iter()
+                .map(|call| {
+                    let function = call.get("function");
+                    SseToolCallDelta {
+                        index: call
+                            .get("index")
+                            .and_then(|item| item.as_u64())
+                            .unwrap_or(0),
+                        id: call
+                            .get("id")
+                            .and_then(|item| item.as_str())
+                            .map(str::to_string),
+                        name: function
+                            .and_then(|item| item.get("name"))
+                            .and_then(|item| item.as_str())
+                            .map(str::to_string),
+                        arguments_delta: function
+                            .and_then(|item| item.get("arguments"))
+                            .and_then(|item| item.as_str())
+                            .map(str::to_string),
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     let usage = value
         .get("usage")
-        .and_then(|u| u.as_object())
-        .map(|u| SseUsage {
-            prompt_tokens: u.get("prompt_tokens").and_then(|v| v.as_u64()),
-            completion_tokens: u.get("completion_tokens").and_then(|v| v.as_u64()),
-            total_tokens: u.get("total_tokens").and_then(|v| v.as_u64()),
+        .and_then(|item| item.as_object())
+        .map(|item| SseUsage {
+            prompt_tokens: item.get("prompt_tokens").and_then(|value| value.as_u64()),
+            completion_tokens: item
+                .get("completion_tokens")
+                .and_then(|value| value.as_u64()),
+            total_tokens: item.get("total_tokens").and_then(|value| value.as_u64()),
         });
-
     let parsed = SseLine {
         content,
         finish_reason,
         tool_calls,
         usage,
     };
-    if parsed.is_empty() {
-        None
-    } else {
-        Some(parsed)
-    }
+    (!parsed.is_empty()).then_some(parsed)
 }
 
-/// 将 reqwest 请求错误映射为结构化 code：connect / timeout / generic。
-/// connect 判断必须先于 timeout——connect_timeout 触发时两者皆为真。
+/// Normalize one Responses API SSE event into a frontend-friendly event payload.
+pub fn parse_response_sse_event(event: &str, data: &str) -> Option<serde_json::Value> {
+    if data.trim() == "[DONE]" {
+        return None;
+    }
+    let value: serde_json::Value = serde_json::from_str(data).ok()?;
+    let response = value.get("response");
+    let response_id = response
+        .and_then(|item| item.get("id"))
+        .and_then(|item| item.as_str())
+        .or_else(|| value.get("id").and_then(|item| item.as_str()));
+    let mut payload = json!({ "type": event });
+    if let Some(id) = response_id {
+        payload["responseId"] = json!(id);
+    }
+    match event {
+        "response.output_text.delta" => {
+            if let Some(delta) = value.get("delta").and_then(|item| item.as_str()) {
+                payload["delta"] = json!(delta);
+            }
+        }
+        "response.function_call_arguments.delta" => {
+            for (target, source) in [
+                ("callId", "call_id"),
+                ("itemId", "item_id"),
+                ("outputIndex", "output_index"),
+            ] {
+                if let Some(item) = value.get(source) {
+                    payload[target] = item.clone();
+                }
+            }
+            if let Some(name) = value.get("name").and_then(|item| item.as_str()) {
+                payload["name"] = json!(name);
+            }
+            if let Some(delta) = value.get("delta").and_then(|item| item.as_str()) {
+                payload["argumentsDelta"] = json!(delta);
+            }
+        }
+        "response.output_item.done" => {
+            payload["raw"] = value.clone();
+            let item = value.get("item").unwrap_or(&value);
+            if let Some(call_id) = item.get("call_id").and_then(|item| item.as_str()) {
+                payload["callId"] = json!(call_id);
+            }
+            if let Some(name) = item.get("name").and_then(|item| item.as_str()) {
+                payload["name"] = json!(name);
+            }
+        }
+        "response.completed" => {
+            if let Some(reason) = value
+                .get("response")
+                .and_then(|item| item.get("status"))
+                .and_then(|item| item.as_str())
+            {
+                payload["finishReason"] = json!(reason);
+            }
+            if let Some(usage) = response.and_then(|item| item.get("usage")) {
+                payload["usage"] = usage.clone();
+            }
+        }
+        "response.failed" | "error" => {
+            payload["message"] = value
+                .get("message")
+                .or_else(|| value.get("error").and_then(|item| item.get("message")))
+                .cloned()
+                .unwrap_or_else(|| json!("Responses request failed"));
+        }
+        _ => {
+            payload["raw"] = value;
+        }
+    }
+    Some(payload)
+}
+
+fn responses_url(base_url: &str) -> String {
+    format!("{}/responses", base_url.trim().trim_end_matches('/'))
+}
+
+/// Map reqwest failures to stable error codes consumed by the frontend.
 fn classify_request_error(error: &reqwest::Error) -> (&'static str, String) {
     if error.is_connect() {
-        ("connect", format!("连接失败: {error}"))
+        ("connect", format!("Connection failed: {error}"))
     } else if error.is_timeout() {
-        ("timeout", format!("请求超时: {error}"))
+        ("timeout", format!("Request timed out: {error}"))
     } else {
-        ("generic", format!("{error}"))
+        ("generic", error.to_string())
     }
 }
 
-/// 发起流式对话。命令本身不返回错误——请求失败通过 `ai://chat-error` 事件
-/// 携带结构化 code（connect/auth/rate_limit/timeout/first_token_timeout/
-/// idle_timeout/generic）推回前端。
-// Keep the Tauri command parameters explicit: these names form the stable IPC payload
-// and grouping them would change the frontend invoke contract.
-#[allow(clippy::too_many_arguments)]
 #[tauri::command]
-pub async fn ai_chat_send(
-    app: AppHandle,
-    state: State<'_, AiChatState>,
-    session_id: String,
+pub async fn ai_test_responses_connection(
     base_url: String,
     api_key: String,
     model: String,
-    messages: Vec<ChatMessagePayload>,
+) -> Result<u16, String> {
+    let client = crate::network::configure_client(
+        reqwest::Client::builder().connect_timeout(CONNECT_TIMEOUT),
+    )?;
+    let response = client
+        .post(responses_url(&base_url))
+        .bearer_auth(api_key.trim())
+        .json(&json!({
+            "model": model.trim(),
+            "input": [{ "role": "user", "content": [{ "type": "input_text", "text": "ping" }] }],
+            "max_output_tokens": 1,
+            "stream": false,
+        }))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|error| format!("Responses connection failed: {error}"))?;
+    Ok(response.status().as_u16())
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn ai_responses_send(
+    app: AppHandle,
+    state: State<'_, AiChatState>,
+    request_id: String,
+    base_url: String,
+    api_key: String,
+    model: String,
+    instructions: Option<String>,
+    input: Vec<serde_json::Value>,
     tools: Option<Vec<serde_json::Value>>,
+    previous_response_id: Option<String>,
 ) -> Result<(), String> {
-    // 发送前检查 abort 标记
-    if state.has_abort(&session_id) {
-        state.clear_abort(&session_id);
+    if state.has_abort(&request_id) {
+        state.clear_abort(&request_id);
         let _ = app.emit(
-            "ai://chat-done",
-            json!({ "sessionId": session_id, "aborted": true, "finishReason": "aborted" }),
+            "ai://responses-event",
+            json!({ "requestId": request_id, "type": "response.failed", "message": "aborted" }),
         );
         return Ok(());
     }
-
-    let url = format!("{}/chat/completions", base_url.trim().trim_end_matches('/'));
     let mut body = json!({
         "model": model,
-        "messages": messages,
+        "input": input,
         "stream": true,
     });
+    if let Some(instructions) = instructions {
+        body["instructions"] = json!(instructions);
+    }
     if let Some(tools) = tools {
         body["tools"] = json!(tools);
-        body["tool_choice"] = json!("auto");
     }
-
-    // 必须走全局代理客户端：代理设置覆盖一切 Rust 侧网络。
-    // 不设整体 timeout（会掐断长流式），分级超时在下方逐一施加。
+    if let Some(previous_response_id) = previous_response_id {
+        body["previous_response_id"] = json!(previous_response_id);
+    }
     let client = match crate::network::configure_client(
         reqwest::Client::builder().connect_timeout(CONNECT_TIMEOUT),
     ) {
         Ok(client) => client,
         Err(message) => {
             let _ = app.emit(
-                "ai://chat-error",
-                json!({ "sessionId": session_id, "code": "generic", "message": message }),
+                "ai://responses-event",
+                json!({ "requestId": request_id, "type": "error", "code": "generic", "message": message }),
             );
             return Ok(());
         }
     };
-
-    let first_token_deadline = Instant::now() + FIRST_TOKEN_TIMEOUT;
-    let overall_deadline = Instant::now() + OVERALL_TIMEOUT;
-
-    // 等待响应头计入首 token 预算
-    let request = client.post(&url).bearer_auth(&api_key).json(&body);
-    let response = match timeout(
-        first_token_deadline.saturating_duration_since(Instant::now()),
-        request.send(),
-    )
-    .await
-    {
+    let request = client
+        .post(responses_url(&base_url))
+        .bearer_auth(api_key.trim())
+        .json(&body);
+    let response = match timeout(FIRST_TOKEN_TIMEOUT, request.send()).await {
         Ok(Ok(response)) => response,
         Ok(Err(error)) => {
             let (code, message) = classify_request_error(&error);
             let _ = app.emit(
-                "ai://chat-error",
-                json!({ "sessionId": session_id, "code": code, "message": message }),
+                "ai://responses-event",
+                json!({ "requestId": request_id, "type": "error", "code": code, "message": message }),
             );
             return Ok(());
         }
         Err(_) => {
             let _ = app.emit(
-                "ai://chat-error",
-                json!({
-                    "sessionId": session_id,
-                    "code": "first_token_timeout",
-                    "message": format!("首 token 超时（{} 秒）", FIRST_TOKEN_TIMEOUT.as_secs())
-                }),
+                "ai://responses-event",
+                json!({ "requestId": request_id, "type": "error", "code": "first_token_timeout", "message": "Responses first token timeout" }),
             );
             return Ok(());
         }
     };
-
-    let status = response.status();
-    if !status.is_success() {
+    if !response.status().is_success() {
+        let status = response.status();
         let code = match status.as_u16() {
             401 | 403 => "auth",
             429 => "rate_limit",
             _ => "generic",
         };
-        // 附带服务端返回的错误摘要（截断，避免超长）
-        let detail = response.text().await.unwrap_or_default();
-        let detail = detail.chars().take(300).collect::<String>();
-        let message = format!("HTTP {}: {detail}", status.as_u16());
+        let detail = response
+            .text()
+            .await
+            .unwrap_or_default()
+            .chars()
+            .take(300)
+            .collect::<String>();
         let _ = app.emit(
-            "ai://chat-error",
-            json!({ "sessionId": session_id, "code": code, "message": message }),
+            "ai://responses-event",
+            json!({ "requestId": request_id, "type": "error", "code": code, "message": format!("HTTP {}: {detail}", status.as_u16()) }),
         );
         return Ok(());
     }
-
-    let _ = app.emit("ai://chat-start", json!({ "sessionId": session_id }));
-
     use futures_util::StreamExt;
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
-    let mut finish_reason: Option<String> = None;
-    let mut usage: Option<SseUsage> = None;
-    let mut received_first_data = false;
-
+    let mut current_event = String::new();
+    let mut received_data = false;
     loop {
-        // 每块接收前检查 abort 标记：标记存在则停止并移除
-        if state.has_abort(&session_id) {
-            state.clear_abort(&session_id);
+        if state.has_abort(&request_id) {
+            state.clear_abort(&request_id);
             let _ = app.emit(
-                "ai://chat-done",
-                json!({ "sessionId": session_id, "aborted": true, "finishReason": "aborted" }),
+                "ai://responses-event",
+                json!({ "requestId": request_id, "type": "response.failed", "message": "aborted" }),
             );
             return Ok(());
         }
-
-        // 总时长硬顶
-        if Instant::now() >= overall_deadline {
-            let _ = app.emit(
-                "ai://chat-error",
-                json!({
-                    "sessionId": session_id,
-                    "code": "timeout",
-                    "message": format!("会话总时长超限（{} 秒）", OVERALL_TIMEOUT.as_secs())
-                }),
-            );
-            return Ok(());
-        }
-
-        // 首 token 预算未用完前按剩余预算等待，之后按 chunk 间隔超时
-        let wait = if received_first_data {
+        let wait = if received_data {
             CHUNK_IDLE_TIMEOUT
         } else {
-            let remaining = first_token_deadline.saturating_duration_since(Instant::now());
-            if remaining.is_zero() {
-                let _ = app.emit(
-                    "ai://chat-error",
-                    json!({
-                        "sessionId": session_id,
-                        "code": "first_token_timeout",
-                        "message": format!("首 token 超时（{} 秒）", FIRST_TOKEN_TIMEOUT.as_secs())
-                    }),
-                );
-                return Ok(());
-            }
-            remaining
+            FIRST_TOKEN_TIMEOUT
         };
-
         match timeout(wait, stream.next()).await {
             Ok(Some(Ok(chunk))) => {
                 buffer.push_str(&String::from_utf8_lossy(&chunk));
-                // 逐行解析；最后一段可能不完整，保留在 buffer
                 while let Some(position) = buffer.find('\n') {
                     let line: String = buffer.drain(..position + 1).collect();
-                    let line = line.trim_end();
-                    let Some(sse) = parse_sse_line(line) else {
+                    let line = line.trim_end_matches(['\r', '\n']);
+                    if let Some(value) = line.strip_prefix("event:") {
+                        current_event = value.trim().to_string();
+                        continue;
+                    }
+                    let Some(value) = line.strip_prefix("data:") else {
                         continue;
                     };
-                    received_first_data = true;
-                    if let Some(reason) = sse.finish_reason {
-                        finish_reason = Some(reason);
-                    }
-                    if let Some(u) = sse.usage {
-                        usage = Some(u);
-                    }
-                    let has_content = sse.content.as_deref().is_some_and(|c| !c.is_empty());
-                    if has_content || !sse.tool_calls.is_empty() {
-                        let mut payload = json!({
-                            "sessionId": session_id,
-                            "delta": sse.content.unwrap_or_default(),
-                        });
-                        if !sse.tool_calls.is_empty() {
-                            payload["toolCalls"] = json!(sse
-                                .tool_calls
-                                .iter()
-                                .map(|call| {
-                                    let mut item = json!({ "index": call.index });
-                                    if let Some(id) = &call.id {
-                                        item["id"] = json!(id);
-                                    }
-                                    if let Some(name) = &call.name {
-                                        item["name"] = json!(name);
-                                    }
-                                    if let Some(args) = &call.arguments_delta {
-                                        item["argumentsDelta"] = json!(args);
-                                    }
-                                    item
-                                })
-                                .collect::<Vec<_>>());
-                        }
-                        let _ = app.emit("ai://chat-delta", payload);
-                    }
+                    let Some(mut payload) = parse_response_sse_event(&current_event, value.trim())
+                    else {
+                        continue;
+                    };
+                    payload["requestId"] = json!(&request_id);
+                    received_data = true;
+                    let _ = app.emit("ai://responses-event", payload);
                 }
             }
             Ok(Some(Err(error))) => {
                 let (code, message) = classify_request_error(&error);
                 let _ = app.emit(
-                    "ai://chat-error",
-                    json!({ "sessionId": session_id, "code": code, "message": message }),
+                    "ai://responses-event",
+                    json!({ "requestId": request_id, "type": "error", "code": code, "message": message }),
                 );
                 return Ok(());
             }
-            Ok(None) => break,
+            Ok(None) => return Ok(()),
             Err(_) => {
-                let code = if received_first_data {
-                    "idle_timeout"
-                } else {
-                    "first_token_timeout"
-                };
-                let limit = if received_first_data {
-                    CHUNK_IDLE_TIMEOUT.as_secs()
-                } else {
-                    FIRST_TOKEN_TIMEOUT.as_secs()
-                };
                 let _ = app.emit(
-                    "ai://chat-error",
-                    json!({
-                        "sessionId": session_id,
-                        "code": code,
-                        "message": format!("响应静默超时（{limit} 秒）")
-                    }),
+                    "ai://responses-event",
+                    json!({ "requestId": request_id, "type": "error", "code": if received_data { "idle_timeout" } else { "first_token_timeout" }, "message": "Responses stream timeout" }),
                 );
                 return Ok(());
             }
         }
     }
-
-    let mut done = json!({
-        "sessionId": session_id,
-        "aborted": false,
-        "finishReason": finish_reason.unwrap_or_else(|| "stop".to_string()),
-    });
-    if let Some(u) = usage {
-        if let Ok(value) = serde_json::to_value(u) {
-            done["usage"] = value;
-        }
-    }
-    let _ = app.emit("ai://chat-done", done);
-    Ok(())
 }
 
-/// 请求中止当前会话的流式输出
 #[tauri::command]
-pub fn ai_chat_abort(state: State<'_, AiChatState>, session_id: String) -> Result<(), String> {
-    state.insert_abort(&session_id);
+pub fn ai_responses_abort(state: State<'_, AiChatState>, request_id: String) -> Result<(), String> {
+    state.insert_abort(&request_id);
     Ok(())
 }
 
@@ -571,6 +559,56 @@ mod tests {
         // 首个分片常只携带 role，无内容
         let line = r#"data: {"choices":[{"delta":{"role":"assistant"}}]}"#;
         assert_eq!(parse_sse_line(line), None);
+    }
+
+    #[test]
+    fn parse_responses_text_delta_and_response_id() {
+        let payload = parse_response_sse_event(
+            "response.output_text.delta",
+            r#"{"response":{"id":"resp_1"},"delta":"hello"}"#,
+        )
+        .expect("Responses delta should parse");
+        assert_eq!(payload["type"], "response.output_text.delta");
+        assert_eq!(payload["responseId"], "resp_1");
+        assert_eq!(payload["delta"], "hello");
+    }
+
+    #[test]
+    fn parse_responses_function_delta_and_output_item() {
+        let delta = parse_response_sse_event(
+            "response.function_call_arguments.delta",
+            r#"{"item_id":"item_1","call_id":"call_1","output_index":0,"name":"read_file","delta":"{\"path\":"}"#,
+        )
+        .expect("function argument delta should parse");
+        assert_eq!(delta["callId"], "call_1");
+        assert_eq!(delta["itemId"], "item_1");
+        assert_eq!(delta["outputIndex"], 0);
+        assert_eq!(delta["argumentsDelta"], "{\"path\":");
+
+        let done = parse_response_sse_event(
+            "response.output_item.done",
+            r#"{"item":{"type":"function_call","call_id":"call_1","name":"read_file","arguments":"{}"}}"#,
+        )
+        .expect("function output item should parse");
+        assert_eq!(done["callId"], "call_1");
+        assert_eq!(done["name"], "read_file");
+        assert_eq!(done["raw"]["item"]["type"], "function_call");
+    }
+
+    #[test]
+    fn parse_responses_completed_usage_and_errors() {
+        let completed = parse_response_sse_event(
+            "response.completed",
+            r#"{"response":{"id":"resp_2","status":"completed","usage":{"input_tokens":4,"output_tokens":2}}}"#,
+        )
+        .expect("completed event should parse");
+        assert_eq!(completed["finishReason"], "completed");
+        assert_eq!(completed["usage"]["input_tokens"], 4);
+
+        let error = parse_response_sse_event("error", r#"{"error":{"message":"bad request"}}"#)
+            .expect("error event should parse");
+        assert_eq!(error["message"], "bad request");
+        assert!(parse_response_sse_event("message", "[DONE]").is_none());
     }
 
     #[test]

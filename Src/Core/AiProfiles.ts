@@ -29,6 +29,7 @@ function migrateLegacyProfile(ai: AiPreferences): AiProfile[] {
       baseUrl,
       apiKey,
       model: ai.model?.trim() ?? "",
+      protocol: "responses",
     },
   ];
 }
@@ -51,6 +52,7 @@ function sanitizeProfiles(input: unknown): AiProfile[] {
       baseUrl: item.baseUrl,
       apiKey: item.apiKey,
       model: typeof item.model === "string" ? item.model : "",
+      protocol: "responses",
     });
   }
   return result;

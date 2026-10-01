@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DocumentService } from "../../Core/DocumentService";
+import { loadEditorViewState, saveEditorViewState } from "../../Core/Editor/EditorViewStateStore";
 import { EditorSaveRegistry } from "../../Core/EditorSaveRegistry";
 import { FileSystemService } from "../../Core/FileSystemService";
 import { RecoveryCoordinator } from "../../Core/Recovery/RecoveryCoordinator";
@@ -8,6 +9,7 @@ import { DesktopError } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
+import type { EditorViewState } from "../../Foundation/Types/Editor";
 import { isBinaryExtension } from "../../Shared/Constants/FileTypes";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
 import { showNotification, showToast } from "../../UI/Feedback/Toast";
@@ -44,9 +46,10 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
   const [syncError, setSyncError] = useState<Error | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [diskFingerprint, setDiskFingerprint] = useState("");
+  const persistedViewState = useMemo(() => loadEditorViewState(path), [path]);
   const [viewState, setViewState] = useState<{ path: string; mode: EditorViewMode }>({
     path,
-    mode: "source",
+    mode: persistedViewState?.mode === "preview" ? "preview" : "source",
   });
   const [focusRequest, setFocusRequest] = useState(0);
   const [capsuleEnabled, setCapsuleEnabled] = useState(false);
@@ -64,6 +67,13 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
   const isDirty = fileContent !== savedContent;
   const isMarkdown = ["md", "markdown"].includes(getExtension(path));
   const viewMode = viewState.path === path ? viewState.mode : "source";
+
+  const handleViewStateChange = useCallback(
+    (state: EditorViewState) => {
+      saveEditorViewState(path, { ...state, mode: viewMode });
+    },
+    [path, viewMode],
+  );
 
   const changeViewMode = useCallback(
     (mode: EditorViewMode) => {
@@ -427,6 +437,8 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
                     focusRequest={focusRequest}
                     onChange={handleContentChange}
                     path={path}
+                    initialViewState={persistedViewState}
+                    onViewStateChange={handleViewStateChange}
                     externalContent={externalContent}
                     revealLine={revealLine}
                     onRevealHandled={onRevealHandled}

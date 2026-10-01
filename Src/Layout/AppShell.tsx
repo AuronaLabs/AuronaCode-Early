@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { AiChatService } from "../Core/AiChatService";
+import { AgentService } from "../Core/Agent/AgentService";
 import { NotificationService } from "../Core/NotificationService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { FliunoModal as Fliuno } from "../Features/Fliuno/FliunoModal";
@@ -65,8 +65,8 @@ export function AppShell({ Children }: AppShellProps) {
   );
   // AI 卡片可见性跟随 ai.enabled 设置（默认开启）
   const aiCardEnabled = useSyncExternalStore(
-    AiChatService.subscribe,
-    AiChatService.getSnapshot,
+    AgentService.subscribe,
+    AgentService.getSnapshot,
   ).cardEnabled;
 
   const visibleDescriptors = useMemo(
@@ -75,7 +75,7 @@ export function AppShell({ Children }: AppShellProps) {
   );
 
   useEffect(() => {
-    void AiChatService.refreshConfig();
+    void AgentService.refreshConfig();
     void useExtensionStore.getState().initialize();
     const unsubGit = EventBus.on("git:changes-count", (count: number) => {
       setGitChangeCount(count);

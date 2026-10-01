@@ -84,12 +84,14 @@ export interface AiProfile {
   name: string;
   /** 服务商预设：custom 时 baseUrl 手工填写 */
   provider?: "openai" | "deepseek" | "openrouter" | "custom";
-  /** OpenAI 兼容 Chat Completions 接口地址 */
+  /** Responses API base URL. */
   baseUrl: string;
   /** API Key（仅本机存储） */
   apiKey: string;
   /** 模型名称 */
   model: string;
+  /** 0.4.12 uses the Responses API as the only runtime protocol. */
+  protocol?: "responses";
 }
 
 /** 0.4.6 批次 5：AI 助手偏好（纯聊天；API Key 仅存本地 UserConfig，零遥测） */
@@ -102,7 +104,7 @@ export interface AiPreferences {
   agentPermission?: "ask" | "read" | "edit" | "full";
   /** 服务商预设：custom 时 baseUrl 手工填写 */
   provider?: "openai" | "deepseek" | "openrouter" | "custom";
-  /** OpenAI 兼容 Chat Completions 接口地址（deprecated：0.4.9 起由 profiles 承载，仅作迁移源） */
+  /** Legacy base URL kept only as a migration source for profiles. */
   baseUrl?: string;
   /** API Key（仅本机存储）（deprecated：0.4.9 起由 profiles 承载，仅作迁移源） */
   apiKey?: string;

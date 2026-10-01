@@ -23,6 +23,22 @@
   background: var(--AppBackground, var(--AppBg));
 }
 
+.oobe-progress {
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .oobe-step-enter {
+    align-items: flex-start;
+  }
+
+  .oobe-backdrop {
+    overflow-y: auto;
+  }
+}
+
 /* 背景光晕：固定氛围层，随主题变量联动（浅色系偏柔、深色系偏深邃） */
 .oobe-ambient {
   position: absolute;

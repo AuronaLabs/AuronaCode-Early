@@ -4,7 +4,7 @@
   <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.11-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.12-2563eb" />
     <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
     <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
@@ -35,7 +35,7 @@ Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面�
 - **窗口状态记忆与液态玻璃流光**：窗口尺寸与位置跨会话记忆（异常自动回退最大化、首启自动最大化）；可开关的液态玻璃流光为背景与浮层玻璃带来折射质感，支持动效降级与三档强度联动。
 - **集成透明终端**：基于 `portable-pty` 与 `xterm.js`，配色完整跟随明暗主题与强调色即时切换，背景与主题卡片浑然一体。
 - **全链路国际化**：简体中文 (zh-CN)、繁體中文 (zh-Hant)、English、Deutsch、Italiano 与日本語实时无缝切换，语言选择以各语言自名显示。
-- **首启欢迎引导 (OOBE) 与安装器多语言**：Windows 安装程序支持多语言界面选择；首次启动主程序直接呈现全屏欢迎引导（欢迎 → 语言 → 外观主题 → 账户登录，可跳过），完整复用整套主题系统，完成直达工作台。
+- **首启欢迎引导 (OOBE) 与安装器多语言**：Windows 安装程序支持多语言界面选择；首次启动主程序直接呈现全屏欢迎引导（欢迎 → 语言 → 外观主题 → 编辑器偏好 → 账户登录，可跳过），完成直达工作台。
 - **权限安全生命周期**：卸载插件立即彻底销毁并持久化清除所有授权，严格保护用户工作区数据。
 
 ---

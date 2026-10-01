@@ -1,7 +1,7 @@
 {
   "name": "aurona-code",
   "private": true,
-  "version": "0.4.11",
+  "version": "0.4.12",
   "packageManager": "pnpm@12.4.1",
   "type": "module",
   "scripts": {
@@ -60,11 +60,14 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "highlight.js": "^11.9.0",
+    "katex": "^0.18.9",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
     "rehype-slug": "^6.0.0",
     "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "tailwind-merge": "^3.6.0",
     "zustand": "^5.0.14"
   },

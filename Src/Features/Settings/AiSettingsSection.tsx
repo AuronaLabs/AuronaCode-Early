@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AiChatService } from "../../Core/AiChatService";
+import { AgentService } from "../../Core/Agent/AgentService";
 import { resolveAiProfiles } from "../../Core/AiProfiles";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import { AiIPC } from "../../Foundation/IPC/AiCommands";
@@ -33,7 +33,7 @@ const PROVIDER_MODEL_PLACEHOLDERS: Record<AiProvider, string> = {
   openai: "gpt-4o-mini",
   deepseek: "deepseek-chat",
   openrouter: "openai/gpt-4o-mini",
-  custom: "chat 模型名称",
+  custom: "Responses model name",
 };
 
 const PROVIDER_LABEL_KEY: Record<AiProvider, I18nKey> = {
@@ -65,7 +65,7 @@ function createProfileId(): string {
 async function writeAi(patch: Partial<AiPreferences>): Promise<void> {
   const config = await UserConfigStore.get();
   await UserConfigStore.set({ ai: { ...config.ai, ...patch } });
-  await AiChatService.refreshConfig();
+  await AgentService.refreshConfig();
 }
 
 export function AiSettingsSection() {
@@ -112,7 +112,7 @@ export function AiSettingsSection() {
   const activateProfile = async (id: string) => {
     if (id === activeProfileId) return;
     setActiveProfileId(id);
-    await AiChatService.setActiveProfile(id);
+    await writeAi({ activeProfileId: id });
     showToast(t("ai.profileActivated"), "success");
   };
 
@@ -127,6 +127,7 @@ export function AiSettingsSection() {
         baseUrl: PROVIDER_BASE_URLS.openai,
         apiKey: "",
         model: "",
+        protocol: "responses",
       },
     });
   };
@@ -161,6 +162,7 @@ export function AiSettingsSection() {
       baseUrl: editor.draft.baseUrl.trim(),
       apiKey: editor.draft.apiKey.trim(),
       model: editor.draft.model.trim(),
+      protocol: "responses",
     };
     const next = editor.isNew
       ? [...profiles, draft]
@@ -210,7 +212,11 @@ export function AiSettingsSection() {
     abortRef.current = controller;
     const timer = setTimeout(() => controller.abort(), 15_000);
     try {
-      const response = await AiIPC.testConnection({ baseUrl, apiKey });
+      const response = await AiIPC.testResponsesConnection({
+        baseUrl,
+        apiKey,
+        model: editor.draft.model.trim(),
+      });
       if (response >= 200 && response < 300) setTestStatus("ok");
       else if (response === 401 || response === 403) setTestStatus("auth");
       else setTestStatus("network");

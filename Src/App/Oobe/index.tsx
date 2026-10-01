@@ -24,6 +24,14 @@ import "./Oobe.css";
 
 const TOTAL_STEPS = 6;
 const STEP_IDS = [0, 1, 2, 3, 4, 5];
+const STEP_LABELS = [
+  "oobe.welcomeTitle",
+  "oobe.languageTitle",
+  "oobe.themeTitle",
+  "oobe.prefTitle",
+  "oobe.accountTitle",
+  "oobe.readyTitle",
+] as const;
 
 /**
  * 欢迎引导覆盖层：主窗口内的全屏置顶界面（首次运行自动呈现，高级设置可重游）。
@@ -111,7 +119,29 @@ export function OobeOverlay() {
       </div>
 
       {/* 步骤内容：直接呈现在应用背景上，无二级卡片 */}
-      <main className="relative z-10 flex min-h-0 flex-1 items-center justify-center px-10">
+      <div className="oobe-progress relative z-10 px-5 pt-3 sm:px-9">
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+            {step + 1} / {TOTAL_STEPS}
+          </span>
+          <span className="truncate text-[12px] font-medium text-[var(--color-text-highlight)]">
+            {t(STEP_LABELS[step])}
+          </span>
+        </div>
+        <div
+          className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--color-text-muted)]/15"
+          role="progressbar"
+          aria-valuemin={1}
+          aria-valuemax={TOTAL_STEPS}
+          aria-valuenow={step + 1}
+        >
+          <div
+            className="h-full rounded-full bg-[var(--color-accent)] transition-[width] duration-300"
+            style={{ width: `${((step + 1) / TOTAL_STEPS) * 100}%` }}
+          />
+        </div>
+      </div>
+      <main className="relative z-10 flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-5 py-8 sm:px-10">
         <div key={step} className="oobe-step-enter flex w-full justify-center">
           {step === 0 && <WelcomeStep version={version ? formatDisplayVersion(version) : ""} />}
           {step === 1 && (
@@ -125,11 +155,6 @@ export function OobeOverlay() {
             </div>
           )}
           {step === 3 && (
-            <div className="w-full max-w-[460px]">
-              <AccountStep onSkip={() => setStep((prev) => prev + 1)} />
-            </div>
-          )}
-          {step === 4 && (
             <div className="w-full max-w-[560px]">
               <EditorPreferencesStep
                 fontSize={editorFontSize}
@@ -141,13 +166,21 @@ export function OobeOverlay() {
               />
             </div>
           )}
+          {step === 4 && (
+            <div className="w-full max-w-[460px]">
+              <AccountStep
+                onSkip={() => setStep((prev) => prev + 1)}
+                onContinue={() => setStep((prev) => prev + 1)}
+              />
+            </div>
+          )}
           {step === 5 && <ReadyStep onFinish={() => void finish()} finishing={finishing} />}
         </div>
       </main>
 
       {/* 底部导航：步骤圆点 + 统一的上一步/下一步，直接置于背景之上 */}
-      <footer className="relative z-10 flex shrink-0 items-center justify-between px-9 pb-7">
-        <div className="flex min-w-[104px] items-center gap-1.5">
+      <footer className="relative z-10 flex shrink-0 items-center justify-between gap-4 px-5 pb-5 sm:px-9 sm:pb-7">
+        <div className="flex min-w-0 items-center gap-1.5" aria-hidden="true">
           {STEP_IDS.map((stepId) => (
             <span
               key={stepId}
@@ -166,7 +199,7 @@ export function OobeOverlay() {
               {t("oobe.back")}
             </Button>
           )}
-          {step < TOTAL_STEPS - 1 && (
+          {step < TOTAL_STEPS - 1 && step !== 4 && (
             <Button
               size="lg"
               className="group min-w-[112px]"

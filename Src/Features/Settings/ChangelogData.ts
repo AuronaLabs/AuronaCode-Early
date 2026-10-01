@@ -12,9 +12,50 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "V0.4.12",
+    date: "2026-10-01",
+    isLatest: true,
+    summary:
+      "Agent 工作台与 Editor 协作升级：统一事件运行时、可恢复检查点、Responses API、Markdown 回复和更紧凑的工具状态展示。",
+    sections: [
+      {
+        title: "Agent 对话与工具调用",
+        description: "以连续对话呈现 Agent 回复，工具执行保持轻量、可追踪且不打断阅读。",
+        items: [
+          "工具调用运行中显示为一行状态，完成后归并为可展开的调用记录，并显示工具数量、失败数量和用时。",
+          "修复长对话只保留末尾内容的问题，历史消息可以继续在滚动区域中回看。",
+        ],
+      },
+      {
+        title: "Markdown 与模型响应",
+        description: "AI 回复现在使用统一的 Markdown 渲染管线。",
+        items: [
+          "支持 CommonMark、GFM 表格/任务列表/删除线、带语言标记的代码块以及 LaTeX 行内和独立公式。",
+          "提示词明确格式约定、工具使用边界和错误处理方式，避免输出原始工具 JSON 或内部事件。",
+        ],
+      },
+      {
+        title: "Responses 与恢复",
+        description: "Responses API 流式协议和文件恢复流程统一收口。",
+        items: [
+          "流式文本与函数调用参数通过类型化 Tauri 事件传递，旧聊天协议不再作为运行时回退。",
+          "写入工具执行前保存文件指纹与编辑器视图状态，停止或切换会话时取消待审批状态。",
+        ],
+      },
+      {
+        title: "Editor 与本地化",
+        description: "编辑器状态和 Agent 面板的界面语言保持一致。",
+        items: [
+          "按文件持久化光标、选区、滚动、折叠和 Markdown 源码/预览模式，切换标签页后恢复。",
+          "清理 Agent 面板未使用的旧工作台、队列和事件词条，六种语言同步补齐工具摘要与耗时翻译。",
+        ],
+      },
+    ],
+  },
+  {
     version: "V0.4.11",
     date: "2026-09-26",
-    isLatest: true,
+    isLatest: false,
     summary: "Marketplace 连接与扩展生态修复，原生 Markdown、AI 胶囊、Git 与玻璃设计系统继续完善",
     sections: [
       {

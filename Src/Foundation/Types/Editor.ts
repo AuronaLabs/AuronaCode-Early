@@ -39,6 +39,18 @@ export type EditorAction =
   | "unfoldAll"
   | "addCursorAtSelectionEnds";
 
+export interface EditorViewState {
+  path?: string;
+  line: number;
+  column: number;
+  scrollTop: number;
+  scrollLeft: number;
+  selectionStart?: { line: number; column: number };
+  selectionEnd?: { line: number; column: number };
+  foldedLines?: number[];
+  mode?: "source" | "preview";
+}
+
 export const EMPTY_EDITOR_STATUS: EditorStatus = {
   hasEditor: false,
   language: "plaintext",
@@ -64,4 +76,6 @@ export interface IEditorEngine {
   getStatus(): EditorStatus;
   onStatusChange(listener: EditorStatusListener): () => void;
   executeAction(action: EditorAction): void | Promise<void>;
+  getViewState?(): EditorViewState;
+  restoreViewState?(state: EditorViewState): void;
 }

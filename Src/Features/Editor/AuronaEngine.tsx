@@ -38,7 +38,7 @@ import { useEditorSearchReplace } from "./Hooks/useEditorSearchReplace";
 import { type SelectionRange, useEditorSelectionOps } from "./Hooks/useEditorSelectionOps";
 import { useExternalSync } from "./Hooks/useExternalSync";
 import { useSyntaxHighlighting } from "./Hooks/useSyntaxHighlighting";
-import type { IEditorEngine } from "./IEditorEngine";
+import type { EditorViewState, IEditorEngine } from "./IEditorEngine";
 import { CanvasMinimap } from "./Minimap/CanvasMinimap";
 import { MultiCursorCaretLayer } from "./MultiCursor/MultiCursorCaretLayer";
 import { useMultiCursorOps } from "./MultiCursor/useMultiCursorOps";
@@ -58,6 +58,8 @@ export type AuronaEngineProps = {
   onRevealHandled?: (path: string, line: number) => void;
   onSyncError?: (error: Error) => void;
   externalContent?: { content: string; nonce: number } | null;
+  initialViewState?: EditorViewState | null;
+  onViewStateChange?: (state: EditorViewState) => void;
 };
 
 const DEFAULT_PREFS: Required<LanguageFeaturePreferences> = {
@@ -80,6 +82,8 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   onRevealHandled,
   onSyncError,
   externalContent,
+  initialViewState,
+  onViewStateChange,
 }: AuronaEngineProps) {
   const { t } = useLocale();
   const toggleBreakpoint = useDebugStore((state) => state.toggleBreakpoint);
@@ -105,6 +109,51 @@ export const AuronaEngine = React.memo(function AuronaEngine({
   const [layout, setLayout] = useState(DEFAULT_EDITOR_LAYOUT);
   const [cursor, setCursor] = useState({ line: 0, char: 0 });
   const [selection, setSelection] = useState<SelectionRange | null>(null);
+  const viewStateReadyRef = useRef(false);
+  const restoredPathRef = useRef(path);
+
+  useEffect(() => {
+    if (restoredPathRef.current !== path) {
+      restoredPathRef.current = path;
+      viewStateReadyRef.current = false;
+    }
+  }, [path]);
+
+  useEffect(() => {
+    if (
+      viewStateReadyRef.current ||
+      restoredPathRef.current !== path ||
+      documentLines.length === 0 ||
+      (documentLines.length === 1 && documentLines[0] === "" && value !== "")
+    ) {
+      return;
+    }
+    viewStateReadyRef.current = true;
+    if (!initialViewState) return;
+    const line = Math.max(0, Math.min(documentLines.length - 1, initialViewState.line - 1));
+    const column = Math.max(
+      0,
+      Math.min((documentLines[line] ?? "").length, initialViewState.column - 1),
+    );
+    setCursor({ line, char: column });
+    if (initialViewState.selectionStart && initialViewState.selectionEnd) {
+      setSelection({
+        start: {
+          line: Math.max(0, initialViewState.selectionStart.line - 1),
+          char: Math.max(0, initialViewState.selectionStart.column - 1),
+        },
+        end: {
+          line: Math.max(0, initialViewState.selectionEnd.line - 1),
+          char: Math.max(0, initialViewState.selectionEnd.column - 1),
+        },
+      });
+    }
+    requestAnimationFrame(() => {
+      if (!containerRef.current) return;
+      containerRef.current.scrollTop = Math.max(0, initialViewState.scrollTop);
+      containerRef.current.scrollLeft = Math.max(0, initialViewState.scrollLeft);
+    });
+  }, [documentLines, initialViewState, path, value]);
 
   const insertTextAtCursorRef = useRef<(text: string) => void>(() => {});
   const {
@@ -161,6 +210,13 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     }
     return map;
   }, [activeFoldedRanges, foldedStartLines.size]);
+
+  useEffect(() => {
+    if (!initialViewState?.foldedLines || !viewStateReadyRef.current) return;
+    for (const line of initialViewState.foldedLines) {
+      if (!foldedStartLines.has(line)) toggleFold(line);
+    }
+  }, [foldedStartLines, initialViewState, toggleFold]);
 
   // 2. 硬件 RAF 滚动与视口管理 (Performance)
   const {
@@ -639,7 +695,46 @@ export const AuronaEngine = React.memo(function AuronaEngine({
         return () => undefined;
       },
       executeAction: executeEditorAction,
+      getViewState: () => ({
+        path,
+        line: cursor.line + 1,
+        column: cursor.char + 1,
+        scrollTop,
+        scrollLeft: containerRef.current?.scrollLeft ?? 0,
+        selectionStart: selection
+          ? { line: selection.start.line + 1, column: selection.start.char + 1 }
+          : undefined,
+        selectionEnd: selection
+          ? { line: selection.end.line + 1, column: selection.end.char + 1 }
+          : undefined,
+        foldedLines: [...foldedStartLines],
+      }),
+      restoreViewState: (state: EditorViewState) => {
+        const line = Math.max(0, Math.min(documentLines.length - 1, state.line - 1));
+        const column = Math.max(0, Math.min((documentLines[line] ?? "").length, state.column - 1));
+        setCursor({ line, char: column });
+        if (state.selectionStart && state.selectionEnd) {
+          setSelection({
+            start: {
+              line: Math.max(0, state.selectionStart.line - 1),
+              char: Math.max(0, state.selectionStart.column - 1),
+            },
+            end: {
+              line: Math.max(0, state.selectionEnd.line - 1),
+              char: Math.max(0, state.selectionEnd.column - 1),
+            },
+          });
+        } else {
+          setSelection(null);
+        }
+        requestAnimationFrame(() => {
+          if (!containerRef.current) return;
+          containerRef.current.scrollTop = Math.max(0, state.scrollTop);
+          containerRef.current.scrollLeft = Math.max(0, state.scrollLeft);
+        });
+      },
     };
+    if (!isActive) return;
     EditorAdapter.bindEngine(engine);
     return () => EditorAdapter.unbindEngine(engine);
   }, [
@@ -656,9 +751,30 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     path,
     scrollToLine,
     totalLines,
+    scrollTop,
+    selection,
+    foldedStartLines,
   ]);
 
   // 18-20. Minimap 装饰 / 视口行渲染 / 行号 gutter（抽至 useEditorRenderData）
+  useEffect(() => {
+    if (!onViewStateChange || !path || !viewStateReadyRef.current) return;
+    onViewStateChange({
+      path,
+      line: cursor.line + 1,
+      column: cursor.char + 1,
+      scrollTop,
+      scrollLeft: containerRef.current?.scrollLeft ?? 0,
+      selectionStart: selection
+        ? { line: selection.start.line + 1, column: selection.start.char + 1 }
+        : undefined,
+      selectionEnd: selection
+        ? { line: selection.end.line + 1, column: selection.end.char + 1 }
+        : undefined,
+      foldedLines: [...foldedStartLines],
+    });
+  }, [cursor, foldedStartLines, onViewStateChange, path, scrollTop, selection]);
+
   const { minimapDecorations, visibleLinesDOM, lineNumbersDOM } = useEditorRenderData({
     documentLines,
     cursor,

@@ -1,12 +1,7 @@
-import type React from "react";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { type AiChatMessage, AiChatService, describeAiError } from "../../Core/AiChatService";
-import { useLocale } from "../../Foundation/I18n";
-import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
-import type { AiPreferences } from "../../Foundation/Types/Config";
-import { cn } from "../../Shared/Utils/cn";
-import { useWorkbenchStore } from "../../State/useWorkspaceStore";
-import { Badge } from "../../UI/Components/Badge";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { AgentService } from "../../Core/Agent/AgentService";
+import type { AgentEvent, AgentTaskSnapshot, AgentTaskStatus } from "../../Core/Agent/AgentTypes";
+import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import { Button } from "../../UI/Components/Button";
 import {
   DropdownMenuContent,
@@ -14,723 +9,415 @@ import {
   DropdownMenuRoot,
   DropdownMenuTrigger,
 } from "../../UI/Components/DropdownMenu";
-import { MarkdownRenderer } from "../../UI/Components/MarkdownRenderer";
-import { showConfirm } from "../../UI/Feedback/Toast";
-import { Tooltip } from "../../UI/Feedback/Tooltip";
+import { GlassList, glassListRowStyles } from "../../UI/Components/GlassList";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
+import { AgentMarkdown } from "./AgentMarkdown";
+import { syncAgentExecutorRegistration } from "./AgentToolExecutor";
 import "./AiAssistantPanel.css";
 
-export function AiAssistantPanel() {
-  const { t } = useLocale();
-  const chat = useSyncExternalStore(AiChatService.subscribe, AiChatService.getSnapshot);
-  const [draft, setDraft] = useState("");
-  const [agentPermission, setAgentPermission] =
-    useState<NonNullable<AiPreferences["agentPermission"]>>("ask");
+type ConversationItem =
+  | { type: "user"; id: string; content: string }
+  | { type: "assistant"; id: string; content: string }
+  | {
+      type: "tool";
+      id: string;
+      name: string;
+      status: "running" | "completed" | "failed";
+      detail?: string;
+      startedAt?: number;
+      completedAt?: number;
+    }
+  | {
+      type: "run-summary";
+      id: string;
+      status: "completed" | "failed" | "aborted";
+      tools: Array<Extract<ConversationItem, { type: "tool" }>>;
+      durationMs: number;
+    }
+  | { type: "error"; id: string; content: string };
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  /** 用户是否停留在底部附近（决定是否自动滚动与显示回底按钮） */
-  const isNearBottomRef = useRef(true);
-  const [isNearBottom, setIsNearBottom] = useState(true);
+function isBusy(status: AgentTaskStatus): boolean {
+  return status === "planning" || status === "running" || status === "waiting_approval";
+}
 
-  // 挂载时刷新配置快照（设置保存后由 AiSettingsSection 通知刷新）
-  useEffect(() => {
-    void AiChatService.refreshConfig();
-    void UserConfigStore.get().then((config) =>
-      setAgentPermission(config.ai?.agentPermission ?? "ask"),
-    );
-  }, []);
+function eventText(event: AgentEvent): string {
+  if (typeof event.payload.content === "string") return event.payload.content;
+  if (typeof event.payload.message === "string") return event.payload.message;
+  return "";
+}
 
-  const updateAgentPermission = useCallback(
-    (permission: NonNullable<AiPreferences["agentPermission"]>) => {
-      setAgentPermission(permission);
-      void UserConfigStore.get().then((config) =>
-        UserConfigStore.set({ ai: { ...config.ai, agentPermission: permission } }),
-      );
-    },
-    [],
+function toolName(event: AgentEvent): string {
+  return typeof event.payload.name === "string" && event.payload.name.trim()
+    ? event.payload.name.trim()
+    : "tool";
+}
+
+function buildConversation(task: AgentTaskSnapshot): ConversationItem[] {
+  const items: ConversationItem[] = [];
+  const assistantByStep = new Map<string, ConversationItem & { type: "assistant" }>();
+  const toolByStep = new Map<string, ConversationItem & { type: "tool" }>();
+
+  let hasUserEvent = false;
+  for (const event of task.events) {
+    if (event.type === "task.created" && eventText(event)) {
+      items.push({ type: "user", id: event.id, content: eventText(event) });
+      hasUserEvent = true;
+      continue;
+    }
+    if (event.type === "step.delta" && event.stepId) {
+      let item = assistantByStep.get(event.stepId);
+      if (!item) {
+        item = { type: "assistant", id: `assistant-${event.stepId}`, content: "" };
+        assistantByStep.set(event.stepId, item);
+        items.push(item);
+      }
+      item.content += eventText(event);
+      continue;
+    }
+    if (
+      event.type === "step.completed" &&
+      event.stepId &&
+      !toolByStep.has(event.stepId) &&
+      typeof event.payload.content === "string"
+    ) {
+      let item = assistantByStep.get(event.stepId);
+      if (!item) {
+        item = { type: "assistant", id: `assistant-${event.stepId}`, content: "" };
+        assistantByStep.set(event.stepId, item);
+        items.push(item);
+      }
+      if (!item.content) item.content = event.payload.content;
+      continue;
+    }
+    if (event.type === "tool.requested" && event.stepId) {
+      const item: ConversationItem & { type: "tool" } = {
+        type: "tool",
+        id: `tool-${event.stepId}`,
+        name: toolName(event),
+        status: "running",
+        startedAt: event.timestamp,
+      };
+      toolByStep.set(event.stepId, item);
+      items.push(item);
+      continue;
+    }
+    if (event.type === "tool.started" && event.stepId) {
+      const item = toolByStep.get(event.stepId);
+      if (item) item.status = "running";
+      continue;
+    }
+    if (event.type === "tool.completed" && event.stepId) {
+      const item = toolByStep.get(event.stepId);
+      if (item) {
+        item.status = event.payload.isError === true ? "failed" : "completed";
+        item.completedAt = event.timestamp;
+        if (item.status === "failed" && typeof event.payload.content === "string") {
+          item.detail = event.payload.content.slice(0, 220);
+        }
+      }
+      continue;
+    }
+    if ((event.type === "task.queued" || event.type === "task.steered") && eventText(event)) {
+      items.push({ type: "user", id: event.id, content: eventText(event) });
+      continue;
+    }
+    if (event.type === "task.failed") {
+      const message = eventText(event);
+      if (message) items.push({ type: "error", id: event.id, content: message });
+    }
+  }
+
+  if (!hasUserEvent && task.input.trim()) {
+    items.unshift({ type: "user", id: `${task.id}-input`, content: task.input });
+  }
+
+  // Keep the complete persisted conversation available for scrolling. The session store
+  // already applies the event retention policy; trimming again here made older messages
+  // disappear as soon as a conversation grew beyond the UI limit.
+  const visibleItems = items.filter((item) => item.type !== "assistant" || item.content.trim());
+  const toolItems = visibleItems.filter(
+    (item): item is Extract<ConversationItem, { type: "tool" }> => item.type === "tool",
   );
+  const isTerminal =
+    task.status === "completed" || task.status === "failed" || task.status === "aborted";
+  if (isTerminal && toolItems.length > 0) {
+    const firstToolIndex = visibleItems.findIndex((item) => item.type === "tool");
+    const start =
+      task.events.find((item) => item.type === "task.created")?.timestamp ?? task.createdAt;
+    const end =
+      [...task.events]
+        .reverse()
+        .find((item) => ["task.completed", "task.failed", "task.aborted"].includes(item.type))
+        ?.timestamp ?? task.updatedAt;
+    const terminalStatus: "completed" | "failed" | "aborted" =
+      task.status === "completed" ? "completed" : task.status === "failed" ? "failed" : "aborted";
+    const summary: ConversationItem = {
+      type: "run-summary",
+      id: `${task.id}-run-summary`,
+      status: terminalStatus,
+      tools: toolItems,
+      durationMs: Math.max(0, end - start),
+    };
+    return [
+      ...visibleItems.slice(0, firstToolIndex).filter((item) => item.type !== "tool"),
+      summary,
+      ...visibleItems.slice(firstToolIndex).filter((item) => item.type !== "tool"),
+    ];
+  }
+  return visibleItems;
+}
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: messages 变化驱动自动滚动，内容本身不在 effect 内使用
+function toolStatusLabel(
+  item: ConversationItem & { type: "tool" },
+  t: (key: I18nKey) => string,
+): string {
+  if (item.status === "failed") return t("ai.agentUi.eventToolFailed");
+  if (item.status === "completed") return t("ai.agentUi.eventToolCompleted");
+  return t("ai.agentUi.eventToolRunning");
+}
+
+function formatDuration(durationMs: number): { minutes: number; seconds: number } {
+  const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
+  return { minutes: Math.floor(totalSeconds / 60), seconds: totalSeconds % 60 };
+}
+
+export function AiAssistantPanel() {
+  const snapshot = useSyncExternalStore(AgentService.subscribe, AgentService.getSnapshot);
+  const { t } = useLocale();
+  const [draft, setDraft] = useState("");
+  const task = snapshot.activeTask;
+  const busy = isBusy(task.status);
+  const canResume =
+    task.status === "paused" || task.status === "aborted" || task.status === "failed";
+  const activeProfile = snapshot.profiles.find(
+    (profile) => profile.id === snapshot.activeProfileId,
+  );
+  const conversation = useMemo(() => buildConversation(task), [task]);
+
   useEffect(() => {
-    const element = scrollRef.current;
-    if (!element || !isNearBottomRef.current) return;
-    element.scrollTop = element.scrollHeight;
-  }, [chat.messages]);
-
-  // 输入框自动增高（1-8 行，封顶 128px 后内部滚动）
-  // biome-ignore lint/correctness/useExhaustiveDependencies: draft 变化驱动高度自适应，内容本身不在 effect 内使用
-  useEffect(() => {
-    const element = textareaRef.current;
-    if (!element) return;
-    element.style.height = "auto";
-    element.style.height = `${Math.min(element.scrollHeight, 128)}px`;
-  }, [draft]);
-
-  const handleScroll = useCallback(() => {
-    const element = scrollRef.current;
-    if (!element) return;
-    const distance = element.scrollHeight - element.scrollTop - element.clientHeight;
-    const near = distance < 80;
-    isNearBottomRef.current = near;
-    setIsNearBottom(near);
+    void syncAgentExecutorRegistration();
+    void AgentService.refreshConfig();
   }, []);
 
-  const handleSend = useCallback(() => {
-    const text = draft.trim();
-    if (!text || chat.phase !== "idle") return;
+  const submit = useCallback(async () => {
+    const value = draft.trim();
+    if (!value || !snapshot.configured) return;
     setDraft("");
-    void AiChatService.send(text);
-  }, [chat.phase, draft]);
+    await syncAgentExecutorRegistration();
+    void AgentService.send(value);
+  }, [draft, snapshot.configured]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
-      handleSend();
+      void submit();
     }
   };
 
-  const handleClear = useCallback(() => {
-    showConfirm({
-      title: t("ai.clearConfirmTitle"),
-      message: t("ai.clearConfirmMessage"),
-      confirmLabel: t("common.confirm"),
-      cancelLabel: t("common.cancel"),
-      onConfirm: () => AiChatService.clear(),
-    });
-  }, [t]);
+  const handleAction = () => {
+    if (busy) {
+      void AgentService.abort();
+      return;
+    }
+    if (canResume && !draft.trim()) {
+      void AgentService.resume();
+      return;
+    }
+    void submit();
+  };
 
-  const handleDeleteSession = useCallback(() => {
-    showConfirm({
-      title: t("ai.deleteSession"),
-      message: t("ai.deleteSessionConfirm"),
-      confirmLabel: t("ai.deleteSession"),
-      cancelLabel: t("common.cancel"),
-      onConfirm: () => AiChatService.deleteSession(chat.activeSessionId),
-    });
-  }, [chat.activeSessionId, t]);
-
-  const hasMessages = chat.messages.length > 0;
-  const generating = chat.phase !== "idle";
-  const activeProfile = chat.profiles.find((profile) => profile.id === chat.activeProfileId);
-  const activeSession = chat.sessions.find((session) => session.id === chat.activeSessionId);
+  const actionLabel = busy
+    ? t("ai.agentUi.stopTask")
+    : canResume && !draft.trim()
+      ? t("ai.agentUi.resumeTask")
+      : t("ai.agentUi.sendTask");
 
   return (
-    <div className="flex h-full w-full flex-col bg-transparent">
+    <div className="agent-panel">
       <SidebarPageHeader
-        title={
-          <>
-            <Icons.Sparkles size={15} className="text-[var(--color-accent)]" />
-            {t("ai.title")}
-          </>
-        }
+        title={t("ai.agentUi.title")}
         actions={
-          <Tooltip content={t("ai.newChat")} delay={300}>
-            <button
-              type="button"
-              aria-label={t("ai.newChat")}
-              onClick={() => AiChatService.newSession()}
-              className="cursor-pointer rounded-control p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
-            >
-              <Icons.Plus size={15} />
-            </button>
-          </Tooltip>
+          <button
+            type="button"
+            aria-label={t("ai.agentUi.newTask")}
+            onClick={() => AgentService.newSession()}
+            className="agent-icon-button"
+          >
+            <Icons.Plus size={15} />
+          </button>
         }
       />
 
-      <div className="ai-panel-context mx-[var(--PanelPaddingX)] mb-2 flex shrink-0 flex-col gap-2 pb-3 pt-1">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <DropdownMenuRoot>
-            <DropdownMenuTrigger
-              aria-label={`${t("ai.sessions")}: ${activeSession?.title || t("ai.untitledSession")}`}
-              className="ai-panel-session-trigger flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-control px-2.5 text-left text-[12.5px] font-medium text-[var(--color-text-highlight)]"
-            >
-              <Icons.History size={14} className="shrink-0 text-[var(--color-text-muted)]" />
-              <span className="min-w-0 flex-1 truncate">
-                {activeSession?.title || t("ai.untitledSession")}
-              </span>
-              <Icons.ChevronDown size={12} className="shrink-0 text-[var(--color-text-muted)]" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-[220px] max-w-[280px]">
-              {chat.sessions.map((session) => (
-                <DropdownMenuItem
-                  key={session.id}
-                  label={
-                    <span className="block max-w-[215px] break-words">
-                      {session.title || t("ai.untitledSession")}
-                    </span>
-                  }
-                  rightElement={
-                    session.id === chat.activeSessionId ? <Icons.Check size={13} /> : null
-                  }
-                  onSelect={() => void AiChatService.switchSession(session.id)}
-                />
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenuRoot>
-          <Tooltip content={t("ai.deleteSession")} delay={300}>
-            <button
-              type="button"
-              aria-label={t("ai.deleteSession")}
-              onClick={handleDeleteSession}
-              className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-control text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--StatusError)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
-            >
-              <Icons.Trash size={14} />
-            </button>
-          </Tooltip>
-        </div>
-        <div className="flex min-w-0 items-center gap-1.5">
-          {chat.profiles.length > 0 && (
-            <DropdownMenuRoot>
-              <DropdownMenuTrigger
-                aria-label={`${t("ai.switchModel")}: ${activeProfile?.name || activeProfile?.model || t("ai.profileUntitled")}`}
-                className="ai-panel-model-trigger flex h-8 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-control px-2.5 text-[11.5px] text-[var(--color-text-secondary)]"
-              >
-                <Icons.Sparkles size={13} className="shrink-0" />
-                <span className="min-w-0 flex-1 truncate text-left">
-                  {activeProfile?.name || activeProfile?.model || t("ai.profileUntitled")}
-                </span>
-                <Icons.ChevronDown size={12} className="shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-[200px]">
-                {chat.profiles.map((profile) => (
-                  <DropdownMenuItem
-                    key={profile.id}
-                    icon={
-                      profile.id === chat.activeProfileId ? (
-                        <Icons.Check size={13} className="text-[var(--color-accent)]" />
-                      ) : null
-                    }
-                    label={
-                      <span className="truncate">
-                        {profile.name || profile.model || t("ai.profileUntitled")}
-                      </span>
-                    }
-                    rightElement={
-                      <span className="max-w-[96px] truncate font-mono">{profile.model}</span>
-                    }
-                    onSelect={() => void AiChatService.setActiveProfile(profile.id)}
-                  />
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenuRoot>
-          )}
-          {hasMessages && (
-            <Tooltip content={t("ai.clear")} delay={300}>
-              <button
-                type="button"
-                aria-label={t("ai.clear")}
-                onClick={handleClear}
-                className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-control text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
-              >
-                <Icons.Eraser size={14} />
-              </button>
-            </Tooltip>
-          )}
-        </div>
+      <div className="agent-session-bar">
+        <DropdownMenuRoot>
+          <DropdownMenuTrigger className={`${glassListRowStyles} agent-session-trigger`}>
+            <Icons.Compass size={14} />
+            <span className="min-w-0 flex-1 truncate">{task.title || t("ai.agentUi.newTask")}</span>
+            <Icons.ChevronDown size={12} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-[240px] max-w-[320px]">
+            {snapshot.sessions.map((session) => (
+              <DropdownMenuItem
+                key={session.id}
+                label={<span className="truncate">{session.title || t("ai.agentUi.newTask")}</span>}
+                onSelect={() => void AgentService.switchSession(session.id)}
+              />
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenuRoot>
       </div>
-      {/* 消息流 / 空态 */}
-      {hasMessages ? (
-        <div className="relative mx-[var(--PanelPaddingX)] mb-3 min-h-0 flex-1 overflow-hidden">
-          <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto px-1 py-3">
-            <div className="flex flex-col">
-              {chat.messages.map((message) => (
-                <AiChatBubble
-                  key={message.id}
-                  message={message}
-                  onRetry={(id) => void AiChatService.retry(id)}
-                />
-              ))}
+
+      <main className="agent-conversation" aria-live="polite">
+        {!snapshot.configured && (
+          <div className="agent-inline-notice">
+            <Icons.AlertTriangle size={14} />
+            <span>{t("ai.agentUi.configureProfile")}</span>
+          </div>
+        )}
+        {conversation.length === 0 ? (
+          <div className="agent-empty-state">
+            <strong>{t("ai.agentUi.emptyTitle")}</strong>
+            <span>{t("ai.agentUi.emptyDescription")}</span>
+          </div>
+        ) : (
+          <div className="agent-message-list">
+            {conversation.map((item) => {
+              if (item.type === "user") {
+                return (
+                  <div className="agent-message agent-message-user" key={item.id}>
+                    {item.content}
+                  </div>
+                );
+              }
+              if (item.type === "assistant") {
+                return (
+                  <div className="agent-message agent-message-assistant" key={item.id}>
+                    <AgentMarkdown content={item.content} />
+                  </div>
+                );
+              }
+              if (item.type === "error") {
+                return (
+                  <div className="agent-message agent-message-error" key={item.id}>
+                    {item.content}
+                  </div>
+                );
+              }
+              if (item.type === "run-summary") {
+                const duration = formatDuration(item.durationMs);
+                const failedCount = item.tools.filter((tool) => tool.status === "failed").length;
+                return (
+                  <details className={`agent-run-summary agent-run-${item.status}`} key={item.id}>
+                    <summary>
+                      <span className="agent-run-summary-chevron">
+                        <Icons.ChevronRight size={13} />
+                      </span>
+                      <span>
+                        {t("ai.agentUi.toolsUsed").replace("{count}", String(item.tools.length))}
+                      </span>
+                      {failedCount > 0 && (
+                        <span className="agent-run-failed">
+                          {t("ai.agentUi.toolsFailed").replace("{count}", String(failedCount))}
+                        </span>
+                      )}
+                      <span className="agent-run-duration">
+                        {t("ai.agentUi.duration")
+                          .replace("{minutes}", String(duration.minutes))
+                          .replace("{seconds}", String(duration.seconds))}
+                      </span>
+                    </summary>
+                    <div className="agent-run-details">
+                      {item.tools.map((tool) => (
+                        <div className={`agent-tool-line agent-tool-${tool.status}`} key={tool.id}>
+                          <span className="agent-tool-dot" />
+                          <span className="agent-tool-status">{toolStatusLabel(tool, t)}</span>
+                          <code>{tool.name}</code>
+                          {tool.detail && <span className="agent-tool-detail">{tool.detail}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                );
+              }
+              return (
+                <div className={`agent-tool-line agent-tool-${item.status}`} key={item.id}>
+                  <span className="agent-tool-dot" />
+                  <span className="agent-tool-status">{toolStatusLabel(item, t)}</span>
+                  <code>{item.name}</code>
+                  {item.detail && <span className="agent-tool-detail">{item.detail}</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </main>
+
+      {task.pendingApproval && (
+        <GlassList className="agent-approval">
+          <div className="agent-approval-row">
+            <Icons.ShieldCheck size={15} />
+            <div>
+              <strong>{t("ai.agentUi.approvalRequired")}</strong>
+              <span>{task.pendingApproval.summary}</span>
             </div>
           </div>
-          {!isNearBottom && (
-            <button
-              type="button"
-              onClick={() => {
-                const element = scrollRef.current;
-                if (element) element.scrollTop = element.scrollHeight;
-              }}
-              className="absolute bottom-3 right-4 flex cursor-pointer items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 py-1 text-[10.5px] text-[var(--color-text-secondary)] shadow-sm transition-colors hover:text-[var(--color-text-highlight)]"
-            >
-              <Icons.ArrowDown size={11} />
-              {t("ai.scrollBottom")}
-            </button>
-          )}
-        </div>
-      ) : (
-        <AiEmptyState
-          configured={chat.configured}
-          onQuickPrompt={(text) => {
-            setDraft(text);
-            textareaRef.current?.focus();
-          }}
-        />
+        </GlassList>
       )}
 
-      {/* 错误提示条（请求失败，发送下一条或重试后自动清除） */}
-      {chat.lastError && !generating && (
-        <div className="mx-[var(--PanelPaddingX)] mb-2 flex items-start gap-1.5 rounded-surface border border-[var(--StatusError)]/25 bg-[var(--StatusError)]/10 p-2.5 text-[11.5px] leading-4 text-[var(--color-text-primary)]">
-          <Icons.AlertTriangle size={13} className="mt-0.5 shrink-0 text-[var(--StatusError)]" />
-          <span className="min-w-0 break-words">{chat.lastError}</span>
-        </div>
-      )}
-
-      {/* 生成状态条：连接中 → 生成中 · 已用时 */}
-      {generating && <PhaseStatusBar phase={chat.phase} startedAtMs={chat.startedAtMs} />}
-
-      {/* 底部输入区 */}
-      <div className="mx-[var(--PanelPaddingX)] mb-3 shrink-0">
-        <div className="ai-panel-composer rounded-control p-3">
+      <div className="agent-composer-wrap">
+        <div className="agent-composer">
           <textarea
-            ref={textareaRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={t("ai.inputPlaceholder")}
-            rows={1}
-            className="max-h-32 min-h-12 min-w-0 resize-none overflow-y-auto bg-transparent px-0 py-0 text-[13px] leading-5 text-[var(--color-text-highlight)] outline-none placeholder:text-[var(--color-text-muted)]"
+            rows={3}
+            placeholder={t("ai.agentUi.taskPlaceholder")}
           />
-          <div className="mt-1 flex items-center gap-1.5">
-            <button
-              type="button"
-              aria-label="Attach"
-              className="ai-panel-composer-action grid size-7 place-items-center rounded-control"
-            >
-              <Icons.Plus size={16} />
-            </button>
+          <div className="agent-composer-footer">
             <DropdownMenuRoot>
-              <DropdownMenuTrigger className="ai-panel-permission-trigger flex h-7 items-center gap-1 rounded-control px-2 text-[11px] text-[var(--color-text-secondary)]">
-                <Icons.ShieldCheck size={13} />
-                {agentPermission === "ask"
-                  ? t("ai.agent.permissionAsk")
-                  : agentPermission === "read"
-                    ? t("ai.agent.permissionRead")
-                    : agentPermission === "edit"
-                      ? t("ai.agent.permissionEdit")
-                      : t("ai.agent.permissionFull")}
-                <Icons.ChevronDown size={11} />
+              <DropdownMenuTrigger
+                className="agent-model-trigger"
+                disabled={busy || snapshot.profiles.length === 0}
+              >
+                <span className="truncate">
+                  {activeProfile?.model || activeProfile?.name || t("ai.agentUi.noProfile")}
+                </span>
+                <Icons.ChevronDown size={12} />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-[150px]">
-                {(["ask", "read", "edit", "full"] as const).map((permission) => (
+              <DropdownMenuContent align="start" className="min-w-[210px]">
+                {snapshot.profiles.map((profile) => (
                   <DropdownMenuItem
-                    key={permission}
+                    key={profile.id}
                     label={
-                      permission === "ask"
-                        ? t("ai.agent.permissionAsk")
-                        : permission === "read"
-                          ? t("ai.agent.permissionRead")
-                          : permission === "edit"
-                            ? t("ai.agent.permissionEdit")
-                            : t("ai.agent.permissionFull")
+                      <span className="truncate">
+                        {profile.model}
+                        {profile.name && profile.name !== profile.model ? ` · ${profile.name}` : ""}
+                      </span>
                     }
-                    rightElement={permission === agentPermission ? <Icons.Check size={13} /> : null}
-                    onSelect={() => updateAgentPermission(permission)}
+                    onSelect={() => void AgentService.setActiveProfile(profile.id)}
                   />
                 ))}
               </DropdownMenuContent>
             </DropdownMenuRoot>
-            <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--color-text-muted)]">
-              {activeProfile?.model || t("ai.profileUntitled")}
-            </span>
-            {generating ? (
-              <Tooltip content={t("ai.stop")} delay={300}>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="size-8 shrink-0"
-                  aria-label={t("ai.stop")}
-                  onClick={() => void AiChatService.abort()}
-                >
-                  <Icons.Stop size={15} />
-                </Button>
-              </Tooltip>
-            ) : (
-              <Tooltip content={t("ai.send")} delay={300}>
-                <Button
-                  variant="primary"
-                  size="icon"
-                  className="size-8 shrink-0"
-                  aria-label={t("ai.send")}
-                  disabled={!draft.trim()}
-                  onClick={handleSend}
-                >
-                  <Icons.ArrowUp size={15} />
-                </Button>
-              </Tooltip>
-            )}
-          </div>
-        </div>
-        <p className="mt-1.5 px-1 text-[10.5px] leading-4 text-[var(--color-text-muted)]">
-          {t("ai.localNote")}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/** 生成状态条：连接中/生成中 + 实时耗时（1s 步进） */
-function PhaseStatusBar({
-  phase,
-  startedAtMs,
-}: {
-  phase: "idle" | "connecting" | "streaming";
-  startedAtMs: number | null;
-}) {
-  const { t } = useLocale();
-  const [now, setNow] = useState(() => Date.now());
-  // biome-ignore lint/correctness/useExhaustiveDependencies: startedAtMs 变化驱动计时器重启，取值不在 effect 内
-  useEffect(() => {
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [startedAtMs]);
-  const seconds = startedAtMs == null ? 0 : Math.max(0, Math.floor((now - startedAtMs) / 1000));
-  return (
-    <div className="mx-[var(--PanelPaddingX)] mb-1.5 flex shrink-0 items-center gap-2 px-1 text-[11px] text-[var(--color-text-muted)]">
-      <span
-        aria-hidden="true"
-        className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-accent)]"
-      />
-      {phase === "connecting"
-        ? t("ai.phaseConnecting")
-        : t("ai.phaseGenerating").replace("{seconds}", String(seconds))}
-    </div>
-  );
-}
-
-/** 复制文本钩子：返回 [已复制, 执行复制] */
-function useCopyText(): [boolean, (text: string) => void] {
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
-  );
-  const copy = useCallback((text: string) => {
-    void navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        setCopied(true);
-        if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => setCopied(false), 1500);
-      })
-      .catch(() => {
-        // 剪贴板不可用时静默跳过
-      });
-  }, []);
-  return [copied, copy];
-}
-
-/** One request or assistant step in the task timeline. */
-function AiChatBubble({
-  message,
-  onRetry,
-}: {
-  message: AiChatMessage;
-  onRetry: (id: string) => void;
-}) {
-  const { t } = useLocale();
-  const [copied, copy] = useCopyText();
-
-  if (message.role === "user") {
-    return (
-      <section className="relative border-l border-[var(--border-subtle)] pb-5 pl-5">
-        <span
-          aria-hidden="true"
-          className="absolute -left-[5px] top-1 size-[9px] rounded-full border-2 border-[var(--color-accent)] bg-[var(--AppBg)]"
-        />
-        <div className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-semibold text-[var(--color-text-muted)]">
-          <Icons.User size={13} />
-          {t("ai.you")}
-        </div>
-        <div className="whitespace-pre-wrap break-words text-[12.5px] leading-5 text-[var(--color-text-primary)]">
-          {message.content}
-        </div>
-      </section>
-    );
-  }
-
-  const isError = message.status === "error";
-  const isStopped = message.status === "stopped";
-  const truncated = message.finishReason === "length";
-  const hasToolCalls = (message.toolCalls?.length ?? 0) > 0;
-
-  return (
-    <section className="group relative min-w-0 border-l border-[var(--border-subtle)] pb-5 pl-5">
-      <span
-        aria-hidden="true"
-        className={cn(
-          "absolute -left-[5px] top-1 size-[9px] rounded-full border-2 bg-[var(--AppBg)]",
-          isError ? "border-[var(--StatusError)]" : "border-[var(--color-accent)]",
-        )}
-      />
-      <div className="min-w-0">
-        <div className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-semibold text-[var(--color-text-muted)]">
-          <Icons.Sparkles size={13} className="text-[var(--color-accent)]" />
-          {t("ai.title")}
-        </div>
-        <MarkdownContent content={message.content} />
-        {message.status === "streaming" || message.status === "pending" ? (
-          <StreamingCursor />
-        ) : null}
-
-        {/* 错误卡片：与已生成内容分离展示，支持重试 */}
-        {message.status === "error" && message.error && (
-          <div className="mt-2 rounded-surface border border-[var(--StatusError)]/25 bg-[var(--StatusError)]/10 p-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <span className="flex min-w-0 items-center gap-1.5 text-[11.5px] leading-4 text-[var(--color-text-primary)]">
-                <Icons.AlertTriangle size={13} className="shrink-0 text-[var(--StatusError)]" />
-                <span className="min-w-0 break-words">
-                  {describeAiError(message.error.code, message.error.message)}
-                </span>
-              </span>
-              <Button
-                variant="secondary"
-                className="h-7 shrink-0 px-2.5 text-[11px]"
-                onClick={() => onRetry(message.id)}
-              >
-                <Icons.Refresh size={12} />
-                {t("ai.retry")}
-              </Button>
-            </div>
-            <p className="mt-1.5 break-words text-[10.5px] leading-4 text-[var(--color-text-muted)]">
-              {message.error.message}
-            </p>
-          </div>
-        )}
-
-        {/* 元信息行：耗时 / 状态徽章 / 复制 */}
-        {(message.status === "done" || isStopped) && (
-          <div className="mt-1.5 flex items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-              {typeof message.durationMs === "number" && message.durationMs >= 0 && (
-                <span className="text-[10px] text-[var(--color-text-muted)]">
-                  {t("ai.phaseDone").replace(
-                    "{seconds}",
-                    String(Math.max(1, Math.round(message.durationMs / 1000))),
-                  )}
-                </span>
-              )}
-              {isStopped && <Badge variant="neutral">{t("ai.stoppedNote")}</Badge>}
-              {truncated && (
-                <Badge variant="tint" color="var(--StatusWarning)">
-                  {t("ai.truncatedNote")}
-                </Badge>
-              )}
-            </div>
-            {message.content !== "" && (
-              <Tooltip content={copied ? t("ai.copied") : t("ai.copyMessage")} delay={300}>
-                <button
-                  type="button"
-                  aria-label={copied ? t("ai.copied") : t("ai.copyMessage")}
-                  onClick={() => copy(message.content)}
-                  className="shrink-0 cursor-pointer rounded-control p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] focus-visible:opacity-100"
-                >
-                  {copied ? <Icons.Check size={12} /> : <Icons.Copy size={12} />}
-                </button>
-              </Tooltip>
-            )}
-          </div>
-        )}
-
-        {/* Tool details stay available without dominating the task timeline. */}
-        {hasToolCalls && <ToolCallCards message={message} />}
-      </div>
-    </section>
-  );
-}
-
-/** 参数摘要：解析 JSON 后逐键展示并截断 */
-function summarizeArgs(argumentsJson: string): string {
-  try {
-    const parsed = JSON.parse(argumentsJson) as Record<string, unknown>;
-    const parts = Object.entries(parsed).map(([key, value]) => {
-      const text = typeof value === "string" ? value : JSON.stringify(value);
-      const clipped = text.length > 48 ? `${text.slice(0, 48)}…` : text;
-      return `${key}: ${clipped}`;
-    });
-    return parts.join(" · ");
-  } catch {
-    const clipped = argumentsJson.length > 80 ? `${argumentsJson.slice(0, 80)}…` : argumentsJson;
-    return clipped || "(空参数)";
-  }
-}
-
-/** Collapsed tool activity under the assistant step. */
-function ToolCallCards({ message }: { message: AiChatMessage }) {
-  const { t } = useLocale();
-  const calls = message.toolCalls ?? [];
-  const [expanded, setExpanded] = useState(
-    message.status === "pending" || message.status === "streaming",
-  );
-  return (
-    <details
-      className="group/tools mt-2 border-t border-[var(--border-subtle)] pt-1.5"
-      open={expanded}
-      onToggle={(event) => setExpanded(event.currentTarget.open)}
-    >
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-control py-1 text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] [&::-webkit-details-marker]:hidden">
-        <Icons.ChevronRight
-          size={12}
-          className="shrink-0 transition-transform group-open/tools:rotate-90"
-        />
-        {t("ai.toolCalls").replace("{count}", String(calls.length))}
-      </summary>
-      <div className="mt-1 border-l border-[var(--border-subtle)] pl-2.5">
-        {calls.map((call) => {
-          const callId = call.id ?? `call_${call.index}`;
-          const result = message.toolResults?.find((item) => item.toolCallId === callId);
-          const state = result
-            ? result.isError
-              ? "error"
-              : "ok"
-            : message.status === "done"
-              ? "running"
-              : "waiting";
-          return (
-            <div
-              key={callId}
-              className="border-b border-[var(--border-subtle)] py-2 last:border-b-0"
+            <Button
+              variant="primary"
+              size="icon"
+              className="size-8"
+              aria-label={actionLabel}
+              disabled={!busy && !canResume && (!draft.trim() || !snapshot.configured)}
+              onClick={handleAction}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="flex min-w-0 items-center gap-1.5 font-mono text-[10.5px] text-[var(--color-text-highlight)]">
-                  <Icons.InfoCircle size={11} className="shrink-0 text-[var(--color-text-muted)]" />
-                  <span className="truncate">{call.name ?? "tool"}</span>
-                </span>
-                {state === "ok" && (
-                  <Badge variant="tint" color="var(--StatusSuccess)">
-                    {t("ai.toolCardDone")}
-                  </Badge>
-                )}
-                {state === "error" && (
-                  <Badge variant="tint" color="var(--StatusError)">
-                    {t("ai.toolCardFailed")}
-                  </Badge>
-                )}
-                {state === "running" && <Badge variant="tint">{t("ai.toolCardRunning")}</Badge>}
-                {state === "waiting" && <Badge variant="neutral">{t("ai.toolCardWaiting")}</Badge>}
-              </div>
-              <p className="mt-0.5 break-words font-mono text-[10px] leading-4 text-[var(--color-text-muted)]">
-                {summarizeArgs(call.arguments)}
-              </p>
-              {result && (
-                <p
-                  className={cn(
-                    "mt-0.5 break-words text-[10px] leading-4",
-                    result.isError
-                      ? "text-[var(--StatusError)]"
-                      : "text-[var(--color-text-secondary)]",
-                  )}
-                >
-                  {result.content.length > 140
-                    ? `${result.content.slice(0, 140)}…`
-                    : result.content}
-                </p>
+              {busy ? (
+                <Icons.Stop size={15} />
+              ) : canResume && !draft.trim() ? (
+                <Icons.Play size={15} />
+              ) : (
+                <Icons.ArrowUp size={15} />
               )}
-            </div>
-          );
-        })}
-      </div>
-    </details>
-  );
-}
-
-/** AI 消息正文（Markdown 渲染；空内容时占位） */
-function MarkdownContent({ content }: { content: string }) {
-  const cleaned = content
-    .replace(/\bto=[\w.-]+\s+(?:code|tool_call):\s*/gim, "")
-    .replace(/^\s*\{\s*"(?:path|query|command|old_text|new_text)"[\s\S]*?\}\s*$/gim, "")
-    .replace(/\{[^{}\n]*"(?:path|query|command|old_text|new_text)"[^{}\n]*\}/g, "")
-    .replace(/\\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  if (!cleaned) return null;
-  if (!content) {
-    return <p className="text-[12.5px] leading-5 text-[var(--color-text-muted)]">…</p>;
-  }
-  return (
-    <div className="text-[12.5px]">
-      <MarkdownRenderer content={cleaned} />
-    </div>
-  );
-}
-
-/** 流式生成中的闪烁光标 */
-function StreamingCursor() {
-  return (
-    <span
-      aria-hidden="true"
-      className="ml-0.5 inline-block h-3.5 w-[2px] translate-y-[2px] animate-pulse rounded-full bg-[var(--color-accent)]"
-    />
-  );
-}
-
-/**
- * 空态：未配置 → 引导卡（说明 + 去设置）；已配置 → 欢迎语 + 快捷提示
- */
-function AiEmptyState({
-  configured,
-  onQuickPrompt,
-}: {
-  configured: boolean;
-  onQuickPrompt: (text: string) => void;
-}) {
-  const { t } = useLocale();
-  const openSettings = useWorkbenchStore((state) => state.openSettings);
-
-  if (!configured) {
-    return (
-      <div className="mx-[var(--PanelPaddingX)] mb-3 flex flex-1 flex-col items-center justify-center gap-3 overflow-y-auto">
-        <div className="flex w-full flex-col items-center gap-2.5 rounded-surface border border-[var(--border-subtle)] bg-[var(--color-surface-2)]/30 px-5 py-7 text-center">
-          <Icons.Sparkles size={26} className="text-[var(--color-text-muted)]" />
-          <p className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
-            {t("ai.notConfiguredTitle")}
-          </p>
-          <p className="max-w-[260px] text-[11.5px] leading-5 text-[var(--color-text-muted)]">
-            {t("ai.notConfiguredHint")}
-          </p>
-          <Button
-            variant="primary"
-            className="mt-1 h-8 px-4 text-[12px]"
-            onClick={() => openSettings("ai")}
-          >
-            <Icons.Settings size={13} />
-            {t("ai.goSettings")}
-          </Button>
+            </Button>
+          </div>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mx-[var(--PanelPaddingX)] mb-3 flex flex-1 flex-col items-center justify-center gap-4 overflow-y-auto">
-      <div className="ai-empty-welcome flex w-full flex-col items-center gap-2.5 rounded-surface px-5 py-6 text-center">
-        <span className="grid size-11 place-items-center rounded-full border border-[color-mix(in_srgb,var(--color-accent)_28%,transparent)] bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)] text-[var(--color-accent)]">
-          <Icons.Sparkles size={22} />
-        </span>
-        <div>
-          <p className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
-            {t("ai.welcomeTitle")}
-          </p>
-          <p className="mt-1 max-w-[260px] text-[11.5px] leading-5 text-[var(--color-text-muted)]">
-            {t("ai.welcomeHint")}
-          </p>
-        </div>
-      </div>
-      <div className="flex w-full flex-col gap-2">
-        {(["ai.quickPrompt1", "ai.quickPrompt2", "ai.quickPrompt3"] as const).map((key) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onQuickPrompt(t(key))}
-            className="w-full rounded-control border border-[var(--border-subtle)] bg-[var(--material-surface)]/45 px-3.5 py-2.5 text-left text-[12px] text-[var(--color-text-secondary)] transition-colors hover:border-[color-mix(in_srgb,var(--color-accent)_35%,var(--border-subtle))] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
-          >
-            {t(key)}
-          </button>
-        ))}
       </div>
     </div>
   );
