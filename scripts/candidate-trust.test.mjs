@@ -1,6 +1,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { trustedReleaseConfig, verifyCandidateTrust, verifyUpdaterPage } from "./lib/candidate-trust.mjs";
+import { validateReleaseScope } from "./lib/release-scope.mjs";
+
+test("release scope carries unfinished evidence forward without marking it verified", () => {
+  const audit = { version: "0.4.14", freezeDate: "2026-10-06", items: [
+    { id: "P0-03", status: "external-blocked", implementation: ["verifier"], notes: ["Production provenance remains"] },
+  ], releaseScope: {
+    decision: "formal-release-with-carryover", approvedOn: "2026-10-06", nextVersion: "0.4.15",
+    decisionDocument: "Docs/0.4.14-Release-Decision.md", carryoverDocument: "Docs/0.4.15-Carryover-Plan.md",
+    carryoverIds: ["P0-03"],
+  } };
+  validateReleaseScope(audit, "| P0-03 | remaining |\n");
+  assert.equal(audit.items[0].status, "external-blocked");
+  for (const modify of [
+    (a) => { delete a.releaseScope; },
+    (a) => { a.releaseScope.carryoverIds = []; },
+    (a) => { a.releaseScope.carryoverIds.push("P0-03"); },
+    (a) => { a.releaseScope.nextVersion = "0.5.0"; },
+    (a) => { a.version = "0.4.15"; },
+    (a) => { a.releaseScope.approvedOn = "2026-10-05"; },
+  ]) {
+    const changed = structuredClone(audit);
+    modify(changed);
+    assert.throws(() => validateReleaseScope(changed, "| P0-03 | remaining |\n"));
+  }
+  assert.throws(() => validateReleaseScope(audit, ""), /document/);
+});
 
 test("candidate cannot replace the pinned key or mix Stable and Pioneer channels", () => {
   const base = { version: "0.4.14", plugins: { updater: { pubkey: "trusted", endpoints: ["stable"] } } };

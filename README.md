@@ -4,7 +4,7 @@
   <p>基于 Tauri、React 和 Rust 的桌面代码编辑器</p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Development version" src="https://img.shields.io/badge/version-0.4.14-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.14-2563eb" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
   </p>
 </div>
@@ -13,9 +13,9 @@ Aurona Code 使用自研 AuronaEngine 编辑器、Rust 文本模型和 WASI P2 �
 
 ## 版本状态
 
-当前开发版本为 **0.4.14**，尚未冻结或取得发布资格。50 项安全、稳定性与性能更新均有实现和验收记录：**47 项验收中、3 项生产验证阻塞、0 项完成全部验收**。自动测试通过不等于真实工作流和生产签名验收完成。
+当前版本为 **0.4.14**，按维护者 2026-10-06 的决定准备正式发布。包含 50 项安全、稳定性与性能实现；尚未完成的完整验收与外部签名对接转入 **0.4.15**。原矩阵保留 **47 项验收中、3 项生产验证阻塞、0 项完成全部验收**，不把发布决定当成验收证据。
 
-正式 Updater 密钥来源与签名、Marketplace 包及目录签名仍是发布前置条件；本仓库的测试签名只验证客户端协议。留存安装包是修复前的历史本地候选，需要重新构建。完整证据和剩余工作见 [验收报告](Docs/0.4.14-Acceptance-Report.md)与[50 项状态矩阵](Docs/0.4.14-Implementation-Status.md)。
+正式安装包由 Release 流程从通过 Quality 的 tag 重新构建，必须通过固定 Updater 公钥、产物 hash、版本和渠道验证。Marketplace 正式包及目录签名仍依赖外部服务，未签名远程安装继续阻断；测试签名只证明客户端协议。见[发布决定](Docs/0.4.14-Release-Decision.md)、[0.4.15 剩余计划](Docs/0.4.15-Carryover-Plan.md)和[验收报告](Docs/0.4.14-Acceptance-Report.md)。
 
 ## 工作台
 
@@ -55,15 +55,16 @@ pnpm run tauri:dev
 pnpm run prepare:extensions    # 重建并校验安装包内置资源
 pnpm run quality:full          # 前端检查、测试、构建及本机 Rust 检查
 pnpm run check:audit           # 50 项、12 节 Changelog 与版本一致性
-pnpm run check:audit:release   # 冻结、完整验收和生产证据发布门禁
+pnpm run check:audit:release   # 冻结、批准的发布范围与逐项结转门禁
+pnpm run check:audit:complete  # 原始 50 项完整验收与生产证据门禁
 pnpm run build:candidate:local # 生成本地 Windows NSIS 候选
 ```
 
-[Quality 工作流](.github/workflows/quality.yml)在 Linux 检查前端，并在 Windows/macOS/Linux 重建扩展、检查 Rust。`quality:full` 使用当前主机，不代替三平台 CI。桌面压力测试、故障注入和真实外部服务验收也需单独执行；发布门禁目前应失败。
+[Quality 工作流](.github/workflows/quality.yml)在 Linux 检查前端，并在 Windows/macOS/Linux 重建扩展、检查 Rust。`quality:full` 使用当前主机，不代替三平台 CI。桌面压力测试、故障注入和真实外部服务验收也需单独执行；完整验收门禁仍应失败，发布范围门禁只接受已记录的逐项结转。
 
 2026-10-06 的 [Quality run 37474765979](https://github.com/AuronaLabs/AuronaCode-Early/actions/runs/37474765979)验证提交 `9098db3`：前端、三平台扩展与 Rust 门禁全部通过。Rust 单测 Windows 212 passed，Linux/macOS 各 213 passed，均为 0 failed、1 ignored。该结果不代表 50 项完整验收或正式签名条件已满足。
 
-候选构建不创建 tag、上传、发布或推进渠道。签名和完整验收通过后才可评估正式发布。具体本地结果见[发布前检查](Docs/0.4.14-Release-Preflight.md)。
+候选构建与上传、发布分离；正式发布必须先通过该提交的 Quality 和真实产物签名验证。具体构建、签名与发布结果见[发布前检查](Docs/0.4.14-Release-Preflight.md)。
 
 ## 文档
 
@@ -71,6 +72,7 @@ pnpm run build:candidate:local # 生成本地 Windows NSIS 候选
 - [当前架构](Docs/Architecture.md)、[设计规范](Docs/Design-Principles.md)
 - [扩展开发](Docs/Extension-Development.md)、[SDK 参考](Docs/Extension-SDK-Reference.md)
 - [0.4.14 审计计划](Docs/0.4.14-Audit-Plan.md)、[状态矩阵](Docs/0.4.14-Implementation-Status.md)
+- [发布决定](Docs/0.4.14-Release-Decision.md)、[0.4.15 剩余计划](Docs/0.4.15-Carryover-Plan.md)
 - [历史记录](Docs/Archive/README.md)、[后续设计](Docs/Roadmap/README.md)
 
 ## 许可证

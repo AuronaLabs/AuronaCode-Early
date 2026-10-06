@@ -15,6 +15,11 @@ on:
         required: false
         default: false
         type: boolean
+      publish_release:
+        description: Publish verified draft after matching Quality and release scope checks
+        required: false
+        default: false
+        type: boolean
       promote_pioneer:
         description: Promote verified Pioneer artifacts to the public channel
         required: false
@@ -23,6 +28,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -49,6 +55,14 @@ jobs:
             echo "Invalid release tag: $RELEASE_TAG"
             exit 1
           fi
+
+      - name: Require successful Quality for the tagged commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          SOURCE="$(git rev-parse HEAD)"
+          gh run list --workflow quality.yml --commit "$SOURCE" --limit 20 --json conclusion,event --jq 'any(.[]; .conclusion == "success" and .event == "push")' | grep -qx true
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -80,6 +94,7 @@ jobs:
         run: |
           pnpm run smoke
           pnpm run check:audit
+          pnpm run check:audit:release
           pnpm run test:release-contract
 
       - name: Verify source quality
@@ -272,6 +287,10 @@ jobs:
           node-version: 22
       - run: pnpm install --frozen-lockfile
       - run: pnpm run check:audit:release
+      - name: Extract release notes
+        run: pnpm exec vite-node scripts/extract-changelog.ts
+        env:
+          GITHUB_REF_NAME: ${{ env.RELEASE_TAG }}
       - uses: actions/download-artifact@v4
         with:
           pattern: candidate-*
@@ -294,9 +313,32 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          mapfile -d '' assets < <(find candidate-assets -path '*/src-tauri/target/*' -prune -o -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.tar.gz' -o -name '*.exe.sig' -o -name '*.AppImage.sig' -o -name '*.tar.gz.sig' \) -print0)
+          mapfile -d '' assets < <(find candidate-assets -path '*/src-tauri/target/*' -prune -o -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.tar.gz' -o -name '*.exe.sig' -o -name '*.dmg.sig' -o -name '*.deb.sig' -o -name '*.AppImage.sig' -o -name '*.tar.gz.sig' \) -print0)
           test "${#assets[@]}" -gt 0
-          gh release create "$RELEASE_TAG" "${assets[@]}" candidate-assets/latest.json candidate-assets/SHA256SUMS --draft --verify-tag --title "Aurona Code $RELEASE_TAG" --notes "Verified local candidates; publication requires separate review."
+          mapfile -d '' metadata < <(find candidate-assets -maxdepth 1 -type f -name 'release-metadata.*' -print0)
+          test "${#metadata[@]}" -gt 0
+          gh release create "$RELEASE_TAG" "${assets[@]}" "${metadata[@]}" candidate-assets/latest.json candidate-assets/SHA256SUMS --draft --verify-tag --title "Aurona Code $RELEASE_TAG" --notes-file RELEASE_BODY.md
+
+  publish:
+    name: Publish verified release
+    needs: [preflight, release, upload-draft]
+    if: github.event_name == 'workflow_dispatch' && inputs.upload_draft && inputs.publish_release
+    environment: release-promotion
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Publish draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true
+          if [[ "$RELEASE_TAG" == *-pioneer.* ]]; then
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=true --latest=false
+          else
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest=true
+          fi
 
   sync-pioneer:
     name: Sync Pioneer Latest Channel

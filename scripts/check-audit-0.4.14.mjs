@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { readChangelog } from "./changelog-data.mjs";
+import { validateReleaseScope } from "./lib/release-scope.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
@@ -35,10 +36,14 @@ assert.equal(JSON.parse(read("src-tauri/tauri.conf.json")).version, "0.4.14");
 assert.match(read("src-tauri/Cargo.toml"), /^version = "0\.4\.14"$/m);
 assert.match(read("src-tauri/Cargo.lock"), /name = "aurona_code"\r?\nversion = "0\.4\.14"/);
 assert.match(read("README.md"), /version-0\.4\.14-/);
-if (process.argv.includes("--release")) {
+if (process.argv.includes("--complete")) {
   assert.ok(audit.freezeDate, "Release freeze date has not been recorded");
   const unfinished = audit.items.filter((item) => item.status !== "verified");
   assert.equal(unfinished.length, 0, `Release blocked by: ${unfinished.map((item) => item.id).join(", ")}`);
   assert.ok(audit.productionUpdaterEvidence && audit.productionMarketplaceEvidence && audit.candidateArtifactEvidence, "Production/candidate evidence is missing");
+}
+if (process.argv.includes("--release")) {
+  validateReleaseScope(audit, audit.releaseScope ? read(audit.releaseScope.carryoverDocument) : "");
+  if (audit.releaseScope) assert.ok(read(audit.releaseScope.decisionDocument).length > 100);
 }
 console.log(`0.4.14 audit contract passed: 50 IDs, 12 sections; ${audit.items.filter((item) => item.status === "verified").length} verified.`);

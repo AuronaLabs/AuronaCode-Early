@@ -1,6 +1,25 @@
 {
   "version": "0.4.14",
   "baseline": "874e532",
+  "freezeDate": "2026-10-06",
+  "releaseScope": {
+    "decision": "formal-release-with-carryover",
+    "approvedOn": "2026-10-06",
+    "nextVersion": "0.4.15",
+    "decisionDocument": "Docs/0.4.14-Release-Decision.md",
+    "carryoverDocument": "Docs/0.4.15-Carryover-Plan.md",
+    "carryoverIds": [
+      "P0-01", "P0-02", "P0-03", "P0-04",
+      "P1-01", "P1-02", "P1-03", "P1-04", "P1-05", "P1-06",
+      "P1-07", "P1-08", "P1-09", "P1-10", "P1-11", "P1-12",
+      "P1-13", "P1-14", "P1-15", "P1-16", "P1-17", "P1-18",
+      "P1-19", "P1-20", "P1-21", "P1-22", "P1-23", "P1-24",
+      "P2-01", "P2-02", "P2-03", "P2-04", "P2-05", "P2-06",
+      "P2-07", "P2-08", "P2-09", "P2-10", "P2-11", "P2-12",
+      "P2-13", "P2-14", "P2-15", "P2-16", "P2-17",
+      "P3-01", "P3-02", "P3-03", "P3-04", "P3-05"
+    ]
+  },
   "items": [
     {
       "id": "P0-01",

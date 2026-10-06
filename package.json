@@ -28,6 +28,7 @@
     "smoke": "node scripts/smoke.mjs",
     "check:audit": "node scripts/check-audit-0.4.14.mjs",
     "check:audit:release": "node scripts/check-audit-0.4.14.mjs --release",
+    "check:audit:complete": "node scripts/check-audit-0.4.14.mjs --complete",
     "prepare:candidate": "node scripts/prepare-candidate.mjs",
     "build:candidate:local": "node scripts/build-local-candidate.mjs",
     "test:frontend": "vitest run",
