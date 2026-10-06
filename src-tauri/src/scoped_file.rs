@@ -75,6 +75,18 @@ pub struct StagedFile {
     name: PathBuf,
 }
 
+#[cfg(unix)]
+pub fn sync_directory(directory: &Dir) -> Result<(), String> {
+    // cap-std may use O_PATH on Linux; open the pinned directory for reading
+    // before fsync rather than syncing an O_PATH descriptor or an ambient path.
+    let mut options = OpenOptions::new();
+    options.read(true).follow(FollowSymlinks::No);
+    directory
+        .open_with(".", &options)
+        .and_then(|file| file.sync_all())
+        .map_err(|e| e.to_string())
+}
+
 impl StagedFile {
     pub fn new(directory: &Dir) -> Result<Self, String> {
         let name = PathBuf::from(format!(".aurona-save-{:032x}.tmp", rand::random::<u128>()));
@@ -101,10 +113,7 @@ impl StagedFile {
             .rename(&self.name, &self.directory, name)
             .map_err(|e| e.to_string())?;
         #[cfg(unix)]
-        self.directory
-            .try_clone()
-            .and_then(|dir| dir.into_std_file().sync_all())
-            .map_err(|e| e.to_string())?;
+        sync_directory(&self.directory)?;
         Ok(())
     }
 }
@@ -126,6 +135,22 @@ pub fn write(directory: &Dir, name: &Path, contents: &[u8]) -> Result<(), String
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn directory_sync_uses_the_pinned_handle_after_parent_rename() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir(root.path().join("original")).unwrap();
+        let directory =
+            Dir::open_ambient_dir(root.path().join("original"), cap_std::ambient_authority())
+                .unwrap();
+        std::fs::rename(root.path().join("original"), root.path().join("renamed")).unwrap();
+        sync_directory(&directory).unwrap();
+        write(&directory, Path::new("text"), b"saved").unwrap();
+        assert_eq!(
+            std::fs::read(root.path().join("renamed/text")).unwrap(),
+            b"saved"
+        );
+    }
     #[test]
     fn snapshot_detects_same_content_replacement_and_same_size_rewrite() {
         let root = tempfile::tempdir().unwrap();

@@ -435,6 +435,20 @@ impl WorkspaceState {
                     "[workspace.authorization] File has not been selected by the user"
                 })?)
             };
+        #[cfg(unix)]
+        let key = if authorized.contains_key(&key) {
+            key
+        } else if key.is_absolute()
+            && !authorized.is_empty()
+            && !key
+                .components()
+                .any(|part| matches!(part, std::path::Component::ParentDir))
+        {
+            key.canonicalize()
+                .map_err(|_| "[workspace.authorization] File has not been selected by the user")?
+        } else {
+            key
+        };
         let (directory, name) = authorized
             .get(&key)
             .ok_or("[workspace.authorization] File has not been selected by the user")?;
@@ -692,6 +706,23 @@ fn workspace_relative_path(root: &Path, requested: &Path) -> Result<PathBuf, Str
     let requested = lexical_path(requested);
     if let Ok(relative) = requested.strip_prefix(&root) {
         return Ok(relative.to_owned());
+    }
+    #[cfg(unix)]
+    if requested.is_absolute()
+        && !requested
+            .components()
+            .any(|part| matches!(part, std::path::Component::ParentDir))
+    {
+        // Only resolve a root alias (e.g. /var vs /private/var on macOS).
+        // Descendants still walk from the fixed no-follow directory handle.
+        for prefix in requested.ancestors() {
+            if prefix.canonicalize().is_ok_and(|path| path == root) {
+                return Ok(requested
+                    .strip_prefix(prefix)
+                    .map_err(|e| e.to_string())?
+                    .to_owned());
+            }
+        }
     }
     #[cfg(windows)]
     {
@@ -1798,6 +1829,50 @@ mod tests {
                 .1,
             std::path::Path::new(".")
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unix_root_aliases_keep_children_scoped_and_root_protected() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("inside"), b"inside").unwrap();
+        fs::write(outside.path().join("secret"), b"secret").unwrap();
+        let alias = outside.path().join("workspace-alias");
+        std::os::unix::fs::symlink(root.path(), &alias).unwrap();
+        std::os::unix::fs::symlink(outside.path(), root.path().join("escape")).unwrap();
+        let state = scoped_state(root.path());
+        assert!(state
+            .file_access(&alias.join("inside").to_string_lossy())
+            .is_ok());
+        assert!(!state
+            .exists(&alias.join("missing").to_string_lossy())
+            .unwrap());
+        assert!(state
+            .write_access(&alias.join("new").to_string_lossy())
+            .is_ok());
+        assert!(state.write_access(&alias.to_string_lossy()).is_err());
+        assert!(state
+            .access(&alias.join("../secret").to_string_lossy(), true)
+            .is_err());
+        assert!(state
+            .file_access(&alias.join("escape/secret").to_string_lossy())
+            .is_err());
+        state
+            .authorize_path(&outside.path().join("secret").to_string_lossy())
+            .unwrap();
+        assert!(state
+            .file_access(&outside.path().join("secret").to_string_lossy())
+            .is_ok());
+        std::os::unix::fs::symlink(outside.path(), outside.path().join("outside-alias")).unwrap();
+        assert!(state
+            .file_access(
+                &outside
+                    .path()
+                    .join("outside-alias/secret")
+                    .to_string_lossy()
+            )
+            .is_ok());
     }
 
     #[cfg(windows)]

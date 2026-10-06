@@ -1371,10 +1371,7 @@ fn restore_discard_recovery_with_hook(
         .remove_file(RESTORE_JOURNAL)
         .map_err(|e| e.to_string())?;
     #[cfg(unix)]
-    storage
-        .into_std_file()
-        .sync_all()
-        .map_err(|e| e.to_string())?;
+    crate::scoped_file::sync_directory(&storage)?;
     Ok(())
 }
 
@@ -2016,6 +2013,8 @@ mod tests {
         let workspace = WorkspaceState::test_root(&repository.0);
         let path = repository.0.to_string_lossy().to_string();
         fs::write(repository.0.join(".gitattributes"), "main.txt eol=crlf\n").unwrap();
+        run_git(&repository.0, &["add", ".gitattributes"]);
+        run_git(&repository.0, &["commit", "-m", "line ending fixture"]);
         fs::write(repository.0.join("main.txt"), "modified\r\n").unwrap();
         let before = git_value(&path, &["status", "--porcelain=v1", "-uall"]).unwrap();
         let record = create_discard_recovery(&path, |file| {
@@ -2031,7 +2030,6 @@ mod tests {
             b"modified\r\n"
         );
         run_git(&repository.0, &["reset", "--hard", "HEAD"]);
-        fs::remove_file(repository.0.join(".gitattributes")).unwrap();
         restore_discard_recovery(&workspace, &path, &record.hash).unwrap();
         assert_eq!(
             fs::read(repository.0.join("main.txt")).unwrap(),
@@ -2042,6 +2040,8 @@ mod tests {
             before
         );
         fs::remove_file(repository.0.join(".gitattributes")).unwrap();
+        run_git(&repository.0, &["add", ".gitattributes"]);
+        run_git(&repository.0, &["commit", "-m", "autocrlf fixture"]);
         run_git(&repository.0, &["config", "core.autocrlf", "true"]);
         let record = create_discard_recovery(&path, |file| {
             Ok((fs::read(repository.0.join(file)).unwrap(), "100644".into()))
