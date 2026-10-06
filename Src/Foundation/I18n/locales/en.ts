@@ -421,6 +421,11 @@ export const en: LocaleMessages = {
     clearDisplay: "Clear Display",
   },
   sourceControl: {
+    recoveryRecords: "Recovery records",
+    noRecoveryRecords: "No recovery records",
+    restoreRecovery: "Restore",
+    discardAllRecoverable: "Back up and discard all changes",
+    recoveryFailed: "Recovery operation failed: {message}",
     stageFirst: "Stage at least one file before committing",
     commitSuccess: "Commit created",
     commitFailed: "Commit failed: {message}",
@@ -648,10 +653,11 @@ export const en: LocaleMessages = {
     ariaLabel: "File Explorer",
     deleteTitle: "Confirm Delete",
     cancel: "Cancel",
-    deleteForever: "Delete Permanently",
+    loadMore: "Load More",
+    deleteForever: "Move to Recovery",
     deleteConfirmStart: "Are you sure you want to permanently delete",
     deleteConfirmEnd: "?",
-    deleteIrreversible: "This action cannot be undone",
+    deleteIrreversible: "A native preview will confirm the target and preserve recovery data.",
     context: {
       newFileHere: "New File Here",
       newFolderHere: "New Folder Here",
@@ -1598,7 +1604,10 @@ export const en: LocaleMessages = {
     settingsBaseUrlTitle: "API URL",
     settingsBaseUrlDesc: "OpenAI-compatible Responses endpoint",
     settingsApiKeyTitle: "API Key",
-    settingsApiKeyDesc: "Stored only in the local user config, never uploaded",
+    settingsApiKeyDesc:
+      "Stored in the system credential store and sent only to the approved API endpoint",
+    credentialMigrationPaused:
+      "Credential migration failed. Your original configuration is preserved; retry after the system credential store is available.",
     settingsApiKeyPlaceholder: "sk-…",
     settingsModelTitle: "Model name",
     settingsModelDesc: "e.g. gpt-4o-mini / deepseek-chat",
@@ -1636,6 +1645,8 @@ export const en: LocaleMessages = {
     switchModel: "Switch Model",
     toolExecutionDisabled: "Tool execution is not enabled",
     agentUi: {
+      recoveryPending: "An interrupted restore needs recovery. Reopen its workspace first.",
+      recoverRestore: "Recover restore",
       title: "Agent",
       newTask: "New task",
       noProfile: "No Responses profile",

@@ -6,6 +6,8 @@ import { useInstallProgressStore } from "../../../State/useInstallProgressStore"
 import { AccountAvatar } from "../../../UI/Components/AccountAvatar";
 import { Button } from "../../../UI/Components/Button";
 import { MarkdownRenderer } from "../../../UI/Components/MarkdownRenderer";
+import { useViewActivity } from "../../../UI/Core/ViewActivity";
+import { useRetainedScroll, useRetainedViewState } from "../../../UI/Core/ViewState";
 import { showToast } from "../../../UI/Feedback/Toast";
 import { Icons } from "../../../UI/Icons/IconManager";
 import { canonicalExtensionId } from "../ExtensionId";
@@ -33,6 +35,8 @@ interface OptionalState {
 
 export function MarketplaceDetailPage({ extensionId }: MarketplaceDetailPageProps) {
   const { t, locale } = useLocale();
+  const active = useViewActivity();
+  const scroll = useRetainedScroll("marketplace.detail.scroll");
   const descriptors = useExtensionStore((state) => state.descriptors);
   const refreshExtensions = useExtensionStore((state) => state.refresh);
   const canonicalId = canonicalExtensionId(extensionId);
@@ -43,7 +47,10 @@ export function MarketplaceDetailPage({ extensionId }: MarketplaceDetailPageProp
     localDescriptor ? descriptorToMarketplaceItem(localDescriptor) : null,
   );
   const [isLoading, setIsLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<"overview" | OptionalSection>("overview");
+  const [activeSection, setActiveSection] = useRetainedViewState<"overview" | OptionalSection>(
+    "marketplace.detail.section",
+    "overview",
+  );
   const [optional, setOptional] = useState<Record<OptionalSection, OptionalState>>({
     changelog: { status: "idle" },
     reviews: { status: "idle" },
@@ -52,13 +59,14 @@ export function MarketplaceDetailPage({ extensionId }: MarketplaceDetailPageProp
   const [isInstalling, setIsInstalling] = useState(false);
   const [isStarred, setIsStarred] = useState(false);
   const [isStarring, setIsStarring] = useState(false);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewBody, setReviewBody] = useState("");
+  const [reviewRating, setReviewRating] = useRetainedViewState("marketplace.review.rating", 5);
+  const [reviewBody, setReviewBody] = useRetainedViewState("marketplace.review.body", "");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const installTask = useInstallProgressStore((state) => state.tasks[canonicalId]);
   const { setProgress, clearProgress } = useInstallProgressStore();
 
   useEffect(() => {
+    if (!active) return;
     let cancelled = false;
     setIsLoading(true);
     void MarketplaceService.fetchExtensionDetail(canonicalId)
@@ -87,7 +95,7 @@ export function MarketplaceDetailPage({ extensionId }: MarketplaceDetailPageProp
     return () => {
       cancelled = true;
     };
-  }, [canonicalId, localDescriptor]);
+  }, [active, canonicalId, localDescriptor]);
 
   const loadOptional = useCallback(
     async (section: OptionalSection) => {
@@ -123,6 +131,10 @@ export function MarketplaceDetailPage({ extensionId }: MarketplaceDetailPageProp
     setActiveSection(section);
     if (section !== "overview" && optional[section].status === "idle") void loadOptional(section);
   };
+  useEffect(() => {
+    if (active && activeSection !== "overview" && optional[activeSection].status === "idle")
+      void loadOptional(activeSection);
+  }, [active, activeSection, loadOptional, optional]);
 
   const currentItem = item ?? {
     id: canonicalId,
@@ -209,7 +221,10 @@ export function MarketplaceDetailPage({ extensionId }: MarketplaceDetailPageProp
   };
 
   return (
-    <div className="flex h-full w-full flex-col overflow-y-auto bg-transparent text-[var(--color-text-primary)]">
+    <div
+      {...scroll}
+      className="flex h-full w-full flex-col overflow-y-auto bg-transparent text-[var(--color-text-primary)]"
+    >
       <header className="border-b border-[var(--border-subtle)] px-6 py-5">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex min-w-0 items-start gap-4">

@@ -6,15 +6,15 @@ import type {
   AgentSession,
   AgentTaskSnapshot,
 } from "./AgentTypes";
+import { archiveLegacyChat } from "./LegacyChatArchive";
+import { SecureAgentStore } from "./SecureAgentStore";
 
 const STORAGE_KEY = "aurona.ai.agent.sessions.v1";
 const STAGING_STORAGE_KEY = `${STORAGE_KEY}.staging`;
 const CORRUPT_STORAGE_PREFIX = `${STORAGE_KEY}.corrupt.`;
-const LEGACY_KEYS = ["aurona.ai.chat.sessions.v2", "aurona.ai.chat.history.v1"] as const;
 const SESSION_LIMIT = 20;
 const TASK_LIMIT = 100;
 const EVENT_LIMIT = 500;
-const CORRUPT_BACKUP_LIMIT = 3;
 
 const EVENT_TYPES = new Set<AgentEventType>([
   "task.created",
@@ -356,32 +356,6 @@ function sanitizeTask(value: unknown): StoredTask | null {
   return task;
 }
 
-function clearLegacyChatStorage(): void {
-  for (const key of LEGACY_KEYS) {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      // Storage may be unavailable during early startup; the new Agent store remains usable.
-    }
-  }
-}
-
-function rememberCorrupt(raw: string): void {
-  try {
-    localStorage.setItem(
-      `${CORRUPT_STORAGE_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      raw,
-    );
-    const keys = Object.keys(localStorage)
-      .filter((key) => key.startsWith(CORRUPT_STORAGE_PREFIX))
-      .sort()
-      .reverse();
-    for (const key of keys.slice(CORRUPT_BACKUP_LIMIT)) localStorage.removeItem(key);
-  } catch {
-    // A full or unavailable storage must not prevent a fresh in-memory Agent session.
-  }
-}
-
 interface DecodedSession {
   state: StoredState;
   hadInvalidTasks: boolean;
@@ -467,71 +441,25 @@ function decode(raw: string | null): DecodedSession | null {
 }
 
 function load(): StoredState {
-  // 0.4.13 intentionally starts with a clean Agent workspace. Legacy chat data is not
-  // promoted into tasks because it cannot faithfully represent checkpoints or approvals.
-  clearLegacyChatStorage();
-  const primaryRaw = (() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY);
-    } catch {
-      return null;
-    }
-  })();
-  const primary = decode(primaryRaw);
-  if (primary) {
-    if (primary.hadInvalidTasks && primaryRaw) rememberCorrupt(primaryRaw);
-    return primary.state;
-  }
-  if (primaryRaw) rememberCorrupt(primaryRaw);
-
-  const stagingRaw = (() => {
-    try {
-      return localStorage.getItem(STAGING_STORAGE_KEY);
-    } catch {
-      return null;
-    }
-  })();
-  const staging = decode(stagingRaw);
-  if (staging) {
-    persist(staging.state);
-    return staging.state;
-  }
-  if (stagingRaw) rememberCorrupt(stagingRaw);
-
   const session = emptySession();
   const initial = emptyTask(session.activeTaskId, session.id);
-  const tasks = [initial];
-  const state = {
+  return {
     activeTaskId: initial.id,
     activeSessionId: session.id,
     sessions: [session],
-    tasks,
+    tasks: [initial],
   };
-  persist(state);
-  return state;
 }
 
-function persist(state: StoredState): void {
-  const serialized = JSON.stringify({
+function serialize(state: StoredState): string {
+  return JSON.stringify({
     activeTaskId: state.activeTaskId,
     activeSessionId: state.activeSessionId,
     sessions: state.sessions,
-    tasks: state.tasks.slice(0, TASK_LIMIT).map((task) => ({
-      ...task,
-      events: task.events.slice(-EVENT_LIMIT),
-    })),
+    tasks: state.tasks
+      .slice(0, TASK_LIMIT)
+      .map((task) => ({ ...task, events: task.events.slice(-EVENT_LIMIT) })),
   });
-  try {
-    // localStorage has no rename primitive. Stage and validate the complete payload first, then
-    // replace the primary slot. If staging or promotion fails, the previous primary remains.
-    localStorage.setItem(STAGING_STORAGE_KEY, serialized);
-    if (localStorage.getItem(STAGING_STORAGE_KEY) !== serialized) return;
-    if (!decode(serialized)) return;
-    localStorage.setItem(STORAGE_KEY, serialized);
-    localStorage.removeItem(STAGING_STORAGE_KEY);
-  } catch {
-    // The in-memory state remains usable when browser storage is full.
-  }
 }
 
 export interface AgentStoreState {
@@ -543,6 +471,37 @@ export interface AgentStoreState {
 
 export class AgentSessionStore {
   private state: AgentStoreState = load();
+  private readonly persistence = new SecureAgentStore("sessions");
+  private initialization: Promise<void> | null = null;
+
+  initialize(): Promise<void> {
+    this.initialization ??= this.persistence
+      .load([STORAGE_KEY, STAGING_STORAGE_KEY], (raw) => {
+        const decoded = decode(raw);
+        return decoded !== null && !decoded.hadInvalidTasks;
+      })
+      .then(async (raw) => {
+        if (raw) {
+          const decoded = decode(raw);
+          if (!decoded || decoded.hadInvalidTasks)
+            throw new Error("[agent.corrupt] Agent history is malformed; original data preserved");
+          this.state = decoded.state;
+        } else await this.persistence.write(serialize(this.state));
+        await archiveLegacyChat();
+      })
+      .catch((error) => {
+        this.initialization = null;
+        throw error;
+      });
+    return this.initialization;
+  }
+
+  private persist(state: StoredState): void {
+    this.persistence.schedule(serialize(state));
+  }
+  flush(): Promise<void> {
+    return this.persistence.flush();
+  }
 
   getState(): AgentStoreState {
     return this.state;
@@ -550,7 +509,7 @@ export class AgentSessionStore {
 
   replace(state: AgentStoreState): void {
     this.state = state;
-    persist(state);
+    this.persist(state);
   }
 
   updateTask(taskId: string, updater: (task: StoredTask) => StoredTask): StoredTask | null {
@@ -570,7 +529,7 @@ export class AgentSessionStore {
       sessions,
       tasks: [next, ...this.state.tasks.filter((task) => task.id !== taskId)],
     };
-    persist(this.state);
+    this.persist(this.state);
     return next;
   }
 
@@ -591,7 +550,7 @@ export class AgentSessionStore {
       ],
       tasks: [task, ...this.state.tasks].slice(0, TASK_LIMIT),
     });
-    persist(this.state);
+    this.persist(this.state);
     return task;
   }
 
@@ -610,7 +569,7 @@ export class AgentSessionStore {
       sessions,
       tasks: this.state.tasks,
     };
-    persist(this.state);
+    this.persist(this.state);
   }
 
   setActiveSession(sessionId: string): void {
@@ -628,7 +587,7 @@ export class AgentSessionStore {
       ),
       tasks: this.state.tasks,
     };
-    persist(this.state);
+    this.persist(this.state);
   }
 
   createSession(title = ""): StoredTask {
@@ -641,7 +600,7 @@ export class AgentSessionStore {
       sessions: [session, ...this.state.sessions].slice(0, SESSION_LIMIT),
       tasks: [task, ...this.state.tasks].slice(0, TASK_LIMIT),
     });
-    persist(this.state);
+    this.persist(this.state);
     return task;
   }
 
@@ -669,7 +628,7 @@ export class AgentSessionStore {
         sessions: [session],
         tasks: [task],
       };
-      persist(this.state);
+      this.persist(this.state);
       return;
     }
     const tasks = remaining;
@@ -679,7 +638,7 @@ export class AgentSessionStore {
     const activeSessionId =
       tasks.find((task) => task.id === activeTaskId)?.sessionId ?? sessions[0]?.id;
     this.state = { activeTaskId, activeSessionId, sessions, tasks };
-    persist(this.state);
+    this.persist(this.state);
   }
 
   deleteSession(sessionId: string): void {
@@ -700,7 +659,7 @@ export class AgentSessionStore {
         sessions: [fallback],
         tasks: [task],
       };
-      persist(this.state);
+      this.persist(this.state);
       return;
     }
     const activeSession =
@@ -713,7 +672,7 @@ export class AgentSessionStore {
       sessions,
       tasks,
     };
-    persist(this.state);
+    this.persist(this.state);
   }
 }
 

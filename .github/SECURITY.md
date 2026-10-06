@@ -6,14 +6,9 @@ Aurona Code 仍处于早期快速开发阶段，目前只为最新预览版本�
 
 | 版本 | 支持状态 |
 | --- | --- |
-| 0.4.13 | :white_check_mark: |
-| 0.4.12 | :white_check_mark: |
-| 0.4.10 | :white_check_mark: |
-| 0.4.9 | :white_check_mark: |
-| 0.4.8 | :white_check_mark: |
-| 0.4.5 | :white_check_mark: |
-| 0.4.3 | :white_check_mark: |
-| < 0.4.3 | :x: |
+| 0.4.14 | :white_check_mark: 接收报告；仅开发候选，尚未发布，完整验收未完成 |
+| 最新已发布预览版本 | 接收报告；修复通过后续版本交付 |
+| 更早版本 | 不单独维护；与当前版本共有的问题仍可报告 |
 
 ## 私密报告漏洞
 
@@ -38,5 +33,7 @@ Aurona Code 仍处于早期快速开发阶段，目前只为最新预览版本�
 ## 安全边界说明
 
 - Tauri capability 最小化不等于工作区文件系统沙箱。
-- 0.3.12 起内置扩展以 WASM Component 运行（Wasmtime 限额 + sandbox iframe 隔离），仅加载随应用分发的 AURX；不开放第三方扩展安装。AI Command Center 和云端遥测当前尚未实现。
+- 扩展以 WASM Component 运行，并使用 Wasmtime 限额、权限和 sandbox iframe。第三方本地包需要用户批准；远程安装要求可信签名。VS Code API 兼容能力有范围限制。
+- AI Assistant 向用户批准的模型服务发送请求中的代码和上下文。用户批准的本地工具和交互式 shell 按操作系统权限运行，不能视为文件系统沙箱。
 - 更新器安全依赖 Release 签名、`latest.json` 和真实旧版本到新版本的链路验证。
+- 0.4.14 的正式签名来源和完整验收仍未闭环，详见 [状态矩阵](../Docs/0.4.14-Implementation-Status.md)和[安全与迁移](../Docs/0.4.14-Security-and-Migration.md)。

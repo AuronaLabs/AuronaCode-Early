@@ -1,3 +1,4 @@
+import { desktopAvailable } from "../../../Foundation/Desktop";
 import { AccountAuthIPC } from "../../../Foundation/IPC/AccountAuthCommands";
 import { type ExtensionDescriptor, ExtensionIPC } from "../../../Foundation/IPC/ExtensionCommands";
 import {
@@ -8,16 +9,19 @@ import {
 import { NetworkIPC } from "../../../Foundation/IPC/NetworkCommands";
 import { UserConfigStore } from "../../../Foundation/Storage/UserConfigStore";
 import { canonicalExtensionId, migrateExtensionRecords } from "../ExtensionId";
+import { boundedCatalog, validateMarketplaceRecord } from "./MarketplaceSchema";
 
 export const DEFAULT_MARKETPLACE_URL = "https://marketplace.aurona.cc/api";
 export const LOCAL_DEV_MARKETPLACE_URL = "http://127.0.0.1:5219/api";
 
 let cachedMarketplaceToken: string | null = null;
 let cachedAuronaAccessToken: string | null = null;
+const sharedRuntimeInstalls = new Map<string, Promise<void>>();
 const MARKETPLACE_CACHE_KEY = "aurona.marketplace.catalog.v1";
 
 export interface MarketplaceRequestOptions {
   signal?: AbortSignal;
+  page?: number;
 }
 
 export type MarketplaceRequestInput = MarketplaceRequestOptions | AbortSignal;
@@ -26,15 +30,6 @@ function inputSignal(input?: MarketplaceRequestInput): AbortSignal | undefined {
   if (!input) return undefined;
   if (typeof AbortSignal !== "undefined" && input instanceof AbortSignal) return input;
   return "signal" in input ? input.signal : undefined;
-}
-
-function base64ToBytes(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return bytes;
 }
 
 function absoluteMarketplaceUrl(baseUrl: string, value: string): string {
@@ -48,7 +43,13 @@ function absoluteMarketplaceUrl(baseUrl: string, value: string): string {
 /** 官方市场渠道判定：仅该渠道强制 SHA-256 信任策略；本地开发/自定义服务器豁免。 */
 export function isOfficialMarketplaceHost(serverUrl: string): boolean {
   try {
-    return new URL(serverUrl).host === "marketplace.aurona.cc";
+    const url = new URL(serverUrl);
+    return (
+      url.protocol === "https:" &&
+      url.host === "marketplace.aurona.cc" &&
+      !url.username &&
+      !url.password
+    );
   } catch {
     return false;
   }
@@ -73,10 +74,41 @@ async function fetchWithTimeout(
     throw externalSignal.reason ?? new DOMException("The request was aborted", "AbortError");
   }
   const controller = new AbortController();
-  const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  const native = desktopAvailable();
+  const timeout = globalThis.setTimeout(
+    () => controller.abort(),
+    native ? Math.max(timeoutMs, 65000) : timeoutMs,
+  );
   const forwardAbort = () => controller.abort(externalSignal?.reason);
   externalSignal?.addEventListener("abort", forwardAbort, { once: true });
   try {
+    if (native) {
+      const requestId = crypto.randomUUID();
+      const cancel = () => {
+        void NetworkIPC.cancelMarketplaceRequest(requestId);
+      };
+      controller.signal.addEventListener("abort", cancel, { once: true });
+      try {
+        const response = await NetworkIPC.marketplaceRequest({
+          requestId,
+          url: String(input),
+          method: init.method ?? "GET",
+          body: typeof init.body === "string" ? init.body : null,
+          headers: Object.fromEntries(new Headers(init.headers).entries()),
+        });
+        if (controller.signal.aborted)
+          throw new DOMException("The request was aborted", "AbortError");
+        return new Response(response.body, {
+          status: response.status,
+          headers: {
+            "Content-Type": "application/json",
+            "X-Aurona-Catalog-Verified": String(response.catalog_verified === true),
+          },
+        });
+      } finally {
+        controller.signal.removeEventListener("abort", cancel);
+      }
+    }
     return await fetch(input, { ...init, signal: controller.signal });
   } finally {
     globalThis.clearTimeout(timeout);
@@ -101,8 +133,11 @@ function readCachedCatalog(): MarketplaceExtensionItem[] {
   try {
     const raw = localStorage.getItem(MARKETPLACE_CACHE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(parsed)) return [];
-    const records = parsed.filter((item) => item && typeof item.id === "string");
+    const list = Array.isArray(parsed) ? parsed : parsed?.entries;
+    if (!Array.isArray(list)) return [];
+    boundedCatalog(list);
+    for (const entry of list) validateMarketplaceRecord(entry);
+    const records = list;
     const migrated = migrateExtensionRecords(records);
     if (
       migrated.length !== records.length ||
@@ -110,7 +145,7 @@ function readCachedCatalog(): MarketplaceExtensionItem[] {
     ) {
       writeCachedCatalog(migrated);
     }
-    return migrated;
+    return migrated.map((item) => ({ ...item, verified: false, cacheExpired: true }));
   } catch {
     return [];
   }
@@ -118,7 +153,9 @@ function readCachedCatalog(): MarketplaceExtensionItem[] {
 
 function writeCachedCatalog(items: MarketplaceExtensionItem[]): void {
   try {
-    localStorage.setItem(MARKETPLACE_CACHE_KEY, JSON.stringify(items));
+    const content = JSON.stringify(boundedCatalog(items));
+    if (new TextEncoder().encode(content).byteLength > 4 * 1024 * 1024) return;
+    localStorage.setItem(MARKETPLACE_CACHE_KEY, content);
   } catch {
     // Offline cache is best effort and must not block Marketplace use.
   }
@@ -188,6 +225,7 @@ export interface RuntimeMetadataItem {
 }
 
 export interface MarketplaceExtensionItem {
+  cacheExpired?: boolean;
   id: string;
   kind?: "extension" | "lsp" | "runtime";
   name: string;
@@ -235,6 +273,7 @@ export interface MarketplaceFetchResult {
   source: MarketplaceSourceStatus;
   serverUrl: string;
   offlineReason?: "server-unreachable" | "invalid-response";
+  nextPage?: number;
 }
 
 export interface MarketplaceRankingResult {
@@ -285,42 +324,48 @@ export function descriptorToMarketplaceItem(
     category: "Developer Tools",
     tags: ["installed", "local"],
     icon: undefined,
-    verified: true,
+    verified: false,
     installed: true,
     enabled: true,
     packageType:
       descriptor.id.startsWith("vscode-") || descriptor.id.endsWith(".vsix") ? "vsix" : "aurx",
     permissions: [],
-    rawPermissions: [],
+    rawPermissions: [...descriptor.permissions],
   };
 }
 
-function normalizeExtension(raw: Record<string, unknown>): MarketplaceExtensionItem {
+function normalizeExtension(
+  raw: Record<string, unknown>,
+  catalogVerified = false,
+): MarketplaceExtensionItem {
+  validateMarketplaceRecord(raw);
   const publisherObj =
     typeof raw.publisher === "object" && raw.publisher !== null
       ? (raw.publisher as Record<string, unknown>)
       : null;
 
+  const text = (value: unknown, fallback = "") => (typeof value === "string" ? value : fallback);
   const publisherName = publisherObj
-    ? String(publisherObj.displayName || publisherObj.name || "Unknown")
-    : String(raw.publisher || "Unknown");
+    ? text(publisherObj.displayName, text(publisherObj.name, "Unknown"))
+    : text(raw.publisher, "Unknown");
 
-  const isVerified = publisherObj ? Boolean(publisherObj.verified) : Boolean(raw.verified);
+  const isVerified =
+    catalogVerified && (publisherObj ? publisherObj.verified === true : raw.verified === true);
 
   const displayNameMap: Record<string, string> =
     typeof raw.displayName === "object" && raw.displayName !== null
       ? (raw.displayName as Record<string, string>)
       : {
-          "zh-CN": String(raw.displayName || raw.name || ""),
-          en: String(raw.name || raw.displayName || ""),
+          "zh-CN": text(raw.displayName, text(raw.name)),
+          en: text(raw.name, text(raw.displayName)),
         };
 
   const displayDescMap: Record<string, string> =
     typeof raw.displayDescription === "object" && raw.displayDescription !== null
       ? (raw.displayDescription as Record<string, string>)
       : {
-          "zh-CN": String(raw.displayDescription || raw.description || ""),
-          en: String(raw.description || raw.displayDescription || ""),
+          "zh-CN": text(raw.displayDescription, text(raw.description)),
+          en: text(raw.description, text(raw.displayDescription)),
         };
 
   const publisherAvatar = publisherObj
@@ -345,7 +390,7 @@ function normalizeExtension(raw: Record<string, unknown>): MarketplaceExtensionI
     ? (raw.publishedVersions as PublishedVersionItem[])
     : undefined;
 
-  const rawKind = String(raw.kind || "").toLowerCase();
+  const rawKind = text(raw.kind);
   const kind: "extension" | "lsp" | "runtime" =
     rawKind === "lsp" ? "lsp" : rawKind === "runtime" ? "runtime" : "extension";
 
@@ -367,17 +412,17 @@ function normalizeExtension(raw: Record<string, unknown>): MarketplaceExtensionI
         : "aurx";
 
   return {
-    id: canonicalExtensionId(String(raw.id || raw.name || "")),
+    id: canonicalExtensionId(text(raw.id)),
     kind,
-    name: String(raw.name || raw.id || ""),
+    name: text(raw.name, text(raw.id)),
     displayName: displayNameMap,
     publisher: publisherName,
     publisherAvatar,
-    version: String(raw.version || "未知版本"),
-    description: String(raw.description || ""),
+    version: text(raw.version),
+    description: text(raw.description),
     displayDescription: displayDescMap,
-    category: String(raw.category || (kind === "lsp" ? "LSP" : "Developer Tools")),
-    tags: Array.isArray(raw.tags) ? raw.tags.map(String) : [],
+    category: text(raw.category, kind === "lsp" ? "LSP" : "Developer Tools"),
+    tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : [],
     downloads: typeof raw.downloads === "number" ? raw.downloads : undefined,
     rating:
       typeof raw.rating === "number" && typeof raw.reviewCount === "number" && raw.reviewCount > 0
@@ -385,10 +430,10 @@ function normalizeExtension(raw: Record<string, unknown>): MarketplaceExtensionI
         : undefined,
     icon: typeof raw.icon === "string" ? raw.icon : undefined,
     verified: isVerified,
-    featured: Boolean(raw.featured),
+    featured: raw.featured === true,
     readme: typeof raw.readme === "string" ? raw.readme : undefined,
     changelog: typeof raw.changelog === "string" ? raw.changelog : undefined,
-    installed: Boolean(raw.installed),
+    installed: raw.installed === true,
     enabled: raw.enabled !== false,
     packageType,
     reviewCount: typeof raw.reviewCount === "number" ? raw.reviewCount : undefined,
@@ -456,6 +501,7 @@ async function requestCandidateUrls<T>(
 }
 
 async function marketplaceAuthHeaders(serverUrl: string): Promise<Record<string, string>> {
+  if (!isOfficialMarketplaceHost(serverUrl)) return {};
   let accessToken: string | null = null;
   try {
     const status = await AccountAuthIPC.status();
@@ -525,6 +571,9 @@ export const MarketplaceService = {
     options: MarketplaceRequestInput = {},
   ): Promise<MarketplaceFetchResult> {
     const signal = inputSignal(options);
+    const page = "page" in options ? (options.page ?? 1) : 1;
+    if (!Number.isSafeInteger(page) || page < 1 || page > 10000 || (query?.length ?? 0) > 512)
+      throw new Error("[marketplace.pagination] Invalid page or search budget");
     if (signal?.aborted) throw new DOMException("The request was aborted", "AbortError");
     const serverUrl = await this.getServerUrl();
     let items: MarketplaceExtensionItem[] = [];
@@ -543,6 +592,8 @@ export const MarketplaceService = {
     }
 
     let successUrl: string | undefined;
+    let nextPage: number | undefined;
+    const requestedUrls: string[] = [];
 
     for (const urlStr of candidateUrls) {
       try {
@@ -552,6 +603,9 @@ export const MarketplaceService = {
         // Toolchains share the catalog transport with Discover. The server
         // hides Runtime records by default, so request them explicitly once.
         urlObj.searchParams.set("includeRuntime", "true");
+        urlObj.searchParams.set("limit", "256");
+        urlObj.searchParams.set("page", String(page));
+        requestedUrls.push(urlObj.toString());
 
         const res = await fetchWithTimeout(
           urlObj.toString(),
@@ -574,7 +628,27 @@ export const MarketplaceService = {
           const list = extractMarketplaceItems(payload);
           if (list) {
             successUrl = urlStr;
-            items = list.map(normalizeExtension);
+            const catalogVerified =
+              desktopAvailable() && res.headers.get("X-Aurona-Catalog-Verified") === "true";
+            items = boundedCatalog(list).map((entry) => normalizeExtension(entry, catalogVerified));
+            const record = isRecord(payload) ? payload : {};
+            const pagination = isRecord(record.pagination) ? record.pagination : record;
+            const total = pagination.total;
+            if (
+              typeof pagination.nextPage === "number" &&
+              Number.isSafeInteger(pagination.nextPage) &&
+              pagination.nextPage === page + 1
+            )
+              nextPage = pagination.nextPage;
+            else if (
+              typeof total === "number" &&
+              Number.isSafeInteger(total) &&
+              total >= 0 &&
+              page * 256 < total
+            )
+              nextPage = page + 1;
+            else if (pagination.hasMore === true || (list.length === 256 && total === undefined))
+              nextPage = page + 1;
             break;
           }
           offlineReason = "invalid-response";
@@ -594,7 +668,33 @@ export const MarketplaceService = {
       writeCachedCatalog(items);
     } else {
       source = "offline";
-      items = readCachedCatalog();
+      items = page === 1 ? readCachedCatalog() : [];
+      if (desktopAvailable()) {
+        try {
+          if (page === 1)
+            for (const requestedUrl of requestedUrls) {
+              const cached = await NetworkIPC.cachedCatalog(requestedUrl);
+              const entries = extractMarketplaceItems(cached);
+              if (entries) {
+                const expired =
+                  isRecord(cached) && isRecord(cached.cache) && cached.cache.expired === true;
+                items = boundedCatalog(entries).map((entry) => ({
+                  ...normalizeExtension(entry, !expired),
+                  cacheExpired: expired,
+                }));
+                if (
+                  isRecord(cached) &&
+                  isRecord(cached.pagination) &&
+                  cached.pagination.nextPage === page + 1
+                )
+                  nextPage = page + 1;
+                break;
+              }
+            }
+        } catch {
+          /* Legacy cache remains available only for unverified browsing. */
+        }
+      }
     }
 
     // 同步本地已安装状态
@@ -627,7 +727,7 @@ export const MarketplaceService = {
       items = items.filter((it) => it.category.toLowerCase() === category.toLowerCase());
     }
 
-    return { items, source, serverUrl, offlineReason };
+    return { items, source, serverUrl, offlineReason, nextPage };
   },
 
   async listExtensions(
@@ -827,11 +927,11 @@ export const MarketplaceService = {
     const { topDownloaded, topDownloads, topRated, topStarred, trending } = res.data.data;
     const downloads = topDownloads ?? topDownloaded ?? [];
     return {
-      topDownloaded: downloads.map(normalizeExtension),
-      topDownloads: downloads.map(normalizeExtension),
-      topRated: (topRated || []).map(normalizeExtension),
-      topStarred: (topStarred || []).map(normalizeExtension),
-      trending: (trending || []).map(normalizeExtension),
+      topDownloaded: boundedCatalog(downloads).map((entry) => normalizeExtension(entry)),
+      topDownloads: boundedCatalog(downloads).map((entry) => normalizeExtension(entry)),
+      topRated: boundedCatalog(topRated || []).map((entry) => normalizeExtension(entry)),
+      topStarred: boundedCatalog(topStarred || []).map((entry) => normalizeExtension(entry)),
+      trending: boundedCatalog(trending || []).map((entry) => normalizeExtension(entry)),
     };
   },
 
@@ -852,20 +952,26 @@ export const MarketplaceService = {
     return `${base}/extensions/${encodeURIComponent(id)}/download`;
   },
 
-  async installExtension(id: string, version?: string): Promise<ExtensionDescriptor> {
+  async installExtension(
+    id: string,
+    version?: string,
+    signal?: AbortSignal,
+  ): Promise<ExtensionDescriptor> {
     id = canonicalExtensionId(id);
-    const serverUrl = await this.getServerUrl();
     const url = await this.getDownloadUrl(id, version);
-    // 统一走 Rust HTTP 客户端：与更新检查、工具链下载共用同一套代理偏好
-    const result = await NetworkIPC.fetchBytes(url);
-    const sha256 = result.sha256 ?? undefined;
-    // 供应链信任：官方渠道必须携带 SHA-256，缺失即拒装；本地开发/自定义服务器豁免
-    if (!sha256 && isOfficialMarketplaceHost(serverUrl)) {
-      throw new Error("官方市场下载缺少 SHA-256 校验值，已拒绝安装");
+    signal?.throwIfAborted();
+    const taskId = crypto.randomUUID();
+    const cancel = () => {
+      void NetworkIPC.cancelTask(taskId).catch(() => undefined);
+    };
+    signal?.addEventListener("abort", cancel, { once: true });
+    try {
+      const artifact = await NetworkIPC.downloadArtifact(url, id, version, taskId);
+      signal?.throwIfAborted();
+      return await ExtensionIPC.install(artifact.artifactId);
+    } finally {
+      signal?.removeEventListener("abort", cancel);
     }
-    const bytes = Array.from(base64ToBytes(result.data_b64));
-    const descriptor = await ExtensionIPC.install(bytes, sha256);
-    return descriptor;
   },
 
   isNewerVersion(remoteVersion: string, installedVersion: string): boolean {
@@ -892,7 +998,9 @@ export const MarketplaceService = {
       : Array.isArray(res.data?.data)
         ? res.data.data
         : [];
-    return (list as Record<string, unknown>[]).map(normalizeExtension);
+    return boundedCatalog(list as Record<string, unknown>[]).map((entry) =>
+      normalizeExtension(entry),
+    );
   },
 
   /**
@@ -910,6 +1018,7 @@ export const MarketplaceService = {
     id: string,
     version?: string,
     onProgress?: (progress: number, stage: string) => void,
+    signal?: AbortSignal,
   ): Promise<InstalledToolchainSummary> {
     id = canonicalExtensionId(id);
     const detail = await this.fetchExtensionDetail(id);
@@ -920,21 +1029,30 @@ export const MarketplaceService = {
     const downloadUrl = metadataDownloadUrl
       ? absoluteMarketplaceUrl(serverUrl, metadataDownloadUrl)
       : await this.getDownloadUrl(id, version);
-    const downloadId = `runtime_${runtimeType}_${Date.now()}`;
+    const downloadId = `runtime_${runtimeType}_${crypto.randomUUID()}`;
+    signal?.throwIfAborted();
+    const cancel = () => {
+      void NetworkIPC.cancelTask(downloadId).catch(() => undefined);
+    };
+    signal?.addEventListener("abort", cancel, { once: true });
     let unsub: (() => void) | undefined;
-    if (onProgress) {
-      unsub = await LanguageServerIPC.onDownloadProgress((progress) => {
-        if (progress.downloadId === downloadId) onProgress(progress.percentage, progress.stage);
-      });
-    }
     try {
+      if (onProgress) {
+        unsub = await LanguageServerIPC.onDownloadProgress((progress) => {
+          if (progress.downloadId === downloadId) onProgress(progress.percentage, progress.stage);
+        });
+      }
+      signal?.throwIfAborted();
       return await LanguageServerIPC.installToolchainFromUrl(
         downloadId,
         downloadUrl,
+        id,
+        version ?? detail?.version,
         metadata?.sha256,
       );
     } finally {
       unsub?.();
+      signal?.removeEventListener("abort", cancel);
     }
   },
 
@@ -943,6 +1061,21 @@ export const MarketplaceService = {
    * 若未就绪，自动通过 Rust 原生异步流式下载官方公共基础运行时包并解压安装
    */
   async ensureSharedRuntime(
+    runtimeType = "node",
+    onProgress?: (progress: number, stage: string) => void,
+  ): Promise<void> {
+    const pending = sharedRuntimeInstalls.get(runtimeType);
+    if (pending) return pending;
+    const install = this.installSharedRuntime(runtimeType, onProgress);
+    sharedRuntimeInstalls.set(runtimeType, install);
+    try {
+      await install;
+    } finally {
+      sharedRuntimeInstalls.delete(runtimeType);
+    }
+  },
+
+  async installSharedRuntime(
     runtimeType = "node",
     onProgress?: (progress: number, stage: string) => void,
   ): Promise<void> {
@@ -968,23 +1101,24 @@ export const MarketplaceService = {
     }
 
     try {
-      await LanguageServerIPC.installToolchainFromUrl(downloadId, runtimeUrl);
-    } catch {
-      // 回退尝试常规扩展下载接口
-      const fallbackUrl = await this.getDownloadUrl("auronalabs.runtime-node");
-      await LanguageServerIPC.installToolchainFromUrl(downloadId, fallbackUrl);
+      await LanguageServerIPC.installToolchainFromUrl(
+        downloadId,
+        runtimeUrl,
+        "auronalabs.runtime-node",
+      );
     } finally {
       if (unsub) unsub();
     }
   },
 
   /**
-   * 一键安装 LSP 语言服务包 (流式异步下载，0 内存压力)
+   * Install an LSP package through the bounded backend download pipeline.
    */
   async installLspServer(
     id: string,
     version?: string,
     onProgress?: (progress: number, stage: string) => void,
+    signal?: AbortSignal,
   ): Promise<InstalledToolchainSummary> {
     id = canonicalExtensionId(id);
     // 1. 获取该 LSP 详情与依赖的运行时
@@ -997,23 +1131,32 @@ export const MarketplaceService = {
     }
 
     // 3. 下载并安装 LSP 语言服务归档包
-    const downloadId = `lsp_${id}_${Date.now()}`;
+    const downloadId = `lsp_${id}_${crypto.randomUUID()}`;
     const downloadUrl = await this.getDownloadUrl(id, version);
+    signal?.throwIfAborted();
+    const cancel = () => {
+      void NetworkIPC.cancelTask(downloadId).catch(() => undefined);
+    };
+    signal?.addEventListener("abort", cancel, { once: true });
 
     let unsub: (() => void) | undefined;
-    if (onProgress) {
-      unsub = await LanguageServerIPC.onDownloadProgress((p) => {
-        if (p.downloadId === downloadId) {
-          onProgress(p.percentage, p.stage);
-        }
-      });
-    }
-
     try {
-      const result = await LanguageServerIPC.installToolchainFromUrl(downloadId, downloadUrl);
+      if (onProgress) {
+        unsub = await LanguageServerIPC.onDownloadProgress((p) => {
+          if (p.downloadId === downloadId) onProgress(p.percentage, p.stage);
+        });
+      }
+      signal?.throwIfAborted();
+      const result = await LanguageServerIPC.installToolchainFromUrl(
+        downloadId,
+        downloadUrl,
+        id,
+        version ?? detail?.version,
+      );
       return result;
     } finally {
       if (unsub) unsub();
+      signal?.removeEventListener("abort", cancel);
     }
   },
 

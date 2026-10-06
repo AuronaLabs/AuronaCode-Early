@@ -1,5 +1,7 @@
 # Smart Capsule 0.5 设计草案
 
+> 文档已于 2026-10-06 移入路线设计区，不属于 0.4.14 交付承诺。当前版本状态见 [0.4.14 状态矩阵](../0.4.14-Implementation-Status.md)。
+
 ## 0.4.13 boundary
 
 The current release only prepares runtime contracts for this design. `AgentToolMetadata`,

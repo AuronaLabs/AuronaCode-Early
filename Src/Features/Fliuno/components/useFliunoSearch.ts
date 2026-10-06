@@ -24,6 +24,7 @@ import { UserConfigStore } from "../../../Foundation/Storage/UserConfigStore";
 import { GetLanguageFromPath } from "../../../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../../../State/useEditorStore";
 import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
+import { useRetainedViewState } from "../../../UI/Core/ViewState";
 
 export const FLIUNO_SEARCH_DEBOUNCE_MS = 120;
 const FLIUNO_RECENT_LIMIT = 30;
@@ -44,10 +45,10 @@ export function useFliunoSearch({ enabled = true, excludedCommandId }: UseFliuno
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const indexedRootRef = useRef<string | null>(null);
 
-  const [query, setQuery] = useState("");
-  const [scope, setScope] = useState<FliunoScope>("all");
+  const [query, setQuery] = useRetainedViewState("fliuno.query", "");
+  const [scope, setScope] = useRetainedViewState<FliunoScope>("fliuno.scope", "all");
   const [results, setResults] = useState<FliunoCoreResult[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [selectedIndex, setSelectedIndex] = useRetainedViewState("fliuno.selection", -1);
   const [recentCommands, setRecentCommands] = useState(() =>
     readHistory(FLIUNO_RECENT_COMMANDS_KEY, LEGACY_RECENT_KEY),
   );
@@ -124,13 +125,15 @@ export function useFliunoSearch({ enabled = true, excludedCommandId }: UseFliuno
     }
   }, [enabled, loadFiles, workspaceRoot]);
 
-  useEffect(
-    () =>
-      EventBus.on("fs:changed", () => {
-        if (enabled && workspaceRoot) void loadFiles(workspaceRoot);
-      }),
-    [enabled, loadFiles, workspaceRoot],
-  );
+  useEffect(() => {
+    if (!enabled) {
+      indexedRootRef.current = null;
+      return;
+    }
+    return EventBus.on("fs:changed", () => {
+      if (workspaceRoot) void loadFiles(workspaceRoot);
+    });
+  }, [enabled, loadFiles, workspaceRoot]);
 
   const runSearch = useCallback(
     (nextQuery: string, nextScope: FliunoScope) => {
@@ -180,6 +183,7 @@ export function useFliunoSearch({ enabled = true, excludedCommandId }: UseFliuno
       recentCommands,
       recentFiles,
       workspaceRoot,
+      setSelectedIndex,
     ],
   );
 
@@ -187,6 +191,7 @@ export function useFliunoSearch({ enabled = true, excludedCommandId }: UseFliuno
     runSearch(query, scope);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      sessionRef.current?.cancel();
     };
   }, [query, runSearch, scope]);
 
@@ -198,11 +203,14 @@ export function useFliunoSearch({ enabled = true, excludedCommandId }: UseFliuno
     [],
   );
 
-  const selectScope = useCallback((nextScope: FliunoScope) => {
-    setScope(nextScope);
-    setQuery((current) => queryForScope(current, nextScope));
-    setSelectedIndex(-1);
-  }, []);
+  const selectScope = useCallback(
+    (nextScope: FliunoScope) => {
+      setScope(nextScope);
+      setQuery((current) => queryForScope(current, nextScope));
+      setSelectedIndex(-1);
+    },
+    [setScope, setQuery, setSelectedIndex],
+  );
 
   const cancel = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);

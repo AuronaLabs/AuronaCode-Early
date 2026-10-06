@@ -7,6 +7,8 @@ import {
 } from "../../Core/Fliuno/presentation";
 import { useLocale } from "../../Foundation/I18n";
 import { EmptyState } from "../../UI/Components/EmptyState";
+import { useViewActivity } from "../../UI/Core/ViewActivity";
+import { useRetainedScroll } from "../../UI/Core/ViewState";
 import { Icons } from "../../UI/Icons/IconManager";
 import {
   FliunoContentRow,
@@ -27,12 +29,14 @@ export function FliunoWorkspacePage({
   variant?: "page" | "sidebar";
 }) {
   const { t } = useLocale();
+  const active = useViewActivity();
+  const scroll = useRetainedScroll("fliuno.results.scroll");
   const compact = variant === "sidebar";
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const search = useFliunoSearch({
-    enabled: true,
+    enabled: active,
     excludedCommandId: FLIUNO_WORKSPACE_COMMAND_ID,
   });
   const {
@@ -52,8 +56,8 @@ export function FliunoWorkspacePage({
   } = search;
 
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    if (active) inputRef.current?.focus();
+  }, [active]);
 
   const parsed = parseFliunoQuery(query, search.scope);
 
@@ -131,7 +135,14 @@ export function FliunoWorkspacePage({
         />
       </div>
 
-      <div ref={resultsRef} className="min-h-0 flex-1 overflow-y-auto px-1 pb-2 aurona-scroll">
+      <div
+        ref={(node) => {
+          resultsRef.current = node;
+          scroll.ref(node);
+        }}
+        onScroll={scroll.onScroll}
+        className="min-h-0 flex-1 overflow-y-auto px-1 pb-2 aurona-scroll"
+      >
         {!search.workspaceRoot && (query || parsed.scope !== "commands") ? (
           <EmptyState
             className={compact ? "min-h-[160px]" : "min-h-[240px]"}

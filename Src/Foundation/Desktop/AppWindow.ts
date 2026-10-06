@@ -7,7 +7,7 @@ import {
   PhysicalPosition,
   PhysicalSize,
 } from "@tauri-apps/api/window";
-import { relaunch } from "@tauri-apps/plugin-process";
+import { invokeDesktop } from "./Transport";
 
 /** 显示器可用区域（工作区，物理像素）的纯数据投影，供 Desktop 之外消费 */
 export interface MonitorArea {
@@ -21,7 +21,7 @@ const currentWindow = getCurrentWindow();
 
 export const desktopApp = {
   getVersion,
-  relaunch,
+  relaunch: () => invokeDesktop<void>("app_restart"),
   async errorLogDirectory(): Promise<string> {
     return join(await appLogDir(), "errlogs");
   },

@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useLocale } from "../../Foundation/I18n";
 import { NetworkIPC } from "../../Foundation/IPC/NetworkCommands";
 import { Input } from "../../UI/Components/Input";
 import { Select } from "../../UI/Components/Select";
 import { SettingResetButton } from "../../UI/Components/SettingResetButton";
 import { GlassContainer } from "../../UI/Core/GlassManager";
+import { useRetainedViewState } from "../../UI/Core/ViewState";
 import { showToast } from "../../UI/Feedback/Toast";
 
 export type ProxyMode = "system" | "custom" | "none";
@@ -28,12 +29,19 @@ export function NetworkSettingsSection({
   onProxyUrlChange,
 }: NetworkSettingsSectionProps) {
   const { t } = useLocale();
-  const [urlDraft, setUrlDraft] = useState(proxyUrl);
+  const [draft, setDraft] = useRetainedViewState("settings.network.proxyDraft", {
+    saved: proxyUrl,
+    value: proxyUrl,
+  });
+  const urlDraft = draft.value;
+  const setUrlDraft = (value: string) => setDraft({ saved: proxyUrl, value });
 
   // 外部状态变化（重置、搜索定位）时同步草稿
   useEffect(() => {
-    setUrlDraft(proxyUrl);
-  }, [proxyUrl]);
+    setDraft((current) =>
+      current.saved === proxyUrl ? current : { saved: proxyUrl, value: proxyUrl },
+    );
+  }, [proxyUrl, setDraft]);
 
   const commitUrl = async () => {
     const trimmed = urlDraft.trim();

@@ -24,7 +24,9 @@ interface ToolchainsPanelProps {
   selectedId: string | null;
   client: LspClient;
   revision: number;
-  busyId: string | null;
+  busyIds: ReadonlySet<string>;
+  cancellableIds: ReadonlySet<string>;
+  onCancel: (id: string) => void;
   onInstall: (item: MarketplaceExtensionItem) => void;
   onUninstall: (item: MarketplaceExtensionItem) => void;
   onAction: (server: InstalledToolchainSummary, action: "start" | "stop" | "restart") => void;
@@ -39,7 +41,9 @@ export function ToolchainsPanel({
   selectedId,
   client,
   revision: _revision,
-  busyId,
+  busyIds,
+  cancellableIds,
+  onCancel,
   onInstall,
   onUninstall,
   onAction,
@@ -75,7 +79,7 @@ export function ToolchainsPanel({
               item={item}
               selected={selectedId === item.id}
               client={client}
-              busyId={busyId}
+              busy={busyIds.has(item.id)}
               onUninstall={onUninstall}
               onAction={onAction}
             />
@@ -91,7 +95,9 @@ export function ToolchainsPanel({
             <MarketplaceCard
               key={item.id}
               item={item}
+              busy={busyIds.has(item.id)}
               selected={selectedId === item.id}
+              onCancel={cancellableIds.has(item.id) ? onCancel : undefined}
               onOpenDetail={onOpenDetail}
               onInstall={onInstall}
               onUninstall={onUninstall}
@@ -113,7 +119,7 @@ export function ToolchainsPanel({
               key={runtime.runtimeType}
               runtime={runtime}
               selected={selectedId === runtime.runtimeType}
-              busy={busyId === runtime.runtimeType}
+              busy={busyIds.has(runtime.runtimeType)}
               onUninstall={() =>
                 onUninstall({
                   id: runtime.runtimeType,
@@ -142,14 +148,14 @@ function InstalledServerRow({
   item,
   selected,
   client,
-  busyId,
+  busy,
   onUninstall,
   onAction,
 }: {
   item: MarketplaceExtensionItem;
   selected: boolean;
   client: LspClient;
-  busyId: string | null;
+  busy: boolean;
   onUninstall: (item: MarketplaceExtensionItem) => void;
   onAction: (server: InstalledToolchainSummary, action: "start" | "stop" | "restart") => void;
 }) {
@@ -192,7 +198,7 @@ function InstalledServerRow({
             <Button
               size="sm"
               variant="secondary"
-              disabled={busyId === item.id}
+              disabled={busy}
               onClick={() => onAction(server, "stop")}
             >
               {t("extensions.stop")}
@@ -201,7 +207,7 @@ function InstalledServerRow({
             <Button
               size="sm"
               variant="primary"
-              disabled={busyId === item.id}
+              disabled={busy}
               onClick={() => onAction(server, "start")}
             >
               {t("extensions.start")}
@@ -211,7 +217,7 @@ function InstalledServerRow({
           <Button
             size="sm"
             variant="ghost"
-            disabled={busyId === item.id}
+            disabled={busy}
             onClick={() => onAction(server, "restart")}
           >
             {t("extensions.restart")}
@@ -221,7 +227,7 @@ function InstalledServerRow({
           size="sm"
           variant="ghost"
           className="text-[var(--StatusError)]"
-          disabled={busyId === item.id}
+          disabled={busy}
           onClick={() => onUninstall(item)}
         >
           {t("extensions.uninstall")}

@@ -1,0 +1,27 @@
+{
+  "artifact": "aurona update fixture\n",
+  "config": {
+    "plugins": {
+      "updater": {
+        "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IFBVQkxJQyBURVNUIEZJWFRVUkUgT05MWQpSV1FSRVJFUkVSRVJFUmwvYXlQaGJJVXl4cXZJT1ByTlhxZUp2Z3gyc3BJRE5BT2Irb3M5Tm8xaAo="
+      }
+    }
+  },
+  "auronaRelease": {
+    "metadata": {
+      "schemaVersion": 1,
+      "version": "0.4.14",
+      "channel": "stable",
+      "artifacts": [
+        {
+          "file": "fixture.exe",
+          "platform": "windows-x86_64",
+          "sha256": "e245a427b3805cb57594626bc3c4b6086dcd60730d6cc45c7ecd5f4e7738b195",
+          "sizeBytes": 22,
+          "signature": "untrusted comment: PUBLIC TEST FIXTURE ONLY\nRUQREREREREREWP6T2oK9HgjVXc/vQlFMASPKuQ6NQyh5CQDIO7beULE2hFkb/Oon106oigym9tkgruuGpaA4QO1uaHqf3QLNAA=\ntrusted comment: timestamp:100\tfile:fixture\tprehashed\nANc3zVArRiPsYTPvM3jLna2gZSnukpFygaA77XyUcCaQ+VeZ6nMoGd4OUNpsHQPzfSM9MnHZxWfFGDXK4lLJCw==\n"
+        }
+      ]
+    },
+    "signature": "untrusted comment: PUBLIC TEST FIXTURE ONLY\nRUQREREREREREWkxE613CN2+TeTE33BHnLiCeL95dnMABrXMPL3MXpD58Qxn8muDq4uv6yd7X+pyfewm7PV9uuzPWs88VKCp3gw=\ntrusted comment: timestamp:100\tfile:fixture\tprehashed\nlwy7OGKaCZSdtOgNQcro+RG+TKXicG9Ny9q8AQbpGnj8jVZql5oMsSek3/bvfBh3plbP9MB4yNgsaJ0H4Q+RAQ==\n"
+  }
+}

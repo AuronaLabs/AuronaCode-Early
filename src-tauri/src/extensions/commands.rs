@@ -142,48 +142,36 @@ pub fn extensions_get_diagnostics(
 
 /// 宿主请求-响应桥的前端应答回填（对话框/剪贴板/命令，0.4.6）。
 #[tauri::command]
-pub fn extensions_host_response(request_id: String, value: String) -> bool {
-    super::runtime::host_bridge_respond(&request_id, value)
+pub fn extensions_host_response(
+    workspace: State<WorkspaceState>,
+    request_id: String,
+    extension_id: String,
+    kind: String,
+    generation: u64,
+    value: String,
+) -> bool {
+    if workspace.generation() != generation {
+        return false;
+    }
+    super::runtime::host_bridge_respond(&request_id, &extension_id, &kind, generation, value)
 }
 
-/// 前端向扩展事件队列推送一条事件（文档变更等），扩展经 poll-events 拉取。
 #[tauri::command]
-pub fn extensions_push_event(extension_id: String, event: String) {
-    super::runtime::push_host_event(&extension_id, event);
-}
-
-#[tauri::command]
-pub fn extensions_install(
+pub async fn extensions_install(
     app: tauri::AppHandle,
-    state: State<ExtensionState>,
-    archive_bytes: Vec<u8>,
-    expected_sha256: Option<String>,
+    artifacts: State<'_, crate::artifacts::ArtifactState>,
+    artifact_id: String,
 ) -> Result<ExtensionDescriptor, String> {
-    state.install_package(&app, &archive_bytes, expected_sha256.as_deref())
+    crate::artifacts::install_extension(app, &artifacts, &artifact_id).await
 }
 
 /// 安装本地 .vsix 插件（规划 §5.5：设置页「安装本地 VSCode 插件」入口）。
 #[tauri::command]
-pub fn extensions_install_vscode(
+pub async fn extensions_install_vscode(
     app: tauri::AppHandle,
-    state: State<ExtensionState>,
-    path: String,
+    artifact_id: String,
 ) -> Result<ExtensionDescriptor, String> {
-    let file_path = std::path::PathBuf::from(&path);
-    if !file_path.is_file() {
-        return Err(format!("文件不存在: {path}"));
-    }
-    if file_path
-        .extension()
-        .is_none_or(|ext| !ext.eq_ignore_ascii_case("vsix"))
-    {
-        return Err("请选择 .vsix 插件包文件".to_string());
-    }
-    let bytes = std::fs::read(&file_path).map_err(|error| format!("读取 .vsix 失败: {error}"))?;
-    if bytes.len() as u64 > super::aurx::MAX_ARCHIVE_BYTES {
-        return Err(format!("VSIX 包超过大小上限: {} bytes", bytes.len()));
-    }
-    state.install_vsix_package(&app, &bytes)
+    crate::artifacts::install_vscode(app, &artifact_id).await
 }
 
 /// 安装内置默认测试插件（vscode-demo.vsix，规划 §5.7：随包内置，经设置页一键装载）。
@@ -237,8 +225,8 @@ pub fn extensions_get_view(
         .package(&extension_id)
         .ok_or_else(|| format!("扩展不存在: {extension_id}"))?;
     Ok(ExtensionViewPayload {
-        html: package.view_html.clone(),
-        icon: package.icon_svg.clone(),
+        html: super::content::html(&package.view_html)?,
+        icon: super::content::svg(&package.icon_svg).unwrap_or_default(),
     })
 }
 
@@ -432,6 +420,8 @@ fn build_extension_context(
         },
     );
     context.extension_id = request.extension_id.clone();
+    context.workspace_generation = workspace.generation();
+    context.runtime_lease = Some(super::runtime::runtime_lease(&request.extension_id)?);
     context.data_dir = app.path().app_local_data_dir().ok();
     context.permissions = permissions;
     // 宿主句柄：host 函数用它把编辑器写入 / Fliuno 贡献等请求回传前端。
@@ -464,6 +454,9 @@ pub async fn extensions_render(
     editor: State<'_, EditorState>,
     request: ExtensionRenderRequest,
 ) -> Result<ExtensionRenderResponse, String> {
+    state
+        .authorize_execution(&app, &request.extension_id)
+        .await?;
     let inputs = ExtensionViewInputs::from_render(&request);
     let (context, editor_read, _workspace_read) =
         build_extension_context(&app, &state, &workspace, &editor, &inputs)?;
@@ -489,7 +482,7 @@ pub async fn extensions_render(
     let render_ms = render_started.elapsed().as_secs_f64() * 1000.0;
 
     Ok(ExtensionRenderResponse {
-        html: output.html,
+        html: super::content::html(&output.html)?,
         diagnostics: output.diagnostics,
         metrics: ExtensionRenderMetrics {
             package_open_ms: 0.0,
@@ -507,6 +500,9 @@ pub async fn extensions_on_action(
     editor: State<'_, EditorState>,
     request: ExtensionActionRequest,
 ) -> Result<ExtensionRenderResponse, String> {
+    state
+        .authorize_execution(&app, &request.extension_id)
+        .await?;
     let inputs = ExtensionViewInputs::from_action(&request);
     let (context, _editor_read, _workspace_read) =
         build_extension_context(&app, &state, &workspace, &editor, &inputs)?;
@@ -530,7 +526,7 @@ pub async fn extensions_on_action(
     let action_ms = action_started.elapsed().as_secs_f64() * 1000.0;
 
     Ok(ExtensionRenderResponse {
-        html: output.html,
+        html: super::content::html(&output.html)?,
         diagnostics: output.diagnostics,
         metrics: ExtensionRenderMetrics {
             package_open_ms: 0.0,

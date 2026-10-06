@@ -19,7 +19,7 @@ const ICON_PATH: &str = "assets/icon.svg";
 const EXPECTED_PATHS: [&str; 4] = [MANIFEST_PATH, WASM_PATH, VIEW_PATH, ICON_PATH];
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ExtensionManifest {
     pub package_version: u32,
     pub id: String,
@@ -49,7 +49,7 @@ pub struct ExtensionManifest {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MarketplaceMetadata {
     #[serde(default)]
     pub categories: Vec<String>,
@@ -70,19 +70,19 @@ pub struct MarketplaceMetadata {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EngineRequirement {
     pub aurona_code: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RuntimeEntry {
     pub component: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SidebarEntry {
     pub title: String,
     #[serde(default)]
@@ -91,13 +91,14 @@ pub struct SidebarEntry {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ViewEntry {
     pub entry: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct ExtensionPackage {
+    pub archive_hash: String,
     pub manifest: ExtensionManifest,
     #[allow(dead_code)] // consumed by the extension runtime in later phases
     pub wasm: Vec<u8>,
@@ -208,6 +209,102 @@ fn check_duplicate_paths(archive_bytes: &[u8]) -> Result<(), String> {
 }
 
 fn validate_manifest(manifest: &ExtensionManifest) -> Result<(), String> {
+    for (field, limit) in [
+        (&manifest.description, 8192),
+        (&manifest.readme, 1024 * 1024),
+        (&manifest.changelog, 1024 * 1024),
+    ] {
+        if field
+            .as_ref()
+            .is_some_and(|value| value.len() > limit || value.contains('\0'))
+        {
+            return Err("[aurx.schema] Text field exceeds its limit".into());
+        }
+    }
+    for localized in [
+        &manifest.display_name,
+        &manifest.display_description,
+        &manifest.sidebar.display_title,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if localized.len() > 32
+            || localized.iter().any(|(locale, value)| {
+                locale.len() > 32 || value.len() > 8192 || value.contains('\0')
+            })
+        {
+            return Err("[aurx.schema] Localized metadata exceeds limits".into());
+        }
+    }
+    if manifest.permissions.len() > 64 || manifest.engine.aurona_code.len() > 128 {
+        return Err("[aurx.schema] Permission or engine limits exceeded".into());
+    }
+    if let Some(metadata) = &manifest.marketplace {
+        for list in [&metadata.categories, &metadata.tags] {
+            if list.len() > 64
+                || list
+                    .iter()
+                    .any(|value| value.is_empty() || value.len() > 128 || value.contains('\0'))
+            {
+                return Err("[aurx.schema] Marketplace labels exceed limits".into());
+            }
+        }
+        if metadata
+            .rating
+            .is_some_and(|rating| !rating.is_finite() || !(0.0..=5.0).contains(&rating))
+            || metadata
+                .author
+                .as_ref()
+                .is_some_and(|value| value.len() > 256)
+            || metadata
+                .license
+                .as_ref()
+                .is_some_and(|value| value.len() > 256)
+        {
+            return Err("[aurx.schema] Invalid Marketplace metadata".into());
+        }
+        for raw in [&metadata.homepage, &metadata.repository]
+            .into_iter()
+            .flatten()
+        {
+            if raw.len() > 8192 {
+                return Err("[aurx.schema] Metadata URL exceeds limit".into());
+            }
+            let url = url::Url::parse(raw).map_err(|_| "[aurx.schema] Invalid metadata URL")?;
+            if url.scheme() != "https"
+                || !url.username().is_empty()
+                || url.password().is_some()
+                || url.host_str().is_none()
+            {
+                return Err("[aurx.schema] Metadata URLs require HTTPS without credentials".into());
+            }
+        }
+    }
+    if manifest.id.len() > 128
+        || manifest.publisher.len() > 64
+        || manifest.name.len() > 256
+        || manifest.sidebar.title.len() > 256
+        || manifest.version.len() > 64
+        || !manifest.id.starts_with(&format!("{}.", manifest.publisher))
+        || manifest.publisher.is_empty()
+        || !manifest
+            .publisher
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        || manifest.publisher.starts_with('-')
+        || manifest.publisher.ends_with('-')
+        || manifest
+            .id
+            .split('.')
+            .any(|segment| segment.is_empty() || segment.starts_with('-') || segment.ends_with('-'))
+        || semver::Version::parse(&manifest.version).is_err()
+        || semver::VersionReq::parse(&manifest.engine.aurona_code).is_err()
+    {
+        return Err(
+            "[aurx.schema] Invalid extension identity, version, engine or field length".into(),
+        );
+    }
     if manifest.package_version != 1 {
         return Err(format!(
             "不支持的 AURX packageVersion: {}",
@@ -322,7 +419,8 @@ pub fn open_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, Strin
         }
 
         let mut buffer = Vec::with_capacity(uncompressed as usize);
-        entry
+        (&mut entry)
+            .take(cap + 1)
             .read_to_end(&mut buffer)
             .map_err(|error| format!("读取 AURX 文件失败 {name}: {error}"))?;
         if buffer.len() as u64 != uncompressed {
@@ -358,9 +456,13 @@ pub fn open_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, Strin
             .map_err(|_| "assets/icon.svg 不是有效 UTF-8".to_string())?;
 
     Ok(Arc::new(ExtensionPackage {
+        archive_hash: {
+            use sha2::{Digest, Sha256};
+            format!("{:x}", Sha256::digest(archive_bytes))
+        },
         manifest,
         wasm,
-        view_html,
+        view_html: super::content::html(&view_html)?,
         icon_svg,
         js_source: String::new(),
     }))
@@ -614,6 +716,10 @@ pub fn open_vsix_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, 
     let view_html = r#"<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'none';"></head><body><!--AURONA_RENDER_SLOT--></body></html>"#.to_string();
 
     Ok(Arc::new(ExtensionPackage {
+        archive_hash: {
+            use sha2::{Digest, Sha256};
+            format!("{:x}", Sha256::digest(archive_bytes))
+        },
         manifest,
         wasm: Vec::new(),
         view_html,
@@ -648,7 +754,7 @@ pub(crate) fn valid_manifest_for_tests() -> ExtensionManifest {
         id: "auronalabs.markdown".to_string(),
         name: "Markdown Preview".to_string(),
         display_name: None,
-        publisher: "aurona".to_string(),
+        publisher: "auronalabs".to_string(),
         version: "0.1.0".to_string(),
         description: None,
         display_description: None,
@@ -686,9 +792,11 @@ mod tests {
         // 回归：aurona.vscode-compat 因连字符被误拒，导致兼容层从未进入注册表
         let mut manifest = valid_manifest();
         manifest.id = "aurona.vscode-compat".to_string();
+        manifest.publisher = "aurona".to_string();
         assert!(validate_manifest(&manifest).is_ok());
         let mut underscore_denied = valid_manifest();
         underscore_denied.id = "aurona.vscode_compat".to_string();
+        underscore_denied.publisher = "aurona".to_string();
         assert!(validate_manifest(&underscore_denied).is_err());
     }
 
@@ -776,7 +884,7 @@ mod tests {
     fn opens_valid_package() {
         let package = open_package(&valid_package_bytes()).unwrap();
         assert_eq!(package.id(), "auronalabs.markdown");
-        assert_eq!(package.view_html, "<html><body>view</body></html>");
+        assert_eq!(package.view_html, "view");
     }
 
     #[test]
@@ -999,7 +1107,7 @@ mod tests {
             "packageVersion": 1,
             "id": "auronalabs.legacy",
             "name": "Legacy",
-            "publisher": "aurona",
+            "publisher": "auronalabs",
             "version": "1.0.0",
             "engine": { "auronaCode": ">=0.4.0" },
             "runtime": { "component": "extension.wasm" },

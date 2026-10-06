@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::{Component, Path};
+use std::sync::Arc;
 use std::sync::{LazyLock, Mutex};
 
 use tauri::Emitter;
@@ -25,8 +26,8 @@ pub use exports::aurona::extensions::render::{RenderInput, RenderOutput};
 // 沙箱限额（规划 §5.3.1）：JS 兼容运行时（boa）作为 guest 组件启动与执行的
 // 指令量远大于纯 Rust 组件，64MB/10M fuel 连 QuickJS/boa 启动都不够，
 // 因此统一放宽：内存 256MB 起、执行燃料提到 40 亿，实例化单独 500M。
-const DEFAULT_MEMORY_BYTES: usize = 256 * 1024 * 1024;
-const DEFAULT_FUEL: u64 = 4_000_000_000;
+const DEFAULT_MEMORY_BYTES: usize = 64 * 1024 * 1024;
+const DEFAULT_FUEL: u64 = 100_000_000;
 const INSTANTIATE_FUEL: u64 = 500_000_000;
 const MAX_WORKSPACE_READ_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_WORKSPACE_RANGE_BYTES: u64 = 256 * 1024;
@@ -122,47 +123,103 @@ mod host_bridge {
     use std::collections::HashMap;
     use std::sync::mpsc::{channel, Receiver, Sender};
     use std::sync::{LazyLock, Mutex};
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
 
     struct PendingRequest {
         sender: Sender<String>,
-        #[allow(dead_code)]
         kind: &'static str,
+        extension_id: String,
+        generation: u64,
+        deadline: Instant,
     }
 
     static PENDING: LazyLock<Mutex<HashMap<String, PendingRequest>>> =
         LazyLock::new(|| Mutex::new(HashMap::new()));
 
-    static REQUEST_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-
     pub fn next_request_id() -> String {
-        let count = REQUEST_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|duration| duration.as_nanos())
-            .unwrap_or(0);
-        format!("host-req-{nanos}-{count}")
+        format!("host-req-{:032x}", rand::random::<u128>())
     }
 
     /// 注册请求并返回应答接收端；前端经 `extensions_host_response` 回填。
-    pub fn register(request_id: &str, kind: &'static str) -> Receiver<String> {
+    pub fn register(
+        request_id: &str,
+        kind: &'static str,
+        extension_id: &str,
+        generation: u64,
+        timeout: Duration,
+    ) -> Result<Receiver<String>, String> {
         let (sender, receiver) = channel::<String>();
-        if let Ok(mut guard) = PENDING.lock() {
-            guard.insert(request_id.to_string(), PendingRequest { sender, kind });
+        let mut guard = PENDING
+            .lock()
+            .map_err(|_| "[host.registry] Request registry unavailable")?;
+        guard.retain(|_, pending| pending.deadline > Instant::now());
+        if guard.len() >= 512
+            || guard
+                .values()
+                .filter(|pending| pending.extension_id == extension_id)
+                .count()
+                >= crate::resource_limits::EXTENSION_PENDING
+        {
+            return Err("[resource.limit] Extension pending request limit reached".into());
         }
-        receiver
+        if guard.contains_key(request_id) {
+            return Err("[host.duplicate] Duplicate request handle".into());
+        }
+        guard.insert(
+            request_id.to_string(),
+            PendingRequest {
+                sender,
+                kind,
+                extension_id: extension_id.to_string(),
+                generation,
+                deadline: Instant::now() + timeout,
+            },
+        );
+        Ok(receiver)
     }
 
     /// 前端回填应答；请求不存在（已超时清理）时返回 false。
-    pub fn respond(request_id: &str, value: String) -> bool {
-        let sender: Option<Sender<String>> = PENDING
-            .lock()
-            .ok()
-            .and_then(|mut guard| guard.remove(request_id))
-            .map(|pending| pending.sender);
-        match sender {
-            Some(sender) => sender.send(value).is_ok(),
-            None => false,
+    pub fn respond(
+        request_id: &str,
+        extension_id: &str,
+        kind: &str,
+        generation: u64,
+        value: String,
+    ) -> bool {
+        if value.len() > crate::resource_limits::EXTENSION_PAYLOAD_BYTES
+            || serde_json::from_str::<serde_json::Value>(&value).is_err()
+        {
+            return false;
+        }
+        let Ok(mut guard) = PENDING.lock() else {
+            return false;
+        };
+        let Some(pending) = guard.get(request_id) else {
+            return false;
+        };
+        if pending.deadline <= Instant::now() {
+            guard.remove(request_id);
+            return false;
+        }
+        if pending.extension_id != extension_id
+            || pending.kind != kind
+            || pending.generation != generation
+        {
+            return false;
+        }
+        guard
+            .remove(request_id)
+            .is_some_and(|pending| pending.sender.send(value).is_ok())
+    }
+
+    pub fn cancel(request_id: &str) {
+        if let Ok(mut guard) = PENDING.lock() {
+            guard.remove(request_id);
+        }
+    }
+    pub fn cleanup(extension_id: Option<&str>) {
+        if let Ok(mut guard) = PENDING.lock() {
+            guard.retain(|_, pending| extension_id.is_some_and(|id| id != pending.extension_id));
         }
     }
 
@@ -172,7 +229,7 @@ mod host_bridge {
         receiver: Receiver<String>,
         timeout: Duration,
     ) -> Result<String, String> {
-        match receiver.recv_timeout(timeout) {
+        let result = match receiver.recv_timeout(timeout) {
             Ok(value) => Ok(value),
             Err(_) => {
                 if let Ok(mut guard) = PENDING.lock() {
@@ -180,6 +237,49 @@ mod host_bridge {
                 }
                 Err("[host.timeout] 前端应答超时".to_string())
             }
+        };
+        cancel(request_id);
+        result
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        #[test]
+        fn response_cannot_consume_another_owner_kind_or_generation() {
+            let id = next_request_id();
+            let receiver =
+                register(&id, "confirm", "test.bridge", 42, Duration::from_secs(1)).unwrap();
+            for (owner, kind, generation) in [
+                ("other", "confirm", 42),
+                ("test.bridge", "input", 42),
+                ("test.bridge", "confirm", 43),
+            ] {
+                assert!(!respond(&id, owner, kind, generation, "{}".into()));
+            }
+            assert!(respond(&id, "test.bridge", "confirm", 42, "{}".into()));
+            assert!(!respond(&id, "test.bridge", "confirm", 42, "{}".into()));
+            assert_eq!(
+                wait_response(&id, receiver, Duration::from_secs(1)).unwrap(),
+                "{}"
+            );
+        }
+        #[test]
+        fn expired_and_oversized_responses_fail() {
+            let id = next_request_id();
+            let _receiver = register(&id, "input", "test.expired", 1, Duration::ZERO).unwrap();
+            assert!(!respond(&id, "test.expired", "input", 1, "{}".into()));
+            let id = next_request_id();
+            let _receiver =
+                register(&id, "input", "test.expired", 1, Duration::from_secs(1)).unwrap();
+            assert!(!respond(
+                &id,
+                "test.expired",
+                "input",
+                1,
+                "x".repeat(crate::resource_limits::EXTENSION_PAYLOAD_BYTES + 1)
+            ));
+            cancel(&id);
         }
     }
 }
@@ -188,17 +288,63 @@ mod host_bridge {
 /// `poll-events` 拉取（sync linker 无回调能力，拉取模型替代推送）。
 static HOST_EVENT_QUEUES: LazyLock<Mutex<HashMap<String, Vec<String>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
-const MAX_EVENT_QUEUE: usize = 100;
+static RUNTIME_LEASES: LazyLock<Mutex<HashMap<String, Arc<std::sync::atomic::AtomicBool>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+pub fn runtime_lease(id: &str) -> Result<Arc<std::sync::atomic::AtomicBool>, String> {
+    let mut entries = RUNTIME_LEASES
+        .lock()
+        .map_err(|_| "[extension.lifecycle] Registry unavailable")?;
+    if !entries.contains_key(id) && entries.len() >= 64 {
+        return Err("[resource.limit] Active extension limit reached".into());
+    }
+    Ok(entries
+        .entry(id.to_string())
+        .or_insert_with(|| Arc::new(std::sync::atomic::AtomicBool::new(true)))
+        .clone())
+}
+const MAX_EVENT_QUEUE: usize = crate::resource_limits::EXTENSION_EVENTS;
 
 /// 前端推送一条扩展事件（commands.rs `extensions_push_event` 调用）。
-pub fn push_host_event(extension_id: &str, event: String) {
-    if let Ok(mut guard) = HOST_EVENT_QUEUES.lock() {
-        let queue = guard.entry(extension_id.to_string()).or_default();
-        if queue.len() >= MAX_EVENT_QUEUE {
-            queue.remove(0);
-        }
-        queue.push(event);
+fn push_host_event(
+    extension_id: &str,
+    lease: &Option<Arc<std::sync::atomic::AtomicBool>>,
+    event: String,
+) -> Result<(), String> {
+    let leases = RUNTIME_LEASES
+        .lock()
+        .map_err(|_| "[extension.lifecycle] Registry unavailable")?;
+    if !lease.as_ref().is_some_and(|lease| {
+        lease.load(std::sync::atomic::Ordering::Acquire)
+            && leases
+                .get(extension_id)
+                .is_some_and(|owner| Arc::ptr_eq(owner, lease))
+    }) {
+        return Err("[extension.generation] Event owner expired".into());
     }
+    if event.len() > crate::resource_limits::EXTENSION_PAYLOAD_BYTES {
+        return Err("[resource.limit] Extension event exceeds limit".into());
+    }
+    let value: serde_json::Value =
+        serde_json::from_str(&event).map_err(|_| "[extension.event] Invalid event JSON")?;
+    if !matches!(
+        value.get("type").and_then(serde_json::Value::as_str),
+        Some("workspace-changed" | "document-changed")
+    ) {
+        return Err("[extension.event] Undeclared event kind".into());
+    }
+    let mut guard = HOST_EVENT_QUEUES
+        .lock()
+        .map_err(|_| "[extension.event] Queue unavailable")?;
+    if !guard.contains_key(extension_id) && guard.len() >= 64 {
+        return Err("[resource.limit] Extension event owner limit reached".into());
+    }
+    let queue = guard.entry(extension_id.to_string()).or_default();
+    if queue.len() >= MAX_EVENT_QUEUE {
+        return Err("[extension.overflow] Event queue is full; resynchronization required".into());
+    }
+    queue.push(event);
+    Ok(())
 }
 
 /// 取走该扩展的全部挂起事件。
@@ -216,6 +362,7 @@ fn drain_host_events(extension_id: &str) -> Vec<String> {
 struct ExtensionWatchEntry {
     extension_id: String,
     _watcher: notify::RecommendedWatcher,
+    _lease: crate::resource_limits::WatchLease,
 }
 
 static WATCH_REGISTRY: LazyLock<Mutex<HashMap<u64, ExtensionWatchEntry>>> =
@@ -223,8 +370,34 @@ static WATCH_REGISTRY: LazyLock<Mutex<HashMap<u64, ExtensionWatchEntry>>> =
 static WATCH_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 /// 供 commands.rs 调用的桥应答入口（`extensions_host_response`）。
-pub fn host_bridge_respond(request_id: &str, value: String) -> bool {
-    host_bridge::respond(request_id, value)
+pub fn host_bridge_respond(
+    request_id: &str,
+    extension_id: &str,
+    kind: &str,
+    generation: u64,
+    value: String,
+) -> bool {
+    host_bridge::respond(request_id, extension_id, kind, generation, value)
+}
+
+pub fn cleanup_extension_resources(extension_id: Option<&str>) {
+    host_bridge::cleanup(extension_id);
+    if let Ok(mut guard) = WATCH_REGISTRY.lock() {
+        guard.retain(|_, watch| extension_id.is_some_and(|id| watch.extension_id != id));
+    }
+    if let Ok(mut leases) = RUNTIME_LEASES.lock() {
+        leases.retain(|id, lease| {
+            if extension_id.is_none_or(|removed| id == removed) {
+                lease.store(false, std::sync::atomic::Ordering::Release);
+                false
+            } else {
+                true
+            }
+        });
+    }
+    if let Ok(mut guard) = HOST_EVENT_QUEUES.lock() {
+        guard.retain(|id, _| extension_id.is_some_and(|removed| id != removed));
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -242,9 +415,20 @@ impl Default for ExtensionLimits {
     }
 }
 
+impl ExtensionLimits {
+    pub fn trusted_compat() -> Self {
+        Self {
+            memory_bytes: 256 * 1024 * 1024,
+            fuel: 4_000_000_000,
+        }
+    }
+}
+
 /// Per-call context supplied to the WASM component. The host decides what the
 /// extension may see; the component itself cannot reach beyond these values.
 pub struct ExtensionContext {
+    pub workspace_generation: u64,
+    pub runtime_lease: Option<Arc<std::sync::atomic::AtomicBool>>,
     pub extension_id: String,
     pub workspace_root: Option<std::path::PathBuf>,
     pub workspace_name: Option<String>,
@@ -271,6 +455,8 @@ impl ExtensionContext {
         environment: ContextEnvironment,
     ) -> Self {
         Self {
+            workspace_generation: 0,
+            runtime_lease: None,
             extension_id: "anonymous".to_string(),
             workspace_root,
             workspace_name: None,
@@ -339,12 +525,30 @@ impl ExtensionContext {
     ///   "被用户拒绝"与"当前版本没有这个能力"，而不是拿到一个含义模糊的 Denied。
     /// - 已开放但未授权返回 `Ok(Unknown)`。
     pub fn require(&self, permission: &str) -> Result<ContextPermissionState, String> {
+        self.require_current()?;
         super::permissions::ensure_requestable(permission)?;
         Ok(self
             .permissions
             .get(permission)
             .copied()
             .unwrap_or(ContextPermissionState::Unknown))
+    }
+
+    fn require_current(&self) -> Result<(), String> {
+        use tauri::Manager;
+        if self
+            .runtime_lease
+            .as_ref()
+            .is_some_and(|lease| !lease.load(std::sync::atomic::Ordering::Acquire))
+            || self.app.as_ref().is_some_and(|app| {
+                app.state::<crate::commands::fs::WorkspaceState>()
+                    .generation()
+                    != self.workspace_generation
+            })
+        {
+            return Err("[extension.generation] Runtime or workspace authorization expired".into());
+        }
+        Ok(())
     }
 
     fn is_granted(&self, permission: &str) -> bool {
@@ -413,17 +617,30 @@ impl ExtensionContext {
         mut payload: serde_json::Value,
         timeout: std::time::Duration,
     ) -> Result<String, String> {
+        self.require_current()?;
         let app = self
             .app
             .as_ref()
             .ok_or_else(|| "[host.unavailable] 宿主应用句柄不可用".to_string())?;
         let request_id = host_bridge::next_request_id();
-        let receiver = host_bridge::register(&request_id, kind);
+        use tauri::Manager;
+        let generation = app
+            .state::<crate::commands::fs::WorkspaceState>()
+            .generation();
+        let timeout = timeout.min(std::time::Duration::from_secs(60));
+        if payload.to_string().len() > crate::resource_limits::EXTENSION_PAYLOAD_BYTES {
+            return Err("[resource.limit] Host request payload exceeds limit".into());
+        }
+        let receiver =
+            host_bridge::register(&request_id, kind, &self.extension_id, generation, timeout)?;
         payload["requestId"] = serde_json::json!(request_id);
         payload["kind"] = serde_json::json!(kind);
         payload["extensionId"] = serde_json::json!(self.extension_id);
-        app.emit("extension://host-request", payload)
-            .map_err(|error| format!("[host.emit] 发送宿主请求失败: {error}"))?;
+        payload["generation"] = serde_json::json!(generation);
+        if let Err(error) = app.emit("extension://host-request", payload) {
+            host_bridge::cancel(&request_id);
+            return Err(format!("[host.emit] {error}"));
+        }
         host_bridge::wait_response(&request_id, receiver, timeout)
     }
 
@@ -765,11 +982,39 @@ impl aurona::extensions::context::Host for ExtensionContext {
         let watch_id = WATCH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let registry_extension_id = self.extension_id.clone();
         let thread_extension_id = self.extension_id.clone();
+        let mut registry = WATCH_REGISTRY
+            .lock()
+            .map_err(|_| "[host.error] Watch registry unavailable")?;
+        self.require_current()?;
+        if registry.len() >= 64
+            || registry
+                .values()
+                .filter(|watch| watch.extension_id == registry_extension_id)
+                .count()
+                >= 4
+        {
+            return Err("[resource.limit] Extension watcher limit reached".into());
+        }
+        use tauri::Manager;
+        let app = self
+            .app
+            .clone()
+            .ok_or("[host.unavailable] Watcher requires an active host")?;
+        let generation = app
+            .state::<crate::commands::fs::WorkspaceState>()
+            .generation();
+        let watcher_lease =
+            crate::resource_limits::acquire_watcher(generation, Some(&registry_extension_id))?;
+        let lease = self.runtime_lease.clone();
 
-        let (sender, receiver) = mpsc::channel::<notify::Result<notify::Event>>();
+        let (sender, receiver) = mpsc::sync_channel::<notify::Result<notify::Event>>(256);
+        let overflow = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let callback_overflow = overflow.clone();
         let mut watcher =
             notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
-                let _ = sender.send(event);
+                if sender.try_send(event).is_err() {
+                    callback_overflow.store(true, std::sync::atomic::Ordering::Release);
+                }
             })
             .map_err(|error| format!("无法创建文件监听器: {error}"))?;
         watcher
@@ -778,9 +1023,22 @@ impl aurona::extensions::context::Host for ExtensionContext {
 
         // 聚合线程：300ms 窗口合并事件后写入扩展事件队列（poll-events 拉取）
         std::thread::spawn(move || {
-            let mut pending: Vec<String> = Vec::new();
+            let mut pending = crate::resource_limits::WatchBatch::default();
+            let mut flush_at = std::time::Instant::now() + Duration::from_millis(100);
             loop {
-                match receiver.recv_timeout(Duration::from_millis(300)) {
+                if app
+                    .state::<crate::commands::fs::WorkspaceState>()
+                    .generation()
+                    != generation
+                    || lease
+                        .as_ref()
+                        .is_some_and(|lease| !lease.load(std::sync::atomic::Ordering::Acquire))
+                {
+                    break;
+                }
+                match receiver
+                    .recv_timeout(flush_at.saturating_duration_since(std::time::Instant::now()))
+                {
                     Ok(Ok(event)) => {
                         for changed in event.paths {
                             if filter_path
@@ -792,34 +1050,37 @@ impl aurona::extensions::context::Host for ExtensionContext {
                             pending.push(changed.to_string_lossy().into_owned());
                         }
                     }
-                    Ok(Err(_)) => {}
-                    Err(mpsc::RecvTimeoutError::Timeout) => {
-                        if !pending.is_empty() {
-                            let payload = serde_json::json!({
-                                "type": "workspace-changed",
-                                "watchId": watch_id,
-                                "paths": std::mem::take(&mut pending),
-                            });
-                            push_host_event(&thread_extension_id, payload.to_string());
+                    Ok(Err(_)) => {
+                        overflow.store(true, std::sync::atomic::Ordering::Release);
+                    }
+                    Err(mpsc::RecvTimeoutError::Timeout) => {}
+                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                }
+                if std::time::Instant::now() >= flush_at {
+                    let overflowed = overflow.swap(false, std::sync::atomic::Ordering::AcqRel);
+                    if pending.has_events() || overflowed {
+                        let (paths, batch_overflow) = pending.take();
+                        let payload = serde_json::json!({ "type": "workspace-changed", "watchId": watch_id,
+                            "paths": paths, "overflow": overflowed || batch_overflow });
+                        if push_host_event(&thread_extension_id, &lease, payload.to_string())
+                            .is_err()
+                        {
+                            overflow.store(true, std::sync::atomic::Ordering::Release);
                         }
                     }
-                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                    flush_at = std::time::Instant::now() + Duration::from_millis(100);
                 }
             }
         });
 
-        match WATCH_REGISTRY.lock() {
-            Ok(mut guard) => {
-                guard.insert(
-                    watch_id,
-                    ExtensionWatchEntry {
-                        extension_id: registry_extension_id,
-                        _watcher: watcher,
-                    },
-                );
-            }
-            Err(_) => return Err("[host.error] 监视注册表不可用".to_string()),
-        }
+        registry.insert(
+            watch_id,
+            ExtensionWatchEntry {
+                extension_id: registry_extension_id,
+                _watcher: watcher,
+                _lease: watcher_lease,
+            },
+        );
         Ok(watch_id)
     }
 
@@ -1251,6 +1512,9 @@ impl aurona::extensions::context::Host for ExtensionContext {
     }
 
     fn poll_events(&mut self) -> Vec<String> {
+        if self.require_current().is_err() {
+            return Vec::new();
+        }
         drain_host_events(&self.extension_id)
     }
 
@@ -1272,6 +1536,64 @@ pub struct ExtensionRuntime {
     limits: ExtensionLimits,
 }
 
+static SHARED_ENGINE: LazyLock<Result<Engine, String>> = LazyLock::new(|| {
+    let mut config = Config::new();
+    config.consume_fuel(true).epoch_interruption(true);
+    config.cranelift_opt_level(wasmtime::OptLevel::Speed);
+    config.parallel_compilation(true);
+    let engine = Engine::new(&config).map_err(|error| format!("[wasm.engine] {error}"))?;
+    let ticker = engine.clone();
+    std::thread::Builder::new()
+        .name("aurona-wasm-deadline".into())
+        .spawn(move || loop {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            ticker.increment_epoch();
+        })
+        .map_err(|error| error.to_string())?;
+    Ok(engine)
+});
+
+struct CompiledComponent {
+    hash: String,
+    bytes: usize,
+    component: wasmtime::component::Component,
+}
+static COMPONENT_CACHE: LazyLock<Mutex<std::collections::VecDeque<CompiledComponent>>> =
+    LazyLock::new(|| Mutex::new(std::collections::VecDeque::new()));
+
+fn compiled_component(bytes: &[u8]) -> Result<(Engine, wasmtime::component::Component), String> {
+    use sha2::{Digest, Sha256};
+    let hash = format!("{:x}", Sha256::digest(bytes));
+    let engine = SHARED_ENGINE.as_ref().map_err(Clone::clone)?.clone();
+    let mut cache = COMPONENT_CACHE
+        .lock()
+        .map_err(|_| "[wasm.cache] Compilation cache unavailable")?;
+    if let Some(index) = cache.iter().position(|entry| entry.hash == hash) {
+        let entry = cache
+            .remove(index)
+            .ok_or("[wasm.cache] Cache entry disappeared")?;
+        let component = entry.component.clone();
+        cache.push_back(entry);
+        return Ok((engine, component));
+    }
+    let component = wasmtime::component::Component::new(&engine, bytes)
+        .map_err(|error| format!("[wasm.component] {error}"))?;
+    const SOURCE_LIMIT: usize = 64 * 1024 * 1024;
+    if bytes.len() <= SOURCE_LIMIT {
+        while cache.len() >= 8
+            || cache.iter().map(|entry| entry.bytes).sum::<usize>() + bytes.len() > SOURCE_LIMIT
+        {
+            cache.pop_front();
+        }
+        cache.push_back(CompiledComponent {
+            hash,
+            bytes: bytes.len(),
+            component: component.clone(),
+        });
+    }
+    Ok((engine, component))
+}
+
 impl ExtensionRuntime {
     pub fn new(component_bytes: &[u8], limits: ExtensionLimits) -> Result<Self, String> {
         // 防御性校验：空/非 wasm 字节会被 wasmtime 当作 WAT 文本解析，
@@ -1288,15 +1610,7 @@ impl ExtensionRuntime {
             );
         }
 
-        let mut config = Config::new();
-        config.consume_fuel(true);
-        config.cranelift_opt_level(wasmtime::OptLevel::Speed);
-        config.parallel_compilation(true);
-
-        let engine =
-            Engine::new(&config).map_err(|error| format!("Wasmtime 引擎初始化失败: {error}"))?;
-        let component = wasmtime::component::Component::new(&engine, component_bytes)
-            .map_err(|error| format!("WASM 组件无效: {error}"))?;
+        let (engine, component) = compiled_component(component_bytes)?;
 
         let mut linker = Linker::new(&engine);
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)
@@ -1331,6 +1645,7 @@ impl ExtensionRuntime {
             .build();
 
         let mut store = Store::new(&self.engine, context);
+        store.set_epoch_deadline(3000);
         store.limiter(|state| &mut state.limits);
         store
             .set_fuel(INSTANTIATE_FUEL)
@@ -1681,5 +1996,40 @@ mod tests {
             assert!(resolve_storage_file(&directory, key).is_err(), "{key}");
         }
         std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn events_require_current_owner_declared_kind_bounded_payload_and_preserve_order() {
+        let owner = "test.event-owner";
+        let other = "test.event-other";
+        let lease = Some(runtime_lease(owner).unwrap());
+        let other_lease = Some(runtime_lease(other).unwrap());
+        let event =
+            |index| serde_json::json!({"type":"document-changed", "index":index}).to_string();
+        assert!(push_host_event(owner, &None, event(0)).is_err());
+        assert!(push_host_event(owner, &other_lease, event(0)).is_err());
+        assert!(push_host_event(owner, &lease, "{\"type\":\"execute\"}".into()).is_err());
+        assert!(push_host_event(
+            owner,
+            &lease,
+            "x".repeat(crate::resource_limits::EXTENSION_PAYLOAD_BYTES + 1)
+        )
+        .is_err());
+        for index in 0..MAX_EVENT_QUEUE {
+            push_host_event(owner, &lease, event(index)).unwrap();
+        }
+        assert!(push_host_event(owner, &lease, event(MAX_EVENT_QUEUE)).is_err());
+        let events = drain_host_events(owner);
+        assert_eq!(events.len(), MAX_EVENT_QUEUE);
+        for (index, actual) in events.iter().enumerate() {
+            assert_eq!(actual, &event(index));
+        }
+        cleanup_extension_resources(Some(owner));
+        assert!(push_host_event(owner, &lease, event(0)).is_err());
+        let fresh = Some(runtime_lease(owner).unwrap());
+        assert!(push_host_event(owner, &lease, event(0)).is_err());
+        push_host_event(owner, &fresh, event(0)).unwrap();
+        cleanup_extension_resources(Some(owner));
+        cleanup_extension_resources(Some(other));
     }
 }

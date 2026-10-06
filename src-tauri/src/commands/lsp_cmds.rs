@@ -1,9 +1,12 @@
+use crate::commands::fs::WorkspaceState;
+use crate::launch_registry::{LaunchRegistry, LaunchSpec};
 use crate::lsp::{self, LanguageServerInfo};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
+use tauri::Manager;
 use tauri::State;
 
 fn file_path_to_uri(path: &str) -> Result<String, String> {
@@ -57,7 +60,7 @@ impl Default for LanguageServerStartOptions {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct LanguageServerLaunch {
     language: String,
     command: String,
@@ -67,12 +70,14 @@ struct LanguageServerLaunch {
     initialization_options: serde_json::Value,
     settings: serde_json::Value,
     request_timeout_ms: u64,
+    launch_id: String,
 }
 
 pub struct LspState {
     pub clients: tokio::sync::Mutex<HashMap<String, Arc<lsp::LspClient>>>,
     launches: tokio::sync::Mutex<HashMap<String, LanguageServerLaunch>>,
-    opened_docs: tokio::sync::Mutex<std::collections::HashSet<String>>,
+    opened_docs: tokio::sync::Mutex<HashMap<String, i32>>,
+    lifecycle: tokio::sync::Mutex<()>,
 }
 
 impl LspState {
@@ -80,7 +85,8 @@ impl LspState {
         Self {
             clients: tokio::sync::Mutex::new(HashMap::new()),
             launches: tokio::sync::Mutex::new(HashMap::new()),
-            opened_docs: tokio::sync::Mutex::new(std::collections::HashSet::new()),
+            opened_docs: tokio::sync::Mutex::new(HashMap::new()),
+            lifecycle: tokio::sync::Mutex::new(()),
         }
     }
 }
@@ -223,6 +229,7 @@ fn resolve_builtin_launch(
         initialization_options: options.initialization_options,
         settings: options.settings,
         request_timeout_ms: options.request_timeout_ms.clamp(1_000, 120_000),
+        launch_id: String::new(),
     })
 }
 
@@ -231,8 +238,30 @@ async fn start_launch(
     app_handle: tauri::AppHandle,
     state: &State<'_, LspState>,
 ) -> Result<(), String> {
-    if state.clients.lock().await.contains_key(&launch.language) {
-        return Ok(());
+    let workspace = app_handle.state::<WorkspaceState>();
+    let generation = workspace.generation();
+    let tool_use = crate::toolchains::acquire_launch_use(
+        &app_handle,
+        &launch.command,
+        &launch.args,
+        launch.workspace_root.as_deref().unwrap_or_default(),
+    )?;
+    app_handle
+        .state::<LaunchRegistry>()
+        .resolve(&workspace, &launch.launch_id, "lsp")?;
+    let existing = state.clients.lock().await.get(&launch.language).cloned();
+    if let Some(existing) = existing {
+        if existing.generation() == generation {
+            return Ok(());
+        }
+        state.clients.lock().await.remove(&launch.language);
+        existing.shutdown().await;
+        let prefix = format!("{}:", launch.language);
+        state
+            .opened_docs
+            .lock()
+            .await
+            .retain(|key, _| !key.starts_with(&prefix));
     }
 
     let client = Arc::new(
@@ -244,6 +273,8 @@ async fn start_launch(
             launch.env.clone(),
             Duration::from_millis(launch.request_timeout_ms),
             app_handle.clone(),
+            tool_use,
+            generation,
         )
         .await?,
     );
@@ -265,7 +296,7 @@ async fn start_launch(
         _ => serde_json::Value::Null,
     };
     let version = app_handle.package_info().version.to_string();
-    let initialize_result = client
+    let initialize_result = match client
         .call(
             "initialize",
             serde_json::json!({
@@ -277,7 +308,14 @@ async fn start_launch(
                 "capabilities": client_capabilities()
             }),
         )
-        .await?;
+        .await
+    {
+        Ok(value) => value,
+        Err(error) => {
+            client.shutdown().await;
+            return Err(error);
+        }
+    };
     let capabilities = initialize_result
         .get("capabilities")
         .cloned()
@@ -293,6 +331,10 @@ async fn start_launch(
             .await?;
     }
 
+    if workspace.generation() != generation {
+        client.shutdown().await;
+        return Err("[workspace.generation] Workspace changed while starting LSP".into());
+    }
     state
         .clients
         .lock()
@@ -370,18 +412,65 @@ fn client_capabilities() -> serde_json::Value {
 }
 
 #[tauri::command]
-pub async fn lsp_start(
+pub async fn lsp_prepare(
     language: String,
     options: Option<LanguageServerStartOptions>,
     app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    let workspace = app_handle.state::<WorkspaceState>();
+    let root = workspace
+        .root()?
+        .ok_or("[workspace.closed] Open a workspace before starting LSP")?;
+    let mut options = options.unwrap_or_default();
+    if let Some(requested) = options.workspace_root.as_deref() {
+        if workspace.require_directory(requested)? != root {
+            return Err("[workspace.boundary] LSP root must match the active workspace".into());
+        }
+    }
+    options.workspace_root = Some(root.to_string_lossy().into_owned());
+    let launch = resolve_builtin_launch(&language, options, &app_handle)?;
+    crate::launch_registry::authorize(
+        &app_handle,
+        LaunchSpec {
+            kind: "lsp".into(),
+            command: launch.command.clone(),
+            args: launch.args.clone(),
+            cwd: launch
+                .workspace_root
+                .clone()
+                .ok_or("[workspace.closed] Missing LSP workspace")?,
+            env: launch.env.clone(),
+            configuration: serde_json::to_value(&launch).map_err(|e| e.to_string())?,
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn lsp_start(
+    launch_id: String,
+    app_handle: tauri::AppHandle,
     state: State<'_, LspState>,
 ) -> Result<(), String> {
-    let launch = resolve_builtin_launch(&language, options.unwrap_or_default(), &app_handle)?;
+    let spec = app_handle.state::<LaunchRegistry>().resolve(
+        &app_handle.state::<WorkspaceState>(),
+        &launch_id,
+        "lsp",
+    )?;
+    let mut launch: LanguageServerLaunch = serde_json::from_value(spec.configuration)
+        .map_err(|_| "[launch.configuration] Invalid LSP launch")?;
+    launch.command = spec.command;
+    launch.args = spec.args;
+    launch.env = spec.env;
+    launch.workspace_root = Some(spec.cwd);
+    launch.launch_id = launch_id;
+    let _lifecycle = state.lifecycle.lock().await;
     start_launch(launch, app_handle, &state).await
 }
 
 #[tauri::command]
 pub async fn lsp_stop(language: String, state: State<'_, LspState>) -> Result<(), String> {
+    let _lifecycle = state.lifecycle.lock().await;
     let key = canonical_language(&language);
     let client = state.clients.lock().await.remove(key);
     if let Some(client) = client {
@@ -392,7 +481,7 @@ pub async fn lsp_stop(language: String, state: State<'_, LspState>) -> Result<()
         .opened_docs
         .lock()
         .await
-        .retain(|k| !k.starts_with(&prefix));
+        .retain(|k, _| !k.starts_with(&prefix));
     Ok(())
 }
 
@@ -402,6 +491,7 @@ pub async fn lsp_restart(
     app_handle: tauri::AppHandle,
     state: State<'_, LspState>,
 ) -> Result<(), String> {
+    let _lifecycle = state.lifecycle.lock().await;
     let key = canonical_language(&language).to_string();
     let launch = state
         .launches
@@ -418,7 +508,7 @@ pub async fn lsp_restart(
         .opened_docs
         .lock()
         .await
-        .retain(|k| !k.starts_with(&prefix));
+        .retain(|k, _| !k.starts_with(&prefix));
     start_launch(launch, app_handle, &state).await
 }
 
@@ -440,6 +530,7 @@ pub async fn lsp_status(state: State<'_, LspState>) -> Result<Vec<LanguageServer
 
 #[tauri::command]
 pub async fn lsp_stop_all(state: State<'_, LspState>) -> Result<(), String> {
+    let _lifecycle = state.lifecycle.lock().await;
     state.opened_docs.lock().await.clear();
     let clients = state
         .clients
@@ -454,6 +545,33 @@ pub async fn lsp_stop_all(state: State<'_, LspState>) -> Result<(), String> {
     Ok(())
 }
 
+pub async fn stop_workspace_sessions(state: State<'_, LspState>, generation: u64) {
+    let _lifecycle = state.lifecycle.lock().await;
+    let mut clients = state.clients.lock().await;
+    let keys = clients
+        .iter()
+        .filter(|(_, client)| client.generation() <= generation)
+        .map(|(key, _)| key.clone())
+        .collect::<Vec<_>>();
+    let removed = keys
+        .iter()
+        .filter_map(|key| clients.remove(key))
+        .collect::<Vec<_>>();
+    drop(clients);
+    let mut docs = state.opened_docs.lock().await;
+    let mut launches = state.launches.lock().await;
+    for key in keys {
+        launches.remove(&key);
+        let prefix = format!("{key}:");
+        docs.retain(|key, _| !key.starts_with(&prefix));
+    }
+    drop(docs);
+    drop(launches);
+    for client in removed {
+        client.shutdown().await;
+    }
+}
+
 #[tauri::command]
 pub async fn lsp_did_open(
     language: String,
@@ -461,11 +579,19 @@ pub async fn lsp_did_open(
     text: String,
     version: i32,
     state: State<'_, LspState>,
+    workspace: State<'_, WorkspaceState>,
 ) -> Result<(), String> {
+    workspace.validate_path(&path, false)?;
+    validate_document(&text, version)?;
     if let Some(client) = get_client(&state, &language).await {
         let uri = file_path_to_uri(&path)?;
         let doc_key = format!("{}:{}", canonical_language(&language), uri);
-        state.opened_docs.lock().await.insert(doc_key);
+        let mut docs = state.opened_docs.lock().await;
+        if docs.contains_key(&doc_key) {
+            return Err(
+                "[lsp.revision] Document is already open; resynchronize before opening".into(),
+            );
+        }
 
         client
             .notify(
@@ -480,6 +606,7 @@ pub async fn lsp_did_open(
                 }),
             )
             .await?;
+        docs.insert(doc_key, version);
     }
     Ok(())
 }
@@ -513,16 +640,34 @@ pub async fn lsp_did_change(
     version: i32,
     changes: Option<Vec<LspContentChange>>,
     state: State<'_, LspState>,
+    workspace: State<'_, WorkspaceState>,
 ) -> Result<(), String> {
+    workspace.validate_path(&path, false)?;
+    validate_document(&text, version)?;
+    if let Some(list) = &changes {
+        if list.len() > 1024
+            || list.iter().map(|change| change.text.len()).sum::<usize>() > 1024 * 1024
+        {
+            return Err("[lsp.resync_required] Incremental change exceeds limit; send a full resynchronization".into());
+        }
+    }
     if let Some(client) = get_client(&state, &language).await {
         let uri = file_path_to_uri(&path)?;
         let doc_key = format!("{}:{}", canonical_language(&language), uri);
-        let is_opened = state.opened_docs.lock().await.contains(&doc_key);
+        let mut docs = state.opened_docs.lock().await;
+        let is_opened = docs.contains_key(&doc_key);
+        if docs
+            .get(&doc_key)
+            .is_some_and(|previous| version <= *previous)
+        {
+            return Err(
+                "[lsp.revision] Stale document revision; resynchronization required".into(),
+            );
+        }
 
         if !is_opened {
             // 如果尚未发送过 didOpen，先行发送一次以确保语言服务器初始化资源，避免 Unexpected resource 异常
-            state.opened_docs.lock().await.insert(doc_key);
-            let _ = client
+            client
                 .notify(
                     "textDocument/didOpen",
                     serde_json::json!({
@@ -534,7 +679,8 @@ pub async fn lsp_did_change(
                         }
                     }),
                 )
-                .await;
+                .await?;
+            docs.insert(doc_key, version);
             return Ok(());
         }
 
@@ -557,6 +703,7 @@ pub async fn lsp_did_change(
                 }),
             )
             .await?;
+        docs.insert(doc_key, version);
     }
     Ok(())
 }
@@ -567,7 +714,12 @@ pub async fn lsp_did_save(
     path: String,
     text: Option<String>,
     state: State<'_, LspState>,
+    workspace: State<'_, WorkspaceState>,
 ) -> Result<(), String> {
+    workspace.validate_path(&path, true)?;
+    if let Some(text) = &text {
+        validate_document(text, 0)?;
+    }
     if let Some(client) = get_client(&state, &language).await {
         let uri = file_path_to_uri(&path)?;
         let mut params = serde_json::json!({
@@ -593,7 +745,7 @@ pub async fn lsp_did_close(
         let was_opened = state.opened_docs.lock().await.remove(&doc_key);
 
         // 仅当此前确已对该语言服务器发送过 didOpen 时，才向服务器派发 didClose，彻底避免 "Trying to close not opened document" 报错
-        if was_opened {
+        if was_opened.is_some() {
             let _ = client
                 .notify(
                     "textDocument/didClose",
@@ -613,11 +765,20 @@ pub async fn lsp_call(
     method: String,
     params: serde_json::Value,
     state: State<'_, LspState>,
+    workspace: State<'_, WorkspaceState>,
 ) -> Result<serde_json::Value, String> {
     let client = get_client(&state, &language)
         .await
         .ok_or_else(|| format!("Language server for {language} is not running"))?;
-    client.call(&method, params).await
+    validate_protocol_paths(&workspace, &params, 0)?;
+    validate_method(&client.info().await.capabilities, &method)?;
+    let generation = workspace.generation();
+    let result = client.call(&method, params).await?;
+    if workspace.generation() != generation {
+        return Err("[workspace.generation] Workspace changed during LSP request".into());
+    }
+    validate_protocol_paths(&workspace, &result, 0)?;
+    Ok(result)
 }
 
 #[tauri::command]
@@ -627,11 +788,104 @@ pub async fn lsp_call_with_id(
     method: String,
     params: serde_json::Value,
     state: State<'_, LspState>,
+    workspace: State<'_, WorkspaceState>,
 ) -> Result<serde_json::Value, String> {
     let client = get_client(&state, &language)
         .await
         .ok_or_else(|| format!("Language server for {language} is not running"))?;
-    client.call_with_id(id, &method, params).await
+    validate_protocol_paths(&workspace, &params, 0)?;
+    validate_method(&client.info().await.capabilities, &method)?;
+    let generation = workspace.generation();
+    let result = client.call_with_id(id, &method, params).await?;
+    if workspace.generation() != generation {
+        return Err("[workspace.generation] Workspace changed during LSP request".into());
+    }
+    validate_protocol_paths(&workspace, &result, 0)?;
+    Ok(result)
+}
+
+fn validate_document(text: &str, version: i32) -> Result<(), String> {
+    if version < 0 || text.len() > 16 * 1024 * 1024 {
+        return Err("[resource.limit] LSP document exceeds limit or has invalid revision".into());
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_protocol_paths(
+    workspace: &WorkspaceState,
+    value: &serde_json::Value,
+    depth: usize,
+) -> Result<(), String> {
+    if depth > 64 {
+        return Err("[resource.limit] LSP value nesting exceeds limit".into());
+    }
+    match value {
+        serde_json::Value::Array(items) => {
+            for item in items {
+                validate_protocol_paths(workspace, item, depth + 1)?;
+            }
+        }
+        serde_json::Value::Object(items) => {
+            for (key, item) in items {
+                if key.starts_with("file:") {
+                    validate_uri(workspace, key)?;
+                }
+                if matches!(key.as_str(), "uri" | "targetUri" | "oldUri" | "newUri") {
+                    let uri = item
+                        .as_str()
+                        .ok_or("[lsp.uri] Document URI must be a string")?;
+                    validate_uri(workspace, uri)?;
+                }
+                validate_protocol_paths(workspace, item, depth + 1)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn validate_uri(workspace: &WorkspaceState, raw: &str) -> Result<(), String> {
+    let path = url::Url::parse(raw)
+        .map_err(|_| "[lsp.uri] Invalid document URI")?
+        .to_file_path()
+        .map_err(|_| "[lsp.uri] Only scoped file URIs are allowed")?;
+    if workspace.contains(&path.to_string_lossy())? {
+        workspace.validate_path(&path.to_string_lossy(), false)
+    } else {
+        workspace.file_access(&path.to_string_lossy()).map(|_| ())
+    }
+}
+
+fn validate_method(capabilities: &serde_json::Value, method: &str) -> Result<(), String> {
+    let capability = match method {
+        "textDocument/completion" | "completionItem/resolve" => "completionProvider",
+        "textDocument/hover" => "hoverProvider",
+        "textDocument/definition" => "definitionProvider",
+        "textDocument/declaration" => "declarationProvider",
+        "textDocument/typeDefinition" => "typeDefinitionProvider",
+        "textDocument/implementation" => "implementationProvider",
+        "textDocument/references" => "referencesProvider",
+        "textDocument/documentSymbol" => "documentSymbolProvider",
+        "workspace/symbol" => "workspaceSymbolProvider",
+        "textDocument/rename" | "textDocument/prepareRename" => "renameProvider",
+        "textDocument/formatting" => "documentFormattingProvider",
+        "textDocument/rangeFormatting" => "documentRangeFormattingProvider",
+        "textDocument/codeAction" | "codeAction/resolve" => "codeActionProvider",
+        "textDocument/signatureHelp" => "signatureHelpProvider",
+        "textDocument/semanticTokens/full" | "textDocument/semanticTokens/range" => {
+            "semanticTokensProvider"
+        }
+        "textDocument/foldingRange" => "foldingRangeProvider",
+        "textDocument/inlayHint" | "inlayHint/resolve" => "inlayHintProvider",
+        _ => return Err("[lsp.method] Method is not in the host allowlist".into()),
+    };
+    if !capabilities
+        .get(capability)
+        .is_some_and(|value| !value.is_null() && value != false)
+    {
+        return Err("[lsp.capability] Method was not negotiated with the server".into());
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -689,12 +943,17 @@ pub fn lsp_toolchain_status(app: tauri::AppHandle, language: String) -> Language
 }
 
 #[tauri::command]
-pub fn lsp_toolchain_install(
+pub async fn lsp_toolchain_install(
     app: tauri::AppHandle,
-    archive_bytes: Vec<u8>,
-    expected_sha256: Option<String>,
+    artifact_id: String,
+    task_id: Option<String>,
 ) -> Result<crate::toolchains::InstalledToolchainSummary, String> {
-    crate::toolchains::install_toolchain_archive(&app, &archive_bytes, expected_sha256.as_deref())
+    crate::artifacts::install_toolchain(
+        app,
+        &artifact_id,
+        &task_id.unwrap_or_else(|| format!("install-{:032x}", rand::random::<u128>())),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -703,8 +962,18 @@ pub async fn lsp_toolchain_install_url(
     download_id: String,
     url: String,
     expected_sha256: Option<String>,
-) -> Result<crate::toolchains::InstalledToolchainSummary, String> {
-    crate::toolchains::install_toolchain_from_url(app, download_id, url, expected_sha256).await
+    expected_id: String,
+    expected_version: Option<String>,
+) -> Result<crate::artifacts::ArtifactHandle, String> {
+    crate::toolchains::install_toolchain_from_url(
+        app,
+        download_id,
+        url,
+        expected_sha256,
+        expected_id,
+        expected_version,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -739,6 +1008,76 @@ mod tests {
     fn javascript_and_typescript_share_a_server() {
         assert_eq!(canonical_language("javascript"), "typescript");
         assert_eq!(canonical_language("typescript"), "typescript");
+    }
+
+    #[test]
+    fn protocol_paths_check_nested_workspace_edits_and_explicit_external_files() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let workspace = crate::commands::fs::WorkspaceState::test_root(root.path());
+        let inside = root.path().join("valid.ts");
+        let external = outside.path().join("definition.ts");
+        std::fs::write(&inside, "valid").unwrap();
+        std::fs::write(&external, "external").unwrap();
+        let inside_uri = file_path_to_uri(&inside.to_string_lossy()).unwrap();
+        let outside_uri = file_path_to_uri(&external.to_string_lossy()).unwrap();
+        let valid =
+            serde_json::json!({"documentChanges":[{"textDocument":{"uri":inside_uri},"edits":[]}]});
+        assert!(super::validate_protocol_paths(&workspace, &valid, 0).is_ok());
+        let invalid = serde_json::json!({"changes":{outside_uri.clone():[]}});
+        assert!(super::validate_protocol_paths(&workspace, &invalid, 0).is_err());
+        assert!(super::validate_protocol_paths(
+            &workspace,
+            &serde_json::json!({"targetUri": outside_uri}),
+            0
+        )
+        .is_err());
+        for uri in [
+            serde_json::json!(17),
+            serde_json::json!("https://example.com/file"),
+            serde_json::Value::Null,
+        ] {
+            assert!(
+                super::validate_protocol_paths(&workspace, &serde_json::json!({"uri":uri}), 0)
+                    .is_err()
+            );
+        }
+        workspace
+            .authorize_path(&external.to_string_lossy())
+            .unwrap();
+        assert!(super::validate_protocol_paths(&workspace, &invalid, 0).is_ok());
+        let mut nested = valid;
+        for _ in 0..65 {
+            nested = serde_json::json!([nested]);
+        }
+        assert!(super::validate_protocol_paths(&workspace, &nested, 0).is_err());
+    }
+
+    #[test]
+    fn generic_lsp_methods_require_an_explicit_negotiated_capability() {
+        assert!(super::validate_method(&serde_json::json!({}), "textDocument/hover").is_err());
+        assert!(super::validate_method(
+            &serde_json::json!({"hoverProvider":false}),
+            "textDocument/hover"
+        )
+        .is_err());
+        assert!(super::validate_method(
+            &serde_json::json!({"hoverProvider":true}),
+            "textDocument/hover"
+        )
+        .is_ok());
+        assert!(super::validate_method(
+            &serde_json::json!({"executeCommandProvider":true}),
+            "workspace/executeCommand"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn document_limits_reject_oversize_and_negative_revisions() {
+        assert!(super::validate_document("hello", -1).is_err());
+        assert!(super::validate_document(&"x".repeat(16 * 1024 * 1024 + 1), 1).is_err());
+        assert!(super::validate_document("hello", 1).is_ok());
     }
 
     #[cfg(windows)]

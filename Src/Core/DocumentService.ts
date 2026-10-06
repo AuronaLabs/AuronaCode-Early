@@ -17,6 +17,7 @@ export interface DocumentRecord {
   path: string;
   languageId: string;
   content: string;
+  savedContent?: string;
   version: number;
   savedVersion: number;
   isDirty: boolean;
@@ -64,6 +65,7 @@ class DocumentServiceImpl {
       path,
       languageId: GetLanguageFromPath(path),
       content: "",
+      savedContent: "",
       version: 0,
       savedVersion: 0,
       isDirty: false,
@@ -109,8 +111,15 @@ class DocumentServiceImpl {
     text: string,
     nextContent: string,
     origin: DocumentChangeOrigin = "local",
+    expectedRevision?: number,
   ): Promise<void> {
-    await this.applyEdits(path, [{ startUtf16, endUtf16, text }], nextContent, origin);
+    await this.applyEdits(
+      path,
+      [{ startUtf16, endUtf16, text }],
+      nextContent,
+      origin,
+      expectedRevision,
+    );
   }
 
   async applyEdits(
@@ -118,13 +127,14 @@ class DocumentServiceImpl {
     edits: TextEdit[],
     nextContent: string,
     origin: DocumentChangeOrigin = "local",
+    expectedRevision?: number,
   ): Promise<void> {
     const record = this.require(path);
     try {
-      const response = await EditorIPC.applyEdits(path, edits);
+      const response = await EditorIPC.applyEdits(path, edits, expectedRevision);
       this.patch(path, {
         content: nextContent,
-        version: response.revision,
+        version: Math.max(this.require(path).version, response.revision),
         isDirty: response.dirty,
         changeOrigin: origin,
         lastError: undefined,
@@ -154,8 +164,9 @@ class DocumentServiceImpl {
       this.patch(path, {
         version: response.revision,
         savedVersion: response.revision,
+        savedContent: record.content,
         diskFingerprint: response.diskFingerprint,
-        isDirty: false,
+        isDirty: this.require(path).version !== response.revision,
         saveState: "idle",
         changeOrigin: "save",
         lastError: undefined,
@@ -223,6 +234,7 @@ class DocumentServiceImpl {
       path: snapshot.path,
       languageId: snapshot.language || GetLanguageFromPath(snapshot.path),
       content: snapshot.text,
+      savedContent: snapshot.text,
       version: snapshot.revision,
       savedVersion: snapshot.savedRevision,
       isDirty: snapshot.revision !== snapshot.savedRevision,

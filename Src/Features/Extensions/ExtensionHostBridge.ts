@@ -1,5 +1,6 @@
 import { CommandRegistry } from "../../Extension/CommandRegistry";
 import { EventBus } from "../../Foundation/EventBus";
+import type { ExtensionHostRequestEvent } from "../../Foundation/IPC/ExtensionCommands";
 import { ExtensionIPC } from "../../Foundation/IPC/ExtensionCommands";
 import { showToast } from "../../UI/Feedback/Toast";
 
@@ -14,11 +15,11 @@ import { showToast } from "../../UI/Feedback/Toast";
  * 对话框类请求（confirm/input/quick-pick）由 ExtensionHostDialogs 组件消费。
  */
 
-const respondOk = (requestId: string, extra: Record<string, unknown> = {}) =>
-  ExtensionIPC.hostResponse(requestId, JSON.stringify({ ok: true, ...extra }));
+const respondOk = (request: ExtensionHostRequestEvent, extra: Record<string, unknown> = {}) =>
+  ExtensionIPC.hostResponse(request, JSON.stringify({ ok: true, ...extra }));
 
-const respondError = (requestId: string, error: string) =>
-  ExtensionIPC.hostResponse(requestId, JSON.stringify({ error }));
+const respondError = (request: ExtensionHostRequestEvent, error: string) =>
+  ExtensionIPC.hostResponse(request, JSON.stringify({ error }));
 
 let started = false;
 let unlisteners: (() => void)[] = [];
@@ -35,23 +36,17 @@ export async function startExtensionHostBridge(): Promise<() => void> {
         case "clipboard-write":
           navigator.clipboard
             .writeText(request.text ?? "")
-            .then(() => respondOk(request.requestId))
+            .then(() => respondOk(request))
             .catch((error: unknown) =>
-              respondError(
-                request.requestId,
-                error instanceof Error ? error.message : String(error),
-              ),
+              respondError(request, error instanceof Error ? error.message : String(error)),
             );
           break;
         case "clipboard-read":
           navigator.clipboard
             .readText()
-            .then((value) => respondOk(request.requestId, { value }))
+            .then((value) => respondOk(request, { value }))
             .catch((error: unknown) =>
-              respondError(
-                request.requestId,
-                error instanceof Error ? error.message : String(error),
-              ),
+              respondError(request, error instanceof Error ? error.message : String(error)),
             );
           break;
         case "command": {
@@ -59,19 +54,16 @@ export async function startExtensionHostBridge(): Promise<() => void> {
           CommandRegistry.execute(commandId, request.arguments)
             .then((result) => {
               if (result.ok) {
-                void respondOk(request.requestId);
+                void respondOk(request);
               } else {
                 void respondError(
-                  request.requestId,
+                  request,
                   result.error instanceof Error ? result.error.message : String(result.error),
                 );
               }
             })
             .catch((error: unknown) =>
-              respondError(
-                request.requestId,
-                error instanceof Error ? error.message : String(error),
-              ),
+              respondError(request, error instanceof Error ? error.message : String(error)),
             );
           break;
         }

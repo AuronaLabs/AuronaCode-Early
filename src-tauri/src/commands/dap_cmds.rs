@@ -1,10 +1,12 @@
+use crate::commands::fs::WorkspaceState;
 use crate::dap::{DapLaunch, DapSession, DapSessionInfo};
+use crate::launch_registry::{LaunchRegistry, LaunchSpec};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tauri::Manager;
 use tauri::{AppHandle, State};
-use tokio::time::Duration;
 
 const DEBUGPY_VERSION: &str = "1.8.17";
 
@@ -35,20 +37,13 @@ impl Default for DapState {
 }
 
 #[tauri::command]
-pub async fn dap_python_debugpy_status(python_path: String) -> Result<PythonDebugpyStatus, String> {
-    let output = crate::process_service::capture_with_timeout(
-        &python_path,
-        &[
-            "-c",
-            "import debugpy; print(getattr(debugpy, '__version__', 'unknown'))",
-        ],
-        None,
-        Duration::from_secs(8),
-    )
-    .map_err(|error| format!("无法检查 debugpy：{error}"))?;
-
-    if output.status.success() {
-        let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+pub async fn dap_python_debugpy_status(
+    app: AppHandle,
+    launch_id: String,
+) -> Result<PythonDebugpyStatus, String> {
+    let (installed, version) = crate::python_tools::status(&app, &launch_id).await?;
+    if installed {
+        let version = version.unwrap_or_else(|| "unknown".into());
         return Ok(PythonDebugpyStatus {
             installed: true,
             version: Some(version.clone()),
@@ -68,52 +63,94 @@ pub async fn dap_python_debugpy_status(python_path: String) -> Result<PythonDebu
 
 #[tauri::command]
 pub async fn dap_install_python_debugpy(
-    python_path: String,
+    app: AppHandle,
+    launch_id: String,
 ) -> Result<PythonDebugpyStatus, String> {
-    let package = format!("debugpy=={DEBUGPY_VERSION}");
-    let output = crate::process_service::capture_with_timeout(
-        &python_path,
-        &["-m", "pip", "install", &package],
-        None,
-        Duration::from_secs(180),
-    )
-    .map_err(|error| format!("安装 debugpy 失败：{error}"))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let detail = if stderr.trim().is_empty() {
-            stdout.trim()
-        } else {
-            stderr.trim()
-        };
-        return Err(format!("debugpy 安装失败：{detail}"));
-    }
-
-    dap_python_debugpy_status(python_path).await
+    crate::python_tools::install(&app, &launch_id).await?;
+    dap_python_debugpy_status(app, launch_id).await
 }
 
 #[tauri::command]
 pub async fn dap_start(
     app: AppHandle,
     state: State<'_, DapState>,
-    launch: DapLaunch,
+    launch_id: String,
 ) -> Result<DapSessionInfo, String> {
-    if let Some(existing) = state.sessions.lock().await.remove(&launch.session_id) {
+    let generation = app.state::<WorkspaceState>().generation();
+    let spec =
+        app.state::<LaunchRegistry>()
+            .resolve(&app.state::<WorkspaceState>(), &launch_id, "dap")?;
+    let tool_use =
+        crate::toolchains::acquire_launch_use(&app, &spec.command, &spec.args, &spec.cwd)?;
+    app.state::<LaunchRegistry>()
+        .resolve(&app.state::<WorkspaceState>(), &launch_id, "dap")?;
+    let launch = DapLaunch {
+        session_id: spec
+            .configuration
+            .get("sessionId")
+            .and_then(Value::as_str)
+            .ok_or("[launch.configuration] Missing DAP session ID")?
+            .to_string(),
+        command: spec.command,
+        args: spec.args,
+        cwd: Some(spec.cwd),
+        env: spec.env,
+        request_timeout_ms: spec
+            .configuration
+            .get("requestTimeoutMs")
+            .and_then(Value::as_u64),
+    };
+    let mut sessions = state.sessions.lock().await;
+    if !sessions.contains_key(&launch.session_id)
+        && sessions.len() >= crate::resource_limits::DAP_SESSIONS
+    {
+        return Err("[resource.limit] Debug session limit reached".into());
+    }
+    if let Some(existing) = sessions.remove(&launch.session_id) {
         existing.stop().await;
     }
-    let session = DapSession::start(app, launch).await?;
+    let session = DapSession::start(app.clone(), launch, tool_use, generation).await?;
+    if app.state::<WorkspaceState>().generation() != generation {
+        session.stop().await;
+        return Err("[workspace.generation] Workspace changed while starting debugger".into());
+    }
     let info = session.info().await;
-    state
-        .sessions
-        .lock()
-        .await
-        .insert(info.session_id.clone(), session);
+    sessions.insert(info.session_id.clone(), session.clone());
+    let session_id = info.session_id.clone();
+    tokio::spawn(async move {
+        session.wait_stopped().await;
+        let state = app.state::<DapState>();
+        let mut sessions = state.sessions.lock().await;
+        if sessions
+            .get(&session_id)
+            .is_some_and(|current| Arc::ptr_eq(current, &session))
+        {
+            sessions.remove(&session_id);
+        }
+    });
     Ok(info)
 }
 
 #[tauri::command]
+pub async fn dap_prepare(app: AppHandle, launch: DapLaunch) -> Result<String, String> {
+    if launch.session_id.trim().is_empty() || launch.session_id.len() > 128 {
+        return Err("[dap.session] Invalid session ID".into());
+    }
+    let cwd = app.state::<WorkspaceState>().require_directory(
+        launch
+            .cwd
+            .as_deref()
+            .ok_or("[workspace.boundary] DAP cwd requires an authorized directory")?,
+    )?;
+    crate::launch_registry::authorize(&app, LaunchSpec {
+        kind: "dap".into(), command: launch.command, args: launch.args, cwd: cwd.to_string_lossy().into_owned(), env: launch.env,
+        configuration: serde_json::json!({ "sessionId": launch.session_id, "requestTimeoutMs": launch.request_timeout_ms }),
+    }).await
+}
+
+#[tauri::command]
 pub async fn dap_request(
+    app: AppHandle,
     state: State<'_, DapState>,
     session_id: String,
     command: String,
@@ -126,7 +163,25 @@ pub async fn dap_request(
         .get(&session_id)
         .cloned()
         .ok_or_else(|| "Debug session is not running".to_string())?;
+    if session.generation() != app.state::<WorkspaceState>().generation() {
+        session.stop().await;
+        return Err("[workspace.generation] Debug workspace changed".into());
+    }
     session.request(command, arguments).await
+}
+
+#[tauri::command]
+pub async fn dap_acknowledge_output(
+    state: State<'_, DapState>,
+    session_id: String,
+    instance_id: String,
+    seq: u64,
+) -> Result<(), String> {
+    let session = state.sessions.lock().await.get(&session_id).cloned();
+    if let Some(session) = session {
+        session.acknowledge_output(&instance_id, seq).await;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -162,4 +217,21 @@ pub async fn dap_stop_all(state: State<'_, DapState>) -> Result<(), String> {
         session.stop().await;
     }
     Ok(())
+}
+
+pub async fn stop_workspace_sessions(state: State<'_, DapState>, generation: u64) {
+    let mut sessions = state.sessions.lock().await;
+    let ids = sessions
+        .iter()
+        .filter(|(_, session)| session.generation() <= generation)
+        .map(|(id, _)| id.clone())
+        .collect::<Vec<_>>();
+    let removed = ids
+        .iter()
+        .filter_map(|id| sessions.remove(id))
+        .collect::<Vec<_>>();
+    drop(sessions);
+    for session in removed {
+        session.stop().await;
+    }
 }

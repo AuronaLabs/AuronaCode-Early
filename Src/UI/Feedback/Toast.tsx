@@ -2,6 +2,7 @@ import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { LocaleService, useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
+import type { UserConfig } from "../../Foundation/Types/Config";
 import { computeGlassAccent } from "../Core/GlassManager";
 import { Icons } from "../Icons/IconManager";
 
@@ -55,7 +56,7 @@ export function ToastContainer() {
 
   useEffect(() => {
     const handleToast = async (payload: Omit<ToastMessage, "id"> & { id?: string }) => {
-      const config = await UserConfigStore.get();
+      const config = await UserConfigStore.get().catch(() => ({}) as UserConfig);
       const isCritical =
         payload.type === "error" ||
         payload.type === "warning" ||

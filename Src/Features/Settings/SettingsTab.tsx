@@ -17,6 +17,8 @@ import { Input } from "../../UI/Components/Input";
 import { SettingsNavItem } from "../../UI/Components/SettingsNavItem";
 import { GlassContainer, useGlassStore } from "../../UI/Core/GlassManager";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
+import { useViewActivity } from "../../UI/Core/ViewActivity";
+import { useRetainedViewState } from "../../UI/Core/ViewState";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
 import { AccountSettings } from "./AccountSettings";
@@ -113,8 +115,12 @@ function applyDensity(next: Density) {
 
 export function SettingsTab() {
   const { t } = useLocale();
-  const [activeSection, setActiveSection] = useState<SettingsSection>("general");
-  const [settingsQuery, setSettingsQuery] = useState("");
+  const active = useViewActivity();
+  const [activeSection, setActiveSection] = useRetainedViewState<SettingsSection>(
+    "settings.section",
+    "general",
+  );
+  const [settingsQuery, setSettingsQuery] = useRetainedViewState("settings.query", "");
   const [revealTarget, setRevealTarget] = useState<{ settingId: string; nonce: number } | null>(
     null,
   );
@@ -131,6 +137,7 @@ export function SettingsTab() {
   };
 
   useEffect(() => {
+    if (!active) return;
     const unsub = EventBus.on("settings:nav", (section: SettingsSection) => {
       setActiveSection(section);
     });
@@ -142,7 +149,7 @@ export function SettingsTab() {
       unsub();
       unsubReveal();
     };
-  }, []);
+  }, [active, setActiveSection]);
 
   useEffect(() => {
     if (!revealTarget) return;
@@ -325,10 +332,13 @@ export function SettingsTab() {
     void UserConfigStore.set({ toastDuration: duration });
   };
 
-  const navigateTo = useCallback((section: SettingsSection) => {
-    setActiveSection(section);
-    setSettingsQuery("");
-  }, []);
+  const navigateTo = useCallback(
+    (section: SettingsSection) => {
+      setActiveSection(section);
+      setSettingsQuery("");
+    },
+    [setActiveSection, setSettingsQuery],
+  );
 
   const searchResults = useMemo(() => {
     const q = settingsQuery.trim();

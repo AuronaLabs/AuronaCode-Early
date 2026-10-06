@@ -84,15 +84,28 @@ impl ExtensionRegistry {
     }
 
     pub fn load_file(&self, path: &Path) -> Result<Arc<ExtensionPackage>, String> {
-        let bytes = std::fs::read(path)
+        self.register_package(Self::read_file(path)?)
+    }
+
+    fn read_file(path: &Path) -> Result<Arc<ExtensionPackage>, String> {
+        use std::io::Read;
+        let mut bytes = Vec::new();
+        std::fs::File::open(path)
+            .and_then(|file| {
+                file.take(super::aurx::MAX_ARCHIVE_BYTES + 1)
+                    .read_to_end(&mut bytes)
+            })
             .map_err(|error| format!("读取扩展包失败 {}: {error}", path.display()))?;
+        if bytes.len() as u64 > super::aurx::MAX_ARCHIVE_BYTES {
+            return Err("[resource.limit] Extension package exceeds limit".into());
+        }
         let is_vsix = path.extension().is_some_and(|ext| ext == "vsix");
         let package = if is_vsix {
             super::aurx::open_vsix_package(&bytes)?
         } else {
             open_package(&bytes)?
         };
-        self.register_package(package)
+        Ok(package)
     }
 
     fn register_package(
@@ -161,7 +174,26 @@ impl ExtensionRegistry {
                 .extension()
                 .is_some_and(|extension| extension == "aurx" || extension == "vsix")
             {
-                match self.load_file(&path) {
+                if entry
+                    .file_type()
+                    .map(|kind| kind.is_symlink())
+                    .unwrap_or(true)
+                {
+                    continue;
+                }
+                if matches!(
+                    path.file_stem().and_then(|stem| stem.to_str()),
+                    Some("aurona.vscode-compat" | "aurona.vscode.compat")
+                ) {
+                    continue;
+                }
+                let result = Self::read_file(&path).and_then(|package| {
+                    if canonical_extension_id(package.id()) == "aurona.vscode-compat" {
+                        return Err("[extension.builtin] User packages cannot replace the bundled compatibility layer".into());
+                    }
+                    self.register_package(package)
+                });
+                match result {
                     Ok(_package) => loaded += 1,
                     Err(error) => self.push_diagnostic(path.display().to_string(), error),
                 }
@@ -173,6 +205,9 @@ impl ExtensionRegistry {
     fn push_diagnostic(&self, source: String, message: String) {
         eprintln!("[Extensions] 包加载失败: {source}: {message}");
         if let Ok(mut guard) = self.diagnostics.lock() {
+            if guard.len() >= 128 {
+                guard.remove(0);
+            }
             guard.push(RegistryDiagnostic { source, message });
         }
     }
@@ -285,7 +320,7 @@ mod tests {
         let legacy = write_package(
             &temp,
             "legacy.aurx",
-            Some(json!({ "id": "aurona.markdown", "name": "Legacy" })),
+            Some(json!({ "id": "aurona.markdown", "publisher": "aurona", "name": "Legacy" })),
         );
 
         let registry = ExtensionRegistry::new();
@@ -350,7 +385,7 @@ mod tests {
         let compat = write_package(
             &temp,
             "aurona.vscode-compat.aurx",
-            Some(json!({ "id": "aurona.vscode-compat" })),
+            Some(json!({ "id": "aurona.vscode-compat", "publisher": "aurona" })),
         );
         write_package(&temp, "aurona.markdown.aurx", None);
         let registry = ExtensionRegistry::new();
@@ -427,7 +462,7 @@ mod tests {
         let path = write_package(
             &temp,
             "auronalabs.markdown.aurx",
-            Some(json!({ "id": "evil.id" })),
+            Some(json!({ "id": "evil.id", "publisher": "evil" })),
         );
         let registry = ExtensionRegistry::new();
         registry.load_file(&path).unwrap();

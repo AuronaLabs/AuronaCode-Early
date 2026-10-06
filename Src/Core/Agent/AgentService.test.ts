@@ -1,3 +1,11 @@
+const storage = vi.hoisted(() => ({ values: new Map<string, string>(), write: vi.fn() }));
+vi.mock("../../Foundation/IPC/AgentStorageCommands", () => ({
+  AgentStorageIPC: {
+    read: vi.fn(async (slot: string) => storage.values.get(slot) ?? null),
+    write: storage.write,
+  },
+}));
+
 import { reduceAgentEvent, replayAgentTask } from "./AgentService";
 import { AgentSessionStore } from "./AgentSessionStore";
 import type { AgentEvent, AgentTaskSnapshot } from "./AgentTypes";
@@ -154,9 +162,15 @@ describe("Agent event reducer", () => {
 });
 
 describe("Agent session reset", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    storage.values.clear();
+    storage.write.mockReset().mockImplementation(async (slot: string, content: string) => {
+      storage.values.set(slot, content);
+    });
+  });
 
-  it("removes legacy chat data instead of importing it", () => {
+  it("archives legacy chat without replaying it as new Agent tasks", async () => {
     localStorage.setItem(
       "aurona.ai.chat.sessions.v2",
       JSON.stringify({
@@ -173,10 +187,14 @@ describe("Agent session reset", () => {
       }),
     );
     const store = new AgentSessionStore();
+    await store.initialize();
     const fresh = store.getState().tasks[0];
     expect(fresh.title).toBe("");
     expect(fresh.events).toEqual([]);
     expect(localStorage.getItem("aurona.ai.chat.sessions.v2")).toBeNull();
+    expect(JSON.parse(storage.values.get("legacy-chat") ?? "{}").records[0].content).toContain(
+      "Old chat",
+    );
   });
 
   it("keeps session metadata separate from task history", () => {
@@ -234,26 +252,23 @@ describe("Agent session reset", () => {
         ],
       }),
     );
-    const restored = new AgentSessionStore().getState().tasks[0];
+    const store = new AgentSessionStore();
+    await store.initialize();
+    const restored = store.getState().tasks[0];
     expect(restored.title).toBe("Recover this");
     expect(restored.input).toBe("Recover this");
     expect(restored.status).toBe("completed");
   });
 
-  it("keeps a backup when the primary session payload is corrupt", async () => {
-    const { AGENT_SESSION_CORRUPT_STORAGE_PREFIX, AGENT_SESSION_STORAGE_KEY } = await import(
-      "./AgentSessionStore"
-    );
+  it("preserves the original and blocks writes when the session payload is corrupt", async () => {
+    const { AGENT_SESSION_STORAGE_KEY } = await import("./AgentSessionStore");
     localStorage.setItem(AGENT_SESSION_STORAGE_KEY, "{not-json");
 
     const store = new AgentSessionStore();
-
+    await expect(store.initialize()).rejects.toThrow("malformed");
     expect(store.getState().tasks).toHaveLength(1);
-    const backups = Object.keys(localStorage).filter((key) =>
-      key.startsWith(AGENT_SESSION_CORRUPT_STORAGE_PREFIX),
-    );
-    expect(backups).toHaveLength(1);
-    expect(localStorage.getItem(backups[0])).toBe("{not-json");
+    expect(localStorage.getItem(AGENT_SESSION_STORAGE_KEY)).toBe("{not-json");
+    expect(storage.write).not.toHaveBeenCalled();
   });
 
   it("normalizes legacy event sequences and preserves the stored watermark", async () => {
@@ -276,15 +291,15 @@ describe("Agent session reset", () => {
       }),
     );
 
-    const task = new AgentSessionStore().getState().tasks[0];
+    const store = new AgentSessionStore();
+    await store.initialize();
+    const task = store.getState().tasks[0];
     expect(task.events.map((item) => item.seq)).toEqual([3, 4, 5]);
     expect(task.lastEventSeq).toBe(99);
   });
 
-  it("backs up sessions that contain unknown event types", async () => {
-    const { AGENT_SESSION_CORRUPT_STORAGE_PREFIX, AGENT_SESSION_STORAGE_KEY } = await import(
-      "./AgentSessionStore"
-    );
+  it("preserves sessions containing unknown event types without partial migration", async () => {
+    const { AGENT_SESSION_STORAGE_KEY } = await import("./AgentSessionStore");
     localStorage.setItem(
       AGENT_SESSION_STORAGE_KEY,
       JSON.stringify({
@@ -302,18 +317,17 @@ describe("Agent session reset", () => {
       }),
     );
 
-    const restored = new AgentSessionStore().getState().tasks[0];
+    const store = new AgentSessionStore();
+    await expect(store.initialize()).rejects.toThrow("malformed");
+    const restored = store.getState().tasks[0];
 
     expect(restored.events).toEqual([]);
-    expect(
-      Object.keys(localStorage).some((key) => key.startsWith(AGENT_SESSION_CORRUPT_STORAGE_PREFIX)),
-    ).toBe(true);
+    expect(localStorage.getItem(AGENT_SESSION_STORAGE_KEY)).not.toBeNull();
+    expect(storage.write).not.toHaveBeenCalled();
   });
 
   it("leaves the previous primary payload intact when promotion fails", async () => {
-    const { AGENT_SESSION_STORAGE_KEY, AGENT_SESSION_STAGING_STORAGE_KEY } = await import(
-      "./AgentSessionStore"
-    );
+    const { AGENT_SESSION_STORAGE_KEY } = await import("./AgentSessionStore");
     const original = JSON.stringify({
       activeTaskId: "old",
       tasks: [
@@ -334,23 +348,17 @@ describe("Agent session reset", () => {
       ],
     });
     localStorage.setItem(AGENT_SESSION_STORAGE_KEY, original);
-    const originalSetItem = Storage.prototype.setItem;
-    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (
-      this: Storage,
-      key: string,
-      value: string,
-    ) {
-      if (key === AGENT_SESSION_STORAGE_KEY) throw new Error("quota");
-      return originalSetItem.call(this, key, value);
-    });
-
-    try {
-      const store = new AgentSessionStore();
-      store.createTask();
-      expect(localStorage.getItem(AGENT_SESSION_STORAGE_KEY)).toBe(original);
-      expect(localStorage.getItem(AGENT_SESSION_STAGING_STORAGE_KEY)).not.toBeNull();
-    } finally {
-      setItem.mockRestore();
-    }
+    storage.write.mockRejectedValueOnce(new Error("keyring unavailable"));
+    const store = new AgentSessionStore();
+    await expect(store.initialize()).rejects.toThrow("keyring");
+    expect(localStorage.getItem(AGENT_SESSION_STORAGE_KEY)).toBe(original);
+    expect(storage.values.has("sessions")).toBe(false);
+    await store.initialize();
+    expect(localStorage.getItem(AGENT_SESSION_STORAGE_KEY)).toBeNull();
+    const previous = storage.values.get("sessions");
+    storage.write.mockRejectedValueOnce(new Error("disk full"));
+    store.createTask();
+    await expect(store.flush()).rejects.toThrow("disk full");
+    expect(storage.values.get("sessions")).toBe(previous);
   });
 });

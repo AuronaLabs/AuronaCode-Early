@@ -6,8 +6,6 @@
   "permissions": [
     "core:app:allow-version",
     "core:window:allow-show",
-    "core:window:allow-start-dragging",
-    "fs:allow-applocaldata-read",
-    "fs:allow-applocaldata-meta"
+    "core:window:allow-start-dragging"
   ]
 }

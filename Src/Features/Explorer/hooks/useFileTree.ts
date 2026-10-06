@@ -4,6 +4,7 @@ import { WorkspaceService } from "../../../Core/WorkspaceService";
 import { desktopDialog } from "../../../Foundation/Desktop";
 import { EventBus } from "../../../Foundation/EventBus";
 import { useLocale } from "../../../Foundation/I18n";
+import { FileSystemCommands } from "../../../Foundation/IPC/FileSystemCommands";
 import { WorkspaceStore } from "../../../Foundation/Storage/WorkspaceStore";
 import { SIDEBAR_EXPLORER } from "../../../Shared/Constants/Sidebar";
 import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
@@ -28,6 +29,7 @@ export interface UseFileTreeReturn {
   selectNode: (node: FileNode, openFile?: boolean) => void;
   refreshDirectory: (dirPath: string) => Promise<void>;
   toggleDir: (node: FileNode) => Promise<void>;
+  loadMore: (node: FileNode) => Promise<void>;
   startInlineCreate: (type: "file" | "folder") => void;
   handleInlineCreate: (name: string) => Promise<void>;
   handleInlineCancel: () => void;
@@ -54,6 +56,31 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
   const [deletePrompt, setDeletePrompt] = useState<FileNode | null>(null);
   const [clipboard, setClipboard] = useState<{ path: string; isCut: boolean } | null>(null);
   const rootNodeRef = useRef<FileNode | null>(null);
+  const cursors = useRef(new Set<string>());
+  const pageRequests = useRef(new Map<string, number>());
+  const pageCounter = useRef(0);
+
+  const readPage = useCallback(async (path: string, cursor?: string) => {
+    const request = ++pageCounter.current;
+    pageRequests.current.set(path, request);
+    if (cursor) cursors.current.delete(cursor);
+    const page = await FileSystemService.readDirectoryPage(path, cursor);
+    if (pageRequests.current.get(path) !== request) {
+      if (page.nextCursor) void FileSystemCommands.cancelDirectoryCursor(page.nextCursor);
+      throw new Error("Directory request was superseded");
+    }
+    if (page.nextCursor) cursors.current.add(page.nextCursor);
+    return page;
+  }, []);
+
+  useEffect(
+    () => () => {
+      pageRequests.current.clear();
+      for (const cursor of cursors.current) void FileSystemCommands.cancelDirectoryCursor(cursor);
+      cursors.current.clear();
+    },
+    [],
+  );
 
   useEffect(() => {
     rootNodeRef.current = rootNode;
@@ -82,13 +109,18 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
       try {
         await WorkspaceService.openRoot(selectedPath);
         const folderName = FileSystemService.basename(selectedPath);
-        const children = await FileSystemService.readDirectory(selectedPath);
+        for (const cursor of cursors.current) void FileSystemCommands.cancelDirectoryCursor(cursor);
+        cursors.current.clear();
+        pageRequests.current.clear();
+        const page = await readPage(selectedPath);
         setRootNode({
           name: folderName,
           path: selectedPath,
           isDirectory: true,
           isOpen: true,
-          children,
+          children: page.entries,
+          nextCursor: page.nextCursor,
+          generation: page.generation,
         });
         EventBus.emit("workspace:root-changed", selectedPath);
       } catch (error) {
@@ -98,7 +130,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         );
       }
     },
-    [t],
+    [t, readPage],
   );
 
   useEffect(() => {
@@ -112,28 +144,72 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
     init();
   }, [loadFolderDirectly]);
 
-  const refreshDirectory = useCallback(async (dirPath: string) => {
-    const refreshedChildren = await FileSystemService.readDirectory(dirPath);
-    setRootNode((prev) => {
-      if (!prev) return prev;
-      const openPaths = collectOpenPaths([prev]);
-      if (prev.path === dirPath) {
+  const refreshDirectory = useCallback(
+    async (dirPath: string) => {
+      const page = await readPage(dirPath);
+      const refreshedChildren = page.entries;
+      setRootNode((prev) => {
+        if (!prev) return prev;
+        const openPaths = collectOpenPaths([prev]);
+        if (prev.path === dirPath) {
+          return {
+            ...prev,
+            children: mergeOpenState(refreshedChildren, prev.children || [], openPaths),
+            isOpen: true,
+            nextCursor: page.nextCursor,
+            generation: page.generation,
+          };
+        }
         return {
           ...prev,
-          children: mergeOpenState(refreshedChildren, prev.children || [], openPaths),
-          isOpen: true,
+          children: updateTree(prev.children || [], dirPath, (node) => ({
+            ...node,
+            children: mergeOpenState(refreshedChildren, node.children || [], openPaths),
+            isOpen: true,
+            nextCursor: page.nextCursor,
+            generation: page.generation,
+          })),
         };
+      });
+    },
+    [readPage],
+  );
+
+  const loadMore = useCallback(
+    async (node: FileNode) => {
+      if (!node.nextCursor) return;
+      try {
+        const page = await readPage(node.path, node.nextCursor);
+        setRootNode((root) => {
+          if (!root) return root;
+          const append = (current: FileNode): FileNode => {
+            if (current.generation !== page.generation)
+              return {
+                ...current,
+                children: page.entries,
+                nextCursor: page.nextCursor,
+                generation: page.generation,
+              };
+            const known = new Set(current.children?.map((child) => child.path));
+            return {
+              ...current,
+              children: [
+                ...(current.children ?? []),
+                ...page.entries.filter((entry) => !known.has(entry.path)),
+              ],
+              nextCursor: page.nextCursor,
+            };
+          };
+          return root.path === node.path
+            ? append(root)
+            : { ...root, children: updateTree(root.children ?? [], node.path, append) };
+        });
+      } catch {
+        await refreshDirectory(node.path);
       }
-      return {
-        ...prev,
-        children: updateTree(prev.children || [], dirPath, (node) => ({
-          ...node,
-          children: mergeOpenState(refreshedChildren, node.children || [], openPaths),
-          isOpen: true,
-        })),
-      };
-    });
-  }, []);
+    },
+    [readPage, refreshDirectory],
+  );
 
   const refreshOpenDirectories = useCallback(
     async (node: FileNode) => {
@@ -202,30 +278,47 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         return;
       }
       if (node.isOpen) {
+        if (node.nextCursor) {
+          cursors.current.delete(node.nextCursor);
+          void FileSystemCommands.cancelDirectoryCursor(node.nextCursor);
+        }
         setRootNode((prev) => {
           if (!prev) return prev;
-          if (prev.path === node.path) return { ...prev, isOpen: false };
+          if (prev.path === node.path)
+            return { ...prev, isOpen: false, nextCursor: null, children: undefined };
           return {
             ...prev,
             children: updateTree(prev.children || [], node.path, (item) => ({
               ...item,
               isOpen: false,
+              children: undefined,
+              nextCursor: null,
             })),
           };
         });
         return;
       }
       try {
-        const children = node.children ?? (await FileSystemService.readDirectory(node.path));
+        const page = await readPage(node.path);
+        const children = page.entries;
         setRootNode((prev) => {
           if (!prev) return prev;
-          if (prev.path === node.path) return { ...prev, isOpen: true, children };
+          if (prev.path === node.path)
+            return {
+              ...prev,
+              isOpen: true,
+              children,
+              nextCursor: page.nextCursor,
+              generation: page.generation,
+            };
           return {
             ...prev,
             children: updateTree(prev.children || [], node.path, (item) => ({
               ...item,
               isOpen: true,
               children,
+              nextCursor: page.nextCursor,
+              generation: page.generation,
             })),
           };
         });
@@ -236,7 +329,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         );
       }
     },
-    [selectNode, t],
+    [selectNode, t, readPage],
   );
 
   const collapseAll = useCallback(() => {
@@ -556,6 +649,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
     selectNode,
     refreshDirectory,
     toggleDir,
+    loadMore,
     startInlineCreate,
     handleInlineCreate,
     handleInlineCancel,

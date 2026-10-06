@@ -36,6 +36,10 @@ export interface CommandDefinition<Args = undefined> {
   when?: ContextPredicate;
   keybindings?: Keybinding[];
   placements?: CommandPlacement[];
+  agent?: {
+    effects: Array<"editor.read" | "editor.write" | "process.execute">;
+    requiresApproval: boolean;
+  };
 }
 
 export function getCommandTitle(command: CommandDefinition<unknown>): string {
@@ -130,6 +134,10 @@ class CommandRegistryImpl {
           "zh-CN",
         ),
       );
+  }
+
+  getAgentPolicy(id: string): CommandDefinition<unknown>["agent"] {
+    return this.commands.get(id)?.agent;
   }
 
   canExecute(command: CommandDefinition<unknown>): boolean {

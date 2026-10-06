@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { LspClient } from "../../../Core/Language/LspClient";
 import { EventBus } from "../../../Foundation/EventBus";
 import { useLocale } from "../../../Foundation/I18n";
@@ -21,7 +21,6 @@ import { Icons } from "../../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../../UI/Layouts/SidebarPage";
 import { canonicalExtensionId } from "../ExtensionId";
 import { DependencyConfirmModal, type DependencyInfo } from "./DependencyConfirmModal";
-import { MarketplaceCard } from "./MarketplaceCard";
 import {
   descriptorToMarketplaceItem,
   type MarketplaceExtensionItem,
@@ -36,6 +35,8 @@ import {
   type MarketplaceViewState,
   updateMarketplaceModeState,
 } from "./MarketplaceState";
+import { MarketplaceTasks } from "./MarketplaceTasks";
+import { MarketplaceVirtualList } from "./MarketplaceVirtualList";
 import { formatBytes, ToolchainsPanel } from "./ToolchainsPanel";
 
 export type { MarketplaceMode, MarketplaceViewState } from "./MarketplaceState";
@@ -136,11 +137,26 @@ export function MarketplaceView() {
   const [viewState, setViewState] = useState<MarketplaceViewState>(createMarketplaceViewState);
   const currentState = viewState[mode];
   const [catalog, setCatalog] = useState<MarketplaceExtensionItem[]>([]);
+  const [nextPage, setNextPage] = useState<number | undefined>();
   const [toolchains, setToolchains] = useState<ToolchainsOverview | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [sourceStatus, setSourceStatus] = useState<MarketplaceSourceStatus>("online");
   const [offlineReason, setOfflineReason] = useState<"server-unreachable" | "invalid-response">();
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const taskCoordinator = useRef(new MarketplaceTasks());
+  const tasks = useSyncExternalStore(
+    taskCoordinator.current.subscribe,
+    taskCoordinator.current.getSnapshot,
+  );
+  const busyIds = useMemo(() => new Set(tasks.map((task) => task.resourceId)), [tasks]);
+  const cancellableIds = useMemo(
+    () => new Set(tasks.filter((task) => task.cancellable).map((task) => task.resourceId)),
+    [tasks],
+  );
+  const cancelInstall = (id: string) => {
+    for (const task of taskCoordinator.current.getSnapshot()) {
+      if (task.resourceId === id) taskCoordinator.current.cancel(task.taskId);
+    }
+  };
   const [pendingInstallItem, setPendingInstallItem] = useState<MarketplaceExtensionItem | null>(
     null,
   );
@@ -169,76 +185,97 @@ export function MarketplaceView() {
     }
   }, []);
 
-  const refreshCatalog = useCallback(async () => {
-    const request = requestCoordinator.current.begin();
-    const { controller } = request;
-    setIsLoading(true);
+  const refreshCatalog = useCallback(
+    async (page = 1) => {
+      const request = requestCoordinator.current.begin();
+      const { controller } = request;
+      setIsLoading(true);
 
-    if (mode === "installed") {
-      try {
-        await refreshExtensions();
-      } finally {
-        if (requestCoordinator.current.isCurrent(request)) setIsLoading(false);
-      }
-      return;
-    }
-
-    // Toolchains are a local management surface. Search and filter changes
-    // refresh IPC state only; the remote catalog is loaded by Discover.
-    if (mode === "toolchains") {
-      try {
-        await loadToolchains();
-        if (requestCoordinator.current.isCurrent(request)) {
-          setSourceStatus("online");
-          setOfflineReason(undefined);
+      if (mode === "installed") {
+        try {
+          await refreshExtensions();
+        } finally {
+          if (requestCoordinator.current.isCurrent(request)) setIsLoading(false);
         }
+        return;
+      }
+
+      // Toolchains are a local management surface. Search and filter changes
+      // refresh IPC state only; the remote catalog is loaded by Discover.
+      if (mode === "toolchains") {
+        try {
+          await loadToolchains();
+          if (requestCoordinator.current.isCurrent(request)) {
+            setSourceStatus("online");
+            setOfflineReason(undefined);
+          }
+        } finally {
+          if (requestCoordinator.current.isCurrent(request)) setIsLoading(false);
+        }
+        return;
+      }
+
+      const query = currentState.committedQuery.trim() || undefined;
+      const filter = currentState.filter;
+      const category = filter !== "All" && filter !== "trending" ? filter : undefined;
+      try {
+        const result = await MarketplaceService.fetchMarketplace(query, category, descriptors, {
+          signal: controller.signal,
+          page,
+        });
+        if (!requestCoordinator.current.isCurrent(request)) return;
+        // 仅在 online → offline 转变时推送一次通知，避免每次刷新刷屏
+        if (result.source === "offline" && prevSourceStatusRef.current !== "offline") {
+          showToast(t("extensions.offlineNotice"), "warning");
+        }
+        prevSourceStatusRef.current = result.source;
+        setSourceStatus(result.source);
+        setOfflineReason(result.offlineReason);
+        setCatalog((previous) => {
+          const combined = page === 1 ? result.items : [...previous, ...result.items];
+          return [...new Map(combined.map((item) => [item.id, item])).values()].slice(0, 1000);
+        });
+        setNextPage(result.nextPage);
+      } catch {
+        if (!requestCoordinator.current.isCurrent(request)) return;
+        if (prevSourceStatusRef.current !== "offline") {
+          showToast(t("extensions.offlineNotice"), "warning");
+        }
+        prevSourceStatusRef.current = "offline";
+        setSourceStatus("offline");
+        setOfflineReason("server-unreachable");
+        setNextPage(undefined);
       } finally {
         if (requestCoordinator.current.isCurrent(request)) setIsLoading(false);
       }
-      return;
-    }
-
-    const query = currentState.committedQuery.trim() || undefined;
-    const filter = currentState.filter;
-    const category = filter !== "All" && filter !== "trending" ? filter : undefined;
-    try {
-      const result = await MarketplaceService.fetchMarketplace(query, category, descriptors, {
-        signal: controller.signal,
-      });
-      if (!requestCoordinator.current.isCurrent(request)) return;
-      // 仅在 online → offline 转变时推送一次通知，避免每次刷新刷屏
-      if (result.source === "offline" && prevSourceStatusRef.current !== "offline") {
-        showToast(t("extensions.offlineNotice"), "warning");
-      }
-      prevSourceStatusRef.current = result.source;
-      setSourceStatus(result.source);
-      setOfflineReason(result.offlineReason);
-      setCatalog(result.items);
-    } catch {
-      if (!requestCoordinator.current.isCurrent(request)) return;
-      if (prevSourceStatusRef.current !== "offline") {
-        showToast(t("extensions.offlineNotice"), "warning");
-      }
-      prevSourceStatusRef.current = "offline";
-      setSourceStatus("offline");
-      setOfflineReason("server-unreachable");
-    } finally {
-      if (requestCoordinator.current.isCurrent(request)) setIsLoading(false);
-    }
-  }, [
-    currentState.committedQuery,
-    currentState.filter,
-    descriptors,
-    loadToolchains,
-    mode,
-    refreshExtensions,
-    t,
-  ]);
+    },
+    [
+      currentState.committedQuery,
+      currentState.filter,
+      descriptors,
+      loadToolchains,
+      mode,
+      refreshExtensions,
+      t,
+    ],
+  );
 
   useEffect(() => {
     void refreshCatalog();
     return () => requestCoordinator.current.abort();
   }, [refreshCatalog]);
+
+  useEffect(() => {
+    const coordinator = taskCoordinator.current;
+    coordinator.onIdle = () => {
+      void Promise.all([refreshExtensions(), loadToolchains()])
+        .then(() => refreshCatalog())
+        .catch((error) => showToast(String(error), "warning"));
+    };
+    return () => {
+      coordinator.onIdle = null;
+    };
+  }, [refreshExtensions, loadToolchains, refreshCatalog]);
 
   useEffect(() => {
     const unsubscribe = EventBus.on(
@@ -268,7 +305,7 @@ export function MarketplaceView() {
   }, [currentState.scrollTop, mode]);
 
   const commitSearch = useCallback(() => {
-    updateCurrentState({ committedQuery: currentState.draftQuery });
+    updateCurrentState({ committedQuery: currentState.draftQuery.slice(0, 512), scrollTop: 0 });
   }, [currentState.draftQuery, updateCurrentState]);
 
   const handleOpenDetail = (item: MarketplaceExtensionItem) => {
@@ -283,48 +320,69 @@ export function MarketplaceView() {
 
   const executeInstall = useCallback(
     async (item: MarketplaceExtensionItem) => {
-      if (busyId) return;
-      setBusyId(item.id);
-      setProgress(item.id, "preparing", 5, t("extensions.installing"));
-      try {
-        if (item.kind === "runtime") {
-          await MarketplaceService.installRuntime(item.id, item.version, (progress, stage) => {
-            setProgress(
-              item.id,
-              stage === "extracting" ? "extracting" : "downloading",
-              progress,
-              stage,
-            );
-          });
-          EventBus.emit("toolchains:changed");
-        } else if (item.kind === "lsp") {
-          await MarketplaceService.installLspServer(item.id, item.version, (progress, stage) => {
-            setProgress(
-              item.id,
-              stage === "extracting" ? "extracting" : "downloading",
-              progress,
-              stage,
-            );
-          });
-          EventBus.emit("toolchains:changed");
-        } else {
-          await MarketplaceService.installExtension(item.id, item.version);
-        }
-        setProgress(item.id, "completed", 100, t("extensions.installCompleted"));
-        await refreshExtensions();
-        await loadToolchains();
-        await refreshCatalog();
-        window.setTimeout(() => clearProgress(item.id), 1200);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : t("extensions.installFailed");
-        setProgress(item.id, "failed", 0, message);
-        showToast(message, "warning");
-        window.setTimeout(() => clearProgress(item.id), 3000);
-      } finally {
-        setBusyId(null);
-      }
+      if (taskCoordinator.current.getSnapshot().some((task) => task.resourceId === item.id)) return;
+      await taskCoordinator.current
+        .run(
+          item.id,
+          async (signal) => {
+            setProgress(item.id, "preparing", 5, t("extensions.installing"));
+            try {
+              if (item.kind === "runtime") {
+                await MarketplaceService.installRuntime(
+                  item.id,
+                  item.version,
+                  (progress, stage) => {
+                    setProgress(
+                      item.id,
+                      stage === "extracting" ? "extracting" : "downloading",
+                      progress,
+                      stage,
+                    );
+                  },
+                  signal,
+                );
+                EventBus.emit("toolchains:changed");
+              } else if (item.kind === "lsp") {
+                await MarketplaceService.installLspServer(
+                  item.id,
+                  item.version,
+                  (progress, stage) => {
+                    setProgress(
+                      item.id,
+                      stage === "extracting" ? "extracting" : "downloading",
+                      progress,
+                      stage,
+                    );
+                  },
+                  signal,
+                );
+                EventBus.emit("toolchains:changed");
+              } else {
+                await MarketplaceService.installExtension(item.id, item.version, signal);
+              }
+              setProgress(item.id, "completed", 100, t("extensions.installCompleted"));
+              window.setTimeout(() => clearProgress(item.id), 1200);
+            } catch (error) {
+              if (signal.aborted) {
+                clearProgress(item.id);
+                return;
+              }
+              const message =
+                error instanceof Error ? error.message : t("extensions.installFailed");
+              setProgress(item.id, "failed", 0, message);
+              showToast(message, "warning");
+              window.setTimeout(() => clearProgress(item.id), 3000);
+            }
+          },
+          true,
+        )
+        .catch((error) => {
+          clearProgress(item.id);
+          if (!(error instanceof DOMException && error.name === "AbortError"))
+            showToast(String(error), "warning");
+        });
     },
-    [busyId, clearProgress, loadToolchains, refreshCatalog, refreshExtensions, setProgress, t],
+    [clearProgress, setProgress, t],
   );
 
   const handleInstallClick = (item: MarketplaceExtensionItem) => {
@@ -346,55 +404,54 @@ export function MarketplaceView() {
 
   const handleUninstall = useCallback(
     async (item: MarketplaceExtensionItem) => {
-      if (busyId) return;
-      setBusyId(item.id);
-      try {
-        if (item.kind === "runtime") {
-          const runtimeType = item.runtimeMetadata?.runtimeType ?? item.id;
-          await MarketplaceService.uninstallSharedRuntime(runtimeType);
-          EventBus.emit("toolchains:changed");
-        } else if (item.kind === "lsp") {
-          await MarketplaceService.uninstallLspServer(item.id);
-          EventBus.emit("toolchains:changed");
-        } else {
-          await MarketplaceService.uninstallExtension(item.id);
-        }
-        await refreshExtensions();
-        await loadToolchains();
-        await refreshCatalog();
-        showToast(t("extensions.uninstallCompleted"), "info");
-      } catch (error) {
-        showToast(
-          error instanceof Error ? error.message : t("extensions.uninstallFailed"),
-          "warning",
-        );
-      } finally {
-        setBusyId(null);
-      }
+      if (taskCoordinator.current.getSnapshot().some((task) => task.resourceId === item.id)) return;
+      await taskCoordinator.current
+        .run(item.id, async () => {
+          try {
+            if (item.kind === "runtime") {
+              const runtimeType = item.runtimeMetadata?.runtimeType ?? item.id;
+              await MarketplaceService.uninstallSharedRuntime(runtimeType);
+              EventBus.emit("toolchains:changed");
+            } else if (item.kind === "lsp") {
+              await MarketplaceService.uninstallLspServer(item.id);
+              EventBus.emit("toolchains:changed");
+            } else {
+              await MarketplaceService.uninstallExtension(item.id);
+            }
+            showToast(t("extensions.uninstallCompleted"), "info");
+          } catch (error) {
+            showToast(
+              error instanceof Error ? error.message : t("extensions.uninstallFailed"),
+              "warning",
+            );
+          }
+        })
+        .catch((error) => showToast(String(error), "warning"));
     },
-    [busyId, loadToolchains, refreshCatalog, refreshExtensions, t],
+    [t],
   );
 
   const handleToolchainAction = useCallback(
     async (server: InstalledToolchainSummary, action: "start" | "stop" | "restart") => {
       const language = server.languages[0] || server.id;
-      if (busyId) return;
-      setBusyId(server.id);
-      try {
-        if (action === "start") await lspClient.startServer(language);
-        else if (action === "stop") await lspClient.stopServer(language);
-        else await lspClient.restartServer(language);
-        await loadToolchains();
-      } catch (error) {
-        showToast(
-          error instanceof Error ? error.message : t("extensions.toolchainActionFailed"),
-          "warning",
-        );
-      } finally {
-        setBusyId(null);
-      }
+      if (taskCoordinator.current.getSnapshot().some((task) => task.resourceId === server.id))
+        return;
+      await taskCoordinator.current
+        .run(server.id, async () => {
+          try {
+            if (action === "start") await lspClient.startServer(language);
+            else if (action === "stop") await lspClient.stopServer(language);
+            else await lspClient.restartServer(language);
+          } catch (error) {
+            showToast(
+              error instanceof Error ? error.message : t("extensions.toolchainActionFailed"),
+              "warning",
+            );
+          }
+        })
+        .catch((error) => showToast(String(error), "warning"));
     },
-    [busyId, loadToolchains, lspClient, t],
+    [lspClient, t],
   );
 
   const visibleExtensions = useMemo(() => {
@@ -555,6 +612,7 @@ export function MarketplaceView() {
           inputSize="lg"
           fullWidth
           value={currentState.draftQuery}
+          maxLength={512}
           onChange={(event) => updateCurrentState({ draftQuery: event.target.value })}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
@@ -596,7 +654,9 @@ export function MarketplaceView() {
             selectedId={currentState.selectedId}
             client={lspClient}
             revision={clientRevision}
-            busyId={busyId}
+            busyIds={busyIds}
+            cancellableIds={cancellableIds}
+            onCancel={cancelInstall}
             onInstall={handleInstallClick}
             onUninstall={handleUninstall}
             onAction={handleToolchainAction}
@@ -608,18 +668,28 @@ export function MarketplaceView() {
             onRefresh={() => void refreshCatalog()}
           />
         ) : (
-          <div className="grid grid-cols-1 gap-2.5">
-            {visibleExtensions.map((item) => (
-              <MarketplaceCard
-                key={item.id}
-                item={item}
-                selected={currentState.selectedId === item.id}
-                onOpenDetail={handleOpenDetail}
-                onInstall={handleInstallClick}
-                onUninstall={handleUninstall}
-              />
-            ))}
-          </div>
+          <MarketplaceVirtualList
+            items={visibleExtensions}
+            scrollRoot={scrollRef}
+            scrollTop={currentState.scrollTop}
+            busyIds={busyIds}
+            cancellableIds={cancellableIds}
+            selectedId={currentState.selectedId}
+            onCancel={cancelInstall}
+            onOpenDetail={handleOpenDetail}
+            onInstall={handleInstallClick}
+            onUninstall={handleUninstall}
+          />
+        )}
+        {mode === "discover" && nextPage && catalog.length < 1000 && (
+          <Button
+            disabled={isLoading}
+            variant="secondary"
+            onClick={() => void refreshCatalog(nextPage)}
+          >
+            <Icons.ChevronDown size={14} />
+            {t("explorer.loadMore")}
+          </Button>
         )}
       </div>
     </div>

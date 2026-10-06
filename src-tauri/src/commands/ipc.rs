@@ -68,11 +68,16 @@ mod tests {
 
 #[tauri::command]
 pub fn open_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
-    // Aurona deliberately exposes DevTools through the explicit application menu
-    // in release builds. The Tauri dependency is compiled with its `devtools`
-    // feature, so a crate-local cfg gate would incorrectly reject this command.
-    window.open_devtools();
-    Ok(())
+    #[cfg(any(debug_assertions, feature = "devtools"))]
+    {
+        window.open_devtools();
+        Ok(())
+    }
+    #[cfg(not(any(debug_assertions, feature = "devtools")))]
+    {
+        let _ = window;
+        Err("[app.development_disabled] Developer tools are unavailable in this build".into())
+    }
 }
 
 use std::fs;
@@ -291,7 +296,12 @@ pub async fn clear_other_app_data(app: tauri::AppHandle) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
         clear_directory_contents(
             &app_dir,
-            &["user-config.json", "workspace.json", "editor-recovery"],
+            &[
+                "user-config.json",
+                "workspace.json",
+                "editor-recovery",
+                "agent-secure",
+            ],
         )
     })
     .await

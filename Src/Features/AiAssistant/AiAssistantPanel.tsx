@@ -336,6 +336,16 @@ export function AiAssistantPanel() {
       </div>
 
       <main className="agent-conversation" aria-live="polite">
+        {snapshot.recoveryPending && (
+          <div className="agent-inline-notice">
+            <Icons.AlertTriangle size={14} />
+            <span>{t("ai.agentUi.recoveryPending")}</span>
+            <Button onClick={() => void AgentService.recoverPendingRestore()}>
+              <Icons.Restore size={14} />
+              {t("ai.agentUi.recoverRestore")}
+            </Button>
+          </div>
+        )}
         {!snapshot.configured && (
           <div className="agent-inline-notice">
             <Icons.AlertTriangle size={14} />

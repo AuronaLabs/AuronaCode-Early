@@ -1,10 +1,10 @@
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot, Mutex};
@@ -38,6 +38,8 @@ pub struct LanguageServerInfo {
     pub process_id: Option<u32>,
     pub restart_count: u32,
     pub last_error: Option<String>,
+    pub workspace_generation: u64,
+    pub server_generation: String,
 }
 
 #[derive(Debug)]
@@ -55,10 +57,34 @@ pub struct LspClient {
     info: Arc<Mutex<LanguageServerInfo>>,
     request_timeout: Duration,
     app_handle: tauri::AppHandle,
+    active: Arc<AtomicBool>,
+    workspace_generation: u64,
+    tool_use: std::sync::Mutex<Option<crate::toolchains::ToolUseLease>>,
+}
+
+struct PendingGuard {
+    id: u64,
+    pending: Arc<Mutex<HashMap<u64, oneshot::Sender<IncomingResponse>>>>,
+}
+impl Drop for PendingGuard {
+    fn drop(&mut self) {
+        if let Ok(mut pending) = self.pending.try_lock() {
+            pending.remove(&self.id);
+            return;
+        }
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            let pending = self.pending.clone();
+            let id = self.id;
+            runtime.spawn(async move {
+                pending.lock().await.remove(&id);
+            });
+        }
+    }
 }
 
 impl Drop for LspClient {
     fn drop(&mut self) {
+        self.active.store(false, Ordering::Release);
         if let Ok(tasks) = self.tasks.get_mut() {
             for task in tasks.drain(..) {
                 task.abort();
@@ -82,7 +108,17 @@ impl LspClient {
         environment: HashMap<String, String>,
         request_timeout: Duration,
         app_handle: tauri::AppHandle,
+        tool_use: crate::toolchains::ToolUseLease,
+        workspace_generation: u64,
     ) -> Result<Self, String> {
+        if app_handle
+            .state::<crate::commands::fs::WorkspaceState>()
+            .generation()
+            != workspace_generation
+        {
+            return Err("[workspace.generation] Language server authorization expired".into());
+        }
+        let active = Arc::new(AtomicBool::new(true));
         let info = Arc::new(Mutex::new(LanguageServerInfo {
             language: language.clone(),
             status: LanguageServerStatus::Starting,
@@ -95,6 +131,8 @@ impl LspClient {
             process_id: None,
             restart_count: 0,
             last_error: None,
+            workspace_generation,
+            server_generation: format!("lsp-{:032x}", rand::random::<u128>()),
         }));
         emit_state(&app_handle, &info).await;
         let _ = app_handle.emit(
@@ -103,7 +141,7 @@ impl LspClient {
                 "language": language,
                 "level": "info",
                 "source": "process",
-                "message": format!("Starting executable `{command}` with argument vector {args:?}")
+                "message": crate::redaction::redact(&format!("Starting executable `{command}`"))
             }),
         );
 
@@ -188,10 +226,12 @@ impl LspClient {
         let reader_waiters = Arc::clone(&response_waiters);
         let reader_info = Arc::clone(&info);
         let reader_app = app_handle.clone();
+        let reader_active = active.clone();
         let reader_task = tokio::spawn(async move {
             let mut stdout = BufReader::new(stdout);
             let mut decoder = ContentLengthDecoder::default();
             let mut chunk = vec![0_u8; 8 * 1024];
+            let mut log_budget = LogBudget::default();
             loop {
                 let read = match stdout.read(&mut chunk).await {
                     Ok(0) => {
@@ -246,7 +286,27 @@ impl LspClient {
                             return;
                         }
                     };
-                    route_message(&reader_app, &reader_writer, &reader_waiters, message).await;
+                    if reader_app
+                        .state::<crate::commands::fs::WorkspaceState>()
+                        .generation()
+                        != workspace_generation
+                    {
+                        close_waiters(&reader_waiters).await;
+                        return;
+                    }
+                    if !reader_active.load(Ordering::Acquire)
+                        && (message.get("method").is_some() || message.get("id").is_none())
+                    {
+                        continue;
+                    }
+                    route_message(
+                        &reader_app,
+                        &reader_writer,
+                        &reader_waiters,
+                        message,
+                        &mut log_budget,
+                    )
+                    .await;
                 }
             }
         });
@@ -254,17 +314,18 @@ impl LspClient {
         let stderr_app = app_handle.clone();
         let stderr_language = language;
         let stderr_task = tokio::spawn(async move {
-            let mut lines = BufReader::new(stderr).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
+            let mut lines = BufReader::new(stderr);
+            while let Ok(Some(line)) = bounded_log_line(&mut lines).await {
                 let _ = stderr_app.emit(
                     "lsp://log",
                     json!({
                         "language": stderr_language,
                         "level": "warn",
                         "source": "stderr",
-                        "message": line
+                        "message": crate::redaction::redact(&line)
                     }),
                 );
+                tokio::time::sleep(Duration::from_millis(10)).await;
             }
         });
 
@@ -277,7 +338,14 @@ impl LspClient {
             info,
             request_timeout,
             app_handle,
+            active,
+            workspace_generation,
+            tool_use: std::sync::Mutex::new(Some(tool_use)),
         })
+    }
+
+    pub fn generation(&self) -> u64 {
+        self.workspace_generation
     }
 
     pub async fn set_initializing(&self) {
@@ -315,6 +383,27 @@ impl LspClient {
         method: &str,
         params: Value,
     ) -> Result<Value, String> {
+        if method != "shutdown"
+            && (!self.active.load(Ordering::Acquire)
+                || self
+                    .app_handle
+                    .state::<crate::commands::fs::WorkspaceState>()
+                    .generation()
+                    != self.workspace_generation)
+        {
+            return Err(
+                "[lsp.generation] Language server is no longer active in this workspace".into(),
+            );
+        }
+        if method.is_empty()
+            || method.len() > 128
+            || serde_json::to_vec(&params)
+                .map_err(|e| e.to_string())?
+                .len()
+                > crate::resource_limits::LSP_DOCUMENT_BYTES
+        {
+            return Err("[resource.limit] Language server request is too large".into());
+        }
         let message = json!({
             "jsonrpc": "2.0",
             "id": id,
@@ -322,11 +411,25 @@ impl LspClient {
             "params": params
         });
         let (sender, receiver) = oneshot::channel();
-        self.response_waiters.lock().await.insert(id, sender);
+        {
+            let mut pending = self.response_waiters.lock().await;
+            if pending.len() >= crate::resource_limits::PENDING_REQUESTS
+                || pending.contains_key(&id)
+            {
+                return Err(
+                    "[lsp.request_conflict] Pending request limit reached or duplicate request ID"
+                        .into(),
+                );
+            }
+            pending.insert(id, sender);
+        }
+        let _pending = PendingGuard {
+            id,
+            pending: self.response_waiters.clone(),
+        };
         if self
             .writer_tx
-            .send(message.to_string().into_bytes())
-            .await
+            .try_send(message.to_string().into_bytes())
             .is_err()
         {
             self.response_waiters.lock().await.remove(&id);
@@ -365,33 +468,59 @@ impl LspClient {
     }
 
     pub async fn notify(&self, method: &str, params: Value) -> Result<(), String> {
+        if method != "exit"
+            && (!self.active.load(Ordering::Acquire)
+                || self
+                    .app_handle
+                    .state::<crate::commands::fs::WorkspaceState>()
+                    .generation()
+                    != self.workspace_generation)
+        {
+            return Err(
+                "[lsp.generation] Language server is no longer active in this workspace".into(),
+            );
+        }
+        if method.len() > 128
+            || serde_json::to_vec(&params)
+                .map_err(|e| e.to_string())?
+                .len()
+                > crate::resource_limits::LSP_DOCUMENT_BYTES + 1024
+        {
+            return Err("[resource.limit] Language server notification is too large".into());
+        }
         let message = json!({
             "jsonrpc": "2.0",
             "method": method,
             "params": params
         });
         self.writer_tx
-            .send(message.to_string().into_bytes())
-            .await
-            .map_err(|_| "Language server writer is closed".to_string())
+            .try_send(message.to_string().into_bytes())
+            .map_err(|_| "[lsp.backpressure] Language server writer is busy or closed".to_string())
     }
 
     pub async fn shutdown(&self) {
+        self.active.store(false, Ordering::Release);
         self.set_status(LanguageServerStatus::Stopping, None).await;
-        let _ =
-            tokio::time::timeout(Duration::from_secs(2), self.call("shutdown", Value::Null)).await;
+        let _ = tokio::time::timeout(
+            Duration::from_millis(500),
+            self.call("shutdown", Value::Null),
+        )
+        .await;
         let _ = self.notify("exit", Value::Null).await;
 
+        close_waiters(&self.response_waiters).await;
+
+        let child = self.child.lock().ok().and_then(|mut child| child.take());
+        if let Some(mut child) = child {
+            child.wait_or_terminate(Duration::from_millis(500)).await;
+        }
         if let Ok(mut tasks) = self.tasks.lock() {
             for task in tasks.drain(..) {
                 task.abort();
             }
         }
-        close_waiters(&self.response_waiters).await;
-
-        let child = self.child.lock().ok().and_then(|mut child| child.take());
-        if let Some(mut child) = child {
-            child.wait_or_terminate(Duration::from_secs(1)).await;
+        if let Ok(mut lease) = self.tool_use.lock() {
+            lease.take();
         }
         self.set_status(LanguageServerStatus::Stopped, None).await;
     }
@@ -413,6 +542,7 @@ async fn route_message(
     writer: &mpsc::Sender<Vec<u8>>,
     waiters: &Arc<Mutex<HashMap<u64, oneshot::Sender<IncomingResponse>>>>,
     message: Value,
+    log_budget: &mut LogBudget,
 ) {
     let id = message.get("id").and_then(Value::as_u64);
     let method = message.get("method").and_then(Value::as_str);
@@ -424,7 +554,11 @@ async fn route_message(
                         .pointer("/params/items")
                         .and_then(Value::as_array)
                         .map_or(0, Vec::len);
-                    json!({ "jsonrpc": "2.0", "id": id, "result": vec![Value::Null; count] })
+                    if count > crate::resource_limits::PENDING_REQUESTS {
+                        json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32602, "message": "Configuration item limit exceeded" } })
+                    } else {
+                        json!({ "jsonrpc": "2.0", "id": id, "result": vec![Value::Null; count] })
+                    }
                 }
                 "window/showMessageRequest"
                 | "client/registerCapability"
@@ -445,27 +579,47 @@ async fn route_message(
             }
         }
         (None, Some("textDocument/publishDiagnostics")) => {
-            let _ = app.emit("lsp://diagnostics", &message);
+            if crate::commands::lsp_cmds::validate_protocol_paths(
+                &app.state::<crate::commands::fs::WorkspaceState>(),
+                &message,
+                0,
+            )
+            .is_ok()
+            {
+                let _ = app.emit("lsp://diagnostics", &message);
+            }
         }
         (None, Some("window/logMessage" | "window/showMessage")) => {
+            let Some(throttled) = log_budget.admit(std::time::Instant::now()) else {
+                return;
+            };
+            let text = if throttled {
+                "Language server log rate limit reached; additional logs suppressed".into()
+            } else {
+                bounded_log_text(
+                    message
+                        .pointer("/params/message")
+                        .and_then(Value::as_str)
+                        .unwrap_or(""),
+                )
+            };
             let _ = app.emit(
                 "lsp://log",
                 json!({
                     "level": "info",
                     "source": "server",
-                    "message": message.pointer("/params/message").and_then(Value::as_str).unwrap_or("")
+                    "message": text
                 }),
             );
         }
         _ => {
-            let _ = app.emit(
-                "lsp://log",
-                json!({
-                    "level": "debug",
-                    "source": "protocol",
-                    "message": format!("Ignored language server message: {message}")
-                }),
-            );
+            if log_budget.admit(std::time::Instant::now()).is_some() {
+                let _ = app.emit(
+                    "lsp://log",
+                    json!({"level": "debug", "source": "protocol",
+                    "message": "Ignored undeclared language server message (bounded logging)"}),
+                );
+            }
         }
     }
 }
@@ -514,4 +668,155 @@ fn unix_time_ms() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64
+}
+
+struct LogBudget {
+    started: std::time::Instant,
+    emitted: usize,
+}
+impl Default for LogBudget {
+    fn default() -> Self {
+        Self {
+            started: std::time::Instant::now(),
+            emitted: 0,
+        }
+    }
+}
+impl LogBudget {
+    fn admit(&mut self, now: std::time::Instant) -> Option<bool> {
+        if now.duration_since(self.started) >= Duration::from_secs(1) {
+            self.started = now;
+            self.emitted = 0;
+        }
+        self.emitted = self.emitted.saturating_add(1);
+        match self.emitted {
+            1..=100 => Some(false),
+            101 => Some(true),
+            _ => None,
+        }
+    }
+}
+
+fn bounded_log_text(text: &str) -> String {
+    let text = crate::redaction::redact(text);
+    let mut end = text
+        .len()
+        .min(crate::resource_limits::PROCESS_LOG_LINE_BYTES);
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    if end == text.len() {
+        text
+    } else {
+        format!("{} [log truncated]", &text[..end])
+    }
+}
+
+// Keep a bounded prefix while draining the entire line, including unterminated logs.
+async fn bounded_log_line(
+    reader: &mut (impl tokio::io::AsyncBufRead + Unpin),
+) -> std::io::Result<Option<String>> {
+    let limit = crate::resource_limits::PROCESS_LOG_LINE_BYTES;
+    let mut bytes = Vec::with_capacity(limit);
+    let mut truncated = false;
+    loop {
+        let available = reader.fill_buf().await?;
+        if available.is_empty() {
+            if bytes.is_empty() && !truncated {
+                return Ok(None);
+            }
+            break;
+        }
+        let newline = available.iter().position(|byte| *byte == b'\n');
+        let content = newline.unwrap_or(available.len());
+        let retained = content.min(limit - bytes.len());
+        bytes.extend_from_slice(&available[..retained]);
+        truncated |= content > retained;
+        reader.consume(content + usize::from(newline.is_some()));
+        if newline.is_some() {
+            break;
+        }
+    }
+    if !truncated && bytes.last() == Some(&b'\r') {
+        bytes.pop();
+    }
+    if truncated {
+        // A prefix ending inside UTF-8 must not fabricate a replacement character.
+        if let Err(error) = std::str::from_utf8(&bytes) {
+            if error.error_len().is_none() {
+                bytes.truncate(error.valid_up_to());
+            }
+        }
+    }
+    let mut line = String::from_utf8_lossy(&bytes).into_owned();
+    if truncated {
+        line.push_str(" [log truncated]");
+    }
+    Ok(Some(line))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn protocol_logs_are_bounded_redacted_and_rate_limited() {
+        let mut budget = LogBudget::default();
+        for _ in 0..100 {
+            assert_eq!(budget.admit(budget.started), Some(false));
+        }
+        assert_eq!(budget.admit(budget.started), Some(true));
+        for _ in 0..100_000 {
+            assert_eq!(budget.admit(budget.started), None);
+        }
+        assert_eq!(
+            budget.admit(budget.started + Duration::from_secs(1)),
+            Some(false)
+        );
+        let text =
+            bounded_log_text(&("Bearer secret-token ".to_owned() + &"\u{1f600}".repeat(100_000)));
+        assert!(!text.contains("secret-token"));
+        assert!(text.ends_with(" [log truncated]"));
+        assert!(
+            text.len() <= crate::resource_limits::PROCESS_LOG_LINE_BYTES + " [log truncated]".len()
+        );
+        assert!(!text.contains('\u{fffd}'));
+    }
+
+    #[tokio::test]
+    async fn stderr_drains_oversized_lines_and_preserves_following_records() {
+        let mut input = vec![b'x'; 4 * 1024 * 1024];
+        input.extend_from_slice(b"\r\nnext\r\n\nlast");
+        let mut reader = BufReader::with_capacity(7, input.as_slice());
+        let first = bounded_log_line(&mut reader).await.unwrap().unwrap();
+        assert_eq!(
+            first.len(),
+            crate::resource_limits::PROCESS_LOG_LINE_BYTES + " [log truncated]".len()
+        );
+        assert!(first.ends_with(" [log truncated]"));
+        for expected in ["next", "", "last"] {
+            assert_eq!(
+                bounded_log_line(&mut reader).await.unwrap().as_deref(),
+                Some(expected)
+            );
+        }
+        assert!(bounded_log_line(&mut reader).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn stderr_preserves_unicode_across_chunks_and_truncated_prefixes() {
+        let input = "a\u{4e2d}\u{1f600}z\n";
+        for size in 1..=input.len() {
+            let mut reader = BufReader::with_capacity(size, input.as_bytes());
+            assert_eq!(
+                bounded_log_line(&mut reader).await.unwrap().as_deref(),
+                Some(input.trim_end())
+            );
+        }
+        let input = "x".repeat(crate::resource_limits::PROCESS_LOG_LINE_BYTES - 1) + "\u{1f600}";
+        let mut reader = BufReader::with_capacity(3, input.as_bytes());
+        let line = bounded_log_line(&mut reader).await.unwrap().unwrap();
+        assert!(!line.contains('\u{fffd}'));
+        assert!(line.ends_with(" [log truncated]"));
+    }
 }

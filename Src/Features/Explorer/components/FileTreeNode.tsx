@@ -70,15 +70,21 @@ function getFileIcon(filename: string, isActive: boolean) {
 interface FileTreeNodeProps {
   node: FileNode;
   depth: number;
+  flat?: boolean;
 }
 
-export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: FileTreeNodeProps) {
+export const FileTreeNode = React.memo(function FileTreeNode({
+  node,
+  depth,
+  flat = false,
+}: FileTreeNodeProps) {
   const { t } = useLocale();
   const {
     activePath,
     inlineCreation,
     inlineEditing,
     onToggle,
+    onLoadMore,
     onInlineCreate,
     onInlineCancel,
     onInlineRename,
@@ -352,7 +358,7 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
         </ContextMenuContent>
       </ContextMenuRoot>
 
-      {node.isDirectory && node.isOpen && (
+      {!flat && node.isDirectory && node.isOpen && (
         <div className="flex flex-col relative">
           {isTargetForInline && (
             <InlineInput
@@ -365,6 +371,16 @@ export const FileTreeNode = React.memo(function FileTreeNode({ node, depth }: Fi
           {node.children?.map((child) => (
             <FileTreeNode key={child.path} node={child} depth={depth + 1} />
           ))}
+          {node.nextCursor && (
+            <button
+              type="button"
+              className="mx-2 my-1 h-7 rounded-control text-left text-[11px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)]"
+              style={{ paddingLeft: `${(depth + 1) * 16 + 24}px` }}
+              onClick={() => void onLoadMore(node)}
+            >
+              {t("explorer.loadMore")}
+            </button>
+          )}
         </div>
       )}
     </div>

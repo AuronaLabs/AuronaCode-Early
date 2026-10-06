@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::Path;
 use std::process::Stdio;
 use std::time::Duration;
@@ -116,8 +116,12 @@ impl Drop for ManagedChild {
 
 /// A short-lived protected child (Git, Python checks) that runs in its own
 /// process group / job so it can be killed together with its descendants.
+type OutputWorker = std::thread::JoinHandle<Result<(Vec<u8>, bool), String>>;
 pub struct ProtectedStdChild {
     child: Option<std::process::Child>,
+    stdout: Option<OutputWorker>,
+    stderr: Option<OutputWorker>,
+    input: Option<std::thread::JoinHandle<Result<(), String>>>,
     #[cfg(windows)]
     job: WindowsJob,
     #[cfg(unix)]
@@ -126,12 +130,33 @@ pub struct ProtectedStdChild {
 
 impl ProtectedStdChild {
     fn attach(child: std::process::Child) -> Result<Self, String> {
+        Self::attach_stdout(child, drain_output)
+    }
+
+    fn attach_stdout(
+        mut child: std::process::Child,
+        consume: impl FnOnce(std::process::ChildStdout) -> Result<(Vec<u8>, bool), String>
+            + Send
+            + 'static,
+    ) -> Result<Self, String> {
+        let stdout = child.stdout.take().ok_or("Child stdout is unavailable")?;
+        let stderr = child.stderr.take().ok_or("Child stderr is unavailable")?;
         #[cfg(windows)]
         {
             let process_id = child.id();
-            let job = WindowsJob::attach(process_id)?;
+            let job = match WindowsJob::attach(process_id) {
+                Ok(job) => job,
+                Err(error) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(error);
+                }
+            };
             Ok(Self {
                 child: Some(child),
+                stdout: Some(std::thread::spawn(move || consume(stdout))),
+                stderr: Some(std::thread::spawn(move || drain_output(stderr))),
+                input: None,
                 job,
             })
         }
@@ -141,21 +166,24 @@ impl ProtectedStdChild {
                 .map_err(|_| "Spawned process id is out of range".to_string())?;
             Ok(Self {
                 child: Some(child),
+                stdout: Some(std::thread::spawn(move || consume(stdout))),
+                stderr: Some(std::thread::spawn(move || drain_output(stderr))),
+                input: None,
                 process_group,
             })
         }
         #[cfg(not(any(windows, unix)))]
-        Ok(Self { child: Some(child) })
+        Ok(Self {
+            child: Some(child),
+            stdout: Some(std::thread::spawn(move || consume(stdout))),
+            stderr: Some(std::thread::spawn(move || drain_output(stderr))),
+            input: None,
+        })
     }
 
-    pub fn wait(mut self) -> Result<std::process::Output, String> {
-        let child = self
-            .child
-            .take()
-            .ok_or_else(|| "Child process already finished".to_string())?;
-        child
-            .wait_with_output()
-            .map_err(|error| format!("Failed to wait for child process: {error}"))
+    #[cfg(test)]
+    pub fn wait(self) -> Result<std::process::Output, String> {
+        self.wait_timeout(Duration::from_secs(60))
     }
 
     fn write_input(&mut self, input: &[u8]) -> Result<(), String> {
@@ -164,30 +192,74 @@ impl ProtectedStdChild {
             .as_mut()
             .and_then(|child| child.stdin.take())
             .ok_or_else(|| "Child process stdin is unavailable".to_string())?;
-        let mut stdin = stdin;
-        stdin
-            .write_all(input)
-            .map_err(|error| format!("Failed to write process input: {error}"))
+        let input = input.to_owned();
+        self.input = Some(std::thread::spawn(move || {
+            let mut stdin = stdin;
+            stdin
+                .write_all(&input)
+                .map_err(|_| "Failed to write process input".to_string())
+        }));
+        Ok(())
     }
 
-    pub fn wait_timeout(mut self, timeout: Duration) -> Result<std::process::Output, String> {
-        let Some(child) = self.child.take() else {
-            return Err("Child process already finished".to_string());
-        };
-        let (sender, receiver) = std::sync::mpsc::channel();
-        std::thread::spawn(move || {
-            let _ = sender.send(child.wait_with_output());
-        });
-        match receiver.recv_timeout(timeout) {
-            Ok(Ok(output)) => Ok(output),
-            Ok(Err(error)) => Err(format!("Failed to wait for child process: {error}")),
-            Err(_) => {
+    pub fn wait_timeout(self, timeout: Duration) -> Result<std::process::Output, String> {
+        self.wait_until(timeout, || false)
+    }
+
+    pub fn wait_until(
+        mut self,
+        timeout: Duration,
+        mut cancelled: impl FnMut() -> bool,
+    ) -> Result<std::process::Output, String> {
+        let deadline = std::time::Instant::now() + timeout;
+        let mut was_cancelled = false;
+        let status = loop {
+            if cancelled() {
+                was_cancelled = true;
                 self.terminate_now();
-                Err(format!(
-                    "Command timed out after {timeout:?} and was terminated"
-                ))
+                let _ = self.child.as_mut().and_then(|child| child.wait().ok());
+                break None;
+            }
+            if let Some(status) = self
+                .child
+                .as_mut()
+                .ok_or("Child process already finished")?
+                .try_wait()
+                .map_err(|error| error.to_string())?
+            {
+                break Some(status);
+            }
+            if std::time::Instant::now() >= deadline {
+                self.terminate_now();
+                let _ = self.child.as_mut().and_then(|child| child.wait().ok());
+                break None;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        // Descendants may retain inherited pipes after the primary process exits.
+        self.terminate_now();
+        self.child.take();
+        let stdout = join_output(self.stdout.take())?;
+        let stderr = join_output(self.stderr.take())?;
+        if let Some(input) = self.input.take() {
+            let result = input.join().map_err(|_| "Process input worker failed")?;
+            if status.is_some() {
+                result?;
             }
         }
+        if was_cancelled {
+            return Err("[process.cancelled] Command cancelled and process tree terminated".into());
+        }
+        let status = status
+            .ok_or_else(|| format!("Command timed out after {timeout:?} and was terminated"))?;
+        if stdout.1 || stderr.1 {
+            return Err("[process.output_limit] Output exceeded the 4 MiB retention limit; output was drained and truncated".into());
+        }
+        Ok(std::process::Output {
+            status,
+            stdout: stdout.0,
+            stderr: stderr.0,
+        })
     }
 
     fn terminate_now(&mut self) {
@@ -206,6 +278,32 @@ impl ProtectedStdChild {
     }
 }
 
+fn drain_output(mut reader: impl Read) -> Result<(Vec<u8>, bool), String> {
+    let mut retained = Vec::new();
+    let mut buffer = [0u8; 16 * 1024];
+    let mut truncated = false;
+    loop {
+        let count = match reader.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(count) => count,
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(error) => return Err(error.to_string()),
+        };
+        let keep =
+            count.min(crate::resource_limits::PROCESS_OUTPUT_BYTES.saturating_sub(retained.len()));
+        retained.extend_from_slice(&buffer[..keep]);
+        truncated |= keep < count;
+    }
+    Ok((retained, truncated))
+}
+
+fn join_output(worker: Option<OutputWorker>) -> Result<(Vec<u8>, bool), String> {
+    worker
+        .ok_or("Process output worker is unavailable")?
+        .join()
+        .map_err(|_| "Process output worker failed")?
+}
+
 impl Drop for ProtectedStdChild {
     fn drop(&mut self) {
         if self.child.is_some() {
@@ -217,12 +315,21 @@ impl Drop for ProtectedStdChild {
     }
 }
 
-fn spawn_protected(
+pub(crate) fn spawn_protected(
     program: &str,
     args: &[&str],
     current_dir: Option<&Path>,
     stdin_piped: bool,
 ) -> Result<ProtectedStdChild, String> {
+    ProtectedStdChild::attach(spawn_piped(program, args, current_dir, stdin_piped)?)
+}
+
+fn spawn_piped(
+    program: &str,
+    args: &[&str],
+    current_dir: Option<&Path>,
+    stdin_piped: bool,
+) -> Result<std::process::Child, String> {
     let mut command = create_command(program);
     command.args(args);
     command
@@ -241,13 +348,52 @@ fn spawn_protected(
         use std::os::unix::process::CommandExt;
         command.process_group(0);
     }
-    let child = command
+    command
         .spawn()
-        .map_err(|error| format!("Unable to start `{program}`: {error}"))?;
-    ProtectedStdChild::attach(child)
+        .map_err(|error| format!("Unable to start `{program}`: {error}"))
+}
+
+pub(crate) fn capture_to_file(
+    program: &str,
+    args: &[&str],
+    current_dir: &Path,
+    mut target: cap_std::fs::File,
+    expected_bytes: usize,
+    cancelled: impl FnMut() -> bool,
+) -> Result<std::process::Output, String> {
+    if expected_bytes > crate::resource_limits::TEXT_BYTES {
+        return Err("[resource.limit] Streamed file exceeds 32 MiB".into());
+    }
+    let child = spawn_piped(program, args, Some(current_dir), false)?;
+    ProtectedStdChild::attach_stdout(child, move |mut stdout| {
+        let mut bytes = 0usize;
+        let mut buffer = [0u8; crate::resource_limits::FILE_CHUNK_BYTES];
+        loop {
+            let count = stdout.read(&mut buffer).map_err(|e| e.to_string())?;
+            if count == 0 {
+                break;
+            }
+            bytes = bytes
+                .checked_add(count)
+                .ok_or("[resource.limit] Stream length overflow")?;
+            if bytes > expected_bytes {
+                return Err("[git.recovery] Recovery blob grew beyond its verified size".into());
+            }
+            target
+                .write_all(&buffer[..count])
+                .map_err(|e| e.to_string())?;
+        }
+        if bytes != expected_bytes {
+            return Err("[git.recovery] Recovery blob length mismatch".into());
+        }
+        target.sync_all().map_err(|e| e.to_string())?;
+        Ok((Vec::new(), false))
+    })?
+    .wait_until(Duration::from_secs(60), cancelled)
 }
 
 /// Runs a short-lived command in its own process group / job and waits for it.
+#[cfg(test)]
 pub fn capture(
     program: &str,
     args: &[&str],
@@ -263,10 +409,11 @@ pub fn capture_with_input(
     current_dir: Option<&Path>,
     input: &[u8],
     timeout: Duration,
+    cancelled: impl FnMut() -> bool,
 ) -> Result<std::process::Output, String> {
     let mut child = spawn_protected(program, args, current_dir, true)?;
     child.write_input(input)?;
-    child.wait_timeout(timeout)
+    child.wait_until(timeout, cancelled)
 }
 
 /// Runs a short-lived command with a bounded wait; the whole process group is
@@ -281,7 +428,7 @@ pub fn capture_with_timeout(
 }
 
 #[cfg(windows)]
-struct WindowsJob {
+pub(crate) struct WindowsJob {
     handle: windows_sys::Win32::Foundation::HANDLE,
 }
 
@@ -290,7 +437,7 @@ unsafe impl Send for WindowsJob {}
 
 #[cfg(windows)]
 impl WindowsJob {
-    fn attach(process_id: u32) -> Result<Self, String> {
+    pub(crate) fn attach(process_id: u32) -> Result<Self, String> {
         use std::ffi::c_void;
         use windows_sys::Win32::Foundation::{CloseHandle, FALSE};
         use windows_sys::Win32::System::JobObjects::{
@@ -343,7 +490,7 @@ impl WindowsJob {
         }
     }
 
-    fn terminate(&mut self) {
+    pub(crate) fn terminate(&mut self) {
         use windows_sys::Win32::System::JobObjects::TerminateJobObject;
         // SAFETY: handle remains owned by this object until Drop closes it.
         unsafe {
@@ -366,6 +513,18 @@ impl Drop for WindowsJob {
 #[cfg(test)]
 mod tests {
     use super::{capture, capture_with_timeout, ManagedChild};
+    #[test]
+    fn cancellation_reclaims_a_running_process_tree_within_two_seconds() {
+        let started = std::time::Instant::now();
+        let process = super::spawn_protected("node", &["-e", "require('child_process').spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'inherit'});setInterval(()=>{},1000)"], None, false).unwrap();
+        let error = process
+            .wait_until(Duration::from_secs(30), || {
+                started.elapsed() > Duration::from_millis(200)
+            })
+            .unwrap_err();
+        assert!(error.contains("process.cancelled"));
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     #[test]
@@ -378,6 +537,20 @@ mod tests {
             String::from_utf8_lossy(&output.stderr)
         );
         assert!(combined.contains("git version"));
+    }
+
+    #[test]
+    fn stdout_and_stderr_are_drained_concurrently_after_the_retention_limit() {
+        let error = capture_with_timeout("node", &["-e", "const b=Buffer.alloc(65536,120);for(let i=0;i<96;i++){require('fs').writeSync(1,b);require('fs').writeSync(2,b)}"], None, Duration::from_secs(30)).expect_err("output must be bounded");
+        assert!(error.contains("output_limit"), "{error}");
+    }
+
+    #[test]
+    fn output_drainer_consumes_all_input_without_retaining_it() {
+        let input = std::io::Cursor::new(vec![42u8; 5 * 1024 * 1024]);
+        let (output, truncated) = super::drain_output(input).unwrap();
+        assert_eq!(output.len(), crate::resource_limits::PROCESS_OUTPUT_BYTES);
+        assert!(truncated);
     }
 
     #[test]

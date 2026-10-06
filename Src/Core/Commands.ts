@@ -177,6 +177,10 @@ export function registerWorkbenchCommands(): () => void {
     ...(["undo", "redo", "cut", "copy", "paste", "selectAll"] as const).map((action) =>
       CommandRegistry.register({
         id: `editor.action.${action}`,
+        agent: {
+          effects: action === "selectAll" ? ["editor.read"] : ["editor.write"],
+          requiresApproval: action !== "selectAll",
+        },
         title: {
           undo: "撤销",
           redo: "重做",
@@ -213,6 +217,7 @@ export function registerWorkbenchCommands(): () => void {
     ).map(({ action, title, titleKey }) =>
       CommandRegistry.register({
         id: `editor.action.${action}`,
+        agent: { effects: ["editor.write"], requiresApproval: true },
         title,
         titleKey,
         category: "编辑",
@@ -225,6 +230,7 @@ export function registerWorkbenchCommands(): () => void {
     ...(["foldAll", "unfoldAll"] as const).map((action) =>
       CommandRegistry.register({
         id: `editor.action.${action}`,
+        agent: { effects: ["editor.read"], requiresApproval: false },
         title: action === "foldAll" ? "折叠全部" : "展开全部",
         titleKey: action === "foldAll" ? "editor.actionFoldAll" : "editor.actionUnfoldAll",
         category: "编辑",
@@ -297,6 +303,7 @@ export function registerWorkbenchCommands(): () => void {
     }),
     CommandRegistry.register({
       id: "editor.action.formatDocument",
+      agent: { effects: ["editor.write"], requiresApproval: true },
       title: "格式化文档",
       titleKey: "commands.formatDocument",
       category: "语言服务",

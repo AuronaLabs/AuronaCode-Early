@@ -68,8 +68,9 @@ export const LanguageServerIPC = {
     return invokeDesktop("lsp_file_uri", { path });
   },
 
-  start(language: string, options: LanguageServerStartRequest): Promise<void> {
-    return invokeDesktop("lsp_start", { language, options });
+  async start(language: string, options: LanguageServerStartRequest): Promise<void> {
+    const launchId = await invokeDesktop<string>("lsp_prepare", { language, options });
+    return invokeDesktop("lsp_start", { launchId });
   },
 
   stop(language: string): Promise<void> {
@@ -132,22 +133,27 @@ export const LanguageServerIPC = {
     return invokeDesktop("lsp_toolchain_status", { language });
   },
 
-  installToolchain(
-    archiveBytes: number[],
-    expectedSha256?: string,
-  ): Promise<InstalledToolchainSummary> {
-    return invokeDesktop("lsp_toolchain_install", { archiveBytes, expectedSha256 });
+  installToolchain(artifactId: string, taskId?: string): Promise<InstalledToolchainSummary> {
+    return invokeDesktop("lsp_toolchain_install", { artifactId, taskId });
   },
 
-  installToolchainFromUrl(
+  async installToolchainFromUrl(
     downloadId: string,
     url: string,
+    expectedId: string,
+    expectedVersion?: string,
     expectedSha256?: string,
   ): Promise<InstalledToolchainSummary> {
-    return invokeDesktop("lsp_toolchain_install_url", {
+    const artifact = await invokeDesktop<{ artifactId: string }>("lsp_toolchain_install_url", {
       downloadId,
       url,
       expectedSha256,
+      expectedId,
+      expectedVersion,
+    });
+    return invokeDesktop("lsp_toolchain_install", {
+      artifactId: artifact.artifactId,
+      taskId: downloadId,
     });
   },
 

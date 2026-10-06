@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useLocale } from "../../Foundation/I18n";
 import {
   compareAuronaVersions,
@@ -9,6 +9,7 @@ import { Badge } from "../../UI/Components/Badge";
 import { Card } from "../../UI/Components/Card";
 import { Input } from "../../UI/Components/Input";
 import { GlassContainer } from "../../UI/Core/GlassManager";
+import { useRetainedViewState } from "../../UI/Core/ViewState";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
 import { CHANGELOG_DATA, type ChangelogEntry } from "./ChangelogData";
@@ -107,9 +108,13 @@ export function ChangelogTab() {
       });
   }, []);
 
-  const [selectedFamilyId, setSelectedFamilyId] = useState(families[0]?.id ?? "");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(
+  const [selectedFamilyId, setSelectedFamilyId] = useRetainedViewState(
+    "changelog.family",
+    families[0]?.id ?? "",
+  );
+  const [searchQuery, setSearchQuery] = useRetainedViewState("changelog.query", "");
+  const [expandedKeys, setExpandedKeys] = useRetainedViewState<Set<string>>(
+    "changelog.expanded",
     () => new Set(CHANGELOG_DATA[0] ? [CHANGELOG_DATA[0].version] : []),
   );
   const selectedFamily = families.find((family) => family.id === selectedFamilyId) ?? families[0];

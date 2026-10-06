@@ -1,17 +1,18 @@
 import { BaseDirectory, desktopFileSystem } from "../Desktop";
+import { AiIPC } from "../IPC/AiCommands";
 import { Logger } from "../Logger";
 import type { UserConfig } from "../Types/Config";
 
 const FILE = "user-config.json";
 const BASE = BaseDirectory.AppLocalData;
-const { exists, mkdir, readTextFile, writeTextFileAtomic } = desktopFileSystem;
+const { exists, mkdir, writeTextFileAtomic } = desktopFileSystem;
 
-let isWriting = false;
-let pendingWrite = false;
 let memoryCache: UserConfig | null = null;
+let loading: Promise<UserConfig> | null = null;
 let writeChain: Promise<void> = Promise.resolve();
-/** 首次加载时即无 user-config.json：用于首启 OOBE 判定，免去重复 exists IPC */
 let firstRunDetected = false;
+let credentialMigrationBlocked = false;
+let generation = 0;
 
 export const UserConfigStore = {
   async init(): Promise<void> {
@@ -23,68 +24,84 @@ export const UserConfigStore = {
   },
 
   async get(): Promise<UserConfig> {
-    try {
-      if (memoryCache !== null) return memoryCache;
-
+    if (memoryCache !== null && !credentialMigrationBlocked) return memoryCache;
+    if (loading) return loading;
+    const currentGeneration = generation;
+    const request = (async () => {
+      await writeChain.catch(() => undefined);
+      const assertCurrent = () => {
+        if (generation !== currentGeneration) throw new Error("Configuration cache was reset");
+      };
+      assertCurrent();
       const fileExists = await exists(FILE, { baseDir: BASE });
+      assertCurrent();
       if (!fileExists) {
         firstRunDetected = true;
+        credentialMigrationBlocked = false;
         memoryCache = {};
         return memoryCache;
       }
-      const content = await readTextFile(FILE, { baseDir: BASE });
-      memoryCache = JSON.parse(content) as UserConfig;
+      try {
+        const config = await AiIPC.migrateUserConfig();
+        assertCurrent();
+        memoryCache = config;
+        credentialMigrationBlocked = false;
+      } catch (error) {
+        if (generation === currentGeneration) credentialMigrationBlocked = true;
+        Logger.error("Credential migration is paused; original configuration is preserved", error);
+        throw error;
+      }
       return memoryCache;
-    } catch (error) {
-      Logger.error("Unable to read user configuration; using in-memory defaults", error);
-      return {};
+    })();
+    loading = request;
+    try {
+      return await request;
+    } finally {
+      if (loading === request) loading = null;
     }
   },
 
-  /** 首次 get() 时是否即无配置文件（首启判定） */
   isFirstRun(): boolean {
     return firstRunDetected;
   },
 
   async set(config: Partial<UserConfig>): Promise<void> {
-    // 同步合并到内存缓存（避免 await 间隙丢失并发 set 的字段），写盘走 flush 队列
-    memoryCache = { ...(memoryCache ?? (await this.get())), ...config };
-
-    if (isWriting) {
-      pendingWrite = true;
-      return;
+    if (
+      config.ai?.apiKey ||
+      config.ai?.profiles?.some((profile) => "apiKey" in profile && profile.apiKey)
+    ) {
+      throw new Error("Credentials must be stored through the system credential service");
     }
-
-    const run = async () => {
-      isWriting = true;
-      pendingWrite = false;
-      try {
-        // 原子写盘：tmp → bak 让位 → rename，断电/崩溃不会留下半截 JSON
-        await writeTextFileAtomic(FILE, JSON.stringify(memoryCache, null, 2), {
-          baseDir: BASE,
-        });
-      } catch (error) {
-        Logger.error("Unable to persist user configuration", error);
-      }
-      isWriting = false;
-      if (pendingWrite) {
-        await run();
-      }
-    };
-
-    writeChain = run().then(() => undefined);
+    const currentGeneration = generation;
+    await this.get();
+    if (generation !== currentGeneration) throw new Error("Configuration cache was reset");
+    memoryCache = { ...memoryCache, ...config };
+    const snapshot = JSON.stringify(memoryCache, null, 2);
+    // Preserve order and let each caller observe the failure of its own write.
+    const result = writeChain
+      .catch(() => undefined)
+      .then(async () => {
+        if (generation !== currentGeneration) throw new Error("Configuration cache was reset");
+        try {
+          await writeTextFileAtomic(FILE, snapshot, { baseDir: BASE });
+        } catch (error) {
+          Logger.error("Unable to persist user configuration", error);
+          throw error;
+        }
+      });
+    writeChain = result;
+    await result;
   },
 
-  /** 等待全部待写盘完成（退出前保存窗口布局等场景需确保落盘后再销毁窗口） */
   async flush(): Promise<void> {
     await writeChain;
   },
 
   resetCache(): void {
+    generation++;
     memoryCache = null;
-    isWriting = false;
-    pendingWrite = false;
+    loading = null;
     firstRunDetected = false;
-    writeChain = Promise.resolve();
+    credentialMigrationBlocked = false;
   },
 };

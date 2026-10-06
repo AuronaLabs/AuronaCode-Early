@@ -26,6 +26,7 @@ export const FileExplorer = React.memo(function FileExplorer({
   const { t } = useLocale();
   const treeRef = useRef<HTMLDivElement>(null);
   const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
+  const [viewport, setViewport] = useState({ top: 0, height: 600 });
   const {
     rootNode,
     activePath,
@@ -50,9 +51,9 @@ export const FileExplorer = React.memo(function FileExplorer({
     handleDuplicate,
     handleDrop,
     toggleDir,
+    loadMore,
   } = useFileTree(onFileSelect);
 
-  const isRootTargetForInline = inlineCreation?.parentPath === rootNode?.path;
   const title = useMemo(() => rootNode?.name || t("explorer.title"), [rootNode, t]);
   const visibleNodes = useMemo(() => {
     const nodes: { node: NonNullable<typeof rootNode>; depth: number }[] = [];
@@ -65,6 +66,42 @@ export const FileExplorer = React.memo(function FileExplorer({
     visit(rootNode?.children, 0);
     return nodes;
   }, [rootNode]);
+
+  const virtualRows = useMemo(() => {
+    const rows: Array<{
+      kind: "node" | "create" | "more";
+      node: NonNullable<typeof rootNode>;
+      depth: number;
+    }> = [];
+    const visit = (parent: NonNullable<typeof rootNode>, depth: number) => {
+      if (inlineCreation?.parentPath === parent.path)
+        rows.push({ kind: "create", node: parent, depth });
+      for (const node of parent.children ?? []) {
+        rows.push({ kind: "node", node, depth });
+        if (node.isDirectory && node.isOpen) visit(node, depth + 1);
+      }
+      if (parent.nextCursor) rows.push({ kind: "more", node: parent, depth });
+    };
+    if (rootNode) visit(rootNode, 0);
+    return rows;
+  }, [rootNode, inlineCreation]);
+  const rowHeight = 32;
+  const firstRow = Math.max(0, Math.floor(viewport.top / rowHeight) - 8);
+  const lastRow = Math.min(
+    virtualRows.length,
+    Math.ceil((viewport.top + viewport.height) / rowHeight) + 8,
+  );
+
+  React.useEffect(() => {
+    const element = treeRef.current;
+    if (!element || !rootNode?.path) return;
+    const measure = () =>
+      setViewport({ top: element.scrollTop, height: element.clientHeight || 600 });
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    measure();
+    return () => observer.disconnect();
+  }, [rootNode?.path]);
 
   const handleTreeKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!rootNode || visibleNodes.length === 0) return;
@@ -126,6 +163,7 @@ export const FileExplorer = React.memo(function FileExplorer({
       inlineCreation,
       inlineEditing,
       onToggle: toggleDir,
+      onLoadMore: loadMore,
       onInlineCreate: handleInlineCreate,
       onInlineCancel: handleInlineCancel,
       onInlineRename: handleInlineRename,
@@ -146,6 +184,7 @@ export const FileExplorer = React.memo(function FileExplorer({
       inlineCreation,
       inlineEditing,
       toggleDir,
+      loadMore,
       handleInlineCreate,
       handleInlineCancel,
       handleInlineRename,
@@ -166,6 +205,17 @@ export const FileExplorer = React.memo(function FileExplorer({
     if (!activePath || !treeRef.current) return;
 
     const frame = window.requestAnimationFrame(() => {
+      const index = virtualRows.findIndex(
+        (row) => row.kind === "node" && row.node.path === activePath,
+      );
+      const element = treeRef.current;
+      if (element && index >= 0) {
+        const top = index * rowHeight;
+        if (top < element.scrollTop) element.scrollTop = top;
+        else if (top + rowHeight > element.scrollTop + element.clientHeight)
+          element.scrollTop = top + rowHeight - element.clientHeight;
+        setViewport({ top: element.scrollTop, height: element.clientHeight || 600 });
+      }
       const target = Array.from(
         treeRef.current?.querySelectorAll<HTMLElement>("[data-file-path]") ?? [],
       ).find((element) => element.dataset.filePath === activePath);
@@ -174,7 +224,7 @@ export const FileExplorer = React.memo(function FileExplorer({
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [activePath]);
+  }, [activePath, virtualRows]);
 
   return (
     <ExplorerContext.Provider value={contextValue}>
@@ -264,6 +314,12 @@ export const FileExplorer = React.memo(function FileExplorer({
             role="tree"
             aria-label={t("explorer.ariaLabel")}
             onKeyDown={handleTreeKeyDown}
+            onScroll={(event) =>
+              setViewport({
+                top: event.currentTarget.scrollTop,
+                height: event.currentTarget.clientHeight || 600,
+              })
+            }
             onClick={() => treeRef.current?.focus()}
             onDragOver={(e) => {
               e.preventDefault();
@@ -279,18 +335,40 @@ export const FileExplorer = React.memo(function FileExplorer({
               ExplorerDragSession.end();
             }}
           >
-            {isRootTargetForInline && inlineCreation && (
-              <InlineInput
-                type={inlineCreation.type}
-                depth={0}
-                onSubmit={handleInlineCreate}
-                onCancel={handleInlineCancel}
-              />
-            )}
-
-            {rootNode.children?.map((child) => (
-              <FileTreeNode key={child.path} node={child} depth={0} />
-            ))}
+            <div style={{ height: virtualRows.length * rowHeight, position: "relative" }}>
+              {virtualRows.slice(firstRow, lastRow).map((row, index) => (
+                <div
+                  key={`${row.kind}:${row.node.path}`}
+                  style={{
+                    position: "absolute",
+                    top: (firstRow + index) * rowHeight,
+                    height: rowHeight,
+                    left: 0,
+                    right: 0,
+                  }}
+                >
+                  {row.kind === "node" ? (
+                    <FileTreeNode node={row.node} depth={row.depth} flat />
+                  ) : row.kind === "create" ? (
+                    <InlineInput
+                      type={inlineCreation?.type ?? "file"}
+                      depth={row.depth}
+                      onSubmit={handleInlineCreate}
+                      onCancel={handleInlineCancel}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="mx-2 h-7 text-left text-[11px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)]"
+                      style={{ paddingLeft: row.depth * 16 + 24 }}
+                      onClick={() => void loadMore(row.node)}
+                    >
+                      {t("explorer.loadMore")}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
 
             {}
             <Modal

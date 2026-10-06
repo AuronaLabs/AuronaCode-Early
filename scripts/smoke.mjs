@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { readChangelog } from "./changelog-data.mjs";
 
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const tauriConfig = JSON.parse(
@@ -7,10 +9,7 @@ const tauriConfig = JSON.parse(
 );
 const cargoToml = await readFile(new URL("../src-tauri/Cargo.toml", import.meta.url), "utf8");
 const cargoLock = await readFile(new URL("../src-tauri/Cargo.lock", import.meta.url), "utf8");
-const changelog = await readFile(
-  new URL("../Src/Features/Settings/ChangelogData.ts", import.meta.url),
-  "utf8",
-);
+const changelog = readChangelog(fileURLToPath(new URL("../", import.meta.url)));
 const security = await readFile(new URL("../.github/SECURITY.md", import.meta.url), "utf8");
 const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
 const releaseWorkflow = await readFile(
@@ -36,12 +35,9 @@ assert.match(
   new RegExp(`img\\.shields\\.io/badge/version-${packageJson.version.replaceAll(".", "\\.")}-`),
   "README version badge must match the package version",
 );
-assert.match(changelog, new RegExp(`version: "V${packageJson.version.replaceAll(".", "\\.")}"`));
-const currentEntry = changelog
-  .split(`version: "V${packageJson.version}"`)[1]
-  ?.split(/\n\s*\{\n\s*version: "V/)[0];
+const currentEntry = changelog.find((entry) => entry.version === `V${packageJson.version}`);
 assert.ok(currentEntry, "Current changelog entry must be readable");
-const currentSectionCount = [...currentEntry.matchAll(/^\s{8}title:/gm)].length;
+const currentSectionCount = currentEntry.sections.length;
 assert.equal(
   currentSectionCount % 2,
   0,

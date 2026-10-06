@@ -15,8 +15,20 @@ export const EditorSaveRegistry = {
 
   async save(path: string): Promise<boolean> {
     const handler = handlers.get(path);
-    if (!handler) return false;
+    if (!handler) {
+      const document = DocumentService.get(path);
+      if (document?.openState !== "open") return false;
+      try {
+        await DocumentService.flush(path);
+        if (document.isDirty) await DocumentService.save(path);
+        return !DocumentService.get(path)?.isDirty;
+      } catch {
+        return false;
+      }
+    }
     const saved = await handler.save();
     return saved && !handler.isDirty();
   },
 };
+
+import { DocumentService } from "./DocumentService";

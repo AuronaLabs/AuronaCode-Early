@@ -139,7 +139,7 @@ export interface ExtensionEditorRevealEvent {
 }
 
 /** 宿主请求载荷（扩展在 wasm 调用中请求前端交互：对话框/剪贴板/命令） */
-export type ExtensionHostRequestEvent =
+export type ExtensionHostRequestEvent = { generation: number } & (
   | { kind: "confirm"; requestId: string; extensionId: string; title?: string; message?: string }
   | { kind: "input"; requestId: string; extensionId: string; title?: string; placeholder?: string }
   | {
@@ -158,7 +158,8 @@ export type ExtensionHostRequestEvent =
       extensionId: string;
       commandId?: string;
       arguments?: string[];
-    };
+    }
+);
 
 /** 扩展通知事件（show-notification） */
 export interface ExtensionNotificationEvent {
@@ -183,13 +184,13 @@ export const ExtensionIPC = {
     return invokeDesktop("extensions_get_diagnostics", {});
   },
 
-  install(archiveBytes: number[], expectedSha256?: string): Promise<ExtensionDescriptor> {
-    return invokeDesktop("extensions_install", { archiveBytes, expectedSha256 });
+  install(artifactId: string): Promise<ExtensionDescriptor> {
+    return invokeDesktop("extensions_install", { artifactId });
   },
 
   /** 安装本地 .vsix（VSCode 兼容路径），path 为文件选择器返回的绝对路径 */
-  installVscode(path: string): Promise<ExtensionDescriptor> {
-    return invokeDesktop("extensions_install_vscode", { path });
+  installVscode(artifactId: string): Promise<ExtensionDescriptor> {
+    return invokeDesktop("extensions_install_vscode", { artifactId });
   },
 
   /** 一键安装随包内置的默认测试插件（vscode-demo.vsix） */
@@ -276,16 +277,11 @@ export const ExtensionIPC = {
   },
 
   /** 回填宿主请求的应答（请求-响应桥） */
-  hostResponse(requestId: string, value: string): Promise<boolean> {
-    return invokeDesktop("extensions_host_response", { requestId, value });
-  },
-
-  /** 向扩展事件队列推送一条事件（扩展经 poll-events 拉取） */
-  pushEvent(extensionId: string, event: string): Promise<void> {
-    return invokeDesktop("extensions_push_event", {
-      extensionId: canonicalExtensionId(extensionId),
-      event,
-    });
+  hostResponse(
+    request: { requestId: string; extensionId: string; kind: string; generation: number },
+    value: string,
+  ): Promise<boolean> {
+    return invokeDesktop("extensions_host_response", { ...request, value });
   },
 
   /** 订阅宿主请求（前端 ExtensionHostBridge 消费） */

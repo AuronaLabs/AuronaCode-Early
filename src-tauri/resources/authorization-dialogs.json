@@ -1,0 +1,80 @@
+{
+  "en": {
+    "update": "Install Aurona Code {version} and restart?",
+    "restart": "Restart Aurona Code?",
+    "extension": "Execute local extension {id} {version} for this workspace session?\n\nSHA-256: {hash}\nDeclared permissions: {permissions}",
+    "artifact": "Install this local {kind} package?\n\nSHA-256: {hash}\nSize: {bytes} bytes\nThis package has no verified publisher signature.",
+    "title": "Aurona Code - Authorization",
+    "workspace": "Authorize file access to this workspace for the current session?\n\n{path}",
+    "ai": "Allow AI requests and credentials to this endpoint?\n\n{endpoint}",
+    "launch": "Authorize this local launch for the current workspace session?\n\n{preview}\n\nConfiguration fingerprint: {fingerprint}",
+    "marketplace": "Authorize Marketplace resource requests to this source for the current session?\n\n{origin}\n\nAccount credentials are restricted to the official Marketplace.",
+    "delete": "Move this item to recoverable storage?\n\n{path}\n{entries} entries, {bytes} bytes\nFingerprint: {fingerprint}",
+    "git": "Discard {entries} changed entries in this repository?\n\n{path}\nState fingerprint: {fingerprint}\n\nTracked file contents, index and untracked files will be preserved in a Git recovery record. Ignored files are retained."
+  },
+  "zh-CN": {
+    "update": "安装 Aurona Code {version} 并重启？",
+    "restart": "重启 Aurona Code？",
+    "extension": "允许在当前工作区会话中执行本地扩展 {id} {version}？\n\nSHA-256：{hash}\n声明权限：{permissions}",
+    "artifact": "安装此本地 {kind} 软件包？\n\nSHA-256：{hash}\n大小：{bytes} 字节\n此包没有经过验证的发布者签名。",
+    "title": "Aurona Code - 授权确认",
+    "workspace": "允许本次会话访问此工作区的文件吗？\n\n{path}",
+    "ai": "允许向此端点发送 AI 请求和凭据吗？\n\n{endpoint}",
+    "launch": "允许在当前工作区会话中执行此本地启动配置吗？\n\n{preview}\n\n配置指纹：{fingerprint}",
+    "marketplace": "允许本次会话向此来源请求 Marketplace 资源吗？\n\n{origin}\n\n账户凭据仅发送给官方 Marketplace。",
+    "delete": "将此项目移入可恢复存储吗？\n\n{path}\n{entries} 个条目，{bytes} 字节\n指纹：{fingerprint}",
+    "git": "丢弃此仓库中的 {entries} 个变更条目吗？\n\n{path}\n状态指纹：{fingerprint}\n\n已跟踪文件内容、暂存区和未跟踪文件将保存在 Git 恢复记录中。忽略文件会保留。"
+  },
+  "zh-Hant": {
+    "update": "安裝 Aurona Code {version} 並重新啟動？",
+    "restart": "重新啟動 Aurona Code？",
+    "extension": "允許在目前工作區工作階段執行本機擴充功能 {id} {version}？\n\nSHA-256：{hash}\n宣告權限：{permissions}",
+    "artifact": "安裝此本機 {kind} 套件？\n\nSHA-256：{hash}\n大小：{bytes} 位元組\n此套件沒有經過驗證的發行者簽章。",
+    "title": "Aurona Code - 授權確認",
+    "workspace": "允許本次工作階段存取此工作區的檔案嗎？\n\n{path}",
+    "ai": "允許向此端點傳送 AI 請求和憑證嗎？\n\n{endpoint}",
+    "launch": "允許在目前工作區工作階段中執行此本機啟動設定嗎？\n\n{preview}\n\n設定指紋：{fingerprint}",
+    "marketplace": "允許本次工作階段向此來源請求 Marketplace 資源嗎？\n\n{origin}\n\n帳戶憑證僅傳送給官方 Marketplace。",
+    "delete": "將此項目移入可復原儲存空間嗎？\n\n{path}\n{entries} 個項目，{bytes} 位元組\n指紋：{fingerprint}",
+    "git": "捨棄此儲存庫中的 {entries} 個變更項目嗎？\n\n{path}\n狀態指紋：{fingerprint}\n\n已追蹤檔案內容、暫存區和未追蹤檔案將儲存在 Git 復原記錄中。忽略檔案會保留。"
+  },
+  "de": {
+    "update": "Aurona Code {version} installieren und neu starten?",
+    "restart": "Aurona Code neu starten?",
+    "extension": "Lokale Erweiterung {id} {version} in dieser Arbeitsbereichssitzung ausführen?\n\nSHA-256: {hash}\nDeklarierte Berechtigungen: {permissions}",
+    "artifact": "Dieses lokale {kind}-Paket installieren?\n\nSHA-256: {hash}\nGröße: {bytes} Bytes\nDieses Paket hat keine verifizierte Herausgebersignatur.",
+    "title": "Aurona Code - Freigabe",
+    "workspace": "Dateizugriff auf diesen Arbeitsbereich für diese Sitzung erlauben?\n\n{path}",
+    "ai": "KI-Anfragen und Zugangsdaten an diesen Endpunkt senden?\n\n{endpoint}",
+    "launch": "Diesen lokalen Start für die aktuelle Arbeitsbereichssitzung erlauben?\n\n{preview}\n\nKonfigurationsfingerabdruck: {fingerprint}",
+    "marketplace": "Marketplace-Ressourcen von dieser Quelle für diese Sitzung abrufen?\n\n{origin}\n\nKontozugangsdaten werden nur an den offiziellen Marketplace gesendet.",
+    "delete": "Dieses Element in den wiederherstellbaren Speicher verschieben?\n\n{path}\n{entries} Einträge, {bytes} Bytes\nFingerabdruck: {fingerprint}",
+    "git": "{entries} geänderte Einträge in diesem Repository verwerfen?\n\n{path}\nZustandsfingerabdruck: {fingerprint}\n\nVerfolgte Dateiinhalte, Index und nicht verfolgte Dateien werden in einem Git-Wiederherstellungseintrag gesichert. Ignorierte Dateien bleiben erhalten."
+  },
+  "it": {
+    "update": "Installare Aurona Code {version} e riavviare?",
+    "restart": "Riavviare Aurona Code?",
+    "extension": "Eseguire l'estensione locale {id} {version} in questa sessione dello spazio di lavoro?\n\nSHA-256: {hash}\nAutorizzazioni dichiarate: {permissions}",
+    "artifact": "Installare questo pacchetto locale {kind}?\n\nSHA-256: {hash}\nDimensione: {bytes} byte\nIl pacchetto non ha una firma verificata dell'autore.",
+    "title": "Aurona Code - Autorizzazione",
+    "workspace": "Autorizzare l'accesso ai file di questo spazio di lavoro per la sessione corrente?\n\n{path}",
+    "ai": "Consentire l'invio di richieste IA e credenziali a questo endpoint?\n\n{endpoint}",
+    "launch": "Autorizzare questo avvio locale per la sessione dello spazio di lavoro corrente?\n\n{preview}\n\nImpronta della configurazione: {fingerprint}",
+    "marketplace": "Autorizzare le richieste di risorse Marketplace a questa origine per la sessione corrente?\n\n{origin}\n\nLe credenziali dell'account vengono inviate solo al Marketplace ufficiale.",
+    "delete": "Spostare questo elemento nell'archivio recuperabile?\n\n{path}\n{entries} elementi, {bytes} byte\nImpronta: {fingerprint}",
+    "git": "Scartare {entries} elementi modificati in questo repository?\n\n{path}\nImpronta dello stato: {fingerprint}\n\nContenuti dei file tracciati, indice e file non tracciati saranno conservati in un record di ripristino Git. I file ignorati vengono mantenuti."
+  },
+  "ja": {
+    "update": "Aurona Code {version} をインストールして再起動しますか？",
+    "restart": "Aurona Code を再起動しますか？",
+    "extension": "このワークスペースのセッションでローカル拡張機能 {id} {version} を実行しますか？\n\nSHA-256: {hash}\n宣言された権限: {permissions}",
+    "artifact": "このローカル {kind} パッケージをインストールしますか？\n\nSHA-256: {hash}\nサイズ: {bytes} バイト\nこのパッケージには検証済みの発行者署名がありません。",
+    "title": "Aurona Code - アクセス許可",
+    "workspace": "このセッションでワークスペースのファイルへのアクセスを許可しますか？\n\n{path}",
+    "ai": "このエンドポイントへの AI リクエストと認証情報の送信を許可しますか？\n\n{endpoint}",
+    "launch": "現在のワークスペースセッションでこのローカル起動を許可しますか？\n\n{preview}\n\n設定フィンガープリント：{fingerprint}",
+    "marketplace": "このセッションでこの配信元への Marketplace リソース要求を許可しますか？\n\n{origin}\n\nアカウント認証情報は公式 Marketplace にのみ送信されます。",
+    "delete": "この項目を復元可能なストレージに移動しますか？\n\n{path}\n{entries} 項目、{bytes} バイト\nフィンガープリント：{fingerprint}",
+    "git": "このリポジトリの {entries} 個の変更を破棄しますか？\n\n{path}\n状態フィンガープリント：{fingerprint}\n\n追跡済みファイルの内容、インデックス、未追跡ファイルは Git 復元レコードに保存されます。無視されたファイルは保持されます。"
+  }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocale } from "../../Foundation/I18n";
 import type { ExtensionHostRequestEvent } from "../../Foundation/IPC/ExtensionCommands";
 import { ExtensionIPC } from "../../Foundation/IPC/ExtensionCommands";
@@ -17,12 +17,13 @@ type PendingDialog = Extract<
   { kind: "confirm" | "input" | "quick-pick" }
 >;
 
-const respond = (requestId: string, value: Record<string, unknown>) =>
-  void ExtensionIPC.hostResponse(requestId, JSON.stringify(value));
+const respond = (request: PendingDialog, value: Record<string, unknown>) =>
+  void ExtensionIPC.hostResponse(request, JSON.stringify(value));
 
 export function ExtensionHostDialogs() {
   const { t } = useLocale();
   const [pending, setPending] = useState<PendingDialog | null>(null);
+  const current = useRef<PendingDialog | null>(null);
   const [inputValue, setInputValue] = useState("");
 
   useEffect(() => {
@@ -30,6 +31,11 @@ export function ExtensionHostDialogs() {
     let disposed = false;
     void ExtensionIPC.onHostRequest((request) => {
       if (request.kind === "confirm" || request.kind === "input" || request.kind === "quick-pick") {
+        if (current.current) {
+          respond(request, { error: "[host.busy] Another dialog is active" });
+          return;
+        }
+        current.current = request;
         setPending(request);
         if (request.kind === "input") setInputValue("");
       }
@@ -40,10 +46,15 @@ export function ExtensionHostDialogs() {
     return () => {
       disposed = true;
       unlisten?.();
+      if (current.current) respond(current.current, { cancelled: true, confirmed: false });
+      current.current = null;
     };
   }, []);
 
-  const close = () => setPending(null);
+  const close = () => {
+    current.current = null;
+    setPending(null);
+  };
 
   if (!pending) return null;
 
@@ -51,7 +62,10 @@ export function ExtensionHostDialogs() {
     return (
       <Modal
         isOpen
-        onClose={close}
+        onClose={() => {
+          respond(pending, { confirmed: false });
+          close();
+        }}
         title={pending.title || t("common.confirm")}
         footer={
           <div className="flex justify-end gap-2">
@@ -59,7 +73,7 @@ export function ExtensionHostDialogs() {
               size="sm"
               variant="ghost"
               onClick={() => {
-                respond(pending.requestId, { confirmed: false });
+                respond(pending, { confirmed: false });
                 close();
               }}
             >
@@ -69,7 +83,7 @@ export function ExtensionHostDialogs() {
               size="sm"
               variant="primary"
               onClick={() => {
-                respond(pending.requestId, { confirmed: true });
+                respond(pending, { confirmed: true });
                 close();
               }}
             >
@@ -90,7 +104,7 @@ export function ExtensionHostDialogs() {
       <Modal
         isOpen
         onClose={() => {
-          respond(pending.requestId, { cancelled: true });
+          respond(pending, { cancelled: true });
           close();
         }}
         title={pending.title || t("common.input")}
@@ -100,7 +114,7 @@ export function ExtensionHostDialogs() {
               size="sm"
               variant="ghost"
               onClick={() => {
-                respond(pending.requestId, { cancelled: true });
+                respond(pending, { cancelled: true });
                 close();
               }}
             >
@@ -110,7 +124,7 @@ export function ExtensionHostDialogs() {
               size="sm"
               variant="primary"
               onClick={() => {
-                respond(pending.requestId, { value: inputValue });
+                respond(pending, { value: inputValue });
                 close();
               }}
             >
@@ -127,7 +141,7 @@ export function ExtensionHostDialogs() {
           fullWidth
           onKeyDown={(event) => {
             if (event.key === "Enter") {
-              respond(pending.requestId, { value: inputValue });
+              respond(pending, { value: inputValue });
               close();
             }
           }}
@@ -142,7 +156,7 @@ export function ExtensionHostDialogs() {
     <Modal
       isOpen
       onClose={() => {
-        respond(pending.requestId, { cancelled: true });
+        respond(pending, { cancelled: true });
         close();
       }}
       title={pending.title || t("common.select")}
@@ -156,7 +170,7 @@ export function ExtensionHostDialogs() {
               key={item.id}
               type="button"
               onClick={() => {
-                respond(pending.requestId, { id: item.id });
+                respond(pending, { id: item.id });
                 close();
               }}
               className="flex flex-col gap-0.5 rounded-control px-3 py-2 text-left transition-colors hover:bg-[var(--material-interactive-hover)] cursor-pointer"

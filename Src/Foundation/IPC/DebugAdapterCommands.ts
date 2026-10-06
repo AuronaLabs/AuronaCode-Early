@@ -11,6 +11,7 @@ export interface DapLaunchRequest {
 
 export interface DapSessionInfo {
   sessionId: string;
+  instanceId?: string;
   state: "starting" | "running" | "stopping" | "stopped" | "failed";
   command: string;
   pid?: number;
@@ -19,14 +20,16 @@ export interface DapSessionInfo {
 
 export interface DapEvent {
   sessionId: string;
+  instanceId?: string;
   event: string;
   body: unknown;
 }
 
 export interface DapOutput {
   sessionId: string;
-  category: string;
-  output: string;
+  instanceId: string;
+  seq: number;
+  entries: Array<{ category: string; output: string }>;
 }
 
 export interface PythonDebugpyStatus {
@@ -36,8 +39,9 @@ export interface PythonDebugpyStatus {
 }
 
 export const DebugAdapterIPC = {
-  start(launch: DapLaunchRequest): Promise<DapSessionInfo> {
-    return invokeDesktop("dap_start", { launch });
+  async start(launch: DapLaunchRequest): Promise<DapSessionInfo> {
+    const launchId = await invokeDesktop<string>("dap_prepare", { launch });
+    return invokeDesktop("dap_start", { launchId });
   },
   request<Result>(sessionId: string, command: string, arguments_: unknown): Promise<Result> {
     return invokeDesktop("dap_request", { sessionId, command, arguments: arguments_ });
@@ -51,16 +55,28 @@ export const DebugAdapterIPC = {
   stopAll(): Promise<void> {
     return invokeDesktop("dap_stop_all");
   },
-  pythonDebugpyStatus(pythonPath: string): Promise<PythonDebugpyStatus> {
-    return invokeDesktop("dap_python_debugpy_status", { pythonPath });
+  async pythonDebugpyStatus(pythonPath: string): Promise<PythonDebugpyStatus> {
+    const launchId = await invokeDesktop<string>("dap_python_prepare", { pythonPath });
+    return invokeDesktop("dap_python_debugpy_status", { launchId });
   },
-  installPythonDebugpy(pythonPath: string): Promise<PythonDebugpyStatus> {
-    return invokeDesktop("dap_install_python_debugpy", { pythonPath });
+  async installPythonDebugpy(pythonPath: string): Promise<PythonDebugpyStatus> {
+    const launchId = await invokeDesktop<string>("dap_python_prepare", { pythonPath });
+    return invokeDesktop("dap_install_python_debugpy", { launchId });
   },
   onEvent(listener: (event: DapEvent) => void): Promise<() => void> {
     return listenDesktop("dap://event", listener);
   },
   onOutput(listener: (output: DapOutput) => void): Promise<() => void> {
-    return listenDesktop("dap://output", listener);
+    return listenDesktop<DapOutput>("dap://output", (output) => {
+      try {
+        listener(output);
+      } finally {
+        void invokeDesktop("dap_acknowledge_output", {
+          sessionId: output.sessionId,
+          instanceId: output.instanceId,
+          seq: output.seq,
+        }).catch(() => undefined);
+      }
+    });
   },
 };

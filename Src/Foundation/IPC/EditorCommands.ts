@@ -93,9 +93,11 @@ export const EditorIPC = {
 
   openDialog: () => invokeDesktop<EditorSnapshot | null>("editor_open_dialog"),
 
-  applyEdits: (path: string, edits: TextEdit[]) =>
+  applyEdits: (path: string, edits: TextEdit[], expectedRevision?: number) =>
     enqueueDocumentOperation(path, async () => {
       const baseRevision = documentRevisions.get(path);
+      if (expectedRevision !== undefined && baseRevision !== expectedRevision)
+        throw new Error("[agent.recovery_conflict] Editor changed before recovery write");
       if (baseRevision === undefined) throw new Error("编辑器会话尚未打开");
       const response = await invokeDesktop<ApplyEditsResponse>("apply_editor_edits", {
         request: {
@@ -118,8 +120,8 @@ export const EditorIPC = {
       async () => {
         const response = await invokeDesktop<EditorLinesResponse>("get_editor_lines", {
           path,
-          start_line: startLine,
-          end_line: endLine,
+          startLine,
+          endLine,
         });
         if (response.revision !== documentRevisions.get(path)) {
           return { ...response, lines: [] };

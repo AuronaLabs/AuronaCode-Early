@@ -8,6 +8,8 @@ export type FileNode = {
   isDirectory: boolean;
   children?: FileNode[];
   isOpen?: boolean;
+  nextCursor?: string | null;
+  generation?: number;
 };
 
 const PATH_SEPARATOR_PATTERN = /[/\\]+/;
@@ -74,6 +76,17 @@ export const FileSystemService = {
     });
   },
 
+  async readDirectoryPage(dirPath: string, cursor?: string) {
+    const page = await FileSystemCommands.readDirectoryPage(dirPath, cursor);
+    return {
+      ...page,
+      entries: page.entries.map((entry) => ({
+        ...entry,
+        path: this.joinPath(dirPath, entry.name),
+      })),
+    };
+  },
+
   async exists(path: string): Promise<boolean> {
     return FileSystemCommands.exists(path);
   },
@@ -128,7 +141,7 @@ export const FileSystemService = {
   async copyOrMove(source: string, destination: string, isMove: boolean) {
     const workspaceRoot = WorkspaceService.getCurrent().primaryRoot;
     if (!workspaceRoot) throw new Error("Cannot copy or move files without an open workspace");
-    await FileSystemCommands.copyOrMove(workspaceRoot, source, destination, isMove);
+    await FileSystemCommands.copyOrMove(source, destination, isMove);
   },
 
   async startWatch(dirPath: string) {

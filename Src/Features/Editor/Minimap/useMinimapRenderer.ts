@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { useViewActivity } from "../../../UI/Core/ViewActivity";
 import type { MinimapDecoration } from "./MinimapDecorations";
 
 export interface UseMinimapRendererProps {
@@ -53,6 +54,7 @@ export function useMinimapRenderer({
   decorations,
   onScrollTo,
 }: UseMinimapRendererProps) {
+  const active = useViewActivity();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDraggingRef = useRef(false);
   const dragStartYRef = useRef(0);
@@ -149,8 +151,8 @@ export function useMinimapRenderer({
   ]);
 
   useEffect(() => {
-    renderCanvas();
-  }, [renderCanvas]);
+    if (active) renderCanvas();
+  }, [active, renderCanvas]);
 
   // 2. 点击与拖拽事件
   const handleMouseDown = useCallback(
@@ -188,6 +190,7 @@ export function useMinimapRenderer({
   );
 
   useEffect(() => {
+    if (!active) return;
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDraggingRef.current) return;
       const deltaY = e.clientY - dragStartYRef.current;
@@ -210,7 +213,7 @@ export function useMinimapRenderer({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [minimapContentHeight, onScrollTo, totalContentHeight, viewportHeight]);
+  }, [active, minimapContentHeight, onScrollTo, totalContentHeight, viewportHeight]);
 
   return {
     canvasRef,

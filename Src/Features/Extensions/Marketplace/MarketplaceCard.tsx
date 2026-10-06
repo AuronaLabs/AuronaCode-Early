@@ -3,13 +3,17 @@ import { useInstallProgressStore } from "../../../State/useInstallProgressStore"
 import { AccountAvatar } from "../../../UI/Components/AccountAvatar";
 import { Button } from "../../../UI/Components/Button";
 import { Card } from "../../../UI/Components/Card";
+import { Tooltip } from "../../../UI/Feedback/Tooltip";
 import { Icons } from "../../../UI/Icons/IconManager";
 import { ExtensionIcon } from "./ExtensionIcon";
 import type { MarketplaceExtensionItem } from "./MarketplaceService";
 
 interface MarketplaceCardProps {
+  fixedHeight?: boolean;
   item: MarketplaceExtensionItem;
   selected?: boolean;
+  busy?: boolean;
+  onCancel?: (id: string) => void;
   onOpenDetail: (item: MarketplaceExtensionItem) => void;
   onInstall: (item: MarketplaceExtensionItem) => void;
   onUninstall: (item: MarketplaceExtensionItem) => void;
@@ -17,7 +21,10 @@ interface MarketplaceCardProps {
 
 export function MarketplaceCard({
   item,
+  fixedHeight = false,
   selected = false,
+  busy = false,
+  onCancel,
   onOpenDetail,
   onInstall,
   onUninstall,
@@ -37,7 +44,7 @@ export function MarketplaceCard({
     <Card
       data-marketplace-item-id={item.id}
       data-selected={selected || undefined}
-      className="group relative flex flex-col justify-between gap-2.5 p-3 transition-colors duration-150 hover:bg-[var(--material-interactive-hover)]"
+      className={`group relative flex flex-col justify-between gap-2.5 p-3 transition-colors duration-150 hover:bg-[var(--material-interactive-hover)] ${fixedHeight ? "h-full" : ""}`}
     >
       <button
         type="button"
@@ -72,7 +79,9 @@ export function MarketplaceCard({
 
       <div className="mt-auto flex items-center justify-between border-t border-[var(--border-subtle)] pt-2">
         <div className="flex items-center gap-2 text-[10.5px] text-[var(--color-text-muted)]">
-          {hasMarketStats ? (
+          {item.cacheExpired ? (
+            <span>{t("debug.unverified")}</span>
+          ) : hasMarketStats ? (
             <>
               {item.downloads !== undefined && (
                 <span className="flex items-center gap-1">
@@ -95,6 +104,18 @@ export function MarketplaceCard({
         </div>
 
         <div className="flex items-center gap-1.5">
+          {busy && onCancel && (
+            <Tooltip content={t("common.cancel")}>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label={t("common.cancel")}
+                onClick={() => onCancel(item.id)}
+              >
+                <Icons.Close size={14} />
+              </Button>
+            </Tooltip>
+          )}
           {isInstalling ? (
             <CircularProgress
               percentage={installTask?.progress || 0}
@@ -102,6 +123,7 @@ export function MarketplaceCard({
             />
           ) : item.updateAvailable ? (
             <Button
+              disabled={busy || item.cacheExpired}
               size="sm"
               variant="primary"
               onClick={(event) => {
@@ -117,6 +139,7 @@ export function MarketplaceCard({
                 {t("extensions.installed")}
               </span>
               <Button
+                disabled={busy}
                 size="sm"
                 variant="ghost"
                 className="text-[var(--StatusError)] hover:text-[var(--StatusError)]"
@@ -130,6 +153,7 @@ export function MarketplaceCard({
             </>
           ) : (
             <Button
+              disabled={busy || item.cacheExpired}
               size="sm"
               variant="primary"
               onClick={(event) => {

@@ -427,6 +427,11 @@ export const it: LocaleMessages = {
     clearDisplay: "Svuota schermo",
   },
   sourceControl: {
+    recoveryRecords: "Punti di ripristino",
+    noRecoveryRecords: "Nessun punto di ripristino",
+    restoreRecovery: "Ripristina",
+    discardAllRecoverable: "Salva e annulla tutte le modifiche",
+    recoveryFailed: "Operazione di ripristino non riuscita: {message}",
     stageFirst: "Metti in stage almeno un file prima del commit",
     commitSuccess: "Commit creato",
     commitFailed: "Commit non riuscito: {message}",
@@ -656,10 +661,12 @@ export const it: LocaleMessages = {
     ariaLabel: "Esplora file",
     deleteTitle: "Conferma eliminazione",
     cancel: "Annulla",
-    deleteForever: "Elimina definitivamente",
+    loadMore: "Carica altro",
+    deleteForever: "Sposta nell'area di ripristino",
     deleteConfirmStart: "Vuoi eliminare definitivamente ",
     deleteConfirmEnd: "?",
-    deleteIrreversible: "Questa azione non può essere annullata",
+    deleteIrreversible:
+      "Un'anteprima nativa conferma la destinazione e conserva i dati di ripristino.",
     context: {
       newFileHere: "Nuovo file qui",
       newFolderHere: "Nuova cartella qui",
@@ -1653,7 +1660,10 @@ export const it: LocaleMessages = {
     settingsBaseUrlTitle: "URL API",
     settingsBaseUrlDesc: "Endpoint Responses compatibile OpenAI",
     settingsApiKeyTitle: "Chiave API",
-    settingsApiKeyDesc: "Salvata solo nella configurazione utente locale, mai caricata",
+    settingsApiKeyDesc:
+      "Salvata nell'archivio credenziali di sistema e inviata solo all'endpoint API autorizzato",
+    credentialMigrationPaused:
+      "Migrazione delle credenziali non riuscita. La configurazione originale è conservata; riprovare quando l'archivio credenziali di sistema è disponibile.",
     settingsApiKeyPlaceholder: "sk-…",
     settingsModelTitle: "Nome modello",
     settingsModelDesc: "es. gpt-4o-mini / deepseek-chat",
@@ -1691,6 +1701,9 @@ export const it: LocaleMessages = {
     switchModel: "Cambia modello",
     toolExecutionDisabled: "Esecuzione degli strumenti non attivata",
     agentUi: {
+      recoveryPending:
+        "Un ripristino interrotto richiede il recupero. Riapri prima la sua area di lavoro.",
+      recoverRestore: "Recupera ripristino",
       title: "Assistente AI",
       newTask: "Nuova attività",
       noProfile: "Nessun profilo Responses",

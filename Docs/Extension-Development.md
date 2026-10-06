@@ -1,8 +1,10 @@
 # Aurona Code 扩展开发实战指南
 
-## V0.4.13 SDK 边界
+## V0.4.14 SDK 边界
 
-当前开发版本为 `0.4.13`。应用安装包只内置 VSCode 兼容层和 Demo 插件；Markdown、Planner、LSP 与 Runtime 通过 Marketplace 分发。扩展 API、权限、Runtime 和版本字段以 Marketplace 服务端契约为准，发布前应同时验证本地开发地址和线上 API 地址。
+0.4.14 扩展安装必须消费后端 artifact handle；远程包需要固定 Ed25519 公钥验证，本地未签名包首次执行需要确认 hash 与权限。宿主注入严格 CSP，扩展自身策略不能放宽资源边界。
+
+当前开发版本为 `0.4.14`，发布验收未完成。应用安装包只内置 VSCode 兼容层和 Demo 插件；Markdown、Planner、LSP 与 Runtime 通过 Marketplace 分发。远程安装以本仓库固定公钥与签名协议为准，不能把服务端 `signed` 或 `verified` 字段作为信任证明；生产签名数据仍是外部前置条件。
 
 ## Pioneer 6 UI 约束
 

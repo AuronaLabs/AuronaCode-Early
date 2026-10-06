@@ -1,5 +1,7 @@
 # Aurona Code 0.4.12 Agent Workbench
 
+> 文档已于 2026-10-06 归档，保留历史证据；其中版本和验收结论只适用于原记录。当前版本状态见 [0.4.14 状态矩阵](../0.4.14-Implementation-Status.md)。
+
 Aurona Code 0.4.12 uses a task event model for the local Agent. A session is rebuilt from ordered `AgentEvent` records instead of a chat message list. Events cover task lifecycle, model steps, tool execution, approvals, checkpoints, artifacts, steering, and aborts.
 
 The sidebar is the compact Agent cockpit. It shows the active task, model and permission state, the step timeline, tool progress, approval status, errors, and checkpoints. The panel can expand into a wider workbench without changing the session store.

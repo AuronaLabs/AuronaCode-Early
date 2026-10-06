@@ -421,6 +421,11 @@ export const ja: LocaleMessages = {
     clearDisplay: "表示をクリア",
   },
   sourceControl: {
+    recoveryRecords: "復元記録",
+    noRecoveryRecords: "復元記録はありません",
+    restoreRecovery: "復元",
+    discardAllRecoverable: "バックアップしてすべての変更を破棄",
+    recoveryFailed: "復元操作に失敗しました: {message}",
     stageFirst: "コミット前に少なくとも 1 つのファイルをステージしてください",
     commitSuccess: "コミットを作成しました",
     commitFailed: "コミットに失敗: {message}",
@@ -648,10 +653,11 @@ export const ja: LocaleMessages = {
     ariaLabel: "ファイルエクスプローラー",
     deleteTitle: "削除の確認",
     cancel: "キャンセル",
-    deleteForever: "完全に削除",
+    loadMore: "さらに読み込む",
+    deleteForever: "復元領域へ移動",
     deleteConfirmStart: "本当に完全に削除しますか: ",
     deleteConfirmEnd: "？",
-    deleteIrreversible: "この操作は元に戻せません",
+    deleteIrreversible: "確認画面で対象を再確認し、復元データを保存します。",
     context: {
       newFileHere: "ここに新規ファイル",
       newFolderHere: "ここに新規フォルダー",
@@ -1625,7 +1631,10 @@ export const ja: LocaleMessages = {
     settingsBaseUrlTitle: "API URL",
     settingsBaseUrlDesc: "OpenAI 互換 Responses エンドポイント",
     settingsApiKeyTitle: "API キー",
-    settingsApiKeyDesc: "ローカルのユーザー設定にのみ保存され、アップロードされません",
+    settingsApiKeyDesc:
+      "システムの資格情報ストアに保存し、承認済みの API エンドポイントにのみ送信します",
+    credentialMigrationPaused:
+      "資格情報の移行に失敗しました。元の設定は保持されています。システムの資格情報ストアが利用可能になったら再試行してください。",
     settingsApiKeyPlaceholder: "sk-…",
     settingsModelTitle: "モデル名",
     settingsModelDesc: "例：gpt-4o-mini / deepseek-chat",
@@ -1663,6 +1672,8 @@ export const ja: LocaleMessages = {
     switchModel: "モデル切替",
     toolExecutionDisabled: "ツール実行が無効です",
     agentUi: {
+      recoveryPending: "中断された復元処理があります。対象のワークスペースを再度開いてください。",
+      recoverRestore: "復元処理を回復",
       title: "AI アシスタント",
       newTask: "新しいタスク",
       noProfile: "Responses プロファイルなし",

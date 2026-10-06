@@ -23,21 +23,6 @@
     "core:window:allow-start-dragging",
     "core:window:allow-unmaximize",
     "dialog:allow-open",
-    "dialog:allow-save",
-    "process:allow-restart",
-    "updater:allow-check",
-    "updater:allow-download-and-install",
-    "fs:allow-applocaldata-meta-recursive",
-    "fs:allow-applocaldata-read-recursive",
-    "fs:allow-applocaldata-write-recursive",
-    "fs:allow-applog-write-recursive",
-    {
-      "identifier": "fs:allow-remove",
-      "allow": [
-        { "path": "$APPLOCALDATA" },
-        { "path": "$APPLOCALDATA/*" },
-        { "path": "$APPLOCALDATA/**" }
-      ]
-    }
+    "dialog:allow-save"
   ]
 }

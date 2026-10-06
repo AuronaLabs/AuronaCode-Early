@@ -1,4 +1,5 @@
-import { desktopFileSystem } from "../../../Foundation/Desktop";
+import { WorkspaceService } from "../../../Core/WorkspaceService";
+import { FileSystemCommands } from "../../../Foundation/IPC/FileSystemCommands";
 
 export type PlannerStatus = "todo" | "in_progress" | "done" | "blocked";
 export type PlannerPriority = "low" | "normal" | "high";
@@ -24,6 +25,11 @@ export interface PlannerDocument {
 }
 
 const PATH = ".aurona/planner.json";
+function workspacePath(relative: string): string {
+  const root = WorkspaceService.getCurrent().primaryRoot;
+  if (!root) throw new Error("[workspace.closed] No active workspace");
+  return `${root.replace(/[\\/]+$/, "")}/${relative}`;
+}
 
 const now = () => new Date().toISOString();
 
@@ -81,9 +87,9 @@ export function toPlannerPayload(document: PlannerDocument): string {
 
 export const PlannerService = {
   async load(): Promise<{ document: PlannerDocument; migrated: boolean }> {
-    if (!(await desktopFileSystem.exists(PATH)))
+    if (!(await FileSystemCommands.exists(workspacePath(PATH))))
       return { document: { schemaVersion: 2, tasks: [] }, migrated: false };
-    const raw = await desktopFileSystem.readTextFile(PATH);
+    const raw = await FileSystemCommands.readTextFile(workspacePath(PATH));
     const parsed = JSON.parse(raw) as unknown;
     const migrated =
       Array.isArray(parsed) ||
@@ -94,7 +100,7 @@ export const PlannerService = {
   },
 
   async save(document: PlannerDocument): Promise<void> {
-    await desktopFileSystem.mkdir(".aurona", { recursive: true });
-    await desktopFileSystem.writeTextFile(PATH, `${toPlannerPayload(document)}\n`);
+    await FileSystemCommands.mkdir(workspacePath(".aurona"), true);
+    await FileSystemCommands.writeTextFile(workspacePath(PATH), `${toPlannerPayload(document)}\n`);
   },
 };

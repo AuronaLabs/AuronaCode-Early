@@ -3,12 +3,13 @@ use dashmap::DashMap;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use std::fs::{File, OpenOptions};
-use std::io::{BufReader, BufWriter, Write};
+#[cfg(test)]
+use std::fs::OpenOptions;
+use std::io::{BufWriter, Read, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::State;
+use tauri::{Manager, State};
 
 const MAX_EDITOR_FILE_BYTES: u64 = 32 * 1024 * 1024;
 
@@ -32,6 +33,7 @@ pub struct EditorSession {
     pub line_states: Mutex<Vec<LexerState>>,
     pub saved_revision: AtomicU64,
     pub disk_fingerprint: Mutex<String>,
+    workspace_generation: AtomicU64,
     recent_batches: Mutex<VecDeque<BatchReceipt>>,
 }
 
@@ -54,6 +56,7 @@ impl EditorSession {
             line_states: Mutex::new(vec![LexerState::Normal; total_lines]),
             saved_revision: AtomicU64::new(0),
             disk_fingerprint: Mutex::new(disk_fingerprint),
+            workspace_generation: AtomicU64::new(0),
             recent_batches: Mutex::new(VecDeque::new()),
         }
     }
@@ -75,7 +78,7 @@ impl DesktopError {
         Self {
             domain: "editor".to_string(),
             code: code.to_string(),
-            message: message.into(),
+            message: crate::redaction::redact(&message.into()),
             recoverable,
             cause: None,
         }
@@ -85,9 +88,9 @@ impl DesktopError {
         Self {
             domain: "filesystem".to_string(),
             code: code.to_string(),
-            message: message.into(),
+            message: crate::redaction::redact(&message.into()),
             recoverable: true,
-            cause: Some(cause.to_string()),
+            cause: Some(crate::redaction::redact(&cause.to_string())),
         }
     }
 }
@@ -220,14 +223,6 @@ fn normalize_path(path: &str) -> String {
     }
 }
 
-fn fingerprint_bytes(bytes: &[u8]) -> String {
-    use sha2::{Digest, Sha256};
-    let digest = Sha256::digest(bytes);
-    // SHA-256 为 32 字节，hex_lower 输出恒为 64 个十六进制字符
-    let hex = hex_lower(digest.as_slice());
-    format!("{hex}:{}", bytes.len())
-}
-
 fn hex_lower(bytes: &[u8]) -> String {
     let mut output = String::with_capacity(bytes.len() * 2);
     for byte in bytes {
@@ -235,39 +230,6 @@ fn hex_lower(bytes: &[u8]) -> String {
         let _ = write!(output, "{byte:02x}");
     }
     output
-}
-
-fn fingerprint_file(path: &Path) -> Result<String, DesktopError> {
-    let bytes = std::fs::read(path)
-        .map_err(|error| DesktopError::io("fingerprint_failed", "无法读取磁盘文件", error))?;
-    Ok(fingerprint_bytes(&bytes))
-}
-
-fn recover_interrupted_save(path: &Path) -> Result<(), DesktopError> {
-    let path_string = path.to_string_lossy();
-    let temp_path = std::path::PathBuf::from(format!("{path_string}.aurona_save.tmp"));
-    let backup_path = std::path::PathBuf::from(format!("{path_string}.aurona_save.bak"));
-
-    if !path.exists() {
-        let recovery_source = if temp_path.exists() {
-            Some(&temp_path)
-        } else if backup_path.exists() {
-            Some(&backup_path)
-        } else {
-            None
-        };
-        if let Some(source) = recovery_source {
-            std::fs::rename(source, path).map_err(|error| {
-                DesktopError::io("save_recovery_failed", "无法恢复中断的保存文件", error)
-            })?;
-        }
-    }
-
-    if path.exists() {
-        let _ = std::fs::remove_file(temp_path);
-        let _ = std::fs::remove_file(backup_path);
-    }
-    Ok(())
 }
 
 // ── 行渲染数据与语法高亮器桥接（高亮引擎见 highlight.rs）───────────────────
@@ -328,16 +290,20 @@ fn snapshot_response(
     })
 }
 
-pub fn open_file_internal(
+fn open_scoped_file(
     path: &str,
     state: &EditorState,
+    directory: &cap_std::fs::Dir,
+    name: &Path,
+    generation: u64,
 ) -> Result<EditorSnapshotResponse, DesktopError> {
-    let requested_path = Path::new(path);
-    recover_interrupted_save(requested_path)?;
-    let file_size = std::fs::metadata(requested_path)
-        .map_err(|error| DesktopError::io("metadata_failed", "无法读取文件信息", error))?
-        .len();
-    if file_size > MAX_EDITOR_FILE_BYTES {
+    let file = crate::scoped_file::open(directory, name)
+        .map_err(|error| DesktopError::io("open_failed", "无法打开文件", error))?;
+    let metadata = file
+        .metadata()
+        .map_err(|error| DesktopError::io("metadata_failed", "无法读取文件信息", error))?;
+    let file_size = metadata.len();
+    if !metadata.is_file() || file_size > MAX_EDITOR_FILE_BYTES {
         return Err(DesktopError::editor(
             "file_too_large",
             format!(
@@ -350,15 +316,30 @@ pub fn open_file_internal(
     let normalized_path = normalize_path(path);
 
     if let Some(session) = state.sessions.get(&normalized_path) {
+        session
+            .workspace_generation
+            .store(generation, Ordering::Release);
         return snapshot_response(&normalized_path, &session);
     }
 
     let language = detect_language(&normalized_path);
-    let file = File::open(&normalized_path)
-        .map_err(|error| DesktopError::io("open_failed", "无法打开文件", error))?;
-    let source_rope = Rope::from_reader(BufReader::new(file))
+    let mut source_content = String::new();
+    file.take(MAX_EDITOR_FILE_BYTES + 1)
+        .read_to_string(&mut source_content)
         .map_err(|error| DesktopError::io("decode_failed", "无法解析 UTF-8 文本", error))?;
-    let source_content = source_rope.to_string();
+    if source_content.len() as u64 > MAX_EDITOR_FILE_BYTES {
+        return Err(DesktopError::editor(
+            "file_too_large",
+            "文件读取期间超过 32 MiB",
+            false,
+        ));
+    }
+    use sha2::{Digest, Sha256};
+    let fingerprint = format!(
+        "{:x}:{}",
+        Sha256::digest(source_content.as_bytes()),
+        source_content.len()
+    );
     let line_ending = if source_content.contains("\r\n") {
         "\r\n"
     } else {
@@ -366,16 +347,38 @@ pub fn open_file_internal(
     };
     let content = source_content.replace("\r\n", "\n");
     let rope = Rope::from_str(&content);
-    let fingerprint = fingerprint_file(Path::new(&normalized_path))?;
     let session = Arc::new(EditorSession::new(
         language,
         line_ending.to_string(),
         rope,
         fingerprint,
     ));
+    session
+        .workspace_generation
+        .store(generation, Ordering::Release);
     let response = snapshot_response(&normalized_path, &session)?;
     state.sessions.insert(normalized_path, session);
     Ok(response)
+}
+
+#[cfg(test)]
+fn open_file_internal(
+    path: &str,
+    state: &EditorState,
+) -> Result<EditorSnapshotResponse, DesktopError> {
+    let path_ref = Path::new(path);
+    let directory = cap_std::fs::Dir::open_ambient_dir(
+        path_ref.parent().unwrap(),
+        cap_std::ambient_authority(),
+    )
+    .unwrap();
+    open_scoped_file(
+        path,
+        state,
+        &directory,
+        Path::new(path_ref.file_name().unwrap()),
+        0,
+    )
 }
 
 pub fn get_lines_internal(
@@ -384,6 +387,14 @@ pub fn get_lines_internal(
     end_line: usize,
     state: &EditorState,
 ) -> Result<EditorLinesResponse, DesktopError> {
+    const MAX_LINES_PER_REQUEST: usize = 4096;
+    if end_line < start_line || end_line.saturating_sub(start_line) > MAX_LINES_PER_REQUEST {
+        return Err(DesktopError::editor(
+            "line_request_limit",
+            "Requested editor line range exceeds the bounded viewport limit",
+            true,
+        ));
+    }
     let normalized_path = normalize_path(path);
     let session = state.sessions.get(&normalized_path).ok_or_else(|| {
         DesktopError::editor(
@@ -450,10 +461,23 @@ fn apply_edits_internal(
         .lock()
         .map_err(|_| DesktopError::editor("write_lock_failed", "无法锁定文档", true))?;
 
-    if request.client_batch_id.is_empty() {
+    if request.client_batch_id.is_empty() || request.client_batch_id.len() > 128 {
         return Err(DesktopError::editor(
             "invalid_batch_id",
             "编辑批次缺少唯一标识",
+            false,
+        ));
+    }
+    if request.edits.len() > 4096
+        || request
+            .edits
+            .iter()
+            .try_fold(0usize, |total, edit| total.checked_add(edit.text.len()))
+            .is_none_or(|bytes| bytes > crate::resource_limits::TEXT_BYTES)
+    {
+        return Err(DesktopError::editor(
+            "resource_limit",
+            "Edit batch exceeds the text limit",
             false,
         ));
     }
@@ -496,6 +520,14 @@ fn apply_edits_internal(
             return Err(DesktopError::editor(
                 "invalid_edit_range",
                 "编辑起点不能位于终点之后",
+                false,
+            ));
+        }
+        let remaining = new_rope.len_bytes() - new_rope.slice(start_char..end_char).len_bytes();
+        if edit.text.len() > crate::resource_limits::TEXT_BYTES.saturating_sub(remaining) {
+            return Err(DesktopError::editor(
+                "resource_limit",
+                "Edited document exceeds 32 MiB",
                 false,
             ));
         }
@@ -560,27 +592,31 @@ where
 
 #[tauri::command]
 pub async fn open_editor_file(
+    app: tauri::AppHandle,
     path: String,
     state: State<'_, EditorState>,
     workspace: State<'_, crate::commands::fs::WorkspaceState>,
 ) -> Result<EditorSnapshotResponse, DesktopError> {
-    if !workspace.is_path_authorized(&path).map_err(|error| {
-        DesktopError::editor(
-            "authorization_failed",
-            format!("无法校验文件授权：{error}"),
-            true,
-        )
-    })? {
-        return Err(DesktopError::editor(
-            "path_not_authorized",
-            "该文件不在当前工作区，且未通过系统文件对话框授权",
-            false,
-        ));
-    }
+    let (directory, name) = workspace
+        .file_access(&path)
+        .map_err(|error| DesktopError::editor("path_not_authorized", error, false))?;
+    let generation = workspace.generation();
     let sessions = Arc::clone(&state.sessions);
     spawn_blocking_editor(move || {
         let editor_state = EditorState { sessions };
-        open_file_internal(&path, &editor_state)
+        let result = open_scoped_file(&path, &editor_state, &directory, &name, generation)?;
+        if app
+            .state::<crate::commands::fs::WorkspaceState>()
+            .generation()
+            != generation
+        {
+            return Err(DesktopError::editor(
+                "workspace_changed",
+                "工作区已切换",
+                true,
+            ));
+        }
+        Ok(result)
     })
     .await
 }
@@ -603,8 +639,10 @@ pub async fn editor_open_dialog(
             true,
         )
     })?;
+    let dialog_app = app.clone();
+    let generation = workspace.generation();
     let picked = tauri::async_runtime::spawn_blocking(move || {
-        let mut dialog = app.dialog().file();
+        let mut dialog = dialog_app.dialog().file();
         if let Some(directory) = initial_directory {
             dialog = dialog.set_directory(directory);
         }
@@ -622,6 +660,13 @@ pub async fn editor_open_dialog(
     let Some(picked) = picked else {
         return Ok(None);
     };
+    if workspace.generation() != generation {
+        return Err(DesktopError::editor(
+            "workspace_changed",
+            "文件选择期间工作区已切换",
+            true,
+        ));
+    }
     let path = match picked {
         tauri_plugin_dialog::FilePath::Path(path) => path,
         tauri_plugin_dialog::FilePath::Url(_) => {
@@ -633,17 +678,34 @@ pub async fn editor_open_dialog(
         }
     };
     let path_string = path.to_string_lossy().into_owned();
-    workspace.authorize_path(&path_string).map_err(|error| {
-        DesktopError::editor(
-            "authorization_failed",
-            format!("无法授权打开文件：{error}"),
-            true,
-        )
-    })?;
+    workspace
+        .authorize_path_at(&path_string, generation)
+        .map_err(|error| {
+            DesktopError::editor(
+                "authorization_failed",
+                format!("无法授权打开文件：{error}"),
+                true,
+            )
+        })?;
+    let (directory, name) = workspace
+        .file_access(&path_string)
+        .map_err(|error| DesktopError::editor("path_not_authorized", error, false))?;
     let sessions = Arc::clone(&state.sessions);
     spawn_blocking_editor(move || {
         let editor_state = EditorState { sessions };
-        open_file_internal(&path_string, &editor_state)
+        let result = open_scoped_file(&path_string, &editor_state, &directory, &name, generation)?;
+        if app
+            .state::<crate::commands::fs::WorkspaceState>()
+            .generation()
+            != generation
+        {
+            return Err(DesktopError::editor(
+                "workspace_changed",
+                "工作区已切换",
+                true,
+            ));
+        }
+        Ok(result)
     })
     .await
     .map(Some)
@@ -687,8 +749,9 @@ pub async fn get_editor_lines(
 fn save_editor_file_internal(
     request: SaveEditorRequest,
     session: &EditorSession,
+    directory: &cap_std::fs::Dir,
+    name: &Path,
 ) -> Result<SaveEditorResponse, DesktopError> {
-    let normalized_path = normalize_path(&request.path);
     let _guard = session
         .write_lock
         .lock()
@@ -702,14 +765,23 @@ fn save_editor_file_internal(
         ));
     }
 
-    let target_path = Path::new(&normalized_path);
-    let current_fingerprint = fingerprint_file(target_path)?;
+    let source = crate::scoped_file::open(directory, name)
+        .map_err(|error| DesktopError::io("open_failed", "Unable to read original file", error))?;
+    let current = crate::scoped_file::snapshot(&source).map_err(|error| {
+        DesktopError::io(
+            "fingerprint_failed",
+            "Unable to fingerprint original file",
+            error,
+        )
+    })?;
+    let current_fingerprint = &current.fingerprint;
     let known_fingerprint = session
         .disk_fingerprint
         .lock()
         .map_err(|_| DesktopError::editor("state_lock_failed", "无法读取磁盘指纹", true))?
         .clone();
-    if current_fingerprint != request.disk_fingerprint || current_fingerprint != known_fingerprint {
+    if *current_fingerprint != request.disk_fingerprint || *current_fingerprint != known_fingerprint
+    {
         return Err(DesktopError::editor(
             "external_modification",
             "文件已被其他程序修改，已阻止覆盖保存",
@@ -717,21 +789,21 @@ fn save_editor_file_internal(
         ));
     }
 
-    let temp_path = format!("{normalized_path}.aurona_save.tmp");
-    let backup_path = format!("{normalized_path}.aurona_save.bak");
-    let permissions = std::fs::metadata(target_path)
-        .ok()
-        .map(|metadata| metadata.permissions());
+    let permissions = source
+        .metadata()
+        .map_err(|error| DesktopError::io("metadata_failed", "无法读取权限", error))?
+        .permissions();
+    let mut stage = crate::scoped_file::StagedFile::new(directory)
+        .map_err(|error| DesktopError::io("temp_create_failed", "无法创建临时保存文件", error))?;
+    stage
+        .file
+        .set_permissions(permissions)
+        .map_err(|error| DesktopError::io("permission_copy_failed", "无法保留文件权限", error))?;
+    use sha2::{Digest, Sha256};
+    let mut output_hash = Sha256::new();
+    let mut output_bytes = 0usize;
     {
-        let file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(&temp_path)
-            .map_err(|error| {
-                DesktopError::io("temp_create_failed", "无法创建临时保存文件", error)
-            })?;
-        let mut writer = BufWriter::new(file);
+        let mut writer = BufWriter::new(&mut stage.file);
         for chunk in snapshot.content.chunks() {
             let bytes = if session.line_ending == "\r\n" {
                 chunk.replace('\n', "\r\n")
@@ -741,6 +813,15 @@ fn save_editor_file_internal(
             writer
                 .write_all(bytes.as_bytes())
                 .map_err(|error| DesktopError::io("write_failed", "无法写入临时保存文件", error))?;
+            output_hash.update(bytes.as_bytes());
+            output_bytes += bytes.len();
+            if output_bytes as u64 > MAX_EDITOR_FILE_BYTES {
+                return Err(DesktopError::editor(
+                    "file_too_large",
+                    "保存内容超过 32 MiB",
+                    false,
+                ));
+            }
         }
         writer
             .flush()
@@ -750,37 +831,19 @@ fn save_editor_file_internal(
             .sync_all()
             .map_err(|error| DesktopError::io("sync_failed", "无法将临时文件同步到磁盘", error))?;
     }
-    if let Some(permissions) = permissions {
-        if let Err(error) = std::fs::set_permissions(&temp_path, permissions) {
-            let _ = std::fs::remove_file(&temp_path);
-            return Err(DesktopError::io(
-                "permission_copy_failed",
-                "无法保留文件权限",
-                error,
-            ));
-        }
-    }
-
-    let _ = std::fs::remove_file(&backup_path);
-    std::fs::rename(&normalized_path, &backup_path).map_err(|error| {
-        let _ = std::fs::remove_file(&temp_path);
-        DesktopError::io("replace_prepare_failed", "无法准备原子替换", error)
-    })?;
-    if let Err(error) = std::fs::rename(&temp_path, &normalized_path) {
-        let _ = std::fs::rename(&backup_path, &normalized_path);
-        let _ = std::fs::remove_file(&temp_path);
-        return Err(DesktopError::io(
-            "replace_failed",
-            "无法替换原文件，原文件已尝试恢复",
-            error,
+    if crate::scoped_file::verify_snapshot(directory, name, &current).is_err() {
+        return Err(DesktopError::editor(
+            "external_modification",
+            "保存期间文件已被修改",
+            true,
         ));
     }
-    File::open(&normalized_path)
-        .and_then(|file| file.sync_all())
-        .map_err(|error| DesktopError::io("final_sync_failed", "无法同步保存结果", error))?;
-    let _ = std::fs::remove_file(&backup_path);
+    drop(source);
+    stage
+        .commit(name)
+        .map_err(|error| DesktopError::io("replace_failed", "无法原子替换原文件", error))?;
 
-    let new_fingerprint = fingerprint_file(Path::new(&normalized_path))?;
+    let new_fingerprint = format!("{}:{output_bytes}", hex_lower(&output_hash.finalize()));
     *session
         .disk_fingerprint
         .lock()
@@ -797,9 +860,15 @@ fn save_editor_file_internal(
 
 #[tauri::command]
 pub async fn save_editor_file(
+    app: tauri::AppHandle,
     request: SaveEditorRequest,
     state: State<'_, EditorState>,
 ) -> Result<SaveEditorResponse, DesktopError> {
+    let workspace = app.state::<crate::commands::fs::WorkspaceState>();
+    let generation = workspace.generation();
+    let (directory, name) = workspace
+        .file_access(&request.path)
+        .map_err(|error| DesktopError::editor("path_not_authorized", error, false))?;
     let normalized_path = normalize_path(&request.path);
     let session = state
         .sessions
@@ -812,7 +881,26 @@ pub async fn save_editor_file(
                 true,
             )
         })?;
-    spawn_blocking_editor(move || save_editor_file_internal(request, &session)).await
+    if session.workspace_generation.load(Ordering::Acquire) != generation {
+        return Err(DesktopError::editor(
+            "workspace_changed",
+            "请重新授权当前文件后保存",
+            true,
+        ));
+    }
+    spawn_blocking_editor(move || {
+        let mut result = None;
+        app.state::<crate::commands::fs::WorkspaceState>()
+            .with_generation(generation, || {
+                result = Some(save_editor_file_internal(
+                    request, &session, &directory, &name,
+                ));
+                Ok(())
+            })
+            .map_err(|error| DesktopError::editor("workspace_changed", error, true))?;
+        result.unwrap()
+    })
+    .await
 }
 
 #[tauri::command]
@@ -883,6 +971,60 @@ mod tests {
         assert_eq!(response.revision, 1);
         assert_eq!(session.snapshot.load().content.to_string(), "aXb\nYd");
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn excessive_line_ranges_fail_before_materializing_output() {
+        let state = EditorState::new();
+        let path = test_file("before\nsecond");
+        let path_string = path.to_string_lossy().to_string();
+        open_file_internal(&path_string, &state).unwrap();
+        assert!(get_lines_internal(&path_string, 0, usize::MAX, &state).is_err());
+        assert!(get_lines_internal(&path_string, 10, 0, &state).is_err());
+        let lines = get_lines_internal(&path_string, 0, 2, &state).unwrap();
+        assert_eq!(lines.lines.len(), 2);
+        assert_eq!(lines.revision, 0);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn oversized_or_excessive_edits_preserve_document_and_revision() {
+        let state = EditorState::new();
+        let path = test_file("before");
+        let path_string = path.to_string_lossy().to_string();
+        open_file_internal(&path_string, &state).unwrap();
+        let session = state.sessions.get(&normalize_path(&path_string)).unwrap();
+        for edits in [
+            vec![TextEdit {
+                start_utf16: 0,
+                end_utf16: 0,
+                text: "x".repeat(crate::resource_limits::TEXT_BYTES),
+            }],
+            vec![
+                TextEdit {
+                    start_utf16: 0,
+                    end_utf16: 0,
+                    text: String::new()
+                };
+                4097
+            ],
+        ] {
+            let result = apply_edits_internal(
+                ApplyEditsRequest {
+                    path: path_string.clone(),
+                    base_revision: 0,
+                    client_batch_id: "limit".into(),
+                    edits,
+                },
+                &session,
+            );
+            assert!(result.is_err());
+            assert_eq!(session.snapshot.load().version, 0);
+            assert_eq!(session.snapshot.load().content.to_string(), "before");
+        }
+        drop(session);
+        state.sessions.clear();
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]

@@ -14,6 +14,7 @@ class DebugServiceImpl {
   private initialized = false;
   private unsubscribe: Array<() => void> = [];
   private startPromise: Promise<void> | null = null;
+  private adapterInstance: string | null = null;
   private readonly configuredSessions = new Set<string>();
 
   async initialize(activeFile?: string): Promise<void> {
@@ -22,11 +23,17 @@ class DebugServiceImpl {
       this.unsubscribe.push(
         await DebugAdapterIPC.onEvent((event) => void this.handleEvent(event)),
         await DebugAdapterIPC.onOutput((entry) => {
-          OutputService.append(
-            "debug-adapter",
-            `[${entry.category}] ${entry.output.trimEnd()}`,
-            entry.category === "error" || entry.category === "stderr" ? "error" : "info",
-          );
+          if (
+            entry.sessionId !== useDebugStore.getState().sessionId ||
+            entry.instanceId !== this.adapterInstance
+          )
+            return;
+          for (const output of entry.entries)
+            OutputService.append(
+              "debug-adapter",
+              `[${output.category}] ${output.output.trimEnd()}`,
+              output.category === "error" || output.category === "stderr" ? "error" : "info",
+            );
         }),
       );
     }
@@ -36,6 +43,7 @@ class DebugServiceImpl {
   dispose(): void {
     for (const unsubscribe of this.unsubscribe.splice(0)) unsubscribe();
     this.initialized = false;
+    this.adapterInstance = null;
   }
 
   async reloadConfigurations(activeFile?: string): Promise<void> {
@@ -112,7 +120,7 @@ class DebugServiceImpl {
         return;
       }
     }
-    const sessionId = `debug-${Date.now()}`;
+    const sessionId = `debug-${crypto.randomUUID()}`;
     const store = useDebugStore.getState();
     store.set({
       state: "starting",
@@ -130,7 +138,7 @@ class DebugServiceImpl {
       variablePagination: {},
     });
     try {
-      await DebugAdapterIPC.start({
+      const info = await DebugAdapterIPC.start({
         sessionId,
         command,
         args: adapterArgs,
@@ -138,6 +146,13 @@ class DebugServiceImpl {
         env: resolved.env ?? {},
         requestTimeoutMs: 30_000,
       });
+      if (useDebugStore.getState().sessionId !== sessionId) {
+        await DebugAdapterIPC.stop(sessionId);
+        return;
+      }
+      if (info.state !== "running" || !info.instanceId)
+        throw new Error(info.lastError ?? "Debug adapter failed to start");
+      this.adapterInstance = info.instanceId;
       await DebugAdapterIPC.request(sessionId, "initialize", {
         clientID: "aurona-code",
         clientName: "Aurona Code",
@@ -160,6 +175,7 @@ class DebugServiceImpl {
       OutputService.append("debug-adapter", message, "error");
       await DebugAdapterIPC.stop(sessionId);
       this.configuredSessions.delete(sessionId);
+      this.adapterInstance = null;
     }
   }
 
@@ -240,6 +256,7 @@ class DebugServiceImpl {
   private resetSession(sessionId: string): void {
     this.configuredSessions.delete(sessionId);
     if (useDebugStore.getState().sessionId !== sessionId) return;
+    this.adapterInstance = null;
     useDebugStore.getState().set({
       state: "idle",
       sessionId: null,
@@ -416,18 +433,34 @@ class DebugServiceImpl {
 
   private async handleEvent(event: DapEvent): Promise<void> {
     const store = useDebugStore.getState();
-    if (event.sessionId !== store.sessionId) return;
-    const body = event.body as Record<string, unknown>;
+    const isCurrent = () =>
+      event.sessionId === useDebugStore.getState().sessionId &&
+      event.instanceId === this.adapterInstance;
+    if (!isCurrent()) return;
+    const body =
+      event.body && typeof event.body === "object" ? (event.body as Record<string, unknown>) : {};
+    if (event.event === "auronaFailed") {
+      store.set({
+        state: "failed",
+        sessionId: null,
+        error: String(body.message ?? "Debug adapter failed"),
+      });
+      this.configuredSessions.delete(event.sessionId);
+      this.adapterInstance = null;
+      return;
+    }
     if (event.event === "initialized") {
       if (this.configuredSessions.has(event.sessionId)) return;
       this.configuredSessions.add(event.sessionId);
       await this.syncBreakpoints();
+      if (!isCurrent()) return;
       await DebugAdapterIPC.request(event.sessionId, "configurationDone", {});
     } else if (event.event === "stopped") {
       const previousValues = collectVariableValues(store.scopes, store.variablesByReference);
       const threadResult = await DebugAdapterIPC.request<{
         threads?: Array<{ id: number; name: string }>;
       }>(event.sessionId, "threads", {});
+      if (!isCurrent()) return;
       const threads = threadResult.threads ?? [];
       const stoppedThreadId = Number(body.threadId ?? threads[0]?.id);
       store.set({ state: "paused", threads, selectedThreadId: stoppedThreadId || null });
@@ -437,12 +470,14 @@ class DebugServiceImpl {
           "stackTrace",
           { threadId: stoppedThreadId, startFrame: 0, levels: 50 },
         );
+        if (!isCurrent()) return;
         const stackFrames = result.stackFrames ?? [];
         store.set({ stackFrames, selectedFrameId: stackFrames[0]?.id ?? null });
         const firstFrame = stackFrames[0];
         if (firstFrame) {
           await this.selectFrame(firstFrame.id);
         }
+        if (!isCurrent()) return;
         const latest = useDebugStore.getState();
         const currentValues = collectVariableValues(latest.scopes, latest.variablesByReference);
         latest.set({ changedVariables: diffVariableValues(previousValues, currentValues) });

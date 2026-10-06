@@ -12,6 +12,7 @@ import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { EditorViewState } from "../../Foundation/Types/Editor";
 import { isBinaryExtension } from "../../Shared/Constants/FileTypes";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
+import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { showNotification, showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { AuronaEngine } from "./AuronaEngine";
@@ -204,7 +205,7 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
         const document = await DocumentService.open(filePath);
         if (!isCurrentLoad()) return;
         const content = document.content;
-        const recovery = await RecoveryStore.load(filePath);
+        const recovery = document.isDirty ? null : await RecoveryStore.load(filePath);
         if (!isCurrentLoad()) return;
         if (recovery && recovery.text !== content) {
           const fileName = filePath.split(/[\\/]/).pop() || filePath;
@@ -248,12 +249,15 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
           });
         }
         setFileContent(content);
-        setSavedContent(content);
+        setSavedContent(document.savedContent ?? content);
         setExternalContent(null);
         contentRef.current = content;
-        savedContentRef.current = content;
+        savedContentRef.current = document.savedContent ?? content;
+        setDiskFingerprint(document.diskFingerprint);
         setIsEditorReady(true);
-        EventBus.emit("editor:dirty-cleared", { path: filePath });
+        EventBus.emit(document.isDirty ? "editor:dirty-set" : "editor:dirty-cleared", {
+          path: filePath,
+        });
       } catch (error) {
         if (!isCurrentLoad()) return;
         const message = FileSystemService.toMessage(error);
@@ -280,7 +284,13 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
   useEffect(
     () =>
       DocumentService.subscribe(path, (record) => {
-        if (record?.changeOrigin !== "external" || record.content === contentRef.current) {
+        if (!record || !["external", "save"].includes(record.changeOrigin ?? "")) {
+          return;
+        }
+        if (record.changeOrigin === "save") {
+          savedContentRef.current = record.savedContent ?? record.content;
+          setSavedContent(savedContentRef.current);
+          setDiskFingerprint(record.diskFingerprint);
           return;
         }
 
@@ -434,8 +444,13 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
 
   useEffect(() => {
     return () => {
-      RecoveryCoordinator.unregister(path);
-      void DocumentService.close(path, true).catch(console.error);
+      if (
+        useWorkbenchStore.getState().tabs.some((tab) => tab.type === "file" && tab.path === path)
+      ) {
+        void RecoveryCoordinator.flush(path);
+        return;
+      }
+      // Workspace owns closure; view eviction retains the document buffer.
     };
   }, [path]);
 

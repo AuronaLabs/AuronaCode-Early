@@ -1,4 +1,6 @@
 import { type ReactNode, useState } from "react";
+import { extensionSvgDataUrl } from "../../../Foundation/Security/ExtensionContent";
+import { useRestrictedImage } from "../../../Foundation/Security/RestrictedImage";
 import { Icons } from "../../../UI/Icons/IconManager";
 
 interface ExtensionIconProps {
@@ -74,11 +76,12 @@ export function ExtensionIcon({
   color,
   className = "",
 }: ExtensionIconProps) {
-  const [imageError, setImageError] = useState(false);
+  const [failedIcon, setFailedIcon] = useState<string | null>(null);
+  const resource = useRestrictedImage(icon);
   const resolvedColor = color || getDefaultColorForName(name);
 
   // 1. 没有 icon 或加载失败时的智能 Fallback
-  if (!icon || imageError) {
+  if (!icon || failedIcon === icon) {
     const lower = name.toLowerCase();
     if (lower.includes("python") || lower.includes("pyright")) {
       return <Icons.FilePy size={size} style={{ color: resolvedColor }} className={className} />;
@@ -148,11 +151,11 @@ export function ExtensionIcon({
   // 3. 如果是以 <svg 开头的内联 SVG 字符串
   if (trimmed.startsWith("<svg") || (trimmed.startsWith("<") && trimmed.includes("</svg>"))) {
     return (
-      <span
+      <img
+        src={extensionSvgDataUrl(trimmed) ?? ""}
+        alt={name}
         style={{ width: size, height: size, color: resolvedColor }}
         className={`flex items-center justify-center shrink-0 [&>svg]:size-full [&>svg]:object-contain ${className}`}
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: verified extension SVG
-        dangerouslySetInnerHTML={{ __html: trimmed }}
       />
     );
   }
@@ -160,12 +163,12 @@ export function ExtensionIcon({
   // 4. 如果是图片 URL (http, https, data:image, 相对路径, 带有图片后缀等)
   return (
     <img
-      src={trimmed}
+      src={resource ?? ""}
       alt={name}
       width={size}
       height={size}
       style={{ width: size, height: size }}
-      onError={() => setImageError(true)}
+      onError={() => setFailedIcon(icon)}
       className={`shrink-0 rounded-control object-contain ${className}`}
     />
   );

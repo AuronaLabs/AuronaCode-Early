@@ -1,146 +1,76 @@
 <div align="center">
-  <img src="public/logo.png" alt="Aurona Code" width="104" />
+  <img src="public/logo.png" alt="Aurona Code" width="96" />
   <h1>Aurona Code</h1>
-  <p><strong>写代码这件事，值得一个更舒服、更安静的角落</strong></p>
+  <p>基于 Tauri、React 和 Rust 的桌面代码编辑器</p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.13-2563eb" />
-    <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24c8db" />
-    <img alt="WASM" src="https://img.shields.io/badge/WASM-Component%20Model-654ff0" />
+    <img alt="Development version" src="https://img.shields.io/badge/version-0.4.14-2563eb" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
   </p>
 </div>
 
----
+Aurona Code 使用自研 AuronaEngine 编辑器、Rust 文本模型和 WASI P2 扩展运行时。工作台提供文件浏览、Git、终端、语言服务、调试、Markdown 预览和 AI Assistant。
 
-Aurona Code 是一款基于 **Tauri 2 + React 19 + Rust** 构建的现代桌面代码编辑器。它不依赖 Monaco/Electron，而是从零自研编辑器引擎与 WebAssembly (WASI P2) 扩展沙箱，打造轻量、克制且具触感美学的沉浸式编码工作台。
+## 版本状态
 
-> [!NOTE]
-> 当前开发版本为 **V0.4.13**。0.4.12 已完成 Agent 工作台、Responses API、Markdown 回复、工具调用摘要和 Editor 状态协作；本版本已补齐 Session/Task 生命周期、事件回放、工具能力元数据、checkpoint 恢复和 Workspace Context，为后续 Agent 平台演进打基础。
+当前开发版本为 **0.4.14**，尚未冻结或取得发布资格。50 项安全、稳定性与性能更新均有实现和验收记录：**47 项验收中、3 项生产验证阻塞、0 项完成全部验收**。自动测试通过不等于真实工作流和生产签名验收完成。
 
----
+正式 Updater 密钥来源与签名、Marketplace 包及目录签名仍是发布前置条件；本仓库的测试签名只验证客户端协议。当前安装包是本地候选。完整证据和剩余工作见 [验收报告](Docs/0.4.14-Acceptance-Report.md)与[50 项状态矩阵](Docs/0.4.14-Implementation-Status.md)。
 
-## 核心特性
+## 工作台
 
-- **自研纯粹内核与 Canvas 2D Minimap**：自研 `AuronaEngine` 虚拟滚动视口，配交互式代码小地图、彩虹嵌套括号与代码折叠；全量撤销栈、多光标批量编辑、括号引号自动补对、词级跳转与光标跟随滚动一应俱全，按键编辑走精确增量写盘，翻页与跳转平滑流畅。
-- **语言服务解耦与共享运行时池**：主程序彻底剔除臃肿的预置工具链二进制；LSP 语言服务全部转为市场化动态按需加载，单套 Node.js 共享运行时池跨语言服务复用。
-- **异步流式下载彻底防 OOM 崩溃**：Rust 端采用 `reqwest::Response::chunk()` 流式分块落盘，多线程异步非阻塞，根除大文件下载导致的内存崩溃与 UI 掉帧。
-- **页面状态常驻保活 (Tab Keep-Alive)**：设置、扩展市场、关于及 Fliuno 等内置标签页采用常驻挂载与绘制隔离机制，切换页面不丢失任何输入与滚动状态。
-- **Aurona Account 账号认证**：基于标准 OIDC/PKCE 协议的桌面端账号登录与令牌自动续期，打通跨端收藏与真实用户评价。
-- **Aurona Marketplace 插件市场**：沉浸式毛玻璃详情页、一键复制 Identifier、更新与卸载分离操作、WASI 0.2 沙箱权限审查、安全审计评分、设备维度下载量统计与真实评价互动。
-- **面向对象 SDK v1 与 VSCode 转译层**：固化 SDK v1 契约（Fliuno 搜索注入、沙箱 Storage、Dialog 交互），支持标准 `.vsix` 扩展原生解包转译运行。
-- **双渠道与 Feature Flags 架构**：Stable 正式版与 Pioneer 先锋测试通道无缝切换，iOS Developer Beta 模式分发。
-- **Fliuno 统一搜索**：命令、文件、符号、设置与内容一键直达，键盘优先导航，分组 sticky 结果渲染，大小写/正则偏好持久化。
-- **网络代理设置**：跟随系统 / 自定义 / 直连三档代理，统一覆盖更新检查、工具链下载与扩展市场下载，自定义代理即时生效。
-- **窗口状态记忆与液态玻璃流光**：窗口尺寸与位置跨会话记忆（异常自动回退最大化、首启自动最大化）；可开关的液态玻璃流光为背景与浮层玻璃带来折射质感，支持动效降级与三档强度联动。
-- **集成透明终端**：基于 `portable-pty` 与 `xterm.js`，配色完整跟随明暗主题与强调色即时切换，背景与主题卡片浑然一体。
-- **Agent 与 Editor 协作**：侧边栏 Assistant 使用 Responses API 和持久化事件流，工具权限、审批、checkpoint、失败重试和恢复状态可追踪；Agent 修改通过 WorkspaceEdit 与编辑器差异流程应用。
-- **Workspace Context 与恢复**：Agent 可读取受限的项目根目录、活动文件、选区、光标、诊断和最近变更；编辑器标签页、Markdown 模式和未保存内容在切换与恢复后保持一致。
-- **全链路国际化**：简体中文 (zh-CN)、繁體中文 (zh-Hant)、English、Deutsch、Italiano 与日本語实时无缝切换，语言选择以各语言自名显示。
-- **首启欢迎引导 (OOBE) 与安装器多语言**：Windows 安装程序支持多语言界面选择；首次启动主程序直接呈现全屏欢迎引导（欢迎 → 语言 → 外观主题 → 编辑器偏好 → 账户登录，可跳过），完成直达工作台。
-- **权限安全生命周期**：卸载插件立即彻底销毁并持久化清除所有授权，严格保护用户工作区数据。
+- 编辑：虚拟视口、多光标、撤销/重做、查找替换、折叠和 Minimap；Markdown 预览直接读取编辑缓冲区。
+- 项目：分页文件树、Fliuno 文件/命令/符号/内容检索、Git 状态、暂存、提交、分支和差异查看。
+- 开发工具：集成 PTY 终端、LSP 语言服务和 DAP 调试；工具链在 Marketplace 的 Toolchains 模式管理。
+- AI：多个配置档、Responses API、流式响应，以及带审批、工具调用和 checkpoint 的 Agent 任务。
+- 扩展：原生 `.aurx` WASM 扩展和部分 VS Code API 兼容能力；兼容层不保证所有 `.vsix` 扩展可用。
+- 界面：主题、窗口状态、首启引导与六种语言。语言键结构有检查，部分硬编码文案仍待清理。
 
----
+安装包只包含 `aurona.vscode-compat` 和供手动安装测试的 VSCode Demo。Planner、语言服务及共享运行时通过 Marketplace 独立分发；Markdown 已内置预览，旧 Markdown 扩展用于存量迁移。市场服务与包可用性不由本仓库单独保证。
 
-## 官方扩展与语言服务矩阵
+## 安全与恢复
 
-Aurona Code 的扩展资产分为两组：**随安装包内置**（VSCode 兼容内核与官方测试插件，不占用侧边栏、不走 Marketplace）与**通过 Marketplace 分发**（WASM 扩展、LSP 语言服务包与公共基础运行时，按需安装）：
+文件、Git、LSP、DAP 和终端初始目录使用后端工作区授权。自定义 AI、本地工具、外部目录和未签名本地扩展需要明确批准；配置或工作区变化后原许可可能失效。普通 shell 中的 `cd` 和用户批准运行的程序不具有文件系统沙箱保证。
 
-### 随安装包内置（2 个）
+AI 密钥保存在系统密钥环，前端配置仅保存凭据 ID；旧配置迁移失败时暂停请求并允许重试。使用远程 AI 会向批准的服务发送请求中的代码和上下文。
 
-| 资产名称 | 唯一标识符 ID | 资产类型 | 特性描述 |
-| :--- | :--- | :--- | :--- |
-| **VSCode 兼容内核** | `aurona.vscode-compat` | 内置运行时 | 基于 Boa 引擎在 WASM 沙箱内真实执行标准 `.vsix` 扩展的 JavaScript 代码，提供 `vscode.commands` / `window` / `workspace.fs` / `env.clipboard` 等 API 相容层 |
-| **VSCode Demo 测试插件** | `vscode-demo` | `.vsix` (Standard) | 官方标准 VSCode 插件包，随包内置但不自动装载；在 设置 → 扩展 →「VSCode 测试插件」中一键安装，用于验证兼容层真实执行链路 |
+远程安装要求固定可信公钥和有效签名；缺少正式签名时安装阻断。Git 全部丢弃先预览、确认并创建恢复记录；Agent 回滚核对修改后的指纹，后续人工编辑可能产生冲突。恢复机制不能替代独立备份。限额用于控制资源消耗，不能保证所有故障下都不会耗尽资源。协议、迁移及恢复范围见 [安全与迁移](Docs/0.4.14-Security-and-Migration.md)。
 
-### 通过 Marketplace 分发（10 个）
+## 本地开发
 
-| 资产名称 | 唯一标识符 ID | 资产类型 | 特性描述 |
-| :--- | :--- | :--- | :--- |
-| **旧版 Markdown 预览** | `auronalabs.markdown` | 过渡期 Marketplace 扩展 (`.aurx`) | 供既有用户迁移；新用户直接使用编辑器内置预览，不需安装此扩展 |
-| **任务面板** | `auronalabs.planner` | WASM 扩展包 (`.aurx`) | 敏捷看板、多级任务清单、测试用例追踪、Markdown 导出 |
-| **Python 语言服务** | `auronalabs.lsp-pyright` | LSP 语言服务包 (`.aurlsp`) | 基于 Pyright，提供 Python 3.x 静态类型检查与智能补全 |
-| **TypeScript / JS 语言服务** | `auronalabs.lsp-typescript` | LSP 语言服务包 (`.aurlsp`) | 基于 TS Language Server，提供全栈代码智能与重构 |
-| **HTML / CSS / JSON 语言服务** | `auronalabs.lsp-web` | LSP 语言服务包 (`.aurlsp`) | 提供 HTML、CSS、SCSS、LESS、JSON 与 JSON Schema 语法感知、智能补全与实时校验 |
-| **Rust 语言服务** | `auronalabs.lsp-rust` | LSP 语言服务包 (`.aurlsp`) | 基于 rust-analyzer 的官方原生 Rust 语义分析、类型推断、代码补全与宏展开 |
-| **C / C++ 语言服务** | `auronalabs.lsp-clangd` | LSP 语言服务包 (`.aurlsp`) | 基于 LLVM Clangd 的企业级 C / C++ 高精度智能感知、交叉引用与重构 |
-| **Go 语言服务** | `auronalabs.lsp-gopls` | LSP 语言服务包 (`.aurlsp`) | Google 官方 Gopls 引擎，提供精确自动导入、符号导航、代码补全与诊断 |
-| **Vue 语言服务** | `auronalabs.lsp-vue` | LSP 语言服务包 (`.aurlsp`) | Vue 3 SFC 单文件组件官方智能感知，支持 TS 深度类型推断与模板语法校验 |
-| **Node.js 官方公共运行时** | `auronalabs.runtime-node` | 共享运行时包 (`.zip`) | Node.js 22.x LTS 隔离环境，供所有 Node-based LSP 共享复用 |
+需要 Node.js 22、pnpm **12.4.1**、Rust **1.95.0** 和 `wasm32-wasip2` target。Windows 需要 VS2022 C++ Build Tools；macOS/Linux 需要 [Tauri 平台依赖](https://v2.tauri.app/start/prerequisites/)。
 
-> **全新 UI 双模架构 (Dual UI Modes)**：插件开发者可自由选择**「官方原生声明式组件模式 (Declarative Native UI)」**（直接复用官方 Select、Switch、Card、Button 等组件，零额外体积开销）或**「自定义 Webview 容器模式 (Custom Webview Host)」**（完全自主绘制 HTML/CSS/Canvas 视图）。
-
-Markdown 文件在编辑器中通过 Aurona AI 胶囊切换源码与原生 GFM 预览。预览直接读取未保存的编辑缓冲区；本地图片受工作区与文件大小限制。旧 Markdown 扩展在 Marketplace 下线前仍可由已安装用户使用，但不随应用安装。
-
----
-
-## 系统架构
-
-```text
-React UI / Features (React 19)
-  ├── AuronaEngine (自研虚拟视口编辑器 Hook 体系: Selection, Keybindings, Autocomplete)
-  ├── Fliuno (统一搜索与命令中心)
-  ├── Workspace / Layout (ActivityBar, Sidebar, Modals, Bottom Panels)
-  ├── Extensions View Host (Sandboxed Plugin WebView)
-  └── Foundation (I18n, EventBus, IPC Bridge)
-        │
-        ▼ (Tauri 2 Typed IPC)
-Rust Core Runtime (aurona_code_lib)
-  ├── EditorEngine (Ropey, Revision, Highlights, Undo/Redo)
-  ├── ExtensionRuntime (Wasmtime 47.x, Component Model, Fuel/Memory Limit)
-  ├── Workspace / FileSystem (Security boundary verification)
-  ├── Toolchains / LSP / DAP (TypeScript, Python, DAP Sessions)
-  ├── Git (Protected Subprocess Groups)
-  └── Performance / Diagnostics (Benchmarks & Telemetry)
-```
-
----
-
-## 快速上手与本地开发
-
-### 1. 环境准备
-- [Node.js](https://nodejs.org/) (>= 22.x) 与 [pnpm](https://pnpm.io/) (12.4.1)
-- [Rust](https://rustup.rs/) (>= 1.95.0)，并安装 WASM 目标：
-  ```bash
-  rustup target add wasm32-wasip2
-  ```
-
-### 2. 构建与运行
-```bash
-# 1. 安装前端与构建依赖
-pnpm install
-
-# 2. 准备 VSCode 兼容运行时（语言服务按需在设置中安装）
+```sh
+pnpm install --frozen-lockfile
+rustup target add wasm32-wasip2
 pnpm run prepare:extensions
-
-# 3. 启动桌面端开发热重载
 pnpm run tauri:dev
 ```
 
-### 3. 质量门禁与测试指令
-```bash
-pnpm run format         # 自动格式化前端代码 (Biome)
-pnpm run typecheck      # TypeScript 类型检查
-pnpm run lint           # Biome 代码规范检查
-pnpm run smoke          # 发布元数据烟雾检查
-pnpm run test:frontend  # 运行前端 Vitest 单元测试 (367 个)
-pnpm run test:rust      # 运行 Rust 核心单元测试 (128 passed, 1 ignored)
+`pnpm run dev` 只启动前端预览，文件、终端等桌面能力需要 Tauri。
+
+## 验证与候选
+
+```sh
+pnpm run prepare:extensions    # 重建并校验安装包内置资源
+pnpm run quality:full          # 前端检查、测试、构建及本机 Rust 检查
+pnpm run check:audit           # 50 项、12 节 Changelog 与版本一致性
+pnpm run check:audit:release   # 冻结、完整验收和生产证据发布门禁
+pnpm run build:candidate:local # 生成本地 Windows NSIS 候选
 ```
 
----
+[Quality 工作流](.github/workflows/quality.yml)在 Linux 检查前端，并在 Windows/macOS/Linux 重建扩展、检查 Rust。`quality:full` 使用当前主机，不代替三平台 CI。桌面压力测试、故障注入和真实外部服务验收也需单独执行；发布门禁目前应失败。
 
-## 官方文档索引
+候选构建不创建 tag、上传、发布或推进渠道。签名和完整验收通过后才可评估正式发布。具体本地结果见[发布前检查](Docs/0.4.14-Release-Preflight.md)。
 
-- [系统全景架构设计](Docs/Architecture.md)
-- [WASM 扩展开发实战指南](Docs/Extension-Development.md)
-- [Extension SDK 参考手册](Docs/Extension-SDK-Reference.md)
-- [设计哲学与材质规范](Docs/Design-Principles.md)
-- [产品愿景与演进路线](Docs/Product-Vision.md)
-- [0.4.13 Agent 与 Editor 协作](Docs/Agent-Workbench-0.4.13.md)
-- [0.5 Smart Capsule 设计草案](Docs/Smart-Capsule-0.5-Design.md)
+## 文档
 
----
+- [文档索引](Docs/README.md)
+- [当前架构](Docs/Architecture.md)、[设计规范](Docs/Design-Principles.md)
+- [扩展开发](Docs/Extension-Development.md)、[SDK 参考](Docs/Extension-SDK-Reference.md)
+- [0.4.14 审计计划](Docs/0.4.14-Audit-Plan.md)、[状态矩阵](Docs/0.4.14-Implementation-Status.md)
+- [历史记录](Docs/Archive/README.md)、[后续设计](Docs/Roadmap/README.md)
 
 ## 许可证
 
-本项目采用 [AGPL-3.0](LICENSE) 开源协议。
+[AGPL-3.0](LICENSE)。

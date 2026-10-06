@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { sanitizeExtensionDocument } from "../../Foundation/Security/ExtensionContent";
 import { type DeclarativeUIRoot, isDeclarativeUI } from "../../Foundation/Types/ExtensionUI";
 import { DeclarativeUIRenderer } from "./Declarative/DeclarativeUIRenderer";
 
@@ -118,7 +119,9 @@ export function ExtensionViewHost({
       result = transparentStyle + result;
     }
 
-    return result.replace(RENDER_SLOT, html).replace(STATUS_SLOT, status);
+    return sanitizeExtensionDocument(
+      result.replace(RENDER_SLOT, html).replace(STATUS_SLOT, status),
+    );
   }, [accentColor, declarativeUI, fontSize, fontWeight, viewHtml, theme, renderState]);
 
   // 如果是官方原生声明式组件模式，直接由 React 现代玻璃组件树驱动渲染

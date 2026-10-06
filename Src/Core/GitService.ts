@@ -4,6 +4,7 @@ import {
   type GitFile,
   GitIPC,
 } from "../Foundation/IPC/GitCommands";
+import { WorkspaceService } from "./WorkspaceService";
 
 export type SourceControlCache = {
   repoPath: string | null;
@@ -45,8 +46,18 @@ type CacheListener = (cache: SourceControlCache | null) => void;
 class GitServiceImpl {
   private cache: SourceControlCache | null = null;
   private readonly listeners = new Set<CacheListener>();
-  private inflightRefresh: Promise<SourceControlCache | null> | null = null;
+  private readonly inflightRefresh = new Map<string, Promise<SourceControlCache | null>>();
   private readonly inflightDiffs = new Map<string, Promise<string>>();
+  private generation = 0;
+
+  constructor() {
+    let workspaceId = WorkspaceService.getCurrent().id;
+    WorkspaceService.subscribe((workspace) => {
+      if (workspace.id === workspaceId) return;
+      workspaceId = workspace.id;
+      this.clearCache();
+    });
+  }
 
   public getCache(path: string | null): SourceControlCache | null {
     if (!path || !this.cache || this.cache.repoPath !== path) return null;
@@ -59,6 +70,9 @@ class GitServiceImpl {
   }
 
   public clearCache() {
+    this.generation++;
+    this.inflightRefresh.clear();
+    this.inflightDiffs.clear();
     this.cache = null;
     this.emit();
   }
@@ -81,21 +95,27 @@ class GitServiceImpl {
    * 拉取仓库全量状态并写入缓存。并发调用会合并为一次请求。
    */
   public async refresh(path: string): Promise<SourceControlCache | null> {
-    if (this.inflightRefresh) return this.inflightRefresh;
-    this.inflightRefresh = (async () => {
+    const generation = this.generation;
+    const key = `${generation}\u0000${path}`;
+    const existing = this.inflightRefresh.get(key);
+    if (existing) return existing;
+    const refresh = (async () => {
       try {
         const status = await GitIPC.getFullStatus(path);
+        if (this.generation !== generation) return null;
         const cache = toCache(path, status);
         this.cache = cache;
         this.emit();
         return cache;
-      } catch {
-        return this.cache;
+      } catch (error) {
+        if (this.generation !== generation) return null;
+        throw error;
       } finally {
-        this.inflightRefresh = null;
+        this.inflightRefresh.delete(key);
       }
     })();
-    return this.inflightRefresh;
+    this.inflightRefresh.set(key, refresh);
+    return refresh;
   }
 
   public async stage(path: string, file: string): Promise<void> {
@@ -134,12 +154,19 @@ class GitServiceImpl {
 
   /** 并发合并的单文件 diff：同一文件同时多次请求只发一次 IPC */
   public getDiffCached(path: string, file: string): Promise<string> {
-    const key = `${path}\u0000${file}`;
+    const generation = this.generation;
+    const key = `${generation}\u0000${path}\u0000${file}`;
     const inflight = this.inflightDiffs.get(key);
     if (inflight) return inflight;
-    const promise = GitIPC.getWorktreeDiff(path, file, false).finally(() => {
-      this.inflightDiffs.delete(key);
-    });
+    const promise = GitIPC.getWorktreeDiff(path, file, false)
+      .then((diff) => {
+        if (this.generation !== generation)
+          throw new Error("[workspace.generation] Workspace changed");
+        return diff;
+      })
+      .finally(() => {
+        this.inflightDiffs.delete(key);
+      });
     this.inflightDiffs.set(key, promise);
     return promise;
   }

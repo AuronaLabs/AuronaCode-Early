@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { desktopDialog } from "../../Foundation/Desktop/Dialog";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import type {
   ExtensionDescriptor,
@@ -7,6 +6,7 @@ import type {
   ExtensionPermissionState,
 } from "../../Foundation/IPC/ExtensionCommands";
 import { ExtensionIPC } from "../../Foundation/IPC/ExtensionCommands";
+import { NetworkIPC } from "../../Foundation/IPC/NetworkCommands";
 import { StorageIPC } from "../../Foundation/IPC/StorageCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { useExtensionStore } from "../../State/useExtensionStore";
@@ -333,15 +333,11 @@ export function ExtensionsSettingsSection() {
   };
 
   const handleInstallLocalVsix = async () => {
-    const path = await desktopDialog.openFile();
-    if (!path) return;
-    if (!path.toLowerCase().endsWith(".vsix")) {
-      showToast(t("settings.extensionsSettings.vscodeTestNotVsix"), "warning");
-      return;
-    }
     setIsInstallingVsix(true);
     try {
-      const descriptor = await ExtensionIPC.installVscode(path);
+      const artifact = await NetworkIPC.pickArtifact("vscode");
+      if (!artifact) return;
+      const descriptor = await ExtensionIPC.installVscode(artifact.artifactId);
       await refreshExtensions();
       showToast(
         t("settings.extensionsSettings.vscodeTestInstalled").replace(

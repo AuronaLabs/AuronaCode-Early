@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AgentService } from "../../Core/Agent/AgentService";
 import { resolveAiProfiles } from "../../Core/AiProfiles";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import { AiIPC } from "../../Foundation/IPC/AiCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
-import type { AiPreferences, AiProfile } from "../../Foundation/Types/Config";
+import type { AiPreferences, AiProfile, AiProfileDraft } from "../../Foundation/Types/Config";
 import { Badge } from "../../UI/Components/Badge";
 import { Button } from "../../UI/Components/Button";
 import { Input } from "../../UI/Components/Input";
@@ -12,6 +12,7 @@ import { Modal } from "../../UI/Components/Modal";
 import { Select } from "../../UI/Components/Select";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
+import { useViewLease } from "../../UI/Core/ViewState";
 import { showConfirm, showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { syncAgentExecutorRegistration } from "../AiAssistant/AgentToolExecutor";
@@ -49,8 +50,13 @@ type TestStatus = "idle" | "testing" | "ok" | "auth" | "network" | "incomplete";
 /** 展开编辑器状态（isNew 标记新增，保存时 append 而非替换） */
 interface ProfileEditorState {
   isNew: boolean;
-  draft: AiProfile;
+  draft: AiProfileDraft;
 }
+
+// Settings sections are intentionally mounted on demand. Keep an unfinished
+// editor in the current renderer only, so changing sub-sections does not lose
+// work while credentials never enter localStorage, UserConfig, or the backend.
+let retainedEditor: ProfileEditorState | null = null;
 
 /** 生成配置档 id（uuid，冲突时兜底时间戳） */
 function createProfileId(): string {
@@ -75,19 +81,36 @@ export function AiSettingsSection() {
     useState<NonNullable<AiPreferences["agentPermission"]>>("ask");
   const [profiles, setProfiles] = useState<AiProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
-  const [editor, setEditor] = useState<ProfileEditorState | null>(null);
+  const [editor, setEditor] = useState<ProfileEditorState | null>(() => retainedEditor);
   const [testStatus, setTestStatus] = useState<TestStatus>("idle");
+  const [loadFailed, setLoadFailed] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  useViewLease(editor !== null || testStatus === "testing");
 
-  useEffect(() => {
-    UserConfigStore.get().then((config) => {
+  const loadConfig = useCallback(async () => {
+    try {
+      const config = await UserConfigStore.get();
       setEnabled(config.ai?.enabled ?? true);
       setAgentPermission(config.ai?.agentPermission ?? "ask");
       const resolved = resolveAiProfiles(config.ai);
       setProfiles(resolved.profiles);
       setActiveProfileId(resolved.active?.id ?? null);
-    });
+      setLoadFailed(false);
+    } catch {
+      setLoadFailed(true);
+    }
   }, []);
+  useEffect(() => {
+    void loadConfig();
+  }, [loadConfig]);
+
+  useEffect(() => {
+    retainedEditor = editor;
+    return () => {
+      // The module-level value is memory-only and is cleared by explicit save,
+      // cancel, or delete. It survives a settings sub-section remount.
+    };
+  }, [editor]);
 
   // 卸载时中止进行中的测试连接
   useEffect(
@@ -99,12 +122,18 @@ export function AiSettingsSection() {
 
   const handleEnabledChange = (next: boolean) => {
     setEnabled(next);
-    void writeAi({ enabled: next });
+    void writeAi({ enabled: next }).catch((error) => {
+      setEnabled(!next);
+      showToast(t("ai.errorGeneric").replace("{message}", String(error)), "error");
+    });
   };
 
   const handleAgentPermissionChange = (next: NonNullable<AiPreferences["agentPermission"]>) => {
     setAgentPermission(next);
-    void writeAi({ agentPermission: next });
+    void writeAi({ agentPermission: next }).catch((error) => {
+      showToast(t("ai.errorGeneric").replace("{message}", String(error)), "error");
+      void loadConfig();
+    });
     syncAgentExecutorRegistration();
   };
 
@@ -144,10 +173,10 @@ export function AiSettingsSection() {
 
   const startEditProfile = (profile: AiProfile) => {
     setTestStatus("idle");
-    setEditor({ isNew: false, draft: { ...profile } });
+    setEditor({ isNew: false, draft: { ...profile, apiKey: "" } });
   };
 
-  const updateDraft = (patch: Partial<AiProfile>) => {
+  const updateDraft = (patch: Partial<AiProfileDraft>) => {
     setEditor((prev) => (prev ? { ...prev, draft: { ...prev.draft, ...patch } } : prev));
     if (testStatus !== "idle" && testStatus !== "testing") setTestStatus("idle");
   };
@@ -160,13 +189,14 @@ export function AiSettingsSection() {
   const closeEditor = () => {
     abortRef.current?.abort();
     setEditor(null);
+    retainedEditor = null;
     setTestStatus("idle");
   };
 
   /** 保存编辑器：新增 append / 编辑替换；激活档失效时回退首条 */
   const saveEditor = async () => {
     if (!editor) return;
-    const draft: AiProfile = {
+    const draftInput: AiProfileDraft = {
       ...editor.draft,
       name: editor.draft.name.trim(),
       baseUrl: editor.draft.baseUrl.trim(),
@@ -174,6 +204,13 @@ export function AiSettingsSection() {
       model: editor.draft.model.trim(),
       protocol: "responses",
     };
+    let draft: AiProfile;
+    try {
+      draft = await AiIPC.saveProfile(draftInput);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error), "error");
+      return;
+    }
     const next = editor.isNew
       ? [...profiles, draft]
       : profiles.map((item) => (item.id === draft.id ? draft : item));
@@ -195,6 +232,7 @@ export function AiSettingsSection() {
       message: t("ai.profileDeleteConfirmMessage"),
       confirmLabel: t("ai.profileDeleteAction"),
       onConfirm: async () => {
+        await AiIPC.deleteProfile(id);
         const next = profiles.filter((item) => item.id !== id);
         const nextActiveId = next.some((item) => item.id === activeProfileId)
           ? activeProfileId
@@ -213,20 +251,25 @@ export function AiSettingsSection() {
     if (!editor || testStatus === "testing") return;
     const baseUrl = editor.draft.baseUrl.trim();
     const apiKey = editor.draft.apiKey.trim();
-    if (!baseUrl || !apiKey) {
+    if (!baseUrl || (!apiKey && !editor.draft.hasCredential)) {
       setTestStatus("incomplete");
       return;
     }
     setTestStatus("testing");
     const controller = new AbortController();
     abortRef.current = controller;
+    const requestId = crypto.randomUUID();
+    const cancel = () => {
+      void AiIPC.responsesAbort(requestId).catch(() => undefined);
+    };
+    controller.signal.addEventListener("abort", cancel, { once: true });
     const timer = setTimeout(() => controller.abort(), 15_000);
     try {
-      const response = await AiIPC.testResponsesConnection({
-        baseUrl,
-        apiKey,
-        model: editor.draft.model.trim(),
-      });
+      const saved = await AiIPC.saveProfile({ ...editor.draft, baseUrl, apiKey });
+      if (controller.signal.aborted) return;
+      updateDraft({ ...saved, apiKey: "" });
+      const response = await AiIPC.testResponsesConnection({ profileId: saved.id, requestId });
+      if (controller.signal.aborted) return;
       if (response >= 200 && response < 300) setTestStatus("ok");
       else if (response === 401 || response === 403) setTestStatus("auth");
       else setTestStatus("network");
@@ -235,6 +278,8 @@ export function AiSettingsSection() {
       setTestStatus("network");
     } finally {
       clearTimeout(timer);
+      controller.signal.removeEventListener("abort", cancel);
+      if (controller.signal.aborted) setTestStatus("idle");
       if (abortRef.current === controller) abortRef.current = null;
     }
   };
@@ -255,6 +300,15 @@ export function AiSettingsSection() {
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
+      {loadFailed && (
+        <div role="alert" className="flex items-center gap-3 text-sm text-[var(--StatusError)]">
+          <span className="min-w-0 flex-1">{t("ai.credentialMigrationPaused")}</span>
+          <Button onClick={() => void loadConfig()}>
+            <Icons.Refresh size={14} />
+            {t("ai.retry")}
+          </Button>
+        </div>
+      )}
       <div className="flex flex-col gap-2">
         <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
           {t("settings.categories.ai")}

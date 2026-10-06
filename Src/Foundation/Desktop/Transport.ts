@@ -1,5 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { redactDiagnostic } from "../Security/Redaction";
+
+export const desktopAvailable = () => isTauri();
 
 export interface DesktopErrorShape {
   domain: string;
@@ -16,12 +19,12 @@ export class DesktopError extends Error implements DesktopErrorShape {
   readonly cause?: string;
 
   constructor(input: DesktopErrorShape) {
-    super(input.message);
+    super(redactDiagnostic(input.message));
     this.name = "DesktopError";
     this.domain = input.domain;
     this.code = input.code;
     this.recoverable = input.recoverable;
-    this.cause = input.cause;
+    this.cause = input.cause === undefined ? undefined : redactDiagnostic(input.cause);
   }
 }
 
@@ -66,9 +69,10 @@ export function normalizeDesktopError(
     });
   }
   const message = cause instanceof Error ? cause.message : String(cause);
+  const tagged = /^\[([a-z][a-z0-9_.-]*)\]\s*/i.exec(message);
   return new DesktopError({
-    domain: overrides.domain ?? domainFromName(command),
-    code: overrides.code ?? "COMMAND_FAILED",
+    domain: overrides.domain ?? (tagged ? domainFromName(tagged[1]) : domainFromName(command)),
+    code: overrides.code ?? tagged?.[1] ?? "COMMAND_FAILED",
     message: overrides.message ?? message,
     recoverable: overrides.recoverable ?? true,
     cause: overrides.cause ?? message,

@@ -1,9 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getConfigMock, setConfigMock, fetchMock } = vi.hoisted(() => ({
+const { getConfigMock, setConfigMock, fetchMock, desktopMock, requestMock } = vi.hoisted(() => ({
   getConfigMock: vi.fn(),
   setConfigMock: vi.fn(),
   fetchMock: vi.fn(),
+  desktopMock: vi.fn(() => false),
+  requestMock: vi.fn(),
+}));
+
+vi.mock("../../../Foundation/Desktop", () => ({ desktopAvailable: desktopMock }));
+vi.mock("../../../Foundation/IPC/NetworkCommands", () => ({
+  NetworkIPC: {
+    marketplaceRequest: requestMock,
+    cancelMarketplaceRequest: vi.fn(),
+    cachedCatalog: vi.fn(),
+  },
 }));
 
 vi.mock("../../../Foundation/Storage/UserConfigStore", () => ({
@@ -38,10 +49,32 @@ vi.mock("../../../Foundation/IPC/LanguageServerCommands", () => ({
   },
 }));
 
-import { isAbortError, MarketplaceService } from "./MarketplaceService";
+import { AccountAuthIPC } from "../../../Foundation/IPC/AccountAuthCommands";
+import {
+  descriptorToMarketplaceItem,
+  isAbortError,
+  isOfficialMarketplaceHost,
+  MarketplaceService,
+} from "./MarketplaceService";
 
 describe("MarketplaceService.fetchMarketplace", () => {
+  it("does not give unsigned local descriptors verified identity or hide their permissions", () => {
+    const item = descriptorToMarketplaceItem({
+      id: "example.local",
+      name: "Local",
+      publisher: "example",
+      version: "1.0.0",
+      sidebarTitle: "Local",
+      sidebarIcon: "",
+      viewEntry: "view.html",
+      permissions: ["fs.read"],
+    });
+    expect(item.verified).toBe(false);
+    expect(item.rawPermissions).toEqual(["fs.read"]);
+  });
   beforeEach(() => {
+    desktopMock.mockReturnValue(false);
+    requestMock.mockReset();
     getConfigMock.mockResolvedValue({});
     setConfigMock.mockResolvedValue(undefined);
     fetchMock.mockReset();
@@ -79,6 +112,58 @@ describe("MarketplaceService.fetchMarketplace", () => {
     });
   });
 
+  it("displays verified identity only for a catalog verified by the native backend", async () => {
+    desktopMock.mockReturnValue(true);
+    const body = JSON.stringify({
+      data: [
+        {
+          id: "fixture.extension",
+          name: "Fixture",
+          publisher: "fixture",
+          version: "1.0.0",
+          verified: true,
+        },
+      ],
+    });
+    requestMock.mockResolvedValue({ status: 200, body, catalog_verified: true });
+    expect((await MarketplaceService.fetchMarketplace()).items[0].verified).toBe(true);
+    requestMock.mockResolvedValue({ status: 200, body, catalog_verified: false });
+    expect((await MarketplaceService.fetchMarketplace()).items[0].verified).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("binds official credentials to the HTTPS origin and skips token exchange for local servers", async () => {
+    for (const url of [
+      "http://marketplace.aurona.cc/api",
+      "https://marketplace.aurona.cc:8443/api",
+      "https://user:secret@marketplace.aurona.cc/api",
+      "http://127.0.0.1:5219/api",
+    ])
+      expect(isOfficialMarketplaceHost(url)).toBe(false);
+    expect(isOfficialMarketplaceHost("https://marketplace.aurona.cc/api")).toBe(true);
+    getConfigMock.mockResolvedValue({ marketplaceServerUrl: "http://127.0.0.1:5219/api" });
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ data: [] }), { status: 200 }));
+    vi.mocked(AccountAuthIPC.accessToken).mockClear();
+    await MarketplaceService.checkStarStatus("auronalabs.markdown");
+    expect(AccountAuthIPC.accessToken).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("token-exchange"))).toBe(
+      false,
+    );
+  });
+
+  it("preserves signed pagination and refuses invalid page budgets", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ data: [], pagination: { nextPage: 3 } }), { status: 200 }),
+    );
+    await expect(
+      MarketplaceService.fetchMarketplace(undefined, undefined, [], { page: 2 }),
+    ).resolves.toMatchObject({ nextPage: 3 });
+    expect(String(fetchMock.mock.calls[0][0])).toContain("page=2");
+    await expect(
+      MarketplaceService.fetchMarketplace(undefined, undefined, [], { page: 0 }),
+    ).rejects.toThrow("pagination");
+  });
+
   it("reports malformed successful responses as invalid-response offline", async () => {
     fetchMock.mockResolvedValue(
       new Response("not-json", { status: 200, headers: { "Content-Type": "text/plain" } }),
@@ -100,6 +185,7 @@ describe("MarketplaceService.fetchMarketplace", () => {
               name: "Markdown Preview",
               publisher: "Aurona Labs",
               version: "0.1.2",
+              verified: true,
               description: "Preview Markdown",
               category: "Developer Tools",
               packageType: "aurx",
@@ -120,6 +206,7 @@ describe("MarketplaceService.fetchMarketplace", () => {
     expect(result.items[0].downloads).toBeUndefined();
     expect(result.items[0].rating).toBeUndefined();
     expect(result.items[0].reviewCount).toBeUndefined();
+    expect(result.items[0].verified).toBe(false);
   });
 
   it("requests Runtime metadata from the manifest-backed endpoint", async () => {

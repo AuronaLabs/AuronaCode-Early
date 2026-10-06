@@ -14,6 +14,7 @@ const PERMISSIONS_FILE: &str = "extensions-permissions.json";
 pub struct ExtensionState {
     registry: ExtensionRegistry,
     runtimes: Mutex<HashMap<String, Arc<ExtensionRuntime>>>,
+    execution_approvals: Mutex<HashMap<String, String>>,
     permissions: Mutex<HashMap<String, ContextPermissionState>>,
     session_permissions: Mutex<HashSet<String>>,
     config_dir: Mutex<Option<PathBuf>>,
@@ -26,6 +27,7 @@ impl ExtensionState {
         Self {
             registry: ExtensionRegistry::new(),
             runtimes: Mutex::new(HashMap::new()),
+            execution_approvals: Mutex::new(HashMap::new()),
             permissions: Mutex::new(HashMap::new()),
             session_permissions: Mutex::new(HashSet::new()),
             config_dir: Mutex::new(None),
@@ -114,6 +116,83 @@ impl ExtensionState {
         self.registry.package(id)
     }
 
+    pub async fn authorize_execution(&self, app: &AppHandle, id: &str) -> Result<(), String> {
+        use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+        let id = canonical_extension_id(id);
+        let package = self
+            .package(id)
+            .ok_or("[extension.owner] Extension is unavailable")?;
+        if is_builtin_extension(id) {
+            return Ok(());
+        }
+        if self
+            .execution_approvals
+            .lock()
+            .map_err(|_| "[extension.approval] Approval state unavailable")?
+            .get(id)
+            == Some(&package.archive_hash)
+        {
+            return Ok(());
+        }
+        let generation = app
+            .state::<crate::commands::fs::WorkspaceState>()
+            .generation();
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        let (title, body) = crate::authorization_dialogs::text(
+            app,
+            "extension",
+            &[
+                ("id", &package.manifest.id),
+                ("version", &package.manifest.version),
+                ("hash", &package.archive_hash),
+                ("permissions", &package.manifest.permissions.join(", ")),
+            ],
+        );
+        app.dialog()
+            .message(body)
+            .title(title)
+            .kind(MessageDialogKind::Warning)
+            .buttons(MessageDialogButtons::YesNo)
+            .show(move |approved| {
+                let _ = sender.send(approved);
+            });
+        if !matches!(
+            tokio::time::timeout(std::time::Duration::from_secs(60), receiver).await,
+            Ok(Ok(true))
+        ) {
+            return Err("[extension.denied] Extension execution was not approved".into());
+        }
+        if generation
+            != app
+                .state::<crate::commands::fs::WorkspaceState>()
+                .generation()
+            || self
+                .package(id)
+                .is_none_or(|current| current.archive_hash != package.archive_hash)
+        {
+            return Err(
+                "[extension.changed] Workspace or extension changed during approval".into(),
+            );
+        }
+        self.execution_approvals
+            .lock()
+            .map_err(|_| "[extension.approval] Approval state unavailable")?
+            .insert(id.to_string(), package.archive_hash.clone());
+        Ok(())
+    }
+
+    pub fn revoke_session(&self) {
+        if let Ok(mut approvals) = self.execution_approvals.lock() {
+            approvals.clear();
+        }
+        if let Ok(mut runtimes) = self.runtimes.lock() {
+            runtimes.clear();
+        }
+        if let Ok(mut permissions) = self.session_permissions.lock() {
+            permissions.clear();
+        }
+    }
+
     pub fn install_package(
         &self,
         app: &AppHandle,
@@ -147,9 +226,14 @@ impl ExtensionState {
         std::fs::create_dir_all(&extension_dir)
             .map_err(|error| format!("无法创建扩展目录: {error}"))?;
         let target = extension_dir.join(format!("{id}.aurx"));
-        std::fs::write(&target, archive_bytes)
+        crate::atomic_store::replace(&target, archive_bytes)
             .map_err(|error| format!("无法保存扩展安装包: {error}"))?;
         self.registry.load_file(&target)?;
+        super::runtime::cleanup_extension_resources(Some(&id));
+        self.execution_approvals
+            .lock()
+            .map_err(|_| "[extension.approval] Approval state unavailable")?
+            .remove(&id);
         self.runtimes
             .lock()
             .map_err(|_| "扩展运行时状态锁定失败".to_string())?
@@ -191,9 +275,14 @@ impl ExtensionState {
         std::fs::create_dir_all(&extension_dir)
             .map_err(|error| format!("无法创建扩展目录: {error}"))?;
         let target = extension_dir.join(format!("{id}.vsix"));
-        std::fs::write(&target, vsix_bytes)
+        crate::atomic_store::replace(&target, vsix_bytes)
             .map_err(|error| format!("无法保存扩展安装包: {error}"))?;
         self.registry.load_file(&target)?;
+        super::runtime::cleanup_extension_resources(Some(&id));
+        self.execution_approvals
+            .lock()
+            .map_err(|_| "[extension.approval] Approval state unavailable")?
+            .remove(&id);
         self.runtimes
             .lock()
             .map_err(|_| "扩展运行时状态锁定失败".to_string())?
@@ -216,6 +305,11 @@ impl ExtensionState {
             .map_err(|error| format!("无法定位扩展目录: {error}"))?
             .join("extensions");
         remove_installed_package_files(&extension_dir, id)?;
+        super::runtime::cleanup_extension_resources(Some(id));
+        self.execution_approvals
+            .lock()
+            .map_err(|_| "[extension.approval] Approval state unavailable")?
+            .remove(id);
         self.runtimes
             .lock()
             .map_err(|_| "扩展运行时状态锁定失败".to_string())?
@@ -278,6 +372,19 @@ impl ExtensionState {
 
     pub fn runtime_for(&self, id: &str) -> Result<Arc<ExtensionRuntime>, String> {
         let id = canonical_extension_id(id);
+        let package = self
+            .package(id)
+            .ok_or("[extension.owner] Extension is unavailable")?;
+        if !is_builtin_extension(id)
+            && self
+                .execution_approvals
+                .lock()
+                .map_err(|_| "[extension.approval] Approval state unavailable")?
+                .get(id)
+                != Some(&package.archive_hash)
+        {
+            return Err("[extension.unauthorized] Execution requires package hash approval".into());
+        }
         if let Some(runtime) = self
             .runtimes
             .lock()
@@ -310,10 +417,12 @@ impl ExtensionState {
         } else {
             package.wasm.clone()
         };
-        let runtime = Arc::new(ExtensionRuntime::new(
-            &wasm_bytes,
-            ExtensionLimits::default(),
-        )?);
+        let limits = if id == "aurona.vscode-compat" || package.wasm.is_empty() {
+            ExtensionLimits::trusted_compat()
+        } else {
+            ExtensionLimits::default()
+        };
+        let runtime = Arc::new(ExtensionRuntime::new(&wasm_bytes, limits)?);
         self.runtimes
             .lock()
             .map_err(|_| "扩展运行时锁已损坏".to_string())?

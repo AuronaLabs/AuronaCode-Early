@@ -76,7 +76,7 @@ export interface AppearancePreferences {
   glassIntensity?: number;
 }
 
-/** 单条 AI 模型配置档（0.4.9 多模型；密钥仅存本地 UserConfig，零遥测） */
+/** Saved AI metadata; credentials are owned by the backend OS keyring. */
 export interface AiProfile {
   /** 稳定 id（前端生成，uuid） */
   id: string;
@@ -86,15 +86,21 @@ export interface AiProfile {
   provider?: "openai" | "deepseek" | "openrouter" | "custom";
   /** Responses API base URL. */
   baseUrl: string;
-  /** API Key（仅本机存储） */
-  apiKey: string;
+  /** Backend credential handle, never a readable key. */
+  credentialId?: string;
+  hasCredential?: boolean;
   /** 模型名称 */
   model: string;
   /** 0.4.13 uses the Responses API as the only runtime protocol. */
   protocol?: "responses";
 }
 
-/** 0.4.6 批次 5：AI 助手偏好（纯聊天；API Key 仅存本地 UserConfig，零遥测） */
+/** A newly entered key is transient input, never saved profile metadata. */
+export interface AiProfileDraft extends AiProfile {
+  apiKey: string;
+}
+
+/** AI preferences. Plaintext legacy fields are migration inputs only. */
 export interface AiPreferences {
   /** 是否在侧边栏启用 AI 助手卡片 */
   enabled?: boolean;

@@ -7,6 +7,7 @@ export interface ExplorerContextValue {
   inlineCreation: InlineCreation | null;
   inlineEditing: string | null;
   onToggle: (node: FileNode) => void;
+  onLoadMore: (node: FileNode) => void;
   onInlineCreate: (name: string) => void;
   onInlineCancel: () => void;
   onInlineRename: (oldPath: string, newName: string) => void;

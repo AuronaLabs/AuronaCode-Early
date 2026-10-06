@@ -6,6 +6,7 @@ import { CommandRegistry } from "../Extension/CommandRegistry";
 import { FliunoModal as Fliuno } from "../Features/Fliuno/FliunoModal";
 import { EventBus } from "../Foundation/EventBus";
 import { useLocale } from "../Foundation/I18n";
+import { extensionSvgDataUrl } from "../Foundation/Security/ExtensionContent";
 import {
   extensionSidebarId,
   SIDEBAR_AI,
@@ -34,13 +35,10 @@ type AppShellProps = {
 
 function ExtensionActivityIcon({ extensionId }: { extensionId: string }) {
   const icon = useExtensionStore((state) => state.views[extensionId]?.icon);
-  if (icon) {
+  const source = icon ? extensionSvgDataUrl(icon) : null;
+  if (source) {
     return (
-      <span
-        className="flex size-[22px] items-center justify-center [&>svg]:size-full [&>svg]:stroke-current"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: extension icon SVG is verified at package build time
-        dangerouslySetInnerHTML={{ __html: icon }}
-      />
+      <img src={source} alt="" width={22} height={22} className="size-[22px] object-contain" />
     );
   }
   if (extensionId === "aurona.vscode-compat") {

@@ -1,4 +1,13 @@
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { DocumentService } from "../Core/DocumentService";
 import { EditorSaveRegistry } from "../Core/EditorSaveRegistry";
 import { RecoveryCoordinator } from "../Core/Recovery/RecoveryCoordinator";
 import { syncAgentExecutorRegistration } from "../Features/AiAssistant/AgentToolExecutor";
@@ -39,7 +48,10 @@ import { Button } from "../UI/Components/Button";
 import { Card } from "../UI/Components/Card";
 import { Modal } from "../UI/Components/Modal";
 import { PanelResizeHandle } from "../UI/Components/PanelResizeHandle";
+import { ViewActivityContext } from "../UI/Core/ViewActivity";
+import { ViewStateContext, ViewStateStore } from "../UI/Core/ViewState";
 import { Icons } from "../UI/Icons/IconManager";
+import { HOT_VIEW_LIMIT, selectHotViews } from "./HotViewCache";
 import { LazyChunkBoundary, lazyChunk } from "./LazyChunkBoundary";
 
 type FileExplorerProps = { onFileSelect: (path: string) => void };
@@ -150,6 +162,32 @@ export function WorkspaceView() {
   } = useWorkbenchStore();
 
   const [mountedExtensions, setMountedExtensions] = useState<Set<string>>(new Set());
+  const recentViews = useRef<string[]>([]);
+  const viewStates = useRef(new ViewStateStore(HOT_VIEW_LIMIT));
+  useSyncExternalStore(viewStates.current.subscribe, viewStates.current.version);
+  const hotViews = selectHotViews(
+    recentViews.current,
+    tabs.map((tab) => tab.id),
+    activeTabId,
+    viewStates.current.protectedIds(),
+  );
+  useLayoutEffect(() => {
+    recentViews.current = hotViews;
+    viewStates.current.retain(tabs.map((tab) => tab.id));
+  });
+  const previousFiles = useRef(new Set<string>());
+  useEffect(() => {
+    const open = new Set(
+      tabs.flatMap((tab) => (tab.type === "file" && tab.path ? [tab.path] : [])),
+    );
+    for (const path of previousFiles.current) {
+      if (!open.has(path)) {
+        RecoveryCoordinator.unregister(path);
+        void DocumentService.close(path, true).catch(console.error);
+      }
+    }
+    previousFiles.current = open;
+  }, [tabs]);
   const currentExtId = activeSidebar ? extensionIdFromSidebar(activeSidebar) : null;
 
   // 扩展编辑器桥：接收后端 insert-text / reveal-line 事件并驱动活动引擎
@@ -334,7 +372,9 @@ export function WorkspaceView() {
             className="flex flex-1 flex-col min-h-0"
             style={{ display: activeSidebar === SIDEBAR_FLIUNO ? "flex" : "none" }}
           >
-            <FliunoWorkspacePage variant="sidebar" />
+            <ViewActivityContext.Provider value={activeSidebar === SIDEBAR_FLIUNO}>
+              <FliunoWorkspacePage variant="sidebar" />
+            </ViewActivityContext.Provider>
           </div>
         )}
 
@@ -365,7 +405,9 @@ export function WorkspaceView() {
               display: currentExtId === extId ? "flex" : "none",
             }}
           >
-            <ExtensionSidebar extensionId={extId} />
+            <ViewActivityContext.Provider value={currentExtId === extId}>
+              <ExtensionSidebar extensionId={extId} />
+            </ViewActivityContext.Provider>
           </div>
         ))}
       </Card>
@@ -393,22 +435,30 @@ export function WorkspaceView() {
               <EditorTabBar />
 
               <div className="relative flex-1 overflow-hidden">
-                {tabs.map((tab) => (
-                  <div
-                    key={tab.id}
-                    className="absolute inset-0 h-full w-full isolate"
-                    style={{
-                      // Keep the React tree mounted so page state survives, but remove
-                      // inactive Canvas/WebView layers from composition completely.
-                      // `visibility: hidden` keeps those layers alive and can leave a
-                      // stale frame visible while the next tab is painted.
-                      display: activeTabId === tab.id ? "block" : "none",
-                      pointerEvents: activeTabId === tab.id ? "auto" : "none",
-                    }}
-                  >
-                    {renderTabContent(tab, activeTabId, pendingReveal, clearPendingReveal)}
-                  </div>
-                ))}
+                {tabs
+                  .filter((tab) => hotViews.includes(tab.id))
+                  .map((tab) => (
+                    <div
+                      key={tab.id}
+                      className="absolute inset-0 h-full w-full isolate"
+                      style={{
+                        // Keep the React tree mounted so page state survives, but remove
+                        // inactive Canvas/WebView layers from composition completely.
+                        // `visibility: hidden` keeps those layers alive and can leave a
+                        // stale frame visible while the next tab is painted.
+                        display: activeTabId === tab.id ? "block" : "none",
+                        pointerEvents: activeTabId === tab.id ? "auto" : "none",
+                      }}
+                    >
+                      <ViewActivityContext.Provider value={activeTabId === tab.id}>
+                        <ViewStateContext.Provider
+                          value={{ store: viewStates.current, id: tab.id }}
+                        >
+                          {renderTabContent(tab, activeTabId, pendingReveal, clearPendingReveal)}
+                        </ViewStateContext.Provider>
+                      </ViewActivityContext.Provider>
+                    </div>
+                  ))}
               </div>
             </div>
           ) : (

@@ -1,5 +1,17 @@
 # Aurona SDK 参考手册
 
+## 0.4.14 资源与授权
+
+文件、watcher、host bridge、WASM 内存和 fuel 均受 Rust 预算控制。扩展不得把未声明的命令、外部路径或网络访问当作默认能力；安装和更新由后端验证 artifact handle。
+
+本版 bridge 请求绑定 extension、kind、runtime generation 和一次性请求 ID；错误所有者、重复或过期响应不能消费请求。每扩展最多 64 个 pending，bridge/event 单 payload 最多 256 KiB。事件入口只接受当前 runtime lease 的 `workspace-changed`、`document-changed`，最多 256 个排队事件；溢出返回错误并要求重新同步，不静默丢弃旧事件。
+
+watcher 共用全局 64、每工作区 16、每扩展 4 的预算。事件以 100 ms 窗口合并，最多保留 4096 个去重路径；溢出会使目录缓存失效。卸载、禁用、更新失败和工作区切换撤销 runtime lease 并清理 bridge、watcher 和订阅。实际 OS 线程、事件量和百轮生命周期数据以验收报告为准。
+
+普通 WASM Store 使用 64 MiB 内存档和受限 fuel/deadline；包不能自行声明提升配额。内置 VSCode 兼容层单独使用受控的 256 MiB 档。编译缓存按包 hash 复用 Component，Store/实例仍独立。Agent 调用命令要求注册时明确声明允许调用、effects、checkpoint 和冲突/并行元数据，未声明命令默认拒绝。
+
+本地 `.aurx`/`.vsix` 通过原生选择获得一次性 `artifactId`，安装前显示 hash/权限并重新验证包。远程包要求可信配置固定的公钥和有效签名；未签名旧包不会显示为已验证。详见 [0.4.14 安全与迁移](0.4.14-Security-and-Migration.md)，正式 Marketplace 生产签名数据仍是外部前置条件。
+
 本文档为 Aurona Code 扩展开发者提供统一面向对象（OOP）**Aurona SDK** 与底层 WIT 契约的完整 API 参考。
 
 ---
@@ -314,4 +326,3 @@ impl Guest for MyExtension {
     }
 }
 ```
-

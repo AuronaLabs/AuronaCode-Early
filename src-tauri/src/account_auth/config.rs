@@ -2,7 +2,10 @@ use std::time::Duration;
 
 pub const REGISTERED_REDIRECT_URI: &str = "http://127.0.0.1/oauth/callback";
 pub(crate) const CALLBACK_PATH: &str = "/oauth/callback";
+#[cfg(not(feature = "audit-harness"))]
 pub(crate) const KEYRING_SERVICE: &str = "cc.aurona.code.account";
+#[cfg(feature = "audit-harness")]
+pub(crate) const KEYRING_SERVICE: &str = "cc.aurona.code.audit0414.account";
 pub(crate) const KEYRING_REFRESH_TOKEN: &str = "aurona-account-refresh-token";
 pub(crate) const CALLBACK_TIMEOUT: Duration = Duration::from_secs(300);
 pub(crate) const MAX_CALLBACK_REQUEST_BYTES: usize = 16 * 1024;

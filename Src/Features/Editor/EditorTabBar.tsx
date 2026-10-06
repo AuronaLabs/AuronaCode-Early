@@ -68,7 +68,9 @@ export const EditorTabBar = memo(function EditorTabBar() {
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const target = el.querySelector<HTMLElement>(`[data-tab-id="${activeTabId}"]`);
+    const target = Array.from(el.querySelectorAll<HTMLElement>("[data-tab-id]")).find(
+      (element) => element.dataset.tabId === activeTabId,
+    );
     target?.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
   }, [activeTabId]);
 

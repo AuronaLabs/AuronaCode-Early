@@ -1,5 +1,7 @@
 # Aurona Code 0.4.13 Agent 与 Editor 协作
 
+> 文档已于 2026-10-06 归档，保留历史证据；其中版本和验收结论只适用于原记录。当前版本状态见 [0.4.14 状态矩阵](../0.4.14-Implementation-Status.md)。
+
 ## 0.4.13 runtime extension contracts
 
 The stable runtime treats tool capabilities as data. Each registered tool may declare

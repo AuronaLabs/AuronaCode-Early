@@ -11,6 +11,7 @@ import { Select } from "../../UI/Components/Select";
 import { SettingResetButton } from "../../UI/Components/SettingResetButton";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
+import { useViewActivity } from "../../UI/Core/ViewActivity";
 import { Icons } from "../../UI/Icons/IconManager";
 
 const DEFAULTS: Required<LanguageFeaturePreferences> = {
@@ -35,6 +36,7 @@ function statusLabel(t: (key: I18nKey) => string, state: LanguageServerInfo | un
 
 export function LanguageServiceSettings() {
   const { t } = useLocale();
+  const active = useViewActivity();
   const [preferences, setPreferences] = useState(DEFAULTS);
   const [, setRevision] = useState(0);
   const client = useMemo(() => LspClient.getInstance(), []);
@@ -46,6 +48,7 @@ export function LanguageServiceSettings() {
   );
 
   useEffect(() => {
+    if (!active) return;
     void UserConfigStore.get().then((config) =>
       setPreferences({ ...DEFAULTS, ...config.languageFeatures }),
     );
@@ -57,7 +60,7 @@ export function LanguageServiceSettings() {
       unsubscribeLsp();
       unsubscribeDiagnostics();
     };
-  }, [client]);
+  }, [active, client]);
 
   const updatePreferences = async (patch: Partial<LanguageFeaturePreferences>) => {
     const next = { ...preferences, ...patch };

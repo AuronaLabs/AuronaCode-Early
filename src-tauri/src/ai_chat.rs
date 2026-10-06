@@ -3,7 +3,7 @@
 //! Requests share the configured network client. Text, tools, usage and
 //! terminal states are delivered through `ai://responses-event`.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use serde_json::json;
@@ -15,7 +15,6 @@ use tokio::time::{timeout, Duration};
 // deliberately kept out of the runtime and are not accepted by this module.
 
 /// 连接超时（TCP/TLS 建链）
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 /// 首 token 超时：请求发出到首个 SSE 数据行（推理模型首 token 慢，取宽）
 const FIRST_TOKEN_TIMEOUT: Duration = Duration::from_secs(60);
 /// chunk 间隔超时：流式过程中相邻数据块的最大静默间隔
@@ -23,37 +22,75 @@ const CHUNK_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
 /// Session-scoped cancellation flags for in-flight Responses requests.
 #[derive(Default)]
 pub struct AiChatState {
-    aborts: Mutex<HashSet<String>>,
-    active: Mutex<HashSet<String>>,
+    requests: Mutex<RequestRegistry>,
     abort_notify: Notify,
 }
 
-impl AiChatState {
-    fn has_abort(&self, request_id: &str) -> bool {
-        self.aborts
-            .lock()
-            .map(|set| set.contains(request_id))
-            .unwrap_or(false)
+#[derive(Default)]
+struct RequestRegistry {
+    active: HashSet<String>,
+    aborts: HashSet<String>,
+    early_aborts: HashMap<String, std::time::Instant>,
+    finished: HashMap<String, std::time::Instant>,
+}
+
+impl RequestRegistry {
+    fn prune(&mut self) {
+        let expiry = Duration::from_secs(60);
+        self.early_aborts.retain(|_, time| time.elapsed() < expiry);
+        self.finished.retain(|_, time| time.elapsed() < expiry);
     }
 
-    fn clear_abort(&self, request_id: &str) {
-        if let Ok(mut set) = self.aborts.lock() {
-            set.remove(request_id);
-        }
-    }
-
-    fn insert_abort(&self, request_id: &str) {
-        let is_active = self
-            .active
-            .lock()
-            .map(|set| set.contains(request_id))
-            .unwrap_or(false);
-        if is_active {
-            if let Ok(mut set) = self.aborts.lock() {
-                set.insert(request_id.to_string());
+    fn remember_finished(&mut self, id: &str) {
+        if self.finished.len() >= 128 {
+            if let Some(oldest) = self
+                .finished
+                .iter()
+                .min_by_key(|(_, time)| *time)
+                .map(|(id, _)| id.clone())
+            {
+                self.finished.remove(&oldest);
             }
-            self.abort_notify.notify_waiters();
         }
+        self.finished.insert(id.into(), std::time::Instant::now());
+    }
+}
+
+impl AiChatState {
+    pub fn abort_all(&self) {
+        if let Ok(mut requests) = self.requests.lock() {
+            let active = requests.active.clone();
+            requests.aborts.extend(active);
+        }
+        self.abort_notify.notify_waiters();
+    }
+    fn has_abort(&self, request_id: &str) -> bool {
+        self.requests
+            .lock()
+            .map(|requests| requests.aborts.contains(request_id))
+            .unwrap_or(true)
+    }
+
+    fn insert_abort(&self, request_id: &str) -> Result<(), String> {
+        validate_request_id(request_id)?;
+        let mut requests = self
+            .requests
+            .lock()
+            .map_err(|_| "[ai.request_state] Request registry unavailable")?;
+        requests.prune();
+        if requests.active.contains(request_id) {
+            requests.aborts.insert(request_id.into());
+            self.abort_notify.notify_waiters();
+        } else if !requests.finished.contains_key(request_id) {
+            if requests.early_aborts.len() >= 64 && !requests.early_aborts.contains_key(request_id)
+            {
+                return Err("[resource.limit] Too many pending AI cancellations".into());
+            }
+            requests
+                .early_aborts
+                .insert(request_id.into(), std::time::Instant::now());
+        }
+        Ok(())
     }
 
     async fn wait_for_abort(&self, request_id: &str) {
@@ -69,16 +106,19 @@ impl AiChatState {
     }
 
     fn begin_request(&self, request_id: &str) -> bool {
-        let already_aborted = self
-            .aborts
-            .lock()
-            .map(|mut set| set.remove(request_id))
-            .unwrap_or(false);
-        if already_aborted {
-            return false;
-        }
-        if let Ok(mut set) = self.active.lock() {
-            set.insert(request_id.to_string());
+        if let Ok(mut requests) = self.requests.lock() {
+            requests.prune();
+            if requests.early_aborts.remove(request_id).is_some() {
+                requests.remember_finished(request_id);
+                return false;
+            }
+            if requests.active.len() >= crate::resource_limits::AI_REQUESTS
+                || requests.active.contains(request_id)
+                || requests.finished.contains_key(request_id)
+            {
+                return false;
+            }
+            requests.active.insert(request_id.to_string());
             true
         } else {
             false
@@ -86,10 +126,12 @@ impl AiChatState {
     }
 
     fn finish_request(&self, request_id: &str) {
-        if let Ok(mut set) = self.active.lock() {
-            set.remove(request_id);
+        if let Ok(mut requests) = self.requests.lock() {
+            requests.active.remove(request_id);
+            requests.aborts.remove(request_id);
+            requests.prune();
+            requests.remember_finished(request_id);
         }
-        self.clear_abort(request_id);
     }
 }
 
@@ -300,12 +342,20 @@ struct ResponsesSseDecoder {
 
 impl ResponsesSseDecoder {
     fn push(&mut self, chunk: &[u8]) -> Result<Vec<serde_json::Value>, String> {
-        self.buffer.extend_from_slice(chunk);
         let mut payloads = Vec::new();
-        while let Some(end) = find_sse_record_end(&self.buffer) {
-            let record: Vec<u8> = self.buffer.drain(..end).collect();
-            if let Some(payload) = self.parse_record(&record)? {
-                payloads.push(payload);
+        for part in chunk.chunks(16 * 1024) {
+            self.buffer.extend_from_slice(part);
+            while let Some(end) = find_sse_record_end(&self.buffer) {
+                if end > crate::resource_limits::AI_EVENT_BYTES {
+                    return Err("SSE event exceeds 1 MiB".into());
+                }
+                let record: Vec<u8> = self.buffer.drain(..end).collect();
+                if let Some(payload) = self.parse_record(&record)? {
+                    payloads.push(payload);
+                }
+            }
+            if self.buffer.len() > crate::resource_limits::AI_EVENT_BYTES {
+                return Err("SSE buffered event exceeds 1 MiB".into());
             }
         }
         Ok(payloads)
@@ -392,27 +442,63 @@ fn classify_request_error(error: &reqwest::Error) -> (&'static str, String) {
 
 #[tauri::command]
 pub async fn ai_test_responses_connection(
-    base_url: String,
-    api_key: String,
-    model: String,
+    app: AppHandle,
+    state: State<'_, AiChatState>,
+    profiles: State<'_, crate::ai_profiles::AiProfileState>,
+    profile_id: String,
+    request_id: String,
 ) -> Result<u16, String> {
-    let client = crate::network::configure_client(
-        reqwest::Client::builder().connect_timeout(CONNECT_TIMEOUT),
-    )?;
-    let response = client
-        .post(responses_url(&base_url))
+    validate_request_id(&request_id)?;
+    if !state.begin_request(&request_id) {
+        return Err(
+            "[ai.request_conflict] Request ID is active or the request quota is exhausted".into(),
+        );
+    }
+    let _guard = RequestGuard {
+        state: &state,
+        request_id: &request_id,
+    };
+    let (profile, api_key, generation) = tokio::select! {
+        biased;
+        _ = state.wait_for_abort(&request_id) => return Err("[task.cancelled] Connection test cancelled".into()),
+        result = crate::ai_profiles::resolve(&app, &profiles, &profile_id) => result?,
+    };
+    let client = tokio::select! {
+        biased;
+        _ = state.wait_for_abort(&request_id) => return Err("[task.cancelled] Connection test cancelled".into()),
+        result = crate::network_policy::ai_client(&profile.base_url) => result?,
+    };
+    profiles.validate_grant(&app, &profile, generation)?;
+    let request = client
+        .post(responses_url(&profile.base_url))
         .bearer_auth(api_key.trim())
         .json(&json!({
-            "model": model.trim(),
+            "model": profile.model.trim(),
             "input": [{ "role": "user", "content": [{ "type": "input_text", "text": "ping" }] }],
             "max_output_tokens": 1,
             "stream": false,
         }))
         .timeout(std::time::Duration::from_secs(15))
-        .send()
-        .await
-        .map_err(|error| format!("Responses connection failed: {error}"))?;
+        .send();
+    let response = tokio::select! {
+        biased;
+        _ = state.wait_for_abort(&request_id) => return Err("[task.cancelled] Connection test cancelled".into()),
+        _ = profiles.wait_for_revocation(&app, &profile, generation) => return Err("[ai.authorization_revoked] Authorization changed".into()),
+        result = request => result.map_err(|_| "[ai.connection] Responses connection failed")?,
+    };
     Ok(response.status().as_u16())
+}
+
+fn validate_request_id(request_id: &str) -> Result<(), String> {
+    if request_id.is_empty()
+        || request_id.len() > 128
+        || !request_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+    {
+        return Err("[ai.request_id] Invalid request ID".into());
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -420,26 +506,42 @@ pub async fn ai_test_responses_connection(
 pub async fn ai_responses_send(
     app: AppHandle,
     state: State<'_, AiChatState>,
+    profiles: State<'_, crate::ai_profiles::AiProfileState>,
     request_id: String,
-    base_url: String,
-    api_key: String,
-    model: String,
+    profile_id: String,
     instructions: Option<String>,
     input: Vec<serde_json::Value>,
     tools: Option<Vec<serde_json::Value>>,
     previous_response_id: Option<String>,
 ) -> Result<(), String> {
+    validate_request_id(&request_id)?;
+    if tools
+        .as_ref()
+        .is_some_and(|tools| tools.len() > crate::resource_limits::AI_TOOLS)
+    {
+        return Err("[resource.limit] AI tool count exceeds 64".into());
+    }
     if !state.begin_request(&request_id) {
-        let _ = app.emit(
-            "ai://responses-event",
-            json!({ "requestId": request_id, "type": "response.failed", "message": "aborted" }),
+        return Err(
+            "[ai.request_conflict] Request ID is active or the request quota is exhausted".into(),
         );
-        return Ok(());
     }
     let _request_guard = RequestGuard {
         state: &state,
         request_id: &request_id,
     };
+    if serde_json::to_vec(&json!({"input": &input, "instructions": &instructions, "tools": &tools, "previousResponseId": &previous_response_id})).map_err(|error| error.to_string())?.len() > crate::resource_limits::AI_REQUEST_BYTES {
+        return Err("[resource.limit] AI request exceeds 4 MiB".into());
+    }
+    let (profile, api_key, generation) = tokio::select! {
+        _ = state.wait_for_abort(&request_id) => {
+            emit_response_event(&app, &request_id, json!({"type":"response.failed","message":"aborted"}));
+            return Ok(());
+        }
+        resolved = crate::ai_profiles::resolve(&app, &profiles, &profile_id) => resolved?,
+    };
+    let base_url = &profile.base_url;
+    let model = &profile.model;
     let mut body = json!({
         "model": model,
         "input": input,
@@ -454,9 +556,22 @@ pub async fn ai_responses_send(
     if let Some(previous_response_id) = previous_response_id {
         body["previous_response_id"] = json!(previous_response_id);
     }
-    let client = match crate::network::configure_client(
-        reqwest::Client::builder().connect_timeout(CONNECT_TIMEOUT),
-    ) {
+    if serde_json::to_vec(&body)
+        .map_err(|error| error.to_string())?
+        .len()
+        > crate::resource_limits::AI_REQUEST_BYTES
+    {
+        return Err("[resource.limit] AI request exceeds 4 MiB".into());
+    }
+    let client_result = tokio::select! {
+        _ = profiles.wait_for_revocation(&app, &profile, generation) => return Err("[ai.authorization_revoked] Authorization changed".into()),
+        _ = state.wait_for_abort(&request_id) => {
+            emit_response_event(&app, &request_id, json!({"type":"response.failed","message":"aborted"}));
+            return Ok(());
+        }
+        result = crate::network_policy::ai_client(base_url) => result,
+    };
+    let client = match client_result {
         Ok(client) => client,
         Err(message) => {
             let _ = app.emit(
@@ -466,11 +581,13 @@ pub async fn ai_responses_send(
             return Ok(());
         }
     };
+    profiles.validate_grant(&app, &profile, generation)?;
     let request = client
-        .post(responses_url(&base_url))
+        .post(responses_url(base_url))
         .bearer_auth(api_key.trim())
         .json(&body);
     let response = tokio::select! {
+        _ = profiles.wait_for_revocation(&app, &profile, generation) => return Err("[ai.authorization_revoked] Authorization changed".into()),
         _ = state.wait_for_abort(&request_id) => {
             let _ = app.emit(
                 "ai://responses-event",
@@ -504,22 +621,9 @@ pub async fn ai_responses_send(
             429 => "rate_limit",
             _ => "generic",
         };
-        let detail = tokio::select! {
-            _ = state.wait_for_abort(&request_id) => {
-                let _ = app.emit(
-                    "ai://responses-event",
-                    json!({ "requestId": request_id, "type": "response.failed", "message": "aborted" }),
-                );
-                return Ok(());
-            }
-            result = response.text() => result.unwrap_or_default(),
-        }
-        .chars()
-        .take(300)
-        .collect::<String>();
         let _ = app.emit(
             "ai://responses-event",
-            json!({ "requestId": request_id, "type": "error", "code": code, "message": format!("HTTP {}: {detail}", status.as_u16()) }),
+            json!({ "requestId": request_id, "type": "error", "code": code, "message": format!("AI endpoint returned HTTP {}", status.as_u16()) }),
         );
         return Ok(());
     }
@@ -528,6 +632,7 @@ pub async fn ai_responses_send(
     let mut decoder = ResponsesSseDecoder::default();
     let mut received_event = false;
     let mut terminal_event_received = false;
+    let mut output_bytes = 0usize;
     loop {
         let wait = if received_event {
             CHUNK_IDLE_TIMEOUT
@@ -535,6 +640,7 @@ pub async fn ai_responses_send(
             FIRST_TOKEN_TIMEOUT
         };
         let next = tokio::select! {
+            _ = profiles.wait_for_revocation(&app, &profile, generation) => return Err("[ai.authorization_revoked] Authorization changed".into()),
             _ = state.wait_for_abort(&request_id) => {
                 let _ = app.emit(
                     "ai://responses-event",
@@ -546,6 +652,15 @@ pub async fn ai_responses_send(
         };
         match next {
             Ok(Some(Ok(chunk))) => {
+                output_bytes = output_bytes.saturating_add(chunk.len());
+                if output_bytes > crate::resource_limits::AI_OUTPUT_BYTES {
+                    emit_response_event(
+                        &app,
+                        &request_id,
+                        json!({"type":"error","code":"invalid_stream","message":"AI output exceeds 32 MiB"}),
+                    );
+                    return Ok(());
+                }
                 let payloads = match decoder.push(&chunk) {
                     Ok(payloads) => payloads,
                     Err(message) => {
@@ -623,8 +738,7 @@ pub async fn ai_responses_send(
 
 #[tauri::command]
 pub fn ai_responses_abort(state: State<'_, AiChatState>, request_id: String) -> Result<(), String> {
-    state.insert_abort(&request_id);
-    Ok(())
+    state.insert_abort(&request_id)
 }
 
 #[cfg(test)]
@@ -813,6 +927,62 @@ mod responses_tests {
         assert!(tail.is_empty());
     }
 
+    #[test]
+    fn rejects_a_large_sse_record_but_accepts_many_small_coalesced_records() {
+        let mut decoder = ResponsesSseDecoder::default();
+        assert!(decoder
+            .push(&vec![b'x'; crate::resource_limits::AI_EVENT_BYTES + 1])
+            .is_err());
+        let record = "data: {\"delta\":\"hello\"}\n\n";
+        let mut decoder = ResponsesSseDecoder::default();
+        assert_eq!(
+            decoder
+                .push(record.repeat(50_000).as_bytes())
+                .unwrap()
+                .len(),
+            50_000
+        );
+    }
+
+    #[test]
+    fn duplicate_request_and_completed_abort_do_not_leak_registry_entries() {
+        let state = AiChatState::default();
+        assert!(state.begin_request("one"));
+        assert!(!state.begin_request("one"));
+        {
+            let _guard = RequestGuard {
+                state: &state,
+                request_id: "one",
+            };
+            state.insert_abort("one").unwrap();
+        }
+        state.insert_abort("one").unwrap();
+        let requests = state.requests.lock().unwrap();
+        assert!(requests.active.is_empty());
+        assert!(requests.aborts.is_empty());
+        assert!(requests.early_aborts.is_empty());
+    }
+
+    #[test]
+    fn chat_and_connection_tests_share_the_request_quota_and_validate_ids() {
+        for id in ["", "with space", "../invalid", &"x".repeat(129)] {
+            assert!(validate_request_id(id).is_err());
+        }
+        assert!(validate_request_id("test-123.request").is_ok());
+        let state = AiChatState::default();
+        for index in 0..crate::resource_limits::AI_REQUESTS {
+            assert!(state.begin_request(&format!("request-{index}")));
+        }
+        assert!(!state.begin_request("connection-test"));
+        state.finish_request("request-0");
+        assert!(state.begin_request("connection-test"));
+        state.finish_request("connection-test");
+        for index in 1..crate::resource_limits::AI_REQUESTS {
+            state.finish_request(&format!("request-{index}"));
+        }
+        assert!(state.requests.lock().unwrap().active.is_empty());
+    }
+
     #[tokio::test]
     async fn abort_notification_wakes_waiter_promptly() {
         let state = Arc::new(AiChatState::default());
@@ -821,10 +991,37 @@ mod responses_tests {
         let waiter = tokio::spawn(async move {
             waiter_state.wait_for_abort("request-1").await;
         });
-        state.insert_abort("request-1");
+        state.insert_abort("request-1").unwrap();
         tokio::time::timeout(Duration::from_secs(1), waiter)
             .await
             .expect("abort should wake the request")
             .expect("waiter should finish");
+    }
+
+    #[test]
+    fn early_cancellation_is_atomic_bounded_and_expires() {
+        let state = AiChatState::default();
+        state.insert_abort("early").unwrap();
+        assert!(!state.begin_request("early"));
+        assert!(!state.begin_request("early"));
+        assert!(state.requests.lock().unwrap().active.is_empty());
+        for index in 0..64 {
+            state.insert_abort(&format!("unknown-{index}")).unwrap();
+        }
+        assert!(state.insert_abort("overflow").is_err());
+        assert!(state.insert_abort("../bad").is_err());
+        let expired = std::time::Instant::now() - Duration::from_secs(61);
+        state
+            .requests
+            .lock()
+            .unwrap()
+            .early_aborts
+            .insert("unknown-0".into(), expired);
+        assert!(state.begin_request("unknown-0"));
+        state.finish_request("unknown-0");
+        for index in 0..1000 {
+            state.finish_request(&format!("done-{index}"));
+        }
+        assert!(state.requests.lock().unwrap().finished.len() <= 128);
     }
 }

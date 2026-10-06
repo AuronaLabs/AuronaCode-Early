@@ -1,0 +1,26 @@
+{
+  "keys": {
+    "public-test-fixture": "GX9rI+FshTLGq8g4+s1ep4m+DHaykgM0A5v6iz02jWE="
+  },
+  "catalog": {
+    "keyId": "public-test-fixture",
+    "payload": {
+      "schemaVersion": 1,
+      "source": "https://marketplace.aurona.cc",
+      "revision": 8,
+      "issuedAt": 100,
+      "expiresAt": 200,
+      "request": "/api/extensions?page=1",
+      "nextPage": 2,
+      "entries": [
+        {
+          "id": "auronalabs.fixture",
+          "version": "1.0.0",
+          "publisher": "auronalabs",
+          "name": "Fixture"
+        }
+      ]
+    },
+    "signature": "tWKB5CmLzKZ6fTHMYhtJ2nWF5yWJGOMnDHlnPCSNpxU+TKnO7dmHOAvUT4nkCvgyneH66xtMBAGALrvlTBkKCg=="
+  }
+}

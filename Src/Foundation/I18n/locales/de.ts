@@ -426,6 +426,11 @@ export const de: LocaleMessages = {
     clearDisplay: "Anzeige leeren",
   },
   sourceControl: {
+    recoveryRecords: "Wiederherstellungspunkte",
+    noRecoveryRecords: "Keine Wiederherstellungspunkte",
+    restoreRecovery: "Wiederherstellen",
+    discardAllRecoverable: "Alle Änderungen sichern und verwerfen",
+    recoveryFailed: "Wiederherstellung fehlgeschlagen: {message}",
     stageFirst: "Committe mindestens eine Datei vor",
     commitSuccess: "Commit erstellt",
     commitFailed: "Commit fehlgeschlagen: {message}",
@@ -653,10 +658,12 @@ export const de: LocaleMessages = {
     ariaLabel: "Datei-Explorer",
     deleteTitle: "Löschen bestätigen",
     cancel: "Abbrechen",
-    deleteForever: "Endgültig löschen",
+    loadMore: "Weitere laden",
+    deleteForever: "Zur Wiederherstellung verschieben",
     deleteConfirmStart: "Möchtest du Folgendes endgültig löschen: ",
     deleteConfirmEnd: "?",
-    deleteIrreversible: "Diese Aktion kann nicht rückgängig gemacht werden",
+    deleteIrreversible:
+      "Eine native Vorschau bestätigt das Ziel und bewahrt Wiederherstellungsdaten auf.",
     context: {
       newFileHere: "Neue Datei hier",
       newFolderHere: "Neuer Ordner hier",
@@ -1654,7 +1661,10 @@ export const de: LocaleMessages = {
     settingsBaseUrlTitle: "API-URL",
     settingsBaseUrlDesc: "OpenAI-kompatibler Responses-Endpunkt",
     settingsApiKeyTitle: "API-Schlüssel",
-    settingsApiKeyDesc: "Wird nur lokal in der Benutzerkonfiguration gespeichert, nie hochgeladen",
+    settingsApiKeyDesc:
+      "Im System-Anmeldespeicher gespeichert und nur an den genehmigten API-Endpunkt gesendet",
+    credentialMigrationPaused:
+      "Die Migration der Zugangsdaten ist fehlgeschlagen. Die ursprüngliche Konfiguration bleibt erhalten; erneut versuchen, sobald der System-Anmeldespeicher verfügbar ist.",
     settingsApiKeyPlaceholder: "sk-…",
     settingsModelTitle: "Modellname",
     settingsModelDesc: "z. B. gpt-4o-mini / deepseek-chat",
@@ -1692,6 +1702,9 @@ export const de: LocaleMessages = {
     switchModel: "Modell wechseln",
     toolExecutionDisabled: "Werkzeugausführung ist nicht aktiviert",
     agentUi: {
+      recoveryPending:
+        "Eine unterbrochene Wiederherstellung muss wiederhergestellt werden. Oeffnen Sie zuerst den zugehoerigen Arbeitsbereich.",
+      recoverRestore: "Wiederherstellung fortsetzen",
       title: "KI-Assistent",
       newTask: "Neue Aufgabe",
       noProfile: "Kein Responses-Profil",

@@ -4,10 +4,11 @@ import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { GitIPC } from "../../Foundation/IPC/GitCommands";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
-
 import { cn } from "../../Shared/Utils/cn";
 import { EmptyState } from "../../UI/Components/EmptyState";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
+import { useViewActivity } from "../../UI/Core/ViewActivity";
+import { useRetainedScroll } from "../../UI/Core/ViewState";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 
@@ -53,6 +54,8 @@ function supportsHunkAction(diff: string): boolean {
 
 export function DiffViewer({ diffTarget }: DiffViewerProps) {
   const { t } = useLocale();
+  const active = useViewActivity();
+  const scroll = useRetainedScroll("diff.scroll");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [commitMessage, setCommitMessage] = useState("");
@@ -164,11 +167,12 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
   }, [diffTarget, isStaged, parseGitDiff, workingFile]);
 
   useEffect(() => {
+    if (!active) return;
     void loadDiff();
     return () => {
       loadRequestRef.current += 1;
     };
-  }, [loadDiff]);
+  }, [active, loadDiff]);
 
   const applyHunk = async (hunkIndex: number) => {
     if (!repoPath || !workingFile || busyHunk !== null) return;
@@ -278,7 +282,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
         </div>
       </div>
 
-      <div className="aurona-scroll flex-1 overflow-y-auto p-4">
+      <div {...scroll} className="aurona-scroll flex-1 overflow-y-auto p-4">
         {files.length === 0 ? (
           <EmptyState
             icon={<Icons.FileCode size={27} stroke={1.45} />}

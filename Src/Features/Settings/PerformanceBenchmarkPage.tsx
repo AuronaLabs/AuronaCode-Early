@@ -6,6 +6,7 @@ import { formatDisplayVersion } from "../../Foundation/Release/ReleaseChannel";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { Button } from "../../UI/Components/Button";
 import { Card } from "../../UI/Components/Card";
+import { useRetainedViewState, useViewLease } from "../../UI/Core/ViewState";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
@@ -206,24 +207,36 @@ export function PerformanceBenchmarkPage() {
   const { t } = useLocale();
   const [environment, setEnvironment] = useState<PerformanceEnvironment | null>(null);
   const [startup, setStartup] = useState<StartupMetrics | null>(null);
-  const [results, setResults] = useState<Partial<Record<BenchmarkKind, BenchmarkResult[]>>>({});
+  const [results, setResults] = useRetainedViewState<
+    Partial<Record<BenchmarkKind, BenchmarkResult[]>>
+  >("performance.results", {});
   const [history, setHistory] = useState<BenchmarkSnapshot[]>([]);
   const [_baseline, setBaseline] = useState<BenchmarkSnapshot | null>(null);
   const [runningKind, setRunningKind] = useState<BenchmarkKind | null>(null);
   const [isRunningAll, setIsRunningAll] = useState(false);
-  const [lastRunAt, setLastRunAt] = useState<string | null>(null);
-  const [expandedKinds, setExpandedKinds] = useState<Set<BenchmarkKind>>(new Set());
+  const [lastRunAt, setLastRunAt] = useRetainedViewState<string | null>(
+    "performance.lastRunAt",
+    null,
+  );
+  const [expandedKinds, setExpandedKinds] = useRetainedViewState<Set<BenchmarkKind>>(
+    "performance.expanded",
+    () => new Set(),
+  );
   const cancellationRef = useRef(0);
   const activeRequestIdRef = useRef<string | null>(null);
+  useViewLease(runningKind !== null || isRunningAll);
 
-  const toggleExpanded = useCallback((kind: BenchmarkKind) => {
-    setExpandedKinds((prev) => {
-      const next = new Set(prev);
-      if (next.has(kind)) next.delete(kind);
-      else next.add(kind);
-      return next;
-    });
-  }, []);
+  const toggleExpanded = useCallback(
+    (kind: BenchmarkKind) => {
+      setExpandedKinds((prev) => {
+        const next = new Set(prev);
+        if (next.has(kind)) next.delete(kind);
+        else next.add(kind);
+        return next;
+      });
+    },
+    [setExpandedKinds],
+  );
 
   const benchmarkLabel = useCallback(
     (kind: BenchmarkKind) =>
@@ -254,6 +267,9 @@ export function PerformanceBenchmarkPage() {
     );
     return () => {
       cancellationRef.current += 1;
+      const requestId = activeRequestIdRef.current;
+      if (requestId) void PerformanceIPC.cancelBenchmark(requestId).catch(() => undefined);
+      activeRequestIdRef.current = null;
     };
   }, [refreshContext, t]);
 
@@ -383,7 +399,7 @@ export function PerformanceBenchmarkPage() {
         if (cancellationRef.current === token) setRunningKind(null);
       }
     },
-    [benchmarkLabel, runIpcBenchmark, runUiBenchmark, t],
+    [benchmarkLabel, runIpcBenchmark, runUiBenchmark, setLastRunAt, setResults, t],
   );
 
   const runOne = useCallback(

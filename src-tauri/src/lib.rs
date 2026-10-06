@@ -1,18 +1,39 @@
 mod account_auth;
+mod agent_storage;
 mod ai_chat;
+mod ai_profiles;
+mod app_storage;
+mod app_update;
+mod artifact_signature;
+mod artifacts;
+mod atomic_store;
+#[cfg(feature = "audit-harness")]
+mod audit_harness;
+mod authorization_dialogs;
 mod commands;
 mod content_length;
 mod dap;
 mod editor;
 mod extensions;
+mod file_uploads;
 mod highlight;
+mod launch_registry;
 mod lsp;
+mod marketplace;
+mod marketplace_catalog;
 mod network;
+mod network_policy;
 mod performance;
 mod platform;
 mod process_service;
 mod pty;
+mod python_tools;
+mod redaction;
+pub mod release_verification;
+mod resource_limits;
+mod scoped_file;
 mod search;
+mod tasks;
 pub mod toolchains;
 
 use commands::dap_cmds::DapState;
@@ -21,9 +42,8 @@ use extensions::commands::{
     extensions_get_diagnostics, extensions_get_permission, extensions_get_view,
     extensions_host_response, extensions_install, extensions_install_default_vscode,
     extensions_install_vscode, extensions_list, extensions_on_action,
-    extensions_permission_catalog, extensions_push_event, extensions_render,
-    extensions_revoke_permission, extensions_set_permission, extensions_set_session_permission,
-    extensions_uninstall,
+    extensions_permission_catalog, extensions_render, extensions_revoke_permission,
+    extensions_set_permission, extensions_set_session_permission, extensions_uninstall,
 };
 use extensions::state::ExtensionState;
 use tauri::Manager;
@@ -42,13 +62,28 @@ pub fn run() {
         .manage(performance::PerformanceState::new())
         .manage(search::SearchState::new())
         .manage(LspState::new())
+        .manage(launch_registry::LaunchRegistry::default())
         .manage(DapState::new())
         .manage(account_auth::AccountAuthState::default())
         .manage(ai_chat::AiChatState::default())
+        .manage(ai_profiles::AiProfileState::default())
+        .manage(artifacts::ArtifactState::default())
+        .manage(tasks::TaskState::default())
+        .manage(app_storage::AppStorageState::default())
+        .manage(agent_storage::AgentStorageState::default())
+        .manage(app_update::UpdateState::default())
         .manage(commands::fs::WorkspaceState::new())
+        .manage(commands::git::GitState::default())
+        .manage(file_uploads::FileUploadState::default())
+        .manage(marketplace::MarketplaceState::default())
         .manage(ExtensionState::new())
         .manage(commands::ipc::ExitCleanupState::default())
         .setup(|app| {
+            #[cfg(feature = "audit-harness")]
+            audit_harness::verify_isolation(app.handle())?;
+            if let Err(error) = toolchains::recover_interrupted_installs(app.handle()) {
+                eprintln!("[toolchain.recovery] {}", redaction::redact(&error));
+            }
             let state = app.state::<ExtensionState>();
             if let Err(error) = state.initialize(app.handle()) {
                 eprintln!("[Extensions] 初始化失败: {error}");
@@ -59,7 +94,6 @@ pub fn run() {
             extensions_list,
             extensions_get_diagnostics,
             extensions_host_response,
-            extensions_push_event,
             extensions_get_view,
             extensions_get_permission,
             extensions_set_permission,
@@ -69,6 +103,24 @@ pub fn run() {
             extensions_render,
             extensions_on_action,
             extensions_install,
+            artifacts::artifact_download,
+            artifacts::artifact_pick,
+            tasks::task_cancel,
+            app_storage::app_storage_exists,
+            app_storage::app_storage_read,
+            app_storage::app_storage_write,
+            app_storage::app_storage_mkdir,
+            app_storage::app_storage_remove,
+            agent_storage::agent_storage_read,
+            agent_storage::agent_storage_write,
+            app_update::app_update_check,
+            app_update::app_update_clear,
+            app_update::app_update_install,
+            app_update::app_restart,
+            marketplace::marketplace_request,
+            marketplace::marketplace_cancel,
+            marketplace::marketplace_image,
+            marketplace_catalog::marketplace_cached_catalog,
             extensions_install_vscode,
             extensions_install_default_vscode,
             extensions_uninstall,
@@ -81,6 +133,9 @@ pub fn run() {
             account_auth::account_auth_logout,
             account_auth::account_auth_shutdown,
             ai_chat::ai_responses_send,
+            ai_profiles::ai_profile_save,
+            ai_profiles::ai_profile_delete,
+            ai_profiles::ai_profiles_migrate,
             ai_chat::ai_responses_abort,
             ai_chat::ai_test_responses_connection,
             commands::git::git_check_is_repo,
@@ -99,6 +154,8 @@ pub fn run() {
             commands::git::git_apply_hunk,
             commands::git::git_discard_file,
             commands::git::git_discard_all,
+            commands::git::git_restore_discard,
+            commands::git::git_list_discard_recoveries,
             commands::git::git_unstage_all,
             commands::git::git_get_remote,
             commands::git::git_set_remote,
@@ -108,6 +165,7 @@ pub fn run() {
             pty::spawn_pty,
             pty::close_pty,
             pty::write_pty,
+            pty::acknowledge_pty,
             pty::resize_pty,
             pty::get_available_shells,
             search::search_workspace,
@@ -121,10 +179,12 @@ pub fn run() {
             performance::get_startup_metrics,
             platform::platform_info,
             network::set_network_proxy,
-            network::http_fetch_bytes,
             performance::load_performance_baseline,
             performance::save_performance_baseline,
             commands::lsp_cmds::lsp_start,
+            commands::lsp_cmds::lsp_prepare,
+            launch_registry::launch_register,
+            launch_registry::launch_revoke,
             commands::lsp_cmds::lsp_file_uri,
             commands::lsp_cmds::lsp_status,
             commands::lsp_cmds::lsp_stop,
@@ -144,22 +204,36 @@ pub fn run() {
             commands::lsp_cmds::lsp_toolchain_uninstall,
             commands::lsp_cmds::lsp_toolchain_uninstall_runtime,
             commands::dap_cmds::dap_start,
+            commands::dap_cmds::dap_prepare,
             commands::dap_cmds::dap_request,
+            commands::dap_cmds::dap_acknowledge_output,
             commands::dap_cmds::dap_status,
             commands::dap_cmds::dap_stop,
             commands::dap_cmds::dap_stop_all,
             commands::dap_cmds::dap_python_debugpy_status,
+            python_tools::dap_python_prepare,
             commands::dap_cmds::dap_install_python_debugpy,
             commands::fs::reveal_in_os,
             commands::fs::fs_copy_or_move,
             commands::fs::workspace_set_root,
+            commands::fs::workspace_generation,
+            commands::git::git_cancel,
+            resource_limits::resource_budgets,
             commands::fs::fs_read_dir,
+            commands::fs::fs_read_dir_page,
+            commands::fs::fs_cancel_dir_cursor,
             commands::fs::fs_exists,
             commands::fs::fs_read_text_file,
             commands::fs::fs_read_image_data_url,
             commands::fs::fs_write_text_file,
+            commands::fs::fs_write_compare,
+            file_uploads::fs_write_begin,
+            file_uploads::fs_write_chunk,
+            file_uploads::fs_write_commit,
+            file_uploads::fs_write_cancel,
             commands::fs::fs_mkdir,
             commands::fs::fs_remove,
+            commands::fs::fs_restore_deleted,
             commands::fs::fs_rename,
             commands::fs::fs_export_dialog_file,
             commands::fs::fs_watch_start,

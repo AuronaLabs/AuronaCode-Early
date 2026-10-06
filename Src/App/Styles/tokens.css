@@ -1,6 +1,8 @@
 /* Core design tokens, material aliases and density settings. */
 
-@import "tailwindcss";
+@import "tailwindcss" source("../../");
+@source "../../../index.html";
+@source "../../../splash.html";
 
 @theme {
   /* 圆角阶梯（token 三档 + pill 特例）：控件 12 / 表面 12 / 浮层 16，语义类 rounded-control|surface|overlay */

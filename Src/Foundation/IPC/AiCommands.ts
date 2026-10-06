@@ -1,4 +1,5 @@
 import { invokeDesktop, listenDesktop } from "../Desktop";
+import type { AiProfile, AiProfileDraft, UserConfig } from "../Types/Config";
 
 export interface AiResponseUsage {
   promptTokens?: number;
@@ -60,11 +61,10 @@ export const AI_RESPONSES_EVENTS = {
 } as const;
 
 export const AiIPC = {
+  migrateUserConfig: () => invokeDesktop<UserConfig>("ai_profiles_migrate"),
   responsesSend: (payload: {
     requestId: string;
-    baseUrl: string;
-    apiKey: string;
-    model: string;
+    profileId: string;
     instructions?: string;
     input: unknown[];
     tools?: Array<Record<string, unknown>>;
@@ -76,6 +76,21 @@ export const AiIPC = {
   onResponseEvent: (handler: (payload: AiResponseEventPayload) => void) =>
     listenDesktop<AiResponseEventPayload>(AI_RESPONSES_EVENTS.event, handler),
 
-  testResponsesConnection: (payload: { baseUrl: string; apiKey: string; model: string }) =>
+  saveProfile: async (profile: AiProfileDraft): Promise<AiProfile> => {
+    const { apiKey, ...metadata } = profile;
+    return invokeDesktop<AiProfile>("ai_profile_save", {
+      profile: {
+        ...metadata,
+        credentialId: profile.id,
+        hasCredential: profile.hasCredential ?? false,
+        protocol: "responses",
+      },
+      apiKey: apiKey || null,
+    });
+  },
+
+  deleteProfile: (profileId: string) => invokeDesktop<void>("ai_profile_delete", { profileId }),
+
+  testResponsesConnection: (payload: { profileId: string; requestId: string }) =>
     invokeDesktop<number>("ai_test_responses_connection", payload),
 };

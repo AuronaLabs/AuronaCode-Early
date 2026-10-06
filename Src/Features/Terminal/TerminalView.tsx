@@ -186,15 +186,18 @@ export const TerminalView = memo(function TerminalView({
     let disposed = false;
     // 每次挂载时递增代号，用于在清理时判断是否为当代管理者
     const currentGeneration = ++generationRef.current;
+    const sessionId = crypto.randomUUID();
     let unlistenOutput: (() => void) | undefined;
     let unlistenExit: (() => void) | undefined;
 
     const start = async () => {
       try {
         unlistenOutput = await PtyIPC.listenOutput((payload) => {
-          if (payload.id !== id || disposed) return;
+          if (payload.id !== id || payload.session_id !== sessionId || disposed) return;
           try {
-            terminalRef.current?.write(decodeBase64(payload.data));
+            terminalRef.current?.write(decodeBase64(payload.data), () => {
+              void PtyIPC.acknowledge(id, sessionId, payload.seq).catch(console.error);
+            });
           } catch (error) {
             console.error("Unable to decode terminal output", error);
           }
@@ -205,7 +208,7 @@ export const TerminalView = memo(function TerminalView({
         if (disposed) return;
 
         unlistenExit = await PtyIPC.listenExit((payload) => {
-          if (payload.id !== id || disposed) return;
+          if (payload.id !== id || payload.session_id !== sessionId || disposed) return;
           // 守卫：只处理真正已启动的会话退出，忽略旧会话清理产生的幽灵 exit 事件
           if (!spawnedRef.current) return;
           setStatus("exited");
@@ -219,11 +222,11 @@ export const TerminalView = memo(function TerminalView({
 
         if (disposed) return;
 
-        await PtyIPC.spawn(id, cwd, shellProfile?.path);
+        await PtyIPC.spawn(id, cwd, shellProfile?.path, sessionId);
         if (disposed) {
           // 只有当代管理者才可以关闭会话，防止误杀新挂载创建的会话
           if (generationRef.current === currentGeneration) {
-            await PtyIPC.close(id);
+            await PtyIPC.close(id, sessionId);
           }
           return;
         }
@@ -251,7 +254,7 @@ export const TerminalView = memo(function TerminalView({
       // 防止 React StrictMode 第一次挂载的清理函数误杀第二次挂载创建的会话
       if (spawnedRef.current && generationRef.current === currentGeneration) {
         spawnedRef.current = false;
-        void PtyIPC.close(id).catch(console.error);
+        void PtyIPC.close(id, sessionId).catch(console.error);
       }
     };
   }, [customCwd, id, shellProfile?.path]);

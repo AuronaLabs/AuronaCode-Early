@@ -10,6 +10,16 @@ on:
         description: Existing release tag, for example v0.3.0
         required: true
         type: string
+      upload_draft:
+        description: Upload verified candidates to a draft release
+        required: false
+        default: false
+        type: boolean
+      promote_pioneer:
+        description: Promote verified Pioneer artifacts to the public channel
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -55,14 +65,29 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Setup extension toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+          targets: wasm32-wasip2
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./Extensions/aurona.vscode-compat
+          prefix-key: release-preflight
+
       - name: Verify release metadata
-        run: pnpm run smoke
+        run: |
+          pnpm run smoke
+          pnpm run check:audit
+          pnpm run test:release-contract
 
       - name: Verify source quality
         run: |
           pnpm run prepare:extensions
           pnpm run typecheck
           pnpm run check
+          pnpm run i18n:check
           pnpm run check:boundaries
           pnpm run check:materials
           pnpm run test:frontend
@@ -81,7 +106,7 @@ jobs:
     name: Build (${{ matrix.settings.platform }})
     needs: preflight
     permissions:
-      contents: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -191,14 +216,23 @@ jobs:
           AURONA_CHANNEL: ${{ env.AURONA_CHANNEL }}
           VITE_AURONA_CHANNEL: ${{ env.VITE_AURONA_CHANNEL }}
         with:
-          tagName: ${{ env.RELEASE_TAG }}
-          releaseName: Aurona Code ${{ env.RELEASE_TAG }}
           assetNamePattern: AuronaCode-v[version]-[arch][setup][ext]
           # Pioneer 渠道 merge 覆盖更新端点（pioneer-latest 优先）；stable 保持主 conf 的 releases/latest
           args: ${{ matrix.settings.args }} ${{ env.AURONA_CHANNEL == 'pioneer' && '--config src-tauri/tauri.pioneer.conf.json' || '' }}
-          releaseBody: ${{ env.RELEASE_BODY }}
-          releaseDraft: true
-          prerelease: ${{ env.IS_PRERELEASE == 'true' }}
+      - name: Generate and verify signed candidate metadata
+        run: node scripts/prepare-built-candidate.mjs
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          AURONA_CANDIDATE_RELEASE: '1'
+      - name: Retain candidate build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-${{ matrix.settings.target }}
+          path: |
+            src-tauri/target/**/bundle/**
+            candidate/**
+          if-no-files-found: error
 
       - name: Validate bundled macOS app
         if: runner.os == 'macOS'
@@ -218,13 +252,60 @@ jobs:
           test -n "$(find src-tauri/target -path '*/bundle/appimage/*.AppImage' -print -quit)"
           test -n "$(find src-tauri/target -path '*/bundle/deb/*.deb' -print -quit)"
 
-  sync-pioneer:
-    name: Sync Pioneer Latest Channel
+  upload-draft:
+    name: Upload reviewed candidates
     needs: [preflight, release]
+    if: github.event_name == 'workflow_dispatch' && inputs.upload_draft
+    environment: release-review
     runs-on: ubuntu-22.04
     permissions:
       contents: write
-    if: contains(github.ref_name, '-pioneer.') || (github.event_name == 'workflow_dispatch' && contains(inputs.tag, '-pioneer.'))
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.4.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check:audit:release
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: candidate-*
+          path: candidate-assets
+      - name: Install verifier runtime dependencies
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends pkg-config libssl-dev libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri
+          prefix-key: candidate-verifier
+      - name: Build verifier from trusted repository source
+        run: cargo build --locked --manifest-path src-tauri/Cargo.toml --example verify_candidate
+      - name: Verify candidates and aggregate signed updater manifests
+        run: node scripts/merge-candidates.mjs candidate-assets
+      - name: Upload draft artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          mapfile -d '' assets < <(find candidate-assets -path '*/src-tauri/target/*' -prune -o -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.tar.gz' -o -name '*.exe.sig' -o -name '*.AppImage.sig' -o -name '*.tar.gz.sig' \) -print0)
+          test "${#assets[@]}" -gt 0
+          gh release create "$RELEASE_TAG" "${assets[@]}" candidate-assets/latest.json candidate-assets/SHA256SUMS --draft --verify-tag --title "Aurona Code $RELEASE_TAG" --notes "Verified local candidates; publication requires separate review."
+
+  sync-pioneer:
+    name: Sync Pioneer Latest Channel
+    needs: [preflight, release, upload-draft]
+    environment: release-promotion
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    if: github.event_name == 'workflow_dispatch' && inputs.upload_draft && inputs.promote_pioneer && contains(inputs.tag, '-pioneer.')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

@@ -21,6 +21,11 @@ export interface GitBranch {
   is_current: boolean;
 }
 
+export interface GitRecovery {
+  hash: string;
+  created: string;
+}
+
 export interface GitFullStatus {
   repo_path: string;
   is_repo: boolean;
@@ -34,6 +39,7 @@ export interface GitFullStatus {
 }
 
 export const GitIPC = {
+  cancel: (path: string) => invokeDesktop<void>("git_cancel", { path }),
   checkIsRepo: (path: string) => invokeDesktop<boolean>("git_check_is_repo", { path }),
 
   init: (path: string) => invokeDesktop<void>("git_init", { path }),
@@ -74,7 +80,11 @@ export const GitIPC = {
   discardFile: (path: string, file: string) =>
     invokeDesktop<void>("git_discard_file", { path, file }),
 
-  discardAll: (path: string) => invokeDesktop<void>("git_discard_all", { path }),
+  discardAll: (path: string) => invokeDesktop<GitRecovery | null>("git_discard_all", { path }),
+  listDiscardRecoveries: (path: string) =>
+    invokeDesktop<GitRecovery[]>("git_list_discard_recoveries", { path }),
+  restoreDiscard: (path: string, stashHash: string) =>
+    invokeDesktop<void>("git_restore_discard", { path, stashHash }),
 
   unstageAll: (path: string) => invokeDesktop<void>("git_unstage_all", { path }),
 

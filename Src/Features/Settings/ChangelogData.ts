@@ -1,3 +1,5 @@
+import { AUDIT_0414_CHANGELOG } from "./AuditChangelogData";
+
 export interface ChangelogEntry {
   version: string;
   date: string;
@@ -7,14 +9,16 @@ export interface ChangelogEntry {
     title: string;
     description?: string;
     items?: string[];
+    auditIds?: string[];
   }[];
 }
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
+  AUDIT_0414_CHANGELOG,
   {
     version: "V0.4.13",
     date: "2026-10-01",
-    isLatest: true,
+    isLatest: false,
     summary:
       "0.4.13 完善 Agent Runtime 与 Editor 协作闭环，补齐事件回放、工具能力元数据、checkpoint 恢复和 Workspace Context。",
     sections: [

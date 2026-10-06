@@ -14,6 +14,7 @@ import { Button } from "../../UI/Components/Button";
 import { Card } from "../../UI/Components/Card";
 import { Input } from "../../UI/Components/Input";
 import { Select } from "../../UI/Components/Select";
+import { useViewActivity } from "../../UI/Core/ViewActivity";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
@@ -60,6 +61,7 @@ const isMarkdownFile = (filePath: string | null): boolean => {
 
 export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   const { t, locale } = useLocale();
+  const active = useViewActivity();
   const descriptor = useExtensionStore((state) =>
     state.descriptors.find((item) => item.id === extensionId),
   );
@@ -106,6 +108,15 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   const generation = useRef(0);
   const activePathRef = useRef(activePath);
   activePathRef.current = activePath;
+  const activeRef = useRef(active);
+  activeRef.current = active;
+
+  useEffect(() => {
+    if (active) return;
+    generation.current++;
+    if (debounceTimer.current !== null) window.clearTimeout(debounceTimer.current);
+    debounceTimer.current = null;
+  }, [active]);
 
   // 结构化错误分流（0.4.6）：permission.required → 弹通用授权弹窗并等待重授权后重渲染；
   // permission.denied / compat.* → 本地化文案；其余原样展示。
@@ -142,6 +153,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
   const runRender = useCallback(
     async (docPayload: { content: string; version: number }) => {
+      if (!activeRef.current) return;
       const currentGeneration = ++generation.current;
       try {
         const isBold = window.document.documentElement.getAttribute("data-bold-text") === "true";
@@ -193,6 +205,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   // 请求-响应模型：动作交给扩展，拿回下一帧渲染并替换当前视图。
   const runAction = useCallback(
     async (actionId: string, payload?: unknown) => {
+      if (!activeRef.current) return;
       const currentGeneration = ++generation.current;
       const serializedPayload =
         typeof payload === "string" ? payload : JSON.stringify(payload ?? {});
@@ -236,6 +249,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   );
 
   const refresh = useCallback(async () => {
+    if (!activeRef.current) return;
     if (isStandalone) {
       // Planner 由任务持久化驱动渲染；VSCode 型扩展由后端注入 js_source，markdown 内容不参与
       if (!isPlanner) {
@@ -313,6 +327,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
 
   // 1. 初始化读取插件基础视图与 Planner 初始任务
   useEffect(() => {
+    if (!active) return;
     let cancelled = false;
     setViewFailed(false);
     void (async () => {
@@ -341,11 +356,12 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [extensionId, isPlanner]);
+  }, [active, extensionId, isPlanner]);
 
   // 2. 监听权限状态（仅当扩展声明了 editor.current.read 时走预授权流程；
   //    其余权限在运行期由结构化错误 permission.required 触发通用弹窗）
   useEffect(() => {
+    if (!active) return;
     if (!needsEditorRead) {
       setEditorPermission("granted");
       setPermissionLoaded(true);
@@ -373,10 +389,11 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [extensionId, needsEditorRead, refresh]);
+  }, [active, extensionId, needsEditorRead, refresh]);
 
   // 3. 独立插件初次自动渲染与编辑器文档变更订阅
   useEffect(() => {
+    if (!active) return;
     if (isStandalone) {
       void refresh();
       return;
@@ -410,7 +427,7 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
       }
     });
     return unsubscribe;
-  }, [activePath, editorPermission, isStandalone, refresh, runRender, scheduleRender]);
+  }, [active, activePath, editorPermission, isStandalone, refresh, runRender, scheduleRender]);
 
   useEffect(
     () => () => {
@@ -474,12 +491,12 @@ export function ExtensionSidebar({ extensionId }: { extensionId: string }) {
   }, [priorityFilter, searchQuery, statusFilter, tasks]);
 
   useEffect(() => {
-    if (!isPlanner || editorPermission !== "granted") return;
+    if (!active || !isPlanner || editorPermission !== "granted") return;
     void runRender({
       content: toPlannerPayload({ schemaVersion: 2, tasks: filteredTasks }),
       version: Date.now(),
     });
-  }, [isPlanner, editorPermission, filteredTasks, runRender]);
+  }, [active, isPlanner, editorPermission, filteredTasks, runRender]);
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-transparent">

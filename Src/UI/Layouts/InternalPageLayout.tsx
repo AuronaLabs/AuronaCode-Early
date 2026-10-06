@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useRetainedScroll } from "../Core/ViewState";
 import "./InternalPageLayout.css";
 
 interface InternalPageLayoutProps {
@@ -20,16 +21,24 @@ export function InternalPageLayout({
   titleRight,
   maxWidth,
 }: InternalPageLayoutProps) {
+  const contentScroll = useRetainedScroll("internal.content.scroll");
+  const sidebarScroll = useRetainedScroll("internal.sidebar.scroll");
   return (
     <div className="internal-page-frame h-full w-full">
       <div className="internal-page-layout flex h-full w-full bg-transparent select-none text-[var(--color-text-primary)] overflow-hidden">
         {sidebar && (
-          <div className="internal-page-sidebar w-64 flex-shrink-0 bg-transparent px-6 pb-10 pt-10 overflow-y-auto">
+          <div
+            {...sidebarScroll}
+            className="internal-page-sidebar w-64 flex-shrink-0 bg-transparent px-6 pb-10 pt-10 overflow-y-auto"
+          >
             {sidebar}
           </div>
         )}
 
-        <div className="internal-page-content min-w-0 flex-1 flex flex-col px-10 pb-10 pt-10 overflow-y-auto aurona-scroll [scrollbar-gutter:stable] relative">
+        <div
+          {...contentScroll}
+          className="internal-page-content min-w-0 flex-1 flex flex-col px-10 pb-10 pt-10 overflow-y-auto aurona-scroll [scrollbar-gutter:stable] relative"
+        >
           <div className={`flex flex-col w-full ${maxWidth || "max-w-3xl"} mx-auto z-10 relative`}>
             {(title || icon || headerRight || titleRight) && (
               <div className="internal-page-header flex items-center justify-between mb-8 w-full gap-4 shrink-0">

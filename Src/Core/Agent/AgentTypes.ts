@@ -67,6 +67,7 @@ export interface AgentApprovalRequest {
 }
 
 export interface AgentCheckpoint {
+  workspaceId?: string;
   id: string;
   taskId: string;
   createdAt: number;
@@ -75,6 +76,7 @@ export interface AgentCheckpoint {
     path: string;
     content: string;
     fingerprint: string;
+    afterFingerprint?: string;
   }>;
   editorViews: Record<string, unknown>;
 }
@@ -162,6 +164,7 @@ export interface AgentProfileSummary {
 }
 
 export interface AgentSnapshot {
+  recoveryPending?: boolean;
   sessions: AgentSessionMeta[];
   session?: AgentSession;
   sessionTasks: AgentTaskSnapshot[];
@@ -209,6 +212,9 @@ export interface AgentToolMetadata {
   permission: AgentToolPermission;
   checkpointPolicy: AgentToolCheckpointPolicy;
   recoverability: AgentToolRecoverability;
+  parallelSafety?: "readonly" | "exclusive";
+  allowedCommands?: readonly string[];
+  conflictScopes?: readonly string[];
 }
 
 export interface AgentToolInvocation {
@@ -218,6 +224,7 @@ export interface AgentToolInvocation {
   name: string;
   arguments: string;
   signal: AbortSignal;
+  workspaceGeneration?: number;
 }
 
 export interface AgentToolExecutor {

@@ -6,8 +6,10 @@ import { isAiProfileUsable, resolveAiProfiles } from "../AiProfiles";
 import { EditorAdapter } from "../Editor/EditorAdapter";
 import { WorkspaceService } from "../WorkspaceService";
 import { AgentCheckpointStore } from "./AgentCheckpointStore";
+import { boundAgentContext } from "./AgentContextBudget";
 import { reduceAgentEvent, validEventSeq } from "./AgentEventReducer";
 import { AgentSessionStore } from "./AgentSessionStore";
+import { scheduleAgentTools } from "./AgentToolScheduler";
 import type {
   AgentEvent,
   AgentEventType,
@@ -101,6 +103,7 @@ class AgentServiceImpl {
   private cardEnabled = true;
   private snapshot: AgentSnapshot;
   private responseEventsBound = false;
+  private recoveryPending = false;
   private approvalListener:
     | ((payload: {
         taskId: string;
@@ -169,12 +172,23 @@ class AgentServiceImpl {
   }
 
   async refreshConfig(): Promise<void> {
+    try {
+      await this.store.initialize();
+      await this.checkpoints.initialize();
+      this.recoveryPending = await this.checkpoints.hasPendingRestore();
+    } catch (error) {
+      this.configured = false;
+      this.append(this.activeTaskId(), "task.failed", { message: String(error) });
+      this.publish();
+      return;
+    }
     const config = await UserConfigStore.get();
     const resolved = resolveAiProfiles(config.ai);
     this.profiles = resolved.profiles;
     this.activeProfile = resolved.active;
     this.configured = Boolean(
-      config.ai?.enabled !== false &&
+      !this.recoveryPending &&
+        config.ai?.enabled !== false &&
         config.ai?.agentEnabled !== false &&
         isAiProfileUsable(this.activeProfile) &&
         this.activeProfile?.protocol === "responses",
@@ -210,12 +224,12 @@ class AgentServiceImpl {
     this.publish();
   }
 
-  deleteSession(id: string): void {
+  async deleteSession(id: string): Promise<void> {
     const session = this.store.getState().sessions.find((item) => item.id === id);
     const taskIds = session?.taskIds ?? [id];
     for (const taskId of taskIds) {
       this.abortTask(taskId, "aborted");
-      this.checkpoints.deleteForTask(taskId);
+      await this.checkpoints.deleteForTask(taskId);
     }
     this.store.deleteSession(id);
     this.publish();
@@ -302,9 +316,21 @@ class AgentServiceImpl {
 
   async restoreCheckpoint(checkpointId: string): Promise<void> {
     const task = this.activeTask();
+    for (const taskId of this.runtimes.keys()) this.abortTask(taskId, "aborted");
     await this.checkpoints.restore(checkpointId);
     this.append(task.id, "checkpoint.restored", { checkpointId });
     this.publish();
+  }
+
+  async recoverPendingRestore(): Promise<void> {
+    for (const taskId of this.runtimes.keys()) this.abortTask(taskId, "aborted");
+    try {
+      await this.checkpoints.recoverPendingRestore();
+      await this.refreshConfig();
+    } catch (error) {
+      this.append(this.activeTaskId(), "task.failed", { message: String(error) });
+      this.publish();
+    }
   }
 
   private activeTaskId(): string {
@@ -362,6 +388,7 @@ class AgentServiceImpl {
       activeTaskId: task.id,
       activeTask: task,
       configured: this.configured,
+      recoveryPending: this.recoveryPending,
       cardEnabled: this.cardEnabled,
       profiles: this.profiles.map<AgentProfileSummary>((profile) => ({
         id: profile.id,
@@ -462,7 +489,7 @@ class AgentServiceImpl {
     }
     const currentInput = inputItem(initialInput);
     if (JSON.stringify(input.at(-1)) !== JSON.stringify(currentInput)) input.push(currentInput);
-    return input.slice(-80);
+    return boundAgentContext(input);
   }
 
   private async bindResponseEvents(): Promise<void> {
@@ -484,9 +511,17 @@ class AgentServiceImpl {
       requestId: null,
       responseText: "",
       calls: new Map(),
-      input: this.buildRuntimeInput(taskId, initialInput),
+      input: [],
     };
     this.runtimes.set(taskId, runtime);
+    try {
+      runtime.input = this.buildRuntimeInput(taskId, initialInput);
+    } catch (error) {
+      this.runtimes.delete(taskId);
+      this.append(taskId, "task.failed", { message: String(error) });
+      this.publish();
+      return;
+    }
     const stepId = createId("step");
     this.append(taskId, "step.started", { title: "Plan and execute task", kind: "model" }, stepId);
     await this.sendResponse(taskId, runtime, stepId);
@@ -505,11 +540,9 @@ class AgentServiceImpl {
     try {
       await AiIPC.responsesSend({
         requestId,
-        baseUrl: profile.baseUrl,
-        apiKey: profile.apiKey,
-        model: profile.model,
+        profileId: profile.id,
         instructions: `${SYSTEM_INSTRUCTIONS}\n\nAvailable tools:\n${this.executor?.toolPrompt ?? "No tools are currently available."}`,
-        input: runtime.input,
+        input: boundAgentContext(runtime.input),
         tools: this.executor?.definitions,
         // Keep each continuation self-contained. Some Responses-compatible gateways reject
         // previous_response_id even though they accept the standard streaming protocol.
@@ -655,105 +688,139 @@ class AgentServiceImpl {
       return;
     }
     if (stepId) this.append(taskId, "step.completed", { content: runtime.responseText }, stepId);
-    for (const call of calls) {
-      if (runtime.controller.signal.aborted) return;
-      const toolStepId = createId("step");
-      this.append(
-        taskId,
-        "tool.requested",
-        { name: call.name, arguments: call.arguments },
-        toolStepId,
+    let outcomes: Array<{ call: RuntimeCall; result: AgentToolOutcome } | null>;
+    try {
+      outcomes = await scheduleAgentTools(
+        calls,
+        (call) => this.toolMetadata(call.name),
+        (call) => this.executeToolCall(taskId, runtime, call),
+        runtime.controller.signal,
       );
-      this.append(
-        taskId,
-        "step.started",
-        { title: call.name, kind: "tool", toolName: call.name },
-        toolStepId,
-      );
-      const checkpoint = await this.createCheckpointForCall(taskId, call);
-      if (runtime.controller.signal.aborted) return;
-      if (checkpoint)
-        this.append(
-          taskId,
-          "checkpoint.created",
-          { checkpointId: checkpoint.id, reason: `Before ${call.name}` },
-          toolStepId,
-        );
-      this.append(taskId, "tool.started", { name: call.name }, toolStepId);
-      const metadata = this.toolMetadata(call.name);
-      if (metadata && this.requiresCheckpoint(metadata) && !checkpoint) {
-        const content = "Unable to create a checkpoint before this tool call; operation skipped.";
-        this.append(
-          taskId,
-          "tool.completed",
-          { name: call.name, content, isError: true },
-          toolStepId,
-        );
-        this.append(taskId, "step.completed", { content }, toolStepId);
-        runtime.input.push({
-          type: "function_call",
-          call_id: call.id,
-          name: call.name,
-          arguments: call.arguments,
+    } catch (error) {
+      runtime.controller.abort();
+      runtime.calls.clear();
+      if (this.runtimes.get(taskId) === runtime) {
+        this.runtimes.delete(taskId);
+        this.append(taskId, "task.failed", {
+          message: error instanceof Error ? error.message : String(error),
         });
-        runtime.input.push({
-          type: "function_call_output",
-          call_id: call.id,
-          output: content,
-        });
-        continue;
+        this.publish();
       }
-      let outcome: AgentToolOutcome;
-      if (!this.executor) {
-        outcome = { content: "No Agent tools are registered", isError: true };
-      } else {
-        try {
-          outcome = await this.executor.execute({
-            id: call.id,
-            taskId,
-            stepId: toolStepId,
-            name: call.name,
-            arguments: call.arguments,
-            signal: runtime.controller.signal,
-          });
-        } catch (error) {
-          if (runtime.controller.signal.aborted) return;
-          outcome = {
-            content: error instanceof Error ? error.message : String(error),
-            isError: true,
-          };
-        }
-      }
-      // A pending approval or tool can resolve after stop/switch. Do not append a successful
-      // completion event or start another Responses turn for an already-aborted runtime.
-      if (runtime.controller.signal.aborted) return;
-      this.append(
-        taskId,
-        "tool.completed",
-        {
-          name: call.name,
-          content: outcome.content,
-          isError: outcome.isError,
-          affectedFiles: outcome.affectedFiles,
-        },
-        toolStepId,
-      );
-      this.append(taskId, "step.completed", { content: outcome.content }, toolStepId);
+      return;
+    }
+    if (runtime.controller.signal.aborted || outcomes.some((outcome) => outcome === null)) {
+      return;
+    }
+    for (const outcome of outcomes) {
+      if (!outcome) continue;
       runtime.input.push({
         type: "function_call",
-        call_id: call.id,
-        name: call.name,
-        arguments: call.arguments,
+        call_id: outcome.call.id,
+        name: outcome.call.name,
+        arguments: outcome.call.arguments,
       });
       runtime.input.push({
         type: "function_call_output",
-        call_id: call.id,
-        output: outcome.content,
+        call_id: outcome.call.id,
+        output: outcome.result.content,
       });
     }
     runtime.calls.clear();
     runtime.responseText = "";
     await this.sendResponse(taskId, runtime, createId("step"));
+  }
+
+  private async executeToolCall(
+    taskId: string,
+    runtime: RuntimeTask,
+    call: RuntimeCall,
+  ): Promise<{ call: RuntimeCall; result: AgentToolOutcome } | null> {
+    if (runtime.controller.signal.aborted) return null;
+    const toolStepId = createId("step");
+    this.append(
+      taskId,
+      "tool.requested",
+      { name: call.name, arguments: call.arguments },
+      toolStepId,
+    );
+    this.append(
+      taskId,
+      "step.started",
+      { title: call.name, kind: "tool", toolName: call.name },
+      toolStepId,
+    );
+    const checkpoint = await this.createCheckpointForCall(taskId, call);
+    try {
+      await this.store.flush();
+    } catch (error) {
+      runtime.controller.abort();
+      this.runtimes.delete(taskId);
+      this.append(taskId, "task.failed", { message: String(error) });
+      this.publish();
+      return null;
+    }
+    if (runtime.controller.signal.aborted) return null;
+    if (checkpoint) {
+      this.append(
+        taskId,
+        "checkpoint.created",
+        { checkpointId: checkpoint.id, reason: `Before ${call.name}` },
+        toolStepId,
+      );
+    }
+    this.append(taskId, "tool.started", { name: call.name }, toolStepId);
+    const metadata = this.toolMetadata(call.name);
+    let outcome: AgentToolOutcome;
+    if (metadata && this.requiresCheckpoint(metadata) && !checkpoint) {
+      outcome = {
+        content: "Unable to create a checkpoint before this tool call; operation skipped.",
+        isError: true,
+      };
+    } else if (!this.executor) {
+      outcome = { content: "No Agent tools are registered", isError: true };
+    } else {
+      try {
+        outcome = await this.executor.execute({
+          id: call.id,
+          taskId,
+          stepId: toolStepId,
+          name: call.name,
+          arguments: call.arguments,
+          signal: runtime.controller.signal,
+        });
+      } catch (error) {
+        if (runtime.controller.signal.aborted) return null;
+        outcome = {
+          content: error instanceof Error ? error.message : String(error),
+          isError: true,
+        };
+      }
+    }
+    if (checkpoint) {
+      try {
+        await this.checkpoints.seal(checkpoint.id);
+      } catch (error) {
+        outcome = {
+          ...outcome,
+          isError: true,
+          content: `${outcome.content}\nCheckpoint after-state could not be saved: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+    }
+    if (runtime.controller.signal.aborted) return null;
+    this.append(
+      taskId,
+      "tool.completed",
+      {
+        name: call.name,
+        content: outcome.content,
+        isError: outcome.isError,
+        affectedFiles: outcome.affectedFiles,
+      },
+      toolStepId,
+    );
+    this.append(taskId, "step.completed", { content: outcome.content }, toolStepId);
+    return { call, result: outcome };
   }
 
   private async createCheckpointForCall(taskId: string, call: RuntimeCall) {

@@ -1,5 +1,9 @@
 # 0.4.13 第二波实施状态
 
+> 文档已于 2026-10-06 归档，保留历史证据；其中版本和验收结论只适用于原记录。当前版本状态见 [0.4.14 状态矩阵](../0.4.14-Implementation-Status.md)。
+
+本文为 0.4.13 的历史实施记录。新的 50 项安全、稳定性和性能任务及未完成验收以 [0.4.14 状态矩阵](../0.4.14-Implementation-Status.md) 为准。
+
 ## 0.4.13 second-wave runtime contracts
 
 - `AgentToolMetadata` describes effects, permission, checkpoint policy, recoverability, and input
@@ -17,7 +21,7 @@
 Smart Capsule remains design-only. The current Sidebar Assistant and its interaction model are
 unchanged in 0.4.13.
 
-当前开发版本为 `v0.4.13`。本文件记录第二波 Agent Runtime 稳定化与 Workspace Intelligence 基础已经落地、可以复核的工作，以及仍需完成的发布门禁，不再把旧的 0.4.12 规划当作当前状态。
+历史开发基线为 `v0.4.13`。本文件记录当时第二波 Agent Runtime 稳定化与 Workspace Intelligence 基础的工作，不代表 0.4.14 已通过验收。
 
 ## 已落地
 

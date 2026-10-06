@@ -135,6 +135,9 @@ interface AiAgentTool {
   permission: AgentToolPermission;
   checkpointPolicy: AgentToolCheckpointPolicy;
   recoverability: AgentToolRecoverability;
+  parallelSafety?: "readonly" | "exclusive";
+  allowedCommands?: readonly string[];
+  conflictScopes?: readonly string[];
   resolveAffectedFiles?(args: Record<string, unknown>): Promise<string[]> | string[];
   execute(args: Record<string, unknown>, signal?: AbortSignal): Promise<string>;
 }
@@ -358,6 +361,8 @@ const tools: AiAgentTool[] = [
     async execute(args, signal) {
       const command = readStringArg(args, "command");
       if (!command) throw new Error("Missing required argument: command");
+      if (!CommandRegistry.getAgentPolicy(command))
+        throw new Error("Command is not authorized for Agent execution");
       if (signal?.aborted) throw new Error("Agent operation cancelled");
       const result = await CommandRegistry.execute(command);
       if (!result.ok) {
@@ -475,6 +480,16 @@ export function getAgentToolMetadata(): AgentToolMetadata[] {
     permission: tool.permission,
     checkpointPolicy: tool.checkpointPolicy,
     recoverability: tool.recoverability,
+    parallelSafety:
+      tool.parallelSafety ??
+      (tool.effects.some(
+        (effect) =>
+          effect.includes("write") || effect.includes("change") || effect.includes("execute"),
+      )
+        ? "exclusive"
+        : "readonly"),
+    allowedCommands: tool.allowedCommands,
+    conflictScopes: tool.conflictScopes,
   }));
 }
 
@@ -533,6 +548,12 @@ async function validateToolArguments(
       return error instanceof Error ? error.message : String(error);
     }
   }
+  if (
+    tool.name === "run_command" &&
+    !CommandRegistry.getAgentPolicy(readStringArg(args, "command") ?? "")
+  ) {
+    return "Command is not authorized for Agent execution";
+  }
   return null;
 }
 
@@ -546,7 +567,8 @@ export function syncAgentExecutorRegistration(): Promise<void> {
   if (registrationPromise) return registrationPromise;
   const promise = UserConfigStore.get().then((config) => {
     const enabled = config.ai?.enabled !== false;
-    agentPermission = config.ai?.agentPermission ?? "ask";
+    agentPermission =
+      config.ai?.agentPermission === "full" ? "edit" : (config.ai?.agentPermission ?? "ask");
     AgentService.setExecutor(
       enabled
         ? {
@@ -601,8 +623,8 @@ export async function executeAgentToolCall(
   const requiresPermission =
     agentPermission === "ask" ||
     (agentPermission === "read" && tool.permission !== "read") ||
-    (tool.permission === "approval-required" && agentPermission !== "full");
-  if (requiresPermission || (tool.requiresConfirmation && agentPermission !== "full")) {
+    tool.permission === "approval-required";
+  if (requiresPermission || tool.requiresConfirmation) {
     AgentService.notifyApproval({
       taskId: invocation.taskId,
       stepId: invocation.stepId,
