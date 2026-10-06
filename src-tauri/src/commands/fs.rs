@@ -419,6 +419,18 @@ impl WorkspaceState {
             if authorized.contains_key(&key) {
                 key
             } else {
+                if !key.is_absolute()
+                    || !authorized
+                        .keys()
+                        .any(|approved| windows_same_prefix(approved, &key))
+                    || key
+                        .components()
+                        .any(|part| matches!(part, std::path::Component::ParentDir))
+                {
+                    return Err(
+                        "[workspace.authorization] File has not been selected by the user".into(),
+                    );
+                }
                 lexical_path(&key.canonicalize().map_err(|_| {
                     "[workspace.authorization] File has not been selected by the user"
                 })?)
@@ -683,6 +695,9 @@ fn workspace_relative_path(root: &Path, requested: &Path) -> Result<PathBuf, Str
     }
     #[cfg(windows)]
     {
+        if !windows_same_prefix(&root, &requested) {
+            return Err("[workspace.boundary] Path is outside the active workspace".into());
+        }
         let expanded = windows_long_path(&requested);
         if let Ok(relative) = expanded.strip_prefix(&root) {
             return Ok(relative.to_owned());
@@ -709,6 +724,18 @@ fn workspace_relative_path(root: &Path, requested: &Path) -> Result<PathBuf, Str
         }
     }
     Err("[workspace.boundary] Path is outside the active workspace".into())
+}
+
+#[cfg(windows)]
+fn windows_same_prefix(left: &Path, right: &Path) -> bool {
+    match (left.components().next(), right.components().next()) {
+        (Some(std::path::Component::Prefix(left)), Some(std::path::Component::Prefix(right))) => {
+            left.as_os_str()
+                .to_string_lossy()
+                .eq_ignore_ascii_case(&right.as_os_str().to_string_lossy())
+        }
+        _ => false,
+    }
 }
 
 #[cfg(windows)]
@@ -1804,6 +1831,12 @@ mod tests {
         fs::create_dir(root.path().join(".aurona-recovery")).unwrap();
         fs::write(root.path().join(".aurona-recovery/protected"), b"recovery").unwrap();
         let state = scoped_state(root.path());
+        assert!(state
+            .access(r"\\aurona-no-authority.invalid\share\file", true)
+            .is_err());
+        assert!(state
+            .file_access(r"\\aurona-no-authority.invalid\share\file")
+            .is_err());
         let short_root = short_path(root.path());
         for alias in [
             root.path().to_string_lossy().to_lowercase(),
@@ -1841,6 +1874,9 @@ mod tests {
             .file_access(&selected.to_string_lossy().to_lowercase())
             .is_err());
         state.authorize_path(&selected.to_string_lossy()).unwrap();
+        assert!(state
+            .file_access(r"\\aurona-no-authority.invalid\share\file")
+            .is_err());
         assert!(state
             .file_access(&selected.to_string_lossy().to_lowercase())
             .is_ok());
