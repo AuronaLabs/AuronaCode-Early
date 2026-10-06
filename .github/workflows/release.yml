@@ -315,7 +315,7 @@ jobs:
         run: |
           mapfile -d '' assets < <(find candidate-assets -path '*/src-tauri/target/*' -prune -o -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.tar.gz' -o -name '*.exe.sig' -o -name '*.dmg.sig' -o -name '*.deb.sig' -o -name '*.AppImage.sig' -o -name '*.tar.gz.sig' \) -print0)
           test "${#assets[@]}" -gt 0
-          mapfile -d '' metadata < <(find candidate-assets -type f -name 'release-metadata.*' -print0)
+          mapfile -d '' metadata < <(find candidate-assets -maxdepth 1 -type f -name 'release-metadata.*' -print0)
           test "${#metadata[@]}" -gt 0
           gh release create "$RELEASE_TAG" "${assets[@]}" "${metadata[@]}" candidate-assets/latest.json candidate-assets/SHA256SUMS --draft --verify-tag --title "Aurona Code $RELEASE_TAG" --notes-file RELEASE_BODY.md
 
