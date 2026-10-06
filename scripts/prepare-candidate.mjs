@@ -34,6 +34,14 @@ function cargo(args) {
     execFileSync("cargo", args, { cwd: root, stdio: "inherit" });
     return;
   }
+  // Tauri's Windows runner may already expose a working MSVC environment even
+  // when VS2022 is installed outside the local helper's known paths.
+  try {
+    execFileSync("cargo", args, { cwd: root, stdio: "inherit" });
+    return;
+  } catch {
+    // Retry through vcvars below when the inherited environment cannot link.
+  }
   const vcvars = findVcvars64();
   if (!vcvars) throw new Error("VS2022 environment was not found");
   // Arguments are placed in a JSON file, never interpolated into cmd.exe.
