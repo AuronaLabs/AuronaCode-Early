@@ -48,11 +48,15 @@ fn executable(raw: &str) -> Result<PathBuf, String> {
     for directory in std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
         .filter(|dir| dir.is_absolute())
     {
-        let mut candidates = vec![directory.join(raw)];
+        let candidates = vec![directory.join(raw)];
         #[cfg(windows)]
-        if requested.extension().is_none() {
-            candidates.push(directory.join(format!("{raw}.exe")));
-        }
+        let candidates = {
+            let mut candidates = candidates;
+            if requested.extension().is_none() {
+                candidates.push(directory.join(format!("{raw}.exe")));
+            }
+            candidates
+        };
         for candidate in candidates {
             if candidate.is_file() {
                 return candidate

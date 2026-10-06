@@ -387,11 +387,20 @@ impl WorkspaceState {
         if name == Path::new(".") {
             return Err("[workspace.root_protected] Cannot replace the workspace root".into());
         }
-        if Path::new(path).components().any(|part| {
-            part.as_os_str()
-                .to_string_lossy()
-                .eq_ignore_ascii_case(".aurona-recovery")
-        }) {
+        let root = self
+            .root()?
+            .ok_or("[workspace.closed] No active workspace")?;
+        let requested = PathBuf::from(path);
+        #[cfg(windows)]
+        let requested = windows_long_path(&requested);
+        if workspace_relative_path(&root, &requested)?
+            .components()
+            .any(|part| {
+                part.as_os_str()
+                    .to_string_lossy()
+                    .eq_ignore_ascii_case(".aurona-recovery")
+            })
+        {
             return Err("[workspace.recovery_protected] Recovery data is protected".into());
         }
         Ok((directory, name))
@@ -399,12 +408,21 @@ impl WorkspaceState {
     pub fn file_access(&self, path: &str) -> Result<(cap_std::fs::Dir, PathBuf), String> {
         if self
             .root()?
-            .is_some_and(|root| lexical_path(Path::new(path)).starts_with(lexical_path(&root)))
+            .is_some_and(|root| workspace_relative_path(&root, Path::new(path)).is_ok())
         {
             return self.access(path, true);
         }
         let key = lexical_path(Path::new(path));
         let authorized = self.authorized_files.lock().map_err(|e| e.to_string())?;
+        #[cfg(windows)]
+        let key =
+            if authorized.contains_key(&key) {
+                key
+            } else {
+                lexical_path(&key.canonicalize().map_err(|_| {
+                    "[workspace.authorization] File has not been selected by the user"
+                })?)
+            };
         let (directory, name) = authorized
             .get(&key)
             .ok_or("[workspace.authorization] File has not been selected by the user")?;
@@ -431,11 +449,7 @@ impl WorkspaceState {
         let root = self
             .root()?
             .ok_or("[workspace.closed] No active workspace")?;
-        let requested = lexical_path(Path::new(path));
-        let root = lexical_path(&root);
-        let relative = requested
-            .strip_prefix(root)
-            .map_err(|_| "[workspace.boundary] Path is outside the active workspace")?;
+        let relative = workspace_relative_path(&root, Path::new(path))?;
         if relative
             .components()
             .any(|c| !matches!(c, std::path::Component::Normal(_)))
@@ -488,7 +502,7 @@ impl WorkspaceState {
         let resolved = Path::new(path).canonicalize().map_err(|e| e.to_string())?;
         if self
             .root()?
-            .is_some_and(|root| lexical_path(Path::new(path)).starts_with(lexical_path(&root)))
+            .is_some_and(|root| workspace_relative_path(&root, Path::new(path)).is_ok())
         {
             let (parent, name) = self.access(path, true)?;
             parent
@@ -506,11 +520,7 @@ impl WorkspaceState {
         let root = root_guard
             .as_ref()
             .ok_or("[workspace.closed] No active workspace")?;
-        let root = lexical_path(root);
-        let requested = lexical_path(Path::new(path));
-        let relative = requested
-            .strip_prefix(&root)
-            .map_err(|_| "[workspace.boundary] Path is outside the active workspace")?;
+        let relative = workspace_relative_path(root, Path::new(path))?;
         if relative
             .components()
             .any(|component| !matches!(component, std::path::Component::Normal(_)))
@@ -663,6 +673,97 @@ fn lexical_path(path: &Path) -> PathBuf {
         }
     }
     path.to_owned()
+}
+
+fn workspace_relative_path(root: &Path, requested: &Path) -> Result<PathBuf, String> {
+    let root = lexical_path(root);
+    let requested = lexical_path(requested);
+    if let Ok(relative) = requested.strip_prefix(&root) {
+        return Ok(relative.to_owned());
+    }
+    #[cfg(windows)]
+    {
+        let expanded = windows_long_path(&requested);
+        if let Ok(relative) = expanded.strip_prefix(&root) {
+            return Ok(relative.to_owned());
+        }
+        let mut remaining = expanded.components();
+        let mut prefix = PathBuf::new();
+        let matches = root.components().all(|component| {
+            remaining.next().is_some_and(|candidate| {
+                prefix.push(candidate.as_os_str());
+                component
+                    .as_os_str()
+                    .to_string_lossy()
+                    .eq_ignore_ascii_case(&candidate.as_os_str().to_string_lossy())
+            })
+        });
+        // Resolve only the root prefix: child junctions must still be checked
+        // through the pinned directory, and case-sensitive roots stay distinct.
+        if matches
+            && prefix
+                .canonicalize()
+                .is_ok_and(|path| lexical_path(&path) == root)
+        {
+            return Ok(remaining.as_path().to_owned());
+        }
+    }
+    Err("[workspace.boundary] Path is outside the active workspace".into())
+}
+
+#[cfg(windows)]
+fn windows_long_path(path: &Path) -> PathBuf {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::{OsStrExt, OsStringExt};
+    use windows_sys::Win32::Storage::FileSystem::GetLongPathNameW;
+
+    // Expand DOS aliases without resolving junctions. Traversal remains visible
+    // to the scoped access checks, and missing targets keep their original tail.
+    if !path.is_absolute()
+        || path
+            .components()
+            .any(|part| matches!(part, std::path::Component::ParentDir))
+    {
+        return path.to_owned();
+    }
+    let mut cursor = path;
+    let mut tail = Vec::new();
+    loop {
+        let input = cursor
+            .as_os_str()
+            .encode_wide()
+            .chain(Some(0))
+            .collect::<Vec<_>>();
+        let mut output = vec![0u16; input.len()];
+        let mut length =
+            unsafe { GetLongPathNameW(input.as_ptr(), output.as_mut_ptr(), output.len() as u32) }
+                as usize;
+        if length >= output.len() && length <= 32768 {
+            output.resize(length, 0);
+            length = unsafe {
+                GetLongPathNameW(input.as_ptr(), output.as_mut_ptr(), output.len() as u32)
+            } as usize;
+        }
+        if length > 0 && length < output.len() {
+            let expanded = lexical_path(Path::new(&OsString::from_wide(&output[..length])));
+            let mut wide = expanded.as_os_str().encode_wide().collect::<Vec<_>>();
+            if wide.len() >= 2 && wide[1] == u16::from(b':') && wide[0] <= 127 {
+                wide[0] = u16::from((wide[0] as u8).to_ascii_uppercase());
+            }
+            let mut expanded = PathBuf::from(OsString::from_wide(&wide));
+            for name in tail.into_iter().rev() {
+                expanded.push(name);
+            }
+            return expanded;
+        }
+        match (cursor.parent(), cursor.file_name()) {
+            (Some(parent), Some(name)) => {
+                tail.push(name.to_owned());
+                cursor = parent;
+            }
+            _ => return path.to_owned(),
+        }
+    }
 }
 
 impl Default for WorkspaceState {
@@ -1670,6 +1771,99 @@ mod tests {
                 .1,
             std::path::Path::new(".")
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_scope_accepts_case_and_dos_aliases_without_expanding_authority() {
+        use std::ffi::OsString;
+        use std::os::windows::ffi::{OsStrExt, OsStringExt};
+        use windows_sys::Win32::Storage::FileSystem::GetShortPathNameW;
+
+        fn short_path(path: &std::path::Path) -> std::path::PathBuf {
+            let input = path
+                .as_os_str()
+                .encode_wide()
+                .chain(Some(0))
+                .collect::<Vec<_>>();
+            let mut output = vec![0u16; 32768];
+            let length = unsafe {
+                GetShortPathNameW(input.as_ptr(), output.as_mut_ptr(), output.len() as u32)
+            } as usize;
+            assert!(length > 0 && length < output.len());
+            OsString::from_wide(&output[..length]).into()
+        }
+
+        let root = tempfile::Builder::new()
+            .prefix("Aurona Workspace Long Name ")
+            .tempdir()
+            .unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("Inside File.txt"), b"inside").unwrap();
+        fs::write(outside.path().join("Selected File.txt"), b"outside").unwrap();
+        fs::create_dir(root.path().join(".aurona-recovery")).unwrap();
+        fs::write(root.path().join(".aurona-recovery/protected"), b"recovery").unwrap();
+        let state = scoped_state(root.path());
+        let short_root = short_path(root.path());
+        for alias in [
+            root.path().to_string_lossy().to_lowercase(),
+            root.path().to_string_lossy().to_uppercase(),
+            short_root.to_string_lossy().into_owned(),
+        ] {
+            let alias = std::path::Path::new(&alias);
+            let inside = alias.join("Inside File.txt");
+            let (directory, name) = state.file_access(&inside.to_string_lossy()).unwrap();
+            let mut file = crate::scoped_file::open(&directory, &name).unwrap();
+            let mut contents = Vec::new();
+            use std::io::Read;
+            file.read_to_end(&mut contents).unwrap();
+            assert_eq!(contents, b"inside");
+            assert!(state.exists(&inside.to_string_lossy()).unwrap());
+            assert!(!state
+                .exists(&alias.join("new.txt").to_string_lossy())
+                .unwrap());
+            assert!(state
+                .write_access(&alias.join("new.txt").to_string_lossy())
+                .is_ok());
+            assert!(state.write_access(&alias.to_string_lossy()).is_err());
+            assert!(state
+                .access(&alias.join("../escape.txt").to_string_lossy(), false)
+                .is_err());
+            assert!(state
+                .write_access(&alias.join(".AURONA-RECOVERY/protected").to_string_lossy())
+                .is_err());
+        }
+        let protected = short_path(&root.path().join(".aurona-recovery/protected"));
+        assert!(state.write_access(&protected.to_string_lossy()).is_err());
+
+        let selected = outside.path().join("Selected File.txt");
+        assert!(state
+            .file_access(&selected.to_string_lossy().to_lowercase())
+            .is_err());
+        state.authorize_path(&selected.to_string_lossy()).unwrap();
+        assert!(state
+            .file_access(&selected.to_string_lossy().to_lowercase())
+            .is_ok());
+        assert!(state
+            .file_access(&short_path(&selected).to_string_lossy())
+            .is_ok());
+        assert!(state.access(&selected.to_string_lossy(), true).is_err());
+        assert!(state
+            .file_access(&outside.path().join("unselected").to_string_lossy())
+            .is_err());
+
+        let link = root.path().join("junction");
+        assert!(std::process::Command::new("cmd")
+            .args(["/d", "/c", "mklink", "/J"])
+            .arg(&link)
+            .arg(outside.path())
+            .output()
+            .unwrap()
+            .status
+            .success());
+        let linked = short_root.join("JUNCTION/Selected File.txt");
+        assert!(state.file_access(&linked.to_string_lossy()).is_err());
+        fs::remove_dir(link).unwrap();
     }
 
     #[test]

@@ -220,10 +220,12 @@ pub fn spawn_pty(
             pixel_height: 0,
         })
         .map_err(|error| format!("Unable to allocate PTY: {error}"))?;
-    let mut child = pair
+    let child = pair
         .slave
         .spawn_command(command)
         .map_err(|error| format!("Unable to start {shell_name}: {error}"))?;
+    #[cfg(windows)]
+    let mut child = child;
     let process_id = child
         .process_id()
         .ok_or("Terminal process ID unavailable")?;
