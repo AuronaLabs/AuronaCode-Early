@@ -22,7 +22,8 @@ export function verifyCandidateTrust(candidate, expected) {
 export function verifyUpdaterPage(page, metadata, metadataSignature) {
   assert.equal(page.version, metadata.version, "Updater page version mismatch");
   assert.deepEqual(page.auronaRelease?.metadata, metadata, "Updater page changed signed metadata");
-  assert.equal(page.auronaRelease?.signature, metadataSignature.trim(), "Updater page metadata signature mismatch");
+  assert.equal(typeof page.auronaRelease?.signature, "string", "Updater page metadata signature is missing");
+  assert.equal(page.auronaRelease.signature.trim(), metadataSignature.trim(), "Updater page metadata signature mismatch");
   assert.deepEqual(Object.keys(page.platforms).sort(), metadata.artifacts.map((a) => a.platform).sort(),
     "Updater page platform mismatch");
   const tag = metadata.channel === "pioneer" ? "pioneer-latest" : `v${metadata.version}`;

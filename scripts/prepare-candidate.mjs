@@ -65,7 +65,7 @@ if (canSign) {
     });
   } catch { throw new Error("Candidate signature creation failed; candidate files are preserved."); }
   const encoded = fs.readFileSync(`${metadata}.sig`, "utf8").trim();
-  const signature = encoded.startsWith("untrusted comment:") ? encoded : Buffer.from(encoded, "base64").toString("utf8");
+  const signature = (encoded.startsWith("untrusted comment:") ? encoded : Buffer.from(encoded, "base64").toString("utf8")).trim();
   fs.writeFileSync(`${metadata}.minisig`, signature);
   cargo([...common, "verify_candidate", "--", output, version, channel, path.join(output, "merged-tauri-config.json")]);
   verified = true;

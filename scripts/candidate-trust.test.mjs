@@ -53,6 +53,9 @@ test("aggregation checks the updater page against the separately verified signed
       signature: Buffer.from("signed artifact").toString("base64"),
     } } };
   verifyUpdaterPage(page, metadata, "signed metadata\n");
+  const newlineSignature = structuredClone(page);
+  newlineSignature.auronaRelease.signature += "\n";
+  verifyUpdaterPage(newlineSignature, metadata, "signed metadata\n");
   for (const modify of [
     (p) => { p.platforms["windows-x86_64"].url = "https://attacker.example/app.exe"; },
     (p) => { p.auronaRelease.metadata.channel = "pioneer"; },
