@@ -15,7 +15,7 @@ Aurona Code 使用自研 AuronaEngine 编辑器、Rust 文本模型和 WASI P2 �
 
 当前开发版本为 **0.4.14**，尚未冻结或取得发布资格。50 项安全、稳定性与性能更新均有实现和验收记录：**47 项验收中、3 项生产验证阻塞、0 项完成全部验收**。自动测试通过不等于真实工作流和生产签名验收完成。
 
-正式 Updater 密钥来源与签名、Marketplace 包及目录签名仍是发布前置条件；本仓库的测试签名只验证客户端协议。当前安装包是本地候选。完整证据和剩余工作见 [验收报告](Docs/0.4.14-Acceptance-Report.md)与[50 项状态矩阵](Docs/0.4.14-Implementation-Status.md)。
+正式 Updater 密钥来源与签名、Marketplace 包及目录签名仍是发布前置条件；本仓库的测试签名只验证客户端协议。留存安装包是修复前的历史本地候选，需要重新构建。完整证据和剩余工作见 [验收报告](Docs/0.4.14-Acceptance-Report.md)与[50 项状态矩阵](Docs/0.4.14-Implementation-Status.md)。
 
 ## 工作台
 
@@ -60,6 +60,8 @@ pnpm run build:candidate:local # 生成本地 Windows NSIS 候选
 ```
 
 [Quality 工作流](.github/workflows/quality.yml)在 Linux 检查前端，并在 Windows/macOS/Linux 重建扩展、检查 Rust。`quality:full` 使用当前主机，不代替三平台 CI。桌面压力测试、故障注入和真实外部服务验收也需单独执行；发布门禁目前应失败。
+
+2026-10-06 的 [Quality run 37474765979](https://github.com/AuronaLabs/AuronaCode-Early/actions/runs/37474765979)验证提交 `9098db3`：前端、三平台扩展与 Rust 门禁全部通过。Rust 单测 Windows 212 passed，Linux/macOS 各 213 passed，均为 0 failed、1 ignored。该结果不代表 50 项完整验收或正式签名条件已满足。
 
 候选构建不创建 tag、上传、发布或推进渠道。签名和完整验收通过后才可评估正式发布。具体本地结果见[发布前检查](Docs/0.4.14-Release-Preflight.md)。
 
