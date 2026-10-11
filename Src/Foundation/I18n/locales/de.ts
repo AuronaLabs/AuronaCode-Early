@@ -1544,6 +1544,9 @@ export const de: LocaleMessages = {
     noPermissionsRequired:
       "Diese Erweiterung läuft in einer sicheren Sandbox ohne zusätzliche Systemberechtigungen",
     downloadPackage: "Paket herunterladen (.aurx)",
+    installLocalPackage: "Lokal installieren (.aurx)",
+    signatureInstallUnavailable:
+      "Die Signatur der offiziellen Erweiterung ist nicht verfügbar; die Remote-Installation ist pausiert",
     downloadSuccess: "Erweiterungspaket-Download gestartet",
     versionHistory: "Versionsverlauf",
     star: "Favorisieren",

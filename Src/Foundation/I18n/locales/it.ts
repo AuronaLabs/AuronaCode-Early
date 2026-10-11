@@ -1545,6 +1545,9 @@ export const it: LocaleMessages = {
     noPermissionsRequired:
       "Questa estensione gira in una sandbox sicura senza permessi di sistema extra",
     downloadPackage: "Scarica pacchetto (.aurx)",
+    installLocalPackage: "Installa locale (.aurx)",
+    signatureInstallUnavailable:
+      "La firma dell'estensione ufficiale non è disponibile; l'installazione remota è in pausa",
     downloadSuccess: "Download del pacchetto estensione avviato",
     versionHistory: "Cronologia versioni",
     star: "Preferito",

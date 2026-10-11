@@ -377,6 +377,20 @@ export class AgentCheckpointStore {
     return exclusive(() => this.deleteInternal(taskId));
   }
 
+  async discard(id: string): Promise<void> {
+    return exclusive(async () => {
+      await this.initialize();
+      const journal = await AgentStorageIPC.read("journal");
+      if (journal && journal !== "null")
+        throw new Error(
+          "[agent.recovery_pending] Recovery data is protected while a restore is unfinished",
+        );
+      const next = this.checkpoints.filter((checkpoint) => checkpoint.id !== id);
+      await this.persist(next);
+      this.checkpoints = next;
+    });
+  }
+
   private async deleteInternal(taskId: string): Promise<void> {
     await this.initialize();
     const journal = await AgentStorageIPC.read("journal");

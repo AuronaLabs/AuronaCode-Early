@@ -4,6 +4,12 @@ const mocks = vi.hoisted(() => ({
   emit: vi.fn(),
   write: vi.fn<(id: string, data: string) => Promise<void>>(async () => undefined),
   close: vi.fn(async () => undefined),
+  outputListener: null as
+    | null
+    | ((payload: { id: string; session_id: string; seq: number; data: string }) => void),
+  exitListener: null as
+    | null
+    | ((payload: { id: string; session_id: string; reason: string }) => void),
   getAvailableShells: vi.fn(async () => [
     { id: "pwsh", name: "PowerShell", path: "pwsh.exe", icon: "terminal" },
   ]),
@@ -14,6 +20,18 @@ vi.mock("../Foundation/IPC/PtyCommands", () => ({
   PtyIPC: {
     write: mocks.write,
     close: mocks.close,
+    listenOutput: vi.fn(async (listener: typeof mocks.outputListener) => {
+      mocks.outputListener = listener;
+      return () => {
+        mocks.outputListener = null;
+      };
+    }),
+    listenExit: vi.fn(async (listener: typeof mocks.exitListener) => {
+      mocks.exitListener = listener;
+      return () => {
+        mocks.exitListener = null;
+      };
+    }),
     getAvailableShells: mocks.getAvailableShells,
   },
 }));
@@ -21,7 +39,11 @@ vi.mock("../Foundation/IPC/PtyCommands", () => ({
 import { TerminalManager } from "./TerminalService";
 
 describe("TerminalService", () => {
-  afterEach(() => TerminalManager.dispose());
+  afterEach(() => {
+    TerminalManager.dispose();
+    mocks.outputListener = null;
+    mocks.exitListener = null;
+  });
 
   it("coalesces concurrent implicit terminal creation", async () => {
     const first = TerminalManager.executeCommand(null, "echo first");
@@ -45,5 +67,25 @@ describe("TerminalService", () => {
 
     expect(first.id).toBe(second.id);
     expect(TerminalManager.getTerminals()).toHaveLength(1);
+  });
+
+  it("returns the command output and exit code after the shell marker", async () => {
+    const pending = TerminalManager.executeCommandAndWait(null, "pnpm test");
+    await vi.waitFor(() => expect(TerminalManager.getTerminals()).toHaveLength(1));
+    const terminal = TerminalManager.getTerminals()[0];
+    TerminalManager.markTerminalReady(terminal.id);
+    await vi.waitFor(() => expect(mocks.write).toHaveBeenCalled());
+
+    const command = mocks.write.mock.calls.at(-1)?.[1] ?? "";
+    const marker = command.match(/__AURONA_CMD_[^:]+__/)?.[0];
+    expect(marker).toBeTruthy();
+    mocks.outputListener?.({
+      id: terminal.id,
+      session_id: "session-1",
+      seq: 1,
+      data: btoa(`suite output\r\n${marker}:7\r\n`),
+    });
+
+    await expect(pending).resolves.toEqual({ exitCode: 7, output: "suite output" });
   });
 });

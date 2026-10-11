@@ -14,6 +14,56 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
+  {
+    version: "V0.4.15",
+    date: "2026-10-11",
+    isLatest: true,
+    summary:
+      "0.4.15 将工作区信任、扩展安装和 Agent 工具链收拢到可验证的动态工作流，并补齐日常编辑所需的基础 UI 组件。",
+    sections: [
+      {
+        title: "用户流程",
+        description: "主界面挂载后再处理工作区信任，恢复开发工具入口并统一焦点和账户头像反馈。",
+        items: [
+          "工作区信任检查延迟到主界面挂载后执行，早期事件会重放到语言模态框，启动阶段不再遮挡用户。",
+          "恢复 F12 与 Ctrl/Cmd+Shift+I 的 DevTools 入口；原生调用失败时显示可理解的提示。",
+          "头像资源失败后稳定回退到首字母，切换账户或图片地址时不会残留旧失败状态。",
+          "统一全局焦点样式 token，并优化 LSP、文件操作和终端授权的确认边界。",
+        ],
+      },
+      {
+        title: "Marketplace",
+        description: "远程包继续由签名和目录门禁保护，本地 .aurx 包通过受限 artifact 句柄安装。",
+        items: [
+          "Marketplace 将 Rust 下载进度传递到前端，安装、取消、失败和完成状态保持同一任务 ID。",
+          "新增本地 .aurx 选择和安装入口；包大小、SHA-256、工作区代际和一次性句柄仍由后端校验。",
+          "签名、目录、来源和过期错误统一显示为明确的远程安装暂停提示，不把未签名包伪装成官方包。",
+          "Marketplace 列表迁移到通用 VirtualList，保留搜索、筛选、详情和滚动位置。",
+        ],
+      },
+      {
+        title: "Agent Runtime",
+        description:
+          "扩大上下文预算，修复消息聚合，并把文件、Git、终端和测试操作纳入显式工具元数据。",
+        items: [
+          "上下文预算提升到 128K，并保留旧消息压缩和最近消息窗口，长会话不再因固定 32K 上限提前截断。",
+          "Agent 消息聚合使用不可变更新和任务限定 ID，跨任务事件不会互相覆盖或丢失。",
+          "新增创建、删除、重命名、移动、多文件编辑、Git 状态与差异、终端执行和测试运行工具。",
+          "系统提示词补充计划、验证、错误恢复和代码质量约束；写入类操作继续受显式确认和检查点保护。",
+        ],
+      },
+      {
+        title: "UI Foundation",
+        description: "补齐可复用的基础交互组件，保持紧凑信息密度和稳定布局。",
+        items: [
+          "新增 Checkbox、Radio、Tabs、Table、Progress、Breadcrumb 和 VirtualList 组件，并统一焦点与语义属性。",
+          "VirtualList 支持固定行高、overscan、稳定 key 和滚动根节点，Marketplace 大目录不再一次性挂载全部卡片。",
+          "同步 README、架构、扩展开发和签名指南，明确本地包确认与远程生产签名的边界。",
+          "版本元数据同步到 0.4.15；本地验证与外部发布继续分离，当前分支不创建 tag、不上传产物。",
+        ],
+      },
+    ],
+  },
   AUDIT_0414_CHANGELOG,
   {
     version: "V0.4.13",

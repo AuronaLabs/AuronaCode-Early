@@ -1367,6 +1367,8 @@ export const zhCN = {
     permissionsRequired: "声明权限",
     noPermissionsRequired: "该扩展运行于安全沙箱中，未申请额外系统权限",
     downloadPackage: "下载安装包 (.aurx)",
+    installLocalPackage: "从本地安装 (.aurx)",
+    signatureInstallUnavailable: "官方扩展签名暂时无法验证，远程安装已暂停",
     downloadSuccess: "已开始下载扩展安装包",
     versionHistory: "版本历史",
     star: "收藏",

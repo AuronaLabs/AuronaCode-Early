@@ -4,7 +4,7 @@ import type { ChangelogEntry } from "./ChangelogData";
 export const AUDIT_0414_CHANGELOG: ChangelogEntry = {
   version: "V0.4.14",
   date: "2026-10-06",
-  isLatest: true,
+  isLatest: false,
   summary:
     "0.4.14 安全、稳定性与性能更新：包含 50 项实现，剩余完整验收和生产 Marketplace 签名对接转入 0.4.15；未宣称全部验收完成。",
   sections: [

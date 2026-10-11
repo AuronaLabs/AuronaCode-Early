@@ -1374,6 +1374,8 @@ export const zhHant: LocaleMessages = {
     permissionsRequired: "宣告權限",
     noPermissionsRequired: "該擴充執行於安全沙盒中，未申請額外系統權限",
     downloadPackage: "下載安裝包 (.aurx)",
+    installLocalPackage: "從本地安裝 (.aurx)",
+    signatureInstallUnavailable: "官方擴充簽名暫時無法驗證，遠端安裝已暫停",
     downloadSuccess: "已開始下載擴充安裝包",
     versionHistory: "版本歷史",
     star: "收藏",

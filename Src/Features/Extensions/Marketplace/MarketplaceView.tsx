@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { LspClient } from "../../../Core/Language/LspClient";
 import { EventBus } from "../../../Foundation/EventBus";
 import { useLocale } from "../../../Foundation/I18n";
+import { ExtensionIPC } from "../../../Foundation/IPC/ExtensionCommands";
 import {
   type InstalledRuntimeSummary,
   type InstalledToolchainSummary,
   LanguageServerIPC,
   type ToolchainsOverview,
 } from "../../../Foundation/IPC/LanguageServerCommands";
+import { NetworkIPC } from "../../../Foundation/IPC/NetworkCommands";
 import { useExtensionStore } from "../../../State/useExtensionStore";
 import { useInstallProgressStore } from "../../../State/useInstallProgressStore";
 import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
@@ -23,6 +25,7 @@ import { canonicalExtensionId } from "../ExtensionId";
 import { DependencyConfirmModal, type DependencyInfo } from "./DependencyConfirmModal";
 import {
   descriptorToMarketplaceItem,
+  formatMarketplaceInstallError,
   type MarketplaceExtensionItem,
   MarketplaceService,
   type MarketplaceSourceStatus,
@@ -142,6 +145,7 @@ export function MarketplaceView() {
   const [isLoading, setIsLoading] = useState(false);
   const [sourceStatus, setSourceStatus] = useState<MarketplaceSourceStatus>("online");
   const [offlineReason, setOfflineReason] = useState<"server-unreachable" | "invalid-response">();
+  const [isInstallingLocal, setIsInstallingLocal] = useState(false);
   const taskCoordinator = useRef(new MarketplaceTasks());
   const tasks = useSyncExternalStore(
     taskCoordinator.current.subscribe,
@@ -157,6 +161,28 @@ export function MarketplaceView() {
       if (task.resourceId === id) taskCoordinator.current.cancel(task.taskId);
     }
   };
+
+  const installLocalExtension = useCallback(async () => {
+    if (isInstallingLocal) return;
+    setIsInstallingLocal(true);
+    try {
+      const artifact = await NetworkIPC.pickArtifact("extension");
+      if (!artifact) return;
+      const descriptor = await ExtensionIPC.install(artifact.artifactId);
+      await refreshExtensions();
+      showToast(
+        t("extensions.installCompleted").replace(
+          "{name}",
+          descriptor.displayName?.[locale] ?? descriptor.name,
+        ),
+        "success",
+      );
+    } catch (error) {
+      showToast(formatMarketplaceInstallError(error, t), "warning");
+    } finally {
+      setIsInstallingLocal(false);
+    }
+  }, [isInstallingLocal, locale, refreshExtensions, t]);
   const [pendingInstallItem, setPendingInstallItem] = useState<MarketplaceExtensionItem | null>(
     null,
   );
@@ -358,7 +384,19 @@ export function MarketplaceView() {
                 );
                 EventBus.emit("toolchains:changed");
               } else {
-                await MarketplaceService.installExtension(item.id, item.version, signal);
+                await MarketplaceService.installExtension(
+                  item.id,
+                  item.version,
+                  signal,
+                  (progress, stage, message) => {
+                    setProgress(
+                      item.id,
+                      stage === "completed" ? "completed" : "downloading",
+                      progress,
+                      message ?? t("extensions.installing"),
+                    );
+                  },
+                );
               }
               setProgress(item.id, "completed", 100, t("extensions.installCompleted"));
               window.setTimeout(() => clearProgress(item.id), 1200);
@@ -367,8 +405,7 @@ export function MarketplaceView() {
                 clearProgress(item.id);
                 return;
               }
-              const message =
-                error instanceof Error ? error.message : t("extensions.installFailed");
+              const message = formatMarketplaceInstallError(error, t);
               setProgress(item.id, "failed", 0, message);
               showToast(message, "warning");
               window.setTimeout(() => clearProgress(item.id), 3000);
@@ -573,20 +610,33 @@ export function MarketplaceView() {
       <SidebarPageHeader
         title={t("extensions.marketplaceTitle")}
         actions={
-          <Tooltip content={t("extensions.refreshList")} delay={300}>
-            <button
-              type="button"
-              onClick={() => void refreshCatalog()}
-              disabled={isLoading}
-              className="flex size-8 items-center justify-center rounded-[var(--radius-control)] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-50"
-              aria-label={t("extensions.refreshList")}
-            >
-              <Icons.Refresh
-                size={15}
-                className={isLoading ? "animate-spin text-[var(--color-accent)]" : ""}
-              />
-            </button>
-          </Tooltip>
+          <div className="flex items-center gap-1">
+            <Tooltip content={t("extensions.installLocalPackage")} delay={300}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => void installLocalExtension()}
+                disabled={isInstallingLocal}
+              >
+                <Icons.Package size={14} />
+                {t("extensions.installLocalPackage")}
+              </Button>
+            </Tooltip>
+            <Tooltip content={t("extensions.refreshList")} delay={300}>
+              <button
+                type="button"
+                onClick={() => void refreshCatalog()}
+                disabled={isLoading}
+                className="flex size-8 items-center justify-center rounded-[var(--radius-control)] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-50"
+                aria-label={t("extensions.refreshList")}
+              >
+                <Icons.Refresh
+                  size={15}
+                  className={isLoading ? "animate-spin text-[var(--color-accent)]" : ""}
+                />
+              </button>
+            </Tooltip>
+          </div>
         }
       />
 

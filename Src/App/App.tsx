@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { LanguageConfigurationService } from "../Core/LanguageConfigurationService";
 import { UpdaterService } from "../Core/UpdaterService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { setupMacApplicationMenu } from "../Foundation/Desktop";
@@ -13,6 +14,14 @@ import { useGlassStore } from "../UI/Core/GlassManager";
 
 export default function App() {
   useEffect(() => {
+    // Trust prompts belong to the mounted workbench, never the splash phase.
+    // LSP startup may discover an untrusted workspace before LanguageModals is mounted;
+    // replay that request after the main UI is ready.
+    LanguageConfigurationService.flushPendingTrustRequest();
+    void LanguageConfigurationService.checkWorkspaceTrust().catch((error) => {
+      Logger.warn("Workspace trust check failed", error);
+    });
+
     let disposed = false;
     let disposeMacMenu: (() => void) | undefined;
     let unsubscribeWorkbench: (() => void) | undefined;

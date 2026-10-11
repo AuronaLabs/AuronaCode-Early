@@ -61,21 +61,31 @@ function buildTaskConversation(task: AgentTaskSnapshot): ConversationItem[] {
   const assistantByStep = new Map<string, ConversationItem & { type: "assistant" }>();
   const toolByStep = new Map<string, ConversationItem & { type: "tool" }>();
 
+  const replaceItem = (id: string, update: (item: ConversationItem) => ConversationItem) => {
+    const index = items.findIndex((item) => item.id === id);
+    if (index < 0) return;
+    items[index] = update(items[index]);
+  };
+
   let hasUserEvent = false;
   for (const event of task.events) {
     if (event.type === "task.created" && eventText(event)) {
-      items.push({ type: "user", id: event.id, content: eventText(event) });
+      items.push({ type: "user", id: `${task.id}-${event.id}`, content: eventText(event) });
       hasUserEvent = true;
       continue;
     }
     if (event.type === "step.delta" && event.stepId) {
       let item = assistantByStep.get(event.stepId);
       if (!item) {
-        item = { type: "assistant", id: `assistant-${event.stepId}`, content: "" };
+        item = { type: "assistant", id: `${task.id}-assistant-${event.stepId}`, content: "" };
         assistantByStep.set(event.stepId, item);
         items.push(item);
       }
-      item.content += eventText(event);
+      const nextContent = item.content + eventText(event);
+      replaceItem(item.id, (current) =>
+        current.type === "assistant" ? { ...current, content: nextContent } : current,
+      );
+      assistantByStep.set(event.stepId, { ...item, content: nextContent });
       continue;
     }
     if (
@@ -86,17 +96,23 @@ function buildTaskConversation(task: AgentTaskSnapshot): ConversationItem[] {
     ) {
       let item = assistantByStep.get(event.stepId);
       if (!item) {
-        item = { type: "assistant", id: `assistant-${event.stepId}`, content: "" };
+        item = { type: "assistant", id: `${task.id}-assistant-${event.stepId}`, content: "" };
         assistantByStep.set(event.stepId, item);
         items.push(item);
       }
-      if (!item.content) item.content = event.payload.content;
+      if (!item.content) {
+        const content = event.payload.content;
+        replaceItem(item.id, (current) =>
+          current.type === "assistant" ? { ...current, content } : current,
+        );
+        assistantByStep.set(event.stepId, { ...item, content });
+      }
       continue;
     }
     if (event.type === "tool.requested" && event.stepId) {
       const item: ConversationItem & { type: "tool" } = {
         type: "tool",
-        id: `tool-${event.stepId}`,
+        id: `${task.id}-tool-${event.stepId}`,
         name: toolName(event),
         status: "running",
         startedAt: event.timestamp,
@@ -107,27 +123,38 @@ function buildTaskConversation(task: AgentTaskSnapshot): ConversationItem[] {
     }
     if (event.type === "tool.started" && event.stepId) {
       const item = toolByStep.get(event.stepId);
-      if (item) item.status = "running";
+      if (item) {
+        replaceItem(item.id, (current) =>
+          current.type === "tool" ? { ...current, status: "running" } : current,
+        );
+        toolByStep.set(event.stepId, { ...item, status: "running" });
+      }
       continue;
     }
     if (event.type === "tool.completed" && event.stepId) {
       const item = toolByStep.get(event.stepId);
       if (item) {
-        item.status = event.payload.isError === true ? "failed" : "completed";
-        item.completedAt = event.timestamp;
-        if (item.status === "failed" && typeof event.payload.content === "string") {
-          item.detail = event.payload.content.slice(0, 220);
-        }
+        const status = event.payload.isError === true ? "failed" : "completed";
+        const detail =
+          status === "failed" && typeof event.payload.content === "string"
+            ? event.payload.content.slice(0, 220)
+            : item.detail;
+        replaceItem(item.id, (current) =>
+          current.type === "tool"
+            ? { ...current, status, completedAt: event.timestamp, detail }
+            : current,
+        );
+        toolByStep.set(event.stepId, { ...item, status, completedAt: event.timestamp, detail });
       }
       continue;
     }
     if ((event.type === "task.queued" || event.type === "task.steered") && eventText(event)) {
-      items.push({ type: "user", id: event.id, content: eventText(event) });
+      items.push({ type: "user", id: `${task.id}-${event.id}`, content: eventText(event) });
       continue;
     }
     if (event.type === "task.failed") {
       const message = eventText(event);
-      if (message) items.push({ type: "error", id: event.id, content: message });
+      if (message) items.push({ type: "error", id: `${task.id}-${event.id}`, content: message });
     }
   }
 

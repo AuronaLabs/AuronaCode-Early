@@ -1,4 +1,4 @@
-const MAX_CONTEXT_TOKENS = 32_768;
+export const MAX_CONTEXT_TOKENS = 128_000;
 const SUMMARY_TOKENS = 512;
 
 function record(value: unknown): Record<string, unknown> {

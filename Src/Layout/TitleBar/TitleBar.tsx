@@ -208,10 +208,10 @@ export function TitleBar({
                   label={t("menu.devtools")}
                   onSelect={() => {
                     void CommandRegistry.execute("workbench.action.openDevtools").then((result) => {
-                      if (result.error) {
+                      if (!result.ok) {
                         EventBus.emit("app:toast", {
                           type: "warning",
-                          message: result.error.message,
+                          message: result.error?.message ?? t("menu.devtools"),
                         });
                       }
                     });

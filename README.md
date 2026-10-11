@@ -4,7 +4,7 @@
   <p>基于 Tauri、React 和 Rust 的桌面代码编辑器</p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.14-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.15-2563eb" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
   </p>
 </div>
@@ -73,6 +73,7 @@ pnpm run build:candidate:local # 生成本地 Windows NSIS 候选
 - [扩展开发](Docs/Extension-Development.md)、[SDK 参考](Docs/Extension-SDK-Reference.md)
 - [0.4.14 审计计划](Docs/0.4.14-Audit-Plan.md)、[状态矩阵](Docs/0.4.14-Implementation-Status.md)
 - [发布决定](Docs/0.4.14-Release-Decision.md)、[0.4.15 剩余计划](Docs/0.4.15-Carryover-Plan.md)
+- [0.4.15 开发说明](Docs/0.4.15-Development-Notes.md)、[扩展签名指南](Docs/Extension-Signing-Guide.md)
 - [历史记录](Docs/Archive/README.md)、[后续设计](Docs/Roadmap/README.md)
 
 ## 许可证

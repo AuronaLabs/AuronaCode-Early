@@ -6,7 +6,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tokio::io::AsyncWriteExt;
 
@@ -106,13 +106,26 @@ pub async fn artifact_download(
     tokio::select! {
         biased;
         _ = task.cancelled() => Err("[task.cancelled] Artifact download cancelled".into()),
-        result = download_artifact(&app, &state, url, extension_id, version) => result,
+        result = download_artifact(&app, &state, &task_id, url, extension_id, version) => {
+            if let Err(error) = &result {
+                let _ = app.emit("artifact://download_progress", serde_json::json!({
+                    "downloadId": task_id,
+                    "stage": "failed",
+                    "downloadedBytes": 0,
+                    "totalBytes": 0,
+                    "percentage": 0,
+                    "message": error,
+                }));
+            }
+            result
+        },
     }
 }
 
 async fn download_artifact(
     app: &tauri::AppHandle,
     state: &ArtifactState,
+    task_id: &str,
     url: String,
     extension_id: String,
     version: Option<String>,
@@ -176,6 +189,17 @@ async fn download_artifact(
     if signed.payload.size_bytes > super::extensions::aurx::MAX_ARCHIVE_BYTES {
         return Err("[resource.limit] AURX artifact exceeds 48 MiB".into());
     }
+    let _ = app.emit(
+        "artifact://download_progress",
+        serde_json::json!({
+            "downloadId": task_id,
+            "stage": "downloading",
+            "downloadedBytes": 0,
+            "totalBytes": signed.payload.size_bytes,
+            "percentage": 0,
+            "message": "Downloading extension",
+        }),
+    );
     if response
         .content_length()
         .is_some_and(|length| length != signed.payload.size_bytes)
@@ -200,6 +224,17 @@ async fn download_artifact(
         }
         output.write_all(&chunk).await.map_err(|e| e.to_string())?;
         hash.update(&chunk);
+        let _ = app.emit(
+            "artifact://download_progress",
+            serde_json::json!({
+                "downloadId": task_id,
+                "stage": "downloading",
+                "downloadedBytes": size,
+                "totalBytes": signed.payload.size_bytes,
+                "percentage": (size as f64 / signed.payload.size_bytes.max(1) as f64) * 100.0,
+                "message": "Downloading extension",
+            }),
+        );
     }
     output.sync_all().await.map_err(|e| e.to_string())?;
     drop(output);
@@ -214,7 +249,7 @@ async fn download_artifact(
     {
         return Err("[workspace.generation] Workspace changed during artifact download".into());
     }
-    state.insert(Artifact {
+    let handle = state.insert(Artifact {
         kind: "extension".into(),
         generation: Some(generation),
         file,
@@ -222,7 +257,19 @@ async fn download_artifact(
         created: Instant::now(),
         sha256,
         size,
-    })
+    })?;
+    let _ = app.emit(
+        "artifact://download_progress",
+        serde_json::json!({
+            "downloadId": task_id,
+            "stage": "completed",
+            "downloadedBytes": size,
+            "totalBytes": size,
+            "percentage": 100,
+            "message": "Download complete",
+        }),
+    );
+    Ok(handle)
 }
 
 #[tauri::command]
