@@ -11,10 +11,12 @@ import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { DocumentService } from "../../Core/DocumentService";
 import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
 import { OutputService } from "../../Core/OutputService";
+import { TerminalManager } from "../../Core/TerminalService";
 import { WorkspaceService } from "../../Core/WorkspaceService";
 import { CommandRegistry } from "../../Extension/CommandRegistry";
 import { LocaleService } from "../../Foundation/I18n";
 import { FileSystemCommands } from "../../Foundation/IPC/FileSystemCommands";
+import { GitIPC } from "../../Foundation/IPC/GitCommands";
 import { WorkspaceSearchIPC } from "../../Foundation/IPC/WorkspaceSearchCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { AiPreferences } from "../../Foundation/Types/Config";
@@ -46,18 +48,21 @@ export interface AiAgentToolInvocation {
   name: string;
   arguments: string;
   signal: AbortSignal;
+  workspaceGeneration?: number;
+  workspaceId?: string;
+  workspaceRoot?: string | null;
 }
 
 /** 工具单次输出上限（字符） */
-const TOOL_OUTPUT_LIMIT = 4_000;
+const TOOL_OUTPUT_LIMIT = 16_000;
 /** read_file 单次读取上限（字符） */
-const READ_FILE_LIMIT = 32_000;
+const READ_FILE_LIMIT = 100_000;
 /** editor_context 全文上限（字符） */
-const EDITOR_CONTEXT_LIMIT = 24_000;
+const EDITOR_CONTEXT_LIMIT = 80_000;
 /** 诊断展示条数上限 */
-const DIAGNOSTICS_LIMIT = 40;
+const DIAGNOSTICS_LIMIT = 100;
 /** 搜索结果展示条数上限 */
-const SEARCH_RESULT_LIMIT = 30;
+const SEARCH_RESULT_LIMIT = 100;
 
 type AgentPermission = NonNullable<AiPreferences["agentPermission"]>;
 let agentPermission: AgentPermission = "ask";
@@ -142,8 +147,12 @@ interface AiAgentTool {
   execute(args: Record<string, unknown>, signal?: AbortSignal): Promise<string>;
 }
 
-function resolveWorkspacePath(input: string | null, allowEmpty = false): string {
-  const root = WorkspaceService.getCurrent().primaryRoot;
+function resolveWorkspacePath(
+  input: string | null,
+  allowEmpty = false,
+  workspaceRoot = WorkspaceService.getCurrent().primaryRoot,
+): string {
+  const root = workspaceRoot;
   if (!root) throw new Error("No workspace is open");
   const raw = (input ?? "").trim();
   if (!raw && !allowEmpty) throw new Error("A workspace path is required");
@@ -315,6 +324,372 @@ const tools: AiAgentTool[] = [
     },
   },
   {
+    name: "create_file",
+    signature: "create_file(path, content)",
+    description: "Create a new file inside the workspace.",
+    requiresConfirmation: true,
+    effects: ["filesystem.write", "workspace.modify"],
+    permission: "approval-required",
+    checkpointPolicy: "before-write",
+    recoverability: "fully-recoverable",
+    parameters: toolParameters(
+      {
+        path: { type: "string", description: "Workspace-relative file path" },
+        content: { type: "string", description: "Initial file contents" },
+      },
+      ["path", "content"],
+    ),
+    resolveAffectedFiles(args) {
+      const path = readStringArg(args, "path");
+      return path ? [resolveWorkspacePath(path)] : [];
+    },
+    async execute(args, signal) {
+      const path = readStringArg(args, "path");
+      if (!path) throw new Error("Missing required argument: path");
+      if (signal?.aborted) throw new Error("Agent operation cancelled");
+      const resolved = resolveWorkspacePath(path);
+      if (await FileSystemCommands.exists(resolved)) throw new Error("File already exists");
+      const content = typeof args.content === "string" ? args.content : "";
+      await FileSystemCommands.writeTextFile(resolved, content);
+      await useWorkbenchStore.getState().openFile(resolved);
+      return `Created ${path}`;
+    },
+  },
+  {
+    name: "delete_file",
+    signature: "delete_file(path)",
+    description: "Delete a file or empty directory inside the workspace.",
+    requiresConfirmation: true,
+    effects: ["filesystem.write", "workspace.modify"],
+    permission: "approval-required",
+    checkpointPolicy: "before-write",
+    recoverability: "partially-recoverable",
+    parameters: toolParameters(
+      { path: { type: "string", description: "Workspace-relative file path" } },
+      ["path"],
+    ),
+    resolveAffectedFiles(args) {
+      const path = readStringArg(args, "path");
+      return path ? [resolveWorkspacePath(path)] : [];
+    },
+    async execute(args) {
+      const path = readStringArg(args, "path");
+      if (!path) throw new Error("Missing required argument: path");
+      await FileSystemCommands.remove(resolveWorkspacePath(path), false);
+      return `Deleted ${path}`;
+    },
+  },
+  {
+    name: "rename_file",
+    signature: "rename_file(path, new_path)",
+    description: "Rename a file or directory inside the workspace.",
+    requiresConfirmation: true,
+    effects: ["filesystem.write", "workspace.modify"],
+    permission: "approval-required",
+    checkpointPolicy: "before-write",
+    recoverability: "fully-recoverable",
+    parameters: toolParameters(
+      {
+        path: { type: "string", description: "Existing workspace-relative path" },
+        new_path: { type: "string", description: "New workspace-relative path" },
+      },
+      ["path", "new_path"],
+    ),
+    resolveAffectedFiles(args) {
+      return [
+        resolveWorkspacePath(readStringArg(args, "path")),
+        resolveWorkspacePath(readStringArg(args, "new_path")),
+      ];
+    },
+    async execute(args) {
+      const path = readStringArg(args, "path");
+      const next = readStringArg(args, "new_path");
+      if (!path || !next) throw new Error("Missing required argument: path / new_path");
+      await FileSystemCommands.rename(resolveWorkspacePath(path), resolveWorkspacePath(next));
+      return `Renamed ${path} to ${next}`;
+    },
+  },
+  {
+    name: "move_file",
+    signature: "move_file(path, destination)",
+    description: "Move a file or directory inside the workspace.",
+    requiresConfirmation: true,
+    effects: ["filesystem.write", "workspace.modify"],
+    permission: "approval-required",
+    checkpointPolicy: "before-write",
+    recoverability: "fully-recoverable",
+    parameters: toolParameters(
+      {
+        path: { type: "string", description: "Existing workspace-relative path" },
+        destination: { type: "string", description: "Destination workspace-relative path" },
+      },
+      ["path", "destination"],
+    ),
+    resolveAffectedFiles(args) {
+      return [
+        resolveWorkspacePath(readStringArg(args, "path")),
+        resolveWorkspacePath(readStringArg(args, "destination")),
+      ];
+    },
+    async execute(args) {
+      const path = readStringArg(args, "path");
+      const destination = readStringArg(args, "destination");
+      if (!path || !destination) throw new Error("Missing required argument: path / destination");
+      await FileSystemCommands.copyOrMove(
+        resolveWorkspacePath(path),
+        resolveWorkspacePath(destination),
+        true,
+      );
+      return `Moved ${path} to ${destination}`;
+    },
+  },
+  {
+    name: "apply_diff",
+    signature: "apply_diff(changes)",
+    description:
+      "Apply multiple exact text replacements across workspace files in one approved action.",
+    requiresConfirmation: true,
+    effects: ["filesystem.write", "workspace.modify"],
+    permission: "approval-required",
+    checkpointPolicy: "before-write",
+    recoverability: "fully-recoverable",
+    parameters: toolParameters(
+      {
+        changes: {
+          type: "array",
+          description: "Array of {path, old_text, new_text} replacements",
+          items: { type: "object" },
+        },
+      },
+      ["changes"],
+    ),
+    resolveAffectedFiles(args) {
+      const changes = Array.isArray(args.changes) ? args.changes : [];
+      return changes.flatMap((change) => {
+        if (!change || typeof change !== "object") return [];
+        const path = readStringArg(change as Record<string, unknown>, "path");
+        return path ? [resolveWorkspacePath(path)] : [];
+      });
+    },
+    async execute(args, signal) {
+      const changes = args.changes;
+      if (!Array.isArray(changes) || changes.length === 0) {
+        throw new Error("changes must be a non-empty array");
+      }
+
+      type PreparedFile = {
+        path: string;
+        original: string;
+        next: string;
+        edits: Array<{ startUtf16: number; endUtf16: number; text: string }>;
+        expectedRevision: number;
+      };
+      const prepared = new Map<string, PreparedFile>();
+
+      // Preflight every replacement against an in-memory version first. No file is changed
+      // until all paths and unique spans have passed validation.
+      for (const change of changes) {
+        if (signal?.aborted) throw new Error("Agent operation cancelled");
+        if (!change || typeof change !== "object") throw new Error("Invalid diff change");
+        const entry = change as Record<string, unknown>;
+        const path = readStringArg(entry, "path");
+        const oldText = readStringArg(entry, "old_text");
+        if (!path || oldText === null) throw new Error("Each change needs path and old_text");
+        const resolvedPath = resolveWorkspacePath(path);
+        let file = prepared.get(resolvedPath);
+        if (!file) {
+          const record = DocumentService.get(resolvedPath);
+          if (record?.openState !== "open") await DocumentService.open(resolvedPath);
+          const opened = DocumentService.get(resolvedPath);
+          if (opened?.openState !== "open") throw new Error(`Unable to open ${path}`);
+          file = {
+            path: resolvedPath,
+            original: opened.content,
+            next: opened.content,
+            edits: [],
+            expectedRevision: opened.version,
+          };
+          prepared.set(resolvedPath, file);
+        }
+        const content = file.next;
+        const firstMatch = content.indexOf(oldText);
+        if (firstMatch < 0 || content.indexOf(oldText, firstMatch + 1) >= 0) {
+          throw new Error(`Unique old_text not found in ${path}`);
+        }
+        const newText = typeof entry.new_text === "string" ? entry.new_text : "";
+        file.edits.push({
+          startUtf16: firstMatch,
+          endUtf16: firstMatch + oldText.length,
+          text: newText,
+        });
+        file.next =
+          content.slice(0, firstMatch) + newText + content.slice(firstMatch + oldText.length);
+      }
+
+      const applied: PreparedFile[] = [];
+      try {
+        for (const file of prepared.values()) {
+          if (signal?.aborted) throw new Error("Agent operation cancelled");
+          await DocumentService.applyEdits(
+            file.path,
+            file.edits,
+            file.next,
+            "external",
+            file.expectedRevision,
+          );
+          applied.push(file);
+        }
+      } catch (error) {
+        const rollbackFailures: string[] = [];
+        for (const file of [...applied].reverse()) {
+          try {
+            const current = DocumentService.get(file.path);
+            if (!current || current.content !== file.next)
+              throw new Error("rollback target changed");
+            await DocumentService.applyEdits(
+              file.path,
+              [{ startUtf16: 0, endUtf16: current.content.length, text: file.original }],
+              file.original,
+              "external",
+              current.version,
+            );
+          } catch {
+            rollbackFailures.push(file.path);
+          }
+        }
+        const suffix =
+          rollbackFailures.length > 0
+            ? ` Rollback incomplete for: ${rollbackFailures.join(", ")}.`
+            : " Previously applied files were rolled back.";
+        throw new Error(`${error instanceof Error ? error.message : String(error)}.${suffix}`);
+      }
+      return `Applied ${changes.length} file changes across ${prepared.size} file(s)`;
+    },
+  },
+  {
+    name: "git_status",
+    signature: "git_status()",
+    description: "Read the current workspace Git status and branch metadata.",
+    requiresConfirmation: false,
+    effects: ["workspace.read"],
+    permission: "read",
+    checkpointPolicy: "never",
+    recoverability: "fully-recoverable",
+    parameters: toolParameters({}),
+    async execute() {
+      const root = WorkspaceService.getCurrent().primaryRoot;
+      if (!root) throw new Error("No workspace is open");
+      const status = await GitIPC.getFullStatus(root);
+      return truncate(JSON.stringify(status, null, 2), TOOL_OUTPUT_LIMIT);
+    },
+  },
+  {
+    name: "git_diff",
+    signature: "git_diff(file?, staged?)",
+    description: "Read a workspace Git diff.",
+    requiresConfirmation: false,
+    effects: ["workspace.read"],
+    permission: "read",
+    checkpointPolicy: "never",
+    recoverability: "fully-recoverable",
+    parameters: toolParameters({
+      file: { type: "string", description: "Optional workspace-relative file" },
+      staged: { type: "boolean", description: "Read staged diff when true" },
+    }),
+    async execute(args) {
+      const root = WorkspaceService.getCurrent().primaryRoot;
+      if (!root) throw new Error("No workspace is open");
+      return truncate(
+        await GitIPC.getWorktreeDiff(root, readStringArg(args, "file") ?? "", args.staged === true),
+        TOOL_OUTPUT_LIMIT,
+      );
+    },
+  },
+  {
+    name: "git_commit",
+    signature: "git_commit(message)",
+    description: "Create a Git commit for the current workspace.",
+    requiresConfirmation: true,
+    effects: ["process.execute", "workspace.modify"],
+    permission: "approval-required",
+    checkpointPolicy: "before-write",
+    recoverability: "partially-recoverable",
+    parameters: toolParameters({ message: { type: "string", description: "Commit message" } }, [
+      "message",
+    ]),
+    async execute(args) {
+      const root = WorkspaceService.getCurrent().primaryRoot;
+      const message = readStringArg(args, "message");
+      if (!root || !message) throw new Error("Workspace and commit message are required");
+      await GitIPC.commit(root, message);
+      return `Committed changes: ${message}`;
+    },
+  },
+  {
+    name: "git_branch",
+    signature: "git_branch()",
+    description: "List Git branches and the current branch.",
+    requiresConfirmation: false,
+    effects: ["workspace.read"],
+    permission: "read",
+    checkpointPolicy: "never",
+    recoverability: "fully-recoverable",
+    parameters: toolParameters({}),
+    async execute() {
+      const root = WorkspaceService.getCurrent().primaryRoot;
+      if (!root) throw new Error("No workspace is open");
+      const status = await GitIPC.getFullStatus(root);
+      return status.branches
+        .map((branch) => `${branch.is_current ? "*" : " "} ${branch.name}`)
+        .join("\n");
+    },
+  },
+  {
+    name: "terminal_run",
+    signature: "terminal_run(command)",
+    description: "Run a command in the integrated terminal after approval.",
+    requiresConfirmation: true,
+    effects: ["process.execute"],
+    permission: "approval-required",
+    checkpointPolicy: "before-write",
+    recoverability: "partially-recoverable",
+    parameters: toolParameters(
+      { command: { type: "string", description: "Command to send to the integrated terminal" } },
+      ["command"],
+    ),
+    async execute(args) {
+      const command = readStringArg(args, "command");
+      if (!command) throw new Error("Missing required argument: command");
+      const terminal = await TerminalManager.ensureDefaultTerminal();
+      await TerminalManager.executeCommand(terminal.id, command);
+      return `Queued command in terminal ${terminal.name}`;
+    },
+  },
+  {
+    name: "run_tests",
+    signature: "run_tests(command?)",
+    description: "Run the frontend test suite in the integrated terminal.",
+    requiresConfirmation: true,
+    effects: ["process.execute"],
+    permission: "approval-required",
+    checkpointPolicy: "before-write",
+    recoverability: "partially-recoverable",
+    parameters: toolParameters({
+      command: {
+        type: "string",
+        description: "Optional test command; defaults to pnpm run test:frontend",
+      },
+    }),
+    async execute(args) {
+      const command = readStringArg(args, "command") ?? "pnpm run test:frontend";
+      const terminal = await TerminalManager.ensureDefaultTerminal();
+      const result = await TerminalManager.executeCommandAndWait(terminal.id, command);
+      const content = `Test command finished in terminal ${terminal.name} with exit code ${result.exitCode}.\n${truncate(result.output, TOOL_OUTPUT_LIMIT)}`;
+      if (result.exitCode !== 0) throw new Error(content);
+      return content;
+    },
+  },
+  {
     name: "get_diagnostics",
     signature: "get_diagnostics()",
     description: "获取当前语言服务诊断（错误/警告）汇总",
@@ -452,6 +827,14 @@ function exampleForTool(name: string): string {
       return '{"query":"AgentService"}';
     case "edit_file":
       return '{"path":"src/App.tsx","old_text":"old","new_text":"new"}';
+    case "create_file":
+      return '{"path":"src/new-file.ts","content":"export {}\\n"}';
+    case "apply_diff":
+      return '{"changes":[{"path":"src/App.tsx","old_text":"old","new_text":"new"}]}';
+    case "terminal_run":
+      return '{"command":"pnpm run typecheck"}';
+    case "git_commit":
+      return '{"message":"Describe the change"}';
     case "run_command":
       return '{"command":"editor.formatDocument"}';
     case "get_tool_help":
@@ -581,7 +964,7 @@ export function syncAgentExecutorRegistration(): Promise<void> {
                 invocation.name.trim().split(/[.:/]/).pop() ?? invocation.name.trim();
               const tool = tools.find((candidate) => candidate.name === normalizedName);
               const args = parseArgs(invocation.arguments);
-              return tool?.resolveAffectedFiles && args ? tool.resolveAffectedFiles(args) : [];
+              return args ? (tool?.resolveAffectedFiles?.(args) ?? []) : [];
             },
             getToolMetadata: (name) =>
               getAgentToolMetadata().find((tool) => tool.name === name.trim().split(/[.:/]/).pop()),
@@ -620,6 +1003,29 @@ export async function executeAgentToolCall(
   }
   const validationError = await validateToolArguments(tool, args);
   if (validationError) return { content: validationError, isError: true };
+  if (invocation.workspaceId !== undefined || invocation.workspaceGeneration !== undefined) {
+    const current = WorkspaceService.getCurrent();
+    if (
+      (invocation.workspaceId !== undefined && current.id !== invocation.workspaceId) ||
+      (invocation.workspaceRoot !== undefined && current.primaryRoot !== invocation.workspaceRoot)
+    ) {
+      return {
+        content:
+          "Workspace changed while this Agent operation was waiting for approval; operation skipped.",
+        isError: true,
+      };
+    }
+    if (
+      invocation.workspaceGeneration !== undefined &&
+      (await FileSystemCommands.generation()) !== invocation.workspaceGeneration
+    ) {
+      return {
+        content:
+          "Workspace changed while this Agent operation was waiting for approval; operation skipped.",
+        isError: true,
+      };
+    }
+  }
   const requiresPermission =
     agentPermission === "ask" ||
     (agentPermission === "read" && tool.permission !== "read") ||
@@ -662,6 +1068,21 @@ export async function executeAgentToolCall(
     });
   }
   if (invocation.signal.aborted) return { content: "Agent operation cancelled", isError: true };
+  if (invocation.workspaceId !== undefined || invocation.workspaceGeneration !== undefined) {
+    const current = WorkspaceService.getCurrent();
+    if (
+      (invocation.workspaceId !== undefined && current.id !== invocation.workspaceId) ||
+      (invocation.workspaceRoot !== undefined &&
+        current.primaryRoot !== invocation.workspaceRoot) ||
+      (invocation.workspaceGeneration !== undefined &&
+        (await FileSystemCommands.generation()) !== invocation.workspaceGeneration)
+    ) {
+      return {
+        content: "Workspace changed before execution; operation skipped.",
+        isError: true,
+      };
+    }
+  }
   try {
     const affectedFiles = tool.resolveAffectedFiles
       ? await tool.resolveAffectedFiles(args)

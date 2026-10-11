@@ -1,5 +1,6 @@
 import { LocaleService } from "../../Foundation/I18n";
 import { AiIPC, type AiResponseEventPayload } from "../../Foundation/IPC/AiCommands";
+import { FileSystemCommands } from "../../Foundation/IPC/FileSystemCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { AiProfile } from "../../Foundation/Types/Config";
 import { isAiProfileUsable, resolveAiProfiles } from "../AiProfiles";
@@ -24,17 +25,19 @@ import type {
 export { reduceAgentEvent, replayAgentTask } from "./AgentEventReducer";
 
 const SYSTEM_INSTRUCTIONS = [
-  "You are Aurona Agent, a careful coding assistant inside Aurona Code.",
+  "You are Aurona Agent, an expert coding assistant inside Aurona Code.",
   "Reply in the user's language. Keep the response focused and explain decisions briefly.",
+  "You can read, create, edit, move, rename and delete workspace files; inspect Git; run approved Git, terminal and test commands; and review diagnostics.",
+  "For complex work, first understand the request, outline the files and checks involved, then execute incrementally and verify the result.",
   "Use CommonMark Markdown for normal responses. GFM tables, task lists, strikethrough, links, and fenced code blocks are supported; always add a language tag to code fences when known.",
   "LaTeX math is supported: use $...$ for inline math and $$...$$ for display math. Do not output raw HTML, raw tool JSON, SSE events, or large internal logs. The UI renders tool calls as compact status lines, so explain only results useful to the user.",
   "First understand the request, then inspect the workspace with read_file, list_dir, search_workspace, or editor_context. Do not guess file contents or paths.",
   "Before editing, read the relevant file and verify the exact text. Use edit_file for one unique replacement at a time. Relative paths are resolved from the workspace root.",
-  "Use get_diagnostics after a meaningful edit when it can validate the result. Use run_command only for registered editor or workbench commands.",
+  "Use get_diagnostics after a meaningful edit when it can validate the result. Use run_command for registered editor commands and terminal_run or run_tests for approved shell work.",
   "Tool arguments must match their JSON schema. If a tool returns an error, explain the cause, correct the arguments, and do not repeat the same failed call.",
   "Write actions and commands require user approval. Stop when approval is rejected, the request is ambiguous, or the workspace has changed unexpectedly.",
   "Use get_tool_help when you need a tool's exact parameters or an example. Never invent a tool name.",
-  "When finished, summarize the changes and the checks you actually ran. Do not narrate every token or internal step.",
+  "If a tool fails, analyze the error and adjust the next action instead of repeating the same call. When finished, summarize the changes and the checks you actually ran.",
 ].join("\n");
 
 const KNOWN_RESPONSE_EVENT_TYPES = new Set([
@@ -749,7 +752,8 @@ class AgentServiceImpl {
       { title: call.name, kind: "tool", toolName: call.name },
       toolStepId,
     );
-    const checkpoint = await this.createCheckpointForCall(taskId, call);
+    const workspace = await this.captureWorkspaceContext();
+    let checkpoint = await this.createCheckpointForCall(taskId, call, workspace);
     try {
       await this.store.flush();
     } catch (error) {
@@ -760,6 +764,24 @@ class AgentServiceImpl {
       return null;
     }
     if (runtime.controller.signal.aborted) return null;
+    if (!(await this.workspaceMatches(workspace))) {
+      if (checkpoint) {
+        await this.checkpoints.discard(checkpoint.id).catch(() => undefined);
+        checkpoint = null;
+      }
+      const outcome: AgentToolOutcome = {
+        content: "Workspace changed while preparing this Agent operation; operation skipped.",
+        isError: true,
+      };
+      this.append(
+        taskId,
+        "tool.completed",
+        { name: call.name, content: outcome.content, isError: true },
+        toolStepId,
+      );
+      this.append(taskId, "step.completed", { content: outcome.content }, toolStepId);
+      return { call, result: outcome };
+    }
     if (checkpoint) {
       this.append(
         taskId,
@@ -787,6 +809,9 @@ class AgentServiceImpl {
           name: call.name,
           arguments: call.arguments,
           signal: runtime.controller.signal,
+          workspaceGeneration: workspace.generation,
+          workspaceId: workspace.id,
+          workspaceRoot: workspace.root,
         });
       } catch (error) {
         if (runtime.controller.signal.aborted) return null;
@@ -823,7 +848,11 @@ class AgentServiceImpl {
     return { call, result: outcome };
   }
 
-  private async createCheckpointForCall(taskId: string, call: RuntimeCall) {
+  private async createCheckpointForCall(
+    taskId: string,
+    call: RuntimeCall,
+    workspace: { id: string; root: string | null; generation?: number },
+  ) {
     const metadata = this.toolMetadata(call.name);
     if (!metadata || !this.requiresCheckpoint(metadata)) return null;
     try {
@@ -834,16 +863,20 @@ class AgentServiceImpl {
         name: call.name,
         arguments: call.arguments,
         signal: this.runtimes.get(taskId)?.controller.signal ?? new AbortController().signal,
+        workspaceGeneration: workspace.generation,
+        workspaceId: workspace.id,
+        workspaceRoot: workspace.root,
       };
       const resolved = this.executor?.resolveAffectedFiles
         ? await this.executor.resolveAffectedFiles(invocation)
         : [];
       const args = JSON.parse(call.arguments) as { path?: string };
-      const fallback = this.resolveCheckpointPath(args.path) ?? EditorAdapter.getStatus().path;
+      const fallback =
+        this.resolveCheckpointPath(args.path, workspace.root) ?? EditorAdapter.getStatus().path;
       const paths = [
         ...new Set(
           resolved
-            .map((path) => this.resolveCheckpointPath(path))
+            .map((path) => this.resolveCheckpointPath(path, workspace.root))
             .filter((path): path is string => Boolean(path)),
         ),
       ];
@@ -856,6 +889,38 @@ class AgentServiceImpl {
       );
     } catch {
       return null;
+    }
+  }
+
+  private async captureWorkspaceContext(): Promise<{
+    id: string;
+    root: string | null;
+    generation?: number;
+  }> {
+    const current = WorkspaceService.getCurrent();
+    try {
+      return {
+        id: current.id,
+        root: current.primaryRoot,
+        generation: await FileSystemCommands.generation(),
+      };
+    } catch {
+      return { id: current.id, root: current.primaryRoot };
+    }
+  }
+
+  private async workspaceMatches(workspace: {
+    id: string;
+    root: string | null;
+    generation?: number;
+  }): Promise<boolean> {
+    const current = WorkspaceService.getCurrent();
+    if (current.id !== workspace.id || current.primaryRoot !== workspace.root) return false;
+    if (workspace.generation === undefined) return true;
+    try {
+      return (await FileSystemCommands.generation()) === workspace.generation;
+    } catch {
+      return false;
     }
   }
 
@@ -877,10 +942,13 @@ class AgentServiceImpl {
     );
   }
 
-  private resolveCheckpointPath(input: string | undefined): string | null {
+  private resolveCheckpointPath(
+    input: string | undefined,
+    workspaceRoot = WorkspaceService.getCurrent().primaryRoot,
+  ): string | null {
     const raw = input?.trim() ?? "";
     if (!raw) return null;
-    const root = WorkspaceService.getCurrent().primaryRoot;
+    const root = workspaceRoot;
     if (!root) return null;
     const normalizedRoot = root.replaceAll("\\", "/").replace(/\/+$/, "");
     const candidate = raw.replaceAll("\\", "/");

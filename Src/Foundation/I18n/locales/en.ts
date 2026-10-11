@@ -1497,6 +1497,9 @@ export const en: LocaleMessages = {
     noPermissionsRequired:
       "This extension runs in a secure sandbox without extra system permissions",
     downloadPackage: "Download Package (.aurx)",
+    installLocalPackage: "Install Local (.aurx)",
+    signatureInstallUnavailable:
+      "Official extension signing is unavailable; remote installation is paused",
     downloadSuccess: "Extension package download started",
     versionHistory: "Version History",
     star: "Star",

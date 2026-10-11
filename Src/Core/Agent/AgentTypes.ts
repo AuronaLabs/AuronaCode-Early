@@ -191,6 +191,7 @@ export type AgentToolEffect =
   | "workspace.read"
   | "workspace.modify"
   | "workspace.change"
+  | "process.execute"
   | "editor.read"
   | "editor.modify"
   | "command.execute";
@@ -225,6 +226,8 @@ export interface AgentToolInvocation {
   arguments: string;
   signal: AbortSignal;
   workspaceGeneration?: number;
+  workspaceId?: string;
+  workspaceRoot?: string | null;
 }
 
 export interface AgentToolExecutor {

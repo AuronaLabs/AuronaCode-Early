@@ -1,4 +1,13 @@
-import { invokeDesktop } from "../Desktop";
+import { invokeDesktop, listenDesktop } from "../Desktop";
+
+export interface ArtifactDownloadProgress {
+  downloadId: string;
+  stage: "downloading" | "completed" | "failed";
+  downloadedBytes: number;
+  totalBytes: number;
+  percentage: number;
+  message?: string | null;
+}
 
 export const NetworkIPC = {
   cachedCatalog: (source: string) =>
@@ -35,6 +44,8 @@ export const NetworkIPC = {
       sizeBytes: number;
       verified: boolean;
     } | null>("artifact_pick", { kind }),
+  onArtifactDownloadProgress: (listener: (payload: ArtifactDownloadProgress) => void) =>
+    listenDesktop("artifact://download_progress", listener),
   /** 同步代理偏好到 Rust 全局状态（工具链下载使用） */
   setNetworkProxy: (mode: "system" | "custom" | "none", url?: string) =>
     invokeDesktop<void>("set_network_proxy", { mode, url }),

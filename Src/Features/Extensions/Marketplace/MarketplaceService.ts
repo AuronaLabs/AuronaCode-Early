@@ -1,6 +1,11 @@
 import { desktopAvailable } from "../../../Foundation/Desktop";
+import type { I18nKey } from "../../../Foundation/I18n";
 import { AccountAuthIPC } from "../../../Foundation/IPC/AccountAuthCommands";
-import { type ExtensionDescriptor, ExtensionIPC } from "../../../Foundation/IPC/ExtensionCommands";
+import {
+  type ExtensionDescriptor,
+  ExtensionIPC,
+  parseExtensionError,
+} from "../../../Foundation/IPC/ExtensionCommands";
 import {
   type InstalledToolchainSummary,
   LanguageServerIPC,
@@ -13,6 +18,19 @@ import { boundedCatalog, validateMarketplaceRecord } from "./MarketplaceSchema";
 
 export const DEFAULT_MARKETPLACE_URL = "https://marketplace.aurona.cc/api";
 export const LOCAL_DEV_MARKETPLACE_URL = "http://127.0.0.1:5219/api";
+
+export function formatMarketplaceInstallError(error: unknown, t: (key: I18nKey) => string): string {
+  const parsed = parseExtensionError(error);
+  if (
+    parsed.code?.startsWith("signature.") ||
+    parsed.code === "catalog.required" ||
+    parsed.code === "catalog.expired" ||
+    parsed.code === "artifact.source"
+  ) {
+    return `${t("extensions.signatureInstallUnavailable")}${parsed.detail ? ` (${parsed.detail})` : ""}`;
+  }
+  return parsed.detail || t("extensions.installFailed");
+}
 
 let cachedMarketplaceToken: string | null = null;
 let cachedAuronaAccessToken: string | null = null;
@@ -956,6 +974,11 @@ export const MarketplaceService = {
     id: string,
     version?: string,
     signal?: AbortSignal,
+    onProgress?: (
+      progress: number,
+      stage: "downloading" | "completed" | "failed",
+      message?: string,
+    ) => void,
   ): Promise<ExtensionDescriptor> {
     id = canonicalExtensionId(id);
     const url = await this.getDownloadUrl(id, version);
@@ -965,11 +988,20 @@ export const MarketplaceService = {
       void NetworkIPC.cancelTask(taskId).catch(() => undefined);
     };
     signal?.addEventListener("abort", cancel, { once: true });
+    let unsubscribe: (() => void) | undefined;
     try {
+      if (onProgress) {
+        unsubscribe = await NetworkIPC.onArtifactDownloadProgress((progress) => {
+          if (progress.downloadId === taskId) {
+            onProgress(progress.percentage, progress.stage, progress.message ?? undefined);
+          }
+        });
+      }
       const artifact = await NetworkIPC.downloadArtifact(url, id, version, taskId);
       signal?.throwIfAborted();
       return await ExtensionIPC.install(artifact.artifactId);
     } finally {
+      unsubscribe?.();
       signal?.removeEventListener("abort", cancel);
     }
   },

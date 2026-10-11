@@ -65,6 +65,10 @@
   --control-height-sm: 28px;
   --control-height-md: 32px;
   --focus-ring: 0 0 0 2px color-mix(in srgb, var(--AccentPrimary) 55%, transparent);
+  --focus-ring-color: color-mix(in srgb, var(--AccentPrimary) 72%, transparent);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-style: solid;
   --switch-track-off: color-mix(in srgb, var(--material-panel) 88%, transparent);
   --switch-track-on: color-mix(in srgb, var(--AccentPrimary) 26%, var(--material-surface));
   --switch-thumb-surface: var(--material-overlay);

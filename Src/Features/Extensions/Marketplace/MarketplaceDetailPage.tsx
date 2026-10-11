@@ -14,6 +14,7 @@ import { canonicalExtensionId } from "../ExtensionId";
 import { ExtensionIcon } from "./ExtensionIcon";
 import {
   descriptorToMarketplaceItem,
+  formatMarketplaceInstallError,
   type MarketplaceExtensionItem,
   MarketplaceService,
   type ReviewItem,
@@ -177,13 +178,25 @@ export function MarketplaceDetailPage({ extensionId }: MarketplaceDetailPageProp
     setIsInstalling(true);
     setProgress(canonicalId, "preparing", 5, t("extensions.installing"));
     try {
-      await MarketplaceService.installExtension(canonicalId, currentItem.version);
+      await MarketplaceService.installExtension(
+        canonicalId,
+        currentItem.version,
+        undefined,
+        (progress, stage, message) => {
+          setProgress(
+            canonicalId,
+            stage === "completed" ? "completed" : "downloading",
+            progress,
+            message ?? t("extensions.installing"),
+          );
+        },
+      );
       setProgress(canonicalId, "completed", 100, t("extensions.installCompleted"));
       await refreshExtensions();
       showToast(t("extensions.installCompleted"), "success");
       window.setTimeout(() => clearProgress(canonicalId), 1200);
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("extensions.installFailed");
+      const message = formatMarketplaceInstallError(error, t);
       setProgress(canonicalId, "failed", 0, message);
       showToast(message, "warning");
     } finally {

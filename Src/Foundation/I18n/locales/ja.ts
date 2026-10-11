@@ -1523,6 +1523,9 @@ export const ja: LocaleMessages = {
     permissionsRequired: "権限",
     noPermissionsRequired: "この拡張は追加のシステム権限なしで安全なサンドボックス内で動作します",
     downloadPackage: "パッケージをダウンロード (.aurx)",
+    installLocalPackage: "ローカルからインストール (.aurx)",
+    signatureInstallUnavailable:
+      "公式拡張機能の署名を検証できないため、リモートインストールを停止しています",
     downloadSuccess: "拡張パッケージのダウンロードを開始しました",
     versionHistory: "バージョン履歴",
     star: "スター",

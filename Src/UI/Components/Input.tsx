@@ -9,7 +9,7 @@ import { glassVariants } from "../Core/GlassManager/variants";
  * 关闭浏览器/主题焦点描边（Theme.css）。
  */
 const FOCUS_WITHIN =
-  "focus-within:border-[var(--color-text-muted)]/25 focus-within:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-text-muted)_14%,transparent)]";
+  "focus-within:border-[var(--focus-ring-color)] focus-within:shadow-[0_0_0_var(--focus-ring-width)_var(--focus-ring-color)]";
 
 /** 三档尺寸共享同一焦点语言；圆角随尺寸递进（lg 即 Marketplace 大圆角）。 */
 const inputVariants = cva("transition-[border-color,box-shadow]", {

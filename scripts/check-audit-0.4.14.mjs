@@ -15,7 +15,10 @@ assert.ok(changelog, "Generated changelog entry is missing");
 assert.equal(changelog.sections.length, 12);
 assert.deepEqual(changelog.sections.flatMap((section) => section.auditIds).sort(), expected);
 assert.equal(changelog.sections.reduce((total, section) => total + section.items.length, 0), 50);
-assert.equal(changelog.isLatest, true);
+assert.equal(changelog.isLatest, false);
+const current = entries.find((entry) => entry.version === "V0.4.15");
+assert.ok(current, "Current 0.4.15 changelog entry is missing");
+assert.equal(current.isLatest, true);
 assert.equal(entries.filter((entry) => entry.isLatest).length, 1, "Exactly one changelog entry must be latest");
 for (const entry of entries) assert.equal(entry.sections.length % 2, 0, `${entry.version} sections must be even`);
 assert.match(read("Src/Features/Settings/ChangelogData.ts"), /AUDIT_0414_CHANGELOG,/);
@@ -31,11 +34,11 @@ for (const item of audit.items) {
   }
 }
 for (const file of ["Docs/0.4.14-Audit-Plan.md", "Docs/0.4.14-Implementation-Status.md", "Docs/0.4.14-Security-and-Migration.md"]) assert.ok(read(file).length > 100);
-assert.equal(JSON.parse(read("package.json")).version, "0.4.14");
-assert.equal(JSON.parse(read("src-tauri/tauri.conf.json")).version, "0.4.14");
-assert.match(read("src-tauri/Cargo.toml"), /^version = "0\.4\.14"$/m);
-assert.match(read("src-tauri/Cargo.lock"), /name = "aurona_code"\r?\nversion = "0\.4\.14"/);
-assert.match(read("README.md"), /version-0\.4\.14-/);
+assert.equal(JSON.parse(read("package.json")).version, "0.4.15");
+assert.equal(JSON.parse(read("src-tauri/tauri.conf.json")).version, "0.4.15");
+assert.match(read("src-tauri/Cargo.toml"), /^version = "0\.4\.15"$/m);
+assert.match(read("src-tauri/Cargo.lock"), /name = "aurona_code"\r?\nversion = "0\.4\.15"/);
+assert.match(read("README.md"), /version-0\.4\.15-/);
 if (process.argv.includes("--complete")) {
   assert.ok(audit.freezeDate, "Release freeze date has not been recorded");
   const unfinished = audit.items.filter((item) => item.status !== "verified");

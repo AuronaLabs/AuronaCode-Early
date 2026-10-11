@@ -148,6 +148,101 @@ class TerminalServiceImpl {
     await PtyIPC.write(targetId, `${command}\r\n`);
   }
 
+  async executeCommandAndWait(
+    id: string | null,
+    command: string,
+    signal?: AbortSignal,
+  ): Promise<{ exitCode: number; output: string }> {
+    let targetId = id ?? this.activeTerminalId;
+    if (!targetId) targetId = (await this.ensureDefaultTerminal()).id;
+    const terminal = this.terminals.find((item) => item.id === targetId);
+    if (!terminal) throw new Error(`Terminal ${targetId} is not available`);
+    const commandTargetId = targetId;
+    EventBus.emit("app:toggle-terminal", true);
+    await this.waitForTerminalReady(targetId);
+
+    const token = `__AURONA_CMD_${Date.now()}_${Math.random().toString(36).slice(2)}__`;
+    const shellId = terminal.shell.id.toLowerCase();
+    const wrapped = ["powershell", "pwsh"].includes(shellId)
+      ? `& { ${command}\n$__aurona_exit = if ($LASTEXITCODE -ne $null) { $LASTEXITCODE } else { 0 }; Write-Output "${token}:$__aurona_exit" }`
+      : `{ ${command}\n; __aurona_exit=$?; printf '\\n${token}:%s\\n' "$__aurona_exit"; }`;
+
+    let output = "";
+    let settled = false;
+    let timeoutId: number | undefined;
+    let removeOutput: (() => void) | undefined;
+    let removeExit: (() => void) | undefined;
+    let removeAbort: (() => void) | undefined;
+    const finish = (
+      resolve: (value: { exitCode: number; output: string }) => void,
+      reject: (error: Error) => void,
+      result?: { exitCode: number; output: string },
+      error?: Error,
+    ) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      removeOutput?.();
+      removeExit?.();
+      removeAbort?.();
+      if (result) resolve(result);
+      else reject(error ?? new Error("Terminal command failed"));
+    };
+
+    return new Promise((resolve, reject) => {
+      void (async () => {
+        const decode = (data: string) => {
+          const raw = atob(data);
+          const bytes = Uint8Array.from(raw, (character) => character.charCodeAt(0));
+          return new TextDecoder().decode(bytes);
+        };
+        removeOutput = await PtyIPC.listenOutput((payload) => {
+          if (payload.id !== commandTargetId) return;
+          output = `${output}${decode(payload.data)}`.slice(-128_000);
+          const match = output.match(new RegExp(`${token}:(\\d+)`));
+          if (match) {
+            const exitCode = Number(match[1]);
+            const marker = match.index ?? output.length;
+            finish(resolve, reject, { exitCode, output: output.slice(0, marker).trim() });
+          }
+        });
+        removeExit = await PtyIPC.listenExit((payload) => {
+          if (payload.id === commandTargetId && !settled) {
+            finish(resolve, reject, undefined, new Error(payload.reason));
+          }
+        });
+        const onAbort = () => {
+          void PtyIPC.write(commandTargetId, "\u0003").catch(() => undefined);
+          finish(resolve, reject, undefined, new Error("Terminal command cancelled"));
+        };
+        signal?.addEventListener("abort", onAbort, { once: true });
+        removeAbort = () => signal?.removeEventListener("abort", onAbort);
+        timeoutId = window.setTimeout(
+          () => finish(resolve, reject, undefined, new Error("Terminal command timed out")),
+          120_000,
+        );
+        if (signal?.aborted) return onAbort();
+        try {
+          await PtyIPC.write(commandTargetId, `${wrapped}\r\n`);
+        } catch (error) {
+          finish(
+            resolve,
+            reject,
+            undefined,
+            error instanceof Error ? error : new Error(String(error)),
+          );
+        }
+      })().catch((error) => {
+        finish(
+          resolve,
+          reject,
+          undefined,
+          error instanceof Error ? error : new Error(String(error)),
+        );
+      });
+    });
+  }
+
   async clearTerminal(id: string): Promise<void> {
     await PtyIPC.write(id, "\x1b[2J\x1b[H");
   }
