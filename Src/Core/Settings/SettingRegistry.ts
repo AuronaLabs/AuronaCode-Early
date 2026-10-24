@@ -267,6 +267,26 @@ registerSetting({
 });
 
 registerSetting({
+  id: "extensionSignature",
+  category: "security",
+  titleKey: "settings.securitySettings.extensionSignature",
+  descriptionKey: "settings.securitySettings.extensionSignatureDescription",
+  keywords: ["signature", "security", "签名", "认证"],
+  type: "boolean",
+  defaultValue: true,
+});
+
+registerSetting({
+  id: "catalogSignature",
+  category: "security",
+  titleKey: "settings.securitySettings.catalogSignature",
+  descriptionKey: "settings.securitySettings.catalogSignatureDescription",
+  keywords: ["signature", "security", "签名", "认证"],
+  type: "boolean",
+  defaultValue: true,
+});
+
+registerSetting({
   id: "packageInstallApproval",
   category: "security",
   titleKey: "settings.securitySettings.packageInstallApproval",

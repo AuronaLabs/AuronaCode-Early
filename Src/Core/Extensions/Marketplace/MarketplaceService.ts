@@ -13,7 +13,10 @@ import {
 } from "../../../Foundation/IPC/LanguageServerCommands";
 import { NetworkIPC } from "../../../Foundation/IPC/NetworkCommands";
 import { UserConfigStore } from "../../../Foundation/Storage/UserConfigStore";
-import { canonicalExtensionId, migrateExtensionRecords } from "../ExtensionId";
+import {
+  canonicalExtensionId,
+  migrateExtensionRecords,
+} from "../../../Foundation/Types/ExtensionId";
 import { boundedCatalog, validateMarketplaceRecord } from "./MarketplaceSchema";
 
 export const DEFAULT_MARKETPLACE_URL = "https://marketplace.aurona.cc/api";
@@ -346,7 +349,10 @@ export function descriptorToMarketplaceItem(
     installed: true,
     enabled: true,
     packageType:
-      descriptor.id.startsWith("vscode-") || descriptor.id.endsWith(".vsix") ? "vsix" : "aurx",
+      descriptor.id.startsWith("vscode-") ||
+      descriptor.id.endsWith("../../../Features/Extensions/Marketplace/.vsix")
+        ? "vsix"
+        : "aurx",
     permissions: [],
     rawPermissions: [...descriptor.permissions],
   };

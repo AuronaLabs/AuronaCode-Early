@@ -88,6 +88,8 @@ interface context {
   get-sdk-version: func() -> u32;
 
   get-environment: func() -> environment;
+  /// Per-extension metadata; workspace paths are included only with workspace.read.
+  runtime-metadata: func() -> string;
 
   /// Returns the current editor snapshot. Content is only included when the
   /// host has granted `editor.current.read`.

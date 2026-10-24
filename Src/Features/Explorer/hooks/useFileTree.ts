@@ -5,7 +5,6 @@ import { desktopDialog } from "../../../Foundation/Desktop";
 import { EventBus } from "../../../Foundation/EventBus";
 import { useLocale } from "../../../Foundation/I18n";
 import { FileSystemCommands } from "../../../Foundation/IPC/FileSystemCommands";
-import { WorkspaceStore } from "../../../Foundation/Storage/WorkspaceStore";
 import { SIDEBAR_EXPLORER } from "../../../Shared/Constants/Sidebar";
 import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
 import { showToast } from "../../../UI/Feedback/Toast";
@@ -124,6 +123,7 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
         });
         EventBus.emit("workspace:root-changed", selectedPath);
       } catch (error) {
+        if (String(error).includes("[workspace.denied]")) return;
         showToast(
           `${t("explorer.openFolderFailed")}${FileSystemService.toMessage(error)}`,
           "error",
@@ -134,14 +134,18 @@ export function useFileTree(onFileSelect: (path: string) => void): UseFileTreeRe
   );
 
   useEffect(() => {
+    let active = true;
     const init = async () => {
-      await WorkspaceStore.init();
-      const config = await WorkspaceStore.get();
-      if (config.lastOpenedPath) {
-        await loadFolderDirectly(config.lastOpenedPath);
+      await WorkspaceService.whenInitialized();
+      const root = WorkspaceService.getCurrent().primaryRoot;
+      if (active && root) {
+        await loadFolderDirectly(root);
       }
     };
-    init();
+    void init();
+    return () => {
+      active = false;
+    };
   }, [loadFolderDirectly]);
 
   const refreshDirectory = useCallback(

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GitService } from "../../Core/GitService";
+import { WorkspaceService } from "../../Core/WorkspaceService";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { GitIPC } from "../../Foundation/IPC/GitCommands";
-import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { cn } from "../../Shared/Utils/cn";
 import { EmptyState } from "../../UI/Components/EmptyState";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
@@ -149,8 +149,14 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
       setLoading(true);
       setError(null);
 
-      const config = await WorkspaceStore.get();
-      const path = config.lastOpenedPath || ".";
+      await WorkspaceService.whenInitialized();
+      const path = WorkspaceService.getCurrent().primaryRoot;
+      if (!path) {
+        setRepoPath("");
+        setRawDiff("");
+        setFiles([]);
+        return;
+      }
 
       const rawDiff = workingFile
         ? await GitIPC.getWorktreeDiff(path, workingFile, isStaged)

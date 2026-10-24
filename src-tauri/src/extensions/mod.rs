@@ -4,4 +4,5 @@ pub mod content;
 pub mod permissions;
 pub mod registry;
 pub mod runtime;
+pub mod security_policy;
 pub mod state;

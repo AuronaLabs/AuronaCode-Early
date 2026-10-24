@@ -26,6 +26,7 @@
   --GlassBorder: rgba(255, 255, 255, calc(0.09 * var(--GlassOpacity-Multiplier)));
 
   --EditorSurface: rgba(9, 12, 18, 0.68);
+  --EditorText: #cbd5e1;
 
   --StatusSuccess: #4ade80;
   --StatusWarning: #fbbf24;
@@ -101,12 +102,12 @@
   --AccentHover: color-mix(in srgb, var(--AccentPrimary) 82%, white);
   --AccentText: #ffffff;
 
-  --SyntaxKeyword: #f97316;
+  --SyntaxKeyword: #d69aef;
   --SyntaxString: #98c379;
   --SyntaxNumber: #38bdf8;
   --SyntaxFunction: #c084fc;
   --SyntaxVariable: #e0af68;
-  --SyntaxComment: #64748b;
+  --SyntaxComment: #8492a6;
   --DiagError: #f87171;
   --DiagWarning: #fbbf24;
   --DiagInfo: #60a5fa;

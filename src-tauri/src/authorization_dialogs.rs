@@ -72,6 +72,8 @@ mod tests {
             "requireAiEndpointApproval",
             "requirePackageInstallApproval",
             "requireExtensionExecutionApproval",
+            "requireExtensionSignature",
+            "requireExtensionCatalogSignature",
             "requireDeleteApproval",
             "requireGitDiscardApproval",
         ] {

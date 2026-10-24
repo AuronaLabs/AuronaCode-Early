@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AgentService } from "../../Core/Agent/AgentService";
+import {
+  getAgentPermission,
+  syncAgentExecutorRegistration,
+} from "../../Core/Agent/AgentToolExecutor";
 import type { AgentEvent, AgentTaskSnapshot, AgentTaskStatus } from "../../Core/Agent/AgentTypes";
 import { type AgentPermissionLevel, normalizeAgentPermission } from "../../Core/AiProfiles";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
@@ -15,7 +19,6 @@ import { GlassList, glassListRowStyles } from "../../UI/Components/GlassList";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 import { AgentMarkdown } from "./AgentMarkdown";
-import { getAgentPermission, syncAgentExecutorRegistration } from "./AgentToolExecutor";
 import "./AiAssistantPanel.css";
 
 type ConversationItem =

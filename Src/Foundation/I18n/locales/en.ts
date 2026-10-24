@@ -1,6 +1,15 @@
 import type { LocaleMessages } from "./zh-CN";
 
 export const en: LocaleMessages = {
+  workspaceApproval: {
+    title: "Workspace access request",
+    review: "Review request",
+    allow: "Allow access",
+    description:
+      "Authorize only folders you trust. The editor and permitted extensions can access their files after opening.",
+  },
+  platformTransitionTip:
+    "Aurona Account will soon become the new Aurona Platform. The legacy service will be retired soon. Stay tuned.",
   oobe: {
     welcomeTitle: "Welcome to Aurona Code",
     welcomeDesc: "Because writing code deserves a calmer, more comfortable corner.",
@@ -967,6 +976,13 @@ export const en: LocaleMessages = {
       stopping: "Stopping",
     },
     securitySettings: {
+      extensionSignature: "Require extension package signatures",
+      extensionSignatureDescription:
+        "Verify publisher, signature and package identity by default. Turning this off allows unsigned packages and failed authentication. Installation approval and execution permissions remain independent.",
+      catalogSignature: "Require extension catalog signatures",
+      catalogSignatureDescription:
+        "Verify the Marketplace catalog by default. Turning this off allows browsing and installing from unauthenticated catalogs; their contents are not proof of a trusted publisher.",
+
       sectionTitle: "Security & Authorization",
       sectionDescription:
         "Choose defaults for routine authorization prompts while keeping workspace boundaries, configuration fingerprints and backend checks.",

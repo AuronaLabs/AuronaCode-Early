@@ -1,7 +1,7 @@
 import { type RefObject, useEffect } from "react";
+import type { MarketplaceExtensionItem } from "../../../Core/Extensions/Marketplace/MarketplaceService";
 import { VirtualList } from "../../../UI/Components/VirtualList";
 import { MarketplaceCard } from "./MarketplaceCard";
-import type { MarketplaceExtensionItem } from "./MarketplaceService";
 
 const ROW_HEIGHT = 176;
 

@@ -1,12 +1,16 @@
-import { type CSSProperties, useCallback, useEffect, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
-import { LocaleService, useLocale } from "../../Foundation/I18n";
+import { useLocale } from "../../Foundation/I18n";
+import {
+  showToast,
+  type ToastAction,
+  type ToastMessage,
+  type ToastType,
+} from "../../Foundation/Notifications";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { UserConfig } from "../../Foundation/Types/Config";
 import { computeGlassAccent } from "../Core/GlassManager";
 import { Icons } from "../Icons/IconManager";
-
-export type ToastType = "info" | "success" | "warning" | "error" | "confirm";
 
 /** 状态色收敛：四令牌（success/error/warning/info），confirm 复用 primary。 */
 const STATUS_TINT: Record<ToastType, string> = {
@@ -25,38 +29,33 @@ const STATUS_TEXT_CLASS: Record<ToastType, string> = {
   info: "text-[var(--StatusInfo)]",
 };
 
-export interface ToastAction {
-  label: string;
-  primary?: boolean;
-  variant?: "default" | "primary" | "danger" | "secondary";
-  onClick?: () => void | Promise<void>;
-}
-
-export interface ToastMessage {
-  id: string;
-  type: ToastType;
-  title?: string;
-  message: string;
-  duration?: number | null;
-  actions?: ToastAction[];
-  onDismiss?: () => void;
-}
-
-export interface ShowToastOptions {
-  id?: string;
-  title?: string;
-  duration?: number | null;
-  actions?: ToastAction[];
-  onDismiss?: () => void;
-}
-
 export function ToastContainer() {
   const { t } = useLocale();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const entries = useRef(new Map<string, ToastMessage>());
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const pendingActions = useRef(new Set<string>());
+  const pendingToasts = useRef(new Map<string, symbol>());
+
+  const dismissToast = useCallback((id: string) => {
+    pendingToasts.current.delete(id);
+    const target = entries.current.get(id);
+    entries.current.delete(id);
+    clearTimeout(timers.current.get(id));
+    timers.current.delete(id);
+    setToasts([...entries.current.values()]);
+    target?.onDismiss?.();
+  }, []);
 
   useEffect(() => {
+    let active = true;
     const handleToast = async (payload: Omit<ToastMessage, "id"> & { id?: string }) => {
+      const id = payload.id || Date.now().toString() + Math.random().toString();
+      const revision = Symbol(id);
+      pendingToasts.current.set(id, revision);
       const config = await UserConfigStore.get().catch(() => ({}) as UserConfig);
+      if (!active || pendingToasts.current.get(id) !== revision) return;
+      pendingToasts.current.delete(id);
       const isCritical =
         payload.type === "error" ||
         payload.type === "warning" ||
@@ -67,41 +66,46 @@ export function ToastContainer() {
         return;
       }
 
-      const id = payload.id || Date.now().toString() + Math.random().toString();
       const defaultDuration =
         payload.actions && payload.actions.length > 0 ? null : (config.toastDuration ?? 4000);
       const duration = payload.duration !== undefined ? payload.duration : defaultDuration;
 
-      setToasts((prev) => {
-        const filtered = prev.filter((item) => item.id !== id);
-        return [...filtered, { ...payload, id, duration }];
-      });
+      clearTimeout(timers.current.get(id));
+      timers.current.delete(id);
+      entries.current.set(id, { ...payload, id, duration });
+      setToasts([...entries.current.values()]);
 
       if (duration && duration > 0) {
-        setTimeout(() => {
-          setToasts((prev) => prev.filter((t) => t.id !== id));
-        }, duration);
+        timers.current.set(
+          id,
+          setTimeout(() => dismissToast(id), duration),
+        );
       }
     };
 
-    return EventBus.on("app:toast", (p) => void handleToast(p));
-  }, []);
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => {
-      const target = prev.find((t) => t.id === id);
-      target?.onDismiss?.();
-      return prev.filter((t) => t.id !== id);
-    });
-  }, []);
+    const unsubscribe = EventBus.on("app:toast", (p) => void handleToast(p));
+    const currentTimers = timers.current;
+    return () => {
+      active = false;
+      unsubscribe();
+      for (const timer of currentTimers.values()) clearTimeout(timer);
+      currentTimers.clear();
+    };
+  }, [dismissToast]);
 
   useEffect(() => EventBus.on("app:dismiss-toast", dismissToast), [dismissToast]);
 
   const handleActionClick = async (toastId: string, action: ToastAction) => {
+    if (pendingActions.current.has(toastId)) return;
+    pendingActions.current.add(toastId);
+    const target = entries.current.get(toastId);
     try {
       await action.onClick?.();
+      if (entries.current.get(toastId) === target) dismissToast(toastId);
+    } catch (error) {
+      showToast(String(error), "error", { id: `${toastId}:action-error` });
     } finally {
-      dismissToast(toastId);
+      pendingActions.current.delete(toastId);
     }
   };
 
@@ -190,72 +194,15 @@ export function ToastContainer() {
   );
 }
 
-export const showToast = (
-  message: string,
-  type: ToastType = "info",
-  options?: ShowToastOptions,
-) => {
-  EventBus.emit("app:toast", {
-    message,
-    type,
-    ...options,
-  });
-};
-
-export const showNotification = (options: {
-  title?: string;
-  message: string;
-  type?: ToastType;
-  id?: string;
-  duration?: number | null;
-  actions?: ToastAction[];
-  onDismiss?: () => void;
-}) => {
-  EventBus.emit("app:toast", {
-    type: options.type ?? "info",
-    ...options,
-  });
-};
-
-export const showConfirm = (options: {
-  id?: string;
-  title: string;
-  message: string;
-  confirmLabel?: string;
-  cancelLabel?: string;
-  onConfirm: () => void | Promise<void>;
-  onCancel?: () => void | Promise<void>;
-}): string => {
-  const id = options.id ?? `confirm-${Date.now()}-${Math.random()}`;
-  let settled = false;
-  const settle = async (action?: () => void | Promise<void>) => {
-    if (settled) return;
-    settled = true;
-    await action?.();
-  };
-  showNotification({
-    id,
-    title: options.title,
-    message: options.message,
-    type: "confirm",
-    duration: null,
-    actions: [
-      {
-        label: options.cancelLabel ?? LocaleService.translate("common.cancel"),
-        variant: "secondary",
-        onClick: () => settle(options.onCancel),
-      },
-      {
-        label: options.confirmLabel ?? LocaleService.translate("common.ok"),
-        primary: true,
-        onClick: () => settle(options.onConfirm),
-      },
-    ],
-    onDismiss: () => void settle(options.onCancel),
-  });
-  return id;
-};
-
-export const dismissNotification = (id: string): void => {
-  EventBus.emit("app:dismiss-toast", id);
-};
+export type {
+  ShowToastOptions,
+  ToastAction,
+  ToastMessage,
+  ToastType,
+} from "../../Foundation/Notifications";
+export {
+  dismissNotification,
+  showConfirm,
+  showNotification,
+  showToast,
+} from "../../Foundation/Notifications";

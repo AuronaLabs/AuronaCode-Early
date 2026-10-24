@@ -12,6 +12,18 @@ import { showToast } from "../../UI/Feedback/Toast";
 
 const settings = [
   {
+    key: "requireExtensionSignature",
+    id: "extensionSignature",
+    title: "extensionSignature",
+    defaultValue: true,
+  },
+  {
+    key: "requireExtensionCatalogSignature",
+    id: "catalogSignature",
+    title: "catalogSignature",
+    defaultValue: true,
+  },
+  {
     key: "autoTrustWorkspaceLanguageServers",
     id: "languageServerAutoTrust",
     title: "autoTrustWorkspace",

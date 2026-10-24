@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  descriptorToMarketplaceItem,
+  formatMarketplaceInstallError,
+  type MarketplaceExtensionItem,
+  MarketplaceService,
+  type MarketplaceSourceStatus,
+} from "../../../Core/Extensions/Marketplace/MarketplaceService";
 import { LspClient } from "../../../Core/Language/LspClient";
 import { EventBus } from "../../../Foundation/EventBus";
 import { useLocale } from "../../../Foundation/I18n";
@@ -23,13 +30,6 @@ import { Icons } from "../../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../../UI/Layouts/SidebarPage";
 import { canonicalExtensionId } from "../ExtensionId";
 import { DependencyConfirmModal, type DependencyInfo } from "./DependencyConfirmModal";
-import {
-  descriptorToMarketplaceItem,
-  formatMarketplaceInstallError,
-  type MarketplaceExtensionItem,
-  MarketplaceService,
-  type MarketplaceSourceStatus,
-} from "./MarketplaceService";
 import {
   createMarketplaceViewState,
   type MarketplaceMode,

@@ -18,3 +18,5 @@ export type SettingCategory =
   | "advanced";
 
 export type SettingType = "boolean" | "number" | "string" | "select";
+
+export type SettingsSection = SettingCategory | "ai";

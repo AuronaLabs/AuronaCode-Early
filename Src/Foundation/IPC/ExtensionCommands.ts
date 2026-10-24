@@ -31,6 +31,7 @@ export interface ExtensionMarketplaceInfo {
 }
 
 export interface ExtensionDescriptor {
+  runtimeKind?: "component" | "javascript";
   id: string;
   name: string;
   displayName?: Record<string, string>;
@@ -172,6 +173,7 @@ export interface ExtensionNotificationEvent {
 export interface ExtensionStatusMessageEvent {
   extensionId: string;
   message: string;
+  timeoutMs: number;
 }
 
 export const ExtensionIPC = {

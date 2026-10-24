@@ -7,10 +7,10 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { syncAgentExecutorRegistration } from "../Core/Agent/AgentToolExecutor";
 import { DocumentService } from "../Core/DocumentService";
 import { EditorSaveRegistry } from "../Core/EditorSaveRegistry";
 import { RecoveryCoordinator } from "../Core/Recovery/RecoveryCoordinator";
-import { syncAgentExecutorRegistration } from "../Features/AiAssistant/AgentToolExecutor";
 import { EditorTabBar } from "../Features/Editor/EditorTabBar";
 import { startExtensionEditorBridge } from "../Features/Extensions/ExtensionEditorBridge";
 import { startExtensionHostBridge } from "../Features/Extensions/ExtensionHostBridge";

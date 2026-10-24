@@ -506,8 +506,6 @@ struct VsCodePackageJson {
 
 /// VSIX 包内单个 entry 的解压上限（§5.3.2：真执行 JS 前必须补齐安全项）。
 pub const MAX_VSIX_ENTRY_BYTES: u64 = 8 * 1024 * 1024;
-/// VSIX 主入口 JS 的额外约束：小于单 entry 通用上限即可视为拒绝超大脚本。
-const VSIX_JS_HARD_LIMIT: u64 = MAX_VSIX_ENTRY_BYTES;
 
 /// 校验 VSIX entry 名，阻断 zip-slip / 绝对路径 / 反斜杠分隔符。
 fn ensure_safe_vsix_entry_name(name: &str) -> Result<(), String> {
@@ -519,55 +517,6 @@ fn ensure_safe_vsix_entry_name(name: &str) -> Result<(), String> {
         return Err(format!("VSIX 包含不安全路径: {name}"));
     }
     Ok(())
-}
-
-/// 从 VSIX 归档中按 package.json 的 `main` 字段定位并读取主入口 JS。
-fn read_vsix_entry_bytes(
-    archive: &mut ZipArchive<Cursor<&[u8]>>,
-    wanted: &dyn Fn(&str) -> bool,
-    description: &str,
-) -> Result<Option<String>, String> {
-    let mut found: Option<(usize, u64)> = None;
-    for index in 0..archive.len() {
-        let entry = archive
-            .by_index(index)
-            .map_err(|error| format!("读取 VSIX entry 失败: {error}"))?;
-        if entry.is_dir() {
-            continue;
-        }
-        let name = entry.name().to_string();
-        ensure_safe_vsix_entry_name(&name)?;
-        let uncompressed = entry.size();
-        if uncompressed > MAX_VSIX_ENTRY_BYTES {
-            return Err(format!("VSIX 文件超过大小上限: {name}"));
-        }
-        if wanted(&name) {
-            found = Some((index, uncompressed));
-            break;
-        }
-    }
-    let Some((index, uncompressed)) = found else {
-        return Ok(None);
-    };
-    let mut entry = archive
-        .by_index(index)
-        .map_err(|error| format!("读取 VSIX entry 失败: {error}"))?;
-    if uncompressed > VSIX_JS_HARD_LIMIT {
-        return Err(format!("VSIX {description} 超过大小上限"));
-    }
-    let mut buffer = Vec::with_capacity(uncompressed as usize);
-    entry
-        .read_to_end(&mut buffer)
-        .map_err(|error| format!("读取 VSIX {description} 失败: {error}"))?;
-    if buffer.len() as u64 != uncompressed {
-        return Err(format!("VSIX 文件大小不一致: {description}"));
-    }
-    if crc32fast::hash(&buffer) != entry.crc32() {
-        return Err(format!("VSIX 文件校验失败: {description}"));
-    }
-    String::from_utf8(buffer)
-        .map(Some)
-        .map_err(|_| format!("VSIX {description} 不是有效的 UTF-8 文本"))
 }
 
 /// 解析与加载标准 VSCode 插件包 (.vsix)
@@ -639,15 +588,56 @@ pub fn open_vsix_package(archive_bytes: &[u8]) -> Result<Arc<ExtensionPackage>, 
         _ => vec!["extension/extension.js".to_string()],
     };
     let js_source = {
-        let mut js = None;
-        for candidate in &main_candidates {
-            let wanted = |name: &str| name.eq_ignore_ascii_case(candidate);
-            js = read_vsix_entry_bytes(&mut archive, &wanted, "主入口 JS")?;
-            if js.is_some() {
-                break;
+        let mut modules = std::collections::BTreeMap::<String, String>::new();
+        let mut total = 0usize;
+        for index in 0..archive.len() {
+            let mut entry = archive.by_index(index).map_err(|error| error.to_string())?;
+            let name = entry.name().replace('\\', "/");
+            if entry.is_dir()
+                || !name.starts_with("extension/")
+                || !(name.ends_with(".js") || name.ends_with(".json"))
+            {
+                continue;
+            }
+            ensure_safe_vsix_entry_name(&name)?;
+            if entry.size() > MAX_VSIX_ENTRY_BYTES {
+                return Err("[compat.module_limit] Module exceeds the entry budget".into());
+            }
+            let mut text = String::new();
+            std::io::Read::by_ref(&mut entry)
+                .take(MAX_VSIX_ENTRY_BYTES + 1)
+                .read_to_string(&mut text)
+                .map_err(|error| format!("[compat.module_encoding] {name}: {error}"))?;
+            total = total.saturating_add(text.len());
+            if total > MAX_ARCHIVE_BYTES as usize || modules.len() >= 2048 {
+                return Err("[compat.module_limit] Module bundle exceeds budget".into());
+            }
+            if modules.insert(name.clone(), text).is_some() {
+                return Err(format!("[compat.module_duplicate] {name}"));
             }
         }
-        js.unwrap_or_default()
+        let entry = main_candidates
+            .iter()
+            .flat_map(|candidate| {
+                [
+                    candidate.clone(),
+                    format!("{candidate}.js"),
+                    format!("{candidate}/index.js"),
+                ]
+            })
+            .find(|candidate| modules.contains_key(candidate));
+        match entry {
+            Some(entry) => format!(
+                "globalThis.__auronaModuleSources = {}; module.exports = __auronaLoadModule({});",
+                serde_json::to_string(&modules).map_err(|error| error.to_string())?,
+                serde_json::to_string(&entry).map_err(|error| error.to_string())?
+            ),
+            None => {
+                return Err(
+                    "[compat.entry_missing] VSIX has no supported CommonJS entry point".into(),
+                )
+            }
+        }
     };
 
     let id = if pkg.name.starts_with("vscode-") {

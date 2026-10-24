@@ -1,4 +1,5 @@
-﻿import { useLocale } from "../../../Foundation/I18n";
+﻿import type { MarketplaceExtensionItem } from "../../../Core/Extensions/Marketplace/MarketplaceService";
+import { useLocale } from "../../../Foundation/I18n";
 import { useInstallProgressStore } from "../../../State/useInstallProgressStore";
 import { AccountAvatar } from "../../../UI/Components/AccountAvatar";
 import { Button } from "../../../UI/Components/Button";
@@ -6,7 +7,6 @@ import { Card } from "../../../UI/Components/Card";
 import { Tooltip } from "../../../UI/Feedback/Tooltip";
 import { Icons } from "../../../UI/Icons/IconManager";
 import { ExtensionIcon } from "./ExtensionIcon";
-import type { MarketplaceExtensionItem } from "./MarketplaceService";
 
 interface MarketplaceCardProps {
   fixedHeight?: boolean;

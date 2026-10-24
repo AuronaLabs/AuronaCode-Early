@@ -78,6 +78,10 @@ export interface AppearancePreferences {
 
 /** Security choices whose trade-offs are visible to the user. Integrity boundaries remain backend-enforced. */
 export interface SecurityPreferences {
+  /** Authenticate downloaded/local extension packages. Defaults to true. */
+  requireExtensionSignature?: boolean;
+  /** Authenticate Marketplace catalogs independently of package signatures. Defaults to true. */
+  requireExtensionCatalogSignature?: boolean;
   /** Automatically trust workspace language-server configuration instead of prompting. Defaults to false. */
   autoTrustWorkspaceLanguageServers?: boolean;
   /** Ask before registering a new language-server, debugger or Python process launch. Defaults to true. */

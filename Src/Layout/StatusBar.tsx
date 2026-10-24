@@ -133,17 +133,35 @@ export function StatusBar() {
     };
   }, [activeLanguage, activeFilePath]);
 
-  // 扩展状态栏消息：4s 自动消失，新消息重置计时
+  // Timeout and disposal belong to the extension that owns the current message.
   useEffect(() => {
-    return EventBus.on("extension:status-message", ({ message }) => {
-      setExtensionStatusMessage(message);
-    });
+    let owner: string | null = null;
+    let timer: number | undefined;
+    const clear = () => {
+      window.clearTimeout(timer);
+      owner = null;
+      setExtensionStatusMessage(null);
+    };
+    const unsubscribe = EventBus.on(
+      "extension:status-message",
+      ({ extensionId, message, timeoutMs }) => {
+        if (!message) {
+          if (owner === extensionId) clear();
+          return;
+        }
+        window.clearTimeout(timer);
+        owner = extensionId;
+        setExtensionStatusMessage(message);
+        if (timeoutMs > 0) timer = window.setTimeout(clear, Math.min(timeoutMs, 2_147_483_647));
+      },
+    );
+    const unroot = EventBus.on("workspace:root-changed", clear);
+    return () => {
+      window.clearTimeout(timer);
+      unsubscribe();
+      unroot();
+    };
   }, []);
-  useEffect(() => {
-    if (!extensionStatusMessage) return;
-    const timer = window.setTimeout(() => setExtensionStatusMessage(null), 4000);
-    return () => window.clearTimeout(timer);
-  }, [extensionStatusMessage]);
 
   return (
     <footer className="flex h-[var(--StatusBarHeight)] shrink-0 items-center bg-transparent px-4 text-xs text-[var(--color-text-muted)] font-medium overflow-hidden">

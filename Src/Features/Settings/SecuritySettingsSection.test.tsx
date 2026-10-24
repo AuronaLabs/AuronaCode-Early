@@ -55,6 +55,8 @@ describe("Security settings", () => {
     await open();
     expect(control("autoTrustWorkspace")).not.toBeChecked();
     for (const key of [
+      "extensionSignature",
+      "catalogSignature",
       "localProcessApproval",
       "workspaceApproval",
       "aiEndpointApproval",
@@ -129,6 +131,17 @@ describe("Security settings", () => {
     );
     await waitFor(() => expect(control("deleteApproval")).toBeChecked());
     expect(mocks.set).toHaveBeenCalledWith({ security: { requireDeleteApproval: true } });
+  });
+
+  it("allows package and catalog signature checks to be disabled independently", async () => {
+    await open({ security: { requireExtensionCatalogSignature: true } });
+    fireEvent.click(control("extensionSignature"));
+    await waitFor(() => expect(control("extensionSignature")).not.toBeChecked());
+    expect(control("catalogSignature")).toBeChecked();
+    expect(mocks.set).toHaveBeenLastCalledWith({
+      security: { requireExtensionCatalogSignature: true, requireExtensionSignature: false },
+    });
+    expect(mocks.reload).not.toHaveBeenCalled();
   });
 
   it("reports load errors without allowing unsaved default values to overwrite configuration", async () => {

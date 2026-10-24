@@ -40,9 +40,9 @@ vi.mock("../State/useTerminalStore", () => ({
 vi.mock("../State/useEditorStore", () => ({
   initializeEditorStore: mocks.initializeEditorStore,
 }));
-vi.mock("./Commands", () => ({ registerWorkbenchCommands: mocks.registerWorkbenchCommands }));
-vi.mock("./DebugService", () => ({ DebugService: { dispose: vi.fn() } }));
-vi.mock("./Recovery/RecoveryCoordinator", () => ({
+vi.mock("../Core/Commands", () => ({ registerWorkbenchCommands: mocks.registerWorkbenchCommands }));
+vi.mock("../Core/DebugService", () => ({ DebugService: { dispose: vi.fn() } }));
+vi.mock("../Core/Recovery/RecoveryCoordinator", () => ({
   RecoveryCoordinator: { flushAll: mocks.flushRecovery },
 }));
 vi.mock("../Foundation/IPC/AccountAuthCommands", () => ({

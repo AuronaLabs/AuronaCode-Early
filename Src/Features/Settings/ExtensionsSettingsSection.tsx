@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { resolveExtensionName } from "../../Core/Extensions/ExtensionUtils";
+import {
+  DEFAULT_MARKETPLACE_URL,
+  MarketplaceService,
+} from "../../Core/Extensions/Marketplace/MarketplaceService";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import type {
   ExtensionDescriptor,
@@ -19,11 +24,6 @@ import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
-import { resolveExtensionName } from "../Extensions/ExtensionUtils";
-import {
-  DEFAULT_MARKETPLACE_URL,
-  MarketplaceService,
-} from "../Extensions/Marketplace/MarketplaceService";
 
 /** 等级徽标配色：常规 / 敏感 / 危险 */
 const LEVEL_BADGE: Record<string, string> = {

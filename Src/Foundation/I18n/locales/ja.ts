@@ -1,6 +1,15 @@
 import type { LocaleMessages } from "./zh-CN";
 
 export const ja: LocaleMessages = {
+  workspaceApproval: {
+    title: "ワークスペースへのアクセス要求",
+    review: "要求を確認",
+    allow: "アクセスを許可",
+    description:
+      "信頼できるフォルダーのみ許可してください。開いた後はエディターと許可済みの拡張機能がファイルにアクセスできます。",
+  },
+  platformTransitionTip:
+    "Aurona Account はまもなく新しい Aurona Platform に移行します。旧サービスは近日中に終了予定です。続報をお待ちください。",
   oobe: {
     welcomeTitle: "Aurona Code へようこそ",
     welcomeDesc: "コードを書くことは、より静かで心地よい場所に値します",
@@ -966,6 +975,13 @@ export const ja: LocaleMessages = {
       stopping: "停止中",
     },
     securitySettings: {
+      extensionSignature: "拡張機能パッケージの署名を必須にする",
+      extensionSignatureDescription:
+        "既定では発行者、署名、パッケージ識別情報を検証します。無効にすると署名なしや認証に失敗したパッケージを許可します。インストール確認と実行権限は個別に設定できます。",
+      catalogSignature: "拡張機能カタログの署名を必須にする",
+      catalogSignatureDescription:
+        "既定では Marketplace カタログを検証します。無効にすると未認証カタログの閲覧とインストールを許可します。内容は信頼できる発行者の証明にはなりません。",
+
       sectionTitle: "セキュリティと認証",
       sectionDescription:
         "ワークスペース境界、構成フィンガープリント、バックエンド検証を維持したまま、日常的な認証確認の既定動作を選択します。",

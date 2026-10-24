@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { canonicalExtensionId, migrateExtensionRecords } from "../Features/Extensions/ExtensionId";
 import {
   type ExtensionDescriptor,
   ExtensionIPC,
@@ -9,6 +8,7 @@ import {
   type ExtensionViewPayload,
 } from "../Foundation/IPC/ExtensionCommands";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
+import { canonicalExtensionId, migrateExtensionRecords } from "../Foundation/Types/ExtensionId";
 
 const HIDDEN_EXTENSIONS_STORAGE_KEY = "aurona:hidden-extensions";
 export const VSCODE_COMPAT_EXTENSION_ID = "aurona.vscode-compat";

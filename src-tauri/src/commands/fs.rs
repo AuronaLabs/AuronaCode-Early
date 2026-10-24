@@ -1060,7 +1060,6 @@ pub async fn workspace_set_root(
     state: State<'_, WorkspaceState>,
     root: Option<String>,
 ) -> Result<(), String> {
-    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
     let _transition = state.transition.lock().await;
     let generation = state.generation();
     if let Some(raw) = &root {
@@ -1077,37 +1076,18 @@ pub async fn workspace_set_root(
         if state.root()?.as_ref() == Some(&canonical) {
             return Ok(());
         }
-        let (sender, receiver) = tokio::sync::oneshot::channel();
-        let (title, body) = crate::authorization_dialogs::text(
-            &app,
-            "workspace",
-            &[("path", &canonical.to_string_lossy())],
-        );
         #[cfg(feature = "audit-harness")]
         let isolated_workspace = canonical == crate::audit_harness::root(&app)?;
         #[cfg(not(feature = "audit-harness"))]
         let isolated_workspace = false;
-        if isolated_workspace
-            || !crate::authorization_dialogs::security_preference(
+        if !isolated_workspace
+            && crate::authorization_dialogs::security_preference(
                 &app,
                 "requireWorkspaceApproval",
                 true,
             )
+            && !crate::workspace_approval::request(&app, &canonical.to_string_lossy()).await?
         {
-            let _ = sender.send(true);
-        } else {
-            app.dialog()
-                .message(body)
-                .title(title)
-                .buttons(MessageDialogButtons::YesNo)
-                .show(move |approved| {
-                    let _ = sender.send(approved);
-                });
-        }
-        if !matches!(
-            tokio::time::timeout(Duration::from_secs(60), receiver).await,
-            Ok(Ok(true))
-        ) {
             return Err("[workspace.denied] Workspace was not authorized".into());
         }
         if Path::new(raw)

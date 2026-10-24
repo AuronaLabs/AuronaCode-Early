@@ -1,6 +1,15 @@
 import type { LocaleMessages } from "./zh-CN";
 
 export const de: LocaleMessages = {
+  workspaceApproval: {
+    title: "Arbeitsbereichszugriff",
+    review: "Anfrage prüfen",
+    allow: "Zugriff erlauben",
+    description:
+      "Erlaube nur Ordner, denen du vertraust. Editor und autorisierte Erweiterungen können danach auf deren Dateien zugreifen.",
+  },
+  platformTransitionTip:
+    "Aurona Account wird bald zur neuen Aurona Platform. Der bisherige Dienst wird demnächst eingestellt. Mehr dazu in Kürze.",
   oobe: {
     welcomeTitle: "Willkommen bei Aurona Code",
     welcomeDesc: "Weil Programmieren einen ruhigeren, bequemeren Ort verdient.",
@@ -978,6 +987,13 @@ export const de: LocaleMessages = {
       stopping: "Wird gestoppt",
     },
     securitySettings: {
+      extensionSignature: "Signaturen für Erweiterungspakete verlangen",
+      extensionSignatureDescription:
+        "Prüft Herausgeber, Signatur und Paketidentität. Deaktivieren erlaubt unsignierte Pakete und fehlgeschlagene Authentifizierung. Installationsbestätigung und Ausführungsrechte bleiben unabhängig.",
+      catalogSignature: "Signaturen für Erweiterungskataloge verlangen",
+      catalogSignatureDescription:
+        "Prüft den Marketplace-Katalog. Deaktivieren erlaubt nicht authentifizierte Kataloge und Installationen daraus; deren Inhalt bestätigt keinen vertrauenswürdigen Herausgeber.",
+
       sectionTitle: "Sicherheit & Autorisierung",
       sectionDescription:
         "Lege Standardwerte für routinemäßige Autorisierungsabfragen fest, während Arbeitsbereichsgrenzen, Konfigurationsfingerabdrücke und Backend-Prüfungen erhalten bleiben.",

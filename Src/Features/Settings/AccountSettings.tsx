@@ -108,6 +108,12 @@ export function AccountSettings() {
       layer="raised"
       className="flex min-h-[520px] w-full max-w-3xl flex-col overflow-hidden"
     >
+      <p
+        role="note"
+        className="border-b border-[var(--border-subtle)] px-6 py-4 text-[12px] leading-relaxed text-[var(--color-text-muted)]"
+      >
+        {t("platformTransitionTip")}
+      </p>
       {signedIn ? (
         <>
           {/* Hero 区：accent 光晕 + 头像光圈 + 身份信息 */}

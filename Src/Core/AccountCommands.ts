@@ -3,7 +3,7 @@ import { EventBus } from "../Foundation/EventBus";
 import { LocaleService } from "../Foundation/I18n";
 import type { AccountAuthPhase } from "../Foundation/IPC/AccountAuthCommands";
 import { useWorkbenchStore } from "../State/useWorkspaceStore";
-import { showToast } from "../UI/Feedback/Toast";
+
 import { AccountService } from "./AccountService";
 
 const PENDING_PHASES: AccountAuthPhase[] = [
@@ -46,12 +46,16 @@ export function registerAccountCommands(): () => void {
       handler: async () => {
         const result = await AccountService.login();
         if (result.phase === "failed") {
-          showToast(
-            result.lastError?.userMessage ?? LocaleService.translate("account.loginFailed"),
-            "error",
-          );
+          EventBus.emit("app:toast", {
+            message:
+              result.lastError?.userMessage ?? LocaleService.translate("account.loginFailed"),
+            type: "error",
+          });
         } else if (result.phase === "signedIn") {
-          showToast(LocaleService.translate("account.loginToast"), "success");
+          EventBus.emit("app:toast", {
+            message: LocaleService.translate("account.loginToast"),
+            type: "success",
+          });
         }
       },
     }),
@@ -62,7 +66,10 @@ export function registerAccountCommands(): () => void {
       canExecute: () => AccountService.getSnapshot().phase === "signedIn",
       handler: async () => {
         await AccountService.logout();
-        showToast(LocaleService.translate("account.logoutToast"), "info");
+        EventBus.emit("app:toast", {
+          message: LocaleService.translate("account.logoutToast"),
+          type: "info",
+        });
       },
     }),
     CommandRegistry.register({
@@ -73,12 +80,16 @@ export function registerAccountCommands(): () => void {
       handler: async () => {
         const result = await AccountService.refresh();
         if (result.phase === "failed") {
-          showToast(
-            result.lastError?.userMessage ?? LocaleService.translate("account.refreshFailed"),
-            "error",
-          );
+          EventBus.emit("app:toast", {
+            message:
+              result.lastError?.userMessage ?? LocaleService.translate("account.refreshFailed"),
+            type: "error",
+          });
         } else if (result.phase === "signedIn") {
-          showToast(LocaleService.translate("account.refreshToast"), "success");
+          EventBus.emit("app:toast", {
+            message: LocaleService.translate("account.refreshToast"),
+            type: "success",
+          });
         }
       },
     }),

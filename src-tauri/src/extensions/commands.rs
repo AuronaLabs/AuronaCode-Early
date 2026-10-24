@@ -482,7 +482,7 @@ pub async fn extensions_render(
     let render_ms = render_started.elapsed().as_secs_f64() * 1000.0;
 
     Ok(ExtensionRenderResponse {
-        html: super::content::html(&output.html)?,
+        html: super::content::render_output(&output.html)?,
         diagnostics: output.diagnostics,
         metrics: ExtensionRenderMetrics {
             package_open_ms: 0.0,
@@ -512,11 +512,14 @@ pub async fn extensions_on_action(
     let wasm_compile_ms = compile_started.elapsed().as_secs_f64() * 1000.0;
 
     let action_started = Instant::now();
-    // VSCode 兼容包：组件跨调用无状态，on-action 时必须重新执行 JS。
-    // WIT 契约保持不变——host 把 payload 覆盖为主入口 JS 源码，
-    // action-id 语义不变（compat 运行时只服务 vscode 路径 2 扩展）。
+    // Executable source is always installed package content, never action data.
     let payload = match state.package(&request.extension_id) {
-        Some(pkg) if !pkg.js_source.is_empty() => pkg.js_source.clone(),
+        Some(pkg) if !pkg.js_source.is_empty() => serde_json::json!({
+            "source": pkg.js_source,
+            "data": serde_json::from_str::<serde_json::Value>(&request.payload)
+                .map_err(|error| format!("[compat.action_payload] {error}"))?,
+        })
+        .to_string(),
         _ => request.payload,
     };
     let output =
@@ -526,7 +529,7 @@ pub async fn extensions_on_action(
     let action_ms = action_started.elapsed().as_secs_f64() * 1000.0;
 
     Ok(ExtensionRenderResponse {
-        html: super::content::html(&output.html)?,
+        html: super::content::render_output(&output.html)?,
         diagnostics: output.diagnostics,
         metrics: ExtensionRenderMetrics {
             package_open_ms: 0.0,

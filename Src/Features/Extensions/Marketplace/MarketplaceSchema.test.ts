@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { boundedCatalog, validateMarketplaceRecord } from "./MarketplaceSchema";
+import {
+  boundedCatalog,
+  validateMarketplaceRecord,
+} from "../../../Core/Extensions/Marketplace/MarketplaceSchema";
 
 describe("Marketplace schema", () => {
   it("rejects values that would be silently coerced into display metadata", () => {

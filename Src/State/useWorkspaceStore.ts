@@ -2,13 +2,13 @@ import { create } from "zustand";
 import { DiagnosticsService } from "../Core/DiagnosticsService";
 import { FileSystemService } from "../Core/FileSystemService";
 import type { SettingCategory } from "../Core/Settings/SettingRegistry";
-import type { SettingsSection } from "../Features/Settings/SettingsTab";
 import { EventBus } from "../Foundation/EventBus";
 import { type I18nKey, LocaleService } from "../Foundation/I18n";
 import { EditorIPC } from "../Foundation/IPC/EditorCommands";
 import { PlatformService } from "../Foundation/Platform";
 import { WorkspaceStore } from "../Foundation/Storage/WorkspaceStore";
 import { canonicalExtensionId } from "../Foundation/Types/ExtensionId";
+import type { SettingsSection } from "../Foundation/Types/Settings";
 import type { TabItem } from "../Foundation/Types/Tab";
 import {
   extensionIdFromSidebar,

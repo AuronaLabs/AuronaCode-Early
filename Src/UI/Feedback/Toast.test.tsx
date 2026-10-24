@@ -3,6 +3,42 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { showConfirm, showToast, ToastContainer } from "./Toast";
 
 describe("ToastContainer + showToast/showConfirm", () => {
+  it("replaces an existing timer when the same notification is updated", async () => {
+    render(<ToastContainer />);
+    act(() => showToast("old", "info", { id: "progress", duration: 1000 }));
+    await act(async () => {});
+    act(() => {
+      vi.advanceTimersByTime(900);
+      showToast("updated", "info", { id: "progress", duration: null });
+    });
+    await act(async () => {});
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(screen.getByText("updated")).toBeInTheDocument();
+  });
+
+  it("keeps a failed action available for retry and settles confirmation only on success", async () => {
+    const action = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(undefined);
+    render(<ToastContainer />);
+    act(() => {
+      showConfirm({
+        title: "retry",
+        message: "request",
+        confirmLabel: "approve",
+        onConfirm: action,
+      });
+    });
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "approve" }));
+    await act(async () => {});
+    expect(screen.getByText("request")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "approve" }));
+    await act(async () => {});
+    expect(action).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText("request")).not.toBeInTheDocument();
+  });
   beforeEach(() => {
     vi.useFakeTimers();
   });

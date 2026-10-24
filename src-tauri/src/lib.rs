@@ -35,6 +35,7 @@ mod scoped_file;
 mod search;
 mod tasks;
 pub mod toolchains;
+mod workspace_approval;
 
 use commands::dap_cmds::DapState;
 pub use commands::lsp_cmds::LspState;
@@ -69,6 +70,7 @@ pub fn run() {
         .manage(ai_profiles::AiProfileState::default())
         .manage(artifacts::ArtifactState::default())
         .manage(tasks::TaskState::default())
+        .manage(workspace_approval::WorkspaceApprovals::default())
         .manage(app_storage::AppStorageState::default())
         .manage(agent_storage::AgentStorageState::default())
         .manage(app_update::UpdateState::default())
@@ -217,6 +219,7 @@ pub fn run() {
             commands::fs::fs_copy_or_move,
             commands::fs::workspace_set_root,
             commands::fs::workspace_generation,
+            workspace_approval::workspace_resolve_approval,
             commands::git::git_cancel,
             resource_limits::resource_budgets,
             commands::fs::fs_read_dir,

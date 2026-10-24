@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { sanitizeExtensionDocument } from "../../Foundation/Security/ExtensionContent";
 import { type DeclarativeUIRoot, isDeclarativeUI } from "../../Foundation/Types/ExtensionUI";
+import { CompatWebview } from "./CompatWebview";
 import { DeclarativeUIRenderer } from "./Declarative/DeclarativeUIRenderer";
 
 export interface ExtensionRenderState {
@@ -16,7 +17,7 @@ interface ExtensionViewHostProps {
   fontSize: string;
   fontWeight: string;
   renderState: ExtensionRenderState | null;
-  onAction?: (actionId: string, payload?: unknown) => void;
+  onAction?: (actionId: string, payload?: unknown) => void | Promise<void>;
 }
 
 const RENDER_SLOT = "<!--AURONA_RENDER_SLOT-->";
@@ -129,6 +130,18 @@ export function ExtensionViewHost({
     return (
       <div className="h-full w-full overflow-y-auto overflow-x-hidden bg-transparent">
         <DeclarativeUIRenderer ui={declarativeUI} onAction={onAction} />
+        {declarativeUI.webviews
+          ?.slice(0, 8)
+          .filter(
+            (panel) =>
+              typeof panel.id === "string" &&
+              typeof panel.title === "string" &&
+              typeof panel.html === "string" &&
+              Array.isArray(panel.messages),
+          )
+          .map((panel) => (
+            <CompatWebview key={panel.id} panel={panel} theme={theme} onAction={onAction} />
+          ))}
       </div>
     );
   }

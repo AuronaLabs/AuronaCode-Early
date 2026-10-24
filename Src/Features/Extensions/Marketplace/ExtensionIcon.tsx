@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from "react";
-import { extensionSvgDataUrl } from "../../../Foundation/Security/ExtensionContent";
 import { useRestrictedImage } from "../../../Foundation/Security/RestrictedImage";
+import { ExtensionGlyph } from "../../../UI/Components/ExtensionGlyph";
 import { Icons } from "../../../UI/Icons/IconManager";
 
 interface ExtensionIconProps {
@@ -150,14 +150,7 @@ export function ExtensionIcon({
 
   // 3. 如果是以 <svg 开头的内联 SVG 字符串
   if (trimmed.startsWith("<svg") || (trimmed.startsWith("<") && trimmed.includes("</svg>"))) {
-    return (
-      <img
-        src={extensionSvgDataUrl(trimmed) ?? ""}
-        alt={name}
-        style={{ width: size, height: size, color: resolvedColor }}
-        className={`flex items-center justify-center shrink-0 [&>svg]:size-full [&>svg]:object-contain ${className}`}
-      />
-    );
+    return <ExtensionGlyph source={trimmed} size={size} className={className} />;
   }
 
   // 4. 如果是图片 URL (http, https, data:image, 相对路径, 带有图片后缀等)

@@ -83,8 +83,8 @@ export async function startExtensionHostBridge(): Promise<() => void> {
               : "info";
       showToast(message, type);
     }),
-    ExtensionIPC.onStatusMessage(({ message }) => {
-      EventBus.emit("extension:status-message", { message });
+    ExtensionIPC.onStatusMessage((event) => {
+      EventBus.emit("extension:status-message", event);
     }),
   ]);
 

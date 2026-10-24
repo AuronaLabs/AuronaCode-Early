@@ -1,5 +1,11 @@
 # Aurona Code 文档
 
+## 当前开发版本
+
+- [0.4.17「静」开发记录](0.4.17-Development-Plan.md)：模块化与 Corona+ 整改、Git/扩展基础可用性、可选安全策略和统一设计的实现与验证证据。
+- [0.4.17 代码审查](0.4.17-Code-Review.md)：问题根因、已完成修复、自动检查结果与真实桌面验收边界。
+- [VS Code 兼容层能力矩阵](0.4.17-VSCode-Compatibility-Matrix.md)：逐项记录已支持、部分支持和待桌面验收的能力范围。
+
 ## 当前版本
 
 - [0.4.16 发布记录](0.4.16-Release-Preflight.md)：2026-10-24 发布到 Stable，记录发布源码、Quality、安装包签名与剩余验收边界。

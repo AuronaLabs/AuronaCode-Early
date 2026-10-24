@@ -205,7 +205,7 @@ describe("EditorTab save checkpoints", () => {
     expect(capsule.textContent).toBe("");
     fireEvent.click(screen.getByRole("button", { name: "预览" }));
     const heading = await screen.findByRole("heading", { name: "Draft heading" });
-    expect(heading.closest(".markdown-preview-scroll")).toHaveClass("glass-layer-base");
+    expect(heading.closest(".markdown-preview-scroll")).not.toHaveClass("glass-layer-base");
     expect(screen.getByTestId("editor-change")).toBe(editor);
 
     fireEvent.click(screen.getByRole("button", { name: "源码" }));

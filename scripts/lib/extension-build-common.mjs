@@ -37,9 +37,9 @@ export function findVcvars64() {
 /**
  * 编译 wasm32-wasip2 guest 组件。
  * 失败时依次兜底：VS BuildTools vcvars64 激活环境重试 → rustup 补 target 重试 →
- * 若已有旧产物则继续使用。
+ * 任何重试失败都终止构建，不能让旧归档冒充新代码。
  */
-export function buildGuest({ guestDir, remapAlias, outputPath }) {
+export function buildGuest({ guestDir, remapAlias }) {
   const manifestPath = join(guestDir, "Cargo.toml");
   const lockPath = join(guestDir, "Cargo.lock");
   const args = ["build", "--manifest-path", manifestPath, "--target", "wasm32-wasip2", "--release"];
@@ -56,35 +56,20 @@ export function buildGuest({ guestDir, remapAlias, outputPath }) {
       .join("\x1f"),
   };
 
+  const vcvars = process.platform === "win32" ? findVcvars64() : undefined;
+  const compile = () => {
+    if (vcvars) execSync(`call "${vcvars}" && cargo ${args.map((a) => `"${a}"`).join(" ")}`, { stdio: "inherit", env });
+    else execFileSync("cargo", args, { stdio: "inherit", env });
+  };
   try {
-    execFileSync("cargo", args, { stdio: "inherit", env });
+    compile();
   } catch {
-    if (process.platform === "win32") {
-      const vcvars = findVcvars64();
-      if (vcvars) {
-        console.log(`检测到 VS BuildTools 环境: ${vcvars}，正在激活环境编译...`);
-        try {
-          execSync(`"${vcvars}" && cargo ${args.map((a) => `"${a}"`).join(" ")}`, {
-            stdio: "inherit",
-            env,
-          });
-          return;
-        } catch (vcvarsErr) {
-          console.warn("使用 vcvars 编译仍有异常:", vcvarsErr);
-        }
-      }
-    }
     console.warn("WASM 目标 wasm32-wasip2 编译未就绪，尝试通过 rustup 自动补充 target...");
     try {
       execFileSync("rustup", ["target", "add", "wasm32-wasip2"], { stdio: "inherit" });
-      execFileSync("cargo", args, { stdio: "inherit", env });
+      compile();
     } catch (secondError) {
-      if (existsSync(outputPath)) {
-        console.warn("未能重新编译 WASM，但检测到已存在扩展归档，将继续使用现有产物并执行校验。");
-        return;
-      }
-      console.error(`WASM 构建失败: ${secondError}`);
-      process.exit(1);
+      throw new Error("WASM 构建失败；不会复用旧扩展归档。", { cause: secondError });
     }
   }
 }

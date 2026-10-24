@@ -7,7 +7,6 @@ import { FileSystemService } from "../../../Core/FileSystemService";
 import { useLocale } from "../../../Foundation/I18n";
 import { FileSystemCommands } from "../../../Foundation/IPC/FileSystemCommands";
 import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
-import { GlassContainer } from "../../../UI/Core/GlassManager/GlassContainer";
 import { Tooltip } from "../../../UI/Feedback/Tooltip";
 import { Icons } from "../../../UI/Icons/IconManager";
 import "./MarkdownPreview.css";
@@ -193,9 +192,8 @@ export function MarkdownPreview({
   };
 
   return (
-    <GlassContainer
+    <div
       ref={scrollRef}
-      layer="base"
       className="markdown-preview-scroll aurona-scroll h-full overflow-y-auto rounded-none border-0"
       onScroll={(event) => onScrollTopChange(event.currentTarget.scrollTop)}
     >
@@ -239,6 +237,6 @@ export function MarkdownPreview({
           </ReactMarkdown>
         </article>
       </div>
-    </GlassContainer>
+    </div>
   );
 }

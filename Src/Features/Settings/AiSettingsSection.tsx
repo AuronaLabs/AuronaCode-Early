@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AgentService } from "../../Core/Agent/AgentService";
+import { syncAgentExecutorRegistration } from "../../Core/Agent/AgentToolExecutor";
 import {
   type AgentPermissionLevel,
   normalizeAgentPermission,
@@ -19,7 +20,6 @@ import { GlassContainer } from "../../UI/Core/GlassManager";
 import { useViewLease } from "../../UI/Core/ViewState";
 import { showConfirm, showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
-import { syncAgentExecutorRegistration } from "../AiAssistant/AgentToolExecutor";
 
 /** 0.4.9：AI 多模型配置档设置（列表 / 展开编辑 / 删除确认 / 激活切换 / 测试连接）。 */
 

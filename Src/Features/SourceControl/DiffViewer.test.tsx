@@ -11,8 +11,11 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../Foundation/I18n", () => ({ useLocale: () => ({ t: (key: string) => key }) }));
-vi.mock("../../Foundation/Storage/WorkspaceStore", () => ({
-  WorkspaceStore: { get: () => Promise.resolve({ lastOpenedPath: "C:/workspace" }) },
+vi.mock("../../Core/WorkspaceService", () => ({
+  WorkspaceService: {
+    whenInitialized: async () => {},
+    getCurrent: () => ({ primaryRoot: "C:/workspace" }),
+  },
 }));
 vi.mock("../../Foundation/IPC/GitCommands", () => ({
   GitIPC: {

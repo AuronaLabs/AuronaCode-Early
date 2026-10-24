@@ -1,3 +1,4 @@
+import type { MarketplaceExtensionItem } from "../../../Core/Extensions/Marketplace/MarketplaceService";
 import type { LspClient } from "../../../Core/Language/LspClient";
 import { useLocale } from "../../../Foundation/I18n";
 import type {
@@ -8,7 +9,6 @@ import { Button } from "../../../UI/Components/Button";
 import { Card } from "../../../UI/Components/Card";
 import { canonicalExtensionId } from "../ExtensionId";
 import { MarketplaceCard } from "./MarketplaceCard";
-import type { MarketplaceExtensionItem } from "./MarketplaceService";
 
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";

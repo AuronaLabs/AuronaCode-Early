@@ -1,28 +1,28 @@
-import { resolveAgentToolAuthorization } from "../../Core/Agent/AgentPolicies";
-import { AgentService } from "../../Core/Agent/AgentService";
+import { CommandRegistry } from "../../Extension/CommandRegistry";
+import { LocaleService } from "../../Foundation/I18n";
+import { FileSystemCommands } from "../../Foundation/IPC/FileSystemCommands";
+import { GitIPC } from "../../Foundation/IPC/GitCommands";
+import { WorkspaceSearchIPC } from "../../Foundation/IPC/WorkspaceSearchCommands";
+import { dismissNotification, showConfirm } from "../../Foundation/Notifications";
+import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
+import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { normalizeAgentPermission } from "../AiProfiles";
+import { DiagnosticsService } from "../DiagnosticsService";
+import { DocumentService } from "../DocumentService";
+import { EditorAdapter } from "../Editor/EditorAdapter";
+import { OutputService } from "../OutputService";
+import { TerminalManager } from "../TerminalService";
+import { WorkspaceService } from "../WorkspaceService";
+import { resolveAgentToolAuthorization } from "./AgentPolicies";
+import { AgentService } from "./AgentService";
 import type {
   AgentToolCheckpointPolicy,
   AgentToolEffect,
   AgentToolMetadata,
   AgentToolPermission,
   AgentToolRecoverability,
-} from "../../Core/Agent/AgentTypes";
-import { getWorkspaceContext } from "../../Core/Agent/WorkspaceContext";
-import { normalizeAgentPermission } from "../../Core/AiProfiles";
-import { DiagnosticsService } from "../../Core/DiagnosticsService";
-import { DocumentService } from "../../Core/DocumentService";
-import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
-import { OutputService } from "../../Core/OutputService";
-import { TerminalManager } from "../../Core/TerminalService";
-import { WorkspaceService } from "../../Core/WorkspaceService";
-import { CommandRegistry } from "../../Extension/CommandRegistry";
-import { LocaleService } from "../../Foundation/I18n";
-import { FileSystemCommands } from "../../Foundation/IPC/FileSystemCommands";
-import { GitIPC } from "../../Foundation/IPC/GitCommands";
-import { WorkspaceSearchIPC } from "../../Foundation/IPC/WorkspaceSearchCommands";
-import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
-import { useWorkbenchStore } from "../../State/useWorkspaceStore";
-import { dismissNotification, showConfirm } from "../../UI/Feedback/Toast";
+} from "./AgentTypes";
+import { getWorkspaceContext } from "./WorkspaceContext";
 
 /**
  * 0.4.8 AI agent 工具执行端：把 0.4.7 预留的 tool_calls 协议接到真实能力上。
@@ -160,15 +160,15 @@ function resolveWorkspacePath(
   const raw = (input ?? "").trim();
   if (!raw && !allowEmpty) throw new Error("A workspace path is required");
   const rootPath = root.replaceAll("\\", "/").replace(/\/+$/, "");
-  const candidate = raw ? raw.replaceAll("\\", "/") : ".";
+  const candidate = raw ? raw.replaceAll("\\", "/") : "../../Features/AiAssistant";
   const isAbsolute = /^[A-Za-z]:\//.test(candidate) || candidate.startsWith("/");
   const base = isAbsolute ? candidate : `${rootPath}/${candidate}`;
   const rootSegments = rootPath.split("/").filter(Boolean).length;
   const parts = base.split("/");
   const normalized: string[] = [];
   for (const part of parts) {
-    if (!part || part === ".") continue;
-    if (part === "..") {
+    if (!part || part === "../../Features/AiAssistant") continue;
+    if (part === "../../Features") {
       if (normalized.length <= rootSegments) throw new Error("Path must stay inside the workspace");
       normalized.pop();
     } else normalized.push(part);
@@ -843,7 +843,7 @@ function exampleForTool(name: string): string {
     case "read_file":
       return '{"path":"src/App.tsx"}';
     case "list_dir":
-      return '{"path":"."}';
+      return '{"path":"../../Features/AiAssistant"}';
     case "search_workspace":
       return '{"query":"AgentService"}';
     case "edit_file":

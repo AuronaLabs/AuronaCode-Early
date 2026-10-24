@@ -1,6 +1,7 @@
 ﻿import React, { useCallback, useEffect, useRef, useState } from "react";
 import { GitService, type SourceControlCache } from "../../Core/GitService";
 import { OutputService } from "../../Core/OutputService";
+import { WorkspaceService } from "../../Core/WorkspaceService";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import {
@@ -10,7 +11,6 @@ import {
   GitIPC,
   type GitRecovery,
 } from "../../Foundation/IPC/GitCommands";
-import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { cn } from "../../Shared/Utils/cn";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Badge } from "../../UI/Components/Badge";
@@ -81,6 +81,7 @@ export const SourceControl = React.memo(function SourceControl() {
         EventBus.emit("git:changes-count", cache.files.length);
       } catch (error) {
         if (!isCurrent(path, epoch)) return;
+        if (/\[(?:process\.cancelled|workspace\.generation)\]/.test(String(error))) return;
         console.error("Git status failed", error);
         if (!background)
           showToast(
@@ -113,7 +114,12 @@ export const SourceControl = React.memo(function SourceControl() {
     const initialEpoch = context.current.epoch;
     const changeRoot = (path: string | null) => {
       const previous = context.current.path;
-      if (previous) void GitIPC.cancel(previous).catch(() => undefined);
+      // This view is only a consumer. Cancelling by cwd also aborts shared
+      // refreshes, editor diffs and writes owned by other consumers.
+      if (previous === path) {
+        activeRoot = path;
+        return;
+      }
       context.current = { path, epoch: context.current.epoch + 1, active: true };
       activeRoot = path;
       setRepoPath(path);
@@ -129,8 +135,8 @@ export const SourceControl = React.memo(function SourceControl() {
 
     const init = async () => {
       try {
-        const config = await WorkspaceStore.get();
-        const path = config.lastOpenedPath || null;
+        await WorkspaceService.whenInitialized();
+        const path = WorkspaceService.getCurrent().primaryRoot;
         if (!mounted || context.current.epoch !== initialEpoch) return;
         changeRoot(path);
 

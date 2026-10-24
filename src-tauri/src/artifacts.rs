@@ -17,6 +17,7 @@ struct Artifact {
     generation: Option<u64>,
     file: tempfile::NamedTempFile,
     signed: Option<ArtifactPayload>,
+    requested: Option<(String, Option<String>)>,
     created: Instant,
     sha256: String,
     size: u64,
@@ -50,6 +51,7 @@ impl ArtifactState {
             size: signed.size_bytes,
             file,
             signed: Some(signed),
+            requested: None,
             created: Instant::now(),
         })
     }
@@ -152,41 +154,62 @@ async fn download_artifact(
         crate::network_policy::DownloadPurpose::Extension,
     )
     .await?;
-    let descriptor = response
-        .headers()
-        .get("X-Aurona-Artifact-Descriptor")
-        .and_then(|value| value.to_str().ok())
-        .ok_or("[signature.required] Marketplace artifact signing metadata is unavailable")?;
-    if descriptor.len() > 16 * 1024 {
-        return Err("[resource.limit] Artifact signature descriptor is too large".into());
-    }
-    let signed: SignedArtifact = serde_json::from_slice(
-        &STANDARD
-            .decode(descriptor)
-            .map_err(|_| "[signature.schema] Invalid signature descriptor encoding")?,
-    )
-    .map_err(|_| "[signature.schema] Invalid signature descriptor")?;
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|e| e.to_string())?
-        .as_secs();
-    let expected_version = version.as_deref().unwrap_or(&signed.payload.version);
-    artifact_signature::verify(
-        &signed,
-        &artifact_signature::trusted_keys()?,
-        &extension_id,
-        expected_version,
-        "wasm32-wasip2",
-        &origin,
+    let policy = crate::extensions::security_policy::ExtensionSecurityPolicy::load(app);
+    let minimum_revision = if policy.catalog_signature {
+        let requested_version = version.as_deref().ok_or("[catalog.version] A package version is required when catalog authentication is enabled")?;
         crate::marketplace_catalog::installation_revision(
             app,
             &origin,
             &extension_id,
+            requested_version,
+        )?
+    } else {
+        0
+    };
+    let authenticated = (|| -> Result<SignedArtifact, String> {
+        let descriptor = response
+            .headers()
+            .get("X-Aurona-Artifact-Descriptor")
+            .and_then(|value| value.to_str().ok())
+            .ok_or("[signature.required] Marketplace artifact signing metadata is unavailable")?;
+        if descriptor.len() > 16 * 1024 {
+            return Err("[resource.limit] Artifact signature descriptor is too large".into());
+        }
+        let signed: SignedArtifact = serde_json::from_slice(
+            &STANDARD
+                .decode(descriptor)
+                .map_err(|_| "[signature.schema] Invalid signature descriptor encoding")?,
+        )
+        .map_err(|_| "[signature.schema] Invalid signature descriptor")?;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| e.to_string())?
+            .as_secs();
+        let expected_version = version.as_deref().unwrap_or(&signed.payload.version);
+        artifact_signature::verify(
+            &signed,
+            &artifact_signature::trusted_keys()?,
+            &extension_id,
             expected_version,
-        )?,
-        now,
-    )?;
-    if signed.payload.size_bytes > super::extensions::aurx::MAX_ARCHIVE_BYTES {
+            "wasm32-wasip2",
+            &origin,
+            minimum_revision,
+            now,
+        )?;
+        Ok(signed)
+    })();
+    let signed = match authenticated {
+        Ok(signed) => Some(signed.payload),
+        Err(error) if policy.package_signature => return Err(error),
+        Err(_) => None,
+    };
+    // Size budget protects resources; authentication metadata is used only after verification.
+    let total = signed
+        .as_ref()
+        .map(|payload| payload.size_bytes)
+        .or_else(|| response.content_length())
+        .unwrap_or(0);
+    if total > super::extensions::aurx::MAX_ARCHIVE_BYTES {
         return Err("[resource.limit] AURX artifact exceeds 48 MiB".into());
     }
     let _ = app.emit(
@@ -195,15 +218,16 @@ async fn download_artifact(
             "downloadId": task_id,
             "stage": "downloading",
             "downloadedBytes": 0,
-            "totalBytes": signed.payload.size_bytes,
+            "totalBytes": total,
             "percentage": 0,
             "message": "Downloading extension",
         }),
     );
-    if response
-        .content_length()
-        .is_some_and(|length| length != signed.payload.size_bytes)
-    {
+    if response.content_length().is_some_and(|length| {
+        signed
+            .as_ref()
+            .is_some_and(|payload| length != payload.size_bytes)
+    }) {
         return Err("[signature.size] Download length differs from the signed size".into());
     }
     let file = tempfile::Builder::new()
@@ -219,7 +243,11 @@ async fn download_artifact(
         .map_err(|_| "[artifact.download] Artifact stream failed")?
     {
         size = size.saturating_add(chunk.len() as u64);
-        if size > signed.payload.size_bytes {
+        if size > super::extensions::aurx::MAX_ARCHIVE_BYTES
+            || signed
+                .as_ref()
+                .is_some_and(|payload| size > payload.size_bytes)
+        {
             return Err("[signature.size] Artifact grew beyond its signed size".into());
         }
         output.write_all(&chunk).await.map_err(|e| e.to_string())?;
@@ -230,8 +258,8 @@ async fn download_artifact(
                 "downloadId": task_id,
                 "stage": "downloading",
                 "downloadedBytes": size,
-                "totalBytes": signed.payload.size_bytes,
-                "percentage": (size as f64 / signed.payload.size_bytes.max(1) as f64) * 100.0,
+                "totalBytes": total,
+                "percentage": (size as f64 / total.max(1) as f64) * 100.0,
                 "message": "Downloading extension",
             }),
         );
@@ -239,7 +267,9 @@ async fn download_artifact(
     output.sync_all().await.map_err(|e| e.to_string())?;
     drop(output);
     let sha256 = format!("{:x}", hash.finalize());
-    if size != signed.payload.size_bytes || sha256 != signed.payload.sha256.to_ascii_lowercase() {
+    if signed.as_ref().is_some_and(|payload| {
+        size != payload.size_bytes || sha256 != payload.sha256.to_ascii_lowercase()
+    }) {
         return Err("[signature.hash] Download does not match the signed artifact".into());
     }
     if app
@@ -253,7 +283,8 @@ async fn download_artifact(
         kind: "extension".into(),
         generation: Some(generation),
         file,
-        signed: Some(signed.payload),
+        signed,
+        requested: Some((extension_id, version)),
         created: Instant::now(),
         sha256,
         size,
@@ -339,6 +370,7 @@ pub async fn artifact_pick(
             generation: Some(generation),
             file,
             signed: None,
+            requested: None,
             created: Instant::now(),
             sha256: format!("{:x}", hash.finalize()),
             size,
@@ -366,6 +398,8 @@ pub async fn install_vscode(
     let artifact = app
         .state::<ArtifactState>()
         .take(artifact_id, "vscode", generation)?;
+    crate::extensions::security_policy::ExtensionSecurityPolicy::load(&app)
+        .require_package(artifact.signed.is_some())?;
     if crate::authorization_dialogs::security_preference(
         &app,
         "requirePackageInstallApproval",
@@ -506,9 +540,32 @@ pub async fn install_extension(
         .state::<crate::commands::fs::WorkspaceState>()
         .generation();
     let artifact = artifacts.take(id, "extension", generation)?;
+    let policy = crate::extensions::security_policy::ExtensionSecurityPolicy::load(&app);
+    policy.require_package(artifact.signed.is_some())?;
     let bytes = artifact.read_package()?;
     let package = super::extensions::aurx::open_package(&bytes)?;
-    if let Some(payload) = &artifact.signed {
+    if policy.catalog_signature && artifact.requested.is_some() {
+        crate::marketplace_catalog::installation_revision(
+            &app,
+            "https://marketplace.aurona.cc",
+            &package.manifest.id,
+            &package.manifest.version,
+        )?;
+    }
+    if let Some((id, version)) = &artifact.requested {
+        if package.manifest.id != *id
+            || version
+                .as_ref()
+                .is_some_and(|version| *version != package.manifest.version)
+        {
+            return Err("[artifact.identity] Package differs from the requested extension".into());
+        }
+    }
+    if let Some(payload) = artifact
+        .signed
+        .as_ref()
+        .filter(|_| policy.package_signature)
+    {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|e| e.to_string())?
@@ -608,6 +665,7 @@ mod tests {
             generation: Some(generation),
             file,
             signed: None,
+            requested: None,
             created: Instant::now(),
             sha256: format!("{:x}", Sha256::digest(b"package")),
             size: 7,

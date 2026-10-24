@@ -13,8 +13,14 @@ import {
   type WorkspaceEdit,
   type WorkspaceEditPreview,
 } from "../../../Core/LanguageFeatureService";
+import { WorkspaceService } from "../../../Core/WorkspaceService";
 import { EventBus } from "../../../Foundation/EventBus";
 import { useLocale } from "../../../Foundation/I18n";
+import {
+  dismissNotification,
+  showNotification,
+  showToast,
+} from "../../../Foundation/Notifications";
 import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
 import { Button } from "../../../UI/Components/Button";
 import { Input } from "../../../UI/Components/Input";
@@ -63,8 +69,37 @@ export function LanguageModals() {
   const [trustRequest, setTrustRequest] = useState<{ root: string; language: string } | null>(null);
 
   useEffect(() => {
-    return EventBus.on("workspace:trust-request", setTrustRequest);
-  }, []);
+    const id = "workspace-language-trust";
+    const unsubscribe = EventBus.on("workspace:trust-request", (request) => {
+      if (request.root !== WorkspaceService.getCurrent().primaryRoot) return;
+      showNotification({
+        id,
+        type: "confirm",
+        title: t("workspace.trustTitle"),
+        message: request.root,
+        duration: null,
+        actions: [
+          {
+            label: t("workspaceApproval.review"),
+            primary: true,
+            onClick: () => {
+              if (request.root === WorkspaceService.getCurrent().primaryRoot)
+                setTrustRequest(request);
+            },
+          },
+        ],
+      });
+    });
+    const unroot = EventBus.on("workspace:root-changed", () => {
+      dismissNotification(id);
+      setTrustRequest(null);
+    });
+    return () => {
+      unsubscribe();
+      unroot();
+      dismissNotification(id);
+    };
+  }, [t]);
 
   useEffect(() => {
     return EventBus.on("language:code-actions-request", (request) => {
@@ -412,11 +447,15 @@ export function LanguageModals() {
               onClick={async () => {
                 if (!trustRequest) return;
                 const request = trustRequest;
-                await LanguageConfigurationService.trust(request.root);
-                setTrustRequest(null);
-                await LspClient.getInstance()
-                  .startServer(request.language)
-                  .catch(() => undefined);
+                try {
+                  await LanguageConfigurationService.trust(request.root);
+                  setTrustRequest(null);
+                  await LspClient.getInstance().startServer(request.language);
+                } catch (error) {
+                  if (!String(error).includes("[workspace.generation]"))
+                    showToast(String(error), "error");
+                  else setTrustRequest(null);
+                }
               }}
             >
               {t("workspace.trustYes")}
