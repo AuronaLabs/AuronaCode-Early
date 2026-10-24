@@ -960,10 +960,9 @@ export const AuronaEngine = React.memo(function AuronaEngine({
               <MultiCursorCaretLayer
                 primaryCursor={cursor}
                 extras={extras}
-                lineHeight={layout.lineHeight}
-                charWidth={singleCharWidth}
-                contentInsetX={layout.contentInsetX}
-                contentInsetTop={layout.contentInsetTop}
+                documentLines={documentLines}
+                lineElementsRef={lineElementsRef}
+                layout={layout}
                 isActive={isActive}
                 toVisualLine={toVisualLine}
                 smoothCaret={isSmoothCaretEnabled}

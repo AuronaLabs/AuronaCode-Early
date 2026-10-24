@@ -3,6 +3,7 @@ import { getSettingsSectionTitleKey, sectionForSettingCategory } from "./Setting
 
 describe("Settings navigation", () => {
   it("uses the active section for its title", () => {
+    expect(getSettingsSectionTitleKey("security")).toBe("settings.categories.security");
     expect(getSettingsSectionTitleKey("general")).toBe("settings.categories.general");
     expect(getSettingsSectionTitleKey("codeIntelligence")).toBe(
       "settings.categories.codeIntelligence",
@@ -11,6 +12,7 @@ describe("Settings navigation", () => {
   });
 
   it("maps search categories to the same navigation sections", () => {
+    expect(sectionForSettingCategory("security")).toBe("security");
     expect(sectionForSettingCategory("appearance")).toBe("appearance");
     expect(sectionForSettingCategory("codeIntelligence")).toBe("codeIntelligence");
     expect(sectionForSettingCategory("accountCloud")).toBe("accountCloud");

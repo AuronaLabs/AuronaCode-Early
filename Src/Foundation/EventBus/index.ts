@@ -103,6 +103,7 @@ export interface EventMap {
     | "terminalRun"
     | "sourceControl"
     | "network"
+    | "security"
     | "ai"
     | "accountCloud"
     | "extensions"

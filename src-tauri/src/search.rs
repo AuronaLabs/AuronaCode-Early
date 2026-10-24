@@ -143,17 +143,24 @@ pub async fn search_workspace_internal(
                                     .to_string_lossy()
                                     .to_string();
 
-                                let index = match result_count.fetch_update(
-                                    Ordering::Relaxed,
-                                    Ordering::Relaxed,
-                                    |count| (count < MAX_RESULTS).then_some(count + 1),
-                                ) {
-                                    Ok(index) => index,
-                                    Err(_) => {
+                                // Keep the bounded counter compatible with the CI toolchain
+                                // without using fetch_update, deprecated by newer Rust versions.
+                                let mut index = result_count.load(Ordering::Relaxed);
+                                loop {
+                                    if index >= MAX_RESULTS {
                                         limit_reached.store(true, Ordering::Relaxed);
                                         return ignore::WalkState::Quit;
                                     }
-                                };
+                                    match result_count.compare_exchange_weak(
+                                        index,
+                                        index + 1,
+                                        Ordering::Relaxed,
+                                        Ordering::Relaxed,
+                                    ) {
+                                        Ok(_) => break,
+                                        Err(current) => index = current,
+                                    }
+                                }
 
                                 let search_result = SearchResult {
                                     file_path: relative_path.replace("\\", "/"),

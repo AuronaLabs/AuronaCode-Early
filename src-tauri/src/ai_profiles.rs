@@ -27,7 +27,7 @@ pub struct Profile {
 #[derive(Default)]
 pub struct AiProfileState {
     profiles: Mutex<HashMap<String, Profile>>,
-    approved: Mutex<HashMap<String, (String, u64)>>,
+    approved: Mutex<HashMap<String, (String, u64, bool)>>,
     migration: Mutex<()>,
 }
 
@@ -48,6 +48,11 @@ impl AiProfileState {
             generation,
             app.state::<crate::commands::fs::WorkspaceState>()
                 .generation(),
+            crate::authorization_dialogs::security_preference(
+                app,
+                "requireAiEndpointApproval",
+                true,
+            ),
         )
     }
 
@@ -56,6 +61,7 @@ impl AiProfileState {
         profile: &Profile,
         generation: u64,
         current_generation: u64,
+        require_approval: bool,
     ) -> Result<(), String> {
         let fingerprint = fingerprint(profile)?;
         if current_generation != generation
@@ -71,7 +77,11 @@ impl AiProfileState {
                 .lock()
                 .map_err(|e| e.to_string())?
                 .get(&profile.id)
-                != Some(&(fingerprint, generation))
+                .is_none_or(|grant| {
+                    grant.0 != fingerprint
+                        || grant.1 != generation
+                        || (require_approval && !grant.2)
+                })
         {
             return Err(
                 "[ai.authorization_revoked] Workspace or profile authorization changed".into(),
@@ -86,7 +96,17 @@ impl AiProfileState {
         generation: u64,
     ) {
         loop {
-            if self.validate_grant(app, profile, generation).is_err() {
+            // Check preference changes at request boundaries, not with a disk read every 20 ms.
+            if self
+                .validate_grant_at(
+                    profile,
+                    generation,
+                    app.state::<crate::commands::fs::WorkspaceState>()
+                        .generation(),
+                    false,
+                )
+                .is_err()
+            {
                 return;
             }
             tokio::time::sleep(std::time::Duration::from_millis(20)).await;
@@ -261,7 +281,10 @@ fn fingerprint(profile: &Profile) -> Result<String, String> {
     ))
 }
 
-async fn confirm_endpoint(app: &tauri::AppHandle, profile: &Profile) -> Result<(), String> {
+async fn confirm_endpoint(app: &tauri::AppHandle, profile: &Profile) -> Result<bool, String> {
+    if !crate::authorization_dialogs::security_preference(app, "requireAiEndpointApproval", true) {
+        return Ok(false);
+    }
     let (sender, receiver) = tokio::sync::oneshot::channel();
     let (title, body) =
         crate::authorization_dialogs::text(app, "ai", &[("endpoint", &profile.base_url)]);
@@ -274,7 +297,7 @@ async fn confirm_endpoint(app: &tauri::AppHandle, profile: &Profile) -> Result<(
             let _ = sender.send(approved);
         });
     match tokio::time::timeout(std::time::Duration::from_secs(120), receiver).await {
-        Ok(Ok(true)) => Ok(()),
+        Ok(Ok(true)) => Ok(true),
         _ => Err("[ai.authorization] Endpoint authorization cancelled".into()),
     }
 }
@@ -308,17 +331,27 @@ pub async fn ai_profile_save(
         .map_err(|e| e.to_string())?
         .get(&profile.id)
         .cloned();
+    let old_fingerprint = old.as_ref().map(fingerprint).transpose()?;
     let changed = old
         .as_ref()
         .is_none_or(|old| old.base_url != profile.base_url);
-    if changed {
+    let explicitly_approved = if changed {
         if api_key.as_ref().is_none_or(|key| key.is_empty()) {
             return Err(
                 "[ai.credential_binding] A new endpoint requires a separate credential".into(),
             );
         }
-        confirm_endpoint(&app, &profile).await?;
-    }
+        confirm_endpoint(&app, &profile).await?
+    } else {
+        state
+            .approved
+            .lock()
+            .map_err(|e| e.to_string())?
+            .get(&profile.id)
+            .is_some_and(|grant| {
+                old_fingerprint.as_ref() == Some(&grant.0) && grant.1 == generation && grant.2
+            })
+    };
     profile.credential_id = if api_key.as_ref().is_some_and(|key| !key.is_empty()) {
         credential_id(&profile)
     } else {
@@ -363,11 +396,10 @@ pub async fn ai_profile_save(
         pending.committed = true;
     }
     *profiles = next;
-    state
-        .approved
-        .lock()
-        .map_err(|e| e.to_string())?
-        .insert(profile.id.clone(), (fingerprint(&profile)?, generation));
+    state.approved.lock().map_err(|e| e.to_string())?.insert(
+        profile.id.clone(),
+        (fingerprint(&profile)?, generation, explicitly_approved),
+    );
     cleanup_retired(&app, &profiles)?;
     Ok(profile)
 }
@@ -388,18 +420,25 @@ pub async fn resolve(
         .cloned()
         .ok_or_else(|| "[ai.authorization] Profile is not registered".to_string())?;
     let fingerprint = (fingerprint(&profile)?, generation);
-    let needs_approval =
-        state.approved.lock().map_err(|e| e.to_string())?.get(id) != Some(&fingerprint);
+    let require_approval =
+        crate::authorization_dialogs::security_preference(app, "requireAiEndpointApproval", true);
+    let needs_approval = state
+        .approved
+        .lock()
+        .map_err(|e| e.to_string())?
+        .get(id)
+        .is_none_or(|grant| {
+            grant.0 != fingerprint.0 || grant.1 != fingerprint.1 || (require_approval && !grant.2)
+        });
     if needs_approval {
-        confirm_endpoint(app, &profile).await?;
+        let explicitly_approved = confirm_endpoint(app, &profile).await?;
         if workspace.generation() != generation {
             return Err("[ai.authorization_revoked] Workspace changed during approval".into());
         }
-        state
-            .approved
-            .lock()
-            .map_err(|e| e.to_string())?
-            .insert(id.to_string(), fingerprint);
+        state.approved.lock().map_err(|e| e.to_string())?.insert(
+            id.to_string(),
+            (fingerprint.0, fingerprint.1, explicitly_approved),
+        );
     }
     if state
         .profiles
@@ -769,16 +808,31 @@ mod tests {
             .lock()
             .unwrap()
             .insert(profile.id.clone(), profile.clone());
-        assert!(state.validate_grant_at(&profile, 1, 1).is_err());
+        assert!(state.validate_grant_at(&profile, 1, 1, true).is_err());
+        state.approved.lock().unwrap().insert(
+            profile.id.clone(),
+            (fingerprint(&profile).unwrap(), 1, true),
+        );
+        assert!(state.validate_grant_at(&profile, 1, 1, true).is_ok());
         state
             .approved
             .lock()
             .unwrap()
-            .insert(profile.id.clone(), (fingerprint(&profile).unwrap(), 1));
-        assert!(state.validate_grant_at(&profile, 1, 1).is_ok());
-        assert!(state.validate_grant_at(&profile, 1, 2).is_err());
+            .get_mut(&profile.id)
+            .unwrap()
+            .2 = false;
+        assert!(state.validate_grant_at(&profile, 1, 1, false).is_ok());
+        assert!(state.validate_grant_at(&profile, 1, 1, true).is_err());
+        state
+            .approved
+            .lock()
+            .unwrap()
+            .get_mut(&profile.id)
+            .unwrap()
+            .2 = true;
+        assert!(state.validate_grant_at(&profile, 1, 2, true).is_err());
         profile.model = "changed".into();
-        assert!(state.validate_grant_at(&profile, 1, 1).is_err());
+        assert!(state.validate_grant_at(&profile, 1, 1, true).is_err());
         state.revoke_session();
         assert!(state.approved.lock().unwrap().is_empty());
     }

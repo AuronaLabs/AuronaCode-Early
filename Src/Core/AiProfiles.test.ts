@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { AiPreferences, AiProfile } from "../Foundation/Types/Config";
-import { isAiProfileUsable, needsAiProfileMigration, resolveAiProfiles } from "./AiProfiles";
+import {
+  isAiAgentConfigured,
+  isAiProfileUsable,
+  needsAiProfileMigration,
+  normalizeAgentPermission,
+  resolveAiProfiles,
+} from "./AiProfiles";
 
 const profile = (id: string): AiProfile => ({
   id,
@@ -79,5 +85,24 @@ describe("profile availability and migration", () => {
     expect(needsAiProfileMigration({ profiles: [legacy] })).toBe(true);
     expect(needsAiProfileMigration({ profiles: [profile("p")] })).toBe(false);
     expect(needsAiProfileMigration(undefined)).toBe(false);
+  });
+});
+
+describe("Agent configuration gates", () => {
+  it("applies the same AI, Agent and recovery gates to every profile", () => {
+    const usable = profile("p");
+    expect(isAiAgentConfigured({ profiles: [usable] }, usable)).toBe(true);
+    expect(isAiAgentConfigured({ enabled: false }, usable)).toBe(false);
+    expect(isAiAgentConfigured({ agentEnabled: false }, usable)).toBe(false);
+    expect(isAiAgentConfigured({ profiles: [usable] }, usable, true)).toBe(false);
+    expect(isAiAgentConfigured({ profiles: [usable] }, { ...usable, protocol: undefined })).toBe(
+      false,
+    );
+  });
+
+  it("normalizes the legacy full permission to the currently supported edit level", () => {
+    expect(normalizeAgentPermission("full")).toBe("edit");
+    expect(normalizeAgentPermission("read")).toBe("read");
+    expect(normalizeAgentPermission(undefined)).toBe("ask");
   });
 });

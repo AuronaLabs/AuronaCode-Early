@@ -1087,7 +1087,13 @@ pub async fn workspace_set_root(
         let isolated_workspace = canonical == crate::audit_harness::root(&app)?;
         #[cfg(not(feature = "audit-harness"))]
         let isolated_workspace = false;
-        if isolated_workspace {
+        if isolated_workspace
+            || !crate::authorization_dialogs::security_preference(
+                &app,
+                "requireWorkspaceApproval",
+                true,
+            )
+        {
             let _ = sender.send(true);
         } else {
             app.dialog()
@@ -1456,31 +1462,33 @@ pub async fn fs_remove(app: tauri::AppHandle, path: String, recursive: bool) -> 
     {
         return Err("[workspace.directory_not_empty] Directory is not empty".into());
     }
-    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
-    let (sender, receiver) = tokio::sync::oneshot::channel();
-    let (title, body) = crate::authorization_dialogs::text(
-        &app,
-        "delete",
-        &[
-            ("path", &path),
-            ("entries", &preview.1.to_string()),
-            ("bytes", &preview.2.to_string()),
-            ("fingerprint", &preview.0),
-        ],
-    );
-    app.dialog()
-        .message(body)
-        .title(title)
-        .buttons(MessageDialogButtons::YesNo)
-        .show(move |confirmed| {
-            let _ = sender.send(confirmed);
-        });
-    if !tokio::time::timeout(Duration::from_secs(60), receiver)
-        .await
-        .map_err(|_| "[confirmation.expired] Delete confirmation expired")?
-        .unwrap_or(false)
-    {
-        return Err("[operation.cancelled] Delete cancelled".into());
+    if crate::authorization_dialogs::security_preference(&app, "requireDeleteApproval", true) {
+        use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        let (title, body) = crate::authorization_dialogs::text(
+            &app,
+            "delete",
+            &[
+                ("path", &path),
+                ("entries", &preview.1.to_string()),
+                ("bytes", &preview.2.to_string()),
+                ("fingerprint", &preview.0),
+            ],
+        );
+        app.dialog()
+            .message(body)
+            .title(title)
+            .buttons(MessageDialogButtons::YesNo)
+            .show(move |confirmed| {
+                let _ = sender.send(confirmed);
+            });
+        if !tokio::time::timeout(Duration::from_secs(60), receiver)
+            .await
+            .map_err(|_| "[confirmation.expired] Delete confirmation expired")?
+            .unwrap_or(false)
+        {
+            return Err("[operation.cancelled] Delete cancelled".into());
+        }
     }
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<WorkspaceState>();

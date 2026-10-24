@@ -27,6 +27,13 @@ struct AuthorizedLaunch {
     spec: LaunchSpec,
     generation: u64,
     fingerprint: String,
+    explicitly_approved: bool,
+}
+
+impl AuthorizedLaunch {
+    fn permits(&self, require_approval: bool) -> bool {
+        !require_approval || self.explicitly_approved
+    }
 }
 
 #[derive(Default)]
@@ -156,15 +163,23 @@ fn fingerprint(spec: &LaunchSpec) -> Result<String, String> {
 impl LaunchRegistry {
     pub fn resolve(
         &self,
-        workspace: &WorkspaceState,
+        app: &tauri::AppHandle,
         id: &str,
         kind: &str,
     ) -> Result<LaunchSpec, String> {
+        let workspace = app.state::<WorkspaceState>();
+        let require_approval = crate::authorization_dialogs::security_preference(
+            app,
+            "requireLocalProcessApproval",
+            true,
+        );
         let mut entries = self
             .0
             .lock()
             .map_err(|_| "[launch.registry] Registry unavailable")?;
-        entries.retain(|_, entry| entry.generation == workspace.generation());
+        entries.retain(|_, entry| {
+            entry.generation == workspace.generation() && entry.permits(require_approval)
+        });
         let entry = entries
             .get(id)
             .ok_or("[launch.unauthorized] Launch is not registered for this workspace")?;
@@ -194,12 +209,15 @@ pub async fn authorize(app: &tauri::AppHandle, mut spec: LaunchSpec) -> Result<S
         .await
         .map_err(|e| e.to_string())??;
     let registry = app.state::<LaunchRegistry>();
+    let require_approval =
+        crate::authorization_dialogs::security_preference(app, "requireLocalProcessApproval", true);
     {
         let mut entries = registry
             .0
             .lock()
             .map_err(|_| "[launch.registry] Registry unavailable")?;
-        entries.retain(|_, entry| entry.generation == generation);
+        entries
+            .retain(|_, entry| entry.generation == generation && entry.permits(require_approval));
         if let Some((id, _)) = entries
             .iter()
             .find(|(_, entry)| entry.spec == spec && entry.fingerprint == expected)
@@ -210,26 +228,28 @@ pub async fn authorize(app: &tauri::AppHandle, mut spec: LaunchSpec) -> Result<S
             return Err("[resource.limit] Launch registry limit reached".into());
         }
     }
-    let preview = serde_json::to_string_pretty(&spec).map_err(|e| e.to_string())?;
-    let (sender, receiver) = tokio::sync::oneshot::channel();
-    let (title, body) = crate::authorization_dialogs::text(
-        app,
-        "launch",
-        &[("preview", &preview), ("fingerprint", &expected)],
-    );
-    app.dialog()
-        .message(body)
-        .title(title)
-        .buttons(MessageDialogButtons::YesNo)
-        .show(move |approved| {
-            let _ = sender.send(approved);
-        });
-    if !tokio::time::timeout(std::time::Duration::from_secs(60), receiver)
-        .await
-        .map_err(|_| "[launch.expired] Approval expired")?
-        .unwrap_or(false)
-    {
-        return Err("[launch.denied] Local process was not authorized".into());
+    if require_approval {
+        let preview = serde_json::to_string_pretty(&spec).map_err(|e| e.to_string())?;
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        let (title, body) = crate::authorization_dialogs::text(
+            app,
+            "launch",
+            &[("preview", &preview), ("fingerprint", &expected)],
+        );
+        app.dialog()
+            .message(body)
+            .title(title)
+            .buttons(MessageDialogButtons::YesNo)
+            .show(move |approved| {
+                let _ = sender.send(approved);
+            });
+        if !tokio::time::timeout(std::time::Duration::from_secs(60), receiver)
+            .await
+            .map_err(|_| "[launch.expired] Approval expired")?
+            .unwrap_or(false)
+        {
+            return Err("[launch.denied] Local process was not authorized".into());
+        }
     }
     if generation != workspace.generation() {
         return Err("[workspace.generation] Workspace changed during approval".into());
@@ -256,6 +276,7 @@ pub async fn authorize(app: &tauri::AppHandle, mut spec: LaunchSpec) -> Result<S
             spec,
             generation,
             fingerprint: expected,
+            explicitly_approved: require_approval,
         },
     );
     Ok(id)
@@ -305,6 +326,21 @@ mod tests {
         let mut value = spec();
         value.args = vec!["x".repeat(16385)];
         assert!(validate_spec(&value).is_err());
+    }
+
+    #[test]
+    fn automatic_launch_grants_do_not_survive_reenabling_approval() {
+        let mut entry = AuthorizedLaunch {
+            spec: spec(),
+            generation: 1,
+            fingerprint: "hash".into(),
+            explicitly_approved: false,
+        };
+        assert!(entry.permits(false));
+        assert!(!entry.permits(true));
+        entry.explicitly_approved = true;
+        assert!(entry.permits(true));
+        assert!(entry.permits(false));
     }
     #[test]
     fn file_change_revokes_fingerprint_even_when_length_is_unchanged() {

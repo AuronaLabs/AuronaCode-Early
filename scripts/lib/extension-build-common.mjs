@@ -7,6 +7,24 @@ import { crc32 } from "node:zlib";
 export const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 export function findVcvars64() {
+  // vswhere also finds installations on custom drives after a machine migration.
+  const vswhere = join(
+    process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)",
+    "Microsoft Visual Studio", "Installer", "vswhere.exe",
+  );
+  if (existsSync(vswhere)) {
+    try {
+      const installation = execFileSync(vswhere, [
+        "-latest", "-products", "*",
+        "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+        "-property", "installationPath",
+      ], { encoding: "utf8", windowsHide: true }).trim();
+      const vcvars = join(installation, "VC", "Auxiliary", "Build", "vcvars64.bat");
+      if (installation && existsSync(vcvars)) return vcvars;
+    } catch {
+      // Older or incomplete installations can still use the known locations below.
+    }
+  }
   const candidates = [
     "D:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat",
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat",

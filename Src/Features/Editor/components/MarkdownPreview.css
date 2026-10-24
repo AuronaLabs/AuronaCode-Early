@@ -1,7 +1,3 @@
-.markdown-preview-scroll {
-  background: color-mix(in srgb, var(--material-canvas) 76%, var(--surface-base));
-}
-
 .markdown-preview-document {
   min-height: 100%;
 }

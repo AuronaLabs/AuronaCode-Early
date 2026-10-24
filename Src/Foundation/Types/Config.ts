@@ -76,6 +76,26 @@ export interface AppearancePreferences {
   glassIntensity?: number;
 }
 
+/** Security choices whose trade-offs are visible to the user. Integrity boundaries remain backend-enforced. */
+export interface SecurityPreferences {
+  /** Automatically trust workspace language-server configuration instead of prompting. Defaults to false. */
+  autoTrustWorkspaceLanguageServers?: boolean;
+  /** Ask before registering a new language-server, debugger or Python process launch. Defaults to true. */
+  requireLocalProcessApproval?: boolean;
+  /** Ask before opening a different workspace. Defaults to true. */
+  requireWorkspaceApproval?: boolean;
+  /** Ask before authorizing an AI profile endpoint. Defaults to true. */
+  requireAiEndpointApproval?: boolean;
+  /** Ask before installing local/unsigned extension and toolchain packages. Defaults to true. */
+  requirePackageInstallApproval?: boolean;
+  /** Ask before running a non-builtin extension. Defaults to true. */
+  requireExtensionExecutionApproval?: boolean;
+  /** Ask before deleting workspace files. Defaults to true. */
+  requireDeleteApproval?: boolean;
+  /** Ask before discarding all Git changes. Defaults to true. */
+  requireGitDiscardApproval?: boolean;
+}
+
 /** Saved AI metadata; credentials are owned by the backend OS keyring. */
 export interface AiProfile {
   /** 稳定 id（前端生成，uuid） */
@@ -104,10 +124,16 @@ export interface AiProfileDraft extends AiProfile {
 export interface AiPreferences {
   /** 是否在侧边栏启用 AI 助手卡片 */
   enabled?: boolean;
-  /** 是否启用 agent 工具执行（读/搜/改文件、运行命令；写类操作始终需用户确认） */
+  /** 是否启用 Agent 工具执行；具体确认行为由权限模式和独立开关决定。 */
   agentEnabled?: boolean;
-  /** Agent 工具权限：询问、只读、可编辑或完整访问。 */
+  /** Agent 工具权限。Legacy "full" values are interpreted as "edit". */
   agentPermission?: "ask" | "read" | "edit" | "full";
+  /** In Agent edit mode, ask before workspace and file changes. Defaults to true. */
+  agentRequireWriteApproval?: boolean;
+  /** In Agent edit mode, ask before terminal, Git process, and editor command actions. Defaults to true. */
+  agentRequireCommandApproval?: boolean;
+  /** Capture an encrypted recovery checkpoint before Agent write operations. Defaults to true. */
+  agentAutoCheckpoint?: boolean;
   /** 服务商预设：custom 时 baseUrl 手工填写 */
   provider?: "openai" | "deepseek" | "openrouter" | "custom";
   /** Legacy base URL kept only as a migration source for profiles. */
@@ -166,6 +192,7 @@ export interface UserConfig {
   windowState?: WindowStatePreferences;
   network?: NetworkPreferences;
   appearance?: AppearancePreferences;
+  security?: SecurityPreferences;
   ai?: AiPreferences;
   /** 隐藏的扩展 id 列表（真源为 UserConfig；localStorage 仅为启动同步快照） */
   hiddenExtensionIds?: string[];

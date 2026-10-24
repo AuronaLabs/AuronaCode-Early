@@ -46,6 +46,11 @@ class LanguageConfigurationServiceImpl {
     const configurationPath = FileSystemService.joinPath(root, ".aurona/language-services.json");
     if (!(await FileSystemService.exists(configurationPath))) return false;
     const user = await UserConfigStore.get();
+    if (user.security?.autoTrustWorkspaceLanguageServers === true) {
+      this.pendingTrustRequest = null;
+      WorkspaceService.setTrusted(true);
+      return false;
+    }
     const trusted = (user.trustedWorkspaceRoots ?? []).some(
       (trustedRoot) => normalize(trustedRoot) === normalize(root),
     );
@@ -64,14 +69,27 @@ class LanguageConfigurationServiceImpl {
     if (!(await FileSystemService.exists(configurationPath))) {
       return userConfiguration ?? {};
     }
+    if (user.security?.autoTrustWorkspaceLanguageServers === true) {
+      this.pendingTrustRequest = null;
+      WorkspaceService.setTrusted(true);
+      const parsed = JSON.parse(
+        await FileSystemService.readTextFile(configurationPath),
+      ) as WorkspaceLanguageConfiguration;
+      return {
+        ...userConfiguration,
+        ...(parsed.languages?.[language]?.server ?? {}),
+      };
+    }
     const trusted = (user.trustedWorkspaceRoots ?? []).some(
       (trustedRoot) => normalize(trustedRoot) === normalize(root),
     );
     if (!trusted) {
+      WorkspaceService.setTrusted(false);
       this.requestTrust(root, language);
       throw new WorkspaceTrustRequiredError(root);
     }
     WorkspaceService.setTrusted(true);
+    this.pendingTrustRequest = null;
     const parsed = JSON.parse(
       await FileSystemService.readTextFile(configurationPath),
     ) as WorkspaceLanguageConfiguration;
@@ -86,6 +104,7 @@ class LanguageConfigurationServiceImpl {
     const roots = new Set((config.trustedWorkspaceRoots ?? []).map(normalize));
     roots.add(normalize(root));
     await UserConfigStore.set({ trustedWorkspaceRoots: [...roots] });
+    this.pendingTrustRequest = null;
     WorkspaceService.setTrusted(true);
   }
 }

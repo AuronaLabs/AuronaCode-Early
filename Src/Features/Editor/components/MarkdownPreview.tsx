@@ -7,6 +7,7 @@ import { FileSystemService } from "../../../Core/FileSystemService";
 import { useLocale } from "../../../Foundation/I18n";
 import { FileSystemCommands } from "../../../Foundation/IPC/FileSystemCommands";
 import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
+import { GlassContainer } from "../../../UI/Core/GlassManager/GlassContainer";
 import { Tooltip } from "../../../UI/Feedback/Tooltip";
 import { Icons } from "../../../UI/Icons/IconManager";
 import "./MarkdownPreview.css";
@@ -152,6 +153,13 @@ export function MarkdownPreview({
     );
   }, [renderedContent]);
 
+  const scrollToHeading = (id: string) => {
+    const target = Array.from(
+      scrollRef.current?.querySelectorAll<HTMLElement>(".markdown-preview-prose [id]") ?? [],
+    ).find((element) => element.id === id);
+    target?.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
+
   const components: Components = {
     pre: ({ children }) => <MarkdownCodeBlock>{children}</MarkdownCodeBlock>,
     a: ({ href, children }) => {
@@ -163,6 +171,15 @@ export function MarkdownPreview({
           target={remote ? "_blank" : undefined}
           rel={remote ? "noopener noreferrer" : undefined}
           onClick={(event) => {
+            if (href?.startsWith("#")) {
+              event.preventDefault();
+              try {
+                scrollToHeading(decodeURIComponent(href.slice(1)));
+              } catch {
+                // Malformed URL fragments must not navigate the application.
+              }
+              return;
+            }
             if (!localPath) return;
             event.preventDefault();
             openFile(localPath);
@@ -176,9 +193,10 @@ export function MarkdownPreview({
   };
 
   return (
-    <div
+    <GlassContainer
       ref={scrollRef}
-      className="markdown-preview-scroll aurona-scroll h-full overflow-y-auto"
+      layer="base"
+      className="markdown-preview-scroll aurona-scroll h-full overflow-y-auto rounded-none border-0"
       onScroll={(event) => onScrollTopChange(event.currentTarget.scrollTop)}
     >
       <div className="markdown-preview-document mx-auto w-full max-w-[860px] px-6 pb-28 pt-10 sm:px-10">
@@ -199,10 +217,7 @@ export function MarkdownPreview({
                     className={`markdown-preview-outline-level-${heading.level}`}
                     aria-label={heading.title}
                     onClick={(event) => {
-                      const target = scrollRef.current?.querySelector<HTMLElement>(
-                        `#${CSS.escape(heading.id)}`,
-                      );
-                      target?.scrollIntoView({ block: "start", behavior: "smooth" });
+                      scrollToHeading(heading.id);
                       event.currentTarget.closest("details")?.removeAttribute("open");
                     }}
                   >
@@ -224,6 +239,6 @@ export function MarkdownPreview({
           </ReactMarkdown>
         </article>
       </div>
-    </div>
+    </GlassContainer>
   );
 }

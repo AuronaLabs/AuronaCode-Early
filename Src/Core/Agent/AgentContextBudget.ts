@@ -13,6 +13,7 @@ export function contextTokenUpperBound(value: unknown): number {
 export function boundAgentContext(
   input: readonly unknown[],
   budget = MAX_CONTEXT_TOKENS,
+  preservePendingCalls = false,
 ): unknown[] {
   const units: Array<{ indices: number[]; cost: number; protected: boolean }> = [];
   const consumed = new Set<number>();
@@ -39,7 +40,9 @@ export function boundAgentContext(
       }
       const resultIndex = bucket?.indices[bucket.next++] ?? -1;
       if (resultIndex < 0) {
-        orphaned++;
+        if (preservePendingCalls) {
+          units.push({ indices: [index], cost: contextTokenUpperBound(item), protected: false });
+        } else orphaned++;
         continue;
       }
       consumed.add(resultIndex);

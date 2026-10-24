@@ -776,6 +776,7 @@ export const en: LocaleMessages = {
       terminalRun: "Terminal & Run",
       sourceControl: "Source Control",
       network: "Network",
+      security: "Security & Authorization",
       ai: "AI Assistant",
       accountCloud: "Aurona Account",
       extensions: "Extensions",
@@ -964,6 +965,35 @@ export const en: LocaleMessages = {
       restarting: "Restarting",
       failed: "Failed to start",
       stopping: "Stopping",
+    },
+    securitySettings: {
+      sectionTitle: "Security & Authorization",
+      sectionDescription:
+        "Choose defaults for routine authorization prompts while keeping workspace boundaries, configuration fingerprints and backend checks.",
+      autoTrustWorkspace: "Trust workspace language servers automatically",
+      autoTrustWorkspaceDescription:
+        "Skip the per-workspace prompt for .aurona language-server configuration. When disabled, each workspace is asked separately.",
+      localProcessApproval: "Confirm local process launches",
+      localProcessApprovalDescription:
+        "On by default. Ask before registering language-server, debugger or Python launches. Turn off to run configured programs directly. Turning back on requires approval for automatic grants; running processes are unaffected.",
+      workspaceApproval: "Confirm opening workspaces",
+      workspaceApprovalDescription:
+        "Ask before opening or switching to a workspace directory. Turn off to open it directly.",
+      aiEndpointApproval: "Confirm AI endpoints",
+      aiEndpointApprovalDescription:
+        "Ask when saving a new endpoint or authorizing an AI profile for this session. Turning off allows requests to the configured service directly.",
+      packageInstallApproval: "Confirm local package installation",
+      packageInstallApprovalDescription:
+        "Ask before installing VSIX, local or unsigned extension and toolchain packages. Turn off to proceed directly with installation.",
+      extensionExecutionApproval: "Confirm extension execution",
+      extensionExecutionApprovalDescription:
+        "Show permissions and origin before running third-party extensions. Turn off to run with existing permissions; turning back on asks on the next invocation.",
+      deleteApproval: "Confirm file deletion",
+      deleteApprovalDescription:
+        "Ask before deleting workspace files or folders. Turn off to delete immediately with existing recovery behavior.",
+      gitDiscardApproval: "Confirm discarding all Git changes",
+      gitDiscardApprovalDescription:
+        "Show native confirmation before discarding all workspace changes. Turn off to proceed directly while keeping recovery records.",
     },
     extensionsSettings: {
       description:
@@ -1571,20 +1601,27 @@ export const en: LocaleMessages = {
     clearConfirmTitle: "Clear current session",
     clearConfirmMessage: "All messages in this session will be deleted. This cannot be undone",
     agent: {
-      settingsTitle: "Agent permissions",
+      settingsTitle: "Enable Agent tools",
       settingsDesc:
-        "Let the AI read workspace files, search and modify code, and run editor commands; write operations always require confirmation",
-      permissionAsk: "Ask before actions",
-      permissionAskDescription: "Ask before every read, edit, or command. The strictest mode.",
+        "Allow Agent to read, search, and act on workspace content according to the permission level below.",
+      permissionTitle: "Agent permission level",
+      permissionAsk: "Ask before every action",
+      permissionAskDescription: "Ask before every Agent read, change, or command.",
       permissionRead: "Read only",
       permissionReadDescription:
-        "Allow workspace reads and search; writes and commands still require approval.",
-      permissionEdit: "Edit with confirmation",
+        "Allow reads and search; block operations that write, change state, or run commands.",
+      permissionEdit: "Edit",
       permissionEditDescription:
-        "Allow reads and prepared edits; every write is shown for approval.",
-      permissionFull: "Full tool access",
-      permissionFullDescription:
-        "Allow registered tools to run automatically while tool safety boundaries still apply.",
+        "Allow operations inside the current workspace; use the switches below to control per-action approval.",
+      requireWriteApproval: "Ask before file changes",
+      requireWriteApprovalDescription:
+        "When off in Edit mode, Agent can create, edit, delete, or move workspace files without its per-action prompt. App-level confirmations and workspace checks may still apply.",
+      requireCommandApproval: "Ask before commands",
+      requireCommandApprovalDescription:
+        "When off in Edit mode, Agent can run terminal, Git, or permitted editor commands without its per-action prompt.",
+      autoCheckpoint: "Create recovery checkpoints before writes",
+      autoCheckpointDescription:
+        "When off, Agent does not save encrypted recovery snapshots before writes. Workspace checks still apply, but Agent snapshots cannot restore those changes.",
       confirmTitle: "Confirm {tool}",
       confirmMessage: "The AI requests a write operation — review the arguments and confirm",
       roundLimit:
@@ -1656,6 +1693,8 @@ export const en: LocaleMessages = {
       stopTask: "Stop task",
       resumeTask: "Resume task",
       configureProfile: "Configure a Responses API profile in Settings before starting a task.",
+      agentDisabled: "Enable Agent tools in Settings before starting a task.",
+      aiDisabled: "Enable the AI Assistant in Settings before starting a task.",
       emptyTitle: "What should Agent work on?",
       emptyDescription: "Ask it to inspect, change, or verify the current workspace.",
       approvalRequired: "Approval required",

@@ -32,8 +32,6 @@ const getExtension = (filePath: string) => {
   return index >= 0 ? filePath.slice(index + 1).toLowerCase() : "";
 };
 
-const getFileName = (filePath: string) => filePath.split(/[\\/]/).filter(Boolean).pop() ?? filePath;
-
 export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab({
   path,
   isActive,
@@ -399,16 +397,6 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
     }
   }, [t]);
 
-  const handleCopyPath = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(path);
-      showToast(t("editorTabBar.copyPath"), "info");
-    } catch {
-      // Clipboard access can be unavailable in a locked-down WebView; the capsule remains
-      // useful as a source/preview switcher in that case.
-    }
-  }, [path, t]);
-
   useEffect(() => {
     if (!syncError) return;
     const notificationId = `sync-error-${path}`;
@@ -486,9 +474,9 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
 
   useEffect(() => {
     return EventBus.on("app:save-file", () => {
-      void saveContent();
+      if (isActive) void saveContent();
     });
-  }, [saveContent]);
+  }, [isActive, saveContent]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-transparent relative h-full w-full">
@@ -598,13 +586,6 @@ export const EditorTab: React.FC<EditorTabProps> = React.memo(function EditorTab
                     sourceLabel={t("editor.sourceView")}
                     previewLabel={t("editor.previewView")}
                     capsuleLabel={t("editor.capsuleLabel")}
-                    dirtyLabel={t("workspace.unsavedTitle")}
-                    fileName={getFileName(path)}
-                    filePath={path}
-                    language={GetLanguageFromPath(path)}
-                    isDirty={isDirty}
-                    copyPathLabel={t("editorTabBar.copyPath")}
-                    onCopyPath={() => void handleCopyPath()}
                   />
                 )}
               </div>

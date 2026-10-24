@@ -200,8 +200,12 @@ describe("EditorTab save checkpoints", () => {
     const editor = await screen.findByTestId("editor-change");
     fireEvent.click(editor);
 
+    const capsule = screen.getByRole("toolbar");
+    expect(capsule.querySelectorAll("button")).toHaveLength(2);
+    expect(capsule.textContent).toBe("");
     fireEvent.click(screen.getByRole("button", { name: "预览" }));
-    expect(await screen.findByRole("heading", { name: "Draft heading" })).toBeInTheDocument();
+    const heading = await screen.findByRole("heading", { name: "Draft heading" });
+    expect(heading.closest(".markdown-preview-scroll")).toHaveClass("glass-layer-base");
     expect(screen.getByTestId("editor-change")).toBe(editor);
 
     fireEvent.click(screen.getByRole("button", { name: "源码" }));
@@ -250,5 +254,17 @@ describe("EditorTab save checkpoints", () => {
     });
     expect(result).toBe(false);
     expect(mocks.emit).toHaveBeenCalledWith("editor:dirty-set", { path: "C:\\inactive.ts" });
+  });
+
+  it("handles the save-current command only while the tab is active", async () => {
+    const { rerender } = render(<EditorTab path={"C:\\current.ts"} isActive={false} />);
+    fireEvent.click(await screen.findByTestId("editor-change"));
+    await act(async () => mocks.handlers.get("app:save-file")?.());
+    expect(mocks.save).not.toHaveBeenCalled();
+
+    rerender(<EditorTab path={"C:\\current.ts"} isActive />);
+    await act(async () => mocks.handlers.get("app:save-file")?.());
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce());
+    await act(async () => mocks.resolveSave?.({ revision: 1, diskFingerprint: "disk-2" }));
   });
 });

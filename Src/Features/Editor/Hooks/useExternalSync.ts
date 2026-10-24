@@ -1,4 +1,5 @@
 import { type RefObject, useEffect } from "react";
+import { EventBus } from "../../../Foundation/EventBus";
 import {
   type EditorLayoutMetrics,
   readEditorLayoutMetrics,
@@ -76,8 +77,20 @@ export function useExternalSync({
       setLayout((prev) => (sameEditorLayout(prev, nextLayout) ? prev : nextLayout));
     };
     updateLayout();
+    let active = true;
+    const refreshFonts = () => {
+      if (active) setLayout(readEditorLayoutMetrics(container));
+    };
+    void document.fonts?.ready.then(refreshFonts);
+    document.fonts?.addEventListener("loadingdone", refreshFonts);
+    const unsubscribe = EventBus.on("settings:editor-changed", updateLayout);
     const observer = new ResizeObserver(updateLayout);
     observer.observe(container);
-    return () => observer.disconnect();
+    return () => {
+      active = false;
+      observer.disconnect();
+      document.fonts?.removeEventListener("loadingdone", refreshFonts);
+      unsubscribe();
+    };
   }, [setLayout, containerRef.current]);
 }

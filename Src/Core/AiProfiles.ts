@@ -1,5 +1,16 @@
 import type { AiPreferences, AiProfile } from "../Foundation/Types/Config";
 
+export type AgentPermissionLevel = "ask" | "read" | "edit";
+
+/** "full" is a stored legacy value; preserve its safe 0.4.x meaning as "edit". */
+export function normalizeAgentPermission(
+  permission: AiPreferences["agentPermission"] | null | undefined,
+): AgentPermissionLevel {
+  if (permission === "full") return "edit";
+  if (permission === "read" || permission === "edit") return permission;
+  return "ask";
+}
+
 // Rust completes credential migration before profile metadata reaches the UI.
 export function isAiProfileUsable(profile: AiProfile | null | undefined): boolean {
   return Boolean(
@@ -7,6 +18,26 @@ export function isAiProfileUsable(profile: AiProfile | null | undefined): boolea
       profile?.model.trim() &&
       profile?.hasCredential &&
       profile?.credentialId,
+  );
+}
+
+/**
+ * Returns whether the Agent can start a Responses run for the current config.
+ * Keep the sidebar toggle, Agent toggle, recovery gate and profile checks in one
+ * place so changing the active profile cannot bypass a disabled or recovering
+ * runtime.
+ */
+export function isAiAgentConfigured(
+  ai: AiPreferences | undefined | null,
+  profile: AiProfile | null | undefined,
+  recoveryPending = false,
+): boolean {
+  return Boolean(
+    !recoveryPending &&
+      ai?.enabled !== false &&
+      ai?.agentEnabled !== false &&
+      isAiProfileUsable(profile) &&
+      profile?.protocol === "responses",
   );
 }
 

@@ -68,22 +68,20 @@ export function readEditorLayoutMetrics(element: HTMLElement): EditorLayoutMetri
   };
 }
 
-import { FontMetricsCache } from "../Performance/FontMetricsCache";
-
 export function measureEditorText(text: string, metrics: EditorLayoutMetrics): number {
-  const measurementContext = getMeasurementContext();
-  const fallback = (char: string, fontKey: string) => {
-    if (!measurementContext) return metrics.fontSize * 0.6;
-    measurementContext.font = fontKey;
-    return measurementContext.measureText(char).width;
-  };
-
-  return FontMetricsCache.getInstance().measureTextFast(
-    text,
-    metrics.fontFamily,
-    metrics.fontSize,
-    fallback,
-  );
+  const context = getMeasurementContext();
+  if (context) context.font = `${metrics.fontSize}px ${metrics.fontFamily}`;
+  const measure = (value: string) =>
+    context?.measureText(value).width ?? Array.from(value).length * metrics.fontSize * 0.6;
+  const tabWidth = Math.max(1, measure(" ") * metrics.tabSize);
+  let width = 0;
+  const parts = text.split("\t");
+  for (const [index, part] of parts.entries()) {
+    if (index > 0) width = (Math.floor(width / tabWidth) + 1) * tabWidth;
+    // Measure complete runs so surrogate pairs, combining marks and shaping stay intact.
+    width += measure(part);
+  }
+  return width;
 }
 
 /** UTF-16 boundaries safe for caret, selection and editing operations. */
@@ -145,21 +143,17 @@ export function editorTextIndexAtX(
   metrics: EditorLayoutMetrics,
 ): number {
   if (relativeX <= 0) return 0;
-  const measurementContext = getMeasurementContext();
-  const fallback = (char: string, fontKey: string) => {
-    if (!measurementContext) return metrics.fontSize * 0.6;
-    measurementContext.font = fontKey;
-    return measurementContext.measureText(char).width;
-  };
-
-  const rawIndex = FontMetricsCache.getInstance().charIndexAtXFast(
-    text,
-    relativeX,
-    metrics.fontFamily,
-    metrics.fontSize,
-    fallback,
-  );
-  return snapToGraphemeBoundary(text, rawIndex);
+  const boundaries = getGraphemeBoundaries(text);
+  let low = 0;
+  let high = boundaries.length - 1;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    const left = measureEditorText(text.slice(0, boundaries[middle]), metrics);
+    const right = measureEditorText(text.slice(0, boundaries[middle + 1]), metrics);
+    if (relativeX <= (left + right) / 2) high = middle;
+    else low = middle + 1;
+  }
+  return boundaries[low];
 }
 
 type DomCaretRangeDocument = Document & {
@@ -206,6 +200,10 @@ export function measureRenderedEditorRange(
   range.setEnd(end.node, end.offset);
   const rect = range.getBoundingClientRect();
   const lineRect = lineElement.getBoundingClientRect();
+
+  if (endUtf16 === startUtf16 && rect.height > 0) {
+    return { left: rect.left - lineRect.left, width: 0 };
+  }
 
   if (endUtf16 === startUtf16 || rect.width === 0) {
     const rootStart = textNodeAtOffset(textRoot, 0);

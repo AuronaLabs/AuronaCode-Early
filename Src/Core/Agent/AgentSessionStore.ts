@@ -1,4 +1,5 @@
 import { replayAgentTask } from "./AgentEventReducer";
+import { sanitizeReplayContext } from "./AgentRuntimeContext";
 import type {
   AgentEvent,
   AgentEventType,
@@ -40,6 +41,7 @@ const EVENT_TYPES = new Set<AgentEventType>([
   "checkpoint.created",
   "checkpoint.restored",
   "artifact.created",
+  "context.item",
   "response.event",
 ]);
 
@@ -259,6 +261,7 @@ function sanitizeReplayBase(value: unknown): AgentReplayBase | undefined {
   if (steps.some((step) => step === null)) return undefined;
   return {
     title: raw.title,
+    context: sanitizeReplayContext(raw.context),
     input: raw.input,
     status: raw.status as AgentTaskSnapshot["status"],
     updatedAt: raw.updatedAt,

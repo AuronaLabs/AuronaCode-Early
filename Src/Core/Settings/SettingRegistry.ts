@@ -31,6 +31,7 @@ export const SETTING_CATEGORY_KEYS: Record<SettingCategory, I18nKey> = {
   terminalRun: "settings.categories.terminalRun",
   sourceControl: "settings.categories.sourceControl",
   network: "settings.categories.network",
+  security: "settings.categories.security",
   accountCloud: "settings.categories.accountCloud",
   extensions: "settings.categories.extensions",
   system: "settings.categories.system",
@@ -221,6 +222,86 @@ registerSetting({
   titleKey: "settings.definitions.automaticCompletion.title",
   descriptionKey: "settings.definitions.automaticCompletion.description",
   keywords: ["completion", "autocomplete", "补全", "自动补全"],
+  type: "boolean",
+  defaultValue: true,
+});
+
+registerSetting({
+  id: "languageServerAutoTrust",
+  category: "security",
+  titleKey: "settings.securitySettings.autoTrustWorkspace",
+  descriptionKey: "settings.securitySettings.autoTrustWorkspaceDescription",
+  keywords: ["security", "trust", "workspace", "language server", "信任", "工作区", "语言服务器"],
+  type: "boolean",
+  defaultValue: false,
+});
+
+registerSetting({
+  id: "localProcessApproval",
+  category: "security",
+  titleKey: "settings.securitySettings.localProcessApproval",
+  descriptionKey: "settings.securitySettings.localProcessApprovalDescription",
+  keywords: ["security", "process", "launch", "approval", "进程", "启动", "授权", "确认"],
+  type: "boolean",
+  defaultValue: true,
+});
+
+registerSetting({
+  id: "workspaceApproval",
+  category: "security",
+  titleKey: "settings.securitySettings.workspaceApproval",
+  descriptionKey: "settings.securitySettings.workspaceApprovalDescription",
+  keywords: ["security", "approval", "安全", "授权", "确认"],
+  type: "boolean",
+  defaultValue: true,
+});
+
+registerSetting({
+  id: "aiEndpointApproval",
+  category: "security",
+  titleKey: "settings.securitySettings.aiEndpointApproval",
+  descriptionKey: "settings.securitySettings.aiEndpointApprovalDescription",
+  keywords: ["security", "approval", "安全", "授权", "确认"],
+  type: "boolean",
+  defaultValue: true,
+});
+
+registerSetting({
+  id: "packageInstallApproval",
+  category: "security",
+  titleKey: "settings.securitySettings.packageInstallApproval",
+  descriptionKey: "settings.securitySettings.packageInstallApprovalDescription",
+  keywords: ["security", "approval", "安全", "授权", "确认"],
+  type: "boolean",
+  defaultValue: true,
+});
+
+registerSetting({
+  id: "extensionExecutionApproval",
+  category: "security",
+  titleKey: "settings.securitySettings.extensionExecutionApproval",
+  descriptionKey: "settings.securitySettings.extensionExecutionApprovalDescription",
+  keywords: ["security", "approval", "安全", "授权", "确认"],
+  type: "boolean",
+  defaultValue: true,
+});
+
+registerSetting({
+  id: "deleteApproval",
+  category: "security",
+  titleKey: "settings.securitySettings.deleteApproval",
+  descriptionKey: "settings.securitySettings.deleteApprovalDescription",
+  keywords: ["security", "approval", "安全", "授权", "确认"],
+  type: "boolean",
+  defaultValue: true,
+});
+
+registerSetting({
+  id: "gitDiscardApproval",
+  category: "security",
+  titleKey: "settings.securitySettings.gitDiscardApproval",
+  descriptionKey: "settings.securitySettings.gitDiscardApprovalDescription",
+  keywords: ["security", "approval", "安全", "授权", "确认"],
   type: "boolean",
   defaultValue: true,
 });

@@ -255,6 +255,31 @@ export class LspClient {
     this.clearDiagnosticsForLanguage(language);
   }
 
+  public async reloadConfiguredServers(): Promise<void> {
+    const languages = new Set([
+      ...this.documentLanguages.values(),
+      ...this.getStates()
+        .filter((state) =>
+          ["starting", "initializing", "running", "restarting"].includes(state.status),
+        )
+        .map((state) => state.language),
+    ]);
+    for (const language of languages) {
+      try {
+        const state = this.getState(language);
+        if (state && ["starting", "initializing", "running", "restarting"].includes(state.status)) {
+          await this.stopServer(language);
+        }
+        await this.startServer(language);
+        if (this.getState(language)?.status === "running") {
+          await this.reopenDocuments(language);
+        }
+      } catch {
+        // startServer records failures and emits trust prompts; continue reloading others.
+      }
+    }
+  }
+
   public async restartServer(language: string): Promise<void> {
     await LanguageServerIPC.restart(language);
     await this.refreshStates();

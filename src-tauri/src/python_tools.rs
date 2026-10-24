@@ -60,18 +60,16 @@ async fn capture(
     args: Vec<String>,
     seconds: u64,
 ) -> Result<std::process::Output, String> {
-    let spec = app.state::<LaunchRegistry>().resolve(
-        &app.state::<WorkspaceState>(),
-        launch_id,
-        "python",
-    )?;
+    let spec = app
+        .state::<LaunchRegistry>()
+        .resolve(app, launch_id, "python")?;
     if spec.args != args {
         return Err("[python.configuration] Frozen Python arguments differ".into());
     }
     let tool_use =
         crate::toolchains::acquire_launch_use(app, &spec.command, &spec.args, &spec.cwd)?;
     app.state::<LaunchRegistry>()
-        .resolve(&app.state::<WorkspaceState>(), launch_id, "python")?;
+        .resolve(app, launch_id, "python")?;
     tokio::task::spawn_blocking(move || {
         let _tool_use = tool_use;
         crate::process_service::capture_with_timeout(
@@ -114,11 +112,9 @@ pub async fn status(app: &AppHandle, launch_id: &str) -> Result<(bool, Option<St
     if !env.installed {
         return Ok((false, None));
     }
-    let spec = app.state::<LaunchRegistry>().resolve(
-        &app.state::<WorkspaceState>(),
-        launch_id,
-        "python",
-    )?;
+    let spec = app
+        .state::<LaunchRegistry>()
+        .resolve(app, launch_id, "python")?;
     let id = crate::launch_registry::authorize(
         app,
         LaunchSpec {
@@ -204,11 +200,9 @@ pub async fn install(app: &AppHandle, launch_id: &str) -> Result<(), String> {
     if app.state::<WorkspaceState>().generation() != generation {
         return Err("[workspace.generation] Workspace changed".into());
     }
-    let spec = app.state::<LaunchRegistry>().resolve(
-        &app.state::<WorkspaceState>(),
-        launch_id,
-        "python",
-    )?;
+    let spec = app
+        .state::<LaunchRegistry>()
+        .resolve(app, launch_id, "python")?;
     let args = vec![
         "-I".into(),
         "-m".into(),

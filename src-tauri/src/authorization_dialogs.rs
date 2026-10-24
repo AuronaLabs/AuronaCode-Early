@@ -8,7 +8,7 @@ static MESSAGES: LazyLock<Value> = LazyLock::new(|| {
         .expect("authorization translations are validated during quality checks")
 });
 
-fn locale(app: &tauri::AppHandle) -> Option<String> {
+fn user_config(app: &tauri::AppHandle) -> Option<Value> {
     let root = app.path().app_local_data_dir().ok()?;
     let directory = cap_std::fs::Dir::open_ambient_dir(root, cap_std::ambient_authority()).ok()?;
     let file =
@@ -20,11 +20,21 @@ fn locale(app: &tauri::AppHandle) -> Option<String> {
     if bytes.len() > 4 * 1024 * 1024 {
         return None;
     }
-    serde_json::from_slice::<Value>(&bytes)
-        .ok()?
-        .get("locale")?
-        .as_str()
-        .map(str::to_owned)
+    serde_json::from_slice::<Value>(&bytes).ok()
+}
+
+fn locale(app: &tauri::AppHandle) -> Option<String> {
+    user_config(app)?.get("locale")?.as_str().map(str::to_owned)
+}
+
+pub fn security_preference(app: &tauri::AppHandle, key: &str, default: bool) -> bool {
+    security_preference_from_config(user_config(app).as_ref(), key, default)
+}
+
+fn security_preference_from_config(config: Option<&Value>, key: &str, default: bool) -> bool {
+    config
+        .and_then(|config| config.get("security")?.get(key)?.as_bool())
+        .unwrap_or(default)
 }
 
 pub fn text(app: &tauri::AppHandle, kind: &str, fields: &[(&str, &str)]) -> (String, String) {
@@ -54,6 +64,31 @@ pub fn text(app: &tauri::AppHandle, kind: &str, fields: &[(&str, &str)]) -> (Str
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn security_preferences_use_defaults_for_missing_or_invalid_values() {
+        for key in [
+            "requireLocalProcessApproval",
+            "requireWorkspaceApproval",
+            "requireAiEndpointApproval",
+            "requirePackageInstallApproval",
+            "requireExtensionExecutionApproval",
+            "requireDeleteApproval",
+            "requireGitDiscardApproval",
+        ] {
+            assert!(security_preference_from_config(None, key, true));
+            for config in [
+                serde_json::json!({}),
+                serde_json::json!({"security":{(key):"false"}}),
+            ] {
+                assert!(security_preference_from_config(Some(&config), key, true));
+            }
+            let config = serde_json::json!({"security":{(key):false}});
+            assert!(!security_preference_from_config(Some(&config), key, true));
+            let config = serde_json::json!({"security":{(key):true}});
+            assert!(security_preference_from_config(Some(&config), key, false));
+        }
+    }
+
     #[test]
     fn all_six_locales_have_matching_keys_and_placeholders() {
         let expected = MESSAGES["en"].as_object().unwrap();

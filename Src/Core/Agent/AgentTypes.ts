@@ -33,6 +33,7 @@ export type AgentEventType =
   | "checkpoint.created"
   | "checkpoint.restored"
   | "artifact.created"
+  | "context.item"
   | "response.event";
 
 export interface AgentEvent {
@@ -82,7 +83,15 @@ export interface AgentCheckpoint {
 }
 
 /** State immediately before the first event in the retained event window. */
+export interface AgentReplayContext {
+  items: unknown[];
+  lastInput?: string;
+  omitted?: boolean;
+  limitExceeded?: boolean;
+}
+
 export interface AgentReplayBase {
+  context?: AgentReplayContext;
   title: string;
   input: string;
   status: AgentTaskStatus;
@@ -172,6 +181,7 @@ export interface AgentSnapshot {
   activeTaskId: string;
   activeTask: AgentTaskSnapshot;
   configured: boolean;
+  agentEnabled: boolean;
   cardEnabled: boolean;
   profiles: AgentProfileSummary[];
   activeProfileId: string | null;
