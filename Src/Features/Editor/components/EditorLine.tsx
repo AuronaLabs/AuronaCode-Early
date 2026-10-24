@@ -256,7 +256,7 @@ export const EditorLine = React.memo(function EditorLine({
       onMouseDown={(e) => onMouseDown(idx, e)}
       onMouseMove={handleMouseMove}
       onMouseLeave={onMouseLeave}
-      className={`editor-line relative block w-full border-0 bg-transparent text-left select-none cursor-text font-mono text-[var(--color-text-primary)] whitespace-pre transition-colors duration-100 ${
+      className={`editor-line relative block w-full border-0 bg-transparent text-left select-none cursor-text font-mono text-[var(--EditorText,var(--color-text-primary))] whitespace-pre transition-colors duration-100 ${
         isCurrent
           ? "bg-[var(--EditorActiveLineBg)] shadow-[inset_0_1px_0_var(--EditorActiveLineBorder),_inset_0_-1px_0_var(--EditorActiveLineBorder)]"
           : ""

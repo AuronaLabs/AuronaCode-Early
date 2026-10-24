@@ -4,11 +4,11 @@ import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { memo, useEffect, useRef, useState } from "react";
 import { type ShellProfile, TerminalManager } from "../../Core/TerminalService";
+import { WorkspaceService } from "../../Core/WorkspaceService";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { PtyIPC } from "../../Foundation/IPC/PtyCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
-import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import {
   ContextMenuContent,
   ContextMenuDivider,
@@ -217,8 +217,8 @@ export const TerminalView = memo(function TerminalView({
 
         if (disposed) return;
 
-        const config = await WorkspaceStore.get();
-        const cwd = customCwd || config.lastOpenedPath || ".";
+        await WorkspaceService.whenInitialized();
+        const cwd = customCwd || WorkspaceService.getCurrent().primaryRoot || ".";
 
         if (disposed) return;
 

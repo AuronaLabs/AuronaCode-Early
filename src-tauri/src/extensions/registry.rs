@@ -10,6 +10,7 @@ use super::aurx::{open_package, ExtensionPackage};
 #[serde(rename_all = "camelCase")]
 pub struct ExtensionDescriptor {
     pub id: String,
+    pub runtime_kind: String,
     pub name: String,
     pub display_name: Option<HashMap<String, String>>,
     pub publisher: String,
@@ -32,6 +33,12 @@ impl ExtensionDescriptor {
         let manifest = &package.manifest;
         Self {
             id: canonical_extension_id(&manifest.id).to_string(),
+            runtime_kind: if package.js_source.is_empty() {
+                "component"
+            } else {
+                "javascript"
+            }
+            .into(),
             name: manifest.name.clone(),
             display_name: manifest.display_name.clone(),
             publisher: manifest.publisher.clone(),

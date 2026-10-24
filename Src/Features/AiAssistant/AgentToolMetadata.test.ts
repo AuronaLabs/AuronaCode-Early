@@ -3,7 +3,7 @@ import {
   executeAgentToolCall,
   getAgentToolMetadata,
   getAgentToolPromptDocs,
-} from "./AgentToolExecutor";
+} from "../../Core/Agent/AgentToolExecutor";
 
 describe("Agent tool metadata", () => {
   it("declares checkpoint policy from effects instead of tool names", () => {

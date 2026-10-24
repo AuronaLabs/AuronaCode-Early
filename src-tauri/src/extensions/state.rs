@@ -800,7 +800,14 @@ fn permission_key(
 
 pub fn workspace_identity(root: Option<&std::path::Path>) -> String {
     root.and_then(|path| path.canonicalize().ok())
-        .map(|path| path.to_string_lossy().to_lowercase())
+        .map(|path| {
+            let identity = path.to_string_lossy().into_owned();
+            if cfg!(windows) {
+                identity.to_lowercase()
+            } else {
+                identity
+            }
+        })
         .unwrap_or_else(|| "none".to_string())
 }
 
@@ -1115,7 +1122,9 @@ mod tests {
         let identity = workspace_identity(Some(&temp));
         assert!(!identity.is_empty());
         assert_ne!(identity, "none");
-        assert_eq!(identity, identity.to_lowercase());
+        if cfg!(windows) {
+            assert_eq!(identity, identity.to_lowercase());
+        }
         std::fs::remove_dir_all(&temp).ok();
     }
 }

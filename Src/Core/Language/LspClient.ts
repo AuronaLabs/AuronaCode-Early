@@ -5,7 +5,6 @@ import {
 } from "../../Foundation/IPC/LanguageServerCommands";
 import type { CompletionItem } from "../../Foundation/Types/Lsp";
 import { type DiagnosticItem, DiagnosticsService } from "../DiagnosticsService";
-import { DocumentService } from "../DocumentService";
 import { OutputService } from "../OutputService";
 import {
   type LspPosition,
@@ -125,6 +124,7 @@ export class LspClient {
   private readonly serverStates = new Map<string, LanguageServerInfo>();
   private readonly documentUris = new Map<string, string>();
   private readonly documentTexts = new Map<string, string>();
+  private readonly documentVersions = new Map<string, number>();
   private readonly documentLanguages = new Map<string, string>();
   private readonly stateListeners = new Set<StateListener>();
   private readonly disposers: (() => void)[] = [];
@@ -137,6 +137,7 @@ export class LspClient {
         const uri = this.documentUris.get(oldPath);
         this.documentUris.delete(oldPath);
         this.documentTexts.delete(oldPath);
+        this.documentVersions.delete(oldPath);
         this.documentLanguages.delete(oldPath);
         if (uri) DiagnosticsService.clear(uri);
       }),
@@ -144,6 +145,7 @@ export class LspClient {
         const uri = this.documentUris.get(path);
         this.documentUris.delete(path);
         this.documentTexts.delete(path);
+        this.documentVersions.delete(path);
         this.documentLanguages.delete(path);
         if (uri) DiagnosticsService.clear(uri);
       }),
@@ -151,6 +153,7 @@ export class LspClient {
         DiagnosticsService.clear();
         this.documentUris.clear();
         this.documentTexts.clear();
+        this.documentVersions.clear();
         this.documentLanguages.clear();
       }),
     );
@@ -289,6 +292,7 @@ export class LspClient {
 
   public async didOpen(language: string, path: string, text: string, version = 1): Promise<void> {
     this.documentTexts.set(path, text);
+    this.documentVersions.set(path, version);
     this.documentLanguages.set(path, language);
     const { LanguageConfigurationService } = await import(
       "../../Core/LanguageConfigurationService"
@@ -311,6 +315,7 @@ export class LspClient {
   ): Promise<void> {
     const previousText = this.documentTexts.get(path);
     this.documentTexts.set(path, text);
+    this.documentVersions.set(path, version);
     this.documentLanguages.set(path, language);
     if (this.getState(language)?.status !== "running") return;
 
@@ -367,6 +372,7 @@ export class LspClient {
     }
     this.documentUris.delete(path);
     this.documentTexts.delete(path);
+    this.documentVersions.delete(path);
   }
 
   public async getCompletions(
@@ -557,9 +563,8 @@ export class LspClient {
   private async reopenDocuments(language: string): Promise<void> {
     for (const [path, trackedLanguage] of this.documentLanguages) {
       if (trackedLanguage !== language) continue;
-      const document = DocumentService.get(path);
-      const text = document?.content ?? this.documentTexts.get(path) ?? "";
-      await LanguageServerIPC.didOpen(language, path, text, document?.version ?? 1);
+      const text = this.documentTexts.get(path) ?? "";
+      await LanguageServerIPC.didOpen(language, path, text, this.documentVersions.get(path) ?? 1);
     }
   }
 
@@ -603,6 +608,7 @@ export class LspClient {
     for (const dispose of this.disposers.splice(0)) dispose();
     this.documentUris.clear();
     this.documentTexts.clear();
+    this.documentVersions.clear();
     this.serverStates.clear();
     this.emitState();
     await LanguageServerIPC.stopAll().catch((error: unknown) => {

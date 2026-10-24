@@ -9,7 +9,6 @@ import { Button } from "../../UI/Components/Button";
 import { useGlassStore } from "../../UI/Core/GlassManager";
 import { showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
-import { AccountStep } from "./AccountStep";
 import {
   type EditorFontSizeChoice,
   type EditorLineHeightChoice,
@@ -23,21 +22,20 @@ import { useOobeStore } from "./useOobeStore";
 import { WelcomeStep } from "./WelcomeStep";
 import "./Oobe.css";
 
-const TOTAL_STEPS = 6;
-const STEP_IDS = [0, 1, 2, 3, 4, 5];
+const TOTAL_STEPS = 5;
+const STEP_IDS = [0, 1, 2, 3, 4];
 const STEP_LABELS = [
   "oobe.welcomeTitle",
   "oobe.languageTitle",
   "oobe.themeTitle",
   "oobe.prefTitle",
-  "oobe.accountTitle",
   "oobe.readyTitle",
 ] as const;
 
 /**
  * 欢迎引导覆盖层：主窗口内的全屏置顶界面（首次运行自动呈现，高级设置可重游）。
  * 无二级卡片，步骤内容直接呈现在应用背景上；顶部栏与主程序统一（隐藏菜单项），
- * 语言/主题选择即时生效，账户登录可跳过，编辑器偏好于完成时统一应用。
+ * 语言/主题选择即时生效，编辑器偏好于完成时统一应用。
  */
 export function OobeOverlay() {
   const { t, locale } = useLocale();
@@ -192,29 +190,27 @@ export function OobeOverlay() {
         <TitleBar showMenus={false} onClose={handleClose} />
       </div>
 
-      {/* 步骤内容：直接呈现在应用背景上，无二级卡片 */}
-      <div className="oobe-progress relative z-10 px-5 pt-3 sm:px-9">
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
-            {step + 1} / {TOTAL_STEPS}
-          </span>
-          <span className="truncate text-[12px] font-medium text-[var(--color-text-highlight)]">
-            {t(STEP_LABELS[step])}
-          </span>
-        </div>
-        <div
-          className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--color-text-muted)]/15"
-          role="progressbar"
-          aria-valuemin={1}
-          aria-valuemax={TOTAL_STEPS}
-          aria-valuenow={step + 1}
-        >
-          <div
-            className="h-full rounded-full bg-[var(--color-accent)] transition-[width] duration-300"
-            style={{ width: `${((step + 1) / TOTAL_STEPS) * 100}%` }}
-          />
-        </div>
-      </div>
+      <nav
+        aria-label={t(STEP_LABELS[step])}
+        className="relative z-10 mx-auto flex max-w-full items-center gap-2 px-5 pt-6"
+      >
+        <ol className="flex flex-wrap items-center justify-center gap-2">
+          {STEP_IDS.map((id) => (
+            <li key={id}>
+              <button
+                type="button"
+                aria-current={id === step ? "step" : undefined}
+                disabled={finishing}
+                onClick={() => setStep(id)}
+                className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] ${id === step ? "bg-[var(--material-interactive-active)] text-[var(--color-accent)]" : "text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)]"}`}
+              >
+                <span className="tabular-nums">{id + 1}</span>
+                <span className={id === step ? "" : "hidden sm:inline"}>{t(STEP_LABELS[id])}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </nav>
       <main className="relative z-10 flex min-h-0 flex-1 items-start justify-center overflow-y-auto px-5 py-6 sm:items-center sm:px-10 sm:py-8">
         <div key={step} className="oobe-step-enter flex w-full justify-center">
           {step === 0 && <WelcomeStep version={version ? formatDisplayVersion(version) : ""} />}
@@ -241,14 +237,6 @@ export function OobeOverlay() {
             </div>
           )}
           {step === 4 && (
-            <div className="w-full max-w-[460px]">
-              <AccountStep
-                onSkip={() => setStep((prev) => prev + 1)}
-                onContinue={() => setStep((prev) => prev + 1)}
-              />
-            </div>
-          )}
-          {step === 5 && (
             <ReadyStep onFinish={() => void finish()} finishing={finishing || !draftReady} />
           )}
         </div>
@@ -275,7 +263,7 @@ export function OobeOverlay() {
               {t("oobe.back")}
             </Button>
           )}
-          {step < TOTAL_STEPS - 1 && step !== 4 && (
+          {step < TOTAL_STEPS - 1 && (
             <Button
               size="lg"
               className="group min-w-[112px]"

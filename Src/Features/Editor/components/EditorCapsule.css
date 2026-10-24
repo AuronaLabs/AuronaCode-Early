@@ -9,9 +9,9 @@
   padding: 4px;
   border: 1px solid var(--border-overlay);
   border-radius: 9999px;
-  background: color-mix(in srgb, var(--material-panel) 92%, transparent);
+  background: color-mix(in srgb, var(--material-overlay) 72%, transparent);
   box-shadow:
-    0 8px 24px color-mix(in srgb, var(--AppBg) 24%, transparent),
+    0 6px 18px color-mix(in srgb, var(--AppBg) 24%, transparent),
     inset 0 1px 0 var(--GlassSurface-Highlight);
   backdrop-filter: blur(var(--surface-blur-overlay)) saturate(var(--GlassSaturation));
 }
@@ -34,9 +34,8 @@
 }
 
 .editor-capsule-button[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--color-accent) 16%, var(--material-overlay));
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
   color: var(--color-accent);
-  box-shadow: inset 0 1px 0 var(--GlassSurface-Highlight);
 }
 
 .editor-capsule-button:focus-visible {

@@ -7,6 +7,7 @@ import {
 import { GetLanguageFromPath } from "../Shared/Utils/LanguageUtils";
 import { LspClient } from "./Language/LspClient";
 import { OutputService } from "./OutputService";
+import { WorkspaceService } from "./WorkspaceService";
 
 export type DocumentOpenState = "opening" | "open" | "closing" | "closed" | "error";
 export type DocumentSaveState = "idle" | "saving" | "error";
@@ -59,6 +60,7 @@ class DocumentServiceImpl {
   }
 
   async open(path: string): Promise<DocumentRecord> {
+    await WorkspaceService.whenInitialized();
     const existing = this.documents.get(path);
     if (existing?.openState === "open") return existing;
     this.set(path, {

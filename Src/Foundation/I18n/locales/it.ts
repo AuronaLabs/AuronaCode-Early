@@ -1,6 +1,15 @@
 import type { LocaleMessages } from "./zh-CN";
 
 export const it: LocaleMessages = {
+  workspaceApproval: {
+    title: "Richiesta di accesso alla cartella",
+    review: "Esamina richiesta",
+    allow: "Consenti accesso",
+    description:
+      "Autorizza solo cartelle attendibili. Dopo l’apertura, editor ed estensioni autorizzate possono accedere ai file.",
+  },
+  platformTransitionTip:
+    "Aurona Account diventerà presto il nuovo sistema Aurona Platform. Il servizio precedente sarà ritirato a breve. Restate sintonizzati.",
   oobe: {
     welcomeTitle: "Benvenuto in Aurona Code",
     welcomeDesc: "Perché scrivere codice merita un angolo più calmo e confortevole.",
@@ -981,6 +990,13 @@ export const it: LocaleMessages = {
       stopping: "Arresto",
     },
     securitySettings: {
+      extensionSignature: "Richiedi firme dei pacchetti delle estensioni",
+      extensionSignatureDescription:
+        "Verifica autore, firma e identità del pacchetto. Disattivando si consentono pacchetti senza firma e autenticazioni non riuscite. Conferma di installazione e permessi restano indipendenti.",
+      catalogSignature: "Richiedi firme dei cataloghi delle estensioni",
+      catalogSignatureDescription:
+        "Verifica il catalogo Marketplace. Disattivando si possono consultare cataloghi non autenticati e installare da essi; il contenuto non certifica un autore attendibile.",
+
       sectionTitle: "Sicurezza e autorizzazioni",
       sectionDescription:
         "Scegli i comportamenti predefiniti per le richieste di autorizzazione, mantenendo confini dell’area di lavoro, impronte di configurazione e controlli backend.",

@@ -404,6 +404,20 @@ pub fn cleanup_extension_resources(extension_id: Option<&str>) {
 pub struct ExtensionLimits {
     pub memory_bytes: usize,
     pub fuel: u64,
+    pub persistent: bool,
+}
+
+impl ExtensionLimits {
+    // Rust/Boa components need more than 2,048 entries during instantiation.
+    // Keep the same bounded policy for initial contexts and live stores.
+    fn store_limits(&self) -> StoreLimits {
+        StoreLimitsBuilder::new()
+            .memory_size(self.memory_bytes)
+            .table_elements(65_536)
+            .instances(16)
+            .memories(16)
+            .build()
+    }
 }
 
 impl Default for ExtensionLimits {
@@ -411,6 +425,7 @@ impl Default for ExtensionLimits {
         Self {
             memory_bytes: DEFAULT_MEMORY_BYTES,
             fuel: DEFAULT_FUEL,
+            persistent: false,
         }
     }
 }
@@ -420,13 +435,19 @@ impl ExtensionLimits {
         Self {
             memory_bytes: 256 * 1024 * 1024,
             fuel: 4_000_000_000,
+            persistent: true,
         }
     }
 }
 
 /// Per-call context supplied to the WASM component. The host decides what the
 /// extension may see; the component itself cannot reach beyond these values.
+#[cfg(test)]
+type TestFrontendEvents = Arc<Mutex<Vec<(String, serde_json::Value)>>>;
+
 pub struct ExtensionContext {
+    #[cfg(test)]
+    test_frontend_events: Option<TestFrontendEvents>,
     pub workspace_generation: u64,
     pub runtime_lease: Option<Arc<std::sync::atomic::AtomicBool>>,
     pub extension_id: String,
@@ -455,6 +476,8 @@ impl ExtensionContext {
         environment: ContextEnvironment,
     ) -> Self {
         Self {
+            #[cfg(test)]
+            test_frontend_events: None,
             workspace_generation: 0,
             runtime_lease: None,
             extension_id: "anonymous".to_string(),
@@ -467,12 +490,7 @@ impl ExtensionContext {
             editor_selection_text: None,
             app: None,
             permissions: HashMap::new(),
-            limits: StoreLimitsBuilder::new()
-                .memory_size(DEFAULT_MEMORY_BYTES)
-                .table_elements(1024)
-                .instances(16)
-                .memories(16)
-                .build(),
+            limits: ExtensionLimits::default().store_limits(),
             wasi: WasiCtxBuilder::new().build(),
             table: ResourceTable::new(),
         }
@@ -491,6 +509,11 @@ impl ExtensionContext {
     /// 把宿主事件发给前端 UI 层（编辑器桥 / Fliuno 注册表）。
     fn emit_to_frontend(&self, event: &str, payload: serde_json::Value) -> Result<(), String> {
         use tauri::Emitter;
+        #[cfg(test)]
+        if let Some(events) = &self.test_frontend_events {
+            events.lock().unwrap().push((event.to_string(), payload));
+            return Ok(());
+        }
         let app = self
             .app
             .as_ref()
@@ -661,6 +684,23 @@ impl WasiView for ExtensionContext {
 }
 
 impl aurona::extensions::context::Host for ExtensionContext {
+    fn runtime_metadata(&mut self) -> String {
+        use sha2::{Digest, Sha256};
+        let root = self
+            .workspace_root
+            .as_ref()
+            .map(|path| path.to_string_lossy().into_owned());
+        let identity = super::state::workspace_identity(self.workspace_root.as_deref());
+        let workspace_id = format!("{:x}", Sha256::digest(identity.as_bytes()));
+        serde_json::json!({
+            "extensionId": self.extension_id,
+            "extensionPath": format!("/extensions/{}", self.extension_id),
+            "workspaceId": workspace_id,
+            "workspacePath": if self.require("workspace.read").is_ok_and(|permission| permission == ContextPermissionState::Granted) { root } else { None },
+            "platform": self.environment.platform,
+            "colorScheme": self.environment.color_scheme,
+        }).to_string()
+    }
     fn get_environment(&mut self) -> ContextEnvironment {
         ContextEnvironment {
             theme: self.environment.theme.clone(),
@@ -1211,13 +1251,15 @@ impl aurona::extensions::context::Host for ExtensionContext {
         }
     }
 
-    fn set_status_message(&mut self, message: String, _timeout_ms: u32) -> Result<bool, String> {
+    fn set_status_message(&mut self, message: String, timeout_ms: u32) -> Result<bool, String> {
+        self.require_current()?;
         // 状态栏消息由前端 StatusBar 渲染（transient item）
         self.emit_to_frontend(
             "extension://status-message",
             serde_json::json!({
                 "extensionId": self.extension_id,
                 "message": message,
+                "timeoutMs": timeout_ms,
             }),
         )?;
         Ok(true)
@@ -1534,6 +1576,7 @@ pub struct ExtensionRuntime {
     component: wasmtime::component::Component,
     linker: Linker<ExtensionContext>,
     limits: ExtensionLimits,
+    session: std::sync::Mutex<Option<(Store<ExtensionContext>, Instance)>>,
 }
 
 static SHARED_ENGINE: LazyLock<Result<Engine, String>> = LazyLock::new(|| {
@@ -1623,6 +1666,7 @@ impl ExtensionRuntime {
             component,
             linker,
             limits,
+            session: std::sync::Mutex::new(None),
         })
     }
 
@@ -1637,12 +1681,7 @@ impl ExtensionRuntime {
         &self,
         mut context: ExtensionContext,
     ) -> Result<(Store<ExtensionContext>, Instance), String> {
-        context.limits = StoreLimitsBuilder::new()
-            .memory_size(self.limits.memory_bytes)
-            .table_elements(1024)
-            .instances(16)
-            .memories(16)
-            .build();
+        context.limits = self.limits.store_limits();
 
         let mut store = Store::new(&self.engine, context);
         store.set_epoch_deadline(3000);
@@ -1665,6 +1704,68 @@ impl ExtensionRuntime {
         name.parse().expect("内置导出名必须能够解析为 ItemName")
     }
 
+    fn with_instance<T>(
+        &self,
+        mut context: ExtensionContext,
+        call: impl FnOnce(&mut Store<ExtensionContext>, Instance) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let mut session = self
+            .session
+            .lock()
+            .map_err(|_| "[extension.session] Runtime session unavailable")?;
+        let mut previous = session.take();
+        if previous.as_ref().is_some_and(|(store, _)| {
+            !self.limits.persistent
+                || store.data().workspace_generation != context.workspace_generation
+                || store.data().extension_id != context.extension_id
+        }) {
+            if let Some((mut store, instance)) = previous.take() {
+                Self::dispose_instance(&mut store, instance);
+            }
+        }
+        let (mut store, instance) = if let Some((mut store, instance)) = previous {
+            // Keep WASI handles/resource table and limiter owned by the live instance.
+            let old = store.data_mut();
+            std::mem::swap(&mut old.wasi, &mut context.wasi);
+            std::mem::swap(&mut old.table, &mut context.table);
+            std::mem::swap(&mut old.limits, &mut context.limits);
+            *old = context;
+            (store, instance)
+        } else {
+            self.instantiate(context)?
+        };
+        store
+            .set_fuel(self.limits.fuel)
+            .map_err(|error| error.to_string())?;
+        store.set_epoch_deadline(3000);
+        let result = call(&mut store, instance);
+        // Traps discard the session; a poisoned instance is never used again.
+        if self.limits.persistent && result.is_ok() {
+            *session = Some((store, instance));
+        }
+        result
+    }
+
+    fn dispose_instance(store: &mut Store<ExtensionContext>, instance: Instance) {
+        let _ = store.set_fuel(DEFAULT_FUEL);
+        store.set_epoch_deadline(100);
+        if let Ok(action) = instance
+            .get_typed_func::<(&str, &str), (Result<RenderOutput, String>,)>(
+                &mut *store,
+                Self::parse_export_name("aurona:extensions/render.on-action"),
+            )
+        {
+            let _ = action.call(&mut *store, ("__aurona_deactivate", ""));
+        }
+        let _ = store.data().emit_to_frontend(
+            "extension://status-message",
+            serde_json::json!({
+                "extensionId": store.data().extension_id,
+                "message": "", "timeoutMs": 0,
+            }),
+        );
+    }
+
     /// 把 wasmtime trap 归类为对用户友好的沙箱错误提示（§5.3.1：fuel 耗尽要优雅报错）。
     fn friendly_call_error(stage: &str, error: wasmtime::Error) -> String {
         let text = format!("{error:#}");
@@ -1685,23 +1786,24 @@ impl ExtensionRuntime {
         context: ExtensionContext,
         markdown: String,
     ) -> Result<RenderOutput, String> {
-        let (mut store, instance) = self.instantiate(context)?;
-        let render_func: TypedFunc<(&RenderInput,), (Result<RenderOutput, String>,)> = instance
-            .get_typed_func(
-                &mut store,
-                Self::parse_export_name("aurona:extensions/render.render"),
-            )
-            .map_err(|error| format!("扩展缺少 render 导出: {error:#}"))?;
-        let input = RenderInput { markdown };
-        let (result,) = render_func
-            .call(&mut store, (&input,))
-            .map_err(|error| Self::friendly_call_error("扩展渲染", error))?;
-        result.map_err(|error| format!("扩展渲染返回错误: {error}"))
+        self.with_instance(context, |store, instance| {
+            let render_func: TypedFunc<(&RenderInput,), (Result<RenderOutput, String>,)> = instance
+                .get_typed_func(
+                    &mut *store,
+                    Self::parse_export_name("aurona:extensions/render.render"),
+                )
+                .map_err(|error| format!("扩展缺少 render 导出: {error:#}"))?;
+            let input = RenderInput { markdown };
+            let (result,) = render_func
+                .call(&mut *store, (&input,))
+                .map_err(|error| Self::friendly_call_error("扩展渲染", error))?;
+            result.map_err(|error| format!("扩展渲染返回错误: {error}"))
+        })
     }
 
     /// 请求-响应交互入口：把用户在渲染视图中的动作交给扩展，拿回下一帧渲染。
     ///
-    /// 扩展跨调用无状态（要持久化请用 storage API）。按旧版 world 编译、
+    /// 组件默认无状态；兼容运行时保留工作区内会话。按旧版 world 编译、
     /// 没有 `on-action` 导出的扩展会得到明确的"不支持交互"错误。
     pub fn on_action(
         &self,
@@ -1709,19 +1811,30 @@ impl ExtensionRuntime {
         action_id: String,
         payload: String,
     ) -> Result<RenderOutput, String> {
-        let (mut store, instance) = self.instantiate(context)?;
-        let action_func: TypedFunc<(&str, &str), (Result<RenderOutput, String>,)> = instance
-            .get_typed_func(
-                &mut store,
-                Self::parse_export_name("aurona:extensions/render.on-action"),
-            )
-            .map_err(|_| {
-                "该扩展未提供交互处理能力（缺少 on-action 导出），请更新扩展后重试".to_string()
-            })?;
-        let (result,) = action_func
-            .call(&mut store, (&action_id, &payload))
-            .map_err(|error| Self::friendly_call_error("扩展交互", error))?;
-        result.map_err(|error| format!("扩展 on-action 返回错误: {error}"))
+        self.with_instance(context, |store, instance| {
+            let action_func: TypedFunc<(&str, &str), (Result<RenderOutput, String>,)> = instance
+                .get_typed_func(
+                    &mut *store,
+                    Self::parse_export_name("aurona:extensions/render.on-action"),
+                )
+                .map_err(|_| {
+                    "该扩展未提供交互处理能力（缺少 on-action 导出），请更新扩展后重试".to_string()
+                })?;
+            let (result,) = action_func
+                .call(&mut *store, (&action_id, &payload))
+                .map_err(|error| Self::friendly_call_error("扩展交互", error))?;
+            result.map_err(|error| format!("扩展 on-action 返回错误: {error}"))
+        })
+    }
+}
+
+impl Drop for ExtensionRuntime {
+    fn drop(&mut self) {
+        if let Ok(session) = self.session.get_mut() {
+            if let Some((mut store, instance)) = session.take() {
+                Self::dispose_instance(&mut store, instance);
+            }
+        }
     }
 }
 
@@ -1730,6 +1843,70 @@ mod tests {
     use super::*;
     use aurona::extensions::context::Host as _;
     use std::path::PathBuf;
+
+    #[test]
+    fn bundled_compat_executes_real_demo_and_preserves_session() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let package = super::super::aurx::open_package(
+            &std::fs::read(root.join("resources/extensions/aurona.vscode-compat.aurx")).unwrap(),
+        )
+        .unwrap();
+        let demo = super::super::aurx::open_vsix_package(
+            &std::fs::read(root.join("resources/extensions-demo/vscode-demo.vsix")).unwrap(),
+        )
+        .unwrap();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let context = || {
+            let mut context = test_context(None);
+            context.extension_id = demo.id().into();
+            context.test_frontend_events = Some(events.clone());
+            context
+        };
+        let runtime =
+            ExtensionRuntime::new(&package.wasm, ExtensionLimits::trusted_compat()).unwrap();
+        let first = runtime.render(context(), demo.js_source.clone()).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&first.html).unwrap();
+        assert_eq!(value["mode"], "declarative");
+        assert!(
+            first.html.contains("vscodeDemo.helloWorld")
+                && first.html.contains("vscodeDemo.showStatus")
+        );
+        runtime
+            .on_action(
+                context(),
+                "run:vscodeDemo.helloWorld".into(),
+                demo.js_source.clone(),
+            )
+            .unwrap();
+        runtime
+            .on_action(
+                context(),
+                "run:vscodeDemo.showStatus".into(),
+                demo.js_source.clone(),
+            )
+            .unwrap();
+        let second = runtime.render(context(), demo.js_source.clone()).unwrap();
+        assert_eq!(second.html.matches("Extension is now active").count(), 1);
+        let captured = events.lock().unwrap();
+        assert!(captured
+            .iter()
+            .any(|(event, payload)| event == "extension://notification"
+                && payload["message"]
+                    .as_str()
+                    .is_some_and(|text| text.contains("Hello from VSCode"))));
+        assert!(captured
+            .iter()
+            .any(|(event, payload)| event == "extension://status-message"
+                && payload["timeoutMs"] == 4000));
+        drop(captured);
+        drop(runtime);
+        assert!(events
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|(event, payload)| event == "extension://status-message"
+                && payload["message"] == ""));
+    }
 
     fn test_environment() -> ContextEnvironment {
         ContextEnvironment {

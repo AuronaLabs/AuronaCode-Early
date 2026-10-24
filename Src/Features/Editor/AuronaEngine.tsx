@@ -847,23 +847,6 @@ export const AuronaEngine = React.memo(function AuronaEngine({
     >
       {/* 词法高亮与动画 CSS */}
       <style>{`
-        .hl-token-1 { color: var(--SyntaxKeyword, #c084fc); font-weight: bold; }
-        .hl-token-2 { color: var(--SyntaxString, #4ade80); }
-        .hl-token-3 { color: var(--SyntaxNumber, #f59e0b); }
-        .hl-token-4 { color: var(--SyntaxFunction, #60a5fa); }
-        .hl-token-5 { color: var(--SyntaxVariable, #e2e8f0); }
-        .hl-token-6 { color: var(--SyntaxComment, #64748b); font-style: italic; }
-        .hl-token-7 { color: var(--SyntaxOperator, #94a3b8); }
-        .hl-token-8 { color: var(--SyntaxBuiltin, #38bdf8); }
-        .hl-token-9 { color: var(--SyntaxTypeHint, var(--color-accent)); }
-
-        .hl-bracket-0 { color: var(--EditorBracket0, #f59e0b); }
-        .hl-bracket-1 { color: var(--EditorBracket1, #c084fc); }
-        .hl-bracket-2 { color: var(--EditorBracket2, #38bdf8); }
-        .hl-bracket-3 { color: var(--EditorBracket3, #98c379); }
-        .hl-bracket-4 { color: var(--EditorBracket4, #f43f5e); }
-        .hl-bracket-5 { color: var(--EditorBracket5, #94a3b8); }
-
         .hl-occurrence { background-color: color-mix(in srgb, var(--color-accent) 12%, transparent); border-radius: 2px; }
         .hl-search { background-color: var(--EditorSearchMatchBg, rgba(245, 158, 11, 0.3)); }
         .hl-search-active { background-color: var(--EditorSearchActiveBg, rgba(245, 158, 11, 0.7)); }

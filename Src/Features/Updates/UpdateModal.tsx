@@ -4,10 +4,10 @@ import type { UpdateInfo } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { formatDisplayVersion } from "../../Foundation/Release/ReleaseChannel";
-import { Button } from "../Components/Button";
-import { Modal } from "../Components/Modal";
-import { Icons } from "../Icons/IconManager";
-import { MarkdownContent } from "./MarkdownContent";
+import { Button } from "../../UI/Components/Button";
+import { Modal } from "../../UI/Components/Modal";
+import { MarkdownContent } from "../../UI/Feedback/MarkdownContent";
+import { Icons } from "../../UI/Icons/IconManager";
 
 export function UpdateModal() {
   const { t } = useLocale();

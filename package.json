@@ -1,7 +1,7 @@
 {
   "name": "aurona-code",
   "private": true,
-  "version": "0.4.16",
+  "version": "0.4.17",
   "packageManager": "pnpm@12.15.0+sha512.b3951d6d6ff4a9f13dc7cf56cd28d2b8eb37dbcc9c68e52e1e1191873ea9f82a017287ab50baadc5ccc494f036c67c0e47eb13608c2fa36f47711b61ea128e61",
   "type": "module",
   "scripts": {
@@ -33,7 +33,8 @@
     "build:candidate:local": "node scripts/build-local-candidate.mjs",
     "test:frontend": "vitest run",
     "test:release-contract": "node --test scripts/candidate-trust.test.mjs",
-    "quality:full": "pnpm run typecheck && pnpm run check && pnpm run i18n:check && pnpm run check:boundaries && pnpm run check:materials && pnpm run verify:vscode-compat && pnpm run check:bundled-extensions && pnpm run smoke && pnpm run check:audit && pnpm run test:release-contract && pnpm run test:frontend && pnpm run build && pnpm run quality:rust",
+    "test:extension-contract": "node --test scripts/source-boundaries.test.mjs scripts/vscode-compat-contract.test.mjs",
+    "quality:full": "pnpm run typecheck && pnpm run check && pnpm run i18n:check && pnpm run check:boundaries && pnpm run check:materials && pnpm run verify:vscode-compat && pnpm run check:bundled-extensions && pnpm run smoke && pnpm run check:audit && pnpm run test:release-contract && pnpm run test:extension-contract && pnpm run test:frontend && pnpm run build && pnpm run quality:rust",
     "quality:rust": "node scripts/quality-rust.mjs",
     "test:rust": "node scripts/test-rust.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 1420",

@@ -93,7 +93,7 @@ export interface EventMap {
 
   "git:changes-count": number;
 
-  "extension:status-message": { message: string };
+  "extension:status-message": { extensionId: string; message: string; timeoutMs: number };
 
   "settings:nav":
     | "general"

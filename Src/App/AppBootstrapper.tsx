@@ -1,8 +1,6 @@
 import type React from "react";
 import { useEffect, useState } from "react";
-import { OobeOverlay } from "../App/Oobe";
-import { useOobeStore } from "../App/Oobe/useOobeStore";
-import { applyAccentTheme, applyLiquidTexture } from "../App/ThemeAccent";
+import { restoreWindowLayout } from "../Core/WindowLayoutManager";
 import { desktopWindow } from "../Foundation/Desktop";
 import { applyPersistedLocale } from "../Foundation/I18n";
 import { AppLifecycleIPC } from "../Foundation/IPC/AppLifecycleCommands";
@@ -12,7 +10,10 @@ import { PlatformService } from "../Foundation/Platform";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 import { setPathPlatform } from "../Shared/Utils/UriUtils";
 import { AppServices } from "./AppServices";
-import { restoreWindowLayout } from "./WindowLayoutManager";
+import { OobeOverlay } from "./Oobe";
+import { useOobeStore } from "./Oobe/useOobeStore";
+import { applyAccentTheme, applyLiquidTexture } from "./ThemeAccent";
+import { WorkspaceApproval } from "./WorkspaceApproval";
 
 interface Props {
   children: React.ReactNode;
@@ -40,6 +41,7 @@ const applyResponsiveDensity = (density?: "compact" | "default" | "regular" | "c
 
 export function AppBootstrapper({ children }: Props) {
   const [ready, setReady] = useState(false);
+  const [visible, setVisible] = useState(false);
   const [initError, setInitError] = useState<Error | null>(null);
   const oobeMode = useOobeStore((state) => state.mode);
 
@@ -139,9 +141,9 @@ export function AppBootstrapper({ children }: Props) {
             frontendBootstrapMs: elapsed,
             mainInteractiveMs,
             splashMinimumMs: 2_000,
-          })
-            .catch(console.error)
-            .finally(() => AppLifecycleIPC.closeSplashscreen().catch(console.error));
+          }).catch(console.error);
+          await AppLifecycleIPC.closeSplashscreen();
+          if (mounted) setVisible(true);
         });
       } catch (error) {
         if (mounted) {
@@ -186,6 +188,7 @@ export function AppBootstrapper({ children }: Props) {
   return (
     <>
       {ready ? children : null}
+      {ready && <WorkspaceApproval visible={visible} />}
       {ready && oobeMode ? <OobeOverlay /> : null}
     </>
   );

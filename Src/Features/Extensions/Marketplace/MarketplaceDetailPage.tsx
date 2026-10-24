@@ -1,4 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
+import {
+  descriptorToMarketplaceItem,
+  formatMarketplaceInstallError,
+  type MarketplaceExtensionItem,
+  MarketplaceService,
+  type ReviewItem,
+  type ReviewsResponse,
+} from "../../../Core/Extensions/Marketplace/MarketplaceService";
 import { EventBus } from "../../../Foundation/EventBus";
 import { type I18nKey, useLocale } from "../../../Foundation/I18n";
 import { useExtensionStore } from "../../../State/useExtensionStore";
@@ -12,14 +20,6 @@ import { showToast } from "../../../UI/Feedback/Toast";
 import { Icons } from "../../../UI/Icons/IconManager";
 import { canonicalExtensionId } from "../ExtensionId";
 import { ExtensionIcon } from "./ExtensionIcon";
-import {
-  descriptorToMarketplaceItem,
-  formatMarketplaceInstallError,
-  type MarketplaceExtensionItem,
-  MarketplaceService,
-  type ReviewItem,
-  type ReviewsResponse,
-} from "./MarketplaceService";
 
 interface MarketplaceDetailPageProps {
   extensionId: string;

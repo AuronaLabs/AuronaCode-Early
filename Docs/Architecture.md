@@ -1,6 +1,6 @@
 # Aurona Code 当前架构
 
-当前开发版本为 `0.4.14`。本页只记录当前边界；历史版本的详细架构说明位于 [Archive/Architecture-Legacy-0.4.13.md](Archive/Architecture-Legacy-0.4.13.md)。
+当前已发布实现基线为 `0.4.16`；`0.4.17` 正在开发，改造记录见 [0.4.17「静」开发记录](0.4.17-Development-Plan.md)，实际检查结果见[代码审查](0.4.17-Code-Review.md)。本页描述现行边界，自动检查结果与真实桌面验收分别记录；历史版本的详细架构说明位于 [Archive/Architecture-Legacy-0.4.13.md](Archive/Architecture-Legacy-0.4.13.md)。
 
 ## 分层
 

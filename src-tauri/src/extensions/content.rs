@@ -95,6 +95,20 @@ fn safe_raster(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'/' | b'='))
 }
 
+/// Declarative text must survive verbatim; interpreting JSON as HTML corrupts
+/// code samples and strips characters from plugin labels and logs.
+pub fn render_output(source: &str) -> Result<String, String> {
+    if source.len() > HTML_BYTES {
+        return Err("[resource.limit] Extension output exceeds 2 MiB".into());
+    }
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(source) {
+        if value["mode"] == "declarative" && value["components"].is_array() {
+            return Ok(source.to_string());
+        }
+    }
+    html(source)
+}
+
 pub fn html(source: &str) -> Result<String, String> {
     if source.len() > HTML_BYTES {
         return Err("[resource.limit] Extension HTML exceeds 2 MiB".into());
@@ -308,6 +322,14 @@ pub fn svg(source: &str) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn declarative_text_is_not_interpreted_as_html() {
+        let source = r#"{"mode":"declarative","components":[{"type":"text","content":"<script>code sample</script> & 中文"}]}"#;
+        assert_eq!(render_output(source).unwrap(), source);
+        assert!(!render_output("<script>evil</script><p>ok</p>")
+            .unwrap()
+            .contains("script"));
+    }
     #[test]
     fn html_removes_navigation_forms_scripts_and_escaped_css_urls() {
         let clean = html(r#"<style>.safe{color:red}.bad{background:u\72l(https://evil.test)}</style><script>alert(1)</script><form action='https://evil.test'><input></form><a href='https://evil.test'>text</a><img src='https://evil.test'><p style='color:red'>ok</p><!--AURONA_RENDER_SLOT-->"#).unwrap();

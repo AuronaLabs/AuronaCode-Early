@@ -1,4 +1,5 @@
 import { EventBus } from "../Foundation/EventBus";
+import { PlatformService } from "../Foundation/Platform";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 import type { LanguageServerConfiguration } from "../Foundation/Types/Config";
 import { FileSystemService } from "./FileSystemService";
@@ -100,15 +101,22 @@ class LanguageConfigurationServiceImpl {
   }
 
   async trust(root: string): Promise<void> {
+    if (normalize(WorkspaceService.getCurrent().primaryRoot ?? "") !== normalize(root)) {
+      throw new Error("[workspace.generation] Workspace changed before trust approval");
+    }
     const config = await UserConfigStore.get();
     const roots = new Set((config.trustedWorkspaceRoots ?? []).map(normalize));
     roots.add(normalize(root));
     await UserConfigStore.set({ trustedWorkspaceRoots: [...roots] });
     this.pendingTrustRequest = null;
-    WorkspaceService.setTrusted(true);
+    if (normalize(WorkspaceService.getCurrent().primaryRoot ?? "") === normalize(root))
+      WorkspaceService.setTrusted(true);
   }
 }
 
-const normalize = (path: string) => path.replace(/[\\/]+$/, "").toLowerCase();
+const normalize = (path: string) => {
+  const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
+  return PlatformService.current() === "windows" ? normalized.toLowerCase() : normalized;
+};
 
 export const LanguageConfigurationService = new LanguageConfigurationServiceImpl();

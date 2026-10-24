@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DocumentService } from "../../../Core/DocumentService";
 import { GitService, type SourceControlCache } from "../../../Core/GitService";
 import { EventBus } from "../../../Foundation/EventBus";
+import { pathsEqual } from "../../../Shared/Utils/UriUtils";
 import {
   createEmptyDiffState,
   type GitGutterHunk,
@@ -22,7 +23,8 @@ const REFRESH_DEBOUNCE_MS = 800;
 function toRepoRelative(filePath: string, repoPath: string): string | null {
   const normalizedFile = filePath.replace(/\\/g, "/");
   const normalizedRepo = repoPath.replace(/\\/g, "/").replace(/\/+$/, "");
-  if (!normalizedFile.startsWith(`${normalizedRepo}/`)) return null;
+  if (!pathsEqual(normalizedFile.slice(0, normalizedRepo.length + 1), `${normalizedRepo}/`))
+    return null;
   return normalizedFile.slice(normalizedRepo.length + 1);
 }
 
@@ -33,9 +35,16 @@ export function useGitGutterDiff(path?: string): GitGutterDiffState {
   const cacheRef = useRef<{ savedVersion: number; state: GitGutterDiffState } | null>(null);
   const debounceRef = useRef<number | null>(null);
   const generationRef = useRef(0);
+  const requestRef = useRef(0);
 
   const compute = useCallback(async (filePath: string, savedVersion: number) => {
     const repoPath = repoPathRef.current;
+    const generation = generationRef.current;
+    const request = ++requestRef.current;
+    const isCurrent = () =>
+      generation === generationRef.current &&
+      request === requestRef.current &&
+      repoPath === repoPathRef.current;
     const relative = repoPath ? toRepoRelative(filePath, repoPath) : null;
     if (!repoPath || !relative) {
       cacheRef.current = { savedVersion, state: createEmptyDiffState() };
@@ -44,16 +53,21 @@ export function useGitGutterDiff(path?: string): GitGutterDiffState {
     }
     try {
       const diffText = await GitService.getDiffCached(repoPath, relative);
+      if (!isCurrent()) return;
       const state = parseUnifiedDiffHunks(diffText);
       cacheRef.current = { savedVersion, state };
       setDiffState(state);
     } catch {
+      if (!isCurrent()) return;
       cacheRef.current = { savedVersion, state: createEmptyDiffState() };
       setDiffState(createEmptyDiffState());
     }
   }, []);
 
   useEffect(() => {
+    generationRef.current += 1;
+    cacheRef.current = null;
+    setDiffState(createEmptyDiffState());
     if (!path) {
       setDiffState(createEmptyDiffState());
       cacheRef.current = null;

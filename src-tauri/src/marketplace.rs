@@ -291,6 +291,29 @@ pub async fn marketplace_request(
             .map_err(|_| "[marketplace.schema] Response is not JSON")?;
         validate_json(&value, 0, &mut 0)?;
         if let Some(signed) = value.get("signedCatalog") {
+            if !crate::extensions::security_policy::ExtensionSecurityPolicy::load(&app)
+                .catalog_signature
+            {
+                let payload = signed
+                    .get("payload")
+                    .ok_or("[catalog.schema] Missing catalog payload")?;
+                let entries = payload
+                    .get("entries")
+                    .and_then(|value| value.as_array())
+                    .ok_or("[catalog.schema] Missing catalog entries")?;
+                let next_page = payload
+                    .get("nextPage")
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null);
+                return Ok(Response {
+                    status,
+                    body: serde_json::json!({ "data": entries,
+                    "pagination": { "nextPage": next_page, "hasMore": !next_page.is_null() },
+                    "cache": { "verified": false } })
+                    .to_string(),
+                    catalog_verified: false,
+                });
+            }
             if !(200..300).contains(&status) {
                 return Err(
                     "[catalog.status] Signed catalog requires a successful response".into(),

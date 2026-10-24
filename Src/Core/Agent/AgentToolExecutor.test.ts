@@ -13,19 +13,19 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../../Foundation/Storage/UserConfigStore", () => ({
   UserConfigStore: { get: mocks.get },
 }));
-vi.mock("../../Core/Agent/AgentService", () => ({
+vi.mock("./AgentService", () => ({
   AgentService: { setExecutor: mocks.setExecutor, notifyApproval: mocks.approval },
 }));
-vi.mock("../../Core/WorkspaceService", () => ({
+vi.mock("../WorkspaceService", () => ({
   WorkspaceService: { getCurrent: () => ({ id: "workspace", primaryRoot: "C:/project" }) },
 }));
 vi.mock("../../Foundation/IPC/FileSystemCommands", () => ({
   FileSystemCommands: { rename: mocks.rename },
 }));
-vi.mock("../../Core/TerminalService", () => ({
+vi.mock("../TerminalService", () => ({
   TerminalManager: { ensureDefaultTerminal: mocks.terminal, executeCommand: mocks.command },
 }));
-vi.mock("../../UI/Feedback/Toast", () => ({
+vi.mock("../../Foundation/Notifications", () => ({
   showConfirm: mocks.confirm,
   dismissNotification: vi.fn(),
 }));

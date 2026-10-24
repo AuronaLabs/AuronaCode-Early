@@ -1,17 +1,17 @@
+import { AccountService } from "../Core/AccountService";
+import { registerWorkbenchCommands } from "../Core/Commands";
+import { DebugService } from "../Core/DebugService";
+import { DocumentService } from "../Core/DocumentService";
+import { LspClient } from "../Core/Language/LspClient";
+import { OutputService } from "../Core/OutputService";
+import { RecoveryCoordinator } from "../Core/Recovery/RecoveryCoordinator";
+import { saveWindowLayout } from "../Core/WindowLayoutManager";
+import { WorkspaceService } from "../Core/WorkspaceService";
 import { desktopWindow } from "../Foundation/Desktop";
 import { WorkspaceStore } from "../Foundation/Storage/WorkspaceStore";
 import { initializeEditorStore } from "../State/useEditorStore";
 import { initializeTerminalStore } from "../State/useTerminalStore";
 import { initializeWorkbenchStore } from "../State/useWorkspaceStore";
-import { AccountService } from "./AccountService";
-import { registerWorkbenchCommands } from "./Commands";
-import { DebugService } from "./DebugService";
-import { DocumentService } from "./DocumentService";
-import { LspClient } from "./Language/LspClient";
-import { OutputService } from "./OutputService";
-import { RecoveryCoordinator } from "./Recovery/RecoveryCoordinator";
-import { saveWindowLayout } from "./WindowLayoutManager";
-import { WorkspaceService } from "./WorkspaceService";
 
 let startPromise: Promise<void> | null = null;
 let disposers: (() => void)[] = [];
@@ -56,7 +56,7 @@ export const AppServices = {
       const closeProtectionPromise = initializeCloseProtection();
 
       const disposeWorkbench = await initializeWorkbenchStore();
-      await WorkspaceService.initialize();
+      WorkspaceService.prepareInitialization();
       void restoreAccountSessionInBackground();
       OutputService.append("core", "Application services initialized");
       if (!shouldBeStarted || disposers.length > 0) {

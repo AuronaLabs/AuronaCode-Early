@@ -9,12 +9,12 @@ import "./Styles/components.css";
 import "./Styles/editor-syntax.css";
 import "@fontsource/righteous";
 import "@fontsource/jetbrains-mono";
-import { AppBootstrapper } from "../Core/AppBootstrapper";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EventBus } from "../Foundation/EventBus";
 import { Logger } from "../Foundation/Logger";
 import { PlatformService } from "../Foundation/Platform";
 import { ErrorBoundary } from "../Layout/ErrorBoundary";
+import { AppBootstrapper } from "./AppBootstrapper";
 
 Logger.init();
 
@@ -37,6 +37,7 @@ function RootApp() {
       if (isDevtoolsShortcut) {
         e.preventDefault();
         e.stopImmediatePropagation();
+        if (!e.repeat) void CommandRegistry.execute("workbench.action.openDevtools");
         return;
       }
 

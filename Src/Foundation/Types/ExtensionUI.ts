@@ -119,6 +119,15 @@ export interface DeclarativeUIRoot {
   title?: string;
   description?: string;
   components: DeclarativeComponent[];
+  webviews?: CompatWebviewState[];
+}
+
+export interface CompatWebviewState {
+  id: string;
+  title: string;
+  html: string;
+  enableScripts: boolean;
+  messages: { sequence: number; value: unknown }[];
 }
 
 export function isDeclarativeUI(data: unknown): data is DeclarativeUIRoot {

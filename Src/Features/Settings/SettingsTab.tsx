@@ -10,6 +10,7 @@ import { EventBus } from "../../Foundation/EventBus";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { AccentThemeId } from "../../Foundation/Types/Config";
+import type { SettingsSection } from "../../Foundation/Types/Settings";
 import { cn } from "../../Shared/Utils/cn";
 import { Button } from "../../UI/Components/Button";
 import { EmptyState } from "../../UI/Components/EmptyState";
@@ -35,20 +36,7 @@ import { SecuritySettingsSection } from "./SecuritySettingsSection";
 import { SourceControlSettingsSection } from "./SourceControlSettingsSection";
 import { StorageSettingsSection } from "./StorageSettingsSection";
 
-export type SettingsSection =
-  | "general"
-  | "appearance"
-  | "editor"
-  | "codeIntelligence"
-  | "terminalRun"
-  | "sourceControl"
-  | "network"
-  | "security"
-  | "ai"
-  | "accountCloud"
-  | "extensions"
-  | "system"
-  | "advanced";
+export type { SettingsSection } from "../../Foundation/Types/Settings";
 
 const CATEGORY_TO_SECTION: Record<SettingCategory, SettingsSection> = {
   general: "general",

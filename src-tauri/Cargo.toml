@@ -1,6 +1,6 @@
 [package]
 name = "aurona_code"
-version = "0.4.16"
+version = "0.4.17"
 description = "Aurona Code Preview"
 authors = ["Aurona Team"]
 edition = "2021"
@@ -94,6 +94,7 @@ rsa = { version = "0.9.10", features = ["pem"] }
 rand08 = { package = "rand", version = "0.8.5" }
 
 [features]
+default = ["devtools"]
 devtools = ["tauri/devtools"]
 aurona-account = []
 audit-harness = []

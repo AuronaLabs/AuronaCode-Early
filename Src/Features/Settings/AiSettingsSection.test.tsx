@@ -31,7 +31,9 @@ vi.mock("../../Foundation/Storage/UserConfigStore", () => ({
 vi.mock("../../Core/Agent/AgentService", () => ({
   AgentService: { refreshConfig: mocks.refresh },
 }));
-vi.mock("../AiAssistant/AgentToolExecutor", () => ({ syncAgentExecutorRegistration: mocks.sync }));
+vi.mock("../../Core/Agent/AgentToolExecutor", () => ({
+  syncAgentExecutorRegistration: mocks.sync,
+}));
 vi.mock("../../Foundation/IPC/AiCommands", () => ({
   AiIPC: {
     saveProfile: mocks.saveProfile,

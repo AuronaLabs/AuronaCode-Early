@@ -1,4 +1,12 @@
 export const zhCN = {
+  workspaceApproval: {
+    title: "工作区访问请求",
+    review: "查看请求",
+    allow: "允许访问",
+    description: "仅对你信任的文件夹授权。打开后，编辑器和已授权的扩展可以访问其中的文件。",
+  },
+  platformTransitionTip:
+    "Aurona Account 将很快升级为全新的 Aurona Platform 体系，旧版将很快下架，敬请期待。",
   oobe: {
     welcomeTitle: "欢迎使用 Aurona Code",
     welcomeDesc: "写代码这件事，值得一个更舒服、更安静的角落",
@@ -936,6 +944,13 @@ export const zhCN = {
       stopping: "正在停止",
     },
     securitySettings: {
+      extensionSignature: "要求插件包签名认证",
+      extensionSignatureDescription:
+        "默认验证发布者、签名和包身份。关闭后允许未签名或认证失败的插件包；安装确认和运行权限仍由各自开关控制。",
+      catalogSignature: "要求插件目录签名认证",
+      catalogSignatureDescription:
+        "默认验证 Marketplace 目录。关闭后允许浏览未认证的目录并从中安装，目录内容不再作为可信发布者证明。",
+
       sectionTitle: "安全与授权",
       sectionDescription: "选择日常授权提示的默认行为，同时保留工作区边界、配置指纹和后端校验。",
       autoTrustWorkspace: "自动信任工作区语言服务器",

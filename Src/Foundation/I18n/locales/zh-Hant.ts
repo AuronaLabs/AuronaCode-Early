@@ -1,6 +1,14 @@
 import type { LocaleMessages } from "./zh-CN";
 
 export const zhHant: LocaleMessages = {
+  workspaceApproval: {
+    title: "工作區存取請求",
+    review: "檢視請求",
+    allow: "允許存取",
+    description: "僅對你信任的資料夾授權。開啟後，編輯器和已授權的擴充功能可以存取其中的檔案。",
+  },
+  platformTransitionTip:
+    "Aurona Account 將很快升級為全新的 Aurona Platform 體系，舊版將很快下架，敬請期待。",
   oobe: {
     welcomeTitle: "歡迎使用 Aurona Code",
     welcomeDesc: "寫程式這件事，值得更舒服、更安靜的角落",
@@ -940,6 +948,13 @@ export const zhHant: LocaleMessages = {
       stopping: "正在停止",
     },
     securitySettings: {
+      extensionSignature: "要求擴充套件簽章驗證",
+      extensionSignatureDescription:
+        "預設驗證發佈者、簽章和套件身分。關閉後允許未簽章或驗證失敗的套件；安裝確認及執行權限仍由各自開關控制。",
+      catalogSignature: "要求擴充目錄簽章驗證",
+      catalogSignatureDescription:
+        "預設驗證 Marketplace 目錄。關閉後允許瀏覽未驗證的目錄並安裝，目錄內容不再作為可信發佈者證明。",
+
       sectionTitle: "安全與授權",
       sectionDescription: "選擇日常授權提示的預設行為，同時保留工作區邊界、設定指紋與後端檢查。",
       autoTrustWorkspace: "自動信任工作區語言服務",

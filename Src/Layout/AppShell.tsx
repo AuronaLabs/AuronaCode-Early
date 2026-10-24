@@ -4,9 +4,9 @@ import { AgentService } from "../Core/Agent/AgentService";
 import { NotificationService } from "../Core/NotificationService";
 import { CommandRegistry } from "../Extension/CommandRegistry";
 import { FliunoModal as Fliuno } from "../Features/Fliuno/FliunoModal";
+import { UpdateModal } from "../Features/Updates/UpdateModal";
 import { EventBus } from "../Foundation/EventBus";
 import { useLocale } from "../Foundation/I18n";
-import { extensionSvgDataUrl } from "../Foundation/Security/ExtensionContent";
 import {
   extensionSidebarId,
   SIDEBAR_AI,
@@ -22,8 +22,8 @@ import {
   ContextMenuRoot,
   ContextMenuTrigger,
 } from "../UI/Components/ContextMenu";
+import { ExtensionGlyph } from "../UI/Components/ExtensionGlyph";
 import { ToastContainer } from "../UI/Feedback/Toast";
-import { UpdateModal } from "../UI/Feedback/UpdateModal";
 import { Icons } from "../UI/Icons/IconManager";
 import { sidebarCardsByGroup } from "./SidebarCardRegistry";
 import { StatusBar } from "./StatusBar";
@@ -35,18 +35,7 @@ type AppShellProps = {
 
 function ExtensionActivityIcon({ extensionId }: { extensionId: string }) {
   const icon = useExtensionStore((state) => state.views[extensionId]?.icon);
-  const source = icon ? extensionSvgDataUrl(icon) : null;
-  if (source) {
-    return (
-      <img src={source} alt="" width={22} height={22} className="size-[22px] object-contain" />
-    );
-  }
-  if (extensionId === "aurona.vscode-compat") {
-    return <Icons.FileCode size={22} stroke={1.5} />;
-  }
-  if (extensionId.startsWith("vscode-") || extensionId.includes("vscode")) {
-    return <Icons.Sparkles size={22} stroke={1.5} />;
-  }
+  if (icon) return <ExtensionGlyph source={icon} />;
   return <Icons.Extensions size={22} stroke={1.5} />;
 }
 

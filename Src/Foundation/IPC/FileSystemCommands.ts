@@ -19,6 +19,12 @@ export const FileSystemCommands = {
     return invokeDesktop("fs_restore_deleted", { recoveryId });
   },
   setWorkspaceRoot: (root: string | null) => invokeDesktop<void>("workspace_set_root", { root }),
+  onWorkspaceApproval: (listener: (request: { id: string; path: string }) => void) =>
+    listenDesktop("workspace:approval", listener),
+  onWorkspaceApprovalClosed: (listener: (id: string) => void) =>
+    listenDesktop("workspace:approval-closed", listener),
+  resolveWorkspaceApproval: (id: string, approved: boolean) =>
+    invokeDesktop<void>("workspace_resolve_approval", { id, approved }),
 
   readDirectory: (path: string) => invokeDesktop<FileSystemEntry[]>("fs_read_dir", { path }),
   readDirectoryPage: (path: string, cursor?: string) =>

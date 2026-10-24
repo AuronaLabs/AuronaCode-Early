@@ -89,7 +89,11 @@ pub mod sdk {
         }
 
         #[inline]
-        pub fn list_files(&self, directory: &str, max_count: u32) -> Result<Vec<FileEntry>, String> {
+        pub fn list_files(
+            &self,
+            directory: &str,
+            max_count: u32,
+        ) -> Result<Vec<FileEntry>, String> {
             context::list_workspace_files(directory, max_count)
         }
     }
@@ -258,40 +262,41 @@ fn set_fn(target: &JsObject, key: &str, f: NativeFunction, context: &mut Context
 /// CJS 环境垫片：console / module / exports / require / 命令注册全部以 JS 定义，
 /// 状态保存在 GC 可达的全局对象图（__auronaLogs、vscode.commands.__registry），
 /// 因此所有原生闭包都无需捕获任何 Rust 状态（避免 boa GC 追踪 UB）。
-const SHIM_JS: &str = r#"
-    globalThis.__auronaLogs = [];
-    globalThis.console = {
-        log: (...args) => { __auronaLogs.push('[log] ' + args.map(String).join(' ')); },
-        info: (...args) => { __auronaLogs.push('[info] ' + args.map(String).join(' ')); },
-        warn: (...args) => { __auronaLogs.push('[warn] ' + args.map(String).join(' ')); },
-        error: (...args) => { __auronaLogs.push('[error] ' + args.map(String).join(' ')); },
-    };
-    globalThis.module = { exports: {} };
-    globalThis.exports = module.exports;
-    globalThis.require = (name) => {
-        if (name === 'vscode') { return vscode; }
-        throw new TypeError('兼容沙箱仅支持 require(\'vscode\')，收到: ' + name);
-    };
-    vscode.commands.registerCommand = (id, handler) => {
-        if (typeof handler !== 'function') {
-            throw new TypeError('registerCommand(id, handler) 需要 handler 为函数');
-        }
-        vscode.commands.__registry.push([id, handler]);
-        return undefined;
-    };
-    vscode.commands.executeCommand = (id, ...args) => {
-        for (const entry of vscode.commands.__registry) {
-            if (entry[0] === id) { return entry[1](...args); }
-        }
-        throw new TypeError('命令未注册: ' + id);
-    };
-"#;
+const SHIM_JS: &str = include_str!("shim.js");
 
 /// 把 `require("vscode")`、`console`、`module/exports` 注入 boa 全局。
 fn install_shims(context: &mut Context) -> JsResult<()> {
     let vscode = build_vscode_module(context)?;
     context.register_global_property(JsString::from("vscode"), vscode, Attribute::all())?;
+    #[cfg(not(test))]
+    let metadata = aurona::extensions::context::runtime_metadata();
+    #[cfg(test)]
+    let metadata = r#"{"extensionId":"test.extension","extensionPath":"/extensions/test.extension","workspaceId":"test-workspace","workspacePath":null,"platform":"linux"}"#.to_string();
+    context.eval(Source::from_bytes(
+        format!("globalThis.__auronaMetadata = {};", metadata).as_bytes(),
+    ))?;
+    let global = context.global_object();
+    set_fn(
+        &global,
+        "__auronaWriteFile",
+        NativeFunction::from_copy_closure(|_, args, ctx| {
+            let path = args
+                .get_or_undefined(0)
+                .to_string(ctx)?
+                .to_std_string_escaped();
+            let text = args
+                .get_or_undefined(1)
+                .to_string(ctx)?
+                .to_std_string_escaped();
+            Aurona::workspace()
+                .write_file(&path, &text)
+                .map_err(|error| boa_engine::JsNativeError::error().with_message(error))?;
+            Ok(JsValue::undefined())
+        }),
+        context,
+    )?;
     context.eval(Source::from_bytes(SHIM_JS.as_bytes()))?;
+    context.eval(Source::from_bytes(include_bytes!("views.js")))?;
     Ok(())
 }
 
@@ -336,11 +341,12 @@ fn build_vscode_module(context: &mut Context) -> JsResult<JsObject> {
                     .get_or_undefined(0)
                     .to_string(ctx)?
                     .to_std_string_escaped();
-                let timeout = args
-                    .get_or_undefined(1)
-                    .to_number(ctx)
-                    .unwrap_or(4000.0) as u32;
-                let _ = Aurona::window().set_status_bar(&message, timeout.max(500));
+                let timeout = args.get_or_undefined(1).to_number(ctx).unwrap_or(4000.0) as u32;
+                if !cfg!(test) {
+                    Aurona::window()
+                        .set_status_bar(&message, timeout)
+                        .map_err(|error| boa_engine::JsNativeError::error().with_message(error))?;
+                }
                 Ok(JsValue::undefined())
             }),
             context,
@@ -420,7 +426,9 @@ fn build_vscode_module(context: &mut Context) -> JsResult<JsObject> {
         "readText",
         NativeFunction::from_copy_closure(|_this, _args, _ctx| {
             Ok(JsValue::from(JsString::from(
-                Aurona::clipboard().read().unwrap_or_default(),
+                Aurona::clipboard()
+                    .read()
+                    .map_err(|error| boa_engine::JsNativeError::error().with_message(error))?,
             )))
         }),
         context,
@@ -433,7 +441,9 @@ fn build_vscode_module(context: &mut Context) -> JsResult<JsObject> {
                 .get_or_undefined(0)
                 .to_string(ctx)?
                 .to_std_string_escaped();
-            let _ = Aurona::clipboard().write(&text);
+            Aurona::clipboard()
+                .write(&text)
+                .map_err(|error| boa_engine::JsNativeError::error().with_message(error))?;
             Ok(JsValue::undefined())
         }),
         context,
@@ -447,31 +457,29 @@ fn build_vscode_module(context: &mut Context) -> JsResult<JsObject> {
 
 /// 构造传给 activate(context) 的 ExtensionContext 形状。
 fn build_activation_context(context: &mut Context) -> JsResult<JsObject> {
-    let ctx_obj = new_object(context)?;
-    let subscriptions = JsArray::new(context);
-    set_value(&ctx_obj, "subscriptions", subscriptions, context)?;
-    set_value(&ctx_obj, "extensionPath", JsString::from(""), context)?;
-
-    let state_obj = new_object(context)?;
+    let storage = new_object(context)?;
     set_fn(
-        &state_obj,
+        &storage,
         "get",
-        NativeFunction::from_copy_closure(move |_this, args, ctx| {
+        NativeFunction::from_copy_closure(|_, args, ctx| {
             let key = args
                 .get_or_undefined(0)
                 .to_string(ctx)?
                 .to_std_string_escaped();
-            match Aurona::storage().get(&key) {
-                Ok(Some(value)) => Ok(JsValue::from(JsString::from(value))),
-                _ => Ok(JsValue::undefined()),
+            match Aurona::storage()
+                .get(&key)
+                .map_err(|error| boa_engine::JsNativeError::error().with_message(error))?
+            {
+                Some(value) => Ok(JsString::from(value).into()),
+                None => Ok(JsValue::undefined()),
             }
         }),
         context,
     )?;
     set_fn(
-        &state_obj,
-        "update",
-        NativeFunction::from_copy_closure(move |_this, args, ctx| {
+        &storage,
+        "set",
+        NativeFunction::from_copy_closure(|_, args, ctx| {
             let key = args
                 .get_or_undefined(0)
                 .to_string(ctx)?
@@ -480,17 +488,60 @@ fn build_activation_context(context: &mut Context) -> JsResult<JsObject> {
                 .get_or_undefined(1)
                 .to_string(ctx)?
                 .to_std_string_escaped();
-            let _ = Aurona::storage().set(&key, &value);
+            Aurona::storage()
+                .set(&key, &value)
+                .map_err(|error| boa_engine::JsNativeError::error().with_message(error))?;
             Ok(JsValue::undefined())
         }),
         context,
     )?;
-    set_value(&ctx_obj, "globalState", state_obj.clone(), context)?;
-    set_value(&ctx_obj, "workspaceState", state_obj, context)?;
-    Ok(ctx_obj)
+    set_fn(
+        &storage,
+        "delete",
+        NativeFunction::from_copy_closure(|_, args, ctx| {
+            let key = args
+                .get_or_undefined(0)
+                .to_string(ctx)?
+                .to_std_string_escaped();
+            aurona::extensions::context::storage_delete(&key)
+                .map_err(|error| boa_engine::JsNativeError::error().with_message(error))?;
+            Ok(JsValue::undefined())
+        }),
+        context,
+    )?;
+    set_fn(
+        &storage,
+        "keys",
+        NativeFunction::from_copy_closure(|_, _, ctx| {
+            let keys = aurona::extensions::context::storage_list_keys()
+                .map_err(|error| boa_engine::JsNativeError::error().with_message(error))?;
+            Ok(JsArray::from_iter(
+                keys.into_iter()
+                    .map(|key| JsValue::from(JsString::from(key))),
+                ctx,
+            )
+            .into())
+        }),
+        context,
+    )?;
+    context.register_global_property(
+        JsString::from("__auronaNativeState"),
+        storage,
+        Attribute::all(),
+    )?;
+    context
+        .eval(Source::from_bytes(
+            b"__auronaCreateContext(__auronaNativeState)",
+        ))?
+        .as_object()
+        .cloned()
+        .ok_or_else(|| {
+            boa_engine::JsNativeError::error()
+                .with_message("Invalid activation context")
+                .into()
+        })
 }
 
-/// 从 GC 可达的 vscode.commands.__registry 读取已注册命令 ID。
 fn read_command_ids(context: &mut Context) -> Result<Vec<String>, String> {
     let vscode_value = context
         .global_object()
@@ -566,47 +617,124 @@ fn read_console_logs(context: &mut Context) -> Vec<String> {
     logs
 }
 
-/// 执行一段 VSCode CJS 插件源码：eval → activate → 可选执行用户命令。
-/// 全部发生在同一个 Context（跨 Context 调用 JS 函数属于未定义行为）。
-/// 返回 (已注册命令 ID 列表, console 日志)。
+// Persistent contexts keep activation and commands in the same GC heap.
+thread_local! {
+    // Initialize Boa's thread-local GC before SESSION registers its destructor.
+    // Otherwise Windows test threads may destroy the collector before live contexts.
+    static SESSION: std::cell::RefCell<Option<(String, Context)>> = {
+        let _initialize_gc = Context::default();
+        std::cell::RefCell::new(None)
+    };
+}
+
+fn settle_result(context: &mut Context, value: JsValue) -> Result<(), String> {
+    context
+        .register_global_property(JsString::from("__auronaResult"), value, Attribute::all())
+        .map_err(js_error)?;
+    context.eval(Source::from_bytes(b"globalThis.__auronaSettled = false; globalThis.__auronaRejected = false; globalThis.__auronaFailure = undefined; Promise.resolve(__auronaResult).then(() => { __auronaSettled = true; }, error => { __auronaSettled = true; __auronaRejected = true; __auronaFailure = String(error); });")).map_err(js_error)?;
+    context.run_jobs();
+    let global = context.global_object();
+    if !global
+        .get(JsString::from("__auronaSettled"), context)
+        .map_err(js_error)?
+        .to_boolean()
+    {
+        return Err("[compat.async_pending] Extension operation did not settle within the available job queue".into());
+    }
+    if global
+        .get(JsString::from("__auronaRejected"), context)
+        .map_err(js_error)?
+        .to_boolean()
+    {
+        return Err(global
+            .get(JsString::from("__auronaFailure"), context)
+            .map_err(js_error)?
+            .to_string(context)
+            .map_err(js_error)?
+            .to_std_string_escaped());
+    }
+    Ok(())
+}
+
 fn execute_extension(
     source: &str,
     command_to_run: Option<&str>,
 ) -> Result<(Vec<String>, Vec<String>), String> {
-    let mut context = Context::default();
-    install_shims(&mut context).map_err(js_error)?;
-    context
-        .eval(Source::from_bytes(source.as_bytes()))
-        .map_err(js_error)?;
-
-    // 读取 module.exports.activate（兼容 module.exports = {...} 与 exports.activate = fn）。
-    let module_value = context
+    let previous = SESSION.with(|session| session.borrow_mut().take());
+    let mut context = if let Some((previous_source, mut context)) = previous {
+        if previous_source == source {
+            context
+        } else {
+            let result = context
+                .eval(Source::from_bytes(b"__auronaDispose()"))
+                .map_err(js_error)?;
+            settle_result(&mut context, result)?;
+            Context::default()
+        }
+    } else {
+        Context::default()
+    };
+    let initialized = context
         .global_object()
-        .get(JsString::from("module"), &mut context)
-        .map_err(js_error)?;
-    let exports_value = module_value
-        .as_object()
-        .ok_or_else(|| "module 不是对象".to_string())?
-        .get(JsString::from("exports"), &mut context)
-        .map_err(js_error)?;
-    let activate_fn = exports_value
-        .as_object()
-        .and_then(|exports| {
-            exports
-                .get(JsString::from("activate"), &mut context)
-                .ok()
-                .and_then(|value| value.as_function())
-        })
-        .ok_or_else(|| "扩展未导出 activate(context) 函数".to_string())?;
+        .get(JsString::from("__auronaActivationContext"), &mut context)
+        .map_err(js_error)?
+        .is_object();
+    if !initialized {
+        install_shims(&mut context).map_err(js_error)?;
+        context
+            .eval(Source::from_bytes(source.as_bytes()))
+            .map_err(js_error)?;
 
-    let activation_ctx = build_activation_context(&mut context).map_err(js_error)?;
-    activate_fn
-        .call(&JsValue::undefined(), &[activation_ctx.into()], &mut context)
-        .map_err(js_error)?;
+        // 读取 module.exports.activate（兼容 module.exports = {...} 与 exports.activate = fn）。
+        let module_value = context
+            .global_object()
+            .get(JsString::from("module"), &mut context)
+            .map_err(js_error)?;
+        let exports_value = module_value
+            .as_object()
+            .ok_or_else(|| "module 不是对象".to_string())?
+            .get(JsString::from("exports"), &mut context)
+            .map_err(js_error)?;
+        let activate_fn = exports_value
+            .as_object()
+            .and_then(|exports| {
+                exports
+                    .get(JsString::from("activate"), &mut context)
+                    .ok()
+                    .and_then(|value| value.as_function())
+            })
+            .ok_or_else(|| "扩展未导出 activate(context) 函数".to_string())?;
 
-    // 驱动 readFile 等 Promise 的 then 回调。
-    context.run_jobs();
+        let activation_ctx = build_activation_context(&mut context).map_err(js_error)?;
+        let activated = activate_fn
+            .call(
+                &JsValue::undefined(),
+                &[activation_ctx.into()],
+                &mut context,
+            )
+            .map_err(js_error)?;
+        settle_result(&mut context, activated)?;
 
+        // 驱动 readFile 等 Promise 的 then 回调。
+        context.run_jobs();
+    }
+    #[cfg(not(test))]
+    {
+        let metadata = aurona::extensions::context::runtime_metadata();
+        context
+            .eval(Source::from_bytes(
+                format!("globalThis.__auronaMetadata = {metadata};").as_bytes(),
+            ))
+            .map_err(js_error)?;
+        let snapshot = Aurona::editor().snapshot();
+        let snapshot = serde_json::json!({ "path": snapshot.path, "content": snapshot.content, "language": snapshot.language, "version": snapshot.version });
+        context
+            .eval(Source::from_bytes(
+                format!("__auronaSyncDocument({snapshot});").as_bytes(),
+            ))
+            .map_err(js_error)?;
+        context.run_jobs();
+    }
     let command_ids = read_command_ids(&mut context)?;
 
     if let Some(command_id) = command_to_run {
@@ -617,13 +745,14 @@ fn execute_extension(
             "vscode.commands.executeCommand(\"{}\");",
             json_escape(command_id)
         );
-        context
+        let result = context
             .eval(Source::from_bytes(call_source.as_bytes()))
             .map_err(js_error)?;
-        context.run_jobs();
+        settle_result(&mut context, result)?;
     }
 
     let logs = read_console_logs(&mut context);
+    SESSION.with(|session| *session.borrow_mut() = Some((source.to_string(), context)));
     Ok((command_ids, logs))
 }
 
@@ -712,6 +841,15 @@ fn compat_execute_with_locale(
     action_id: &str,
     locale: &str,
 ) -> Result<RenderOutput, String> {
+    compat_execute_with_action(source, action_id, locale, None)
+}
+
+fn compat_execute_with_action(
+    source: &str,
+    action_id: &str,
+    locale: &str,
+    data: Option<&str>,
+) -> Result<RenderOutput, String> {
     let executed = action_id
         .strip_prefix("run:")
         .map(str::to_string)
@@ -741,14 +879,37 @@ fn compat_execute_with_locale(
         )
     };
 
+    let mut root: serde_json::Value = serde_json::from_str(&build_declarative_ui(
+        title,
+        description,
+        &sorted,
+        &logs,
+        executed.as_deref(),
+    ))
+    .map_err(|error| error.to_string())?;
+    let views = SESSION.with(|session| -> Result<serde_json::Value, String> {
+        let mut session = session.borrow_mut();
+        let (_, context) = session.as_mut().ok_or("[compat.session] No active extension")?;
+        if action_id.starts_with("tree:") || action_id.starts_with("webview:") {
+            let action = serde_json::to_string(action_id).map_err(|error| error.to_string())?;
+            let data: serde_json::Value = serde_json::from_str(data.unwrap_or("null")).map_err(|error| error.to_string())?;
+            let value = context.eval(Source::from_bytes(format!("__auronaHandleViewAction({action}, {data})").as_bytes())).map_err(js_error)?;
+            settle_result(context, value)?;
+        }
+        let value = context.eval(Source::from_bytes(b"__auronaViewsSnapshot().then(value => globalThis.__auronaViewSnapshot = JSON.stringify(value))")).map_err(js_error)?;
+        settle_result(context, value)?;
+        let json = context.global_object().get(JsString::from("__auronaViewSnapshot"), context).map_err(js_error)?.to_string(context).map_err(js_error)?.to_std_string_escaped();
+        serde_json::from_str(&json).map_err(|error| error.to_string())
+    })?;
+    if let (Some(components), Some(additional)) = (
+        root["components"].as_array_mut(),
+        views["components"].as_array(),
+    ) {
+        components.extend(additional.iter().cloned());
+    }
+    root["webviews"] = views["webviews"].clone();
     Ok(RenderOutput {
-        html: build_declarative_ui(
-            title,
-            description,
-            &sorted,
-            &logs,
-            executed.as_deref(),
-        ),
+        html: root.to_string(),
         diagnostics: Vec::new(),
     })
 }
@@ -767,7 +928,30 @@ impl Guest for VsCodeCompatExtension {
     }
 
     fn on_action(action_id: String, payload: String) -> Result<RenderOutput, String> {
-        // payload 由 host 覆盖为主入口 JS 源码（§5.4：组件跨调用无状态）。
+        if action_id == "__aurona_deactivate" {
+            if let Some((_, mut context)) = SESSION.with(|session| session.borrow_mut().take()) {
+                let value = context
+                    .eval(Source::from_bytes(b"__auronaDispose()"))
+                    .map_err(js_error)?;
+                settle_result(&mut context, value)?;
+            }
+            return Ok(RenderOutput {
+                html: String::new(),
+                diagnostics: Vec::new(),
+            });
+        }
+        // Only the host supplies executable source; action data remains inert JSON.
+        if let Ok(envelope) = serde_json::from_str::<serde_json::Value>(&payload) {
+            if let Some(source) = envelope["source"].as_str() {
+                let data = envelope["data"].to_string();
+                return compat_execute_with_action(
+                    source,
+                    &action_id,
+                    &Aurona::config().locale,
+                    Some(&data),
+                );
+            }
+        }
         compat_execute(&payload, &action_id)
     }
 }
@@ -777,6 +961,33 @@ export!(VsCodeCompatExtension);
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn session_reuses_activation_and_propagates_async_failure() {
+        let source = r#"
+          const vscode = require('vscode');
+          let count = 0;
+          exports.activate = context => {
+            console.log('activated once');
+            context.subscriptions.push(vscode.commands.registerCommand('demo.counter', async () => console.log(++count)));
+            vscode.commands.registerCommand('demo.reject', async () => { throw new Error('visible rejection'); });
+          };
+        "#;
+        execute_extension(source, None).unwrap();
+        let (_, first) = execute_extension(source, Some("demo.counter")).unwrap();
+        let (_, second) = execute_extension(source, Some("demo.counter")).unwrap();
+        assert_eq!(
+            first
+                .iter()
+                .filter(|log| log.contains("activated once"))
+                .count(),
+            1
+        );
+        assert!(second.iter().any(|log| log == "[log] 2"));
+        assert!(execute_extension(source, Some("demo.reject"))
+            .unwrap_err()
+            .contains("visible rejection"));
+    }
 
     #[test]
     fn declarative_ui_lists_registered_commands() {
@@ -805,8 +1016,8 @@ mod tests {
             }
             module.exports = { activate };
         "#;
-        let output = compat_execute_with_locale(source, "run:demo.hello", "zh-CN")
-            .expect("命令执行应成功");
+        let output =
+            compat_execute_with_locale(source, "run:demo.hello", "zh-CN").expect("命令执行应成功");
         assert!(output.html.contains("已执行: demo.hello"));
         assert!(output.html.contains("command ran"));
     }

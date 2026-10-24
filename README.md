@@ -4,7 +4,7 @@
   <p>基于 Tauri、React 和 Rust 的桌面代码编辑器</p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.16-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.17-2563eb" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
   </p>
 </div>
@@ -14,6 +14,8 @@ Aurona Code 使用自研 AuronaEngine 编辑器、Rust 文本模型和 WASI P2 �
 ## 版本状态
 
 当前正式版本为 **[0.4.16](https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.16)**，于 **2026-10-24 20:57（北京时间）**发布到 Stable。本版补齐安全策略开关、Agent 配置与上下文恢复，并修复编辑器和日常设置问题，见 [0.4.16 发布记录](Docs/0.4.16-Release-Preflight.md)和[开发范围](Docs/0.4.16-Development-Plan.md)。
+
+0.4.17「静」正在 `codex/0.4.17-quiet` 分支开发，主题是降低维护噪声：完成 Corona+ 模块边界整改、Git/F12/工作区授权修复、可选插件安全策略、VS Code 兼容层基础能力和 OOBE/主题/Markdown 收敛。当前自动化门禁已通过，正式安装包与真实扩展验收仍在进行，尚未发布。
 
 0.4.14 引入的 50 项安全、稳定性与性能实现中，未完成的完整验收与外部签名对接继续跟踪。原矩阵保留 **47 项验收中、3 项生产验证阻塞、0 项完成全部验收**，不把发布决定当成验收证据。此前的 [0.4.15](https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.15) 已于 2026-10-11 发布，保留历史发布记录。
 
@@ -77,6 +79,7 @@ pnpm run build:candidate:local # 生成本地 Windows NSIS 候选
 ## 文档
 
 - [文档索引](Docs/README.md)
+- [0.4.17「静」开发记录](Docs/0.4.17-Development-Plan.md)、[代码审查](Docs/0.4.17-Code-Review.md)
 - [0.4.16 开发计划](Docs/0.4.16-Development-Plan.md)
 - [0.4.16 发布记录](Docs/0.4.16-Release-Preflight.md)
 - [当前架构](Docs/Architecture.md)、[设计规范](Docs/Design-Principles.md)

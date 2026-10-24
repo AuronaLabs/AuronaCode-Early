@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 boa_engine = "0.20"
 wit-bindgen = "0.58"
+serde_json = "1"
 
 [dev-dependencies]
 serde_json = "1"
