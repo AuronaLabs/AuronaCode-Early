@@ -3,18 +3,21 @@ import { AiIPC, type AiResponseEventPayload } from "../../Foundation/IPC/AiComma
 import { FileSystemCommands } from "../../Foundation/IPC/FileSystemCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { AiProfile } from "../../Foundation/Types/Config";
-import { isAiProfileUsable, resolveAiProfiles } from "../AiProfiles";
+import { isAiAgentConfigured, resolveAiProfiles } from "../AiProfiles";
 import { EditorAdapter } from "../Editor/EditorAdapter";
 import { WorkspaceService } from "../WorkspaceService";
 import { AgentCheckpointStore } from "./AgentCheckpointStore";
 import { boundAgentContext } from "./AgentContextBudget";
 import { reduceAgentEvent, validEventSeq } from "./AgentEventReducer";
+import { shouldCreateAgentCheckpoint } from "./AgentPolicies";
+import { runtimeItemFromEvent } from "./AgentRuntimeContext";
 import { AgentSessionStore } from "./AgentSessionStore";
 import { scheduleAgentTools } from "./AgentToolScheduler";
 import type {
   AgentEvent,
   AgentEventType,
   AgentProfileSummary,
+  AgentSession,
   AgentSnapshot,
   AgentTaskSnapshot,
   AgentToolExecutor,
@@ -35,7 +38,7 @@ const SYSTEM_INSTRUCTIONS = [
   "Before editing, read the relevant file and verify the exact text. Use edit_file for one unique replacement at a time. Relative paths are resolved from the workspace root.",
   "Use get_diagnostics after a meaningful edit when it can validate the result. Use run_command for registered editor commands and terminal_run or run_tests for approved shell work.",
   "Tool arguments must match their JSON schema. If a tool returns an error, explain the cause, correct the arguments, and do not repeat the same failed call.",
-  "Write actions and commands require user approval. Stop when approval is rejected, the request is ambiguous, or the workspace has changed unexpectedly.",
+  "Follow the current permission mode and approval settings in the tool catalog. Never work around tool or workspace restrictions. Stop when approval is rejected, the request is ambiguous, or the workspace has changed unexpectedly.",
   "Use get_tool_help when you need a tool's exact parameters or an example. Never invent a tool name.",
   "If a tool fails, analyze the error and adjust the next action instead of repeating the same call. When finished, summarize the changes and the checks you actually ran.",
 ].join("\n");
@@ -94,6 +97,76 @@ function inputItem(text: string): Record<string, unknown> {
   return { role: "user", content: [{ type: "input_text", text }] };
 }
 
+interface AgentRuntimeState {
+  sessions: AgentSession[];
+  tasks: AgentTaskSnapshot[];
+}
+
+/** Rebuild the Responses input from durable task events after a pause or restart. */
+export function buildAgentRuntimeInput(
+  state: AgentRuntimeState,
+  taskId: string,
+  initialInput: string,
+): unknown[] {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) return [inputItem(initialInput)];
+  const session = state.sessions.find((item) => item.id === task.sessionId);
+  const tasks = (session?.taskIds ?? [taskId])
+    .map((id) => state.tasks.find((item) => item.id === id))
+    .filter((item): item is AgentTaskSnapshot => Boolean(item))
+    .sort((a, b) => a.createdAt - b.createdAt);
+  const input: unknown[] = [];
+  let currentTaskLastInput: string | undefined;
+  for (const current of tasks) {
+    const context = current.replayBase?.context;
+    if (context?.limitExceeded) {
+      throw new Error(
+        "[agent.context_limit] User instructions exceed the context budget; create an explicit summary before continuing",
+      );
+    }
+    if (context?.omitted) {
+      input.push({
+        role: "developer",
+        content: [
+          {
+            type: "input_text",
+            text: "Older assistant/tool records were omitted to fit the context budget. Read the current workspace before relying on earlier tool results.",
+          },
+        ],
+      });
+    }
+    input.push(...(context?.items ?? []));
+    if (current.id === taskId) currentTaskLastInput = context?.lastInput;
+    const stepKinds = new Map(
+      [...(current.replayBase?.steps ?? []), ...current.steps].map((step) => [step.id, step.kind]),
+    );
+    for (const item of current.events) {
+      if (item.type === "step.started" && item.stepId) {
+        stepKinds.set(item.stepId, item.payload.kind === "tool" ? "tool" : "model");
+      }
+    }
+    for (const item of [...current.events].sort((a, b) => a.seq - b.seq)) {
+      const runtimeItem = runtimeItemFromEvent(item, stepKinds.get(item.stepId ?? "") === "tool");
+      if (runtimeItem) input.push(runtimeItem);
+      if (
+        (item.type === "task.created" || item.type === "task.steered") &&
+        typeof item.payload.content === "string" &&
+        item.payload.content.trim()
+      ) {
+        if (current.id === taskId) currentTaskLastInput = item.payload.content;
+      }
+    }
+  }
+  const currentInput = inputItem(initialInput);
+  if (
+    currentTaskLastInput !== initialInput &&
+    JSON.stringify(input.at(-1)) !== JSON.stringify(currentInput)
+  ) {
+    input.push(currentInput);
+  }
+  return boundAgentContext(input);
+}
+
 class AgentServiceImpl {
   private readonly store = new AgentSessionStore();
   private readonly checkpoints = new AgentCheckpointStore();
@@ -103,10 +176,13 @@ class AgentServiceImpl {
   private profiles: AiProfile[] = [];
   private activeProfile: AiProfile | null = null;
   private configured = false;
+  private agentEnabled = true;
+  private autoCheckpointEnabled = true;
   private cardEnabled = true;
   private snapshot: AgentSnapshot;
   private responseEventsBound = false;
   private recoveryPending = false;
+  private configRevision = 0;
   private approvalListener:
     | ((payload: {
         taskId: string;
@@ -175,27 +251,29 @@ class AgentServiceImpl {
   }
 
   async refreshConfig(): Promise<void> {
+    const revision = ++this.configRevision;
+    let recoveryPending: boolean;
     try {
       await this.store.initialize();
       await this.checkpoints.initialize();
-      this.recoveryPending = await this.checkpoints.hasPendingRestore();
+      recoveryPending = await this.checkpoints.hasPendingRestore();
     } catch (error) {
-      this.configured = false;
+      if (revision !== this.configRevision) return;
+      this.agentEnabled = false;
+      this.updateConfigured(false);
       this.append(this.activeTaskId(), "task.failed", { message: String(error) });
       this.publish();
       return;
     }
     const config = await UserConfigStore.get();
+    if (revision !== this.configRevision) return;
+    this.recoveryPending = recoveryPending;
     const resolved = resolveAiProfiles(config.ai);
     this.profiles = resolved.profiles;
     this.activeProfile = resolved.active;
-    this.configured = Boolean(
-      !this.recoveryPending &&
-        config.ai?.enabled !== false &&
-        config.ai?.agentEnabled !== false &&
-        isAiProfileUsable(this.activeProfile) &&
-        this.activeProfile?.protocol === "responses",
-    );
+    this.agentEnabled = config.ai?.agentEnabled !== false;
+    this.autoCheckpointEnabled = config.ai?.agentAutoCheckpoint !== false;
+    this.updateConfigured(isAiAgentConfigured(config.ai, this.activeProfile, this.recoveryPending));
     this.cardEnabled = config.ai?.enabled !== false;
     this.publish();
   }
@@ -203,11 +281,8 @@ class AgentServiceImpl {
   async setActiveProfile(id: string): Promise<void> {
     const profile = this.profiles.find((item) => item.id === id);
     if (!profile) return;
-    const config = await UserConfigStore.get();
-    await UserConfigStore.set({ ai: { ...config.ai, activeProfileId: id } });
-    this.activeProfile = profile;
-    this.configured = isAiProfileUsable(profile) && profile.protocol === "responses";
-    this.publish();
+    await UserConfigStore.update((config) => ({ ai: { ...config.ai, activeProfileId: id } }));
+    await this.refreshConfig();
   }
 
   newSession(): string {
@@ -350,6 +425,12 @@ class AgentServiceImpl {
     return status === "planning" || status === "running" || status === "waiting_approval";
   }
 
+  private updateConfigured(configured: boolean): void {
+    this.configured = configured;
+    if (configured) return;
+    for (const taskId of [...this.runtimes.keys()]) this.abortTask(taskId, "aborted");
+  }
+
   private buildSnapshot(task: AgentTaskSnapshot): AgentSnapshot {
     const state = this.store.getState();
     const taskMeta = (item: AgentTaskSnapshot) => ({
@@ -391,6 +472,7 @@ class AgentServiceImpl {
       activeTaskId: task.id,
       activeTask: task,
       configured: this.configured,
+      agentEnabled: this.agentEnabled,
       recoveryPending: this.recoveryPending,
       cardEnabled: this.cardEnabled,
       profiles: this.profiles.map<AgentProfileSummary>((profile) => ({
@@ -461,38 +543,7 @@ class AgentServiceImpl {
   }
 
   private buildRuntimeInput(taskId: string, initialInput: string): unknown[] {
-    const state = this.store.getState();
-    const task = state.tasks.find((item) => item.id === taskId);
-    if (!task) return [inputItem(initialInput)];
-    const session = state.sessions.find((item) => item.id === task.sessionId);
-    const tasks = (session?.taskIds ?? [taskId])
-      .map((id) => state.tasks.find((item) => item.id === id))
-      .filter((item): item is AgentTaskSnapshot => Boolean(item))
-      .sort((a, b) => a.createdAt - b.createdAt);
-    const input: unknown[] = [];
-    for (const current of tasks) {
-      for (const item of [...current.events].sort((a, b) => a.seq - b.seq)) {
-        if (
-          (item.type === "task.created" || item.type === "task.steered") &&
-          typeof item.payload.content === "string" &&
-          item.payload.content.trim()
-        ) {
-          input.push(inputItem(item.payload.content));
-        } else if (
-          item.type === "step.completed" &&
-          typeof item.payload.content === "string" &&
-          item.payload.content.trim()
-        ) {
-          input.push({
-            role: "assistant",
-            content: [{ type: "output_text", text: item.payload.content }],
-          });
-        }
-      }
-    }
-    const currentInput = inputItem(initialInput);
-    if (JSON.stringify(input.at(-1)) !== JSON.stringify(currentInput)) input.push(currentInput);
-    return boundAgentContext(input);
+    return buildAgentRuntimeInput(this.store.getState(), taskId, initialInput);
   }
 
   private async bindResponseEvents(): Promise<void> {
@@ -691,6 +742,16 @@ class AgentServiceImpl {
       return;
     }
     if (stepId) this.append(taskId, "step.completed", { content: runtime.responseText }, stepId);
+    for (const call of calls) {
+      this.append(taskId, "context.item", {
+        item: {
+          type: "function_call",
+          call_id: call.id,
+          name: call.name,
+          arguments: call.arguments,
+        },
+      });
+    }
     let outcomes: Array<{ call: RuntimeCall; result: AgentToolOutcome } | null>;
     try {
       outcomes = await scheduleAgentTools(
@@ -716,17 +777,19 @@ class AgentServiceImpl {
     }
     for (const outcome of outcomes) {
       if (!outcome) continue;
-      runtime.input.push({
+      const callItem = {
         type: "function_call",
         call_id: outcome.call.id,
         name: outcome.call.name,
         arguments: outcome.call.arguments,
-      });
-      runtime.input.push({
+      };
+      const outputItem = {
         type: "function_call_output",
         call_id: outcome.call.id,
         output: outcome.result.content,
-      });
+      };
+      runtime.input.push(callItem, outputItem);
+      this.append(taskId, "context.item", { item: outputItem });
     }
     runtime.calls.clear();
     runtime.responseText = "";
@@ -753,7 +816,11 @@ class AgentServiceImpl {
       toolStepId,
     );
     const workspace = await this.captureWorkspaceContext();
-    let checkpoint = await this.createCheckpointForCall(taskId, call, workspace);
+    const metadata = this.toolMetadata(call.name);
+    const checkpointRequired = shouldCreateAgentCheckpoint(metadata, this.autoCheckpointEnabled);
+    let checkpoint = checkpointRequired
+      ? await this.createCheckpointForCall(taskId, call, workspace)
+      : null;
     try {
       await this.store.flush();
     } catch (error) {
@@ -779,7 +846,7 @@ class AgentServiceImpl {
         { name: call.name, content: outcome.content, isError: true },
         toolStepId,
       );
-      this.append(taskId, "step.completed", { content: outcome.content }, toolStepId);
+      this.append(taskId, "step.completed", { content: outcome.content, kind: "tool" }, toolStepId);
       return { call, result: outcome };
     }
     if (checkpoint) {
@@ -791,9 +858,8 @@ class AgentServiceImpl {
       );
     }
     this.append(taskId, "tool.started", { name: call.name }, toolStepId);
-    const metadata = this.toolMetadata(call.name);
     let outcome: AgentToolOutcome;
-    if (metadata && this.requiresCheckpoint(metadata) && !checkpoint) {
+    if (checkpointRequired && !checkpoint) {
       outcome = {
         content: "Unable to create a checkpoint before this tool call; operation skipped.",
         isError: true,
@@ -844,7 +910,7 @@ class AgentServiceImpl {
       },
       toolStepId,
     );
-    this.append(taskId, "step.completed", { content: outcome.content }, toolStepId);
+    this.append(taskId, "step.completed", { content: outcome.content, kind: "tool" }, toolStepId);
     return { call, result: outcome };
   }
 
@@ -853,8 +919,6 @@ class AgentServiceImpl {
     call: RuntimeCall,
     workspace: { id: string; root: string | null; generation?: number },
   ) {
-    const metadata = this.toolMetadata(call.name);
-    if (!metadata || !this.requiresCheckpoint(metadata)) return null;
     try {
       const invocation = {
         id: call.id,
@@ -929,16 +993,6 @@ class AgentServiceImpl {
     return (
       this.executor?.getToolMetadata?.(normalized) ??
       this.executor?.metadata?.find((item) => item.name === normalized)
-    );
-  }
-
-  private requiresCheckpoint(metadata: AgentToolMetadata): boolean {
-    if (metadata.checkpointPolicy === "always") return true;
-    if (metadata.checkpointPolicy !== "before-write") return false;
-    return metadata.effects.some((effect) =>
-      ["filesystem.write", "workspace.modify", "workspace.change", "editor.modify"].includes(
-        effect,
-      ),
     );
   }
 

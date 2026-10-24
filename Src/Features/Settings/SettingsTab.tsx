@@ -31,6 +31,7 @@ import { ExtensionsSettingsSection } from "./ExtensionsSettingsSection";
 import { type Density, GeneralSettingsSection } from "./GeneralSettingsSection";
 import { LanguageServiceSettings } from "./LanguageServiceSettings";
 import { NetworkSettingsSection, type ProxyMode } from "./NetworkSettingsSection";
+import { SecuritySettingsSection } from "./SecuritySettingsSection";
 import { SourceControlSettingsSection } from "./SourceControlSettingsSection";
 import { StorageSettingsSection } from "./StorageSettingsSection";
 
@@ -42,6 +43,7 @@ export type SettingsSection =
   | "terminalRun"
   | "sourceControl"
   | "network"
+  | "security"
   | "ai"
   | "accountCloud"
   | "extensions"
@@ -56,6 +58,7 @@ const CATEGORY_TO_SECTION: Record<SettingCategory, SettingsSection> = {
   terminalRun: "terminalRun",
   sourceControl: "sourceControl",
   network: "network",
+  security: "security",
   accountCloud: "accountCloud",
   extensions: "extensions",
   system: "system",
@@ -78,6 +81,7 @@ const SECTION_META: Array<{
   { id: "terminalRun", labelKey: "settings.categories.terminalRun", Icon: Icons.Terminal },
   { id: "sourceControl", labelKey: "settings.categories.sourceControl", Icon: Icons.Git },
   { id: "network", labelKey: "settings.categories.network", Icon: Icons.World },
+  { id: "security", labelKey: "settings.categories.security", Icon: Icons.ShieldCheck },
   { id: "ai", labelKey: "settings.categories.ai", Icon: Icons.Sparkles },
   { id: "accountCloud", labelKey: "settings.categories.accountCloud", Icon: Icons.User },
   { id: "extensions", labelKey: "settings.categories.extensions", Icon: Icons.Extensions },
@@ -495,6 +499,8 @@ export function SettingsTab() {
             onProxyUrlChange={handleProxyUrlChange}
           />
         );
+      case "security":
+        return <SecuritySettingsSection />;
       case "ai":
         return <AiSettingsSection />;
       case "accountCloud":

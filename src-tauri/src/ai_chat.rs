@@ -398,7 +398,7 @@ impl ResponsesSseDecoder {
             return Ok(None);
         }
         let event = std::mem::take(&mut self.event);
-        let data = self.data.drain(..).collect::<Vec<_>>().join("\n");
+        let data = std::mem::take(&mut self.data).join("\n");
         parse_response_sse_event_result(&event, &data)
     }
 }
@@ -408,7 +408,7 @@ fn find_sse_record_end(buffer: &[u8]) -> Option<usize> {
         if buffer[index] == b'\n' && buffer[index + 1] == b'\n' {
             return Some(index + 2);
         }
-        if index + 3 < buffer.len() && buffer[index..index + 4] == [b'\r', b'\n', b'\r', b'\n'] {
+        if index + 3 < buffer.len() && buffer[index..index + 4] == *b"\r\n\r\n" {
             return Some(index + 4);
         }
     }

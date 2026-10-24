@@ -14,6 +14,15 @@ let firstRunDetected = false;
 let credentialMigrationBlocked = false;
 let generation = 0;
 
+function assertNoCredentials(config: Partial<UserConfig>): void {
+  if (
+    config.ai?.apiKey ||
+    config.ai?.profiles?.some((profile) => "apiKey" in profile && profile.apiKey)
+  ) {
+    throw new Error("Credentials must be stored through the system credential service");
+  }
+}
+
 export const UserConfigStore = {
   async init(): Promise<void> {
     try {
@@ -66,31 +75,38 @@ export const UserConfigStore = {
   },
 
   async set(config: Partial<UserConfig>): Promise<void> {
-    if (
-      config.ai?.apiKey ||
-      config.ai?.profiles?.some((profile) => "apiKey" in profile && profile.apiKey)
-    ) {
-      throw new Error("Credentials must be stored through the system credential service");
-    }
+    assertNoCredentials(config);
+    await this.update(() => config);
+  },
+
+  /** Compute nested changes inside the write queue against the last successful write. */
+  async update(
+    updater: (current: Readonly<UserConfig>) => Partial<UserConfig>,
+  ): Promise<UserConfig> {
     const currentGeneration = generation;
     await this.get();
     if (generation !== currentGeneration) throw new Error("Configuration cache was reset");
-    memoryCache = { ...memoryCache, ...config };
-    const snapshot = JSON.stringify(memoryCache, null, 2);
     // Preserve order and let each caller observe the failure of its own write.
     const result = writeChain
       .catch(() => undefined)
       .then(async () => {
         if (generation !== currentGeneration) throw new Error("Configuration cache was reset");
+        const patch = updater(memoryCache ?? {});
+        assertNoCredentials(patch);
+        const next = { ...memoryCache, ...patch };
         try {
-          await writeTextFileAtomic(FILE, snapshot, { baseDir: BASE });
+          await writeTextFileAtomic(FILE, JSON.stringify(next, null, 2), { baseDir: BASE });
+          if (generation === currentGeneration) memoryCache = next;
+          return next;
         } catch (error) {
           Logger.error("Unable to persist user configuration", error);
           throw error;
         }
       });
-    writeChain = result;
-    await result;
+    writeChain = result.then(() => undefined);
+    // Callers observe their own write; flush still reports the latest failure.
+    void writeChain.catch(() => undefined);
+    return await result;
   },
 
   async flush(): Promise<void> {

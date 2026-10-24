@@ -366,29 +366,35 @@ pub async fn install_vscode(
     let artifact = app
         .state::<ArtifactState>()
         .take(artifact_id, "vscode", generation)?;
-    let (sender, receiver) = tokio::sync::oneshot::channel();
-    let (title, body) = crate::authorization_dialogs::text(
+    if crate::authorization_dialogs::security_preference(
         &app,
-        "artifact",
-        &[
-            ("kind", "VSIX"),
-            ("hash", &artifact.sha256),
-            ("bytes", &artifact.size.to_string()),
-        ],
-    );
-    app.dialog()
-        .message(body)
-        .title(title)
-        .kind(MessageDialogKind::Warning)
-        .buttons(MessageDialogButtons::OkCancel)
-        .show(move |approved| {
-            let _ = sender.send(approved);
-        });
-    if !matches!(
-        tokio::time::timeout(Duration::from_secs(60), receiver).await,
-        Ok(Ok(true))
+        "requirePackageInstallApproval",
+        true,
     ) {
-        return Err("[artifact.cancelled] VSIX installation cancelled".into());
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        let (title, body) = crate::authorization_dialogs::text(
+            &app,
+            "artifact",
+            &[
+                ("kind", "VSIX"),
+                ("hash", &artifact.sha256),
+                ("bytes", &artifact.size.to_string()),
+            ],
+        );
+        app.dialog()
+            .message(body)
+            .title(title)
+            .kind(MessageDialogKind::Warning)
+            .buttons(MessageDialogButtons::OkCancel)
+            .show(move |approved| {
+                let _ = sender.send(approved);
+            });
+        if !matches!(
+            tokio::time::timeout(Duration::from_secs(60), receiver).await,
+            Ok(Ok(true))
+        ) {
+            return Err("[artifact.cancelled] VSIX installation cancelled".into());
+        }
     }
     if app
         .state::<crate::commands::fs::WorkspaceState>()
@@ -420,7 +426,13 @@ pub async fn install_toolchain(
     let artifact = app
         .state::<ArtifactState>()
         .take(artifact_id, "toolchain", generation)?;
-    if artifact.signed.is_none() {
+    if artifact.signed.is_none()
+        && crate::authorization_dialogs::security_preference(
+            &app,
+            "requirePackageInstallApproval",
+            true,
+        )
+    {
         let (sender, receiver) = tokio::sync::oneshot::channel();
         let (title, body) = crate::authorization_dialogs::text(
             &app,
@@ -515,7 +527,11 @@ pub async fn install_extension(
                 "[signature.manifest] Installed package identity differs from its signature".into(),
             );
         }
-    } else {
+    } else if crate::authorization_dialogs::security_preference(
+        &app,
+        "requirePackageInstallApproval",
+        true,
+    ) {
         let (sender, receiver) = tokio::sync::oneshot::channel();
         let (title, body) = crate::authorization_dialogs::text(
             &app,

@@ -6,7 +6,7 @@ vi.mock("../../Foundation/IPC/AgentStorageCommands", () => ({
   },
 }));
 
-import { reduceAgentEvent, replayAgentTask } from "./AgentService";
+import { buildAgentRuntimeInput, reduceAgentEvent, replayAgentTask } from "./AgentService";
 import { AgentSessionStore } from "./AgentSessionStore";
 import type { AgentEvent, AgentTaskSnapshot } from "./AgentTypes";
 
@@ -39,6 +39,96 @@ function event(type: AgentEvent["type"], payload: Record<string, unknown>, seq =
 }
 
 describe("Agent event reducer", () => {
+  it("restores original instructions and tool pairs across the bounded event window", async () => {
+    let state = reduceAgentEvent(
+      task(),
+      event("task.created", { content: "Keep the original requirement" }, 1),
+    );
+    const call = {
+      type: "function_call",
+      call_id: "cross-boundary",
+      name: "read_file",
+      arguments: "{}",
+    };
+    const output = {
+      type: "function_call_output",
+      call_id: "cross-boundary",
+      output: "file content",
+    };
+    state = reduceAgentEvent(state, event("context.item", { item: call }, 2));
+    for (let seq = 3; seq <= 503; seq++)
+      state = reduceAgentEvent(state, event("step.delta", { content: "." }, seq));
+    state = reduceAgentEvent(state, event("context.item", { item: output }, 504));
+    state = reduceAgentEvent(state, event("task.steered", { content: "Now fix it" }, 505));
+    const input = buildAgentRuntimeInput({ tasks: [state], sessions: [] }, state.id, "Now fix it");
+    expect(input).toContainEqual(call);
+    expect(input).toContainEqual(output);
+    expect(JSON.stringify(input)).toContain("Keep the original requirement");
+    expect(input.filter((item) => JSON.stringify(item).includes("Now fix it"))).toHaveLength(1);
+    // Let the output enter the prefix too, then pass through the real storage decoder.
+    for (let seq = 506; seq <= 1006; seq++)
+      state = reduceAgentEvent(state, event("step.delta", { content: "." }, seq));
+    storage.values.clear();
+    storage.write.mockImplementation(async (slot: string, content: string) => {
+      storage.values.set(slot, content);
+    });
+    const store = new AgentSessionStore();
+    await store.initialize();
+    store.replace({ ...store.getState(), activeTaskId: state.id, tasks: [state] });
+    await store.flush();
+    const restored = new AgentSessionStore();
+    await restored.initialize();
+    const recovered = buildAgentRuntimeInput(restored.getState(), state.id, "Now fix it");
+    expect(recovered).toEqual(input);
+    restored.updateTask(state.id, (current) => ({ ...current, events: [], steps: [] }));
+    expect(restored.getState().tasks[0].replayBase).toBeUndefined();
+    expect(buildAgentRuntimeInput(restored.getState(), state.id, "Fresh input")).toEqual([
+      { role: "user", content: [{ type: "input_text", text: "Fresh input" }] },
+    ]);
+  });
+
+  it("blocks continuation explicitly when archived instructions exceed the context budget", () => {
+    let state = reduceAgentEvent(
+      task(),
+      event("task.created", { content: "x".repeat(128_000) }, 1),
+    );
+    for (let seq = 2; seq <= 502; seq++)
+      state = reduceAgentEvent(state, event("step.delta", { content: "." }, seq));
+    expect(state.replayBase?.context?.limitExceeded).toBe(true);
+    expect(() =>
+      buildAgentRuntimeInput({ tasks: [state], sessions: [] }, state.id, "Continue"),
+    ).toThrow("context_limit");
+  });
+
+  it("bounds archived tool output while retaining instructions and recent complete pairs", () => {
+    let state = reduceAgentEvent(
+      task(),
+      event("task.created", { content: "Keep this requirement" }, 1),
+    );
+    const call = { type: "function_call", call_id: "large", name: "read_file", arguments: "{}" };
+    state = reduceAgentEvent(state, event("context.item", { item: call }, 2));
+    state = reduceAgentEvent(
+      state,
+      event(
+        "context.item",
+        { item: { type: "function_call_output", call_id: "large", output: "x".repeat(130_000) } },
+        3,
+      ),
+    );
+    for (let seq = 4; seq <= 505; seq++)
+      state = reduceAgentEvent(state, event("step.delta", { content: "." }, seq));
+    const recentCall = { ...call, call_id: "recent" };
+    const recentOutput = { type: "function_call_output", call_id: "recent", output: "current" };
+    state = reduceAgentEvent(state, event("context.item", { item: recentCall }, 506));
+    state = reduceAgentEvent(state, event("context.item", { item: recentOutput }, 507));
+    const input = buildAgentRuntimeInput({ tasks: [state], sessions: [] }, state.id, "Continue");
+    expect(state.replayBase?.context?.omitted).toBe(true);
+    expect(JSON.stringify(input)).toContain("Keep this requirement");
+    expect(input).not.toContainEqual(call);
+    expect(input).toContainEqual(recentCall);
+    expect(input).toContainEqual(recentOutput);
+    expect(JSON.stringify(state.replayBase?.context).length).toBeLessThan(128_000);
+  });
   it("replays an event log into current task state without using stale snapshot fields", () => {
     const seed = { ...task(), sessionId: "session-1", parentTaskId: "task-0", title: "stale" };
     const events: AgentEvent[] = [
@@ -158,6 +248,188 @@ describe("Agent event reducer", () => {
     );
     expect(next.events[0].type).toBe("response.event");
     expect(next.events[0].payload).toMatchObject({ eventType: "response.future_event" });
+  });
+});
+
+describe("Agent runtime context recovery", () => {
+  it("rebuilds persisted tool calls and results as complete Responses pairs", () => {
+    const taskSnapshot = task();
+    taskSnapshot.sessionId = "session-1";
+    taskSnapshot.events = [
+      event("task.created", { content: "Inspect the workspace" }, 1),
+      event("step.completed", { content: "I will inspect the files first." }, 2),
+      event(
+        "context.item",
+        {
+          item: {
+            type: "function_call",
+            call_id: "call-1",
+            name: "list_dir",
+            arguments: '{"path":"."}',
+          },
+        },
+        3,
+      ),
+      event(
+        "context.item",
+        {
+          item: { type: "function_call_output", call_id: "call-1", output: "src/" },
+        },
+        4,
+      ),
+    ];
+    const input = buildAgentRuntimeInput(
+      {
+        sessions: [
+          {
+            id: "session-1",
+            title: "",
+            createdAt: 1,
+            updatedAt: 4,
+            activeTaskId: taskSnapshot.id,
+            taskIds: [taskSnapshot.id],
+          },
+        ],
+        tasks: [taskSnapshot],
+      },
+      taskSnapshot.id,
+      "Continue from the recovered context",
+    );
+    expect(input).toEqual([
+      { role: "user", content: [{ type: "input_text", text: "Inspect the workspace" }] },
+      {
+        role: "assistant",
+        content: [{ type: "output_text", text: "I will inspect the files first." }],
+      },
+      {
+        type: "function_call",
+        call_id: "call-1",
+        name: "list_dir",
+        arguments: '{"path":"."}',
+      },
+      { type: "function_call_output", call_id: "call-1", output: "src/" },
+      {
+        role: "user",
+        content: [{ type: "input_text", text: "Continue from the recovered context" }],
+      },
+    ]);
+  });
+
+  it("drops an orphaned persisted call instead of sending an invalid pair", () => {
+    const taskSnapshot = task();
+    taskSnapshot.sessionId = "session-1";
+    taskSnapshot.events = [
+      event("task.created", { content: "Inspect" }, 1),
+      event(
+        "context.item",
+        { item: { type: "function_call", call_id: "call-1", name: "list_dir", arguments: "{}" } },
+        2,
+      ),
+    ];
+    const input = buildAgentRuntimeInput(
+      {
+        sessions: [
+          {
+            id: "session-1",
+            title: "",
+            createdAt: 1,
+            updatedAt: 2,
+            activeTaskId: taskSnapshot.id,
+            taskIds: [taskSnapshot.id],
+          },
+        ],
+        tasks: [taskSnapshot],
+      },
+      taskSnapshot.id,
+      "Retry",
+    );
+    expect(input.some((item) => (item as { type?: string }).type === "function_call")).toBe(false);
+    expect(input.at(-1)).toEqual({
+      role: "user",
+      content: [{ type: "input_text", text: "Retry" }],
+    });
+    expect(JSON.stringify(input)).toContain("Context summary");
+  });
+
+  it("does not replay a retained tool completion as assistant text after its start event is trimmed", () => {
+    const taskSnapshot = task();
+    taskSnapshot.sessionId = "session-1";
+    taskSnapshot.events = [
+      event("task.created", { content: "Inspect" }, 1),
+      event("step.completed", { content: "directory listing", kind: "tool" }, 2),
+    ];
+    const input = buildAgentRuntimeInput(
+      {
+        sessions: [
+          {
+            id: "session-1",
+            title: "",
+            createdAt: 1,
+            updatedAt: 2,
+            activeTaskId: taskSnapshot.id,
+            taskIds: [taskSnapshot.id],
+          },
+        ],
+        tasks: [taskSnapshot],
+      },
+      taskSnapshot.id,
+      "Continue",
+    );
+    expect(input).toEqual([
+      { role: "user", content: [{ type: "input_text", text: "Inspect" }] },
+      { role: "user", content: [{ type: "input_text", text: "Continue" }] },
+    ]);
+  });
+
+  it("does not duplicate the current task input when retrying after later tool output", () => {
+    const taskSnapshot = task();
+    taskSnapshot.sessionId = "session-1";
+    taskSnapshot.events = [
+      event("task.created", { content: "Inspect this workspace" }, 1),
+      event("step.completed", { content: "Initial inspection" }, 2),
+      event(
+        "context.item",
+        {
+          item: {
+            type: "function_call",
+            call_id: "call-1",
+            name: "list_dir",
+            arguments: "{}",
+          },
+        },
+        3,
+      ),
+      event(
+        "context.item",
+        { item: { type: "function_call_output", call_id: "call-1", output: "src/" } },
+        4,
+      ),
+    ];
+    const input = buildAgentRuntimeInput(
+      {
+        sessions: [
+          {
+            id: "session-1",
+            title: "",
+            createdAt: 1,
+            updatedAt: 4,
+            activeTaskId: taskSnapshot.id,
+            taskIds: [taskSnapshot.id],
+          },
+        ],
+        tasks: [taskSnapshot],
+      },
+      taskSnapshot.id,
+      "Inspect this workspace",
+    );
+    expect(
+      input.filter(
+        (item) =>
+          (item as { role?: string; content?: Array<{ text?: string }> }).role === "user" &&
+          (item as { content?: Array<{ text?: string }> }).content?.[0]?.text ===
+            "Inspect this workspace",
+      ),
+    ).toHaveLength(1);
   });
 });
 

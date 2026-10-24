@@ -125,6 +125,14 @@ impl ExtensionState {
         if is_builtin_extension(id) {
             return Ok(());
         }
+        // Automatic execution does not become a remembered explicit approval.
+        if !crate::authorization_dialogs::security_preference(
+            app,
+            "requireExtensionExecutionApproval",
+            true,
+        ) {
+            return Ok(());
+        }
         if self
             .execution_approvals
             .lock()

@@ -248,7 +248,7 @@ async fn start_launch(
     )?;
     app_handle
         .state::<LaunchRegistry>()
-        .resolve(&workspace, &launch.launch_id, "lsp")?;
+        .resolve(&app_handle, &launch.launch_id, "lsp")?;
     let existing = state.clients.lock().await.get(&launch.language).cloned();
     if let Some(existing) = existing {
         if existing.generation() == generation {
@@ -452,11 +452,9 @@ pub async fn lsp_start(
     app_handle: tauri::AppHandle,
     state: State<'_, LspState>,
 ) -> Result<(), String> {
-    let spec = app_handle.state::<LaunchRegistry>().resolve(
-        &app_handle.state::<WorkspaceState>(),
-        &launch_id,
-        "lsp",
-    )?;
+    let spec = app_handle
+        .state::<LaunchRegistry>()
+        .resolve(&app_handle, &launch_id, "lsp")?;
     let mut launch: LanguageServerLaunch = serde_json::from_value(spec.configuration)
         .map_err(|_| "[launch.configuration] Invalid LSP launch")?;
     launch.command = spec.command;

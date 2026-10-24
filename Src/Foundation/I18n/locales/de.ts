@@ -783,6 +783,7 @@ export const de: LocaleMessages = {
       terminalRun: "Terminal & Ausführen",
       sourceControl: "Quelltextverwaltung",
       network: "Netzwerk",
+      security: "Sicherheit & Autorisierung",
       ai: "KI-Assistent",
       accountCloud: "Aurona Account",
       extensions: "Erweiterungen",
@@ -975,6 +976,35 @@ export const de: LocaleMessages = {
       restarting: "Startet neu",
       failed: "Start fehlgeschlagen",
       stopping: "Wird gestoppt",
+    },
+    securitySettings: {
+      sectionTitle: "Sicherheit & Autorisierung",
+      sectionDescription:
+        "Lege Standardwerte für routinemäßige Autorisierungsabfragen fest, während Arbeitsbereichsgrenzen, Konfigurationsfingerabdrücke und Backend-Prüfungen erhalten bleiben.",
+      autoTrustWorkspace: "Sprachserver des Arbeitsbereichs automatisch vertrauen",
+      autoTrustWorkspaceDescription:
+        "Überspringt die Bestätigung pro Arbeitsbereich für .aurona-Sprachserverkonfigurationen. Deaktiviert wird jeder Arbeitsbereich einzeln abgefragt.",
+      localProcessApproval: "Start lokaler Prozesse bestätigen",
+      localProcessApprovalDescription:
+        "Standardmäßig aktiv. Vor dem Registrieren von Sprachserver-, Debugger- oder Python-Starts nachfragen. Deaktivieren führt konfigurierte Programme direkt aus. Nach erneutem Aktivieren müssen automatisch erlaubte Starts bestätigt werden; laufende Prozesse bleiben bestehen.",
+      workspaceApproval: "Öffnen von Arbeitsbereichen bestätigen",
+      workspaceApprovalDescription:
+        "Vor dem Öffnen oder Wechseln eines Arbeitsverzeichnisses nachfragen. Deaktivieren, um es direkt zu öffnen.",
+      aiEndpointApproval: "KI-Endpunkte bestätigen",
+      aiEndpointApprovalDescription:
+        "Beim Speichern eines neuen Endpunkts oder beim Autorisieren eines KI-Profils für diese Sitzung nachfragen. Deaktivieren erlaubt direkte Anfragen an den konfigurierten Dienst.",
+      packageInstallApproval: "Lokale Paketinstallation bestätigen",
+      packageInstallApprovalDescription:
+        "Vor der Installation von VSIX, lokalen oder unsignierten Erweiterungs- und Toolchain-Paketen nachfragen. Deaktivieren, um direkt zu installieren.",
+      extensionExecutionApproval: "Ausführung von Erweiterungen bestätigen",
+      extensionExecutionApprovalDescription:
+        "Vor dem Ausführen fremder Erweiterungen Berechtigungen und Herkunft anzeigen. Deaktivieren nutzt vorhandene Rechte; nach erneutem Aktivieren wird beim nächsten Aufruf gefragt.",
+      deleteApproval: "Löschen von Dateien bestätigen",
+      deleteApprovalDescription:
+        "Vor dem Löschen von Dateien oder Ordnern im Arbeitsbereich nachfragen. Deaktivieren löscht sofort mit bestehender Wiederherstellung.",
+      gitDiscardApproval: "Verwerfen aller Git-Änderungen bestätigen",
+      gitDiscardApprovalDescription:
+        "Vor dem Verwerfen aller Änderungen eine native Bestätigung anzeigen. Deaktivieren führt den Vorgang direkt aus und behält Wiederherstellungsdaten.",
     },
     extensionsSettings: {
       description:
@@ -1628,19 +1658,25 @@ export const de: LocaleMessages = {
     agent: {
       settingsTitle: "Agent-Werkzeuge aktivieren",
       settingsDesc:
-        "Erlaubt der KI, Arbeitsbereichdateien zu lesen, Code zu suchen und zu ändern sowie Editor-Befehle auszuführen; Schreiboperationen erfordern stets eine Bestätigung",
+        "Agent kann Arbeitsbereichinhalte gemäß der unten gewählten Berechtigungsstufe lesen, durchsuchen und bearbeiten.",
+      permissionTitle: "Agent-Berechtigungsstufe",
       permissionAsk: "Vor jeder Aktion fragen",
-      permissionAskDescription:
-        "Vor jedem Lesen, Bearbeiten oder Befehl fragen. Der strengste Modus.",
+      permissionAskDescription: "Vor jedem Lesen, Ändern oder Befehl des Agents fragen.",
       permissionRead: "Nur lesen",
       permissionReadDescription:
-        "Arbeitsbereich lesen und durchsuchen; Schreiben und Befehle brauchen weiterhin Bestätigung.",
-      permissionEdit: "Bearbeiten mit Bestätigung",
+        "Lesen und Suchen erlauben; Schreib-, Änderungs- und Befehlsaktionen blockieren.",
+      permissionEdit: "Bearbeiten",
       permissionEditDescription:
-        "Lesen und vorbereitete Änderungen erlauben; jeder Schreibvorgang wird bestätigt.",
-      permissionFull: "Vollständiger Werkzeugzugriff",
-      permissionFullDescription:
-        "Registrierte Werkzeuge automatisch ausführen; Sicherheitsgrenzen bleiben aktiv.",
+        "Aktionen im aktuellen Arbeitsbereich erlauben; die Schalter unten steuern die Bestätigung pro Aktion.",
+      requireWriteApproval: "Vor Dateiänderungen fragen",
+      requireWriteApprovalDescription:
+        "Wenn dies im Bearbeitungsmodus ausgeschaltet ist, kann der Agent Arbeitsbereichsdateien ohne Einzelbestätigung erstellen, ändern, löschen oder verschieben. App-Bestätigungen und Arbeitsbereichsprüfungen können weiterhin gelten.",
+      requireCommandApproval: "Vor Befehlen fragen",
+      requireCommandApprovalDescription:
+        "Wenn dies im Bearbeitungsmodus ausgeschaltet ist, kann der Agent Terminal-, Git- oder erlaubte Editorbefehle ohne Einzelbestätigung ausführen.",
+      autoCheckpoint: "Vor Schreibvorgängen Wiederherstellungspunkt erstellen",
+      autoCheckpointDescription:
+        "Wenn ausgeschaltet, speichert der Agent vor Schreibvorgängen keine verschlüsselten Wiederherstellungs-Snapshots. Arbeitsbereichsprüfungen bleiben aktiv; Agent-Snapshots können diese Änderungen dann nicht wiederherstellen.",
       confirmTitle: "{tool} bestätigen",
       confirmMessage: "Die KI fordert eine Schreiboperation an — Argumente prüfen und bestätigen",
       roundLimit:
@@ -1714,6 +1750,8 @@ export const de: LocaleMessages = {
       stopTask: "Aufgabe stoppen",
       resumeTask: "Aufgabe fortsetzen",
       configureProfile: "Konfiguriere vor dem Start ein Responses-API-Profil in den Einstellungen.",
+      agentDisabled: "Aktiviere vor dem Start Agent-Werkzeuge in den Einstellungen.",
+      aiDisabled: "Aktiviere vor dem Start den KI-Assistenten in den Einstellungen.",
       emptyTitle: "Woran soll der Assistent arbeiten?",
       emptyDescription: "Lass den Arbeitsbereich prüfen, ändern oder verifizieren.",
       approvalRequired: "Bestätigung erforderlich",

@@ -111,6 +111,7 @@ export const EditorLine = React.memo(function EditorLine({
   ]);
 
   // 2. 独立计算选区高亮层（带依赖数组：无关渲染不再触发 DOM 测量）
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Font layout and syntax token weights change DOM geometry without changing text.
   useLayoutEffect(() => {
     if (!selection || !lineRef.current) {
       setRenderedSelection(null);
@@ -129,7 +130,7 @@ export const EditorLine = React.memo(function EditorLine({
       if (current && current.left === next.left && current.width === next.width) return current;
       return next;
     });
-  }, [selection, idx, lineText]);
+  }, [selection, idx, lineText, layout, tokens]);
 
   const selectionLayer = useMemo(() => {
     if (!selection) return null;
@@ -146,7 +147,8 @@ export const EditorLine = React.memo(function EditorLine({
         measureEditorText(lineText.substring(0, startChar), layout) + layout.contentInsetX;
       const selectedWidth = isEndLine
         ? (renderedSelection?.width ??
-          measureEditorText(lineText.substring(startChar, endChar), layout))
+          measureEditorText(lineText.substring(0, endChar), layout) -
+            measureEditorText(lineText.substring(0, startChar), layout))
         : undefined;
 
       return (

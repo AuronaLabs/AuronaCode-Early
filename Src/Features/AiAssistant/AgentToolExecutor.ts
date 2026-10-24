@@ -1,3 +1,4 @@
+import { resolveAgentToolAuthorization } from "../../Core/Agent/AgentPolicies";
 import { AgentService } from "../../Core/Agent/AgentService";
 import type {
   AgentToolCheckpointPolicy,
@@ -7,6 +8,7 @@ import type {
   AgentToolRecoverability,
 } from "../../Core/Agent/AgentTypes";
 import { getWorkspaceContext } from "../../Core/Agent/WorkspaceContext";
+import { normalizeAgentPermission } from "../../Core/AiProfiles";
 import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { DocumentService } from "../../Core/DocumentService";
 import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
@@ -19,7 +21,6 @@ import { FileSystemCommands } from "../../Foundation/IPC/FileSystemCommands";
 import { GitIPC } from "../../Foundation/IPC/GitCommands";
 import { WorkspaceSearchIPC } from "../../Foundation/IPC/WorkspaceSearchCommands";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
-import type { AiPreferences } from "../../Foundation/Types/Config";
 import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { dismissNotification, showConfirm } from "../../UI/Feedback/Toast";
 
@@ -28,8 +29,7 @@ import { dismissNotification, showConfirm } from "../../UI/Feedback/Toast";
  *
  * 边界与安全：
  * - 所有文件类工具限定在当前工作区内（路径交由 Rust 侧 fs 工作区解析强制校验）
- * - edit_file / run_command 属写类操作，执行前经 showConfirm 用户确认；拒绝即返回
- *   「用户拒绝」结果且本轮不重试（提示词侧有对应约束）
+ * - 工具确认遵循 ask / read / edit 模式与独立确认开关；拒绝即返回结果且本轮不重试
  * - 输出统一截断，防止单次工具结果撑爆模型上下文
  */
 
@@ -64,8 +64,11 @@ const DIAGNOSTICS_LIMIT = 100;
 /** 搜索结果展示条数上限 */
 const SEARCH_RESULT_LIMIT = 100;
 
-type AgentPermission = NonNullable<AiPreferences["agentPermission"]>;
+type AgentPermission = ReturnType<typeof normalizeAgentPermission>;
 let agentPermission: AgentPermission = "ask";
+let agentRequireWriteApproval = true;
+let agentRequireCommandApproval = true;
+let agentAutoCheckpoint = true;
 
 /** Exposes the effective runtime mode to the local Assistant surface. The setting still lives
  * in UserConfig; this read-only view keeps the panel badge in sync with tool execution. */
@@ -647,7 +650,8 @@ const tools: AiAgentTool[] = [
   {
     name: "terminal_run",
     signature: "terminal_run(command)",
-    description: "Run a command in the integrated terminal after approval.",
+    description:
+      "Run a command in the integrated terminal under the current Agent approval settings.",
     requiresConfirmation: true,
     effects: ["process.execute"],
     permission: "approval-required",
@@ -668,7 +672,8 @@ const tools: AiAgentTool[] = [
   {
     name: "run_tests",
     signature: "run_tests(command?)",
-    description: "Run the frontend test suite in the integrated terminal.",
+    description:
+      "Run the frontend test suite in the integrated terminal under the current Agent approval settings.",
     requiresConfirmation: true,
     effects: ["process.execute"],
     permission: "approval-required",
@@ -817,6 +822,22 @@ const tools: AiAgentTool[] = [
   },
 ];
 
+function getCurrentPermissionPrompt(): string {
+  if (agentPermission === "ask") {
+    return "Current permission mode: ask before every tool call.";
+  }
+  if (agentPermission === "read") {
+    return "Current permission mode: read-only. Any tool that can write, change workspace state, or execute commands is blocked.";
+  }
+  return [
+    "Current permission mode: edit.",
+    `Workspace/file changes require approval: ${agentRequireWriteApproval ? "yes" : "no"}.`,
+    `Command and process actions require approval: ${agentRequireCommandApproval ? "yes" : "no"}.`,
+    `Automatic recovery checkpoints before write operations: ${agentAutoCheckpoint ? "enabled" : "disabled"}.`,
+    "Follow these settings and never work around tool or workspace restrictions.",
+  ].join("\n");
+}
+
 function exampleForTool(name: string): string {
   switch (name) {
     case "read_file":
@@ -944,19 +965,24 @@ async function validateToolArguments(
  * 同步 Agent 执行端注册到运行时（应用启动与设置变更后调用）。
  * 关闭时注销执行端：上下文不含工具规范段，模型不会发起工具调用。
  */
-let registrationPromise: Promise<void> | null = null;
+let registrationRevision = 0;
 
 export function syncAgentExecutorRegistration(): Promise<void> {
-  if (registrationPromise) return registrationPromise;
-  const promise = UserConfigStore.get().then((config) => {
-    const enabled = config.ai?.enabled !== false;
-    agentPermission =
-      config.ai?.agentPermission === "full" ? "edit" : (config.ai?.agentPermission ?? "ask");
+  const revision = ++registrationRevision;
+  return UserConfigStore.get().then((config) => {
+    // A settings change may arrive while an earlier read is still pending. Do
+    // not let that stale read re-enable tools after the newer state was saved.
+    if (revision !== registrationRevision) return;
+    const enabled = config.ai?.enabled !== false && config.ai?.agentEnabled !== false;
+    agentPermission = normalizeAgentPermission(config.ai?.agentPermission);
+    agentRequireWriteApproval = config.ai?.agentRequireWriteApproval !== false;
+    agentRequireCommandApproval = config.ai?.agentRequireCommandApproval !== false;
+    agentAutoCheckpoint = config.ai?.agentAutoCheckpoint !== false;
     AgentService.setExecutor(
       enabled
         ? {
             execute: executeAgentToolCall,
-            toolPrompt: getAgentToolPromptDocs(),
+            toolPrompt: `${getAgentToolPromptDocs()}\n\n${getCurrentPermissionPrompt()}`,
             definitions: getAgentToolDefinitions(),
             metadata: getAgentToolMetadata(),
             resolveAffectedFiles: async (invocation) => {
@@ -972,16 +998,6 @@ export function syncAgentExecutorRegistration(): Promise<void> {
         : null,
     );
   });
-  registrationPromise = promise;
-  void promise.then(
-    () => {
-      if (registrationPromise === promise) registrationPromise = null;
-    },
-    () => {
-      if (registrationPromise === promise) registrationPromise = null;
-    },
-  );
-  return promise;
 }
 
 /** 执行一次工具调用（含确认与错误归一化），供 Agent loop 调用 */
@@ -1026,11 +1042,17 @@ export async function executeAgentToolCall(
       };
     }
   }
-  const requiresPermission =
-    agentPermission === "ask" ||
-    (agentPermission === "read" && tool.permission !== "read") ||
-    tool.permission === "approval-required";
-  if (requiresPermission || tool.requiresConfirmation) {
+  const authorization = resolveAgentToolAuthorization(agentPermission, tool, {
+    requireWriteApproval: agentRequireWriteApproval,
+    requireCommandApproval: agentRequireCommandApproval,
+  });
+  if (authorization === "deny") {
+    return {
+      content: "This operation is blocked by the selected Agent permission level.",
+      isError: true,
+    };
+  }
+  if (authorization === "confirm") {
     AgentService.notifyApproval({
       taskId: invocation.taskId,
       stepId: invocation.stepId,

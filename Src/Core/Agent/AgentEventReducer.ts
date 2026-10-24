@@ -1,3 +1,4 @@
+import { foldReplayContext } from "./AgentRuntimeContext";
 import type { AgentEvent, AgentReplayBase, AgentTaskSnapshot } from "./AgentTypes";
 
 const MAX_EVENTS = 500;
@@ -109,6 +110,7 @@ export function reduceAgentEvent(task: AgentTaskSnapshot, next: AgentEvent): Age
     case "step.completed": {
       const step = updated.steps.find((item) => item.id === next.stepId);
       if (step) {
+        if (next.payload.kind === "tool") step.kind = "tool";
         step.status = "completed";
         step.completedAt = next.timestamp;
         if (typeof next.payload.content === "string") step.detail = next.payload.content;
@@ -159,7 +161,9 @@ export function reduceAgentEvent(task: AgentTaskSnapshot, next: AgentEvent): Age
     const dropped = events.slice(0, events.length - MAX_EVENTS);
     let base = replayBaseSnapshot(task);
     for (const item of dropped) base = reduceAgentEvent(base, item);
-    updated.replayBase = toReplayBase(base);
+    let context = task.replayBase?.context;
+    for (const item of dropped) context = foldReplayContext(context, item, base.steps);
+    updated.replayBase = { ...toReplayBase(base), context };
   }
   return updated;
 }

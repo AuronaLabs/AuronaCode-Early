@@ -64,7 +64,8 @@ class TestRpcClient {
   }
 
   async waitForNotification(method: string): Promise<RpcMessage> {
-    const deadline = Date.now() + 10_000;
+    // A cold semantic server can lag behind the syntax server during native builds.
+    const deadline = Date.now() + 30_000;
     while (Date.now() < deadline) {
       const queued = this.notifications.get(method)?.shift();
       if (queued) return queued;
@@ -226,7 +227,7 @@ describe("real TypeScript Language Server", () => {
     );
     expect(normalizeFileUri(params.uri)).toBe(normalizeFileUri(mainUri));
     expect(params.diagnostics.length).toBeGreaterThan(0);
-  }, 20_000);
+  }, 40_000);
 
   it("serves completion, hover, definition, references, symbols, rename and formatting", async () => {
     const document = { uri: mainUri };

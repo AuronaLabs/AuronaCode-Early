@@ -7,6 +7,8 @@ import { validateReleaseScope } from "./lib/release-scope.mjs";
 const root = path.resolve(import.meta.dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const audit = JSON.parse(read("scripts/data/audit-0.4.14.json"));
+const currentVersion = JSON.parse(read("package.json")).version;
+assert.match(currentVersion, /^0\.4\.\d+$/, "Current development must stay on the 0.4.x line");
 const expected = [4, 24, 17, 5].flatMap((count, priority) => Array.from({ length: count }, (_, index) => `P${priority}-${String(index + 1).padStart(2, "0")}`));
 assert.deepEqual(audit.items.map((item) => item.id).sort(), expected.sort(), "All 50 audit IDs must occur exactly once");
 const entries = readChangelog(root);
@@ -16,8 +18,8 @@ assert.equal(changelog.sections.length, 12);
 assert.deepEqual(changelog.sections.flatMap((section) => section.auditIds).sort(), expected);
 assert.equal(changelog.sections.reduce((total, section) => total + section.items.length, 0), 50);
 assert.equal(changelog.isLatest, false);
-const current = entries.find((entry) => entry.version === "V0.4.15");
-assert.ok(current, "Current 0.4.15 changelog entry is missing");
+const current = entries.find((entry) => entry.version === `V${currentVersion}`);
+assert.ok(current, `Current ${currentVersion} changelog entry is missing`);
 assert.equal(current.isLatest, true);
 assert.equal(entries.filter((entry) => entry.isLatest).length, 1, "Exactly one changelog entry must be latest");
 for (const entry of entries) assert.equal(entry.sections.length % 2, 0, `${entry.version} sections must be even`);
@@ -34,11 +36,11 @@ for (const item of audit.items) {
   }
 }
 for (const file of ["Docs/0.4.14-Audit-Plan.md", "Docs/0.4.14-Implementation-Status.md", "Docs/0.4.14-Security-and-Migration.md"]) assert.ok(read(file).length > 100);
-assert.equal(JSON.parse(read("package.json")).version, "0.4.15");
-assert.equal(JSON.parse(read("src-tauri/tauri.conf.json")).version, "0.4.15");
-assert.match(read("src-tauri/Cargo.toml"), /^version = "0\.4\.15"$/m);
-assert.match(read("src-tauri/Cargo.lock"), /name = "aurona_code"\r?\nversion = "0\.4\.15"/);
-assert.match(read("README.md"), /version-0\.4\.15-/);
+assert.equal(JSON.parse(read("src-tauri/tauri.conf.json")).version, currentVersion);
+const escapedVersion = currentVersion.replaceAll(".", "\\.");
+assert.match(read("src-tauri/Cargo.toml"), new RegExp(`^version = "${escapedVersion}"$`, "m"));
+assert.match(read("src-tauri/Cargo.lock"), new RegExp(`name = "aurona_code"\\r?\\nversion = "${escapedVersion}"`));
+assert.ok(read("README.md").includes(`version-${currentVersion}-`), "README version must match package.json");
 if (process.argv.includes("--complete")) {
   assert.ok(audit.freezeDate, "Release freeze date has not been recorded");
   const unfinished = audit.items.filter((item) => item.status !== "verified");

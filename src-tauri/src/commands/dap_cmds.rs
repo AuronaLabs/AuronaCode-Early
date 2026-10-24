@@ -77,13 +77,13 @@ pub async fn dap_start(
     launch_id: String,
 ) -> Result<DapSessionInfo, String> {
     let generation = app.state::<WorkspaceState>().generation();
-    let spec =
-        app.state::<LaunchRegistry>()
-            .resolve(&app.state::<WorkspaceState>(), &launch_id, "dap")?;
+    let spec = app
+        .state::<LaunchRegistry>()
+        .resolve(&app, &launch_id, "dap")?;
     let tool_use =
         crate::toolchains::acquire_launch_use(&app, &spec.command, &spec.args, &spec.cwd)?;
     app.state::<LaunchRegistry>()
-        .resolve(&app.state::<WorkspaceState>(), &launch_id, "dap")?;
+        .resolve(&app, &launch_id, "dap")?;
     let launch = DapLaunch {
         session_id: spec
             .configuration

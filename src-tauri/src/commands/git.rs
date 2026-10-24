@@ -1618,30 +1618,32 @@ pub async fn git_discard_all(
     if preview.1 == 0 {
         return Ok(None);
     }
-    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
-    let (sender, receiver) = tokio::sync::oneshot::channel();
-    let (title, body) = crate::authorization_dialogs::text(
-        &app,
-        "git",
-        &[
-            ("path", &path),
-            ("entries", &preview.1.to_string()),
-            ("fingerprint", &preview.0),
-        ],
-    );
-    app.dialog()
-        .message(body)
-        .title(title)
-        .buttons(MessageDialogButtons::YesNo)
-        .show(move |approved| {
-            let _ = sender.send(approved);
-        });
-    if !tokio::time::timeout(std::time::Duration::from_secs(60), receiver)
-        .await
-        .map_err(|_| "[confirmation.expired] Git confirmation expired")?
-        .unwrap_or(false)
-    {
-        return Err("[operation.cancelled] Git discard cancelled".into());
+    if crate::authorization_dialogs::security_preference(&app, "requireGitDiscardApproval", true) {
+        use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        let (title, body) = crate::authorization_dialogs::text(
+            &app,
+            "git",
+            &[
+                ("path", &path),
+                ("entries", &preview.1.to_string()),
+                ("fingerprint", &preview.0),
+            ],
+        );
+        app.dialog()
+            .message(body)
+            .title(title)
+            .buttons(MessageDialogButtons::YesNo)
+            .show(move |approved| {
+                let _ = sender.send(approved);
+            });
+        if !tokio::time::timeout(std::time::Duration::from_secs(60), receiver)
+            .await
+            .map_err(|_| "[confirmation.expired] Git confirmation expired")?
+            .unwrap_or(false)
+        {
+            return Err("[operation.cancelled] Git discard cancelled".into());
+        }
     }
     let recovery_app = app.clone();
     run_scoped(app, path, true, move |path| {

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AgentService } from "../../Core/Agent/AgentService";
 import type { AgentEvent, AgentTaskSnapshot, AgentTaskStatus } from "../../Core/Agent/AgentTypes";
+import { type AgentPermissionLevel, normalizeAgentPermission } from "../../Core/AiProfiles";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
-import type { AiPreferences } from "../../Foundation/Types/Config";
 import { Button } from "../../UI/Components/Button";
 import {
   DropdownMenuContent,
@@ -239,20 +239,19 @@ function taskStatusLabel(status: AgentTaskStatus, t: (key: I18nKey) => string): 
   }
 }
 
-const permissionLabelKeys: Record<NonNullable<AiPreferences["agentPermission"]>, I18nKey> = {
+const permissionLabelKeys: Record<AgentPermissionLevel, I18nKey> = {
   ask: "ai.agent.permissionAsk",
   read: "ai.agent.permissionRead",
   edit: "ai.agent.permissionEdit",
-  full: "ai.agent.permissionFull",
 };
 
 export function AiAssistantPanel() {
   const snapshot = useSyncExternalStore(AgentService.subscribe, AgentService.getSnapshot);
   const { t } = useLocale();
   const [draft, setDraft] = useState("");
-  const [agentPermission, setAgentPermission] = useState<
-    NonNullable<AiPreferences["agentPermission"]>
-  >(() => getAgentPermission());
+  const [agentPermission, setAgentPermission] = useState<AgentPermissionLevel>(() =>
+    normalizeAgentPermission(getAgentPermission()),
+  );
   const task = snapshot.activeTask;
   const busy = isBusy(task.status);
   const canResume =
@@ -269,11 +268,17 @@ export function AiAssistantPanel() {
     void syncAgentExecutorRegistration();
     void AgentService.refreshConfig();
     void UserConfigStore.get().then((config) => {
-      setAgentPermission(config.ai?.agentPermission ?? "ask");
+      setAgentPermission(normalizeAgentPermission(config.ai?.agentPermission));
     });
   }, []);
 
-  useEffect(() => AgentService.subscribe(() => setAgentPermission(getAgentPermission())), []);
+  useEffect(
+    () =>
+      AgentService.subscribe(() =>
+        setAgentPermission(normalizeAgentPermission(getAgentPermission())),
+      ),
+    [],
+  );
 
   const submit = useCallback(async () => {
     const value = draft.trim();
@@ -283,15 +288,12 @@ export function AiAssistantPanel() {
     void AgentService.send(value);
   }, [draft, snapshot.configured]);
 
-  const updatePermission = useCallback(
-    async (next: NonNullable<AiPreferences["agentPermission"]>) => {
-      setAgentPermission(next);
-      const config = await UserConfigStore.get();
-      await UserConfigStore.set({ ai: { ...config.ai, agentPermission: next } });
-      await syncAgentExecutorRegistration();
-    },
-    [],
-  );
+  const updatePermission = useCallback(async (next: AgentPermissionLevel) => {
+    setAgentPermission(next);
+    const config = await UserConfigStore.get();
+    await UserConfigStore.set({ ai: { ...config.ai, agentPermission: next } });
+    await syncAgentExecutorRegistration();
+  }, []);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -373,10 +375,16 @@ export function AiAssistantPanel() {
             </Button>
           </div>
         )}
-        {!snapshot.configured && (
+        {!snapshot.configured && !snapshot.recoveryPending && (
           <div className="agent-inline-notice">
             <Icons.AlertTriangle size={14} />
-            <span>{t("ai.agentUi.configureProfile")}</span>
+            <span>
+              {!snapshot.cardEnabled
+                ? t("ai.agentUi.aiDisabled")
+                : snapshot.agentEnabled
+                  ? t("ai.agentUi.configureProfile")
+                  : t("ai.agentUi.agentDisabled")}
+            </span>
           </div>
         )}
         {conversation.length === 0 ? (
@@ -528,7 +536,7 @@ export function AiAssistantPanel() {
             <DropdownMenuRoot>
               <DropdownMenuTrigger
                 className="agent-permission-pill"
-                aria-label={t("ai.agent.settingsTitle")}
+                aria-label={t("ai.agent.permissionTitle")}
                 disabled={busy}
               >
                 <Icons.ShieldCheck size={12} aria-hidden="true" />
@@ -538,11 +546,7 @@ export function AiAssistantPanel() {
                 <Icons.ChevronDown size={10} aria-hidden="true" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[170px]">
-                {(
-                  Object.keys(permissionLabelKeys) as Array<
-                    NonNullable<AiPreferences["agentPermission"]>
-                  >
-                ).map((permission) => (
+                {(Object.keys(permissionLabelKeys) as AgentPermissionLevel[]).map((permission) => (
                   <DropdownMenuItem
                     key={permission}
                     label={t(permissionLabelKeys[permission])}

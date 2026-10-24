@@ -776,6 +776,7 @@ export const ja: LocaleMessages = {
       terminalRun: "ターミナルと実行",
       sourceControl: "ソース管理",
       network: "ネットワーク",
+      security: "セキュリティと認証",
       ai: "AI アシスタント",
       accountCloud: "Aurona Account",
       extensions: "拡張機能",
@@ -963,6 +964,35 @@ export const ja: LocaleMessages = {
       restarting: "再起動中",
       failed: "起動に失敗しました",
       stopping: "停止中",
+    },
+    securitySettings: {
+      sectionTitle: "セキュリティと認証",
+      sectionDescription:
+        "ワークスペース境界、構成フィンガープリント、バックエンド検証を維持したまま、日常的な認証確認の既定動作を選択します。",
+      autoTrustWorkspace: "ワークスペースの言語サーバーを自動的に信頼",
+      autoTrustWorkspaceDescription:
+        ".aurona の言語サーバー設定に対するワークスペースごとの確認を省略します。無効時はワークスペースごとに確認します。",
+      localProcessApproval: "ローカルプロセスの起動を確認",
+      localProcessApprovalDescription:
+        "既定でオンです。言語サーバー、デバッガー、Python の起動登録前に確認します。オフの場合は設定したプログラムを直接実行します。再びオンにすると自動許可された起動は再確認が必要です。実行中のプロセスには影響しません。",
+      workspaceApproval: "ワークスペースを開く前に確認",
+      workspaceApprovalDescription:
+        "ワークスペースを開く、または切り替える前にフォルダーを確認します。オフの場合は直接開きます。",
+      aiEndpointApproval: "AI 接続先を確認",
+      aiEndpointApprovalDescription:
+        "新しい接続先の保存時やセッション内の AI プロファイル承認時に確認します。オフの場合、設定したサービスに直接リクエストを送信します。",
+      packageInstallApproval: "ローカルパッケージのインストールを確認",
+      packageInstallApprovalDescription:
+        "VSIX、ローカルまたは未署名の拡張機能・ツールチェーンのインストール前に確認します。オフの場合は直接インストールします。",
+      extensionExecutionApproval: "拡張機能の実行を確認",
+      extensionExecutionApprovalDescription:
+        "サードパーティーの拡張機能を実行する前に権限と提供元を表示します。オフの場合は既存の権限で実行し、再度オンにすると次回の呼び出し時に確認します。",
+      deleteApproval: "ファイルの削除を確認",
+      deleteApprovalDescription:
+        "ワークスペースのファイルやフォルダーを削除する前に確認します。オフの場合は既存の復元機能を保持してすぐに削除します。",
+      gitDiscardApproval: "Git のすべての変更の破棄を確認",
+      gitDiscardApprovalDescription:
+        "すべての変更を破棄する前にネイティブ確認を表示します。オフの場合は復元記録を保持して直接実行します。",
     },
     extensionsSettings: {
       description:
@@ -1601,17 +1631,25 @@ export const ja: LocaleMessages = {
     agent: {
       settingsTitle: "agent ツール実行を有効化",
       settingsDesc:
-        "AI がワークスペースのファイルを読み取り、コードを検索・変更し、エディターコマンドを実行できるようにします。書き込み操作には常に確認が必要です",
-      permissionAsk: "操作前に確認",
-      permissionAskDescription:
-        "読み取り、編集、コマンドの前に毎回確認します。最も厳格なモードです。",
+        "下の権限レベルに従って、Agent がワークスペースの読み取り、検索、操作を行えるようにします。",
+      permissionTitle: "Agent の権限レベル",
+      permissionAsk: "すべての操作前に確認",
+      permissionAskDescription: "Agent の読み取り、変更、コマンド実行の前に毎回確認します。",
       permissionRead: "読み取り専用",
       permissionReadDescription:
-        "ワークスペースの読み取りと検索を許可します。書き込みとコマンドには確認が必要です。",
-      permissionEdit: "確認付き編集",
-      permissionEditDescription: "読み取りと編集の準備を許可します。書き込みは毎回確認します。",
-      permissionFull: "ツールへの完全アクセス",
-      permissionFullDescription: "登録済みツールを自動実行します。ツールの安全境界は適用されます。",
+        "読み取りと検索を許可し、書き込み、状態変更、コマンド実行をブロックします。",
+      permissionEdit: "編集",
+      permissionEditDescription:
+        "現在のワークスペース内の操作を許可します。操作ごとの確認は下のスイッチで設定できます。",
+      requireWriteApproval: "ファイル変更前に確認",
+      requireWriteApprovalDescription:
+        "編集モードでオフにすると、Agent は操作ごとの確認なしでワークスペース内のファイルを作成、編集、削除、移動できます。アプリ側の確認やワークスペース検証は引き続き適用される場合があります。",
+      requireCommandApproval: "コマンド実行前に確認",
+      requireCommandApprovalDescription:
+        "編集モードでオフにすると、Agent は操作ごとの確認なしでターミナル、Git、許可済みエディターコマンドを実行できます。",
+      autoCheckpoint: "書き込み前に復元ポイントを作成",
+      autoCheckpointDescription:
+        "オフにすると、Agent は書き込み前に暗号化された復元スナップショットを保存しません。ワークスペース検証は引き続き行われますが、Agent のスナップショットから変更を復元できません。",
       confirmTitle: "{tool} を確認",
       confirmMessage: "AI が書き込み操作を要求しています。引数を確認して承認してください",
       roundLimit:
@@ -1683,6 +1721,8 @@ export const ja: LocaleMessages = {
       stopTask: "タスクを停止",
       resumeTask: "タスクを再開",
       configureProfile: "開始前に設定で Responses API プロファイルを設定してください。",
+      agentDisabled: "開始前に設定で Agent ツールを有効にしてください。",
+      aiDisabled: "開始前に設定で AI アシスタントを有効にしてください。",
       emptyTitle: "AI に何をさせますか？",
       emptyDescription: "ワークスペースの確認、変更、検証を依頼できます。",
       approvalRequired: "承認が必要",

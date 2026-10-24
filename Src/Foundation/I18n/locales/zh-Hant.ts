@@ -758,6 +758,7 @@ export const zhHant: LocaleMessages = {
       terminalRun: "終端機與執行",
       sourceControl: "原始檔控制",
       network: "網路",
+      security: "安全與授權",
       ai: "AI 助手",
       accountCloud: "Aurona 帳戶",
       extensions: "擴充與外掛",
@@ -937,6 +938,32 @@ export const zhHant: LocaleMessages = {
       restarting: "正在重新啟動",
       failed: "啟動失敗",
       stopping: "正在停止",
+    },
+    securitySettings: {
+      sectionTitle: "安全與授權",
+      sectionDescription: "選擇日常授權提示的預設行為，同時保留工作區邊界、設定指紋與後端檢查。",
+      autoTrustWorkspace: "自動信任工作區語言服務",
+      autoTrustWorkspaceDescription:
+        "略過 .aurona 語言服務設定的逐工作區確認。關閉後，每個工作區仍會個別詢問。",
+      localProcessApproval: "確認本機程序啟動",
+      localProcessApprovalDescription:
+        "預設開啟。為語言伺服器、偵錯器或 Python 註冊啟動授權前詢問；關閉後可直接執行設定的程式。重新開啟後，自動放行的紀錄需再次確認；已執行的程序不受影響。",
+      workspaceApproval: "確認開啟工作區",
+      workspaceApprovalDescription: "開啟或切換工作區前確認所選目錄。關閉後直接開啟。",
+      aiEndpointApproval: "確認 AI 服務位址",
+      aiEndpointApprovalDescription:
+        "儲存新服務位址或為目前工作階段授權 AI 設定時詢問。關閉後可直接傳送請求至設定的服務。",
+      packageInstallApproval: "確認本機套件安裝",
+      packageInstallApprovalDescription:
+        "安裝 VSIX、本機或未簽署的擴充功能與工具鏈套件前詢問。關閉後直接繼續安裝。",
+      extensionExecutionApproval: "確認擴充功能執行",
+      extensionExecutionApprovalDescription:
+        "首次執行第三方擴充功能時顯示權限與來源。關閉後依現有權限直接執行；重新開啟後下次呼叫會重新詢問。",
+      deleteApproval: "確認刪除檔案",
+      deleteApprovalDescription: "刪除工作區檔案或目錄前詢問。關閉後立即刪除並保留原有復原機制。",
+      gitDiscardApproval: "確認 Git 捨棄全部變更",
+      gitDiscardApprovalDescription:
+        "捨棄全部工作區變更前顯示原生確認。關閉後直接執行，並保留原有復原紀錄。",
     },
     extensionsSettings: {
       description: "管理 Aurona Marketplace 擴充源、不同應用的獨立權限分配與沙箱資料隔離",
@@ -1468,15 +1495,24 @@ export const zhHant: LocaleMessages = {
     clearConfirmMessage: "將刪除目前會話的全部訊息，此操作無法復原",
     agent: {
       settingsTitle: "啟用 agent 工具執行",
-      settingsDesc: "允許 AI 讀取工作區檔案、搜尋與修改程式碼、執行編輯器命令；寫操作始終需要確認",
-      permissionAsk: "執行前詢問",
-      permissionAskDescription: "每次讀取、修改或執行前都要求確認，控制最嚴格。",
-      permissionRead: "僅供讀取",
-      permissionReadDescription: "允許讀取和搜尋工作區，寫入與命令執行仍需確認。",
-      permissionEdit: "可編輯（需確認）",
-      permissionEditDescription: "允許讀取並準備編輯，所有寫入操作都會顯示確認。",
-      permissionFull: "完整工具權限",
-      permissionFullDescription: "允許已註冊工具自動執行；高風險操作仍遵守工具安全邊界。",
+      settingsDesc: "允許 Agent 依照下方權限級別讀取、搜尋及操作工作區內容。",
+      permissionTitle: "Agent 權限級別",
+      permissionAsk: "每項操作前詢問",
+      permissionAskDescription: "Agent 每次讀取、修改或執行前都會要求確認。",
+      permissionRead: "唯讀",
+      permissionReadDescription: "允許讀取和搜尋；會寫入、改變狀態或執行命令的操作都會被阻止。",
+      permissionEdit: "可編輯",
+      permissionEditDescription:
+        "允許在目前工作區內操作；是否逐項確認檔案修改和命令，由下方開關控制。",
+      requireWriteApproval: "檔案修改前詢問",
+      requireWriteApprovalDescription:
+        "關閉後，編輯模式下 Agent 可直接建立、修改、刪除或移動工作區檔案；應用程式確認與工作區範圍檢查仍可能生效。",
+      requireCommandApproval: "命令執行前詢問",
+      requireCommandApprovalDescription:
+        "關閉後，編輯模式下 Agent 可直接執行終端、Git 或已允許的編輯器命令。",
+      autoCheckpoint: "寫入前自動建立復原點",
+      autoCheckpointDescription:
+        "關閉後，Agent 寫入前不會儲存加密復原快照；工作區範圍檢查仍會生效，但無法使用 Agent 快照還原。",
       confirmTitle: "確認執行 {tool}",
       confirmMessage: "AI 請求執行寫操作，請核對參數後確認",
       roundLimit: "已達單次對話最大工具輪數，請基於現有資訊直接給出最終回答",
@@ -1544,6 +1580,8 @@ export const zhHant: LocaleMessages = {
       resumeTask: "继续任务",
       configureProfile:
         "\u958b\u59cb\u4efb\u52d9\u524d\uff0c\u8acb\u5148\u5728\u8a2d\u5b9a\u4e2d\u914d\u7f6e Responses API \u8a2d\u5b9a\u3002",
+      agentDisabled: "開始任務前，請先在設定中啟用 Agent 工具。",
+      aiDisabled: "開始任務前，請先在設定中啟用 AI 助手。",
       emptyTitle: "AI \u8981\u8655\u7406\u4ec0\u9ebc\uff1f",
       emptyDescription:
         "\u8acb\u5b83\u6aa2\u67e5\u3001\u4fee\u6539\u6216\u9a57\u8b49\u7576\u524d\u5de5\u4f5c\u5340\u3002",

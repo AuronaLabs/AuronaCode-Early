@@ -1,77 +1,89 @@
-import React from "react";
+import { type RefObject, useLayoutEffect, useRef } from "react";
+import {
+  type EditorLayoutMetrics,
+  measureEditorText,
+  measureRenderedEditorRange,
+} from "../Utils/EditorLayoutMetrics";
 import { sortSelection } from "../Utils/EditorMath";
 import type { CursorPosition, ExtraCursor } from "./useMultiCursorOps";
 
 export interface MultiCursorCaretLayerProps {
   primaryCursor: CursorPosition;
   extras: ExtraCursor[];
-  lineHeight: number;
-  charWidth: number;
-  contentInsetX: number;
-  contentInsetTop: number;
+  documentLines: string[];
+  lineElementsRef: RefObject<Map<number, HTMLButtonElement>>;
+  layout: EditorLayoutMetrics;
   isActive?: boolean;
-  /** 真实行 → 可视行转换（真实折叠启用时由引擎传入） */
   toVisualLine?: (line: number) => number;
-  /** smoothCaret flag：光标平滑插值过渡（0.4.6 接线，此前为无条件写死） */
   smoothCaret?: boolean;
 }
 
-export const MultiCursorCaretLayer = React.memo(function MultiCursorCaretLayer({
+export function MultiCursorCaretLayer({
   primaryCursor,
   extras,
-  lineHeight,
-  charWidth,
-  contentInsetX,
-  contentInsetTop,
+  documentLines,
+  lineElementsRef,
+  layout,
   isActive = true,
-  toVisualLine,
+  toVisualLine = (line) => line,
   smoothCaret = false,
 }: MultiCursorCaretLayerProps) {
+  const layerRef = useRef<HTMLDivElement>(null);
+  // Measure after virtual rows commit, including token/font changes and scrolling.
+  // The same DOM ranges position both EditorLine selections and these carets.
+  useLayoutEffect(() => {
+    const layer = layerRef.current;
+    if (!layer) return;
+    for (const marker of layer.querySelectorAll<HTMLElement>("[data-caret-line]")) {
+      const line = Number(marker.dataset.caretLine);
+      const start = Number(marker.dataset.caretStart);
+      const end = Number(marker.dataset.caretEnd ?? start);
+      const element = lineElementsRef.current.get(line);
+      const text = documentLines[line] ?? "";
+      const measured = element ? measureRenderedEditorRange(element, start, end) : null;
+      const left =
+        measured?.left ?? layout.contentInsetX + measureEditorText(text.slice(0, start), layout);
+      marker.style.left = `${left}px`;
+      if (marker.dataset.caretEnd !== undefined) {
+        marker.style.width = `${Math.max(0, measured?.width ?? measureEditorText(text.slice(0, end), layout) - measureEditorText(text.slice(0, start), layout))}px`;
+      }
+    }
+  });
+
   if (!isActive) return null;
-
-  const toVisual = toVisualLine ?? ((line: number) => line);
   const allCursors = [primaryCursor, ...extras.map((item) => item.cursor)];
-
   return (
-    <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
+    <div ref={layerRef} className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
       {extras.map((item) => {
         if (!item.selection) return null;
         const { start, end } = sortSelection(item.selection);
-        // 第一版仅高亮单行选区（Ctrl+D 产生的词选区均为单行）
         if (start.line !== end.line) return null;
-        const left = contentInsetX + start.char * charWidth;
-        const width = Math.max(1, (end.char - start.char) * charWidth);
         return (
           <div
             key={`extra-selection-${start.line}-${start.char}-${end.char}`}
+            data-caret-line={start.line}
+            data-caret-start={start.char}
+            data-caret-end={end.char}
             className="absolute bg-[var(--EditorSelectionBg)] pointer-events-none"
             style={{
-              left: `${left}px`,
-              top: `${contentInsetTop + toVisual(start.line) * lineHeight}px`,
-              width: `${width}px`,
-              height: `${lineHeight}px`,
+              top: layout.contentInsetTop + toVisualLine(start.line) * layout.lineHeight,
+              height: layout.lineHeight,
             }}
           />
         );
       })}
-      {allCursors.map((c) => {
-        const x = contentInsetX + c.char * charWidth;
-        const y = contentInsetTop + toVisual(c.line) * lineHeight;
-
-        return (
-          <div
-            key={`caret-${c.line}-${c.char}`}
-            className={`absolute w-[2px] bg-[var(--color-accent)] editor-caret ease-out ${
-              smoothCaret ? "transition-all duration-75" : ""
-            }`}
-            style={{
-              left: `${x}px`,
-              top: `${y}px`,
-              height: `${lineHeight}px`,
-            }}
-          />
-        );
-      })}
+      {allCursors.map((cursor, index) => (
+        <div
+          key={index === 0 ? "primary" : `extra-${cursor.line}-${cursor.char}`}
+          data-caret-line={cursor.line}
+          data-caret-start={cursor.char}
+          className={`absolute w-[2px] bg-[var(--color-accent)] editor-caret ease-out ${smoothCaret ? "transition-[left,top] duration-75" : ""}`}
+          style={{
+            top: layout.contentInsetTop + toVisualLine(cursor.line) * layout.lineHeight,
+            height: layout.lineHeight,
+          }}
+        />
+      ))}
     </div>
   );
-});
+}

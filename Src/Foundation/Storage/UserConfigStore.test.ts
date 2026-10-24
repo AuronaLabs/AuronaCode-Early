@@ -62,9 +62,19 @@ describe("UserConfigStore credential migration and persistence", () => {
     mocks.write.mockRejectedValueOnce(new Error("disk full"));
     await expect(UserConfigStore.set({ locale: "en" })).rejects.toThrow("disk full");
     await expect(UserConfigStore.flush()).rejects.toThrow("disk full");
+    await expect(UserConfigStore.get()).resolves.toEqual({ locale: "ja" });
     await UserConfigStore.set({ locale: "de" });
     await expect(UserConfigStore.flush()).resolves.toBeUndefined();
     expect(JSON.parse(mocks.write.mock.calls[1][1]).locale).toBe("de");
+  });
+
+  it("does not carry a failed security preference into a later unrelated write", async () => {
+    mocks.write.mockRejectedValueOnce(new Error("disk full"));
+    await expect(
+      UserConfigStore.set({ security: { requireLocalProcessApproval: false } }),
+    ).rejects.toThrow("disk full");
+    await UserConfigStore.set({ locale: "en" });
+    expect(JSON.parse(mocks.write.mock.calls[1][1])).toEqual({ locale: "en" });
   });
 
   it("isolates an old migration from a cache reset and a newer load", async () => {
@@ -84,5 +94,29 @@ describe("UserConfigStore credential migration and persistence", () => {
     release({ locale: "ja" });
     await rejected;
     await expect(UserConfigStore.get()).resolves.toEqual({ locale: "de" });
+  });
+
+  it("merges concurrent nested preferences against the latest successful write", async () => {
+    await Promise.all([
+      UserConfigStore.update((current) => ({ ai: { ...current.ai, agentEnabled: false } })),
+      UserConfigStore.update((current) => ({
+        ai: { ...current.ai, agentRequireWriteApproval: false },
+      })),
+    ]);
+    expect((await UserConfigStore.get()).ai).toEqual({
+      agentEnabled: false,
+      agentRequireWriteApproval: false,
+    });
+  });
+
+  it("does not merge a failed nested update into the next successful update", async () => {
+    mocks.write.mockRejectedValueOnce(new Error("disk full"));
+    await expect(
+      UserConfigStore.update((current) => ({ ai: { ...current.ai, agentEnabled: false } })),
+    ).rejects.toThrow("disk full");
+    await UserConfigStore.update((current) => ({
+      ai: { ...current.ai, agentRequireWriteApproval: false },
+    }));
+    expect((await UserConfigStore.get()).ai).toEqual({ agentRequireWriteApproval: false });
   });
 });

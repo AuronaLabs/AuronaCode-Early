@@ -4,7 +4,7 @@
   <p>基于 Tauri、React 和 Rust 的桌面代码编辑器</p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.15-2563eb" />
+    <img alt="Version" src="https://img.shields.io/badge/version-0.4.16-2563eb" />
     <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
   </p>
 </div>
@@ -13,9 +13,17 @@ Aurona Code 使用自研 AuronaEngine 编辑器、Rust 文本模型和 WASI P2 �
 
 ## 版本状态
 
-当前正式版本为 **[0.4.14](https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.14)**，于 2026-10-07（北京时间）发布到 Stable。包含 50 项安全、稳定性与性能实现；尚未完成的完整验收与外部签名对接转入 **0.4.15**。原矩阵保留 **47 项验收中、3 项生产验证阻塞、0 项完成全部验收**，不把发布决定当成验收证据。
+当前开发版本为 **0.4.16**，在 0.4.15 基础上补齐安全策略开关、Agent 配置与上下文恢复，并修复编辑器和日常设置问题，见 [0.4.16 开发计划](Docs/0.4.16-Development-Plan.md)。
+
+最近正式版本为 **[0.4.15](https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.15)**，于 **2026-10-11 15:38（北京时间）**发布到 Stable。0.4.14 引入的 50 项安全、稳定性与性能实现中，未完成的完整验收与外部签名对接继续由 0.4.16 跟踪。原矩阵保留 **47 项验收中、3 项生产验证阻塞、0 项完成全部验收**，不把发布决定当成验收证据。
 
 正式安装包由 Release 流程从通过 Quality 的 tag 重新构建，五种产物均已通过固定 Updater 公钥、SHA-256、版本和渠道验证，公开附件下载后再次复验通过。Marketplace 正式包及目录签名仍依赖外部服务，未签名远程安装继续阻断；测试签名只证明客户端协议。见[发布决定](Docs/0.4.14-Release-Decision.md)、[0.4.15 剩余计划](Docs/0.4.15-Carryover-Plan.md)和[验收报告](Docs/0.4.14-Acceptance-Report.md)。
+
+## 0.5.0 预告
+
+从 **0.5.0** 起，Aurona Code 将迁往新仓库 **[AuronaLabs/AuronaCode](https://github.com/AuronaLabs/AuronaCode/)**，结束 Early 早期预览阶段、移除 Early 标签并进入公测。新仓库的 0.5.0 及后续版本将采用 **Apache License 2.0**。
+
+本仓库继续维护当前 0.4.x，许可证仍为 AGPL-3.0。0.5.0 的功能范围和开发计划待后续公布。
 
 ## 工作台
 
@@ -30,7 +38,7 @@ Aurona Code 使用自研 AuronaEngine 编辑器、Rust 文本模型和 WASI P2 �
 
 ## 安全与恢复
 
-文件、Git、LSP、DAP 和终端初始目录使用后端工作区授权。自定义 AI、本地工具、外部目录和未签名本地扩展需要明确批准；配置或工作区变化后原许可可能失效。普通 shell 中的 `cd` 和用户批准运行的程序不具有文件系统沙箱保证。
+文件、Git、LSP、DAP 和终端初始目录使用后端工作区授权。自定义 AI、本地工具、外部目录和未签名本地扩展默认需要明确批准，可在「安全」设置中分别调整确认策略；底层路径、配置指纹和包验证仍然生效。配置或工作区变化后原许可可能失效。普通 shell 中的 `cd` 和用户批准运行的程序不具有文件系统沙箱保证。
 
 AI 密钥保存在系统密钥环，前端配置仅保存凭据 ID；旧配置迁移失败时暂停请求并允许重试。使用远程 AI 会向批准的服务发送请求中的代码和上下文。
 
@@ -38,7 +46,7 @@ AI 密钥保存在系统密钥环，前端配置仅保存凭据 ID；旧配置�
 
 ## 本地开发
 
-需要 Node.js 22、pnpm **12.4.1**、Rust **1.95.0** 和 `wasm32-wasip2` target。Windows 需要 VS2022 C++ Build Tools；macOS/Linux 需要 [Tauri 平台依赖](https://v2.tauri.app/start/prerequisites/)。
+需要 Node.js 22、pnpm **12.15.0**、Rust **1.95.0** 和 `wasm32-wasip2` target。Windows 需要 VS2022 C++ Build Tools；macOS/Linux 需要 [Tauri 平台依赖](https://v2.tauri.app/start/prerequisites/)。
 
 ```sh
 pnpm install --frozen-lockfile
@@ -69,12 +77,13 @@ pnpm run build:candidate:local # 生成本地 Windows NSIS 候选
 ## 文档
 
 - [文档索引](Docs/README.md)
+- [0.4.16 开发计划](Docs/0.4.16-Development-Plan.md)
 - [当前架构](Docs/Architecture.md)、[设计规范](Docs/Design-Principles.md)
 - [扩展开发](Docs/Extension-Development.md)、[SDK 参考](Docs/Extension-SDK-Reference.md)
 - [0.4.14 审计计划](Docs/0.4.14-Audit-Plan.md)、[状态矩阵](Docs/0.4.14-Implementation-Status.md)
 - [发布决定](Docs/0.4.14-Release-Decision.md)、[0.4.15 剩余计划](Docs/0.4.15-Carryover-Plan.md)
 - [0.4.15 开发说明](Docs/0.4.15-Development-Notes.md)、[扩展签名指南](Docs/Extension-Signing-Guide.md)
-- [历史记录](Docs/Archive/README.md)、[后续设计](Docs/Roadmap/README.md)
+- [历史记录](Docs/Archive/README.md)
 
 ## 许可证
 

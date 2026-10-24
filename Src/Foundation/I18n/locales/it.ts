@@ -787,6 +787,7 @@ export const it: LocaleMessages = {
       terminalRun: "Terminale ed esecuzione",
       sourceControl: "Controllo sorgenti",
       network: "Rete",
+      security: "Sicurezza e autorizzazioni",
       ai: "Assistente AI",
       accountCloud: "Aurona Account",
       extensions: "Estensioni",
@@ -978,6 +979,35 @@ export const it: LocaleMessages = {
       restarting: "Riavvio",
       failed: "Avvio non riuscito",
       stopping: "Arresto",
+    },
+    securitySettings: {
+      sectionTitle: "Sicurezza e autorizzazioni",
+      sectionDescription:
+        "Scegli i comportamenti predefiniti per le richieste di autorizzazione, mantenendo confini dell’area di lavoro, impronte di configurazione e controlli backend.",
+      autoTrustWorkspace: "Fidati automaticamente dei language server dell’area di lavoro",
+      autoTrustWorkspaceDescription:
+        "Salta la richiesta per ogni area di lavoro per la configurazione .aurona. Se disattivata, ogni area di lavoro viene richiesta separatamente.",
+      localProcessApproval: "Conferma l’avvio dei processi locali",
+      localProcessApprovalDescription:
+        "Attivo per impostazione predefinita. Chiedi prima di autorizzare avvii di language server, debugger o Python. Disattiva per eseguire direttamente i programmi configurati. Riattivando, le autorizzazioni automatiche richiedono conferma; i processi attivi continuano.",
+      workspaceApproval: "Conferma apertura delle aree di lavoro",
+      workspaceApprovalDescription:
+        "Chiedi prima di aprire o cambiare cartella di lavoro. Disattiva per aprirla direttamente.",
+      aiEndpointApproval: "Conferma endpoint IA",
+      aiEndpointApprovalDescription:
+        "Chiedi quando salvi un nuovo endpoint o autorizzi un profilo IA per la sessione. Disattivando, le richieste vengono inviate direttamente al servizio configurato.",
+      packageInstallApproval: "Conferma installazione pacchetti locali",
+      packageInstallApprovalDescription:
+        "Chiedi prima di installare VSIX, estensioni e toolchain locali o non firmate. Disattiva per procedere direttamente.",
+      extensionExecutionApproval: "Conferma esecuzione estensioni",
+      extensionExecutionApprovalDescription:
+        "Mostra permessi e origine prima di eseguire estensioni di terze parti. Disattiva per usare i permessi esistenti; riattivando, viene chiesta conferma alla prossima chiamata.",
+      deleteApproval: "Conferma eliminazione file",
+      deleteApprovalDescription:
+        "Chiedi prima di eliminare file o cartelle di lavoro. Disattiva per eliminare subito mantenendo il recupero esistente.",
+      gitDiscardApproval: "Conferma annullamento di tutte le modifiche Git",
+      gitDiscardApprovalDescription:
+        "Mostra una conferma nativa prima di annullare tutte le modifiche. Disattiva per procedere direttamente mantenendo i dati di recupero.",
     },
     extensionsSettings: {
       description:
@@ -1628,19 +1658,25 @@ export const it: LocaleMessages = {
     agent: {
       settingsTitle: "Abilita l'esecuzione degli strumenti agent",
       settingsDesc:
-        "Consente all'IA di leggere i file dell'area di lavoro, cercare e modificare codice ed eseguire comandi dell'editor; le operazioni di scrittura richiedono sempre conferma",
-      permissionAsk: "Chiedi prima delle azioni",
-      permissionAskDescription:
-        "Chiedi prima di ogni lettura, modifica o comando. Modalità più restrittiva.",
+        "Consente all'Agent di leggere, cercare e agire sui contenuti dell'area di lavoro in base al livello di autorizzazione scelto sotto.",
+      permissionTitle: "Livello di autorizzazione dell'Agent",
+      permissionAsk: "Chiedi prima di ogni azione",
+      permissionAskDescription: "Chiedi prima di ogni lettura, modifica o comando dell’Agent.",
       permissionRead: "Solo lettura",
       permissionReadDescription:
-        "Consenti lettura e ricerca nell’area di lavoro; scritture e comandi richiedono conferma.",
-      permissionEdit: "Modifica con conferma",
+        "Consenti lettura e ricerca; blocca le operazioni che scrivono, modificano lo stato o eseguono comandi.",
+      permissionEdit: "Modifica",
       permissionEditDescription:
-        "Consenti letture e modifiche preparate; ogni scrittura viene mostrata per conferma.",
-      permissionFull: "Accesso completo agli strumenti",
-      permissionFullDescription:
-        "Consenti l’esecuzione automatica degli strumenti registrati, mantenendo i limiti di sicurezza.",
+        "Consenti le operazioni nell’area di lavoro corrente; gli interruttori qui sotto controllano la conferma per azione.",
+      requireWriteApproval: "Chiedi prima di modificare i file",
+      requireWriteApprovalDescription:
+        "Se disattivato in modalità Modifica, l’Agent può creare, modificare, eliminare o spostare file dell’area di lavoro senza conferma per azione. Possono comunque applicarsi le conferme dell’app e i controlli sull’area di lavoro.",
+      requireCommandApproval: "Chiedi prima dei comandi",
+      requireCommandApprovalDescription:
+        "Se disattivato in modalità Modifica, l’Agent può eseguire comandi del terminale, di Git o dell’editor consentiti senza conferma per azione.",
+      autoCheckpoint: "Crea punti di ripristino prima delle scritture",
+      autoCheckpointDescription:
+        "Se disattivato, l’Agent non salva snapshot di ripristino cifrati prima delle scritture. I controlli sull’area di lavoro restano attivi, ma gli snapshot Agent non potranno ripristinare tali modifiche.",
       confirmTitle: "Conferma {tool}",
       confirmMessage: "L'IA richiede un'operazione di scrittura — verifica i parametri e conferma",
       roundLimit:
@@ -1713,6 +1749,8 @@ export const it: LocaleMessages = {
       stopTask: "Arresta attività",
       resumeTask: "Riprendi attività",
       configureProfile: "Configura un profilo Responses API nelle impostazioni prima di iniziare.",
+      agentDisabled: "Abilita gli strumenti Agent nelle impostazioni prima di iniziare.",
+      aiDisabled: "Abilita l'Assistente AI nelle impostazioni prima di iniziare.",
       emptyTitle: "Su cosa deve lavorare l'assistente?",
       emptyDescription: "Chiedi di controllare, modificare o verificare l'area di lavoro.",
       approvalRequired: "Conferma richiesta",
