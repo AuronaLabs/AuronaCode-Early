@@ -45,9 +45,11 @@ describe("workbench workspace approval", () => {
   });
   afterEach(cleanup);
 
-  it("waits for visible workbench and both listeners before restoring the workspace", async () => {
+  it("registers listeners before visibility and restores only after the workbench is visible", async () => {
     const view = render(<WorkspaceApproval visible={false} />);
-    expect(mocks.listen).not.toHaveBeenCalled();
+    await waitFor(() => expect(mocks.listen).toHaveBeenCalledOnce());
+    expect(mocks.closed).toHaveBeenCalledOnce();
+    expect(mocks.initialize).not.toHaveBeenCalled();
     view.rerender(<WorkspaceApproval visible />);
     await waitFor(() => expect(mocks.initialize).toHaveBeenCalledOnce());
     expect(mocks.closed).toHaveBeenCalledOnce();

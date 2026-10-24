@@ -4,6 +4,15 @@
   const trees = new Map();
   const panels = new Map();
   let panelSequence = 0;
+  let snapshotTask = null;
+  const scheduleSnapshot = () => {
+    if (snapshotTask) return;
+    snapshotTask = Promise.resolve()
+      .then(() => globalThis.__auronaViewsSnapshot())
+      .then(snapshot => { globalThis.__auronaViewSnapshot = JSON.stringify(snapshot); })
+      .catch(() => undefined)
+      .finally(() => { snapshotTask = null; });
+  };
   class TreeItem {
     constructor(label, collapsibleState = 0) { Object.assign(this, { label, collapsibleState }); }
   }
@@ -16,7 +25,10 @@
     const collapsed = new EventEmitter();
     const state = { id, provider: options.treeDataProvider, nodes: new Map(), open: new Set(), selection: [], selectionEvent: selection, expanded, collapsed };
     trees.set(id, state);
-    const refresh = state.provider.onDidChangeTreeData?.(() => { state.dirty = true; });
+    const refresh = state.provider.onDidChangeTreeData?.(() => {
+      state.dirty = true;
+      scheduleSnapshot();
+    });
     const view = { selection: [], visible: true, onDidChangeSelection: selection.event, onDidExpandElement: expanded.event, onDidCollapseElement: collapsed.event,
       reveal: () => Promise.reject(new Error('[compat.unsupported] TreeView.reveal')),
       dispose() { if (trees.get(id) !== state) return; trees.delete(id); refresh?.dispose(); selection.dispose(); expanded.dispose(); collapsed.dispose(); } };
@@ -89,7 +101,7 @@
           if (item.collapsibleState && tree.open.has(key)) await walk(element, key + '.', depth + 1);
         }
       };
-      await walk(undefined); tree.nodes = nodes;
+      await walk(undefined); tree.nodes = nodes; tree.dirty = false;
       components.push({ type: 'card', title: tree.id, children: rows });
     }
     return { components, webviews: [...panels.values()].filter(state => state.panel.visible).map(state => ({ id: state.id, title: state.title, html: state.html, revision: state.revision, enableScripts: state.webview.options.enableScripts === true, messages: state.messages })) };

@@ -73,13 +73,23 @@ impl ArtifactState {
     }
 
     fn take(&self, id: &str, kind: &str, generation: u64) -> Result<Artifact, String> {
+        self.take_at(id, kind, generation, Instant::now())
+    }
+
+    fn take_at(
+        &self,
+        id: &str,
+        kind: &str,
+        generation: u64,
+        now: Instant,
+    ) -> Result<Artifact, String> {
         let entry = self
             .entries
             .lock()
             .map_err(|e| e.to_string())?
             .remove(id)
             .ok_or("[artifact.handle] Artifact does not exist or was consumed")?;
-        if entry.created.elapsed() >= Duration::from_secs(600) {
+        if now.saturating_duration_since(entry.created) >= Duration::from_secs(600) {
             return Err("[artifact.expired] Artifact handle expired".into());
         }
         if entry.kind != kind {
@@ -690,10 +700,16 @@ mod tests {
             assert!(state.take(&handle.artifact_id, kind, generation).is_err());
             assert!(state.entries.lock().unwrap().is_empty());
         }
-        let mut expired = artifact("extension", 4);
-        expired.created = Instant::now() - Duration::from_secs(601);
+        let expired = artifact("extension", 4);
         let handle = state.insert(expired).unwrap();
-        assert!(state.take(&handle.artifact_id, "extension", 4).is_err());
+        assert!(state
+            .take_at(
+                &handle.artifact_id,
+                "extension",
+                4,
+                Instant::now() + Duration::from_secs(601),
+            )
+            .is_err());
         assert!(state.entries.lock().unwrap().is_empty());
     }
 

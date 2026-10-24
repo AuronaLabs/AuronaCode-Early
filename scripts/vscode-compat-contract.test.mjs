@@ -103,6 +103,9 @@ test('tree providers render async children, execute node commands and dispose vi
     }}); ctx.subscriptions.push(tree);`);
   const first = await run('__auronaViewsSnapshot()');
   assert.equal(first.components[0].children.length, 1);
+  run("change.fire();");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(run("typeof __auronaViewSnapshot"), 'string');
   await run("__auronaHandleViewAction('tree:demo.tree:0:toggle', null)");
   assert.equal((await run('__auronaViewsSnapshot()')).components[0].children.length, 2);
   await run("__auronaHandleViewAction('tree:demo.tree:0.0:select', null)");
