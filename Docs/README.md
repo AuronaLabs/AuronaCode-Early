@@ -8,7 +8,8 @@
 
 ## 当前版本
 
-- [0.4.16 发布记录](0.4.16-Release-Preflight.md)：2026-10-24 发布到 Stable，记录发布源码、Quality、安装包签名与剩余验收边界。
+- [0.4.17「静」发布](https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.17)：2026-10-25 发布到 Stable，记录 Corona+、插件兼容层、启动体验和跨平台安装包验收。
+- [0.4.16 发布记录](0.4.16-Release-Preflight.md)：保留上一版本的发布源码、Quality、安装包签名与剩余验收边界。
 - [0.4.16 开发计划](0.4.16-Development-Plan.md)：本版设置开关一致性、Agent 对话恢复和用户路径 Bug 的交付范围。
 
 ## 产品与工程参考
