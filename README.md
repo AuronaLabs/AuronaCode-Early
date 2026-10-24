@@ -13,9 +13,9 @@ Aurona Code 使用自研 AuronaEngine 编辑器、Rust 文本模型和 WASI P2 �
 
 ## 版本状态
 
-当前开发版本为 **0.4.16**，在 0.4.15 基础上补齐安全策略开关、Agent 配置与上下文恢复，并修复编辑器和日常设置问题，见 [0.4.16 开发计划](Docs/0.4.16-Development-Plan.md)。
+当前正式版本为 **[0.4.16](https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.16)**，于 **2026-10-24 20:57（北京时间）**发布到 Stable。本版补齐安全策略开关、Agent 配置与上下文恢复，并修复编辑器和日常设置问题，见 [0.4.16 发布记录](Docs/0.4.16-Release-Preflight.md)和[开发范围](Docs/0.4.16-Development-Plan.md)。
 
-最近正式版本为 **[0.4.15](https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.15)**，于 **2026-10-11 15:38（北京时间）**发布到 Stable。0.4.14 引入的 50 项安全、稳定性与性能实现中，未完成的完整验收与外部签名对接继续由 0.4.16 跟踪。原矩阵保留 **47 项验收中、3 项生产验证阻塞、0 项完成全部验收**，不把发布决定当成验收证据。
+0.4.14 引入的 50 项安全、稳定性与性能实现中，未完成的完整验收与外部签名对接继续跟踪。原矩阵保留 **47 项验收中、3 项生产验证阻塞、0 项完成全部验收**，不把发布决定当成验收证据。此前的 [0.4.15](https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.15) 已于 2026-10-11 发布，保留历史发布记录。
 
 正式安装包由 Release 流程从通过 Quality 的 tag 重新构建，五种产物均已通过固定 Updater 公钥、SHA-256、版本和渠道验证，公开附件下载后再次复验通过。Marketplace 正式包及目录签名仍依赖外部服务，未签名远程安装继续阻断；测试签名只证明客户端协议。见[发布决定](Docs/0.4.14-Release-Decision.md)、[0.4.15 剩余计划](Docs/0.4.15-Carryover-Plan.md)和[验收报告](Docs/0.4.14-Acceptance-Report.md)。
 
@@ -70,14 +70,15 @@ pnpm run build:candidate:local # 生成本地 Windows NSIS 候选
 
 [Quality 工作流](.github/workflows/quality.yml)在 Linux 检查前端，并在 Windows/macOS/Linux 重建扩展、检查 Rust。`quality:full` 使用当前主机，不代替三平台 CI。桌面压力测试、故障注入和真实外部服务验收也需单独执行；完整验收门禁仍应失败，发布范围门禁只接受已记录的逐项结转。
 
-正式 tag 对应提交 `6407f2d` 的 [Quality run 37499017927](https://github.com/AuronaLabs/AuronaCode-Early/actions/runs/37499017927)七个 job 全部通过：前端 417 项测试，三平台扩展与 Rust 门禁通过。Rust 单测 Windows 212 passed，Linux/macOS 各 213 passed，均为 0 failed、1 ignored。忽略测试依赖本地 Account/Auth 服务；这些结果不代表 50 项完整验收完成。
+`v0.4.16` 对应提交 `d475ab2` 的 [Quality run 40089249105](https://github.com/AuronaLabs/AuronaCode-Early/actions/runs/40089249105)七个 job 全部通过：前端 116 文件 / 466 项测试，三平台扩展与 Rust 门禁通过。Rust 单测 Windows 214 passed，Linux/macOS 各 215 passed，均为 0 failed、1 ignored。忽略测试依赖本地 Account/Auth 服务；这些结果不代表 50 项完整验收完成。
 
-候选构建与上传、发布分离；正式发布必须先通过该提交的 Quality 和真实产物签名验证。具体构建、签名与发布结果见[发布前检查](Docs/0.4.14-Release-Preflight.md)。
+候选构建与上传、发布分离；正式发布必须先通过该提交的 Quality 和真实产物签名验证。具体构建、签名与发布结果见 [0.4.16 发布记录](Docs/0.4.16-Release-Preflight.md)。当前仍有三项 medium 依赖告警，修复版本和剩余验收边界分别记录，不以 CI 成功替代安全与原生验收。
 
 ## 文档
 
 - [文档索引](Docs/README.md)
 - [0.4.16 开发计划](Docs/0.4.16-Development-Plan.md)
+- [0.4.16 发布记录](Docs/0.4.16-Release-Preflight.md)
 - [当前架构](Docs/Architecture.md)、[设计规范](Docs/Design-Principles.md)
 - [扩展开发](Docs/Extension-Development.md)、[SDK 参考](Docs/Extension-SDK-Reference.md)
 - [0.4.14 审计计划](Docs/0.4.14-Audit-Plan.md)、[状态矩阵](Docs/0.4.14-Implementation-Status.md)

@@ -1,8 +1,9 @@
 # Aurona Code 文档
 
-## 当前开发
+## 当前版本
 
-- [0.4.16 开发计划](0.4.16-Development-Plan.md)：围绕设置开关一致性、Agent 对话恢复和用户路径 Bug 的当前工作范围。
+- [0.4.16 发布记录](0.4.16-Release-Preflight.md)：2026-10-24 发布到 Stable，记录发布源码、Quality、安装包签名与剩余验收边界。
+- [0.4.16 开发计划](0.4.16-Development-Plan.md)：本版设置开关一致性、Agent 对话恢复和用户路径 Bug 的交付范围。
 
 ## 产品与工程参考
 
