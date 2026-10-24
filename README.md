@@ -72,7 +72,7 @@ pnpm run build:candidate:local # 生成本地 Windows NSIS 候选
 
 [Quality 工作流](.github/workflows/quality.yml)在 Linux 检查前端，并在 Windows/macOS/Linux 重建扩展、检查 Rust。`quality:full` 使用当前主机，不代替三平台 CI。桌面压力测试、故障注入和真实外部服务验收也需单独执行；完整验收门禁仍应失败，发布范围门禁只接受已记录的逐项结转。
 
-`v0.4.16` 对应提交 `d475ab2` 的 [Quality run 40089249105](https://github.com/AuronaLabs/AuronaCode-Early/actions/runs/40089249105)七个 job 全部通过：前端 116 文件 / 466 项测试，三平台扩展与 Rust 门禁通过。Rust 单测 Windows 214 passed，Linux/macOS 各 215 passed，均为 0 failed、1 ignored。忽略测试依赖本地 Account/Auth 服务；这些结果不代表 50 项完整验收完成。
+`v0.4.17` 对应提交 `6fe5cb3` 的 [Quality run 40125800801](https://github.com/AuronaLabs/AuronaCode-Early/actions/runs/40125800801)七个 job 全部通过：前端 116 文件 / 466 项测试，三平台扩展与 Rust 门禁通过。Rust 单测 Windows 214 passed，Linux/macOS 各 215 passed，均为 0 failed、1 ignored。忽略测试依赖本地 Account/Auth 服务；这些结果不代表 50 项完整验收完成。
 
 候选构建与上传、发布分离；正式发布必须先通过该提交的 Quality 和真实产物签名验证。具体构建、签名与发布结果见 [v0.4.17 Release](https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.17)。当前仍有三项 medium 依赖告警，修复版本和剩余验收边界分别记录，不以 CI 成功替代安全与原生验收。
 
@@ -92,3 +92,4 @@ pnpm run build:candidate:local # 生成本地 Windows NSIS 候选
 ## 许可证
 
 [AGPL-3.0](LICENSE)。
+
