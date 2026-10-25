@@ -1,26 +1,37 @@
 # Aurona Code 文档
 
-## 当前开发版本
+**Create Without Limits. · 创造无限可能**
 
-- [0.4.17「静」开发记录](0.4.17-Development-Plan.md)：模块化与 Corona+ 整改、Git/扩展基础可用性、可选安全策略和统一设计的实现与验证证据。
-- [0.4.17 代码审查](0.4.17-Code-Review.md)：问题根因、已完成修复、自动检查结果与真实桌面验收边界。
-- [VS Code 兼容层能力矩阵](0.4.17-VSCode-Compatibility-Matrix.md)：逐项记录已支持、部分支持和待桌面验收的能力范围。
+从了解产品到参与开发，这里是 Aurona Code 的文档入口。当前版本为 **0.4.17「静」**，已于 2026 年 10 月 25 日发布。
 
-## 当前版本
+## 了解这一版
 
-- [0.4.17「静」发布](https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.17)：2026-10-25 发布到 Stable，记录 Corona+、插件兼容层、启动体验和跨平台安装包验收。
-- [0.4.16 发布记录](0.4.16-Release-Preflight.md)：保留上一版本的发布源码、Quality、安装包签名与剩余验收边界。
-- [0.4.16 开发计划](0.4.16-Development-Plan.md)：本版设置开关一致性、Agent 对话恢复和用户路径 Bug 的交付范围。
+| 文档 | 内容 |
+| --- | --- |
+| [0.4.17 更新说明](0.4.17-Release-Notes.md) | 面向使用者的更新重点、下载方式与兼容范围 |
+| [开发与交付记录](0.4.17-Development-Plan.md) | 实现范围、问题追踪和验证证据 |
+| [代码审查记录](0.4.17-Code-Review.md) | 问题根因、整改结果和 PR 反馈 |
+| [VS Code 兼容层能力矩阵](0.4.17-VSCode-Compatibility-Matrix.md) | 已支持能力、限制与桌面验收场景 |
 
-## 产品与工程参考
+## 产品与使用
 
-- [扩展签名指南](Extension-Signing-Guide.md)：本地 `.aurx` 安装和远程签名包的信任边界。
-- [扩展开发](Extension-Development.md) 与 [SDK 参考](Extension-SDK-Reference.md)：扩展包、权限和宿主接口。
-- [设计规范](Design-Principles.md)：当前 UI 表面、圆角和可访问性约束。
-- [当前架构](Architecture.md)与[产品方向](Product-Vision.md)：模块职责和本版目标。
+- [产品方向](Product-Vision.md)：产品定位与体验原则。
+- [安全与信任](Security-and-Trust.md)：安全选项、数据流向与恢复机制。
+- [支持与帮助](../.github/SUPPORT.md)：问题反馈、诊断信息与联系渠道。
 
-## 历史开发与已发布版本
+## 参与开发
 
-[0.4.15 开发说明](0.4.15-Development-Notes.md)和[0.4.15 结转记录](0.4.15-Carryover-Plan.md)保留该版本的开发背景；0.4.15 已于 2026-10-11 发布，剩余验收继续由 0.4.16 跟踪。[0.4.14 发布资料](0.4.14-Release-Decision.md)保留原有验收边界。
+- [贡献指南](../.github/CONTRIBUTING.md)：环境准备、开发流程与验证要求。
+- [当前架构](Architecture.md)：Corona+ 分层、领域责任和运行时边界。
+- [设计哲学与材质系统](Design-Principles.md)：主题、材质、布局、反馈和可访问性。
 
-[Archive](Archive/README.md) 保存 0.4.13 及更早版本的架构、Agent 和审计原始记录。历史文档中的版本、性能和验收结论不适用于当前实现。
+## 开发扩展
+
+- [扩展开发指南](Extension-Development.md)：包结构、开发起点与本地验证。
+- [SDK 参考](Extension-SDK-Reference.md)：以 WIT 契约为基础的宿主能力说明。
+- [签名指南](Extension-Signing-Guide.md)：包认证、目录认证与本地安装。
+- [VS Code Demo](../Extensions/vscode.demo/README.md)：兼容层的最小演示与验证步骤。
+
+## 历史文档
+
+[归档索引](Archive/README.md)保留已发布版本、审计与早期设计材料，方便追溯当时的决策和证据。历史状态不自动代表当前实现；当前行为以本版文档和源码为准。

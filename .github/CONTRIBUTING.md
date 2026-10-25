@@ -1,71 +1,97 @@
-# 贡献指南
+# 参与贡献
 
-感谢你愿意帮助 Aurona Code 变得更可靠。项目仍处于早期阶段，欢迎缺陷修复、性能优化、测试、文档和经过讨论的产品改进。
+感谢你愿意让 Aurona Code 更好用。缺陷修复、测试、文档、性能分析和经过讨论的体验改进，都是有价值的贡献。
 
-## 开始之前
+**Create Without Limits. · 创造无限可能**
 
-- 搜索已有 Issue 和 Pull Request，避免重复工作。
-- 小型缺陷可以直接提交 PR；涉及编辑器协议、状态所有权、桌面权限、依赖替换或大规模 UI 结构时，请先创建 Issue。
-- 不要把插件市场、AI Command Center、云服务等尚未立项的方向夹带进无关修复。
-- 安全漏洞不要提交公开 Issue，请遵循 [安全策略](SECURITY.md)。
+## 找到合适的起点
 
-## 开发环境
+先搜索已有 [Issues](https://github.com/AuronaLabs/AuronaCode-Early/issues) 与 [Pull Requests](https://github.com/AuronaLabs/AuronaCode-Early/pulls)，了解当前讨论与正在进行的工作。
 
-需要 Node.js 22 或更高版本（CI 使用 22）、pnpm 12.15.0、Rust stable 和当前平台的 Tauri 2 系统依赖。
+小型修复和文档改进可以直接提交 PR。涉及编辑器协议、状态所有权、桌面权限、依赖替换或大规模界面结构时，建议先通过 Issue 对齐问题、范围和验证方式。
+
+潜在漏洞请按[安全策略](SECURITY.md)私密报告。社区互动遵循[行为准则](CODE_OF_CONDUCT.md)。
+
+## 准备开发环境
+
+当前版本为 **0.4.17**。与 CI 对齐的工具链如下：
+
+| 工具 | 版本或要求 |
+| --- | --- |
+| Node.js | 22 |
+| pnpm | 12.15.0，以 `package.json` 的 `packageManager` 为准 |
+| Rust | 1.95.0 |
+| 扩展编译目标 | `wasm32-wasip2` |
+| 系统依赖 | Tauri 2 对应平台依赖；Windows 需 C++ Build Tools |
+
+准备好系统工具链后，在仓库根目录执行：
 
 ```powershell
-corepack enable
-corepack install --global pnpm@12.15.0
 pnpm install --frozen-lockfile
+rustup target add wasm32-wasip2
+pnpm run prepare:extensions
 pnpm run tauri:dev
 ```
 
-可选的交互式管理器需要 Python 和 Rich：
+`pnpm run dev` 只启动前端预览。Git、文件、终端与其他宿主能力需要桌面模式。
 
-```powershell
-python -m pip install rich
-python manager.py
-```
+仓库还提供 `python manager.py` 作为可选命令入口，使用前需安装 Python 和 Rich；它不属于构建必需依赖。
 
-管理器只是命令入口，不是构建依赖。
+## 理解仓库边界
 
-## 仓库边界
+- `App` 负责启动与服务装配，`Features` 组织功能与用例，`Layout` 承载工作台布局。
+- `Core` 管理领域服务，通过公开接口协作；`UI` 提供可复用控件与材质。
+- Tauri API 直接适配集中在 `Foundation/Desktop`，业务使用类型化 IPC。
+- 长期状态有明确的可写来源，事件用于表达通知或意图。
+- Rust 文本模型管理持久文档，编辑与保存需要考虑 UTF-16、CRLF、IME 和恢复。
+- 扩展运行时与命令注册分别管理，避免通过名称或 ID 猜测业务行为。
 
-- 前端业务代码位于 `Src/App`、`Src/Layout` 和 `Src/Features`。
-- 可复用视觉组件位于 `Src/UI`，不要让 UI 基础组件反向依赖 Git、编辑器或工作区业务。
-- 只有 `Src/Foundation/Desktop` 可以直接导入 `@tauri-apps/*`。
-- 长期工作台状态写入 Zustand；EventBus 只用于短暂通知和导航意图。
-- Rust 是持久文档权威。编辑、保存、revision 或恢复相关变更必须同时考虑 UTF-16、CRLF、IME 和数据安全。
-- `Src/Extension` 当前只是命令注册，不是插件运行时。
-
-详细说明见 [Architecture.md](../Docs/Architecture.md) 和 [Extension-Development.md](../Docs/Extension-Development.md)。
+更多背景见[架构说明](../Docs/Architecture.md)、[设计规范](../Docs/Design-Principles.md)与[扩展开发](../Docs/Extension-Development.md)。
 
 ## 建议工作流
 
 1. 从最新 `main` 创建范围明确的分支。
-2. 先复现问题，记录修改前行为。
-3. 只修改解决问题所需的模块，避免夹带机械重构。
-4. 为纯函数、状态协议、恢复、命令或边界行为补充测试。
-5. 更新与实现发生变化的 README、Docs、模板或版本记录。
-6. 完成适合本次范围的自动验证和桌面手工验证。
-7. 提交 Pull Request，明确已运行、未运行和环境阻塞的检查。
+2. 复现问题，记录预期行为与实际结果。
+3. 围绕问题修改模块，并为行为变化补充适当回归。
+4. 更新关联文档，明确能力、配置与验证范围。
+5. 运行与本次修改匹配的检查。
+6. 提交 PR，说明修改原因、实际验证和仍待确认的边界。
 
-## 提交前检查
+## 按修改范围验证
 
-前端和文档变更至少运行：
+### 文档
+
+检查标题层级、表格、代码围栏、相对链接、命令与版本表述，运行：
+
+```powershell
+git diff --check
+pnpm run check:audit
+```
+
+更新扩展 README 时留意它可能被打包进扩展资源；纯文案整理无需顺带提交重新生成的二进制归档。
+
+### 前端与共享逻辑
 
 ```powershell
 pnpm run typecheck
 pnpm run check
+pnpm run i18n:check
 pnpm run check:boundaries
 pnpm run check:materials
 pnpm run smoke
 pnpm run test:frontend
 pnpm run build
-git diff --check
 ```
 
-涉及 Rust 或桌面能力时继续运行：
+扩展、发布或契约相关修改补充相应验证：
+
+```powershell
+pnpm run verify:vscode-compat
+pnpm run test:extension-contract
+pnpm run test:release-contract
+```
+
+### Rust 与桌面能力
 
 ```powershell
 cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
@@ -74,24 +100,14 @@ cargo check --manifest-path src-tauri/Cargo.toml --locked
 cargo test --manifest-path src-tauri/Cargo.toml --locked
 ```
 
-Windows 若找不到 MSVC linker，请在 Visual Studio Build Tools 开发者环境中重试。未运行的检查必须写成“未运行”或“环境阻塞”，不要写成通过。
+`pnpm run quality:full` 汇总本机检查；三平台结果以 GitHub Quality 为准。未运行或受环境限制的项目如实注明，避免把编译、单元测试与桌面使用混为同一种证据。
 
-## UI 变更要求
+## 界面改动
 
-- 复用 Aurona Material token 和 `Src/UI/Components`，避免在业务页复制控件。
-- 选中态不能只依赖大面积主题色；键盘焦点必须可见。
-- 验证深色、浅色、三个拟物强度和 reduced motion。
-- 至少检查 800×600 和常用 DPI；文字、菜单、按钮不得溢出。
-- Diff、错误和 Git 状态的红绿语义不能被玻璃效果削弱。
+复用共享控件和主题令牌，保证选中态与键盘焦点清晰。检查深浅主题、不同材质强度、降低动态效果、窄窗口和常用 DPI；为视觉改动附截图或短视频。
 
-## Pull Request 内容
+## 让提交容易审阅
 
-请说明：
+PR 说明应包含问题、根因、修改范围、验证结果与相关兼容性影响。保存、权限、IPC、进程生命周期或恢复相关修改，应额外说明数据与状态处理。
 
-- 用户问题和根因。
-- 修改范围与明确未修改的内容。
-- 数据、权限、性能或跨平台风险。
-- 自动测试和手工测试结果。
-- 对视觉改动提供截图或短视频。
-
-保持提交清晰可审阅。不要提交 `Dist/`、`node_modules/`、`src-tauri/target/` 或 `.aurona-local/`。
+提交前移除构建产物、凭据和个人诊断数据。`Dist/`、`node_modules/`、`src-tauri/target/` 和 `.aurona-local/` 不应进入变更。

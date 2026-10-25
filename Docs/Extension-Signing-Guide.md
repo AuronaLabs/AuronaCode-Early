@@ -1,23 +1,49 @@
-# Extension Signing Guide
+# 扩展签名与安装指南
 
-Aurona Code uses two installation paths with different trust statements.
+Aurona Code **0.4.17** 将插件包认证与 Marketplace 目录认证分别管理。默认启用验证，同时允许使用者在「设置 → 安全」中按需求调整。
 
-## Local Development Packages
+## 两项独立策略
 
-Select a `.aurx` file from Marketplace's **Install Local (.aurx)** action. Rust copies the file into a bounded temporary artifact, records its byte count and SHA-256, binds it to the current workspace generation, and returns a one-time artifact ID. Before installation the native dialog shows the package identity, hash and size. A local package is not presented as publisher-verified; the user is explicitly approving that package for local use.
+| 策略 | 默认状态 | 认证对象 |
+| --- | --- | --- |
+| 插件包签名认证 | 开启 | 包身份、版本、来源与下载内容 |
+| 扩展目录签名认证 | 开启 | Marketplace 目录及其中的版本记录 |
 
-## Remote Marketplace Packages
+关闭对应策略后，安装流程按该项选择处理认证要求；安装确认、执行确认、能力权限、包格式检查与资源限制继续独立生效。未认证包不会因关闭开关而成为发布者已验证的内容。
 
-Remote installation requires all of the following:
+这两项设置针对插件，与应用更新器的签名校验独立。更多选项见[安全与信任](Security-and-Trust.md)。
 
-1. The download URL resolves to the official Marketplace origin.
-2. A current signed catalog contains the requested extension and version.
-3. The response includes a signed artifact descriptor.
-4. The pinned Ed25519 key verifies the descriptor and the descriptor binds publisher, extension ID, version, platform, source, catalog revision, expiry, size and SHA-256.
-5. The downloaded bytes match the signed size and hash before installation.
+## 本地开发包
 
-Missing or invalid production signatures are an expected external blocking state. The client reports the reason and keeps the package out of the verified installation path. Test fixtures under `src-tauri/resources/security-fixtures` validate the client protocol only; they are not production signing material.
+通过 Marketplace 的 **Install Local (.aurx)** 入口选择本地包。Rust 将文件复制到有大小限制的临时 artifact，记录字节数与 SHA-256，绑定当前上下文并返回一次性 artifact ID。
 
-## Key Configuration
+安装入口使用 artifact ID 消费所选文件，并在安装前重新校验。需要使用未签名开发包时，请检查包认证设置；相关批准与权限仍由各自策略管理。
 
-Production builds provide `AURONA_ARTIFACT_PUBLIC_KEYS` at compile time as a JSON object mapping key IDs to base64 Ed25519 public keys. The default is empty and fails closed. Private signing keys and Marketplace catalog credentials must remain outside this repository and outside local release artifacts.
+本地选择证明用户选择了这份内容，不构成远程发布者身份认证。
+
+## 默认策略下的远程安装
+
+远程安装的主要检查包括：
+
+1. 下载来源符合 Marketplace 访问策略。
+2. 当前目录通过认证，并包含所请求的扩展与版本。
+3. 响应提供带签名的 artifact 描述。
+4. 固定 Ed25519 公钥验证描述，核对发布者、扩展 ID、版本、平台、来源、目录 revision、有效期、大小与 SHA-256。
+5. 下载字节与描述记录的大小和哈希一致。
+
+默认策略下，缺少生产签名、未知密钥或签名无效会阻断相应认证路径并报告原因。策略实现以 [`security_policy.rs`](../src-tauri/src/extensions/security_policy.rs) 为准。
+
+## 公钥配置
+
+生产构建通过编译期 `AURONA_ARTIFACT_PUBLIC_KEYS` 提供 JSON 对象，将 key ID 映射到 Base64 编码的 Ed25519 公钥。默认配置为空；需要认证的操作无法在缺少可信密钥时通过验证。
+
+私钥、签名服务凭据和目录管理凭据应保存在仓库与发布产物之外。公钥配置也不能用服务端普通的 `signed` 或 `verified` 字段代替。
+
+## 验证与排查
+
+- 核对包的来源、版本与当前两项认证设置。
+- 查看错误属于目录认证、包认证、下载内容不一致，还是安装权限问题。
+- 保留脱敏的诊断信息，避免在反馈中附上签名私钥或服务凭据。
+- 分别验证本地安装、远程安装、升级以及恢复默认设置后的行为。
+
+[`security-fixtures`](../src-tauri/resources/security-fixtures/)用于验证客户端协议，不能充当生产签名材料。远程服务是否提供有效生产签名，需要服务端与真实包共同验证。

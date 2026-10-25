@@ -1,328 +1,122 @@
-# Aurona SDK 参考手册
+# 扩展 SDK 参考
 
-## 0.4.14 资源与授权
+本文面向 **Aurona Code 0.4.17** 的原生扩展作者，以 [`Extensions/wit/world.wit`](../Extensions/wit/world.wit) 为接口依据。完整函数签名、类型与注释均保存在该文件，文档按使用场景说明职责与边界。
 
-文件、watcher、host bridge、WASM 内存和 fuel 均受 Rust 预算控制。扩展不得把未声明的命令、外部路径或网络访问当作默认能力；安装和更新由后端验证 artifact handle。
+VS Code API 支持范围另外记录在[兼容层能力矩阵](0.4.17-VSCode-Compatibility-Matrix.md)，两套接口应分别查阅。
 
-本版 bridge 请求绑定 extension、kind、runtime generation 和一次性请求 ID；错误所有者、重复或过期响应不能消费请求。每扩展最多 64 个 pending，bridge/event 单 payload 最多 256 KiB。事件入口只接受当前 runtime lease 的 `workspace-changed`、`document-changed`，最多 256 个排队事件；溢出返回错误并要求重新同步，不静默丢弃旧事件。
+## 契约与绑定
 
-watcher 共用全局 64、每工作区 16、每扩展 4 的预算。事件以 100 ms 窗口合并，最多保留 4096 个去重路径；溢出会使目录缓存失效。卸载、禁用、更新失败和工作区切换撤销 runtime lease 并清理 bridge、watcher 和订阅。实际 OS 线程、事件量和百轮生命周期数据以验收报告为准。
+- WIT package：`aurona:extensions`。
+- world：`aurona-extension`。
+- 导入：宿主 `context` 接口。
+- 导出：组件 `render` 接口。
+- `get-sdk-version` 返回当前契约版本，应用版本通过环境信息获取。
 
-普通 WASM Store 使用 64 MiB 内存档和受限 fuel/deadline；包不能自行声明提升配额。内置 VSCode 兼容层单独使用受控的 256 MiB 档。编译缓存按包 hash 复用 Component，Store/实例仍独立。Agent 调用命令要求注册时明确声明允许调用、effects、checkpoint 和冲突/并行元数据，未声明命令默认拒绝。
+Rust 绑定由 `wit-bindgen` 生成，命名采用 Rust 的下划线形式，例如 `get_environment()`。内置兼容层中的 [`pub mod sdk`](../Extensions/aurona.vscode-compat/src/lib.rs)提供部分便捷封装；它是仓库内实现，独立扩展可直接使用 WIT 生成的绑定。
 
-本地 `.aurx`/`.vsix` 通过原生选择获得一次性 `artifactId`，安装前显示 hash/权限并重新验证包。远程包要求可信配置固定的公钥和有效签名；未签名旧包不会显示为已验证。详见 [0.4.14 安全与迁移](0.4.14-Security-and-Migration.md)，正式 Marketplace 生产签名数据仍是外部前置条件。
+## 环境与权限
 
-本文档为 Aurona Code 扩展开发者提供统一面向对象（OOP）**Aurona SDK** 与底层 WIT 契约的完整 API 参考。
+| WIT 函数 | 用途 |
+| --- | --- |
+| `get-sdk-version` | 获取契约版本 |
+| `get-environment` | 获取语言、主题、配色、字体、应用版本和平台 |
+| `runtime-metadata` | 获取扩展运行元数据 |
+| `request-permission` | 查询或请求一项能力权限 |
 
----
+权限状态为 `unknown`、`granted` 或 `denied`。工作区路径、文档内容等信息依赖对应授权，调用者应检查返回值，再决定后续操作。
 
-## 1. 统一面向对象 SDK 门面速查
+## 文档与编辑
 
-在 Rust 扩展中，通过 `Aurona` 顶级静态单例访问各大宿主能力服务：
+| WIT 函数 | 用途 |
+| --- | --- |
+| `get-editor-snapshot` | 获取路径、语言、内容和版本快照 |
+| `get-editor-selection` | 获取当前选区 |
+| `get-editor-selection-text` | 获取选中文本 |
+| `insert-editor-text` | 在当前编辑器插入文本 |
+| `reveal-editor-line` | 定位编辑器行 |
 
-```rust
-use aurona_extension_sdk::Aurona; // 或直接使用插件内部的 pub mod sdk
-```
+读取内容需要 `editor.current.read`。快照版本用于识别上下文，异步处理完成后应确认目标仍然有效。读不到内容时，应按权限或文档状态处理，而非把空值当作文件为空。
 
-### 1.1 环境与配置 (`Aurona::config()`)
-```rust
-let config = Aurona::config();
+## 工作区文件
 
-// 字段说明
-config.locale;        // 当前语言，如 "zh-CN", "zh-Hant", "en"
-config.color_scheme;  // 当前主题配色，"dark" | "light"
-config.app_version;   // Aurona Code 版本号，如 "0.3.15"
-config.platform;      // 宿主平台，如 "windows", "macos", "linux"
-```
+| WIT 函数 | 用途 |
+| --- | --- |
+| `get-workspace-info` | 获取工作区名称与存在状态 |
+| `read-workspace-file` | 读取工作区文本文件 |
+| `read-workspace-range` | 按偏移分段读取文本 |
+| `write-workspace-file` | 写入工作区文本文件 |
+| `list-workspace-files` | 有上限地枚举目录 |
+| `get-workspace-file-metadata` | 查询文件或目录元数据 |
+| `watch-workspace-path` | 创建工作区路径监听 |
+| `unwatch-workspace-path` | 释放监听句柄 |
 
-### 1.2 工作区安全文件系统 (`Aurona::workspace()`)
-所有文件操作均受宿主沙箱安全隔离保护，仅允许在已打开的工作区内操作：
+路径相对于已授权工作区，宿主检查边界与资源限制。分段读取的偏移和长度语义应遵循 WIT 注释；遇到权限拒绝、失效句柄或目录切换时，应重新同步上下文。
 
-```rust
-let ws = Aurona::workspace();
+## Git
 
-// 获取工作区元数据
-let info = ws.info();
+| WIT 函数 | 用途 |
+| --- | --- |
+| `git-repository-info` | 获取当前仓库与分支信息 |
+| `git-status` | 获取变更列表 |
+| `git-log` | 获取有数量上限的提交记录 |
+| `git-diff` | 获取单文件工作区差异 |
+| `git-stage` / `git-unstage` | 暂存或取消暂存 |
+| `git-commit` | 提交已暂存内容 |
 
-// 读取工作区文件
-let content: Result<String, String> = ws.read_file(".aurona/planner.json");
+读取与写入分别依赖 `git.read` 和 `git.write`，路径保持工作区相对形式。非 Git 工作区、缺少权限和操作失败需要分别反馈。
 
-// 安全写入工作区文件（单次上限 10MiB，自动创建缺失目录，防逃逸）
-let success: Result<bool, String> = ws.write_file(".aurona/data.json", "{\"key\":\"val\"}");
+## 交互、命令与诊断
 
-// 列出工作区目录项（受最大条目数限制）
-let files: Result<Vec<FileEntry>, String> = ws.list_files("src", 100);
+| WIT 函数 | 用途 |
+| --- | --- |
+| `show-notification` | 请求宿主显示通知 |
+| `set-status-message` | 设置带毫秒超时的状态消息 |
+| `show-dialog-confirm` | 显示确认对话框 |
+| `show-input-box` | 请求单行输入，可返回取消 |
+| `show-quick-pick` | 显示选择列表，可返回取消 |
+| `read-clipboard` / `write-clipboard` | 读写文本剪贴板 |
+| `execute-command` | 调用宿主或已注册命令 |
+| `contribute-fliuno-items` | 贡献搜索快捷项 |
+| `get-icon-svg` | 获取宿主图标 SVG |
+| `log` | 输出结构化诊断日志 |
 
-// 监听指定工作区路径变动
-let watch_id: Result<u64, String> = ws.watch("src");
-```
+这些接口通过宿主桥接能力完成操作。请处理 `result`、取消和权限状态，通知文案说明影响与下一步，诊断日志避免包含密钥、完整私有文件或其他敏感数据。
 
-### 1.3 活跃编辑器服务 (`Aurona::editor()`)
-```rust
-let editor = Aurona::editor();
+## 存储与事件
 
-// 获取当前活跃文档快照（需申请 editor.current.read 权限）
-let snapshot = editor.snapshot();
+| WIT 函数 | 用途 |
+| --- | --- |
+| `storage-get` / `storage-set` | 读取或保存扩展隔离键值 |
+| `storage-delete` | 删除单个键 |
+| `storage-list-keys` | 枚举键名 |
+| `storage-clear` | 清空当前扩展存储 |
+| `poll-events` | 读取宿主排队事件 |
 
-// 获取当前选区范围
-let selection = editor.selection();
+持久数据使用存储接口，写入失败应向调用方传播。事件与 bridge 请求绑定扩展及运行上下文；工作区切换、会话失效或队列溢出后应重新获取快照。
 
-// 在当前光标处插入文本
-let ok = editor.insert_text("console.log('Hello');");
+## 渲染与动作
 
-// 视口滚动并聚焦到指定行
-let ok = editor.reveal_line(42);
-```
-
-### 1.4 窗口与通知服务 (`Aurona::window()`)
-```rust
-let win = Aurona::window();
-
-// 弹出信息/警告/错误通知 Toast
-win.show_info("任务已成功保存");
-win.show_warning("检测到部分配置项缺失，已采用默认值");
-win.show_error("编译失败，请检查语法错误");
-
-// 设置底部状态栏临时提示消息（带超时毫秒数）
-win.set_status_bar("正在同步扩展状态...", 3000);
-```
-
-### 1.5 命令调度服务 (`Aurona::commands()`)
-```rust
-let cmds = Aurona::commands();
-
-// 执行内置或已注册的命令
-let result = cmds.execute("editor.action.formatDocument", &[]);
-```
-
-### 1.6 剪贴板服务 (`Aurona::clipboard()`)
-```rust
-let clip = Aurona::clipboard();
-
-// 读取剪贴板内容
-let text = clip.read();
-
-// 写入内容到剪贴板
-let ok = clip.write("https://github.com/AuronaLabs");
-```
-
-### 1.7 矢量图标库 (`Aurona::icons()`)
-获取内置的官方线性矢量 SVG 图标（stroke 风格，`currentColor` 自动适配主题）：
-
-```rust
-let icons = Aurona::icons();
-
-let check_svg = icons.get("check");        // 对勾图标
-let clipboard_svg = icons.get("clipboard");// 剪贴板图标
-let trash_svg = icons.get("trash");        // 垃圾桶图标
-let plus_svg = icons.get("plus");          // 加号图标
-let code_svg = icons.get("code");          // 代码图标
-let calendar_svg = icons.get("calendar");  // 日历图标
-let zap_svg = icons.get("zap");            // 闪电图标
-let terminal_svg = icons.get("terminal");  // 终端图标
-let search_svg = icons.get("search");      // 搜索图标
-let settings_svg = icons.get("settings");  // 设置图标
-let home_svg = icons.get("home");          // 主页图标
-let clock_svg = icons.get("clock");        // 时钟图标
-let user_svg = icons.get("user");          // 用户图标
-let file_svg = icons.get("file");          // 文件图标
-let folder_svg = icons.get("folder");      // 文件夹图标
-let star_svg = icons.get("star");          // 星标图标
-let x_svg = icons.get("x");                // 关闭图标
-```
-
-### 1.8 诊断日志服务 (`Aurona::logger()`)
-```rust
-let logger = Aurona::logger();
-logger.info("插件已加载并就绪");
-logger.warn("检测到性能警告");
-logger.error("解析文件失败");
-```
-
-### 1.9 Fliuno 统一搜索贡献服务 (`Aurona::fliuno()`)
-允许扩展向全局 Fliuno 搜索面板贡献自定义命令与快捷项（需用户授权 `fliuno.search` 权限）：
-```rust
-let fliuno = Aurona::fliuno();
-
-let ok = fliuno.contribute(vec![
-    FliunoItem {
-        id: "my-action".into(),
-        title: "格式化代码片段".into(),
-        subtitle: Some("使用自研格式化引擎".into()),
-        icon: Some("code".into()),
-        action: "formatSnippet".into(),
-    }
-]);
-```
-
-### 1.10 沙箱持久化存储 (`Aurona::storage()`)
-每个扩展享有独立的本地沙箱键值存储，告别手动文件读写：
-```rust
-let storage = Aurona::storage();
-
-// 写入数据
-storage.set("user_preference", "{\"compact\":true}");
-
-// 读取数据
-let pref: Option<String> = storage.get("user_preference")?;
-
-// 删除数据与列出键名
-storage.delete("old_key");
-let keys: Vec<String> = storage.list_keys()?;
-
-// 一键清空沙箱（SDK v1.1 新增）
-storage.clear()?;
-```
-
-### 1.11 交互式弹窗服务 (`Aurona::dialog()`)
-```rust
-let dialog = Aurona::dialog();
-
-// 弹出确认对话框
-if dialog.confirm("清空任务列表", "确定要清空所有已完成任务吗？此操作不可撤销。")? {
-    // 用户点击了确认
-}
-```
-
----
-
-## 2. Aurona Marketplace 市场清单规范 (`manifest.json`)
-
-每个 `.aurx` 插件必须在根目录包含 `manifest.json`，支持完整的市场分类与索引元数据：
-
-```json
-{
-  "packageVersion": 1,
-  "id": "aurona.sample",
-  "name": "Sample Extension",
-  "displayName": {
-    "zh-CN": "示例插件",
-    "zh-Hant": "範例擴充",
-    "en": "Sample Extension"
-  },
-  "publisher": "aurona",
-  "version": "0.1.0",
-  "engine": { "auronaCode": ">=0.3.15" },
-  "runtime": { "component": "extension.wasm" },
-  "sidebar": {
-    "title": "Sample",
-    "icon": "assets/icon.svg"
-  },
-  "view": { "entry": "ui/index.html" },
-  "marketplace": {
-    "categories": ["Productivity", "Developer Tools"],
-    "tags": ["sample", "wasm", "sdk"],
-    "author": "Aurona Code Team",
-    "homepage": "https://github.com/AuronaLabs/AuronaCode-Early",
-    "repository": "https://github.com/AuronaLabs/AuronaCode-Early",
-    "license": "MIT"
-  }
-}
-```
-
----
-
-## 3. UI 模板与主题 CSS 变量规范
-
-扩展视图运行在沙箱 `iframe` 中，可直接通过以下 CSS 变量支持深浅色模式：
-
-```css
-:root, :root[data-theme="light"] {
-  --bg: #ffffff;
-  --fg: #0f172a;
-  --muted: #64748b;
-  --card-bg: rgba(0, 0, 0, 0.03);
-  --card-border: rgba(0, 0, 0, 0.07);
-  --accent: #0284c7;
-  --radius: 12px;
-}
-
-:root[data-theme="dark"] {
-  --bg: #0d1117;
-  --fg: #e6edf3;
-  --muted: #8b949e;
-  --card-bg: rgba(255, 255, 255, 0.04);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --accent: #38bdf8;
-  --radius: 12px;
-}
-```
-
----
-
-## 4. 官方原生声明式组件协议 (Declarative Component Schema)
-
-插件可以直接输出声明式 JSON，由 Aurona 宿主使用原生 React 拟物组件树驱动渲染，零额外 CSS 体积：
-
-```json
-{
-  "mode": "declarative",
-  "title": "配置中心",
-  "components": [
-    {
-      "type": "card",
-      "id": "card_main",
-      "title": "运行环境",
-      "children": [
-        {
-          "type": "select",
-          "id": "channelSelect",
-          "label": "分发渠道",
-          "value": "pioneer",
-          "options": [
-            { "label": "Stable 正式版", "value": "stable" },
-            { "label": "Pioneer 先锋计划", "value": "pioneer" }
-          ]
-        },
-        {
-          "type": "switch",
-          "id": "syncSwitch",
-          "label": "自动持久化",
-          "checked": true
-        },
-        {
-          "type": "button",
-          "id": "btnSave",
-          "label": "保存并应用",
-          "variant": "primary",
-          "action": "config:apply"
-        }
-      ]
-    }
-  ]
-}
-```
-
----
-
-## 5. 交互契约 `on-action`（SDK v1.1）
-
-声明式组件的按钮动作（如 `"action": "config:apply"`）通过 WIT 世界中 `render` 接口的第二个导出回传扩展：
+`render` 接口定义两类组件调用：
 
 ```wit
+render: func(input: render-input) -> result<render-output, string>;
 on-action: func(action-id: string, payload: string) -> result<render-output, string>;
 ```
 
-交互模型为**请求-响应**：宿主把用户动作（`action-id`）与不透明负载数据（`payload`）交给扩展，扩展返回下一帧渲染输出（与 `render` 同构）。要点：
+`render-input` 当前包含 `markdown` 字段；`render-output` 包含 `html` 和 `diagnostics`。动作负载由扩展按约定解释，动作返回下一次视图输出。
 
-- **跨调用无状态**：扩展在两次调用之间不保留内存状态；需要持久化的数据请使用 `Aurona::storage()` 沙箱存储；
-- **payload 由扩展自行解释**：宿主只负责透传（前端会把结构化数据序列化为 JSON 字符串）；
-- **向后兼容**：按旧版 world 编译、未导出 `on-action` 的扩展包仍然可以正常渲染，只是收到交互时宿主会提示"该扩展未提供交互处理能力，请更新扩展"。
+宿主可能复用运行会话，扩展仍需通过存储保存跨会话数据。命令、订阅和其他临时资源应随会话释放，不能依赖窗口关闭时才统一回收。
 
-Rust 扩展侧实现示例：
+## 声明式视图
 
-```rust
-impl Guest for MyExtension {
-    fn render(input: RenderInput) -> Result<RenderOutput, String> { /* ... */ }
+声明式组件输出由宿主的 [`Declarative`](../Src/Features/Extensions/Declarative/) 渲染器处理。可用组件与属性应对照实现，HTML 视图则遵循包模板、CSP 与清洗规则。
 
-    fn on_action(action_id: String, payload: String) -> Result<RenderOutput, String> {
-        match action_id.as_str() {
-            "config:apply" => {
-                // 读取 payload、更新状态（持久化到 storage），返回新视图
-                render_next_frame(&payload)
-            }
-            _ => Err(format!("未知动作: {action_id}")),
-        }
-    }
-}
-```
+深浅主题、键盘焦点、内容密度和材质层次按[设计规范](Design-Principles.md)处理；自定义视图应验证主题切换时的实际显示。
+
+## 资源与信任边界
+
+bridge、事件、watcher、内存与执行时间由宿主预算管理，当前默认值见 [`resource_limits.rs`](../src-tauri/src/resource_limits.rs)与[扩展运行时](../src-tauri/src/extensions/runtime.rs)。
+
+安装前的包认证、运行前的确认、能力权限与资源限制分别生效。具体设置见[安全与信任](Security-and-Trust.md)，包与目录认证见[签名指南](Extension-Signing-Guide.md)。
+
+接口存在、单元测试通过、真实组件运行和第三方扩展可用是不同层次的证据。扩展发布时请说明实际验证的平台、宿主版本与使用场景。

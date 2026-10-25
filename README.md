@@ -1,95 +1,92 @@
 <div align="center">
   <img src="public/logo.png" alt="Aurona Code" width="96" />
   <h1>Aurona Code</h1>
-  <p>基于 Tauri、React 和 Rust 的桌面代码编辑器</p>
+  <p><strong>Create Without Limits. · 创造无限可能</strong></p>
+  <p>让工具融入创作，让想法成为现实。</p>
   <p>
     <a href="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/AuronaLabs/AuronaCode-Early/actions/workflows/quality.yml/badge.svg" /></a>
-    <img alt="Version" src="https://img.shields.io/badge/version-0.4.17-2563eb" />
-    <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" />
+    <a href="https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.17"><img alt="Version 0.4.17" src="https://img.shields.io/badge/version-0.4.17-2563eb" /></a>
+    <a href="LICENSE"><img alt="License AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-7c3aed" /></a>
+  </p>
+  <p>
+    <a href="https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.17">下载 0.4.17</a> ·
+    <a href="Docs/README.md">阅读文档</a> ·
+    <a href="https://github.com/AuronaLabs/AuronaCode-Early/issues">反馈问题</a>
   </p>
 </div>
 
-Aurona Code 使用自研 AuronaEngine 编辑器、Rust 文本模型和 WASI P2 扩展运行时。工作台提供文件浏览、Git、终端、语言服务、调试、Markdown 预览和 AI Assistant。
+Aurona Code 是一款桌面代码编辑器，将编辑、搜索、Git、终端、调试、扩展与 AI 助手融入同一个工作台。我们希望工具更自然地参与开发，让你专注于代码，也享受把想法变成现实的过程。
 
-## 版本状态
+## 0.4.17 · 静
 
-当前正式版本为 **[0.4.17「静」](https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.17)**，于 **2026-10-25 05:53（北京时间）**发布到 Stable。该版本完成 Corona+ 分层、插件与 VS Code 兼容层收敛，并修复 Git、F12、工作区授权、OOBE、Markdown 与主题适配问题，见 [0.4.17 发布说明](Docs/0.4.17-Development-Plan.md)。
+减少打扰，理清边界，让日常开发回到自己的节奏。
 
-0.4.17「静」已发布。版本主题是降低维护噪声：完成 Corona+ 模块边界整改、Git/F12/工作区授权修复、可选插件安全策略、VS Code 兼容层基础能力和 OOBE/主题/Markdown 收敛。正式安装包已通过三平台构建、签名候选校验和发布前 Quality 门禁。
+**0.4.17「静」于 2026 年 10 月 25 日发布到 Stable。** 这一版聚焦已有能力的整理与打磨：
 
-0.4.14 引入的 50 项安全、稳定性与性能实现中，未完成的完整验收与外部签名对接继续跟踪。原矩阵保留 **47 项验收中、3 项生产验证阻塞、0 项完成全部验收**，不把发布决定当成验收证据。此前的 [0.4.15](https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.15) 已于 2026-10-11 发布，保留历史发布记录。
+- **更清晰的架构**：整理 Corona+ 模块边界，改善启动、Git、扩展与通知的协作方式。
+- **更连贯的工作流**：修复 Git 请求取消、正式包开发者工具和工作区授权时序问题。
+- **更灵活的安全设置**：插件包与目录签名分别提供开关，默认保护与使用选择同时保留。
+- **更完善的扩展基础**：改进运行会话、命令、状态存储、文档事件、树视图和 Webview 桥接。
+- **更安静的界面**：重新整理首启引导，调整深色高亮、主题图标、Markdown 预览与双按钮胶囊。
 
-正式安装包由 Release 流程从通过 Quality 的 tag 重新构建，五种产物均已通过固定 Updater 公钥、SHA-256、版本和渠道验证，公开附件下载后再次复验通过。Marketplace 正式包及目录签名仍依赖外部服务，未签名远程安装继续阻断；测试签名只证明客户端协议。见[发布决定](Docs/0.4.14-Release-Decision.md)、[0.4.15 剩余计划](Docs/0.4.15-Carryover-Plan.md)和[验收报告](Docs/0.4.14-Acceptance-Report.md)。
+[阅读本版更新](Docs/0.4.17-Release-Notes.md) · [查看实现与验证记录](Docs/0.4.17-Development-Plan.md)
+
+## 在一个工作台里，顺着思路完成开发
+
+| 能力 | 你可以做什么 |
+| --- | --- |
+| 编辑代码 | 使用多光标、查找替换、代码折叠、Minimap 和 Markdown 即时预览 |
+| 浏览项目 | 管理文件、搜索内容与符号，在文件和命令之间快速切换 |
+| 管理改动 | 查看 Git 状态与差异，暂存、提交和切换分支 |
+| 运行与调试 | 使用集成终端、语言服务、调试器与工具链管理 |
+| 协作思考 | 通过 AI Assistant 对话，审阅带审批与恢复记录的 Agent 操作 |
+| 扩展工作台 | 安装原生 `.aurx` 扩展，使用已支持的 VS Code 兼容能力 |
+
+VS Code 兼容层目前支持部分 API。具体能力与限制请参阅[兼容层能力矩阵](Docs/0.4.17-VSCode-Compatibility-Matrix.md)。
+
+## 下载与开始使用
+
+在 [0.4.17 Release](https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.17) 的 **Assets** 中选择适合系统的安装包：
+
+| 平台 | 架构 | 安装包 |
+| --- | --- | --- |
+| Windows | x64 | `.exe` 安装程序 |
+| macOS | Universal | `.dmg`；另提供 `.app.tar.gz` 更新归档 |
+| Linux | x86_64 / amd64 | `.AppImage` 或 `.deb` |
+
+安装后可通过首启引导选择语言与外观，再打开项目开始工作。工作区授权在主界面就绪后呈现；相关选项可在「设置 → 安全」中调整。
+
+## 由你决定如何使用
+
+默认保护、清楚的提示和独立的设置，共同构成 Aurona Code 的信任体验。插件签名、安装确认、执行确认与工作区授权分别管理；应用更新继续使用独立的发布签名校验。
+
+AI 凭据保存在系统密钥环。使用远程 AI 时，请求中的代码和上下文会发送给你选择的服务。更多说明见[安全与信任](Docs/Security-and-Trust.md)。
+
+## 参与 Aurona Code
+
+欢迎分享使用体验、报告问题、改进文档，或提交经过验证的修复。
+
+- [文档首页](Docs/README.md)：产品、架构、设计与扩展资料。
+- [贡献指南](.github/CONTRIBUTING.md)：开发环境、验证流程与提交方式。
+- [支持与帮助](.github/SUPPORT.md)：问题反馈与排查入口。
+- [安全报告](.github/SECURITY.md)：私密报告安全问题。
 
 ## 0.5.0 预告
 
-从 **0.5.0** 起，Aurona Code 将迁往新仓库 **[AuronaLabs/AuronaCode](https://github.com/AuronaLabs/AuronaCode/)**，结束 Early 早期预览阶段、移除 Early 标签并进入公测。新仓库的 0.5.0 及后续版本将采用 **Apache License 2.0**。
+**Public Beta · Coming Soon**
 
-本仓库继续维护当前 0.4.x，许可证仍为 AGPL-3.0。0.5.0 的功能范围和开发计划待后续公布。
+Aurona Code 将从 **0.5.0** 开始进入公测，迁往新仓库 **[AuronaLabs/AuronaCode](https://github.com/AuronaLabs/AuronaCode/)**，并移除 Early 标签。新仓库将采用 **Apache License 2.0**。
 
-## 工作台
-
-- 编辑：虚拟视口、多光标、撤销/重做、查找替换、折叠和 Minimap；Markdown 预览直接读取编辑缓冲区。
-- 项目：分页文件树、Fliuno 文件/命令/符号/内容检索、Git 状态、暂存、提交、分支和差异查看。
-- 开发工具：集成 PTY 终端、LSP 语言服务和 DAP 调试；工具链在 Marketplace 的 Toolchains 模式管理。
-- AI：多个配置档、Responses API、流式响应，以及带审批、工具调用和 checkpoint 的 Agent 任务。
-- 扩展：原生 `.aurx` WASM 扩展和部分 VS Code API 兼容能力；兼容层不保证所有 `.vsix` 扩展可用。
-- 界面：主题、窗口状态、首启引导与六种语言。语言键结构有检查，部分硬编码文案仍待清理。
-
-安装包只包含 `aurona.vscode-compat` 和供手动安装测试的 VSCode Demo。Planner、语言服务及共享运行时通过 Marketplace 独立分发；Markdown 已内置预览，旧 Markdown 扩展用于存量迁移。市场服务与包可用性不由本仓库单独保证。
-
-## 安全与恢复
-
-文件、Git、LSP、DAP 和终端初始目录使用后端工作区授权。自定义 AI、本地工具、外部目录和未签名本地扩展默认需要明确批准，可在「安全」设置中分别调整确认策略；底层路径、配置指纹和包验证仍然生效。配置或工作区变化后原许可可能失效。普通 shell 中的 `cd` 和用户批准运行的程序不具有文件系统沙箱保证。
-
-AI 密钥保存在系统密钥环，前端配置仅保存凭据 ID；旧配置迁移失败时暂停请求并允许重试。使用远程 AI 会向批准的服务发送请求中的代码和上下文。
-
-远程安装要求固定可信公钥和有效签名；缺少正式签名时安装阻断。Git 全部丢弃先预览、确认并创建恢复记录；Agent 回滚核对修改后的指纹，后续人工编辑可能产生冲突。恢复机制不能替代独立备份。限额用于控制资源消耗，不能保证所有故障下都不会耗尽资源。协议、迁移及恢复范围见 [安全与迁移](Docs/0.4.14-Security-and-Migration.md)。
-
-## 本地开发
-
-需要 Node.js 22、pnpm **12.15.0**、Rust **1.95.0** 和 `wasm32-wasip2` target。Windows 需要 VS2022 C++ Build Tools；macOS/Linux 需要 [Tauri 平台依赖](https://v2.tauri.app/start/prerequisites/)。
-
-```sh
-pnpm install --frozen-lockfile
-rustup target add wasm32-wasip2
-pnpm run prepare:extensions
-pnpm run tauri:dev
-```
-
-`pnpm run dev` 只启动前端预览，文件、终端等桌面能力需要 Tauri。
-
-## 验证与候选
-
-```sh
-pnpm run prepare:extensions    # 重建并校验安装包内置资源
-pnpm run quality:full          # 前端检查、测试、构建及本机 Rust 检查
-pnpm run check:audit           # 50 项、12 节 Changelog 与版本一致性
-pnpm run check:audit:release   # 冻结、批准的发布范围与逐项结转门禁
-pnpm run check:audit:complete  # 原始 50 项完整验收与生产证据门禁
-pnpm run build:candidate:local # 生成本地 Windows NSIS 候选
-```
-
-[Quality 工作流](.github/workflows/quality.yml)在 Linux 检查前端，并在 Windows/macOS/Linux 重建扩展、检查 Rust。`quality:full` 使用当前主机，不代替三平台 CI。桌面压力测试、故障注入和真实外部服务验收也需单独执行；完整验收门禁仍应失败，发布范围门禁只接受已记录的逐项结转。
-
-`v0.4.17` 对应提交 `6fe5cb3` 的 [Quality run 40125800801](https://github.com/AuronaLabs/AuronaCode-Early/actions/runs/40125800801)七个 job 全部通过：前端 116 文件 / 466 项测试，三平台扩展与 Rust 门禁通过。Rust 单测 Windows 214 passed，Linux/macOS 各 215 passed，均为 0 failed、1 ignored。忽略测试依赖本地 Account/Auth 服务；这些结果不代表 50 项完整验收完成。
-
-候选构建与上传、发布分离；正式发布必须先通过该提交的 Quality 和真实产物签名验证。具体构建、签名与发布结果见 [v0.4.17 Release](https://github.com/AuronaLabs/AuronaCode-Early/releases/tag/v0.4.17)。当前仍有三项 medium 依赖告警，修复版本和剩余验收边界分别记录，不以 CI 成功替代安全与原生验收。
-
-## 文档
-
-- [文档索引](Docs/README.md)
-- [0.4.17「静」开发记录](Docs/0.4.17-Development-Plan.md)、[代码审查](Docs/0.4.17-Code-Review.md)
-- [0.4.16 开发计划](Docs/0.4.16-Development-Plan.md)
-- [0.4.16 发布记录](Docs/0.4.16-Release-Preflight.md)
-- [当前架构](Docs/Architecture.md)、[设计规范](Docs/Design-Principles.md)
-- [扩展开发](Docs/Extension-Development.md)、[SDK 参考](Docs/Extension-SDK-Reference.md)
-- [0.4.14 审计计划](Docs/0.4.14-Audit-Plan.md)、[状态矩阵](Docs/0.4.14-Implementation-Status.md)
-- [发布决定](Docs/0.4.14-Release-Decision.md)、[0.4.15 剩余计划](Docs/0.4.15-Carryover-Plan.md)
-- [0.4.15 开发说明](Docs/0.4.15-Development-Notes.md)、[扩展签名指南](Docs/Extension-Signing-Guide.md)
-- [历史记录](Docs/Archive/README.md)
+这将是项目新的起点。更多信息、发布说明与文档将在后续公布，敬请期待。
 
 ## 许可证
 
-[AGPL-3.0](LICENSE)。
+本仓库中的 Aurona Code 采用 **GNU AGPL-3.0**，详见 [LICENSE](LICENSE)。新仓库的许可安排独立于本仓库。
 
+---
+
+**Aurona Code · 创造无限可能**
+
+*Create Without Limits.*
+
+© AuronaLabs

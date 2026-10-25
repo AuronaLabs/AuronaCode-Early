@@ -1,30 +1,37 @@
 # 支持与帮助
 
-## 使用问题和缺陷
+遇到问题、希望了解某项能力，或想分享更顺手的用法，都欢迎从这里开始。
 
-请先搜索 [现有 Issues](https://github.com/AuronaLabs/AuronaCode-Early/issues)，确认问题尚未被报告，再使用对应模板创建 Issue。
+## 先查阅文档
 
-提交缺陷时请附上：
+- [项目首页](../README.md)：当前版本与下载入口。
+- [文档首页](../Docs/README.md)：使用、开发与扩展资料。
+- [0.4.17 更新说明](../Docs/0.4.17-Release-Notes.md)：本版变化与支持范围。
+- [安全与信任](../Docs/Security-and-Trust.md)：授权、插件认证与恢复。
+- [VS Code 兼容矩阵](../Docs/0.4.17-VSCode-Compatibility-Matrix.md)：兼容 API 与限制。
 
-- Aurona Code 版本和 Debug/Release 构建类型。
-- 操作系统、架构和显示缩放比例。
-- 可重复的操作步骤、期望行为和实际行为。
-- 日志、截图或短视频；请先移除代码、路径和凭据中的敏感内容。
+## 报告使用问题
 
-## 文档
+先搜索[已有 Issues](https://github.com/AuronaLabs/AuronaCode-Early/issues)，再选择合适模板提交。清楚的复现步骤能让问题更快得到确认。
 
-- [README](../README.md)
-- [架构说明](../Docs/Architecture.md)
-- [文件树](../Docs/FileTree.md)
-- [设计原则](../Docs/DesignPrinciples.md)
-- [0.3.0 技术说明](../Docs/0.3.0-TechnicalNotes.md)
-- [0.3.10 完整性审计](../Docs/0.3.10-Completeness-Audit.md)
-- [0.3.11 第一阶段审计](../Docs/0.3.11-Phase1-Audit.md)
+建议附上：
+
+- Aurona Code 版本和 Debug / Release 构建类型。
+- 操作系统、架构；涉及显示时附缩放比例与主题。
+- 最少操作步骤、预期行为和实际结果。
+- 相关截图、短视频或脱敏日志。
+- 涉及扩展时，提供扩展 ID、版本与相关安全设置。
+
+请先移除截图和日志中的凭据、私人路径、私有代码及其他敏感信息。
+
+## 提出体验建议
+
+说明正在完成什么任务、哪里不顺手，以及希望如何改善。能提供具体场景、操作频率或示意图，会比单独列出功能名称更有帮助。
 
 ## 其他联系
 
-常规问题可发送邮件至 `ecospace@qq.com`。公开可讨论的问题仍优先使用 GitHub Issue，方便其他用户检索。
+常规问题可发送至 `ecospace@qq.com`。适合公开讨论的内容优先使用 GitHub Issue，方便其他使用者检索与补充。
 
-## 安全漏洞
+## 安全问题
 
-请不要公开披露安全漏洞。使用 [GitHub Private Vulnerability Reporting](https://github.com/AuronaLabs/AuronaCode-Early/security/advisories/new) 或按照 [SECURITY.md](SECURITY.md) 中的方式私密报告。
+潜在漏洞请按[安全策略](SECURITY.md)私密报告，帮助维护者在公开披露前完成调查与修复。

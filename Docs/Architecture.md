@@ -1,38 +1,53 @@
-# Aurona Code 当前架构
+# 当前架构
 
-当前已发布实现基线为 `0.4.16`；`0.4.17` 正在开发，改造记录见 [0.4.17「静」开发记录](0.4.17-Development-Plan.md)，实际检查结果见[代码审查](0.4.17-Code-Review.md)。本页描述现行边界，自动检查结果与真实桌面验收分别记录；历史版本的详细架构说明位于 [Archive/Architecture-Legacy-0.4.13.md](Archive/Architecture-Legacy-0.4.13.md)。
+本文描述 **Aurona Code 0.4.17** 的模块组织与运行时边界。架构以清晰的状态所有权、公开接口和可回收的生命周期为基础；具体整改与验证见[开发与交付记录](0.4.17-Development-Plan.md)。
 
-## 分层
+## 工作台如何协作
 
-React 功能层通过 `Src/Foundation/IPC` 使用 Tauri typed IPC，不能直接访问 Rust 命令。`Core` 管理文档、Git、AI、Agent 和工具服务；`Features` 组合编辑器、Explorer、Marketplace、终端和设置；`Layout` 管理工作区；`UI` 提供无业务的组件和反馈。
+前端使用 React 与 TypeScript，桌面能力由 Tauri 和 Rust runtime 提供。业务代码通过 `Src/Foundation/IPC` 的类型化接口访问宿主，Tauri API 的直接适配集中在 `Src/Foundation/Desktop`。
 
-Rust runtime 负责工作区 scope、generation、文件和 Git、网络策略、进程树、LSP/DAP/PTY、扩展 WASM 宿主、Marketplace 包和存储。前端传入的 root、executable、URL 或凭据不能替代后端授权。
+Rust 管理文本模型、工作区访问、Git、进程、LSP、DAP、PTY、网络策略、扩展运行时与持久化。前端提供操作意图和上下文，后端复核权限、路径及生命周期。
 
-## 运行时边界
+## Corona+ 分层
 
-- 文件和 Git 操作绑定 canonical workspace root、调用方和 generation；路径、符号链接、junction 和恢复记录在后端复核。
-- AI 通过 Rust 端点策略访问网络。配置只保存 `credentialId`，密钥来自系统 keyring；请求、SSE、工具和并发均有预算。
-- LSP、DAP 和 Python 使用后端 launch registry，启动配置绑定 cwd、参数、环境和文件指纹。PTY 单独管理会话，初始目录需要工作区或原生授权；shell 内的访问仍由操作系统权限决定。
-- 扩展使用 WASI P2、权限和宿主 CSP；远程包必须通过固定 Ed25519 公钥验证，未签名本地包首次运行需确认。
-- 目录、下载、解压、watcher、PTY、协议、历史和 checkpoint 使用共享限额，超限返回结构化错误。
-
-实现与证据见 [0.4.14 状态矩阵](0.4.14-Implementation-Status.md)和[验收报告](0.4.14-Acceptance-Report.md)。
-
-## 模块与数据
-
-| 领域 | 主要模块 | 职责 |
+| 层级 | 职责 | 协作约束 |
 | --- | --- | --- |
-| 编辑 | `Features/Editor`、`editor.rs`、`scoped_file.rs` | Rope 文本、revision、编辑缓冲区、冲突检测与保存；缓冲区独立于热视图。 |
-| 工作区 | `commands/fs.rs`、`file_uploads.rs`、`resource_limits.rs` | 根保护、句柄路径访问、分块写、分页 cursor、监听合并与配额。 |
-| Git | `Core/GitService.ts`、`commands/git.rs`、`process_service.rs` | 仓库授权、读写协调、取消、错误脱敏及持久恢复日志。 |
-| AI / Agent | `Core/Agent`、`ai_chat.rs`、`ai_profiles.rs`、`agent_storage.rs` | 配置 ID、keyring、流式请求、工具元数据、审批和加密恢复记录。 |
-| 工具 | `launch_registry.rs`、`toolchains.rs`、`lsp.rs`、`dap.rs`、`pty.rs` | 注册启动、安装事务、协议状态机、输出背压和进程生命周期。 |
-| 扩展与市场 | `extensions/`、`artifacts.rs`、`artifact_signature.rs`、`marketplace_catalog.rs` | 包验证、WASM 隔离、host bridge、资源清洗和签名缓存。 |
+| `Foundation` | 平台适配、IPC、基础类型、存储与通用工具 | 不依赖业务页面或布局 |
+| `Core` | 文档、工作区、Git、语言服务、AI 与扩展等领域服务 | 通过公开接口协作，领域逻辑与视图分开 |
+| `State` | 领域状态与订阅 | 状态有明确所有者，副作用通过服务或用例管理 |
+| `Features` | 编辑器、资源管理器、终端、扩展和设置等功能 | 使用领域入口，跨功能装配明确表达依赖 |
+| `UI` | 通用控件、材质、图标、Toast 与对话框 | 保持通用性，业务通知由上层协调 |
+| `Layout` | 工作台区域、布局与插槽 | 承载视图组合，避免嵌入特定扩展业务 |
+| `App` | 启动、组合根、服务装配与清理 | 管理就绪顺序与全局生命周期 |
 
-应用配置、包、缓存和恢复记录保存在系统应用数据目录；AI 凭据和 Agent 加密密钥使用系统 keyring。工作区和 Git 恢复数据具有不同的所有权与清理规则，详见 [安全与迁移](0.4.14-Security-and-Migration.md)。
+`scripts/check-desktop-boundaries.mjs` 使用 AST 分析运行时引用、模块边界和依赖环。检查覆盖范围内的通过结果是工程证据；领域职责仍需要代码审查与行为回归共同确认。
 
-## 验证边界
+## 主要领域
 
-单元测试、隔离桌面 harness 和生产安装器是不同证据。Harness 使用独立 identifier 和测试工作区授权；正式候选排除 `audit-harness` feature。生产能力、原生批准/取消、三平台工作流、签名来源和性能回归阈值都需要单独验收。
+| 领域 | 主要入口 | 关注点 |
+| --- | --- | --- |
+| 编辑与文档 | `Src/Core/DocumentService.ts`、`Src/Features/Editor`、Rust `editor.rs` | 文本 revision、编辑缓冲区、保存和冲突检测 |
+| 工作区 | `Src/Core/WorkspaceService.ts`、Rust `commands/fs.rs` | 根目录授权、路径身份、分页访问与目录恢复 |
+| Git | `Src/Core/GitService.ts`、Rust `commands/git.rs` | 仓库会话、请求取消、差异和恢复记录 |
+| AI 与 Agent | `Src/Core/Agent`、`ai_chat.rs`、`ai_profiles.rs` | 凭据引用、流式响应、工具审批和 checkpoint |
+| 语言与工具 | `Src/Core/Language`、`launch_registry.rs`、`lsp.rs`、`dap.rs`、`pty.rs` | 启动配置、协议状态、进程与会话释放 |
+| 扩展与市场 | `Src/Core/Extensions`、`Src/Features/Extensions`、Rust `extensions/` | 安装策略、WASM 会话、权限、视图和宿主桥接 |
 
-`quality:full` 执行本机前端与 Rust 检查，GitHub Quality 额外执行三平台 Rust/扩展矩阵。发布构建、draft 上传和渠道推进分开；任何测试 fixture 都不能提供正式发布信任。
+## 启动与异步协作
+
+- 启动 UI 与服务装配位于 App 层，授权监听就绪后再开放相关工作区操作。
+- 工作区恢复区分候选目录、授权状态与实际提交，避免授权流程阻塞主界面自身挂载。
+- Git、文档与扩展异步响应携带所属上下文；过期结果在写入状态前检查代次与路径。
+- 命令、订阅、计时器、watcher 与扩展会话各有释放责任，停用或切换时清理旧资源。
+
+## 运行时与信任
+
+文件访问绑定规范化工作区路径与授权状态。AI 请求通过后端端点策略，凭据使用系统密钥环；本地工具通过启动配置与用户选择执行。
+
+扩展运行于 WASI Preview 2 宿主。包签名和目录签名采用独立可配置策略，权限、包结构检查与运行预算继续生效。应用更新签名拥有独立的信任链，详见[安全与信任](Security-and-Trust.md)。
+
+## 验证
+
+本机 `quality:full` 覆盖前端及当前主机 Rust 检查；GitHub Quality 额外执行三平台 Rust 与扩展矩阵。单元测试、真实 WASM 组件、发布产物校验与桌面操作验证分别提供不同层次的证据。
+
+发布流程把构建、产物验证与渠道发布分开。当前版本的验证入口与尚需桌面验收的场景记录在[交付记录](0.4.17-Development-Plan.md)和[兼容层能力矩阵](0.4.17-VSCode-Compatibility-Matrix.md)。
