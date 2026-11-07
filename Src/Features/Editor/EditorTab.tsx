@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DocumentService } from "../../Core/DocumentService";
+import { DocumentService } from "../../Core/Documents";
 import { loadEditorViewState, saveEditorViewState } from "../../Core/Editor/EditorViewStateStore";
 import { EditorSaveRegistry } from "../../Core/EditorSaveRegistry";
 import { FileSystemService } from "../../Core/FileSystemService";
@@ -12,7 +12,7 @@ import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { EditorViewState } from "../../Foundation/Types/Editor";
 import { isBinaryExtension } from "../../Shared/Constants/FileTypes";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
-import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../../State/Workbench/useWorkbenchStore";
 import { showNotification, showToast } from "../../UI/Feedback/Toast";
 import { Icons } from "../../UI/Icons/IconManager";
 import { AuronaEngine } from "./AuronaEngine";

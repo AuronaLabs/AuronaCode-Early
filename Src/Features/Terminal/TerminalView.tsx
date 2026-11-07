@@ -4,10 +4,11 @@ import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { memo, useEffect, useRef, useState } from "react";
 import { type ShellProfile, TerminalManager } from "../../Core/TerminalService";
-import { WorkspaceService } from "../../Core/WorkspaceService";
+import { WorkspaceService } from "../../Core/Workspace";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { PtyIPC } from "../../Foundation/IPC/PtyCommands";
+import { DisposableScope } from "../../Foundation/Lifecycle/DisposableScope";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import {
   ContextMenuContent,
@@ -178,8 +179,8 @@ export const TerminalView = memo(function TerminalView({
       terminal.options.cursorBlink = config.terminalCursorBlink !== false;
       fitAddonRef.current?.fit();
     };
-    void loadSettings();
-    return EventBus.on("settings:terminal-changed", () => void loadSettings());
+    void loadSettings().catch(console.error);
+    return EventBus.on("settings:terminal-changed", () => loadSettings());
   }, []);
 
   useEffect(() => {
@@ -187,33 +188,39 @@ export const TerminalView = memo(function TerminalView({
     // 每次挂载时递增代号，用于在清理时判断是否为当代管理者
     const currentGeneration = ++generationRef.current;
     const sessionId = crypto.randomUUID();
-    let unlistenOutput: (() => void) | undefined;
-    let unlistenExit: (() => void) | undefined;
+    const scope = new DisposableScope();
+    TerminalManager.beginTerminalSession(id, sessionId);
+    setStatus("starting");
 
     const start = async () => {
       try {
-        unlistenOutput = await PtyIPC.listenOutput((payload) => {
-          if (payload.id !== id || payload.session_id !== sessionId || disposed) return;
-          try {
-            terminalRef.current?.write(decodeBase64(payload.data), () => {
-              void PtyIPC.acknowledge(id, sessionId, payload.seq).catch(console.error);
-            });
-          } catch (error) {
-            console.error("Unable to decode terminal output", error);
-          }
-        });
+        scope.add(
+          await PtyIPC.listenOutput((payload) => {
+            if (payload.id !== id || payload.session_id !== sessionId || disposed) return;
+            try {
+              terminalRef.current?.write(decodeBase64(payload.data), () => {
+                void PtyIPC.acknowledge(id, sessionId, payload.seq).catch(console.error);
+              });
+            } catch (error) {
+              console.error("Unable to decode terminal output", error);
+            }
+          }),
+        );
 
         // 每次 await 后检查 disposed，防止 StrictMode 第一轮挂载在异步等待期
         // 已被卸载但仍继续执行到 spawn 导致双进程
         if (disposed) return;
 
-        unlistenExit = await PtyIPC.listenExit((payload) => {
-          if (payload.id !== id || payload.session_id !== sessionId || disposed) return;
-          // 守卫：只处理真正已启动的会话退出，忽略旧会话清理产生的幽灵 exit 事件
-          if (!spawnedRef.current) return;
-          setStatus("exited");
-          terminalRef.current?.writeln(`\r\n\x1b[90m[Aurona Terminal] ${payload.reason}\x1b[0m`);
-        });
+        scope.add(
+          await PtyIPC.listenExit((payload) => {
+            if (payload.id !== id || payload.session_id !== sessionId || disposed) return;
+            // 守卫：只处理真正已启动的会话退出，忽略旧会话清理产生的幽灵 exit 事件
+            if (!spawnedRef.current) return;
+            TerminalManager.endTerminalSession(id, sessionId);
+            setStatus("exited");
+            terminalRef.current?.writeln(`\r\n\x1b[90m[Aurona Terminal] ${payload.reason}\x1b[0m`);
+          }),
+        );
 
         if (disposed) return;
 
@@ -231,14 +238,15 @@ export const TerminalView = memo(function TerminalView({
           return;
         }
         spawnedRef.current = true;
-        TerminalManager.markTerminalReady(id);
+        TerminalManager.markTerminalReady(id, sessionId);
         setStatus("ready");
         const terminal = terminalRef.current;
         if (terminal && terminal.cols > 0 && terminal.rows > 0) {
-          await PtyIPC.resize(id, terminal.rows, terminal.cols);
+          await PtyIPC.resize(id, terminal.rows, terminal.cols).catch(console.error);
         }
       } catch (error) {
-        TerminalManager.markTerminalFailed(id, error);
+        if (disposed) return;
+        TerminalManager.markTerminalFailed(id, error, sessionId);
         console.error("Failed to start PTY", error);
         setStatus("error");
         terminalRef.current?.writeln(`\x1b[31m[Aurona Terminal] ${String(error)}\x1b[0m`);
@@ -248,8 +256,12 @@ export const TerminalView = memo(function TerminalView({
     void start();
     return () => {
       disposed = true;
-      unlistenOutput?.();
-      unlistenExit?.();
+      TerminalManager.endTerminalSession(id, sessionId);
+      try {
+        scope.dispose();
+      } catch (error) {
+        console.error("Unable to release terminal view listeners", error);
+      }
       // generation 守卫：只有当代管理者才能关闭会话
       // 防止 React StrictMode 第一次挂载的清理函数误杀第二次挂载创建的会话
       if (spawnedRef.current && generationRef.current === currentGeneration) {

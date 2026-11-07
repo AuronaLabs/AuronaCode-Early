@@ -1,8 +1,9 @@
 import { create } from "zustand";
 import { TerminalManager } from "../Core/TerminalService";
 import { EventBus } from "../Foundation/EventBus";
+import { Logger } from "../Foundation/Logger";
 import type { ShellProfile, TerminalInstance } from "../Foundation/Types/Terminal";
-import { useWorkbenchStore } from "./useWorkspaceStore";
+import { useWorkbenchStore } from "./Workbench/useWorkbenchStore";
 
 export interface TerminalState {
   terminals: TerminalInstance[];
@@ -27,7 +28,7 @@ export const useTerminalStore = create<TerminalState>((set) => ({
   isShellDropdownOpen: false,
   editingTerminalId: null,
   editingName: "",
-  addTerminal: (shellPath) => void TerminalManager.createTerminal(shellPath),
+  addTerminal: (shellPath) => void TerminalManager.createTerminal(shellPath).catch(reportError),
   setIsTerminalListVisible: (visible) => set({ isTerminalListVisible: visible }),
   setIsShellDropdownOpen: (open) => set({ isShellDropdownOpen: open }),
   setEditingTerminalId: (id) => set({ editingTerminalId: id }),
@@ -35,26 +36,31 @@ export const useTerminalStore = create<TerminalState>((set) => ({
 }));
 
 let terminalInitialization: Promise<void> | null = null;
+let generation = 0;
+
+function reportError(error: unknown): void {
+  Logger.error("Unable to initialize terminal", error);
+}
 
 async function ensureTerminalReady(): Promise<void> {
   if (terminalInitialization) return terminalInitialization;
-  terminalInitialization = (async () => {
+  const currentGeneration = generation;
+  const request = (async () => {
     const shells = await TerminalManager.getAvailableShells();
+    if (generation !== currentGeneration) return;
     useTerminalStore.setState({ availableShells: shells });
-    const terminals = TerminalManager.getTerminals();
-    if (terminals.length === 0) await TerminalManager.createTerminal();
-    else {
-      useTerminalStore.setState({
-        terminals: [...terminals],
-        activeTerminalId: TerminalManager.getActiveTerminalId(),
-      });
-    }
+    await TerminalManager.ensureDefaultTerminal();
+    if (generation !== currentGeneration) return;
+    useTerminalStore.setState({
+      terminals: [...TerminalManager.getTerminals()],
+      activeTerminalId: TerminalManager.getActiveTerminalId(),
+    });
   })();
+  terminalInitialization = request;
   try {
-    await terminalInitialization;
-  } catch (error) {
-    terminalInitialization = null;
-    throw error;
+    await request;
+  } finally {
+    if (terminalInitialization === request) terminalInitialization = null;
   }
 }
 
@@ -72,15 +78,23 @@ export function initializeTerminalStore(): () => void {
       workbench.toggleBottomPanel(next);
       if (next) {
         workbench.setActiveBottomPanel("terminal");
-        void ensureTerminalReady();
+        void ensureTerminalReady().catch(reportError);
       }
     }),
     EventBus.on("app:open-terminal-at", (path) => {
+      const currentGeneration = generation;
       useWorkbenchStore.getState().setActiveBottomPanel("terminal");
-      void ensureTerminalReady().then(() => TerminalManager.createTerminal(undefined, path));
+      useWorkbenchStore.getState().toggleBottomPanel(true);
+      void ensureTerminalReady()
+        .then(() => {
+          if (generation === currentGeneration)
+            return TerminalManager.createTerminal(undefined, path);
+        })
+        .catch(reportError);
     }),
   ];
   return () => {
+    generation++;
     for (const unsubscribe of subscriptions) unsubscribe();
     TerminalManager.dispose();
     terminalInitialization = null;
@@ -90,6 +104,8 @@ export function initializeTerminalStore(): () => void {
       availableShells: [],
       isShellDropdownOpen: false,
       isTerminalListVisible: false,
+      editingTerminalId: null,
+      editingName: "",
     });
   };
 }

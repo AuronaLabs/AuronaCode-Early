@@ -5,7 +5,7 @@ import { EventBus } from "../../Foundation/EventBus";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { LanguageFeaturePreferences } from "../../Foundation/Types/Config";
-import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../../State/Workbench/useWorkbenchStore";
 import { Button } from "../../UI/Components/Button";
 import { Select } from "../../UI/Components/Select";
 import { SettingResetButton } from "../../UI/Components/SettingResetButton";

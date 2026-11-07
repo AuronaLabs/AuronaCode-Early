@@ -4,8 +4,13 @@ import path from "node:path";
 const root = path.resolve(import.meta.dirname, "..");
 const file = path.join(root, "scripts/data/audit-0.4.14.json");
 const audit = JSON.parse(fs.readFileSync(file, "utf8"));
-const rust = (file, name) => `src-tauri/src/${file}.rs#${name}`;
-const front = (file) => `Src/${file}.test.ts`;
+const domainSources = { "commands/fs": "workspace/filesystem/mod", "commands/git": "git/mod", editor: "editor/mod", "extensions/runtime": "extensions/runtime/mod" };
+const rust = (file, name) => {
+  const tests = { "commands/fs": "workspace/filesystem/tests", "commands/git": "git/tests", editor: "editor/tests", "extensions/runtime": "extensions/runtime/tests" };
+  const runtimeBridgeTest = file === "extensions/runtime" && ["response_cannot_consume_another_owner_kind_or_generation", "expired_and_oversized_responses_fail"].includes(name);
+  return `src-tauri/src/${runtimeBridgeTest ? domainSources[file] : (tests[file] ?? file)}.rs#${name}`;
+};
+const front = (file) => `Src/${file === "Features/Extensions/Marketplace/MarketplaceService" ? "Core/Extensions/Marketplace/MarketplaceService" : file}.test.ts`;
 const fsTest = (name) => rust("commands/fs", name);
 const launch = rust("launch_registry", "file_change_revokes_fingerprint_even_when_length_is_unchanged");
 const url = rust("network_policy", "endpoint_rejects_credentials_private_and_metadata");
@@ -90,16 +95,16 @@ const rows = [
   ["P1-19", "artifact_signature", [signature, rust("toolchains", "signed_toolchains_bind_manifest_identity_and_portable_platform"), front("Features/Extensions/Marketplace/MarketplaceService")], "Production Marketplace key and signed packages are external prerequisites; fixtures only validate the client."],
   ["P1-20", "ai_chat", [rust("ai_chat", "rejects_a_large_sse_record_but_accepts_many_small_coalesced_records"), rust("ai_chat", "duplicate_request_and_completed_abort_do_not_leak_registry_entries"), rust("ai_chat", "chat_and_connection_tests_share_the_request_quota_and_validate_ids"), rust("ai_chat", "early_cancellation_is_atomic_bounded_and_expires")], "Request/tool/output-limit and disconnect/EOF/timeout workflows remain."],
   ["P1-21", "ai_profiles", [rust("app_storage", "plaintext_credentials_are_rejected_at_backend_boundary"), rust("ai_profiles", "interrupted_migration_reuses_committed_credentials_and_preserves_conflicting_profiles"), rust("ai_profiles", "duplicate_migration_ids_fail_before_any_credential_is_written"), rust("ai_profiles", "keyring_write_failure_and_uncommitted_credentials_are_retryable"), front("Core/AiProfiles"), front("Foundation/Storage/UserConfigStore")], "Mock failure/retry coverage does not replace OS keyring interruption, retirement journal and restart acceptance."],
-  ["P1-22", "Src/Core/Commands.ts", [front("Features/AiAssistant/AgentToolMetadata")], "All command-registry entries, effects and independent run/debug authorization remain."],
+  ["P1-22", "Src/App/Contributions/WorkbenchCommands.ts", [front("Features/AiAssistant/AgentToolMetadata")], "All command-registry entries, effects and independent run/debug authorization remain."],
   ["P1-23", "Src/Core/Agent/AgentService.ts", [front("Core/Agent/AgentService")], "Expired approval and workspace-change-during-approval remain."],
   ["P1-24", "src-tauri/tauri.conf.json", ["scripts/smoke.mjs", "scripts/check-desktop-boundaries.mjs"], "Packaged permissions and Account/editor/Markdown/update under production CSP remain."],
   ["P2-01", "commands/fs", [fsTest("directory_pages_are_bounded_single_use_cancellable_and_invalidated_by_changes")], "Million-entry first-page/cancel/RSS measurements remain."],
   ["P2-02", "redaction", [rust("redaction", "git_credentials_and_proxy_errors_are_redacted")], "Provider-specific credential corpus and UI/log paths remain."],
-  ["P2-03", "commands/git", [rust("process_service", "cancellation_reclaims_a_running_process_tree_within_two_seconds"), front("Core/GitService")], "Concurrent checkout/pull/status and Source Control cancellation UI remain."],
+  ["P2-03", "commands/git", [rust("process_service", "cancellation_reclaims_a_running_process_tree_within_two_seconds"), front("Core/Git/GitService")], "Concurrent checkout/pull/status and Source Control cancellation UI remain."],
   ["P2-04", "toolchains", [], "No-inline-package IPC assertion and indexed refresh benchmark remain."],
   ["P2-05", "toolchains", [rust("toolchains", "install_journal_recovers_before_and_after_directory_switch"), rust("toolchains", "one_hundred_install_switches_leave_only_the_committed_version"), rust("toolchains", "running_tool_leases_block_mutation_and_release_across_one_hundred_cycles"), rust("toolchains", "uncommitted_versions_never_become_launch_candidates"), rust("toolchains", "uninstall_recovers_precommit_and_finishes_committed_cleanup")], "Actual concurrent install/uninstall, cancellation and process-use acceptance remain."],
   ["P2-06", "commands/lsp_cmds", [rust("commands/lsp_cmds", "generic_lsp_methods_require_an_explicit_negotiated_capability"), rust("lsp", "stderr_drains_oversized_lines_and_preserves_following_records"), rust("lsp", "stderr_preserves_unicode_across_chunks_and_truncated_prefixes"), rust("lsp", "protocol_logs_are_bounded_redacted_and_rate_limited")], "Noisy-server pending/backpressure and negotiated compatibility remain; stderr and protocol log budgets have isolated tests."],
-  ["P2-07", "commands/lsp_cmds", [rust("commands/lsp_cmds", "document_limits_reject_oversize_and_negative_revisions"), front("Core/DocumentService")], "Out-of-order actual server sync and large-change resync remain."],
+  ["P2-07", "commands/lsp_cmds", [rust("commands/lsp_cmds", "document_limits_reject_oversize_and_negative_revisions"), front("Core/Documents/DocumentService")], "Out-of-order actual server sync and large-change resync remain."],
   ["P2-08", "lsp", [], "100 rapid restart cycles and old diagnostic/process isolation remain."],
   ["P2-09", "dap", [rust("dap", "output_window_ignores_forged_duplicate_acknowledgements"), rust("dap", "non_output_events_have_a_separate_bounded_budget")], "High-output adapter and 100 crash/cancel cycles remain."],
   ["P2-10", "pty", [], "Authorized/unauthorized cwd and UI trust display remain."],
@@ -108,7 +113,7 @@ const rows = [
   ["P2-13", "extensions/runtime", [rust("resource_limits", "shared_watcher_budget_is_released_across_one_hundred_cycles")], "Lease tests do not replace 100 actual load/unload resource measurements."],
   ["P2-14", "extensions/runtime", [rust("extensions/runtime", "invalid_component_is_rejected")], "Hash compilation cache benchmark, Store isolation and compatibility regressions remain."],
   ["P2-15", "marketplace_catalog", [rust("marketplace_catalog", "cache_rejects_tampering_cross_origin_and_rollback_and_marks_expiry")], "Production signed catalog/cache provenance requires external Marketplace data."],
-  ["P2-16", "Src/Features/Extensions/Marketplace/MarketplaceSchema.ts", [front("Features/Extensions/Marketplace/MarketplaceSchema"), front("Features/Extensions/Marketplace/MarketplaceVirtualList")], "Large-catalog actual DOM/memory measurements remain."],
+  ["P2-16", "Src/Core/Extensions/Marketplace/MarketplaceSchema.ts", [front("Features/Extensions/Marketplace/MarketplaceSchema"), front("Features/Extensions/Marketplace/MarketplaceVirtualList")], "Large-catalog actual DOM/memory measurements remain."],
   ["P2-17", "Src/Features/Extensions/Marketplace/MarketplaceTasks.ts", [front("Features/Extensions/Marketplace/MarketplaceTasks")], "Two real independent installs and cancel/progress/refresh isolation remain."],
   ["P3-01", "Src/Layout/HotViewCache.ts", [front("Layout/HotViewCache"), "Src/UI/Core/ViewState.test.tsx", "Src/Features/Editor/EditorTab.test.tsx"], "Retained state eviction tests exist; settings subpanel drafts, benchmarks, actual 100 tabs and inactive Canvas/subscriptions remain."],
   ["P3-02", "scoped_file", [rust("scoped_file", "snapshot_detects_same_content_replacement_and_same_size_rewrite")], "Save I/O measurement and final conflict-check-to-rename interval review remain."],
@@ -120,7 +125,7 @@ const mappings = new Map(rows.map(([id, source, coverage, remaining]) => [id, { 
 for (const item of audit.items) {
   const mapping = mappings.get(item.id);
   if (!mapping) throw new Error(`Missing ${item.id}`);
-  const source = mapping.source.includes(".") ? mapping.source : `src-tauri/src/${mapping.source}.rs`;
+  const source = mapping.source.includes(".") ? mapping.source : `src-tauri/src/${domainSources[mapping.source] ?? mapping.source}.rs`;
   for (const ref of [source, ...mapping.coverage]) {
     const [filename, name] = ref.split("#");
     const text = fs.readFileSync(path.join(root, filename), "utf8");

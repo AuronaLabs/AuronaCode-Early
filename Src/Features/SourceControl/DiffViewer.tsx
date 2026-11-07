@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GitService } from "../../Core/GitService";
-import { WorkspaceService } from "../../Core/WorkspaceService";
+import { GitService } from "../../Core/Git";
+import { WorkspaceService } from "../../Core/Workspace";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
-import { GitIPC } from "../../Foundation/IPC/GitCommands";
 import { cn } from "../../Shared/Utils/cn";
 import { EmptyState } from "../../UI/Components/EmptyState";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
@@ -159,8 +158,8 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
       }
 
       const rawDiff = workingFile
-        ? await GitIPC.getWorktreeDiff(path, workingFile, isStaged)
-        : await GitIPC.getCommitDiff(path, diffTarget);
+        ? await GitService.getDiff(path, workingFile, isStaged)
+        : await GitService.getCommitDiff(path, diffTarget);
       if (requestId !== loadRequestRef.current) return;
       setRepoPath(path);
       setRawDiff(rawDiff);
@@ -184,7 +183,7 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
     if (!repoPath || !workingFile || busyHunk !== null) return;
     setBusyHunk(hunkIndex);
     try {
-      await GitIPC.applyHunk(repoPath, workingFile, isStaged, hunkIndex, rawDiff);
+      await GitService.applyHunk(repoPath, workingFile, isStaged, hunkIndex, rawDiff);
       await loadDiff();
       const cache = await GitService.refresh(repoPath);
       if (cache?.repoPath === repoPath) EventBus.emit("git:changes-count", cache.files.length);

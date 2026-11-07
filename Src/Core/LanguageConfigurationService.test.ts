@@ -24,7 +24,7 @@ vi.mock("./FileSystemService", () => ({
   },
 }));
 
-vi.mock("./WorkspaceService", () => ({
+vi.mock("./Workspace", () => ({
   WorkspaceService: {
     getCurrent: () => ({ primaryRoot: state.root }),
     setTrusted: (trusted: boolean) => {

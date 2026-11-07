@@ -1,6 +1,6 @@
 import { EventBus } from "../Foundation/EventBus";
 import { FileSystemCommands } from "../Foundation/IPC/FileSystemCommands";
-import { WorkspaceService } from "./WorkspaceService";
+import { WorkspaceService } from "./Workspace";
 
 export type FileNode = {
   name: string;

@@ -1,5 +1,5 @@
 import { EventBus } from "../../Foundation/EventBus";
-import { DocumentService } from "../DocumentService";
+import { DocumentService } from "../Documents";
 import { LspClient } from "./LspClient";
 
 const MAX_CACHE_ENTRIES = 200;

@@ -14,7 +14,9 @@
 
 ## 准备开发环境
 
-当前版本为 **0.4.17**。与 CI 对齐的工具链如下：
+当前版本为 **0.4.18**。与 CI 对齐的工具链如下：
+
+架构边界见[当前架构说明](../Docs/Architecture/README.md)，本版的实现范围与自动化证据见[开发验收记录](../Docs/Development/0.4.18/Acceptance-Report.md)。
 
 | 工具 | 版本或要求 |
 | --- | --- |
@@ -45,8 +47,10 @@ pnpm run tauri:dev
 - 长期状态有明确的可写来源，事件用于表达通知或意图。
 - Rust 文本模型管理持久文档，编辑与保存需要考虑 UTF-16、CRLF、IME 和恢复。
 - 扩展运行时与命令注册分别管理，避免通过名称或 ID 猜测业务行为。
+- 跨领域使用 `scripts/data/source-domains.json` 中的公开入口；Core 不导入 State，跨 Feature 的组合放在 App/Layout。
+- 文档、Git 和扩展分别管理事务或会话代次；异步结果提交前确认归属，清理注册进所属 `DisposableScope`。
 
-更多背景见[架构说明](../Docs/Architecture.md)、[设计规范](../Docs/Design-Principles.md)与[扩展开发](../Docs/Extension-Development.md)。
+更多背景见[架构说明](../Docs/Architecture/README.md)、[设计规范](../Docs/Architecture/Design-Principles.md)与[扩展开发](../Docs/Guides/Extensions/Development.md)。
 
 ## 建议工作流
 
@@ -64,9 +68,13 @@ pnpm run tauri:dev
 检查标题层级、表格、代码围栏、相对链接、命令与版本表述，运行：
 
 ```powershell
+pnpm run check:docs
+pnpm run test:docs
 git diff --check
 pnpm run check:audit
 ```
+
+文档按指南、架构、开发记录与发布记录组织，位置和写作约定见[文档维护约定](../Docs/Conventions.md)。移动文件时同步修改引用方；代码围栏、表格、文件链接和标题锚点由 Quality 检查。
 
 更新扩展 README 时留意它可能被打包进扩展资源；纯文案整理无需顺带提交重新生成的二进制归档。
 
@@ -82,6 +90,8 @@ pnpm run smoke
 pnpm run test:frontend
 pnpm run build
 ```
+
+资源受限的本机可使用 `pnpm run test:frontend -- --maxWorkers=4`。编辑或保存的测试不能依赖 LSP 一定及时响应。
 
 扩展、发布或契约相关修改补充相应验证：
 

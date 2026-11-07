@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type FileNode, FileSystemService } from "../../../Core/FileSystemService";
-import { WorkspaceService } from "../../../Core/WorkspaceService";
+import { WorkspaceService } from "../../../Core/Workspace";
 import { desktopDialog } from "../../../Foundation/Desktop";
 import { EventBus } from "../../../Foundation/EventBus";
 import { useLocale } from "../../../Foundation/I18n";
 import { FileSystemCommands } from "../../../Foundation/IPC/FileSystemCommands";
 import { SIDEBAR_EXPLORER } from "../../../Shared/Constants/Sidebar";
-import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../../../State/Workbench/useWorkbenchStore";
 import { showToast } from "../../../UI/Feedback/Toast";
 import type { InlineCreation } from "../FileExplorer";
 import { collectOpenPaths, isDescendant, mergeOpenState, updateTree } from "../utils/treeUtils";

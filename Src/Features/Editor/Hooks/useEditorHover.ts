@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DocumentService } from "../../../Core/DocumentService";
+import { DocumentService } from "../../../Core/Documents";
 import { LspClient } from "../../../Core/Language/LspClient";
 import { OutputService } from "../../../Core/OutputService";
 import { useLocale } from "../../../Foundation/I18n";

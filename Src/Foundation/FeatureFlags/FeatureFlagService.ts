@@ -37,8 +37,8 @@ export const FeatureFlagService = {
    * 切换发行渠道（Stable / Pioneer）
    */
   async setChannel(channel: ReleaseChannel): Promise<void> {
-    cachedChannel = channel;
     await UserConfigStore.set({ releaseChannel: channel });
+    cachedChannel = channel;
   },
 
   /**

@@ -1,13 +1,13 @@
-import {
-  type CommandDefinition,
-  getCommandCategory,
-  getCommandTitle,
-} from "../../Extension/CommandRegistry";
 import { type I18nKey, LocaleService } from "../../Foundation/I18n";
 import {
   type WorkspaceFileEntry,
   WorkspaceSearchIPC,
 } from "../../Foundation/IPC/WorkspaceSearchCommands";
+import {
+  type CommandDefinition,
+  getCommandCategory,
+  getCommandTitle,
+} from "../Commands/CommandRegistry";
 import {
   SETTING_CATEGORY_KEYS,
   type SettingCategory,

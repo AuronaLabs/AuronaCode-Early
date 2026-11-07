@@ -1,6 +1,6 @@
 import type React from "react";
 import { useCallback, useRef } from "react";
-import { DocumentService } from "../../../Core/DocumentService";
+import { DocumentService } from "../../../Core/Documents";
 import { sortSelection } from "../Utils/EditorMath";
 import { insertTextIntoLines } from "../Utils/EditorTextInsert";
 import { diffText, type HistoryExtra } from "./useEditorHistory";

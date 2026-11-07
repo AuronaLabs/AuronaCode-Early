@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CommandRegistry } from "../../Extension/CommandRegistry";
+import { CommandRegistry } from "../../Core/Commands/CommandRegistry";
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({}),
@@ -31,7 +31,7 @@ vi.mock("../../Foundation/IPC/WorkspaceSearchCommands", () => ({
   WorkspaceSearchIPC: mocks.workspace,
 }));
 
-import { WorkspaceService } from "../../Core/WorkspaceService";
+import { WorkspaceService } from "../../Core/Workspace";
 import { FliunoWorkspacePage } from "./FliunoWorkspacePage";
 
 describe("FliunoWorkspacePage keyboard navigation", () => {

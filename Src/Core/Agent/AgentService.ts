@@ -5,7 +5,7 @@ import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import type { AiProfile } from "../../Foundation/Types/Config";
 import { isAiAgentConfigured, resolveAiProfiles } from "../AiProfiles";
 import { EditorAdapter } from "../Editor/EditorAdapter";
-import { WorkspaceService } from "../WorkspaceService";
+import { WorkspaceService } from "../Workspace";
 import { AgentCheckpointStore } from "./AgentCheckpointStore";
 import { boundAgentContext } from "./AgentContextBudget";
 import { reduceAgentEvent, validEventSeq } from "./AgentEventReducer";

@@ -201,7 +201,7 @@ export class LspClient {
   }
 
   public async startServer(language: string): Promise<void> {
-    const { WorkspaceService } = await import("../../Core/WorkspaceService");
+    const { WorkspaceService } = await import("../Workspace");
     const existing = this.getState(language);
     if (
       existing &&

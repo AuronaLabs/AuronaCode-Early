@@ -3,7 +3,7 @@ import { LocaleService } from "../Foundation/I18n";
 import { FileSystemCommands } from "../Foundation/IPC/FileSystemCommands";
 import { fileUriToPath } from "../Shared/Utils/UriUtils";
 import { DiagnosticsService } from "./DiagnosticsService";
-import { DocumentService } from "./DocumentService";
+import { DocumentService } from "./Documents";
 import { LspClient, type LspFeature, type LspLocation } from "./Language/LspClient";
 import { applyLspTextEdits, type LspTextEdit, positionToUtf16Offset } from "./Language/TextEdits";
 import { LocationResultsStore } from "./LocationResultsStore";

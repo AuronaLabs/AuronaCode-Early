@@ -1,4 +1,4 @@
-import { WorkspaceService } from "../../../Core/WorkspaceService";
+import { WorkspaceService } from "../../../Core/Workspace";
 import { FileSystemCommands } from "../../../Foundation/IPC/FileSystemCommands";
 
 export type PlannerStatus = "todo" | "in_progress" | "done" | "blocked";

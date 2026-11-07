@@ -317,6 +317,7 @@ export const en: LocaleMessages = {
     error: "Unable to read symbols",
   },
   changelog: {
+    unreleased: "In development · Unreleased",
     title: "Changelog",
     latest: "Latest",
     expand: "Expand",
@@ -324,9 +325,9 @@ export const en: LocaleMessages = {
     versionPicker: "Select a version",
 
     versionLines: "Version lines",
-    releaseCount: "{count} releases",
+    releaseCount: "{count} version entries",
     searchPlaceholder: "Search versions, dates, or changes",
-    noSearchResults: "No matching releases",
+    noSearchResults: "No matching version entries",
     clearSearch: "Clear search",
     searchResults: "Search results",
   },

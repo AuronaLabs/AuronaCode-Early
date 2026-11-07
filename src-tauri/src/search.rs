@@ -252,7 +252,7 @@ pub async fn search_workspace(
     is_regex: bool,
     request_id: String,
     state: State<'_, SearchState>,
-    workspace: State<'_, crate::commands::fs::WorkspaceState>,
+    workspace: State<'_, crate::workspace::WorkspaceState>,
 ) -> Result<SearchResponse, String> {
     validate_search_root(&workspace, &path)?;
     let cancelled = Arc::new(AtomicBool::new(false));
@@ -274,14 +274,14 @@ pub async fn search_workspace(
 #[tauri::command]
 pub async fn list_workspace_files(
     path: String,
-    workspace: State<'_, crate::commands::fs::WorkspaceState>,
+    workspace: State<'_, crate::workspace::WorkspaceState>,
 ) -> Result<Vec<WorkspaceFileEntry>, String> {
     validate_search_root(&workspace, &path)?;
     list_workspace_files_internal(path).await
 }
 
 fn validate_search_root(
-    workspace: &crate::commands::fs::WorkspaceState,
+    workspace: &crate::workspace::WorkspaceState,
     path: &str,
 ) -> Result<(), String> {
     if !workspace.contains(path)? {

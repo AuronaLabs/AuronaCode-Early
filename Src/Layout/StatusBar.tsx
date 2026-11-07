@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { AccountService } from "../Core/AccountService";
+import { CommandRegistry } from "../Core/Commands/CommandRegistry";
 import { type LanguageServerInfo, LspClient } from "../Core/Language/LspClient";
 import { type StatusBarItemHandle, StatusBarRegistry } from "../Core/StatusBar/StatusBarRegistry";
-import { CommandRegistry } from "../Extension/CommandRegistry";
 import { EventBus } from "../Foundation/EventBus";
 import { LocaleService, useLocale } from "../Foundation/I18n";
 import { LanguageServerIPC } from "../Foundation/IPC/LanguageServerCommands";
 import { GetLanguageFromPath } from "../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../State/useEditorStore";
-import { useWorkbenchStore } from "../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../State/Workbench/useWorkbenchStore";
 import { AccountAvatar } from "../UI/Components/AccountAvatar";
 import { Tooltip } from "../UI/Feedback/Tooltip";
 

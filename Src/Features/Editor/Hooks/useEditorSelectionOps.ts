@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { DocumentService } from "../../../Core/DocumentService";
+import { DocumentService } from "../../../Core/Documents";
 import { sortSelection } from "../Utils/EditorMath";
 
 export interface SelectionRange {

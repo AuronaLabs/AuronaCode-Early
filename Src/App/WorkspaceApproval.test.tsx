@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   dismiss: vi.fn(),
   toast: vi.fn(),
 }));
-vi.mock("../Core/WorkspaceService", () => ({
+vi.mock("../Core/Workspace", () => ({
   WorkspaceService: { initialize: mocks.initialize, cancelInitialization: mocks.cancel },
 }));
 vi.mock("../Foundation/I18n", () => ({
@@ -44,6 +44,20 @@ describe("workbench workspace approval", () => {
     mocks.cancel.mockResolvedValue(undefined);
   });
   afterEach(cleanup);
+
+  it("releases each registered listener once on unmount", async () => {
+    for (let iteration = 0; iteration < 20; iteration++) {
+      const unlisten = vi.fn();
+      const unlistenClosed = vi.fn();
+      mocks.listen.mockResolvedValueOnce(unlisten);
+      mocks.closed.mockResolvedValueOnce(unlistenClosed);
+      const view = render(<WorkspaceApproval visible={false} />);
+      await act(async () => undefined);
+      view.unmount();
+      expect(unlisten).toHaveBeenCalledOnce();
+      expect(unlistenClosed).toHaveBeenCalledOnce();
+    }
+  });
 
   it("registers listeners before visibility and restores only after the workbench is visible", async () => {
     const view = render(<WorkspaceApproval visible={false} />);

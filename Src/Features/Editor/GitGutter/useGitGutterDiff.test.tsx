@@ -4,10 +4,10 @@ const mocks = vi.hoisted(() => ({
   diff: vi.fn(),
   git: undefined as undefined | ((cache: unknown) => void),
 }));
-vi.mock("../../../Core/DocumentService", () => ({
+vi.mock("../../../Core/Documents", () => ({
   DocumentService: { subscribe: () => () => {}, get: () => ({ savedVersion: 1 }) },
 }));
-vi.mock("../../../Core/GitService", () => ({
+vi.mock("../../../Core/Git", () => ({
   GitService: {
     getDiffCached: mocks.diff,
     subscribe: (listener: (cache: unknown) => void) => {

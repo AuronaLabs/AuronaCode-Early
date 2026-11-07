@@ -1,9 +1,9 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { DebugConfigurationService } from "../../Core/DebugConfigurationService";
-import { DebugService } from "../../Core/DebugService";
+import { DebugService } from "../../Core/Debug";
+import { DebugConfigurationService } from "../../Core/Debug/DebugConfigurationService";
 import { LocaleService, useLocale } from "../../Foundation/I18n";
 import { type DebugBreakpoint, useDebugStore } from "../../State/useDebugStore";
-import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../../State/Workbench/useWorkbenchStore";
 import { Button } from "../../UI/Components/Button";
 import { EmptyState } from "../../UI/Components/EmptyState";
 import {

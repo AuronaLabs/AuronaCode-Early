@@ -112,7 +112,7 @@ impl LspClient {
         workspace_generation: u64,
     ) -> Result<Self, String> {
         if app_handle
-            .state::<crate::commands::fs::WorkspaceState>()
+            .state::<crate::workspace::WorkspaceState>()
             .generation()
             != workspace_generation
         {
@@ -287,7 +287,7 @@ impl LspClient {
                         }
                     };
                     if reader_app
-                        .state::<crate::commands::fs::WorkspaceState>()
+                        .state::<crate::workspace::WorkspaceState>()
                         .generation()
                         != workspace_generation
                     {
@@ -387,7 +387,7 @@ impl LspClient {
             && (!self.active.load(Ordering::Acquire)
                 || self
                     .app_handle
-                    .state::<crate::commands::fs::WorkspaceState>()
+                    .state::<crate::workspace::WorkspaceState>()
                     .generation()
                     != self.workspace_generation)
         {
@@ -472,7 +472,7 @@ impl LspClient {
             && (!self.active.load(Ordering::Acquire)
                 || self
                     .app_handle
-                    .state::<crate::commands::fs::WorkspaceState>()
+                    .state::<crate::workspace::WorkspaceState>()
                     .generation()
                     != self.workspace_generation)
         {
@@ -580,7 +580,7 @@ async fn route_message(
         }
         (None, Some("textDocument/publishDiagnostics")) => {
             if crate::commands::lsp_cmds::validate_protocol_paths(
-                &app.state::<crate::commands::fs::WorkspaceState>(),
+                &app.state::<crate::workspace::WorkspaceState>(),
                 &message,
                 0,
             )

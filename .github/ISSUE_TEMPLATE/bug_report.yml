@@ -1,53 +1,50 @@
-name: 提交缺陷
-description: 提交缺陷报告以协助我们改进 Aurona Code
+name: 缺陷报告
+description: 提供可复现的问题与必要环境信息
 title: "[Bug]: "
 labels: ["bug", "triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        感谢您抽出时间填写这份缺陷报告
-        Aurona Code 目前正处于早期开发阶段，我们会尽快追踪并修复这些问题
+        请描述实际行为与复现步骤。涉及安全漏洞时，请使用安全策略中的私密报告渠道。
+        日志、截图和示例项目请先移除凭据、私有代码及个人信息。
   - type: textarea
     id: description
     attributes:
-      label: 缺陷描述
-      description: 请清晰且简明地描述该缺陷是什么
-      placeholder: 请在此处描述您遇到的问题...
+      label: 实际行为
+      description: 问题发生在哪里，观察到什么结果，是否影响文件或会话数据？
     validations:
       required: true
   - type: textarea
     id: reproduction
     attributes:
       label: 复现步骤
-      description: 能够触发此异常行为的具体步骤
+      description: 从应用启动或打开项目开始，提供尽可能少的操作步骤。
       placeholder: |
-        1 打开 ...
-        2 点击 ....
-        3 向下滚动到 ....
-        4 发现报错
+        1. 使用指定构建打开示例项目。
+        2. 执行触发问题的操作。
+        3. 记录实际结果与错误提示。
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: 期望行为
-      description: 请清晰地描述您原本期望发生什么
+      label: 预期行为
+      description: 在相同操作下，期望应用如何处理？
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: Aurona Code 版本号
-      description: 您正在使用哪个版本（例如 0.3.10）
-      placeholder: 0.3.10
+      label: 版本与提交
+      description: 填写应用版本；开发构建请同时提供分支及 commit。
+      placeholder: 0.4.18；或其他版本与 commit
     validations:
       required: true
   - type: dropdown
     id: os
     attributes:
       label: 操作系统
-      description: 您正在什么操作系统上运行
       options:
         - Windows
         - macOS
@@ -57,11 +54,11 @@ body:
   - type: dropdown
     id: profile
     attributes:
-      label: 构建类型
-      description: 问题发生在正式安装包还是本地开发环境
+      label: 运行方式
+      description: 纯前端预览不提供原生文件、Git、终端等桌面能力。
       options:
         - Release 安装包
-        - tauri:dev 开发环境
+        - tauri:dev 桌面开发环境
         - 前端浏览器预览
         - 不确定
     validations:
@@ -70,15 +67,20 @@ body:
     id: scale
     attributes:
       label: 系统架构与显示缩放
-      description: 例如 x64、125% DPI；非视觉问题也请填写架构
-      placeholder: x64 / 125%
+      description: 请提供系统版本、架构；视觉问题同时提供显示缩放。
+      placeholder: Windows 11 / x64 / 125%
     validations:
       required: true
   - type: textarea
+    id: context
+    attributes:
+      label: 相关配置与环境
+      description: 按需说明主题、材质、扩展 ID 与版本、安全开关、Shell 或 Git 版本。请勿填写密钥。
+  - type: textarea
     id: logs
     attributes:
-      label: 相关的日志或截图 (可选)
-      description: 请添加截图或控制台日志来帮助说明该问题
+      label: 日志与界面证据
+      description: 提供脱敏日志、截图或最小示例；如已确认仅在特定版本出现，可说明对照结果。
   - type: checkboxes
     id: checks
     attributes:

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { CommandRegistry } from "../../Core/Commands/CommandRegistry";
 import { type FliunoCoreResult, parseFliunoQuery } from "../../Core/Fliuno/FliunoCore";
 import {
   flattenFliunoPresentation,
   SECTION_LABEL_KEYS,
   SECTION_ORDER,
 } from "../../Core/Fliuno/presentation";
-import { CommandRegistry } from "../../Extension/CommandRegistry";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { EmptyState } from "../../UI/Components/EmptyState";

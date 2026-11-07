@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { resolveExtensionName } from "../../Core/Extensions/ExtensionUtils";
+import { resolveExtensionName } from "../../Core/Extensions/ExtensionRegistry";
 import {
   DEFAULT_MARKETPLACE_URL,
   MarketplaceService,

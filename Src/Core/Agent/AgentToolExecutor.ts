@@ -1,18 +1,20 @@
-import { CommandRegistry } from "../../Extension/CommandRegistry";
 import { LocaleService } from "../../Foundation/I18n";
 import { FileSystemCommands } from "../../Foundation/IPC/FileSystemCommands";
-import { GitIPC } from "../../Foundation/IPC/GitCommands";
 import { WorkspaceSearchIPC } from "../../Foundation/IPC/WorkspaceSearchCommands";
 import { dismissNotification, showConfirm } from "../../Foundation/Notifications";
+import { PlatformService } from "../../Foundation/Platform";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
-import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { normalizeAgentPermission } from "../AiProfiles";
+import { CommandRegistry } from "../Commands/CommandRegistry";
 import { DiagnosticsService } from "../DiagnosticsService";
-import { DocumentService } from "../DocumentService";
+import { DocumentService } from "../Documents";
 import { EditorAdapter } from "../Editor/EditorAdapter";
+import { GitService } from "../Git";
 import { OutputService } from "../OutputService";
 import { TerminalManager } from "../TerminalService";
-import { WorkspaceService } from "../WorkspaceService";
+import { WorkbenchAccess } from "../Workbench/WorkbenchAccess";
+import { WorkspaceService } from "../Workspace";
+import { resolveWorkspacePath as resolvePath } from "../Workspace/WorkspacePath";
 import { resolveAgentToolAuthorization } from "./AgentPolicies";
 import { AgentService } from "./AgentService";
 import type {
@@ -159,30 +161,7 @@ function resolveWorkspacePath(
   if (!root) throw new Error("No workspace is open");
   const raw = (input ?? "").trim();
   if (!raw && !allowEmpty) throw new Error("A workspace path is required");
-  const rootPath = root.replaceAll("\\", "/").replace(/\/+$/, "");
-  const candidate = raw ? raw.replaceAll("\\", "/") : "../../Features/AiAssistant";
-  const isAbsolute = /^[A-Za-z]:\//.test(candidate) || candidate.startsWith("/");
-  const base = isAbsolute ? candidate : `${rootPath}/${candidate}`;
-  const rootSegments = rootPath.split("/").filter(Boolean).length;
-  const parts = base.split("/");
-  const normalized: string[] = [];
-  for (const part of parts) {
-    if (!part || part === "../../Features/AiAssistant") continue;
-    if (part === "../../Features") {
-      if (normalized.length <= rootSegments) throw new Error("Path must stay inside the workspace");
-      normalized.pop();
-    } else normalized.push(part);
-  }
-  const resolved = (candidate.startsWith("/") ? "/" : "") + normalized.join("/");
-  const normalizedRoot = rootPath.toLowerCase();
-  const normalizedResolved = resolved.toLowerCase();
-  if (
-    normalizedResolved !== normalizedRoot &&
-    !normalizedResolved.startsWith(`${normalizedRoot}/`)
-  ) {
-    throw new Error("Path must stay inside the workspace");
-  }
-  return resolved;
+  return resolvePath(root, raw, PlatformService.current() === "windows");
 }
 
 function toolParameters(properties: Record<string, unknown>, required: string[] = []) {
@@ -322,7 +301,7 @@ const tools: AiAgentTool[] = [
         content.slice(0, firstMatch) + newText + content.slice(firstMatch + oldText.length),
         "external",
       );
-      void useWorkbenchStore.getState().openFile(resolvedPath);
+      void WorkbenchAccess.openFile(resolvedPath);
       return `已修改 ${path}（${oldText.length} → ${newText.length} 字符），改动未保存，等待用户确认保存`;
     },
   },
@@ -354,7 +333,7 @@ const tools: AiAgentTool[] = [
       if (await FileSystemCommands.exists(resolved)) throw new Error("File already exists");
       const content = typeof args.content === "string" ? args.content : "";
       await FileSystemCommands.writeTextFile(resolved, content);
-      await useWorkbenchStore.getState().openFile(resolved);
+      await WorkbenchAccess.openFile(resolved);
       return `Created ${path}`;
     },
   },
@@ -582,7 +561,7 @@ const tools: AiAgentTool[] = [
     async execute() {
       const root = WorkspaceService.getCurrent().primaryRoot;
       if (!root) throw new Error("No workspace is open");
-      const status = await GitIPC.getFullStatus(root);
+      const status = await GitService.getFullStatus(root);
       return truncate(JSON.stringify(status, null, 2), TOOL_OUTPUT_LIMIT);
     },
   },
@@ -603,7 +582,7 @@ const tools: AiAgentTool[] = [
       const root = WorkspaceService.getCurrent().primaryRoot;
       if (!root) throw new Error("No workspace is open");
       return truncate(
-        await GitIPC.getWorktreeDiff(root, readStringArg(args, "file") ?? "", args.staged === true),
+        await GitService.getDiff(root, readStringArg(args, "file") ?? "", args.staged === true),
         TOOL_OUTPUT_LIMIT,
       );
     },
@@ -624,7 +603,7 @@ const tools: AiAgentTool[] = [
       const root = WorkspaceService.getCurrent().primaryRoot;
       const message = readStringArg(args, "message");
       if (!root || !message) throw new Error("Workspace and commit message are required");
-      await GitIPC.commit(root, message);
+      await GitService.commit(root, message);
       return `Committed changes: ${message}`;
     },
   },
@@ -641,7 +620,7 @@ const tools: AiAgentTool[] = [
     async execute() {
       const root = WorkspaceService.getCurrent().primaryRoot;
       if (!root) throw new Error("No workspace is open");
-      const status = await GitIPC.getFullStatus(root);
+      const status = await GitService.getFullStatus(root);
       return status.branches
         .map((branch) => `${branch.is_current ? "*" : " "} ${branch.name}`)
         .join("\n");
@@ -843,7 +822,7 @@ function exampleForTool(name: string): string {
     case "read_file":
       return '{"path":"src/App.tsx"}';
     case "list_dir":
-      return '{"path":"../../Features/AiAssistant"}';
+      return '{"path":"."}';
     case "search_workspace":
       return '{"query":"AgentService"}';
     case "edit_file":

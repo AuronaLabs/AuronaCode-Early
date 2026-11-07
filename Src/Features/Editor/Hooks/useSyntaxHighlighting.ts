@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DocumentService } from "../../../Core/DocumentService";
+import { DocumentService } from "../../../Core/Documents";
 
 const LARGE_FILE_BYTES = 2 * 1024 * 1024;
 const LARGE_FILE_LINES = 20_000;

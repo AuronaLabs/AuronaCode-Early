@@ -10,34 +10,14 @@ import { PlatformService } from "../Foundation/Platform";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 import { setPathPlatform } from "../Shared/Utils/UriUtils";
 import { AppServices } from "./AppServices";
+import { applyUserAppearance } from "./Bootstrap/AppearanceController";
 import { OobeOverlay } from "./Oobe";
 import { useOobeStore } from "./Oobe/useOobeStore";
-import { applyAccentTheme, applyLiquidTexture } from "./ThemeAccent";
 import { WorkspaceApproval } from "./WorkspaceApproval";
 
 interface Props {
   children: React.ReactNode;
 }
-
-const applyResponsiveDensity = (density?: "compact" | "default" | "regular" | "comfortable") => {
-  const root = document.documentElement;
-  if (density && density !== "default") {
-    root.dataset.density = density;
-    return;
-  }
-
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-  const dpr = window.devicePixelRatio || 1;
-
-  if (width < 940 || height < 680 || dpr >= 1.75) {
-    root.dataset.density = "compact";
-  } else if (width > 1600 && height > 900 && dpr <= 1.25) {
-    root.dataset.density = "comfortable";
-  } else {
-    root.dataset.density = "regular";
-  }
-};
 
 export function AppBootstrapper({ children }: Props) {
   const [ready, setReady] = useState(false);
@@ -81,41 +61,7 @@ export function AppBootstrapper({ children }: Props) {
           userConfig.network?.proxyUrl,
         ).catch(() => undefined);
 
-        const savedTheme = userConfig.theme || "system";
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        if (savedTheme === "dark" || (savedTheme === "system" && prefersDark)) {
-          document.documentElement.classList.add("dark");
-        } else {
-          document.documentElement.classList.remove("dark");
-        }
-
-        applyAccentTheme(userConfig.accentTheme);
-        applyLiquidTexture(userConfig.liquidTexture ?? false);
-        applyResponsiveDensity(userConfig.density);
-
-        if (userConfig.boldText) {
-          document.documentElement.setAttribute("data-bold-text", "true");
-        } else {
-          document.documentElement.removeAttribute("data-bold-text");
-        }
-
-        if (userConfig.interfaceFontSize && userConfig.interfaceFontSize !== "default") {
-          document.documentElement.setAttribute("data-font-size", userConfig.interfaceFontSize);
-        } else {
-          document.documentElement.removeAttribute("data-font-size");
-        }
-
-        const savedEditorFont = userConfig.editorFontSize?.toString() || "14";
-        const savedEditorLineHeight = userConfig.editorLineHeight?.toString() || "24";
-        const savedEditorTabSize = userConfig.editorTabSize?.toString() || "2";
-        const savedTerminalFont = userConfig.terminalFontSize?.toString() || "13";
-        document.documentElement.style.setProperty("--EditorFontSize", `${savedEditorFont}px`);
-        document.documentElement.style.setProperty(
-          "--EditorLineHeight",
-          `${savedEditorLineHeight}px`,
-        );
-        document.documentElement.style.setProperty("--EditorTabSize", savedEditorTabSize);
-        document.documentElement.style.setProperty("--TerminalFontSize", `${savedTerminalFont}px`);
+        applyUserAppearance(userConfig);
 
         await AppServices.start();
 
@@ -154,31 +100,9 @@ export function AppBootstrapper({ children }: Props) {
 
     initializeCoreServices();
 
-    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
-    const handleResize = () => {
-      if (resizeTimer) clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        UserConfigStore.get().then((config) => {
-          applyResponsiveDensity(config.density);
-        });
-      }, 150);
-    };
-
-    window.addEventListener("resize", handleResize);
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleSystemThemeChange = () => {
-      UserConfigStore.get().then((config) => {
-        if (config.theme !== "system") return;
-        document.documentElement.classList.toggle("dark", mediaQuery.matches);
-      });
-    };
-    mediaQuery.addEventListener("change", handleSystemThemeChange);
     return () => {
       mounted = false;
       AppServices.dispose();
-      window.removeEventListener("resize", handleResize);
-      mediaQuery.removeEventListener("change", handleSystemThemeChange);
-      if (resizeTimer) clearTimeout(resizeTimer);
     };
   }, []);
 

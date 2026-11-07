@@ -1,7 +1,7 @@
 ﻿import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
-import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../../State/Workbench/useWorkbenchStore";
 import {
   ContextMenuContent,
   ContextMenuDivider,

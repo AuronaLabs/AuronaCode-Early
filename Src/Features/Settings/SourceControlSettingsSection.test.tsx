@@ -31,8 +31,8 @@ vi.mock("../../Foundation/Storage/WorkspaceStore", () => ({
   },
 }));
 
-vi.mock("../../Foundation/IPC/GitCommands", () => ({
-  GitIPC: {
+vi.mock("../../Core/Git", () => ({
+  GitService: {
     checkIsRepo: mocks.checkIsRepo,
     init: mocks.init,
     getFullStatus: mocks.getFullStatus,

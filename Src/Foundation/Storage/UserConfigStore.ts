@@ -2,6 +2,7 @@ import { BaseDirectory, desktopFileSystem } from "../Desktop";
 import { AiIPC } from "../IPC/AiCommands";
 import { Logger } from "../Logger";
 import type { UserConfig } from "../Types/Config";
+import { PendingWrites } from "./PendingWrites";
 
 const FILE = "user-config.json";
 const BASE = BaseDirectory.AppLocalData;
@@ -13,6 +14,18 @@ let writeChain: Promise<void> = Promise.resolve();
 let firstRunDetected = false;
 let credentialMigrationBlocked = false;
 let generation = 0;
+const pendingWrites = new PendingWrites();
+const listeners = new Set<(config: UserConfig) => void>();
+const errorListeners = new Set<(error: unknown) => void>();
+function notify<T>(listeners: Set<(value: T) => void>, value: T): void {
+  for (const listener of listeners) {
+    try {
+      listener(value);
+    } catch (error) {
+      Logger.warn("Configuration subscriber failed", error);
+    }
+  }
+}
 
 function assertNoCredentials(config: Partial<UserConfig>): void {
   if (
@@ -24,6 +37,18 @@ function assertNoCredentials(config: Partial<UserConfig>): void {
 }
 
 export const UserConfigStore = {
+  subscribe(listener: (config: UserConfig) => void): () => void {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  },
+  onWriteError(listener: (error: unknown) => void): () => void {
+    errorListeners.add(listener);
+    return () => {
+      errorListeners.delete(listener);
+    };
+  },
   async init(): Promise<void> {
     try {
       await mkdir("", { baseDir: BASE, recursive: true });
@@ -80,36 +105,49 @@ export const UserConfigStore = {
   },
 
   /** Compute nested changes inside the write queue against the last successful write. */
-  async update(
-    updater: (current: Readonly<UserConfig>) => Partial<UserConfig>,
-  ): Promise<UserConfig> {
-    const currentGeneration = generation;
-    await this.get();
-    if (generation !== currentGeneration) throw new Error("Configuration cache was reset");
-    // Preserve order and let each caller observe the failure of its own write.
-    const result = writeChain
-      .catch(() => undefined)
-      .then(async () => {
-        if (generation !== currentGeneration) throw new Error("Configuration cache was reset");
-        const patch = updater(memoryCache ?? {});
-        assertNoCredentials(patch);
-        const next = { ...memoryCache, ...patch };
+  update(updater: (current: Readonly<UserConfig>) => Partial<UserConfig>): Promise<UserConfig> {
+    return pendingWrites.track(
+      (async () => {
+        const currentGeneration = generation;
         try {
-          await writeTextFileAtomic(FILE, JSON.stringify(next, null, 2), { baseDir: BASE });
-          if (generation === currentGeneration) memoryCache = next;
-          return next;
+          await this.get();
         } catch (error) {
-          Logger.error("Unable to persist user configuration", error);
+          notify(errorListeners, error);
           throw error;
         }
-      });
-    writeChain = result.then(() => undefined);
-    // Callers observe their own write; flush still reports the latest failure.
-    void writeChain.catch(() => undefined);
-    return await result;
+        if (generation !== currentGeneration) throw new Error("Configuration cache was reset");
+        // Preserve order and let each caller observe the failure of its own write.
+        const result = writeChain
+          .catch(() => undefined)
+          .then(async () => {
+            try {
+              if (generation !== currentGeneration)
+                throw new Error("Configuration cache was reset");
+              const patch = updater(memoryCache ?? {});
+              assertNoCredentials(patch);
+              const next = { ...memoryCache, ...patch };
+              await writeTextFileAtomic(FILE, JSON.stringify(next, null, 2), { baseDir: BASE });
+              if (generation === currentGeneration) {
+                memoryCache = next;
+                notify(listeners, next);
+              }
+              return next;
+            } catch (error) {
+              Logger.error("Unable to persist user configuration", error);
+              notify(errorListeners, error);
+              throw error;
+            }
+          });
+        writeChain = result.then(() => undefined);
+        // Callers observe their own write; flush still reports the latest failure.
+        void writeChain.catch(() => undefined);
+        return await result;
+      })(),
+    );
   },
 
   async flush(): Promise<void> {
+    await pendingWrites.flush();
     await writeChain;
   },
 

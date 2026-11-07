@@ -311,6 +311,7 @@ export const zhHant: LocaleMessages = {
     error: "無法讀取符號",
   },
   changelog: {
+    unreleased: "開發中 · 未發佈",
     title: "版本更新記錄",
     latest: "最新版本",
     expand: "展開",

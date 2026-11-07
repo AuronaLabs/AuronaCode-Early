@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
-import { EventBus } from "../../Foundation/EventBus";
+import {
+  ConfigurationService,
+  CONFIGURATION_DEFAULTS as defaults,
+  resolveConfiguration,
+} from "../../Core/Configuration";
 import { useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
+import type { UserConfig } from "../../Foundation/Types/Config";
 import { Select } from "../../UI/Components/Select";
 import { SettingResetButton } from "../../UI/Components/SettingResetButton";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
+import { showToast } from "../../UI/Feedback/Toast";
 
 export interface EditorSettingsSectionProps {
   editorFontSize: string;
@@ -35,70 +41,56 @@ export function EditorSettingsSection({
   const [smoothScrolling, setSmoothScrolling] = useState(true);
 
   useEffect(() => {
-    UserConfigStore.get().then((config) => {
-      setEditorMinimap(config.editorMinimap ?? false);
-      setEditorCapsuleEnabled(config.editorCapsuleEnabled ?? true);
-      const smooth = config.editorCursorSmoothCaret ?? true;
-      setCursorSmoothCaret(smooth);
-      setSmoothScrolling(config.editorSmoothScrolling ?? true);
-      document.documentElement.style.setProperty(
-        "--EditorCursorSmooth",
-        smooth ? "smooth" : "normal",
-      );
-    });
+    let active = true;
+    const update = (config: UserConfig) => {
+      if (!active) return;
+      const value = resolveConfiguration(config);
+      setEditorMinimap(value.editorMinimap);
+      setEditorCapsuleEnabled(value.editorCapsuleEnabled);
+      setCursorSmoothCaret(value.editorCursorSmoothCaret);
+      setSmoothScrolling(value.editorSmoothScrolling);
+    };
+    const unsubscribe = UserConfigStore.subscribe(update);
+    void UserConfigStore.get()
+      .then(update)
+      .catch((error) => {
+        if (active) showToast(String(error), "error");
+      });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
-  const resetEditorFontSize = () => {
-    setEditorFontSize("14");
-    void UserConfigStore.set({ editorFontSize: 14 });
-    document.documentElement.style.setProperty("--EditorFontSize", "14px");
-    EventBus.emit("settings:editor-changed");
+  const saveEditor = (patch: Partial<UserConfig>, committed: () => void) => {
+    void ConfigurationService.save(patch).then((saved) => {
+      if (saved) committed();
+    });
   };
-
-  const resetEditorLineHeight = () => {
-    setEditorLineHeight("24");
-    void UserConfigStore.set({ editorLineHeight: 24 });
-    document.documentElement.style.setProperty("--EditorLineHeight", "24px");
-  };
-
-  const resetEditorTabSize = () => {
-    setEditorTabSize("2");
-    void UserConfigStore.set({ editorTabSize: 2 });
-    document.documentElement.style.setProperty("--EditorTabSize", "2");
-  };
-
-  const resetEditorWordWrap = () => {
-    setEditorWordWrap("on");
-    void UserConfigStore.set({ editorWordWrap: "on" });
-    EventBus.emit("settings:editor-changed");
-  };
-
-  const handleMinimapChange = (checked: boolean) => {
-    setEditorMinimap(checked);
-    void UserConfigStore.set({ editorMinimap: checked });
-    EventBus.emit("settings:editor-changed");
-  };
-
-  const handleCapsuleChange = (checked: boolean) => {
-    setEditorCapsuleEnabled(checked);
-    void UserConfigStore.set({ editorCapsuleEnabled: checked });
-    EventBus.emit("settings:editor-changed");
-  };
-
-  const handleCursorSmoothChange = (checked: boolean) => {
-    setCursorSmoothCaret(checked);
-    void UserConfigStore.set({ editorCursorSmoothCaret: checked });
-    document.documentElement.style.setProperty(
-      "--EditorCursorSmooth",
-      checked ? "smooth" : "normal",
+  const resetEditorFontSize = () =>
+    saveEditor({ editorFontSize: defaults.editorFontSize }, () =>
+      setEditorFontSize(String(defaults.editorFontSize)),
     );
-  };
-
-  const handleSmoothScrollingChange = (checked: boolean) => {
-    setSmoothScrolling(checked);
-    void UserConfigStore.set({ editorSmoothScrolling: checked });
-    EventBus.emit("settings:editor-changed");
-  };
+  const resetEditorLineHeight = () =>
+    saveEditor({ editorLineHeight: defaults.editorLineHeight }, () =>
+      setEditorLineHeight(String(defaults.editorLineHeight)),
+    );
+  const resetEditorTabSize = () =>
+    saveEditor({ editorTabSize: defaults.editorTabSize }, () =>
+      setEditorTabSize(String(defaults.editorTabSize)),
+    );
+  const resetEditorWordWrap = () =>
+    saveEditor({ editorWordWrap: defaults.editorWordWrap }, () =>
+      setEditorWordWrap(defaults.editorWordWrap),
+    );
+  const handleMinimapChange = (value: boolean) =>
+    saveEditor({ editorMinimap: value }, () => setEditorMinimap(value));
+  const handleCapsuleChange = (value: boolean) =>
+    saveEditor({ editorCapsuleEnabled: value }, () => setEditorCapsuleEnabled(value));
+  const handleCursorSmoothChange = (value: boolean) =>
+    saveEditor({ editorCursorSmoothCaret: value }, () => setCursorSmoothCaret(value));
+  const handleSmoothScrollingChange = (value: boolean) =>
+    saveEditor({ editorSmoothScrolling: value }, () => setSmoothScrolling(value));
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-3xl">
@@ -129,10 +121,7 @@ export function EditorSettingsSection({
               value={editorFontSize}
               className="w-[140px]"
               onChange={(val: string) => {
-                setEditorFontSize(val);
-                void UserConfigStore.set({ editorFontSize: parseInt(val, 10) });
-                document.documentElement.style.setProperty("--EditorFontSize", `${val}px`);
-                EventBus.emit("settings:editor-changed");
+                saveEditor({ editorFontSize: Number(val) }, () => setEditorFontSize(val));
               }}
               options={[12, 13, 14, 15, 16, 18, 20].map((size) => ({
                 value: size.toString(),
@@ -160,9 +149,7 @@ export function EditorSettingsSection({
               value={editorLineHeight}
               className="w-[140px]"
               onChange={(value) => {
-                setEditorLineHeight(value);
-                void UserConfigStore.set({ editorLineHeight: Number(value) });
-                document.documentElement.style.setProperty("--EditorLineHeight", `${value}px`);
+                saveEditor({ editorLineHeight: Number(value) }, () => setEditorLineHeight(value));
               }}
               options={[20, 22, 24, 26, 28, 30].map((value) => ({
                 value: String(value),
@@ -190,9 +177,7 @@ export function EditorSettingsSection({
               value={editorTabSize}
               className="w-[140px]"
               onChange={(value) => {
-                setEditorTabSize(value);
-                void UserConfigStore.set({ editorTabSize: Number(value) });
-                document.documentElement.style.setProperty("--EditorTabSize", value);
+                saveEditor({ editorTabSize: Number(value) }, () => setEditorTabSize(value));
               }}
               options={[2, 4, 8].map((value) => ({
                 value: String(value),
@@ -220,9 +205,7 @@ export function EditorSettingsSection({
               checked={editorWordWrap === "on"}
               onChange={(checked) => {
                 const val = checked ? "on" : "off";
-                setEditorWordWrap(val);
-                void UserConfigStore.set({ editorWordWrap: val });
-                EventBus.emit("settings:editor-changed");
+                saveEditor({ editorWordWrap: val }, () => setEditorWordWrap(val));
               }}
             />
             <SettingResetButton label={t("settings.reset")} onReset={resetEditorWordWrap} />

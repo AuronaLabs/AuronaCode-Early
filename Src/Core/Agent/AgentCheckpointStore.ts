@@ -1,9 +1,9 @@
 import { AgentStorageIPC } from "../../Foundation/IPC/AgentStorageCommands";
 import { FileSystemCommands } from "../../Foundation/IPC/FileSystemCommands";
 import type { EditorViewState } from "../../Foundation/Types/Editor";
-import { DocumentService } from "../DocumentService";
+import { DocumentService } from "../Documents";
 import { EditorAdapter } from "../Editor/EditorAdapter";
-import { WorkspaceService } from "../WorkspaceService";
+import { WorkspaceService } from "../Workspace";
 import type { AgentCheckpoint } from "./AgentTypes";
 import { SecureAgentStore } from "./SecureAgentStore";
 

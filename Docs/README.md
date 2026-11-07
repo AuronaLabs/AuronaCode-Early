@@ -2,36 +2,33 @@
 
 **Create Without Limits. · 创造无限可能**
 
-从了解产品到参与开发，这里是 Aurona Code 的文档入口。当前版本为 **0.4.17「静」**，已于 2026 年 10 月 25 日发布。
+从使用产品到参与开发，按你要解决的问题找到入口。当前已发布版本为 **0.4.18「稳」**。
 
-## 了解这一版
+## 从这里开始
 
-| 文档 | 内容 |
+| 你要找什么 | 入口 |
 | --- | --- |
-| [0.4.17 更新说明](0.4.17-Release-Notes.md) | 面向使用者的更新重点、下载方式与兼容范围 |
-| [开发与交付记录](0.4.17-Development-Plan.md) | 实现范围、问题追踪和验证证据 |
-| [代码审查记录](0.4.17-Code-Review.md) | 问题根因、整改结果和 PR 反馈 |
-| [VS Code 兼容层能力矩阵](0.4.17-VSCode-Compatibility-Matrix.md) | 已支持能力、限制与桌面验收场景 |
+| 产品、安全与本地运行 | [使用与开发指南](Guides/README.md) |
+| 模块职责、目录和设计规范 | [当前架构](Architecture/README.md) · [仓库地图](Architecture/Repository-Map.md) |
+| 编写、调试和签名扩展 | [扩展开发](Guides/Extensions/README.md) |
+| 当前在做什么、验证到哪里 | [开发记录](Development/README.md) |
+| 已发布版本的变化与交付证据 | [发布记录](Releases/README.md) |
+| 历史审计、结转与早期设计 | [归档索引](Archive/README.md) |
 
-## 产品与使用
+## 当前发布：0.4.18「稳」
 
-- [产品方向](Product-Vision.md)：产品定位与体验原则。
-- [安全与信任](Security-and-Trust.md)：安全选项、数据流向与恢复机制。
-- [支持与帮助](../.github/SUPPORT.md)：问题反馈、诊断信息与联系渠道。
+本版聚焦文件组织、领域抽象、状态归属和运行稳定性。
 
-## 参与开发
+阅读[更新说明](Releases/0.4.18/Release-Notes.md)了解用户可见变化；[开发验收记录](Development/0.4.18/Acceptance-Report.md)保留架构迁移、自动化结果和未覆盖的桌面验收范围。
 
-- [贡献指南](../.github/CONTRIBUTING.md)：环境准备、开发流程与验证要求。
-- [当前架构](Architecture.md)：Corona+ 分层、领域责任和运行时边界。
-- [设计哲学与材质系统](Design-Principles.md)：主题、材质、布局、反馈和可访问性。
+[VS Code 兼容矩阵](Releases/0.4.17/VSCode-Compatibility-Matrix.md)说明目前已公开的 API 支持范围；0.4.18 没有扩大完整兼容承诺。
 
-## 开发扩展
+版本相关的开发和审查证据集中在[发布记录](Releases/README.md)，不会因后续重构而自动变为新的验收结论。
 
-- [扩展开发指南](Extension-Development.md)：包结构、开发起点与本地验证。
-- [SDK 参考](Extension-SDK-Reference.md)：以 WIT 契约为基础的宿主能力说明。
-- [签名指南](Extension-Signing-Guide.md)：包认证、目录认证与本地安装。
-- [VS Code Demo](../Extensions/vscode.demo/README.md)：兼容层的最小演示与验证步骤。
+## 参与维护
 
-## 历史文档
+- [贡献指南](../.github/CONTRIBUTING.md)：环境、工作流与验证要求。
+- [文档维护约定](Conventions.md)：位置、文案、链接与格式检查。
+- [支持与帮助](../.github/SUPPORT.md)：反馈问题与诊断信息。
 
-[归档索引](Archive/README.md)保留已发布版本、审计与早期设计材料，方便追溯当时的决策和证据。历史状态不自动代表当前实现；当前行为以本版文档和源码为准。
+历史文档保留当时的计划、状态和证据；当前行为以持续维护的指南、架构说明和源码为准。

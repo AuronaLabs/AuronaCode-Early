@@ -1,44 +1,41 @@
-name: 提出新功能
-description: 为 Aurona Code 提供新功能的建议
+name: 改进建议
+description: 描述具体使用场景、现有问题和可验收的改进
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        感谢您为 Aurona Code 提出新功能建议
-        我们会优先考虑能够改善现有编辑、文件、Git、终端、搜索、更新和桌面体验的建议
-        插件市场、AI Command Center 和云服务等大范围方向请先说明依赖、风险与最小可行范围
+        请围绕实际工作流程描述建议，并说明预期收益与最小可行范围。
+        建议进入讨论不代表已纳入版本计划；涉及较大范围的调整，需进一步明确依赖与兼容性。
   - type: textarea
     id: problem
     attributes:
-      label: 该功能请求是否与某个痛点相关
-      description: 请简练地描述目前的痛点是什么（例如当我试图执行某操作时总是觉得很繁琐）
-      placeholder: 请在此处描述痛点...
+      label: 使用场景与现有问题
+      description: 正在完成什么任务，当前流程有哪些具体限制？
     validations:
       required: true
   - type: textarea
     id: solution
     attributes:
-      label: 描述您期望的解决方案
-      description: 请清晰地描述您希望通过什么方式解决上述痛点
-      placeholder: 请在此处描述您的解决方案...
+      label: 建议方案
+      description: 希望如何改进，使用者将看到什么变化？
     validations:
       required: true
   - type: textarea
     id: alternatives
     attributes:
-      label: 描述您曾考虑过的替代方案
-      description: 简练地描述您曾经考虑过的其他可行的替代方案或功能
+      label: 已考虑的替代方式
+      description: 说明现有能力、配置或其他工作方式为何不足以解决问题。
   - type: textarea
     id: context
     attributes:
-      label: 附加背景上下文
-      description: 请在此处补充与该功能请求相关的任何其他上下文或截图
+      label: 兼容性与补充资料
+      description: 可补充平台、扩展、快捷键、安全选项等影响，或提供脱敏示意图。
   - type: textarea
     id: acceptance
     attributes:
       label: 最小可验收结果
-      description: 请描述最小版本应该解决什么，以及如何判断它确实有效
+      description: 最小版本需要完成哪些行为，如何确认问题得到解决？
     validations:
       required: true

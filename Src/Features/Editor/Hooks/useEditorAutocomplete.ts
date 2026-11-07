@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { DocumentService } from "../../../Core/DocumentService";
+import { DocumentService } from "../../../Core/Documents";
 import { LspClient } from "../../../Core/Language/LspClient";
 import { applyLspTextEdits } from "../../../Core/Language/TextEdits";
 import type { LanguageFeaturePreferences } from "../../../Foundation/Types/Config";

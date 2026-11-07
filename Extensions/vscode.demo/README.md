@@ -25,4 +25,4 @@ Demo 使用 `vscode` 模块注册命令，由 Aurona 内置 WASM 兼容运行时
 
 包清单声明 `engines.vscode: ^1.85.0`，这表示 Demo 的 API 目标，不代表 Aurona 实现了该版本的全部 API。
 
-当前兼容能力与限制见[能力矩阵](../../Docs/0.4.17-VSCode-Compatibility-Matrix.md)。依赖完整 Node.js、原生模块或未支持宿主服务的扩展需要另外验证。
+当前兼容能力与限制见[能力矩阵](../../Docs/Releases/0.4.17/VSCode-Compatibility-Matrix.md)。依赖完整 Node.js、原生模块或未支持宿主服务的扩展需要另外验证。

@@ -1,7 +1,7 @@
 import { type DiagnosticItem, DiagnosticsService } from "../DiagnosticsService";
-import { DocumentService } from "../DocumentService";
+import { DocumentService } from "../Documents";
 import { EditorAdapter } from "../Editor/EditorAdapter";
-import { WorkspaceService } from "../WorkspaceService";
+import { WorkspaceService } from "../Workspace";
 
 export interface WorkspaceContextFile {
   path: string;

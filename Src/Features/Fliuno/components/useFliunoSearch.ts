@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CommandRegistry } from "../../../Core/Commands/CommandRegistry";
 import {
   type FliunoCoreResult,
   type FliunoScope,
@@ -13,8 +14,7 @@ import {
   writeHistory,
 } from "../../../Core/Fliuno/history";
 import { NavigationHistory } from "../../../Core/NavigationHistory";
-import { WorkspaceService } from "../../../Core/WorkspaceService";
-import { CommandRegistry } from "../../../Extension/CommandRegistry";
+import { WorkspaceService } from "../../../Core/Workspace";
 import { EventBus } from "../../../Foundation/EventBus";
 import {
   type WorkspaceFileEntry,
@@ -23,7 +23,7 @@ import {
 import { UserConfigStore } from "../../../Foundation/Storage/UserConfigStore";
 import { GetLanguageFromPath } from "../../../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../../../State/useEditorStore";
-import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../../../State/Workbench/useWorkbenchStore";
 import { useRetainedViewState } from "../../../UI/Core/ViewState";
 
 export const FLIUNO_SEARCH_DEBOUNCE_MS = 120;

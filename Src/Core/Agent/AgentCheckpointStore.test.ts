@@ -17,7 +17,7 @@ vi.mock("../../Foundation/IPC/AgentStorageCommands", () => ({
   },
 }));
 
-vi.mock("../DocumentService", () => ({
+vi.mock("../Documents", () => ({
   DocumentService: {
     get: () => mocks.document,
     applyEdits: vi.fn(),

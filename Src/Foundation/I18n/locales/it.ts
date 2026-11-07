@@ -321,6 +321,7 @@ export const it: LocaleMessages = {
     error: "Impossibile leggere i simboli",
   },
   changelog: {
+    unreleased: "In sviluppo · Non rilasciata",
     title: "Registro modifiche",
     latest: "Più recente",
     expand: "Espandi",

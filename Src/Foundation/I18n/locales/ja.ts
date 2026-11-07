@@ -316,6 +316,7 @@ export const ja: LocaleMessages = {
     error: "シンボルを読み込めませんでした",
   },
   changelog: {
+    unreleased: "開発中 · 未リリース",
     title: "変更履歴",
     latest: "最新",
     expand: "展開",

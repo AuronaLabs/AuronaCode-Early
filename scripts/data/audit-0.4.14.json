@@ -27,10 +27,10 @@
       "subsystem": "Files",
       "status": "in-progress",
       "implementation": [
-        "src-tauri/src/commands/fs.rs"
+        "src-tauri/src/workspace/filesystem/mod.rs"
       ],
       "validation": [
-        "Automated coverage: src-tauri/src/commands/fs.rs#mutation_access_rejects_root_aliases_recovery_data_and_stale_authorization; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
+        "Automated coverage: src-tauri/src/workspace/filesystem/tests.rs#mutation_access_rejects_root_aliases_recovery_data_and_stale_authorization; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
         "Partial desktop evidence: Root delete/rename/move IPC rejection; candidate/desktop-audit/desktop-report.json (isolated debug harness, not candidate/native approval acceptance)"
       ],
       "notes": [
@@ -40,7 +40,7 @@
       "negativeEvidence": false,
       "documentationEvidence": true,
       "coverage": [
-        "src-tauri/src/commands/fs.rs#mutation_access_rejects_root_aliases_recovery_data_and_stale_authorization"
+        "src-tauri/src/workspace/filesystem/tests.rs#mutation_access_rejects_root_aliases_recovery_data_and_stale_authorization"
       ],
       "userVisible": "删除、重命名及移动使用后端根保护；子目录删除经原生确认并保留恢复数据，根目录及其别名拒绝变更。"
     },
@@ -124,10 +124,10 @@
       "subsystem": "Files",
       "status": "in-progress",
       "implementation": [
-        "src-tauri/src/commands/fs.rs"
+        "src-tauri/src/workspace/filesystem/mod.rs"
       ],
       "validation": [
-        "Automated coverage: src-tauri/src/commands/fs.rs#production_scope_rejects_forged_roots_and_traversal; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
+        "Automated coverage: src-tauri/src/workspace/filesystem/tests.rs#production_scope_rejects_forged_roots_and_traversal; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
         "Partial desktop evidence: Forged source scope rejected; scoped copy/move preserves bytes; candidate/desktop-audit/desktop-report.json (isolated debug harness, not candidate/native approval acceptance)"
       ],
       "notes": [
@@ -137,7 +137,7 @@
       "negativeEvidence": false,
       "documentationEvidence": true,
       "coverage": [
-        "src-tauri/src/commands/fs.rs#production_scope_rejects_forged_roots_and_traversal"
+        "src-tauri/src/workspace/filesystem/tests.rs#production_scope_rejects_forged_roots_and_traversal"
       ],
       "userVisible": "复制和移动分别检查源、目标及工作区 generation；前端传入路径不能替代后端授权。"
     },
@@ -150,7 +150,7 @@
         "src-tauri/src/scoped_file.rs"
       ],
       "validation": [
-        "Automated coverage: src-tauri/src/commands/fs.rs#parent_link_replacement_cannot_escape_during_reads_and_staged_writes; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
+        "Automated coverage: src-tauri/src/workspace/filesystem/tests.rs#parent_link_replacement_cannot_escape_during_reads_and_staged_writes; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
       ],
       "notes": [
         "Broaden concurrent replacement to delete/rename/upload and run all three platforms."
@@ -159,7 +159,7 @@
       "negativeEvidence": false,
       "documentationEvidence": true,
       "coverage": [
-        "src-tauri/src/commands/fs.rs#parent_link_replacement_cannot_escape_during_reads_and_staged_writes"
+        "src-tauri/src/workspace/filesystem/tests.rs#parent_link_replacement_cannot_escape_during_reads_and_staged_writes"
       ],
       "userVisible": "文本访问和保存以目录句柄约束并禁止跟随链接，暂存写入采用随机文件与冲突检查；并发替换仍需扩大平台验收。"
     },
@@ -172,7 +172,7 @@
         "src-tauri/src/file_uploads.rs"
       ],
       "validation": [
-        "Automated coverage: src-tauri/src/editor.rs#oversized_file_is_rejected_before_a_session_is_created; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
+        "Automated coverage: src-tauri/src/editor/tests.rs#oversized_file_is_rejected_before_a_session_is_created; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
         "Partial desktop evidence: Chunked Unicode upload, bad offset/reuse rejection, cancellation and oversized reads; candidate/desktop-audit/desktop-report.json (isolated debug harness, not candidate/native approval acceptance)"
       ],
       "notes": [
@@ -182,7 +182,7 @@
       "negativeEvidence": false,
       "documentationEvidence": true,
       "coverage": [
-        "src-tauri/src/editor.rs#oversized_file_is_rejected_before_a_session_is_created"
+        "src-tauri/src/editor/tests.rs#oversized_file_is_rejected_before_a_session_is_created"
       ],
       "userVisible": "普通文本限制 32 MiB，大文本通过 256 KiB 分块上传，读取时累计真实字节数并拒绝超限。"
     },
@@ -217,10 +217,10 @@
       "subsystem": "Git",
       "status": "in-progress",
       "implementation": [
-        "src-tauri/src/commands/git.rs"
+        "src-tauri/src/git/mod.rs"
       ],
       "validation": [
-        "Automated coverage: src-tauri/src/commands/git.rs#initialization_uses_selected_directory_without_authorizing_its_parent_repository; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
+        "Automated coverage: src-tauri/src/git/tests.rs#initialization_uses_selected_directory_without_authorizing_its_parent_repository; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
         "Partial desktop evidence: Scoped init/status/stage/commit/unstage; external repository and pathspec traversal rejected; candidate/desktop-audit/desktop-report.json (isolated debug harness, not candidate/native approval acceptance)"
       ],
       "notes": [
@@ -230,7 +230,7 @@
       "negativeEvidence": false,
       "documentationEvidence": true,
       "coverage": [
-        "src-tauri/src/commands/git.rs#initialization_uses_selected_directory_without_authorizing_its_parent_repository"
+        "src-tauri/src/git/tests.rs#initialization_uses_selected_directory_without_authorizing_its_parent_repository"
       ],
       "userVisible": "Git 校验实际仓库根和 Git 目录，并绑定工作区 generation；父级仓库、外部目录与 submodule 需要明确授权。"
     },
@@ -240,17 +240,17 @@
       "subsystem": "Git",
       "status": "in-progress",
       "implementation": [
-        "src-tauri/src/commands/git.rs"
+        "src-tauri/src/git/mod.rs"
       ],
       "validation": [
-        "Automated coverage: src-tauri/src/commands/git.rs#discard_backup_is_nondestructive_and_restores_index_worktree_and_untracked; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
-        "Automated coverage: src-tauri/src/commands/git.rs#incomplete_discard_backup_never_changes_the_worktree; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
-        "Automated coverage: src-tauri/src/commands/git.rs#recovery_reads_use_the_scoped_snapshot_format_and_reject_unselected_files; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
-        "Automated coverage: src-tauri/src/commands/git.rs#filtered_and_normalized_tracked_files_restore_exact_raw_bytes; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
-        "Automated coverage: src-tauri/src/commands/git.rs#raw_recovery_restores_staged_renames_worktree_deletions_and_new_directories; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
-        "Automated coverage: src-tauri/src/commands/git.rs#recovery_rejects_protected_paths_before_restoring_the_index; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
-        "Automated coverage: src-tauri/src/commands/git.rs#interrupted_restore_resumes_after_reopening_workspace_at_every_operation; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
-        "Automated coverage: src-tauri/src/commands/git.rs#interrupted_restore_preserves_later_user_edits_and_corrupt_journals; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
+        "Automated coverage: src-tauri/src/git/tests.rs#discard_backup_is_nondestructive_and_restores_index_worktree_and_untracked; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
+        "Automated coverage: src-tauri/src/git/tests.rs#incomplete_discard_backup_never_changes_the_worktree; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
+        "Automated coverage: src-tauri/src/git/tests.rs#recovery_reads_use_the_scoped_snapshot_format_and_reject_unselected_files; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
+        "Automated coverage: src-tauri/src/git/tests.rs#filtered_and_normalized_tracked_files_restore_exact_raw_bytes; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
+        "Automated coverage: src-tauri/src/git/tests.rs#raw_recovery_restores_staged_renames_worktree_deletions_and_new_directories; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
+        "Automated coverage: src-tauri/src/git/tests.rs#recovery_rejects_protected_paths_before_restoring_the_index; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
+        "Automated coverage: src-tauri/src/git/tests.rs#interrupted_restore_resumes_after_reopening_workspace_at_every_operation; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
+        "Automated coverage: src-tauri/src/git/tests.rs#interrupted_restore_preserves_later_user_edits_and_corrupt_journals; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
       ],
       "notes": [
         "Native approval/cancel, external concurrent writes and actual process crash/restart remain; operation-level interruption and journal-conflict tests exist."
@@ -259,14 +259,14 @@
       "negativeEvidence": false,
       "documentationEvidence": true,
       "coverage": [
-        "src-tauri/src/commands/git.rs#discard_backup_is_nondestructive_and_restores_index_worktree_and_untracked",
-        "src-tauri/src/commands/git.rs#incomplete_discard_backup_never_changes_the_worktree",
-        "src-tauri/src/commands/git.rs#recovery_reads_use_the_scoped_snapshot_format_and_reject_unselected_files",
-        "src-tauri/src/commands/git.rs#filtered_and_normalized_tracked_files_restore_exact_raw_bytes",
-        "src-tauri/src/commands/git.rs#raw_recovery_restores_staged_renames_worktree_deletions_and_new_directories",
-        "src-tauri/src/commands/git.rs#recovery_rejects_protected_paths_before_restoring_the_index",
-        "src-tauri/src/commands/git.rs#interrupted_restore_resumes_after_reopening_workspace_at_every_operation",
-        "src-tauri/src/commands/git.rs#interrupted_restore_preserves_later_user_edits_and_corrupt_journals"
+        "src-tauri/src/git/tests.rs#discard_backup_is_nondestructive_and_restores_index_worktree_and_untracked",
+        "src-tauri/src/git/tests.rs#incomplete_discard_backup_never_changes_the_worktree",
+        "src-tauri/src/git/tests.rs#recovery_reads_use_the_scoped_snapshot_format_and_reject_unselected_files",
+        "src-tauri/src/git/tests.rs#filtered_and_normalized_tracked_files_restore_exact_raw_bytes",
+        "src-tauri/src/git/tests.rs#raw_recovery_restores_staged_renames_worktree_deletions_and_new_directories",
+        "src-tauri/src/git/tests.rs#recovery_rejects_protected_paths_before_restoring_the_index",
+        "src-tauri/src/git/tests.rs#interrupted_restore_resumes_after_reopening_workspace_at_every_operation",
+        "src-tauri/src/git/tests.rs#interrupted_restore_preserves_later_user_edits_and_corrupt_journals"
       ],
       "userVisible": "丢弃全部修改先预览并确认状态指纹，再创建恢复引用；独立保存工作树原字节、删除记录和 index，恢复过滤器与换行转换前的内容。中断恢复使用持久日志核对原始或已恢复状态，遇到新的用户修改停止重试。"
     },
@@ -440,11 +440,11 @@
       "subsystem": "Extension Host",
       "status": "in-progress",
       "implementation": [
-        "src-tauri/src/extensions/runtime.rs"
+        "src-tauri/src/extensions/runtime/mod.rs"
       ],
       "validation": [
-        "Automated coverage: src-tauri/src/extensions/runtime.rs#response_cannot_consume_another_owner_kind_or_generation; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
-        "Automated coverage: src-tauri/src/extensions/runtime.rs#expired_and_oversized_responses_fail; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
+        "Automated coverage: src-tauri/src/extensions/runtime/mod.rs#response_cannot_consume_another_owner_kind_or_generation; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
+        "Automated coverage: src-tauri/src/extensions/runtime/mod.rs#expired_and_oversized_responses_fail; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
       ],
       "notes": [
         "100 actual runtime timeout/unload cycles remain."
@@ -453,8 +453,8 @@
       "negativeEvidence": false,
       "documentationEvidence": true,
       "coverage": [
-        "src-tauri/src/extensions/runtime.rs#response_cannot_consume_another_owner_kind_or_generation",
-        "src-tauri/src/extensions/runtime.rs#expired_and_oversized_responses_fail"
+        "src-tauri/src/extensions/runtime/mod.rs#response_cannot_consume_another_owner_kind_or_generation",
+        "src-tauri/src/extensions/runtime/mod.rs#expired_and_oversized_responses_fail"
       ],
       "userVisible": "扩展桥接响应同时匹配扩展、kind、generation 和一次性请求句柄，限制 pending 并在超时、失败及卸载时清理。"
     },
@@ -464,10 +464,10 @@
       "subsystem": "Extension Host",
       "status": "in-progress",
       "implementation": [
-        "src-tauri/src/extensions/runtime.rs"
+        "src-tauri/src/extensions/runtime/mod.rs"
       ],
       "validation": [
-        "Automated coverage: src-tauri/src/extensions/runtime.rs#events_require_current_owner_declared_kind_bounded_payload_and_preserve_order; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
+        "Automated coverage: src-tauri/src/extensions/runtime/tests.rs#events_require_current_owner_declared_kind_bounded_payload_and_preserve_order; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
       ],
       "notes": [
         "Actual runtime IPC/event delivery and workspace-transition acceptance remain."
@@ -476,7 +476,7 @@
       "negativeEvidence": false,
       "documentationEvidence": true,
       "coverage": [
-        "src-tauri/src/extensions/runtime.rs#events_require_current_owner_declared_kind_bounded_payload_and_preserve_order"
+        "src-tauri/src/extensions/runtime/tests.rs#events_require_current_owner_declared_kind_bounded_payload_and_preserve_order"
       ],
       "userVisible": "扩展事件由 runtime 校验当前所有者和声明种类，限制单 payload 与队列，拒绝伪造 ID、过期事件和超限数据。"
     },
@@ -562,7 +562,7 @@
       "validation": [
         "Automated coverage: src-tauri/src/artifact_signature.rs#binds_identity_source_revision_validity_and_actual_bytes; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
         "Automated coverage: src-tauri/src/toolchains.rs#signed_toolchains_bind_manifest_identity_and_portable_platform; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
-        "Automated coverage: Src/Features/Extensions/Marketplace/MarketplaceService.test.ts; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
+        "Automated coverage: Src/Core/Extensions/Marketplace/MarketplaceService.test.ts; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
       ],
       "notes": [
         "Production Marketplace key and signed packages are external prerequisites; fixtures only validate the client."
@@ -573,7 +573,7 @@
       "coverage": [
         "src-tauri/src/artifact_signature.rs#binds_identity_source_revision_validity_and_actual_bytes",
         "src-tauri/src/toolchains.rs#signed_toolchains_bind_manifest_identity_and_portable_platform",
-        "Src/Features/Extensions/Marketplace/MarketplaceService.test.ts"
+        "Src/Core/Extensions/Marketplace/MarketplaceService.test.ts"
       ],
       "userVisible": "客户端用固定可信公钥验证 Ed25519 描述，再核对 publisher、ID、版本、平台、大小及实际包 hash；正式市场签名数据仍阻塞。"
     },
@@ -643,7 +643,7 @@
       "subsystem": "Agent",
       "status": "in-progress",
       "implementation": [
-        "Src/Core/Commands.ts"
+        "Src/App/Contributions/WorkbenchCommands.ts"
       ],
       "validation": [
         "Automated coverage: Src/Features/AiAssistant/AgentToolMetadata.test.ts; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
@@ -712,10 +712,10 @@
       "subsystem": "Files",
       "status": "in-progress",
       "implementation": [
-        "src-tauri/src/commands/fs.rs"
+        "src-tauri/src/workspace/filesystem/mod.rs"
       ],
       "validation": [
-        "Automated coverage: src-tauri/src/commands/fs.rs#directory_pages_are_bounded_single_use_cancellable_and_invalidated_by_changes; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
+        "Automated coverage: src-tauri/src/workspace/filesystem/tests.rs#directory_pages_are_bounded_single_use_cancellable_and_invalidated_by_changes; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
         "Partial desktop evidence: Million actual entries, 30 first-page/cancel runs and virtual Explorer pagination; candidate/desktop-audit/desktop-report.json (isolated debug harness, not candidate/native approval acceptance)"
       ],
       "notes": [
@@ -725,7 +725,7 @@
       "negativeEvidence": false,
       "documentationEvidence": true,
       "coverage": [
-        "src-tauri/src/commands/fs.rs#directory_pages_are_bounded_single_use_cancellable_and_invalidated_by_changes"
+        "src-tauri/src/workspace/filesystem/tests.rs#directory_pages_are_bounded_single_use_cancellable_and_invalidated_by_changes"
       ],
       "userVisible": "目录按 256 项迭代分页并返回单次 cursor 与 generation，Explorer 使用虚拟列表；取消与目录变化会使旧分页失效。"
     },
@@ -757,11 +757,11 @@
       "subsystem": "Git",
       "status": "in-progress",
       "implementation": [
-        "src-tauri/src/commands/git.rs"
+        "src-tauri/src/git/mod.rs"
       ],
       "validation": [
         "Automated coverage: src-tauri/src/process_service.rs#cancellation_reclaims_a_running_process_tree_within_two_seconds; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
-        "Automated coverage: Src/Core/GitService.test.ts; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
+        "Automated coverage: Src/Core/Git/GitService.test.ts; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
       ],
       "notes": [
         "Concurrent checkout/pull/status and Source Control cancellation UI remain."
@@ -771,7 +771,7 @@
       "documentationEvidence": true,
       "coverage": [
         "src-tauri/src/process_service.rs#cancellation_reclaims_a_running_process_tree_within_two_seconds",
-        "Src/Core/GitService.test.ts"
+        "Src/Core/Git/GitService.test.ts"
       ],
       "userVisible": "Git 读写按真实仓库协调并可取消进程树，status 请求去重，变更后失效缓存并隔离旧工作区结果。"
     },
@@ -861,7 +861,7 @@
       ],
       "validation": [
         "Automated coverage: src-tauri/src/commands/lsp_cmds.rs#document_limits_reject_oversize_and_negative_revisions; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",
-        "Automated coverage: Src/Core/DocumentService.test.ts; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
+        "Automated coverage: Src/Core/Documents/DocumentService.test.ts; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
       ],
       "notes": [
         "Out-of-order actual server sync and large-change resync remain."
@@ -871,7 +871,7 @@
       "documentationEvidence": true,
       "coverage": [
         "src-tauri/src/commands/lsp_cmds.rs#document_limits_reject_oversize_and_negative_revisions",
-        "Src/Core/DocumentService.test.ts"
+        "Src/Core/Documents/DocumentService.test.ts"
       ],
       "userVisible": "LSP 文档维护单调 revision，限制全文和增量大小；旧版本拒绝并触发重新同步，超大变更不截断为错误文档。"
     },
@@ -988,7 +988,7 @@
       "subsystem": "Extension Host",
       "status": "in-progress",
       "implementation": [
-        "src-tauri/src/extensions/runtime.rs"
+        "src-tauri/src/extensions/runtime/mod.rs"
       ],
       "validation": [
         "Automated coverage: src-tauri/src/resource_limits.rs#shared_watcher_budget_is_released_across_one_hundred_cycles; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
@@ -1010,10 +1010,10 @@
       "subsystem": "Extension Host",
       "status": "in-progress",
       "implementation": [
-        "src-tauri/src/extensions/runtime.rs"
+        "src-tauri/src/extensions/runtime/mod.rs"
       ],
       "validation": [
-        "Automated coverage: src-tauri/src/extensions/runtime.rs#invalid_component_is_rejected; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
+        "Automated coverage: src-tauri/src/extensions/runtime/tests.rs#invalid_component_is_rejected; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md"
       ],
       "notes": [
         "Hash compilation cache benchmark, Store isolation and compatibility regressions remain."
@@ -1022,7 +1022,7 @@
       "negativeEvidence": false,
       "documentationEvidence": true,
       "coverage": [
-        "src-tauri/src/extensions/runtime.rs#invalid_component_is_rejected"
+        "src-tauri/src/extensions/runtime/tests.rs#invalid_component_is_rejected"
       ],
       "userVisible": "WASM 编译结果按包 hash 有界缓存，每次 Store/实例隔离；普通扩展 64 MiB，内置兼容层使用受控 256 MiB 档。"
     },
@@ -1054,7 +1054,7 @@
       "subsystem": "Marketplace",
       "status": "in-progress",
       "implementation": [
-        "Src/Features/Extensions/Marketplace/MarketplaceSchema.ts"
+        "Src/Core/Extensions/Marketplace/MarketplaceSchema.ts"
       ],
       "validation": [
         "Automated coverage: Src/Features/Extensions/Marketplace/MarketplaceSchema.test.ts; local suite results and qualifications in Docs/0.4.14-Acceptance-Report.md",

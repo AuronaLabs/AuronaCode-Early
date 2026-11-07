@@ -8,7 +8,7 @@ import {
 } from "react";
 import { type LocationResultItem, LocationResultsStore } from "../../Core/LocationResultsStore";
 import { useLocale } from "../../Foundation/I18n";
-import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../../State/Workbench/useWorkbenchStore";
 import { Badge } from "../../UI/Components/Badge";
 import { Icons } from "../../UI/Icons/IconManager";
 

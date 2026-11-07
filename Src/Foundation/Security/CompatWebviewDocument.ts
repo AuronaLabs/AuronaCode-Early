@@ -1,12 +1,14 @@
+import { extensionThemeStyle, readThemeSnapshot, type ThemeSnapshot } from "../Theme/ThemeSnapshot";
 /** Isolated VS Code HTML. Scripts run only inside an opaque-origin sandbox. */
 export function buildCompatWebviewDocument(
   html: string,
   scripts: boolean,
   channel: string,
-  theme: string,
+  theme: string | ThemeSnapshot,
   state: unknown,
 ): string {
   if (new TextEncoder().encode(html).length > 1024 * 1024) throw new Error("Webview exceeds 1 MiB");
+  const snapshot = typeof theme === "string" ? readThemeSnapshot({ theme }) : theme;
   const nonce = crypto.randomUUID().replaceAll("-", "");
   const doc = new DOMParser().parseFromString(html, "text/html");
   for (const node of doc.querySelectorAll("meta,base,iframe,object,embed,link")) node.remove();
@@ -21,9 +23,10 @@ export function buildCompatWebviewDocument(
   policy.httpEquiv = "Content-Security-Policy";
   policy.content = `default-src 'none'; script-src 'nonce-${nonce}'; script-src-attr 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'`;
   doc.head.prepend(policy);
-  doc.body.classList.add(theme === "dark" ? "vscode-dark" : "vscode-light");
+  doc.body.classList.remove("vscode-dark", "vscode-light");
+  doc.body.classList.add(snapshot.mode === "dark" ? "vscode-dark" : "vscode-light");
   const style = doc.createElement("style");
-  style.textContent = `:root{color-scheme:${theme === "dark" ? "dark" : "light"};--vscode-editor-background:transparent;--vscode-editor-foreground:${theme === "dark" ? "#cbd5e1" : "#222222"};--vscode-focusBorder:#3b82f6}html,body{background:transparent;color:var(--vscode-editor-foreground);font-family:system-ui;font-size:13px}`;
+  style.textContent = `${extensionThemeStyle(snapshot)}html,body{font-family:system-ui}`;
   doc.head.insertBefore(style, policy.nextSibling);
   if (scripts) {
     const bootstrap = doc.createElement("script");

@@ -11,7 +11,7 @@ vi.mock("../../../Core/FileSystemService", () => ({
   },
 }));
 vi.mock("../../../Foundation/IPC/FileSystemCommands", () => ({ FileSystemCommands: {} }));
-vi.mock("../../../State/useWorkspaceStore", () => ({
+vi.mock("../../../State/Workbench/useWorkbenchStore", () => ({
   useWorkbenchStore: (selector: (state: { openFile: typeof mocks.openFile }) => unknown) =>
     selector({ openFile: mocks.openFile }),
 }));

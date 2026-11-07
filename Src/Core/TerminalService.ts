@@ -1,6 +1,8 @@
 import { EventBus } from "../Foundation/EventBus";
 import { PtyIPC } from "../Foundation/IPC/PtyCommands";
+import { DisposableScope } from "../Foundation/Lifecycle/DisposableScope";
 import type { ShellProfile, TerminalInstance } from "../Foundation/Types/Terminal";
+import { wrapTerminalCommand } from "./TerminalCommand";
 
 export type { ShellProfile, TerminalInstance };
 
@@ -8,34 +10,54 @@ class TerminalServiceImpl {
   private terminals: TerminalInstance[] = [];
   private activeTerminalId: string | null = null;
   private cachedShells: ShellProfile[] | null = null;
+  private shellDiscovery: Promise<ShellProfile[]> | null = null;
+  private generation = 0;
+  private commands = new Map<string, Set<(error: Error) => void>>();
   private nextIndex = 1;
   private nextId = 1;
   private implicitTerminalCreation: Promise<TerminalInstance> | null = null;
   private readiness = new Map<
     string,
-    { promise: Promise<void>; resolve: () => void; ready: boolean; failure?: Error }
+    {
+      promise: Promise<void>;
+      resolve: () => void;
+      ready: boolean;
+      failure?: Error;
+      sessionId?: string;
+    }
   >();
 
-  private createReadiness(id: string) {
+  private createReadiness(id: string, sessionId?: string) {
     let resolve!: () => void;
     const promise = new Promise<void>((resolvePromise) => {
       resolve = resolvePromise;
     });
-    this.readiness.set(id, { promise, resolve, ready: false });
+    this.readiness.set(id, { promise, resolve, ready: false, sessionId });
   }
 
   async getAvailableShells(): Promise<ShellProfile[]> {
     if (this.cachedShells) return this.cachedShells;
+    if (this.shellDiscovery) return this.shellDiscovery;
+    const generation = this.generation;
+    const request = PtyIPC.getAvailableShells().then(
+      (shells) => {
+        if (generation === this.generation) this.cachedShells = shells;
+        return shells;
+      },
+      () => [],
+    );
+    this.shellDiscovery = request;
     try {
-      this.cachedShells = await PtyIPC.getAvailableShells();
-    } catch {
-      this.cachedShells = [];
+      return await request;
+    } finally {
+      if (this.shellDiscovery === request) this.shellDiscovery = null;
     }
-    return this.cachedShells;
   }
 
   async createTerminal(shellId?: string, cwd?: string): Promise<TerminalInstance> {
+    const generation = this.generation;
     const shells = await this.getAvailableShells();
+    if (generation !== this.generation) throw new Error("Terminal service was disposed");
     const shell =
       (shellId ? shells.find((s) => s.id === shellId) : null) ??
       shells[0] ??
@@ -54,6 +76,7 @@ class TerminalServiceImpl {
   }
 
   removeTerminal(id: string): void {
+    this.cancelCommands(id, new Error("Terminal was closed"));
     this.terminals = this.terminals.filter((t) => t.id !== id);
     PtyIPC.close(id).catch(() => {});
     const readiness = this.readiness.get(id);
@@ -79,6 +102,7 @@ class TerminalServiceImpl {
   }
 
   setActiveTerminal(id: string): void {
+    if (!this.terminals.some((terminal) => terminal.id === id)) return;
     this.activeTerminalId = id;
     EventBus.emit("terminal:active-changed", id);
   }
@@ -100,40 +124,75 @@ class TerminalServiceImpl {
       return terminal;
     }
     if (!this.implicitTerminalCreation) {
-      this.implicitTerminalCreation = this.createTerminal().finally(() => {
-        this.implicitTerminalCreation = null;
+      const request = this.createTerminal().finally(() => {
+        if (this.implicitTerminalCreation === request) this.implicitTerminalCreation = null;
       });
+      this.implicitTerminalCreation = request;
     }
     return this.implicitTerminalCreation;
   }
 
-  markTerminalReady(id: string): void {
+  beginTerminalSession(id: string, sessionId: string): void {
     const readiness = this.readiness.get(id);
-    if (!readiness) return;
+    if (!readiness || readiness.sessionId === sessionId) return;
+    if (!readiness.sessionId) {
+      readiness.sessionId = sessionId;
+      return;
+    }
+    this.endTerminalSession(id, readiness.sessionId);
+    this.createReadiness(id, sessionId);
+  }
+
+  endTerminalSession(id: string, sessionId: string): void {
+    const readiness = this.readiness.get(id);
+    if (!readiness || readiness.sessionId !== sessionId) return;
+    readiness.ready = false;
+    readiness.failure = new Error("Terminal session was closed or replaced");
+    readiness.resolve();
+    this.cancelCommands(id, readiness.failure);
+  }
+
+  markTerminalReady(id: string, sessionId?: string): void {
+    const readiness = this.readiness.get(id);
+    if (!readiness || (sessionId && readiness.sessionId !== sessionId)) return;
+    if (readiness.failure) return;
     readiness.ready = true;
     readiness.resolve();
   }
 
-  markTerminalFailed(id: string, error: unknown): void {
-    console.warn("Terminal failed before becoming ready", id, error);
+  markTerminalFailed(id: string, error: unknown, sessionId?: string): void {
     const readiness = this.readiness.get(id);
-    if (!readiness) return;
+    if (!readiness || (sessionId && readiness.sessionId !== sessionId)) return;
+    console.warn("Terminal failed before becoming ready", id, error);
+    readiness.ready = false;
     readiness.failure = error instanceof Error ? error : new Error(String(error));
     readiness.resolve();
+    this.cancelCommands(id, readiness.failure);
   }
 
-  private async waitForTerminalReady(id: string): Promise<void> {
+  private async waitForTerminalReady(id: string, signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted) throw new Error("Terminal command cancelled");
     const readiness = this.readiness.get(id);
-    if (!readiness) return;
+    if (!readiness) throw new Error(`Terminal ${id} is not available`);
     if (!readiness.ready && !readiness.failure) {
-      await Promise.race([
-        readiness.promise,
-        new Promise<void>((_, reject) => {
-          window.setTimeout(() => reject(new Error("Terminal startup timed out")), 10_000);
-        }),
-      ]);
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      let onAbort: (() => void) | undefined;
+      try {
+        await Promise.race([
+          readiness.promise,
+          new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error("Terminal startup timed out")), 10_000);
+            onAbort = () => reject(new Error("Terminal command cancelled"));
+            signal?.addEventListener("abort", onAbort, { once: true });
+          }),
+        ]);
+      } finally {
+        if (timeoutId !== undefined) clearTimeout(timeoutId);
+        if (onAbort) signal?.removeEventListener("abort", onAbort);
+      }
     }
     if (readiness.failure) throw readiness.failure;
+    if (signal?.aborted) throw new Error("Terminal command cancelled");
   }
 
   async executeCommand(id: string | null, command: string): Promise<void> {
@@ -144,7 +203,10 @@ class TerminalServiceImpl {
     }
     EventBus.emit("app:toggle-terminal", true);
 
+    const session = this.readiness.get(targetId);
     await this.waitForTerminalReady(targetId);
+    if (this.readiness.get(targetId) !== session || session?.failure)
+      throw new Error("Terminal session was closed or replaced");
     await PtyIPC.write(targetId, `${command}\r\n`);
   }
 
@@ -153,94 +215,98 @@ class TerminalServiceImpl {
     command: string,
     signal?: AbortSignal,
   ): Promise<{ exitCode: number; output: string }> {
+    if (signal?.aborted) throw new Error("Terminal command cancelled");
     let targetId = id ?? this.activeTerminalId;
     if (!targetId) targetId = (await this.ensureDefaultTerminal()).id;
     const terminal = this.terminals.find((item) => item.id === targetId);
     if (!terminal) throw new Error(`Terminal ${targetId} is not available`);
     const commandTargetId = targetId;
     EventBus.emit("app:toggle-terminal", true);
-    await this.waitForTerminalReady(targetId);
+    const session = this.readiness.get(targetId);
+    await this.waitForTerminalReady(targetId, signal);
+    if (this.readiness.get(targetId) !== session || session?.failure)
+      throw new Error("Terminal session was closed or replaced");
+    const sessionId = session?.sessionId;
 
     const token = `__AURONA_CMD_${Date.now()}_${Math.random().toString(36).slice(2)}__`;
-    const shellId = terminal.shell.id.toLowerCase();
-    const wrapped = ["powershell", "pwsh"].includes(shellId)
-      ? `& { ${command}\n$__aurona_exit = if ($LASTEXITCODE -ne $null) { $LASTEXITCODE } else { 0 }; Write-Output "${token}:$__aurona_exit" }`
-      : `{ ${command}\n; __aurona_exit=$?; printf '\\n${token}:%s\\n' "$__aurona_exit"; }`;
+    const wrapped = wrapTerminalCommand(terminal.shell.id, command, token);
 
     let output = "";
-    let settled = false;
-    let timeoutId: number | undefined;
-    let removeOutput: (() => void) | undefined;
-    let removeExit: (() => void) | undefined;
-    let removeAbort: (() => void) | undefined;
-    const finish = (
-      resolve: (value: { exitCode: number; output: string }) => void,
-      reject: (error: Error) => void,
-      result?: { exitCode: number; output: string },
-      error?: Error,
-    ) => {
-      if (settled) return;
-      settled = true;
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
-      removeOutput?.();
-      removeExit?.();
-      removeAbort?.();
-      if (result) resolve(result);
-      else reject(error ?? new Error("Terminal command failed"));
-    };
-
+    const scope = new DisposableScope();
+    const decoder = new TextDecoder();
     return new Promise((resolve, reject) => {
+      const finish = (result?: { exitCode: number; output: string }, error?: unknown) => {
+        if (scope.isDisposed) return;
+        try {
+          scope.dispose();
+        } catch (cleanupError) {
+          console.warn("Unable to release terminal command listeners", cleanupError);
+        }
+        if (result) resolve(result);
+        else reject(error instanceof Error ? error : new Error(String(error)));
+      };
+      const cancel = (error: Error) => finish(undefined, error);
+      const commands = this.commands.get(commandTargetId) ?? new Set();
+      commands.add(cancel);
+      this.commands.set(commandTargetId, commands);
+      scope.add(() => {
+        commands.delete(cancel);
+        if (commands.size === 0 && this.commands.get(commandTargetId) === commands)
+          this.commands.delete(commandTargetId);
+      });
+      let dispatched = false;
+      const onAbort = () => {
+        if (dispatched) void PtyIPC.write(commandTargetId, "\u0003").catch(() => undefined);
+        finish(undefined, new Error("Terminal command cancelled"));
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+      scope.add(() => signal?.removeEventListener("abort", onAbort));
+      const timeoutId = setTimeout(
+        () => finish(undefined, new Error("Terminal command timed out")),
+        120_000,
+      );
+      scope.add(() => clearTimeout(timeoutId));
+      if (signal?.aborted) return onAbort();
       void (async () => {
         const decode = (data: string) => {
           const raw = atob(data);
           const bytes = Uint8Array.from(raw, (character) => character.charCodeAt(0));
-          return new TextDecoder().decode(bytes);
+          return decoder.decode(bytes, { stream: true });
         };
-        removeOutput = await PtyIPC.listenOutput((payload) => {
-          if (payload.id !== commandTargetId) return;
-          output = `${output}${decode(payload.data)}`.slice(-128_000);
-          const match = output.match(new RegExp(`${token}:(\\d+)`));
-          if (match) {
-            const exitCode = Number(match[1]);
-            const marker = match.index ?? output.length;
-            finish(resolve, reject, { exitCode, output: output.slice(0, marker).trim() });
-          }
-        });
-        removeExit = await PtyIPC.listenExit((payload) => {
-          if (payload.id === commandTargetId && !settled) {
-            finish(resolve, reject, undefined, new Error(payload.reason));
-          }
-        });
-        const onAbort = () => {
-          void PtyIPC.write(commandTargetId, "\u0003").catch(() => undefined);
-          finish(resolve, reject, undefined, new Error("Terminal command cancelled"));
-        };
-        signal?.addEventListener("abort", onAbort, { once: true });
-        removeAbort = () => signal?.removeEventListener("abort", onAbort);
-        timeoutId = window.setTimeout(
-          () => finish(resolve, reject, undefined, new Error("Terminal command timed out")),
-          120_000,
+        scope.add(
+          await PtyIPC.listenOutput((payload) => {
+            if (scope.isDisposed) return;
+            if (payload.id !== commandTargetId || (sessionId && payload.session_id !== sessionId))
+              return;
+            output = `${output}${decode(payload.data)}`.slice(-128_000);
+            const match = output.match(new RegExp(`(?:^|\\r?\\n)${token}:(-?\\d+)\\r?\\n`));
+            if (match) {
+              const exitCode = Number(match[1]);
+              const marker = match.index ?? output.length;
+              finish({ exitCode, output: output.slice(0, marker).trim() });
+            }
+          }),
         );
-        if (signal?.aborted) return onAbort();
-        try {
-          await PtyIPC.write(commandTargetId, `${wrapped}\r\n`);
-        } catch (error) {
-          finish(
-            resolve,
-            reject,
-            undefined,
-            error instanceof Error ? error : new Error(String(error)),
-          );
-        }
-      })().catch((error) => {
-        finish(
-          resolve,
-          reject,
-          undefined,
-          error instanceof Error ? error : new Error(String(error)),
+        if (scope.isDisposed) return;
+        scope.add(
+          await PtyIPC.listenExit((payload) => {
+            if (
+              payload.id === commandTargetId &&
+              (!sessionId || payload.session_id === sessionId)
+            ) {
+              finish(undefined, new Error(payload.reason));
+            }
+          }),
         );
-      });
+        if (scope.isDisposed) return;
+        dispatched = true;
+        await PtyIPC.write(commandTargetId, `${wrapped}\r\n`);
+      })().catch((error) => finish(undefined, error));
     });
+  }
+
+  private cancelCommands(id: string, error: Error): void {
+    for (const cancel of Array.from(this.commands.get(id) ?? [])) cancel(error);
   }
 
   async clearTerminal(id: string): Promise<void> {
@@ -248,6 +314,9 @@ class TerminalServiceImpl {
   }
 
   dispose(): void {
+    this.generation++;
+    for (const id of this.commands.keys())
+      this.cancelCommands(id, new Error("Terminal service was disposed"));
     const terminalIds = this.terminals.map((terminal) => terminal.id);
     for (const readiness of this.readiness.values()) {
       readiness.failure = new Error("Terminal service was disposed");
@@ -256,6 +325,7 @@ class TerminalServiceImpl {
     this.terminals = [];
     this.activeTerminalId = null;
     this.cachedShells = null;
+    this.shellDiscovery = null;
     this.readiness.clear();
     this.nextIndex = 1;
     this.implicitTerminalCreation = null;

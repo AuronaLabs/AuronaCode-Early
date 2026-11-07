@@ -20,7 +20,7 @@ export const EditorSaveRegistry = {
       if (document?.openState !== "open") return false;
       try {
         await DocumentService.flush(path);
-        if (document.isDirty) await DocumentService.save(path);
+        if (DocumentService.get(path)?.isDirty) await DocumentService.save(path);
         return !DocumentService.get(path)?.isDirty;
       } catch {
         return false;
@@ -31,4 +31,4 @@ export const EditorSaveRegistry = {
   },
 };
 
-import { DocumentService } from "./DocumentService";
+import { DocumentService } from "./Documents";

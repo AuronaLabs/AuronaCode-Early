@@ -15,7 +15,7 @@
 | P2 | `Src/App/Styles/materials.css:321-337` 的玻璃边缘高光和同文件 `:379-392` 的 `.glass-accent-halo::after` 共用伪元素；`Src/UI/Feedback/Toast.tsx:111` 同时使用两类。 | `box-shadow` 与 `background` 属于不同属性，当前 CSS 会合并，尚无证据表明 rim 消失。但两种效果共享层级、透明度和裁剪上下文，难以独立调校；在设计样张中复核是否需要分层。 |
 | P2 | `Src/App/Styles/materials.css:65-196` 的流光常驻五个大型渐变层，子层常驻 `will-change: transform, opacity, filter`；`Src/Layout/AppShell.tsx:139` 始终挂载容器。 | 关闭流光或减少动态效果时仍可能占用合成资源。通过 WebView2 性能数据决定按需挂载、限制合成提示生命周期和简化层数；源码本身不足以证明实际卡顿。 |
 | P2 | 深色最高玻璃档在 `Src/UI/Core/GlassManager/glassConfig.ts:80-103` 达到 base/raised/overlay 24/36/44px 模糊。 | 测试大浮层、长列表及强度滑块时的帧率、GPU 与对比度，再决定模糊上限和降级条件。不要以模糊半径代替真实材质层次。 |
-| P2 | `tokens.css` 约 952 行，混合主题、颜色、密度与全局基础样式；`Src/App/Styles/components.css:103-157` 重复设置全局滚动条；`Docs/Design-Principles.md:16` 仍建议 `rounded-xl`。 | 按语义拆分令牌、主题配色、基础规则和组件规则，删除相互覆盖的旧声明，同步设计文档与样式边界检查。 |
+| P2 | `tokens.css` 约 952 行，混合主题、颜色、密度与全局基础样式；`Src/App/Styles/components.css:103-157` 重复设置全局滚动条；`Docs/Architecture/Design-Principles.md:16` 仍建议 `rounded-xl`。 | 按语义拆分令牌、主题配色、基础规则和组件规则，删除相互覆盖的旧声明，同步设计文档与样式边界检查。 |
 | P2 | `Src/App/Styles/tokens.css:905` 的全局 `*:focus-visible` 强制控件半径。 | 方形、圆形与浮层的焦点轮廓可能不贴合边界；改为继承组件形状并用键盘逐项检查。 |
 
 ## 排版审查结论与待验证点

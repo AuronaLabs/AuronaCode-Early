@@ -36,18 +36,19 @@ async function delay(milliseconds: number): Promise<void> {
   await new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
-async function readStatus(): Promise<AccountAuthStatus> {
-  return publish(await AccountAuthIPC.status());
+async function readStatus(epoch = generation, isCurrent = () => true): Promise<AccountAuthStatus> {
+  const status = await AccountAuthIPC.status();
+  return epoch === generation && isCurrent() ? publish(status) : snapshot;
 }
 
 async function waitForAuthorization(operationGeneration: number): Promise<AccountAuthStatus> {
   const deadline = Date.now() + AUTHORIZATION_TIMEOUT_MS;
   while (operationGeneration === generation && Date.now() < deadline) {
-    const status = await readStatus();
+    const status = await readStatus(operationGeneration);
     if (!isPending(status)) return status;
     await delay(POLL_INTERVAL_MS);
   }
-  return readStatus();
+  return operationGeneration === generation ? readStatus(operationGeneration) : snapshot;
 }
 
 export const AccountService = {
@@ -58,11 +59,14 @@ export const AccountService = {
     return () => listeners.delete(listener);
   },
 
-  async initialize(): Promise<AccountAuthStatus> {
+  async initialize(isCurrent = () => true): Promise<AccountAuthStatus> {
+    const epoch = generation;
     try {
-      return publish(await AccountAuthIPC.restore());
+      const status = await AccountAuthIPC.restore();
+      return epoch === generation && isCurrent() ? publish(status) : snapshot;
     } catch {
-      return readStatus().catch(() => snapshot);
+      if (epoch !== generation || !isCurrent()) return snapshot;
+      return readStatus(epoch, isCurrent).catch(() => snapshot);
     }
   },
 
@@ -73,39 +77,47 @@ export const AccountService = {
   login(): Promise<AccountAuthStatus> {
     if (operation) return operation;
     const operationGeneration = ++generation;
-    operation = (async () => {
+    const request = (async () => {
       try {
         await AccountAuthIPC.start();
-        await readStatus();
+        if (operationGeneration !== generation) return snapshot;
+        await readStatus(operationGeneration);
         return await waitForAuthorization(operationGeneration);
       } catch (error) {
-        await readStatus().catch(() => undefined);
+        if (operationGeneration === generation)
+          await readStatus(operationGeneration).catch(() => undefined);
         throw error;
       } finally {
-        operation = null;
+        if (operationGeneration === generation) operation = null;
       }
     })();
+    operation = request;
     return operation;
   },
 
   async cancelLogin(): Promise<AccountAuthStatus> {
-    generation += 1;
+    const epoch = ++generation;
+    operation = null;
     await AccountAuthIPC.cancel();
-    return readStatus();
+    return readStatus(epoch);
   },
 
   async refresh(): Promise<AccountAuthStatus> {
-    return publish(await AccountAuthIPC.refresh());
+    const epoch = generation;
+    const status = await AccountAuthIPC.refresh();
+    return epoch === generation ? publish(status) : snapshot;
   },
 
   async logout(): Promise<AccountAuthStatus> {
-    generation += 1;
+    const epoch = ++generation;
+    operation = null;
     await AccountAuthIPC.logout();
-    return readStatus();
+    return readStatus(epoch);
   },
 
   async shutdown(): Promise<void> {
     generation += 1;
+    operation = null;
     await AccountAuthIPC.shutdown();
   },
 };

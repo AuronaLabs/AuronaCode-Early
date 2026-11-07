@@ -1,7 +1,7 @@
 import { useEffect } from "react";
+import { CommandRegistry } from "../Core/Commands/CommandRegistry";
 import { LanguageConfigurationService } from "../Core/LanguageConfigurationService";
 import { UpdaterService } from "../Core/UpdaterService";
-import { CommandRegistry } from "../Extension/CommandRegistry";
 import { setupMacApplicationMenu } from "../Foundation/Desktop";
 import { Logger } from "../Foundation/Logger";
 import { PlatformService } from "../Foundation/Platform";
@@ -9,7 +9,7 @@ import { AppShell } from "../Layout/AppShell";
 import { WorkspaceView } from "../Layout/Workspace";
 import { isRunnable } from "../Shared/Constants/RunConfig";
 import { useFeatureFlagStore } from "../State/useFeatureFlagStore";
-import { useWorkbenchStore } from "../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../State/Workbench/useWorkbenchStore";
 import { useGlassStore } from "../UI/Core/GlassManager";
 
 export default function App() {

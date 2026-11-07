@@ -309,6 +309,7 @@ export const zhCN = {
     error: "无法读取符号",
   },
   changelog: {
+    unreleased: "开发中 · 未发布",
     title: "版本更新记录",
     latest: "最新版本",
     expand: "展开",

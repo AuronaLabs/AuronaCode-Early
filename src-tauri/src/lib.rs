@@ -16,6 +16,7 @@ mod dap;
 mod editor;
 mod extensions;
 mod file_uploads;
+mod git;
 mod highlight;
 mod launch_registry;
 mod lsp;
@@ -35,6 +36,7 @@ mod scoped_file;
 mod search;
 mod tasks;
 pub mod toolchains;
+mod workspace;
 mod workspace_approval;
 
 use commands::dap_cmds::DapState;
@@ -74,8 +76,8 @@ pub fn run() {
         .manage(app_storage::AppStorageState::default())
         .manage(agent_storage::AgentStorageState::default())
         .manage(app_update::UpdateState::default())
-        .manage(commands::fs::WorkspaceState::new())
-        .manage(commands::git::GitState::default())
+        .manage(workspace::WorkspaceState::new())
+        .manage(git::GitState::default())
         .manage(file_uploads::FileUploadState::default())
         .manage(marketplace::MarketplaceState::default())
         .manage(ExtensionState::new())
@@ -258,12 +260,12 @@ pub fn run() {
             commands::ipc::clear_toolchains,
             commands::ipc::mark_splashscreen_shown,
             commands::ipc::close_splashscreen,
-            editor::open_editor_file,
-            editor::editor_open_dialog,
-            editor::apply_editor_edits,
-            editor::get_editor_lines,
-            editor::save_editor_file,
-            editor::close_editor_file,
+            editor::ipc::open_editor_file,
+            editor::ipc::editor_open_dialog,
+            editor::ipc::apply_editor_edits,
+            editor::ipc::get_editor_lines,
+            editor::ipc::save_editor_file,
+            editor::ipc::close_editor_file,
         ])
         .build(tauri::generate_context!())
         .expect("failed to build Aurona Code")

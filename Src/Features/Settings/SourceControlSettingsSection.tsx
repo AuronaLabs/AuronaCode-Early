@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { type GitFullStatus, GitService } from "../../Core/Git";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
-import { type GitFullStatus, GitIPC } from "../../Foundation/IPC/GitCommands";
 import { WorkspaceStore } from "../../Foundation/Storage/WorkspaceStore";
 import { Button } from "../../UI/Components/Button";
 import { Input } from "../../UI/Components/Input";
@@ -55,7 +55,7 @@ export function SourceControlSettingsSection() {
     }
 
     try {
-      const repoExists = await GitIPC.checkIsRepo(path);
+      const repoExists = await GitService.checkIsRepo(path);
       if (requestId !== requestIdRef.current) return;
       setIsRepo(repoExists);
       if (!repoExists) {
@@ -63,8 +63,8 @@ export function SourceControlSettingsSection() {
       }
 
       const [statusResult, remoteResult] = await Promise.allSettled([
-        GitIPC.getFullStatus(path),
-        GitIPC.getRemote(path),
+        GitService.getFullStatus(path),
+        GitService.getRemote(path),
       ]);
       if (requestId !== requestIdRef.current) return;
       if (statusResult.status === "fulfilled") {
@@ -124,7 +124,7 @@ export function SourceControlSettingsSection() {
 
     setIsSavingGit(true);
     try {
-      await GitIPC.setRemote(repoPath, finalUrl);
+      await GitService.setRemote(repoPath, finalUrl);
       if (currentPathRef.current === repoPath) await loadRepository(repoPath);
       showToast(t("settings.toast.remoteUpdated"), "success");
     } catch (error) {
@@ -138,7 +138,7 @@ export function SourceControlSettingsSection() {
     if (!repoPath || !savedRemoteUrl || isFetching) return;
     setIsFetching(true);
     try {
-      await GitIPC.fetch(repoPath);
+      await GitService.fetch(repoPath);
       if (currentPathRef.current === repoPath) await loadRepository(repoPath);
       showToast(
         t("sourceControl.repoActionCompleted").replace("{label}", t("sourceControl.fetchUpdates")),
@@ -160,7 +160,7 @@ export function SourceControlSettingsSection() {
     if (!repoPath || isInitializing) return;
     setIsInitializing(true);
     try {
-      await GitIPC.init(repoPath);
+      await GitService.init(repoPath);
       if (currentPathRef.current === repoPath) await loadRepository(repoPath);
     } catch (error) {
       showToast(t("sourceControl.initFailed").replace("{message}", String(error)), "error");

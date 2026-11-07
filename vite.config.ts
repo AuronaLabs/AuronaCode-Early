@@ -21,7 +21,18 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     watch: {
-      ignored: ["**/src-tauri/**"],
+      // Watch source, not local package caches, Rust output or release evidence.
+      ignored: [
+        "**/src-tauri/**",
+        "**/.pnpm-store/**",
+        "**/Extensions/**/target/**",
+        "**/candidate/**",
+        "**/candidate-assets-*/**",
+        "**/target-quality/**",
+        "**/MarketplacePackages/**",
+        "**/.aurona-local/**",
+        "**/.aurona-local*.log",
+      ],
     },
   },
   build: {
