@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { CommandRegistry } from "../../Extension/CommandRegistry";
+import { CommandRegistry } from "../../Core/Commands/CommandRegistry";
 import { desktopApp, desktopWindow } from "../../Foundation/Desktop";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { isPioneerBuild } from "../../Foundation/Release/ReleaseChannel";
 import { isRunnable } from "../../Shared/Constants/RunConfig";
-import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../../State/Workbench/useWorkbenchStore";
 import {
   MenubarContent,
   MenubarDivider,

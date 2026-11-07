@@ -3,7 +3,7 @@ import { PlatformService } from "../Foundation/Platform";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 import type { LanguageServerConfiguration } from "../Foundation/Types/Config";
 import { FileSystemService } from "./FileSystemService";
-import { WorkspaceService } from "./WorkspaceService";
+import { WorkspaceService } from "./Workspace";
 
 interface WorkspaceLanguageConfiguration {
   languages?: Record<

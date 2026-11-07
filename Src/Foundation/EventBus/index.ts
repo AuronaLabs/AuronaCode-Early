@@ -126,7 +126,7 @@ export interface EventMap {
   "fs:changed": FileSystemChangePayload;
 }
 
-type EventCallback<T = unknown> = (payload: T) => void;
+type EventCallback<T = unknown> = (payload: T) => unknown;
 
 class EventBusImpl {
   private readonly listeners = {} as {
@@ -150,7 +150,7 @@ class EventBusImpl {
   once<K extends keyof EventMap>(event: K, callback: EventCallback<EventMap[K]>): () => void {
     const onceWrapper: EventCallback<EventMap[K]> = (payload) => {
       this.off(event, onceWrapper);
-      callback(payload);
+      return callback(payload);
     };
     return this.on(event, onceWrapper);
   }
@@ -177,7 +177,12 @@ class EventBusImpl {
     const currentListeners = [...(this.listeners[event] ?? [])];
     for (const callback of currentListeners) {
       try {
-        callback(args[0] as EventMap[K]);
+        const result = callback(args[0] as EventMap[K]);
+        if (result && typeof (result as PromiseLike<unknown>).then === "function") {
+          void Promise.resolve(result).catch((error) => {
+            console.error(`[EventBus] Async handler failed for ${String(event)}:`, error);
+          });
+        }
       } catch (error) {
         console.error(`[EventBus] 事件 ${String(event)} 处理器执行异常:`, error);
       }

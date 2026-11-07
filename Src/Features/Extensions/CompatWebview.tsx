@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { buildCompatWebviewDocument } from "../../Foundation/Security/CompatWebviewDocument";
 import type { CompatWebviewState } from "../../Foundation/Types/ExtensionUI";
+import { useThemeSnapshot } from "../../UI/Core/useThemeSnapshot";
 
 export function CompatWebview({
   panel,
@@ -11,6 +12,7 @@ export function CompatWebview({
   theme: string;
   onAction?: (id: string, payload?: unknown) => void | Promise<void>;
 }) {
+  const snapshot = useThemeSnapshot(theme);
   const frame = useRef<HTMLIFrameElement>(null);
   const state = useRef<unknown>(undefined);
   const channel = useRef(crypto.randomUUID()).current;
@@ -19,12 +21,13 @@ export function CompatWebview({
   const queue = useRef<Promise<void>>(Promise.resolve());
   const html = useMemo(
     () =>
-      buildCompatWebviewDocument(panel.html, panel.enableScripts, channel, theme, state.current),
-    [panel.html, panel.enableScripts, channel, theme],
+      buildCompatWebviewDocument(panel.html, panel.enableScripts, channel, snapshot, state.current),
+    [panel.html, panel.enableScripts, channel, snapshot],
   );
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new srcDoc must wait for its own load event
   useEffect(() => {
     ready.current = false;
+    delivered.current = 0;
   }, [html]);
   useEffect(() => {
     let active = true;

@@ -142,9 +142,7 @@ async fn download_artifact(
     extension_id: String,
     version: Option<String>,
 ) -> Result<ArtifactHandle, String> {
-    let generation = app
-        .state::<crate::commands::fs::WorkspaceState>()
-        .generation();
+    let generation = app.state::<crate::workspace::WorkspaceState>().generation();
     let origin = crate::network_policy::validate_download_url(
         &url,
         crate::network_policy::DownloadPurpose::Extension,
@@ -282,11 +280,7 @@ async fn download_artifact(
     }) {
         return Err("[signature.hash] Download does not match the signed artifact".into());
     }
-    if app
-        .state::<crate::commands::fs::WorkspaceState>()
-        .generation()
-        != generation
-    {
+    if app.state::<crate::workspace::WorkspaceState>().generation() != generation {
         return Err("[workspace.generation] Workspace changed during artifact download".into());
     }
     let handle = state.insert(Artifact {
@@ -324,9 +318,7 @@ pub async fn artifact_pick(
         "toolchain" => crate::resource_limits::DOWNLOAD_BYTES,
         _ => return Err("[artifact.kind] Unknown artifact kind".into()),
     };
-    let generation = app
-        .state::<crate::commands::fs::WorkspaceState>()
-        .generation();
+    let generation = app.state::<crate::workspace::WorkspaceState>().generation();
     let _permit = crate::resource_limits::DOWNLOADS
         .try_acquire()
         .map_err(|_| "[resource.limit] Artifact acquisition concurrency limit reached")?;
@@ -388,11 +380,7 @@ pub async fn artifact_pick(
     })
     .await
     .map_err(|e| e.to_string())??;
-    if app
-        .state::<crate::commands::fs::WorkspaceState>()
-        .generation()
-        != generation
-    {
+    if app.state::<crate::workspace::WorkspaceState>().generation() != generation {
         return Err("[workspace.generation] Workspace changed during artifact selection".into());
     }
     Ok(Some(state.insert(artifact)?))
@@ -402,9 +390,7 @@ pub async fn install_vscode(
     app: tauri::AppHandle,
     artifact_id: &str,
 ) -> Result<super::extensions::registry::ExtensionDescriptor, String> {
-    let generation = app
-        .state::<crate::commands::fs::WorkspaceState>()
-        .generation();
+    let generation = app.state::<crate::workspace::WorkspaceState>().generation();
     let artifact = app
         .state::<ArtifactState>()
         .take(artifact_id, "vscode", generation)?;
@@ -440,11 +426,7 @@ pub async fn install_vscode(
             return Err("[artifact.cancelled] VSIX installation cancelled".into());
         }
     }
-    if app
-        .state::<crate::commands::fs::WorkspaceState>()
-        .generation()
-        != generation
-    {
+    if app.state::<crate::workspace::WorkspaceState>().generation() != generation {
         return Err("[workspace.generation] Workspace changed during VSIX approval".into());
     }
     tokio::task::spawn_blocking(move || {
@@ -464,9 +446,7 @@ pub async fn install_toolchain(
     let tasks = app.state::<crate::tasks::TaskState>();
     let task = tasks.begin(task_id)?;
     let cancelled = task.flag();
-    let generation = app
-        .state::<crate::commands::fs::WorkspaceState>()
-        .generation();
+    let generation = app.state::<crate::workspace::WorkspaceState>().generation();
     let artifact = app
         .state::<ArtifactState>()
         .take(artifact_id, "toolchain", generation)?;
@@ -502,11 +482,7 @@ pub async fn install_toolchain(
             return Err("[artifact.cancelled] Toolchain installation cancelled".into());
         }
     }
-    if generation
-        != app
-            .state::<crate::commands::fs::WorkspaceState>()
-            .generation()
-    {
+    if generation != app.state::<crate::workspace::WorkspaceState>().generation() {
         return Err("[workspace.generation] Workspace changed during authorization".into());
     }
     let install_app = app.clone();
@@ -546,9 +522,7 @@ pub async fn install_extension(
     artifacts: &ArtifactState,
     id: &str,
 ) -> Result<super::extensions::registry::ExtensionDescriptor, String> {
-    let generation = app
-        .state::<crate::commands::fs::WorkspaceState>()
-        .generation();
+    let generation = app.state::<crate::workspace::WorkspaceState>().generation();
     let artifact = artifacts.take(id, "extension", generation)?;
     let policy = crate::extensions::security_policy::ExtensionSecurityPolicy::load(&app);
     policy.require_package(artifact.signed.is_some())?;
@@ -627,11 +601,7 @@ pub async fn install_extension(
             return Err("[artifact.cancelled] Local extension installation cancelled".into());
         }
     }
-    if app
-        .state::<crate::commands::fs::WorkspaceState>()
-        .generation()
-        != generation
-    {
+    if app.state::<crate::workspace::WorkspaceState>().generation() != generation {
         return Err("[workspace.generation] Workspace changed during authorization".into());
     }
     tokio::task::spawn_blocking(move || {

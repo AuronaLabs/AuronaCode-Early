@@ -124,6 +124,7 @@ export function ChangelogTab() {
     const text = [
       release.version,
       release.date,
+      release.isUnreleased ? t("changelog.unreleased") : "",
       release.summary ?? "",
       ...release.sections.flatMap((section) => [
         section.title,
@@ -176,12 +177,12 @@ export function ChangelogTab() {
         {formatDisplayVersion(release.version)}
       </span>
       <span className="rounded-control border border-[var(--border-subtle)] bg-[var(--material-panel)] px-2.5 py-0.5 text-[12px] font-medium text-[var(--color-text-muted)]">
-        {release.date}
+        {release.isUnreleased ? t("changelog.unreleased") : release.date}
       </span>
       {preReleaseLabel(release.version) && (
         <Badge variant="neutral">{preReleaseLabel(release.version)}</Badge>
       )}
-      {release.isLatest && <Badge>{t("changelog.latest")}</Badge>}
+      {release.isLatest && !release.isUnreleased && <Badge>{t("changelog.latest")}</Badge>}
     </span>
   );
 

@@ -7,13 +7,13 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { startExtensionHostBridge } from "../App/Contributions/ExtensionHostBridge";
 import { syncAgentExecutorRegistration } from "../Core/Agent/AgentToolExecutor";
-import { DocumentService } from "../Core/DocumentService";
+import { DocumentService } from "../Core/Documents";
 import { EditorSaveRegistry } from "../Core/EditorSaveRegistry";
 import { RecoveryCoordinator } from "../Core/Recovery/RecoveryCoordinator";
 import { EditorTabBar } from "../Features/Editor/EditorTabBar";
 import { startExtensionEditorBridge } from "../Features/Extensions/ExtensionEditorBridge";
-import { startExtensionHostBridge } from "../Features/Extensions/ExtensionHostBridge";
 import { ExtensionHostDialogs } from "../Features/Extensions/ExtensionHostDialogs";
 import { ExtensionSidebar } from "../Features/Extensions/ExtensionSidebar";
 import { ExtensionsPanel } from "../Features/Extensions/ExtensionsPanel";
@@ -24,8 +24,6 @@ import { AboutTab } from "../Features/Settings/AboutTab";
 import { ChangelogTab } from "../Features/Settings/ChangelogTab";
 import { PerformanceBenchmarkPage } from "../Features/Settings/PerformanceBenchmarkPage";
 import { SettingsTab } from "../Features/Settings/SettingsTab";
-import { LanguageModals } from "../Features/Workspace/Components/LanguageModals";
-import { WorkspaceBottomPanel } from "../Features/Workspace/Components/WorkspaceBottomPanel";
 import { useLocale } from "../Foundation/I18n";
 import type { TabItem } from "../Foundation/Types/Tab";
 import {
@@ -43,7 +41,7 @@ import {
   DEFAULT_BOTTOM_PANEL_HEIGHT,
   DEFAULT_SIDEBAR_WIDTH,
   useWorkbenchStore,
-} from "../State/useWorkspaceStore";
+} from "../State/Workbench/useWorkbenchStore";
 import { Button } from "../UI/Components/Button";
 import { Card } from "../UI/Components/Card";
 import { Modal } from "../UI/Components/Modal";
@@ -53,6 +51,8 @@ import { ViewStateContext, ViewStateStore } from "../UI/Core/ViewState";
 import { Icons } from "../UI/Icons/IconManager";
 import { HOT_VIEW_LIMIT, selectHotViews } from "./HotViewCache";
 import { LazyChunkBoundary, lazyChunk } from "./LazyChunkBoundary";
+import { LanguageModals } from "./Workbench/LanguageModals";
+import { WorkspaceBottomPanel } from "./Workbench/WorkspaceBottomPanel";
 
 type FileExplorerProps = { onFileSelect: (path: string) => void };
 type EditorTabProps = {

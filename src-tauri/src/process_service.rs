@@ -541,7 +541,7 @@ mod tests {
 
     #[test]
     fn stdout_and_stderr_are_drained_concurrently_after_the_retention_limit() {
-        let error = capture_with_timeout("node", &["-e", "const b=Buffer.alloc(65536,120);for(let i=0;i<96;i++){require('fs').writeSync(1,b);require('fs').writeSync(2,b)}"], None, Duration::from_secs(30)).expect_err("output must be bounded");
+        let error = capture_with_timeout("node", &["-e", "const b=Buffer.alloc(65536,120);for(let i=0;i<96;i++){require('fs').writeSync(1,b);require('fs').writeSync(2,b)}"], None, Duration::from_secs(90)).expect_err("output must be bounded");
         assert!(error.contains("output_limit"), "{error}");
     }
 
@@ -596,9 +596,9 @@ mod tests {
         let mut managed = ManagedChild::attach(child).expect("process should join the job");
 
         // CI 的 Windows runner 首次启动 node.exe 时会被 Defender 实时扫描拖慢（内层还会再
-        // spawn 一个 node 子进程），5 秒远远不够。给到 30 秒的宽限；node 真缺失时
+        // spawn 一个 node 子进程），给到 90 秒的宽限；node 真缺失时
         // 上面的 spawn().expect() 会立刻失败，不会在这里空等。
-        let node_pid = tokio::time::timeout(Duration::from_secs(30), async {
+        let node_pid = tokio::time::timeout(Duration::from_secs(90), async {
             loop {
                 if let Ok(raw_pid) = tokio::fs::read_to_string(&pid_file).await {
                     if let Ok(process_id) = raw_pid.trim().parse::<u32>() {

@@ -109,7 +109,7 @@ vi.mock("./AuronaEngine", async () => {
 });
 vi.mock("../../UI/Feedback/Toast", () => ({ showToast: vi.fn() }));
 
-import { DocumentService } from "../../Core/DocumentService";
+import { DocumentService } from "../../Core/Documents";
 import { EditorSaveRegistry } from "../../Core/EditorSaveRegistry";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { EditorTab } from "./EditorTab";

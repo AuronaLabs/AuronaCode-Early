@@ -196,7 +196,7 @@ pub fn spawn_pty(
         return Err("Terminal id cannot be empty".to_string());
     }
     let _launch = state.launch_lock.lock().map_err(|e| e.to_string())?;
-    let workspace = app.state::<crate::commands::fs::WorkspaceState>();
+    let workspace = app.state::<crate::workspace::WorkspaceState>();
     let generation = workspace.generation();
     let cwd = workspace.require_directory(&cwd)?;
     if !state.sessions.contains_key(&id)

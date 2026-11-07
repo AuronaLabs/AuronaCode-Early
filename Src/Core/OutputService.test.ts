@@ -20,6 +20,24 @@ describe("OutputService", () => {
     expect(OutputService.getChannel("core").entries).toHaveLength(5_000);
   });
 
+  it("keeps logging and later subscribers working when one observer throws", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const offFailure = OutputService.subscribe(() => {
+      throw new Error("view failed");
+    });
+    const later = vi.fn();
+    const offLater = OutputService.subscribe(later);
+    try {
+      expect(() => OutputService.append("core", "operation succeeded")).not.toThrow();
+      expect(later).toHaveBeenCalledOnce();
+      expect(OutputService.getChannel("core").entries.at(-1)?.message).toBe("operation succeeded");
+    } finally {
+      offFailure();
+      offLater();
+      error.mockRestore();
+    }
+  });
+
   it("registers and reuses dynamic extension channels under the extension namespace", () => {
     const first = OutputService.ensureExtensionChannel("demo.ext.Build Log", "Build Log");
     const second = OutputService.ensureExtensionChannel("demo.ext.Build Log", "Build Log");

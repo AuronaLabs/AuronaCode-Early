@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { WorkspaceService } from "../../../Core/WorkspaceService";
+import { WorkspaceService } from "../../../Core/Workspace";
 import { EventBus } from "../../../Foundation/EventBus";
 import { Button } from "../../../UI/Components/Button";
 import { Card } from "../../../UI/Components/Card";

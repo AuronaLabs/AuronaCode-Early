@@ -1,6 +1,6 @@
-use crate::commands::fs::WorkspaceState;
 use crate::dap::{DapLaunch, DapSession, DapSessionInfo};
 use crate::launch_registry::{LaunchRegistry, LaunchSpec};
+use crate::workspace::WorkspaceState;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;

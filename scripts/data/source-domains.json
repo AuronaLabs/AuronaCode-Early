@@ -1,0 +1,57 @@
+[
+  {
+    "root": "Core/Workspace",
+    "public": [
+      "Core/Workspace/index.ts",
+      "Core/Workspace/WorkspacePath.ts"
+    ]
+  },
+  {
+    "root": "Core/Documents",
+    "public": [
+      "Core/Documents/index.ts"
+    ]
+  },
+  {
+    "root": "Core/Git",
+    "public": [
+      "Core/Git/index.ts"
+    ]
+  },
+  {
+    "root": "Core/Commands",
+    "public": [
+      "Core/Commands/CommandRegistry.ts"
+    ]
+  },
+  {
+    "root": "Core/Debug",
+    "public": [
+      "Core/Debug/index.ts",
+      "Core/Debug/DebugSessionStore.ts",
+      "Core/Debug/DebugConfigurationService.ts",
+      "Core/Debug/DebugVariableDiff.ts"
+    ]
+  },
+  {
+    "root": "Core/Extensions",
+    "public": [
+      "Core/Extensions/ExtensionRegistry.ts",
+      "Core/Extensions/Marketplace/MarketplaceService.ts",
+      "Core/Extensions/Host/AuronaSDKHost.ts",
+      "Core/Extensions/Views/ExtensionViewDocument.ts"
+    ]
+  },
+  {
+    "root": "Core/Configuration",
+    "public": [
+      "Core/Configuration/index.ts"
+    ]
+  },
+  {
+    "root": "Core/Workbench",
+    "public": [
+      "Core/Workbench/WorkbenchAccess.ts"
+    ]
+  }
+]

@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 import { FileSystemService } from "../../../Core/FileSystemService";
 import { useLocale } from "../../../Foundation/I18n";
 import { FileSystemCommands } from "../../../Foundation/IPC/FileSystemCommands";
-import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../../../State/Workbench/useWorkbenchStore";
 import { Tooltip } from "../../../UI/Feedback/Tooltip";
 import { Icons } from "../../../UI/Icons/IconManager";
 import "./MarkdownPreview.css";

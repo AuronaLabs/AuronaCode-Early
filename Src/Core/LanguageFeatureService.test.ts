@@ -25,7 +25,7 @@ vi.mock("../Foundation/EventBus", () => ({
   },
 }));
 
-vi.mock("./DocumentService", () => ({
+vi.mock("./Documents", () => ({
   DocumentService: {
     get: mocks.documentGet,
     applyEdits: mocks.applyEdits,

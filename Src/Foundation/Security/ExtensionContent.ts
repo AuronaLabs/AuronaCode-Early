@@ -93,7 +93,7 @@ export function extensionSvgDataUrl(source: string): string | null {
 
 function safeCss(source: string, context: "stylesheet" | "declarationList"): string {
   try {
-    const ast = css.parse(source, { context });
+    const ast = css.parse(source, { context, parseCustomProperty: true });
     let unsafe = false;
     css.walk(ast, (node) => {
       if (node.type === "Url" || node.type === "Raw") unsafe = true;

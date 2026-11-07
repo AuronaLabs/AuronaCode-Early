@@ -11,6 +11,50 @@ vi.mock("../Logger", () => ({ Logger: { warn: vi.fn(), error: vi.fn() } }));
 import { UserConfigStore } from "./UserConfigStore";
 
 describe("UserConfigStore credential migration and persistence", () => {
+  it("flush waits for an update requested before its initialization has completed", async () => {
+    let release!: () => void;
+    mocks.write.mockImplementationOnce(
+      () =>
+        new Promise<void>((done) => {
+          release = done;
+        }),
+    );
+    const mutation = UserConfigStore.set({ locale: "en" });
+    let finished = false;
+    const flushing = UserConfigStore.flush().then(() => {
+      finished = true;
+    });
+    await vi.waitFor(() => expect(mocks.write).toHaveBeenCalledOnce());
+    const premature = finished;
+    release();
+    await Promise.all([mutation, flushing]);
+    expect(premature).toBe(false);
+    expect((await UserConfigStore.get()).locale).toBe("en");
+  });
+  it("publishes only committed values and reports failures without leaking subscriptions", async () => {
+    for (let cycle = 0; cycle < 20; cycle++) {
+      const changed = vi.fn();
+      const failed = vi.fn();
+      const offChanged = UserConfigStore.subscribe(changed);
+      const offFailed = UserConfigStore.onWriteError(failed);
+      try {
+        mocks.write.mockRejectedValueOnce(new Error("disk full"));
+        await expect(UserConfigStore.set({ theme: "dark" })).rejects.toThrow("disk full");
+        expect(changed).not.toHaveBeenCalled();
+        expect(failed).toHaveBeenCalledOnce();
+        await UserConfigStore.set({ theme: "light" });
+        expect(changed).toHaveBeenCalledOnce();
+        expect(changed.mock.calls[0][0].theme).toBe("light");
+      } finally {
+        offChanged();
+        offChanged();
+        offFailed();
+        offFailed();
+      }
+      await UserConfigStore.set({ theme: "system" });
+      expect(changed).toHaveBeenCalledOnce();
+    }
+  });
   beforeEach(() => {
     vi.resetAllMocks();
     UserConfigStore.resetCache();

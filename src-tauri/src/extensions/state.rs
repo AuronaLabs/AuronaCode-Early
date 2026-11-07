@@ -142,9 +142,7 @@ impl ExtensionState {
         {
             return Ok(());
         }
-        let generation = app
-            .state::<crate::commands::fs::WorkspaceState>()
-            .generation();
+        let generation = app.state::<crate::workspace::WorkspaceState>().generation();
         let (sender, receiver) = tokio::sync::oneshot::channel();
         let (title, body) = crate::authorization_dialogs::text(
             app,
@@ -170,10 +168,7 @@ impl ExtensionState {
         ) {
             return Err("[extension.denied] Extension execution was not approved".into());
         }
-        if generation
-            != app
-                .state::<crate::commands::fs::WorkspaceState>()
-                .generation()
+        if generation != app.state::<crate::workspace::WorkspaceState>().generation()
             || self
                 .package(id)
                 .is_none_or(|current| current.archive_hash != package.archive_hash)

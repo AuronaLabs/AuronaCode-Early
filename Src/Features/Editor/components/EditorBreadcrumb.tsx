@@ -6,7 +6,7 @@ import {
   flattenDocumentSymbols,
 } from "../../../Core/Language/SymbolUtils";
 import { useEditorStore } from "../../../State/useEditorStore";
-import { useWorkbenchStore } from "../../../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../../../State/Workbench/useWorkbenchStore";
 import { Icons } from "../../../UI/Icons/IconManager";
 
 export function EditorBreadcrumb({ path, language }: { path: string; language: string }) {

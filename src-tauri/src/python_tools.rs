@@ -1,6 +1,6 @@
 use crate::{
-    commands::fs::WorkspaceState,
     launch_registry::{LaunchRegistry, LaunchSpec},
+    workspace::WorkspaceState,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

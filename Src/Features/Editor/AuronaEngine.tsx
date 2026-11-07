@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CommandRegistry } from "../../Core/Commands/CommandRegistry";
 import { DiagnosticsService } from "../../Core/DiagnosticsService";
 import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
-import { CommandRegistry } from "../../Extension/CommandRegistry";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";

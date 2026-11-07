@@ -9,7 +9,7 @@ import "./Styles/components.css";
 import "./Styles/editor-syntax.css";
 import "@fontsource/righteous";
 import "@fontsource/jetbrains-mono";
-import { CommandRegistry } from "../Extension/CommandRegistry";
+import { CommandRegistry } from "../Core/Commands/CommandRegistry";
 import { EventBus } from "../Foundation/EventBus";
 import { Logger } from "../Foundation/Logger";
 import { PlatformService } from "../Foundation/Platform";

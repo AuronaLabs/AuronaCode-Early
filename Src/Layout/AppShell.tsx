@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AgentService } from "../Core/Agent/AgentService";
+import { CommandRegistry } from "../Core/Commands/CommandRegistry";
 import { NotificationService } from "../Core/NotificationService";
-import { CommandRegistry } from "../Extension/CommandRegistry";
 import { FliunoModal as Fliuno } from "../Features/Fliuno/FliunoModal";
 import { UpdateModal } from "../Features/Updates/UpdateModal";
 import { EventBus } from "../Foundation/EventBus";
@@ -14,7 +14,7 @@ import {
   SIDEBAR_SOURCE_CONTROL,
 } from "../Shared/Constants/Sidebar";
 import { useExtensionStore } from "../State/useExtensionStore";
-import { useWorkbenchStore } from "../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../State/Workbench/useWorkbenchStore";
 import { ActivitySquare } from "../UI/Components/ActivitySquare";
 import {
   ContextMenuContent,

@@ -11,21 +11,19 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../Foundation/I18n", () => ({ useLocale: () => ({ t: (key: string) => key }) }));
-vi.mock("../../Core/WorkspaceService", () => ({
+vi.mock("../../Core/Workspace", () => ({
   WorkspaceService: {
     whenInitialized: async () => {},
     getCurrent: () => ({ primaryRoot: "C:/workspace" }),
   },
 }));
-vi.mock("../../Foundation/IPC/GitCommands", () => ({
-  GitIPC: {
-    getWorktreeDiff: mocks.getWorktreeDiff,
+vi.mock("../../Core/Git", () => ({
+  GitService: {
+    refresh: mocks.refresh,
+    getDiff: mocks.getWorktreeDiff,
     getCommitDiff: mocks.getCommitDiff,
     applyHunk: mocks.applyHunk,
   },
-}));
-vi.mock("../../Core/GitService", () => ({
-  GitService: { refresh: mocks.refresh },
 }));
 vi.mock("../../Foundation/EventBus", () => ({ EventBus: { emit: mocks.emit } }));
 vi.mock("../../UI/Feedback/Toast", () => ({ showToast: mocks.showToast }));

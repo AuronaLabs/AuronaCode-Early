@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DebugService } from "../../../Core/DebugService";
+import { DebugService } from "../../../Core/Debug";
 import { useLocale } from "../../../Foundation/I18n";
 import type { DebugVariable } from "../../../State/useDebugStore";
 import { Icons } from "../../../UI/Icons/IconManager";

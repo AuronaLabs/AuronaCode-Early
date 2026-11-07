@@ -1,22 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { applyAccentTheme, applyLiquidTexture } from "../../App/ThemeAccent";
+import { CommandRegistry } from "../../Core/Commands/CommandRegistry";
 import {
   SETTING_CATEGORY_KEYS,
   type SettingCategory,
   searchSettings,
 } from "../../Core/Settings/SettingRegistry";
-import { CommandRegistry } from "../../Extension/CommandRegistry";
 import { EventBus } from "../../Foundation/EventBus";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
-import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
-import type { AccentThemeId } from "../../Foundation/Types/Config";
 import type { SettingsSection } from "../../Foundation/Types/Settings";
 import { cn } from "../../Shared/Utils/cn";
 import { Button } from "../../UI/Components/Button";
 import { EmptyState } from "../../UI/Components/EmptyState";
 import { Input } from "../../UI/Components/Input";
 import { SettingsNavItem } from "../../UI/Components/SettingsNavItem";
-import { GlassContainer, useGlassStore } from "../../UI/Core/GlassManager";
+import { GlassContainer } from "../../UI/Core/GlassManager";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { useViewActivity } from "../../UI/Core/ViewActivity";
 import { useRetainedViewState } from "../../UI/Core/ViewState";
@@ -29,9 +26,10 @@ import { AppearanceSettingsSection } from "./AppearanceSettingsSection";
 import { DebugSettings } from "./DebugSettings";
 import { EditorSettingsSection } from "./EditorSettingsSection";
 import { ExtensionsSettingsSection } from "./ExtensionsSettingsSection";
-import { type Density, GeneralSettingsSection } from "./GeneralSettingsSection";
+import { GeneralSettingsSection } from "./GeneralSettingsSection";
+import { useWorkbenchPreferences } from "./hooks/useWorkbenchPreferences";
 import { LanguageServiceSettings } from "./LanguageServiceSettings";
-import { NetworkSettingsSection, type ProxyMode } from "./NetworkSettingsSection";
+import { NetworkSettingsSection } from "./NetworkSettingsSection";
 import { SecuritySettingsSection } from "./SecuritySettingsSection";
 import { SourceControlSettingsSection } from "./SourceControlSettingsSection";
 import { StorageSettingsSection } from "./StorageSettingsSection";
@@ -87,24 +85,6 @@ export function sectionForSettingCategory(category: SettingCategory): SettingsSe
   return CATEGORY_TO_SECTION[category];
 }
 
-function applyDensity(next: Density) {
-  const root = document.documentElement;
-  if (next !== "default") {
-    root.dataset.density = next;
-    return;
-  }
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-  const dpr = window.devicePixelRatio || 1;
-  if (width < 940 || height < 680 || dpr >= 1.75) {
-    root.dataset.density = "compact";
-  } else if (width > 1600 && height > 900 && dpr <= 1.25) {
-    root.dataset.density = "comfortable";
-  } else {
-    root.dataset.density = "regular";
-  }
-}
-
 export function SettingsTab() {
   const { t } = useLocale();
   const active = useViewActivity();
@@ -117,16 +97,41 @@ export function SettingsTab() {
     null,
   );
   const revealTargetRef = useRef<number | null>(null);
-  const intensity = useGlassStore((state) => state.intensity);
-  const setIntensity = useGlassStore((state) => state.setIntensity);
-
-  /** 玻璃强度松手提交：同步写入 UserConfig 外观段（拖动中的实时预览只走玻璃 store） */
-  const handleGlassIntensityCommit = (value: number) => {
-    setIntensity(value);
-    void UserConfigStore.get().then((config) =>
-      UserConfigStore.set({ appearance: { ...config.appearance, glassIntensity: value } }),
-    );
-  };
+  const {
+    theme,
+    accentTheme,
+    liquidTexture,
+    density,
+    boldText,
+    interfaceFontSize,
+    muteNonCriticalToasts,
+    toastDuration,
+    fliunoOpenMode,
+    proxyMode,
+    proxyUrl,
+    intensity,
+    setIntensity,
+    editorFontSize,
+    editorLineHeight,
+    editorTabSize,
+    editorWordWrap,
+    setEditorFontSize,
+    setEditorLineHeight,
+    setEditorTabSize,
+    setEditorWordWrap,
+    handleThemeChange,
+    handleAccentThemeChange,
+    handleLiquidTextureChange,
+    handleDensityChange,
+    handleBoldTextChange,
+    handleInterfaceFontSizeChange,
+    handleMuteNonCriticalChange,
+    handleToastDurationChange,
+    handleFliunoOpenModeChange,
+    handleProxyModeChange,
+    handleProxyUrlChange,
+    handleGlassIntensityCommit,
+  } = useWorkbenchPreferences();
 
   useEffect(() => {
     if (!active) return;
@@ -164,165 +169,6 @@ export function SettingsTab() {
       element.classList.remove("setting-reveal-flash");
     };
   }, [revealTarget]);
-
-  const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
-  const [accentTheme, setAccentTheme] = useState<AccentThemeId>("aurora");
-  const [liquidTexture, setLiquidTexture] = useState(false);
-  const [density, setDensity] = useState<Density>("default");
-  const [boldText, setBoldText] = useState(false);
-  const [interfaceFontSize, setInterfaceFontSize] = useState<
-    "compact" | "default" | "comfortable" | "large"
-  >("default");
-
-  const [muteNonCriticalToasts, setMuteNonCriticalToasts] = useState(false);
-  const [toastDuration, setToastDuration] = useState(4000);
-  const [fliunoOpenMode, setFliunoOpenMode] = useState<"sidebar" | "editorTab">("sidebar");
-  const [proxyMode, setProxyMode] = useState<ProxyMode>("system");
-  const [proxyUrl, setProxyUrl] = useState("");
-
-  const [editorFontSize, setEditorFontSize] = useState("14");
-  const [editorLineHeight, setEditorLineHeight] = useState("24");
-  const [editorTabSize, setEditorTabSize] = useState("2");
-  const [editorWordWrap, setEditorWordWrap] = useState("on");
-
-  useEffect(() => {
-    UserConfigStore.get().then((config) => {
-      const savedTheme = config.theme as "light" | "dark" | "system" | undefined;
-      if (savedTheme) setTheme(savedTheme);
-      const savedAccent = config.accentTheme ?? "aurora";
-      setAccentTheme(savedAccent);
-      applyAccentTheme(savedAccent);
-      const savedLiquidTexture = config.liquidTexture ?? false;
-      setLiquidTexture(savedLiquidTexture);
-      applyLiquidTexture(savedLiquidTexture);
-
-      // 玻璃强度：UserConfig 外观段为准（旧三档字符串只在玻璃 store 持久化里，已由 migrate 迁移）
-      const savedGlassIntensity = config.appearance?.glassIntensity;
-      if (typeof savedGlassIntensity === "number") {
-        setIntensity(savedGlassIntensity);
-      }
-
-      const savedDensity = (config.density ?? "default") as Density;
-      setDensity(savedDensity);
-      applyDensity(savedDensity);
-
-      const savedBoldText = config.boldText ?? false;
-      setBoldText(savedBoldText);
-      if (savedBoldText) {
-        document.documentElement.setAttribute("data-bold-text", "true");
-      } else {
-        document.documentElement.removeAttribute("data-bold-text");
-      }
-
-      const savedInterfaceFont = config.interfaceFontSize ?? "default";
-      setInterfaceFontSize(savedInterfaceFont);
-      if (savedInterfaceFont !== "default") {
-        document.documentElement.setAttribute("data-font-size", savedInterfaceFont);
-      } else {
-        document.documentElement.removeAttribute("data-font-size");
-      }
-
-      setMuteNonCriticalToasts(config.muteNonCriticalToasts ?? false);
-      setToastDuration(config.toastDuration ?? 4000);
-      setFliunoOpenMode(config.fliuno?.openMode ?? "sidebar");
-      setProxyMode(config.network?.proxyMode ?? "system");
-      setProxyUrl(config.network?.proxyUrl ?? "");
-
-      const savedEditorFont = config.editorFontSize?.toString() || "14";
-      const savedEditorLineHeight = config.editorLineHeight?.toString() || "24";
-      const savedEditorTabSize = config.editorTabSize?.toString() || "2";
-      setEditorFontSize(savedEditorFont);
-      setEditorLineHeight(savedEditorLineHeight);
-      setEditorTabSize(savedEditorTabSize);
-      setEditorWordWrap(config.editorWordWrap || "on");
-
-      document.documentElement.style.setProperty("--EditorFontSize", `${savedEditorFont}px`);
-      document.documentElement.style.setProperty(
-        "--EditorLineHeight",
-        `${savedEditorLineHeight}px`,
-      );
-      document.documentElement.style.setProperty("--EditorTabSize", savedEditorTabSize);
-    });
-  }, [setIntensity]);
-
-  const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
-    setTheme(newTheme);
-    const isDark =
-      newTheme === "dark" ||
-      (newTheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-
-    document.documentElement.classList.toggle("dark", isDark);
-    UserConfigStore.set({ theme: newTheme });
-  };
-
-  const handleAccentThemeChange = (nextAccent: AccentThemeId) => {
-    setAccentTheme(nextAccent);
-    applyAccentTheme(nextAccent);
-    void UserConfigStore.set({ accentTheme: nextAccent });
-  };
-
-  const handleLiquidTextureChange = (enabled: boolean) => {
-    setLiquidTexture(enabled);
-    applyLiquidTexture(enabled);
-    void UserConfigStore.set({ liquidTexture: enabled });
-  };
-
-  const handleDensityChange = (next: Density) => {
-    setDensity(next);
-    applyDensity(next);
-    void UserConfigStore.set({ density: next });
-  };
-
-  const handleFliunoOpenModeChange = (next: "sidebar" | "editorTab") => {
-    setFliunoOpenMode(next);
-    void UserConfigStore.get().then((config) =>
-      UserConfigStore.set({ fliuno: { ...config.fliuno, openMode: next } }),
-    );
-  };
-
-  const handleProxyModeChange = (next: ProxyMode) => {
-    setProxyMode(next);
-    void UserConfigStore.get().then((config) =>
-      UserConfigStore.set({ network: { ...config.network, proxyMode: next } }),
-    );
-  };
-
-  const handleProxyUrlChange = (next: string) => {
-    setProxyUrl(next);
-    void UserConfigStore.get().then((config) =>
-      UserConfigStore.set({ network: { ...config.network, proxyUrl: next } }),
-    );
-  };
-
-  const handleBoldTextChange = (enabled: boolean) => {
-    setBoldText(enabled);
-    if (enabled) {
-      document.documentElement.setAttribute("data-bold-text", "true");
-    } else {
-      document.documentElement.removeAttribute("data-bold-text");
-    }
-    void UserConfigStore.set({ boldText: enabled });
-  };
-
-  const handleInterfaceFontSizeChange = (size: "compact" | "default" | "comfortable" | "large") => {
-    setInterfaceFontSize(size);
-    if (size !== "default") {
-      document.documentElement.setAttribute("data-font-size", size);
-    } else {
-      document.documentElement.removeAttribute("data-font-size");
-    }
-    void UserConfigStore.set({ interfaceFontSize: size });
-  };
-
-  const handleMuteNonCriticalChange = (muted: boolean) => {
-    setMuteNonCriticalToasts(muted);
-    void UserConfigStore.set({ muteNonCriticalToasts: muted });
-  };
-
-  const handleToastDurationChange = (duration: number) => {
-    setToastDuration(duration);
-    void UserConfigStore.set({ toastDuration: duration });
-  };
 
   const navigateTo = useCallback(
     (section: SettingsSection) => {

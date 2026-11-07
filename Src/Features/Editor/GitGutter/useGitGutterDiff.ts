@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DocumentService } from "../../../Core/DocumentService";
-import { GitService, type SourceControlCache } from "../../../Core/GitService";
+import { DocumentService } from "../../../Core/Documents";
+import { GitService, type SourceControlCache } from "../../../Core/Git";
 import { EventBus } from "../../../Foundation/EventBus";
 import { pathsEqual } from "../../../Shared/Utils/UriUtils";
 import {

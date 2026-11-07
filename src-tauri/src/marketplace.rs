@@ -76,9 +76,7 @@ async fn authorize(
     state: &MarketplaceState,
     url: &url::Url,
 ) -> Result<u64, String> {
-    let generation = app
-        .state::<crate::commands::fs::WorkspaceState>()
-        .generation();
+    let generation = app.state::<crate::workspace::WorkspaceState>().generation();
     let origin = url.origin().ascii_serialization();
     if url.scheme() == "https" && url.host_str() == Some("marketplace.aurona.cc") {
         return Ok(generation);
@@ -107,11 +105,7 @@ async fn authorize(
     ) {
         return Err("[marketplace.denied] Source was not authorized".into());
     }
-    if app
-        .state::<crate::commands::fs::WorkspaceState>()
-        .generation()
-        != generation
-    {
+    if app.state::<crate::workspace::WorkspaceState>().generation() != generation {
         return Err("[workspace.generation] Workspace changed during source approval".into());
     }
     let mut entries = state
@@ -280,11 +274,7 @@ pub async fn marketplace_request(
             }
             bytes.extend_from_slice(&chunk);
         }
-        if app
-            .state::<crate::commands::fs::WorkspaceState>()
-            .generation()
-            != generation
-        {
+        if app.state::<crate::workspace::WorkspaceState>().generation() != generation {
             return Err("[workspace.generation] Workspace changed during request".into());
         }
         let value: serde_json::Value = serde_json::from_slice(&bytes)
@@ -391,11 +381,7 @@ pub async fn marketplace_image(
         }
         bytes.extend_from_slice(&chunk);
     }
-    if app
-        .state::<crate::commands::fs::WorkspaceState>()
-        .generation()
-        != generation
-    {
+    if app.state::<crate::workspace::WorkspaceState>().generation() != generation {
         return Err("[workspace.generation] Workspace changed".into());
     }
     let mime = if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {

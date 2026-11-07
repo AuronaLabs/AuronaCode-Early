@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { DocumentService } from "../../../Core/DocumentService";
+import { DocumentService } from "../../../Core/Documents";
 import { EventBus } from "../../../Foundation/EventBus";
 import { useLocale } from "../../../Foundation/I18n";
 import { fileUriToPath } from "../../../Shared/Utils/UriUtils";

@@ -1,4 +1,4 @@
-use crate::{commands::fs::WorkspaceState, scoped_file::StagedFile};
+use crate::{scoped_file::StagedFile, workspace::WorkspaceState};
 use std::{
     collections::HashMap,
     io::Write,

@@ -37,6 +37,15 @@ assert.match(
 );
 const currentEntry = changelog.find((entry) => entry.version === `V${packageJson.version}`);
 assert.ok(currentEntry, "Current changelog entry must be readable");
+assert.notEqual(currentEntry.isUnreleased, true, "The published application must not point to a draft changelog");
+assert.equal(changelog.filter((entry) => entry.isLatest).length, 1, "Exactly one published entry must be latest");
+assert.equal(currentEntry.isLatest, true, "The current package version must remain the latest published entry");
+for (const entry of changelog) {
+  if (entry.isUnreleased) {
+    assert.notEqual(entry.isLatest, true, `${entry.version} is unreleased and cannot be marked latest`);
+    assert.equal(entry.date, "", `${entry.version} must not invent a release date`);
+  }
+}
 const currentSectionCount = currentEntry.sections.length;
 assert.equal(
   currentSectionCount % 2,

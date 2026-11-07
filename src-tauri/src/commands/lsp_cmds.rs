@@ -1,6 +1,6 @@
-use crate::commands::fs::WorkspaceState;
 use crate::launch_registry::{LaunchRegistry, LaunchSpec};
 use crate::lsp::{self, LanguageServerInfo};
+use crate::workspace::WorkspaceState;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -1012,7 +1012,7 @@ mod tests {
     fn protocol_paths_check_nested_workspace_edits_and_explicit_external_files() {
         let root = tempfile::tempdir().unwrap();
         let outside = tempfile::tempdir().unwrap();
-        let workspace = crate::commands::fs::WorkspaceState::test_root(root.path());
+        let workspace = crate::workspace::WorkspaceState::test_root(root.path());
         let inside = root.path().join("valid.ts");
         let external = outside.path().join("definition.ts");
         std::fs::write(&inside, "valid").unwrap();

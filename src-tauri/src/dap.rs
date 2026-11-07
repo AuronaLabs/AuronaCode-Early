@@ -166,11 +166,7 @@ impl DapSession {
         generation: u64,
     ) -> Result<Arc<Self>, String> {
         use tauri::Manager;
-        if app
-            .state::<crate::commands::fs::WorkspaceState>()
-            .generation()
-            != generation
-        {
+        if app.state::<crate::workspace::WorkspaceState>().generation() != generation {
             return Err("[workspace.generation] Debugger authorization expired".into());
         }
         if launch.command.trim().is_empty() {

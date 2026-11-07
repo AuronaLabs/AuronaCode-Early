@@ -24,6 +24,9 @@ const mocks = vi.hoisted(() => {
   };
 });
 
+vi.mock("./Bootstrap/AppearanceController", () => ({
+  startAppearanceController: vi.fn(async () => () => undefined),
+}));
 vi.mock("../Foundation/Storage/WorkspaceStore", () => ({
   WorkspaceStore: {
     get: vi.fn(async () => ({})),
@@ -31,7 +34,7 @@ vi.mock("../Foundation/Storage/WorkspaceStore", () => ({
     flush: mocks.flush,
   },
 }));
-vi.mock("../State/useWorkspaceStore", () => ({
+vi.mock("./Workbench/WorkbenchLifecycle", () => ({
   initializeWorkbenchStore: mocks.initializeWorkbenchStore,
 }));
 vi.mock("../State/useTerminalStore", () => ({
@@ -40,8 +43,10 @@ vi.mock("../State/useTerminalStore", () => ({
 vi.mock("../State/useEditorStore", () => ({
   initializeEditorStore: mocks.initializeEditorStore,
 }));
-vi.mock("../Core/Commands", () => ({ registerWorkbenchCommands: mocks.registerWorkbenchCommands }));
-vi.mock("../Core/DebugService", () => ({ DebugService: { dispose: vi.fn() } }));
+vi.mock("./Contributions/WorkbenchCommands", () => ({
+  registerWorkbenchCommands: mocks.registerWorkbenchCommands,
+}));
+vi.mock("../Core/Debug", () => ({ DebugService: { dispose: vi.fn() } }));
 vi.mock("../Core/Recovery/RecoveryCoordinator", () => ({
   RecoveryCoordinator: { flushAll: mocks.flushRecovery },
 }));
@@ -93,6 +98,25 @@ describe("AppServices", () => {
     expect(mocks.initializeTerminalStore).toHaveBeenCalledTimes(1);
     expect(mocks.initializeEditorStore).toHaveBeenCalledTimes(1);
     expect(mocks.registerWorkbenchCommands).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases partial startup resources and allows retry after an initializer fails", async () => {
+    mocks.initializeTerminalStore.mockImplementationOnce(() => {
+      throw new Error("terminal failed");
+    });
+    await expect(AppServices.start()).rejects.toThrow("terminal failed");
+    expect(mocks.disposeWorkbench).toHaveBeenCalledOnce();
+    await AppServices.start();
+    expect(mocks.initializeWorkbenchStore).toHaveBeenCalledTimes(2);
+  });
+
+  it("retains the window and permits retry when recovery cannot be persisted", async () => {
+    await AppServices.start();
+    mocks.flushRecovery.mockRejectedValueOnce(new Error("disk full"));
+    await mocks.closeHandler?.({ preventDefault: vi.fn() });
+    expect(mocks.destroyWindow).not.toHaveBeenCalled();
+    await mocks.closeHandler?.({ preventDefault: vi.fn() });
+    expect(mocks.destroyWindow).toHaveBeenCalledOnce();
   });
 
   it("flushes editor recovery before destroying the desktop window", async () => {

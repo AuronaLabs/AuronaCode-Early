@@ -46,8 +46,7 @@ impl AiProfileState {
         self.validate_grant_at(
             profile,
             generation,
-            app.state::<crate::commands::fs::WorkspaceState>()
-                .generation(),
+            app.state::<crate::workspace::WorkspaceState>().generation(),
             crate::authorization_dialogs::security_preference(
                 app,
                 "requireAiEndpointApproval",
@@ -101,8 +100,7 @@ impl AiProfileState {
                 .validate_grant_at(
                     profile,
                     generation,
-                    app.state::<crate::commands::fs::WorkspaceState>()
-                        .generation(),
+                    app.state::<crate::workspace::WorkspaceState>().generation(),
                     false,
                 )
                 .is_err()
@@ -309,7 +307,7 @@ pub async fn ai_profile_save(
     mut profile: Profile,
     api_key: Option<String>,
 ) -> Result<Profile, String> {
-    let workspace = app.state::<crate::commands::fs::WorkspaceState>();
+    let workspace = app.state::<crate::workspace::WorkspaceState>();
     let generation = workspace.generation();
     credential(&profile.id)?;
     if profile.id.len() > 128 {
@@ -409,7 +407,7 @@ pub async fn resolve(
     state: &AiProfileState,
     id: &str,
 ) -> Result<(Profile, String, u64), String> {
-    let workspace = app.state::<crate::commands::fs::WorkspaceState>();
+    let workspace = app.state::<crate::workspace::WorkspaceState>();
     let generation = workspace.generation();
     load(app, state)?;
     let profile = state

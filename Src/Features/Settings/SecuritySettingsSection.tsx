@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { SECURITY_DEFAULTS } from "../../Core/Configuration";
 import { LspClient } from "../../Core/Language/LspClient";
 import { LanguageConfigurationService } from "../../Core/LanguageConfigurationService";
 import { EventBus } from "../../Foundation/EventBus";
@@ -15,61 +16,51 @@ const settings = [
     key: "requireExtensionSignature",
     id: "extensionSignature",
     title: "extensionSignature",
-    defaultValue: true,
   },
   {
     key: "requireExtensionCatalogSignature",
     id: "catalogSignature",
     title: "catalogSignature",
-    defaultValue: true,
   },
   {
     key: "autoTrustWorkspaceLanguageServers",
     id: "languageServerAutoTrust",
     title: "autoTrustWorkspace",
-    defaultValue: false,
   },
   {
     key: "requireLocalProcessApproval",
     id: "localProcessApproval",
     title: "localProcessApproval",
-    defaultValue: true,
   },
   {
     key: "requireWorkspaceApproval",
     id: "workspaceApproval",
     title: "workspaceApproval",
-    defaultValue: true,
   },
   {
     key: "requireAiEndpointApproval",
     id: "aiEndpointApproval",
     title: "aiEndpointApproval",
-    defaultValue: true,
   },
   {
     key: "requirePackageInstallApproval",
     id: "packageInstallApproval",
     title: "packageInstallApproval",
-    defaultValue: true,
   },
   {
     key: "requireExtensionExecutionApproval",
     id: "extensionExecutionApproval",
     title: "extensionExecutionApproval",
-    defaultValue: true,
   },
   {
     key: "requireDeleteApproval",
     id: "deleteApproval",
     title: "deleteApproval",
-    defaultValue: true,
   },
   {
     key: "requireGitDiscardApproval",
     id: "gitDiscardApproval",
     title: "gitDiscardApproval",
-    defaultValue: true,
   },
 ] as const;
 
@@ -142,10 +133,10 @@ export function SecuritySettingsSection() {
                 settingId={setting.id}
                 title={title}
                 description={t(`settings.securitySettings.${setting.title}Description`)}
-                onReset={() => void updatePreference(setting.key, setting.defaultValue)}
+                onReset={() => void updatePreference(setting.key, SECURITY_DEFAULTS[setting.key])}
                 control={
                   <Switch
-                    checked={preferences[setting.key] ?? setting.defaultValue}
+                    checked={preferences[setting.key] ?? SECURITY_DEFAULTS[setting.key]}
                     onCheckedChange={(checked) => void updatePreference(setting.key, checked)}
                     aria-label={title}
                   />

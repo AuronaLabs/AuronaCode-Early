@@ -41,6 +41,37 @@ const signedIn: AccountAuthStatus = {
 };
 
 describe("AccountService", () => {
+  it("does not restore an expired application session", async () => {
+    let finish!: (status: AccountAuthStatus) => void;
+    mocks.restore.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    let active = true;
+    const previous = AccountService.getSnapshot();
+    const restore = AccountService.initialize(() => active);
+    active = false;
+    finish(signedIn);
+    await restore;
+    expect(AccountService.getSnapshot()).toBe(previous);
+  });
+  it("does not overwrite logout with an older restore", async () => {
+    let finish!: (status: AccountAuthStatus) => void;
+    mocks.restore.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const restore = AccountService.initialize();
+    mocks.status.mockResolvedValue(signedOut);
+    await AccountService.logout();
+    finish(signedIn);
+    await restore;
+    expect(AccountService.getSnapshot()).toEqual(signedOut);
+  });
   beforeEach(() => {
     mocks.status.mockReset();
     mocks.start.mockClear();

@@ -1,0 +1,86 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { CommandRegistry } from "./CommandRegistry";
+
+const context = {
+  activeFilePath: null,
+  hasActiveEditor: false,
+  textInputFocused: false,
+  platform: "windows" as const,
+  bottomPanelOpen: false,
+};
+
+const disposers: (() => void)[] = [];
+
+afterEach(() => {
+  for (const dispose of disposers.splice(0).reverse()) dispose();
+});
+
+describe("CommandRegistry", () => {
+  it("does not unregister a replacement when the previous owner is disposed", async () => {
+    const old = CommandRegistry.register({ id: "test.replaced", handler: vi.fn() });
+    const handler = vi.fn();
+    disposers.push(CommandRegistry.register({ id: "test.replaced", handler }));
+    old();
+    expect((await CommandRegistry.execute("test.replaced")).ok).toBe(true);
+    expect(handler).toHaveBeenCalledOnce();
+  });
+  it("notifies search views when commands are registered or removed", () => {
+    const listener = vi.fn();
+    const unsubscribe = CommandRegistry.subscribe(listener);
+    const disposeCommand = CommandRegistry.register({
+      id: "test.subscription",
+      title: "Subscription",
+      category: "Test",
+      handler: vi.fn(),
+    });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    disposeCommand();
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
+  });
+
+  it("uses the same handler for direct execution and keybindings", async () => {
+    const handler = vi.fn();
+    disposers.push(CommandRegistry.setContextProvider(() => context));
+    disposers.push(
+      CommandRegistry.register({
+        id: "test.execute",
+        title: "Execute",
+        category: "Test",
+        keybindings: [{ key: "k", primary: true }],
+        handler,
+      }),
+    );
+
+    expect((await CommandRegistry.execute("test.execute")).ok).toBe(true);
+    expect(
+      CommandRegistry.handleKeyDown(
+        new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }),
+      ),
+    ).toBe(true);
+    await Promise.resolve();
+    expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not steal ordinary shortcuts from text inputs", () => {
+    const input = document.createElement("input");
+    const handler = vi.fn();
+    disposers.push(CommandRegistry.setContextProvider(() => context));
+    disposers.push(
+      CommandRegistry.register({
+        id: "test.input",
+        title: "Input",
+        category: "Test",
+        keybindings: [{ key: "s", primary: true }],
+        handler,
+      }),
+    );
+    const event = new KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true });
+    input.addEventListener("keydown", (keyboardEvent) => {
+      expect(CommandRegistry.handleKeyDown(keyboardEvent)).toBe(false);
+    });
+    input.dispatchEvent(event);
+    expect(handler).not.toHaveBeenCalled();
+  });
+});

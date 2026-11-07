@@ -16,7 +16,7 @@ vi.mock("../../Foundation/Storage/UserConfigStore", () => ({
 vi.mock("./AgentService", () => ({
   AgentService: { setExecutor: mocks.setExecutor, notifyApproval: mocks.approval },
 }));
-vi.mock("../WorkspaceService", () => ({
+vi.mock("../Workspace", () => ({
   WorkspaceService: { getCurrent: () => ({ id: "workspace", primaryRoot: "C:/project" }) },
 }));
 vi.mock("../../Foundation/IPC/FileSystemCommands", () => ({

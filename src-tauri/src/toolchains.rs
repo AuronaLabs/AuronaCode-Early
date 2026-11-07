@@ -775,7 +775,7 @@ pub(crate) fn install_toolchain_file_cancellable(
     signed: Option<&crate::artifact_signature::ArtifactPayload>,
     generation: u64,
 ) -> Result<InstalledToolchainSummary, String> {
-    let workspace = app_handle.state::<crate::commands::fs::WorkspaceState>();
+    let workspace = app_handle.state::<crate::workspace::WorkspaceState>();
     let check = || -> Result<(), String> {
         check_cancel(cancel)?;
         if workspace.generation() != generation {
@@ -1103,7 +1103,7 @@ pub async fn install_toolchain_from_url(
     use tokio::io::AsyncWriteExt;
 
     let task_state = app_handle.state::<crate::tasks::TaskState>();
-    let workspace = app_handle.state::<crate::commands::fs::WorkspaceState>();
+    let workspace = app_handle.state::<crate::workspace::WorkspaceState>();
     let generation = workspace.generation();
     let task = task_state.begin(&download_id)?;
 

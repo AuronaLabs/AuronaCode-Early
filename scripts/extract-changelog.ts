@@ -32,15 +32,15 @@ if (!entry) {
 body += `
 ---
 
-### 系统要求与下载指引
+### 下载与反馈
 
-本版本为全平台提供自动化构建产物，请从下方 **Assets** 列表中选择适合您系统的安装包：
+请在下方 **Assets** 列表中选择对应平台的安装包：
 
-* **Windows 客户端**：请下载 \`.exe\` 安装程序（仅支持 Windows 10/11，不支持 Windows 7）
-* **macOS 客户端**：请下载 \`.dmg\` 或 \`.app.tar.gz\` 文件
-* **Linux 客户端**：请下载 \`.AppImage\` 或 \`.deb\` 文件
+- **Windows**：下载 \`.exe\` 安装程序。
+- **macOS**：下载 \`.dmg\` 安装包或 \`.app.tar.gz\` 更新归档。
+- **Linux**：下载 \`.AppImage\` 或 \`.deb\` 安装包。
 
-> **提示**：Aurona Code 持续致力于提供极速、安全的轻量化开发体验。如果您在当前版本遇到问题，欢迎前往 Issues 提交反馈。
+遇到问题时，请通过项目 Issues 提交版本号、操作系统和复现步骤。分享日志前，请移除令牌、密码及其他敏感信息。
 `;
 
 fs.writeFileSync(path.join(process.cwd(), "RELEASE_BODY.md"), body, "utf-8");

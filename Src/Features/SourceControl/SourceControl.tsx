@@ -1,481 +1,66 @@
-﻿import React, { useCallback, useEffect, useRef, useState } from "react";
-import { GitService, type SourceControlCache } from "../../Core/GitService";
-import { OutputService } from "../../Core/OutputService";
-import { WorkspaceService } from "../../Core/WorkspaceService";
-import { EventBus } from "../../Foundation/EventBus";
+import React, { useState } from "react";
 import { useLocale } from "../../Foundation/I18n";
-import {
-  type GitBranch,
-  type GitCommit,
-  type GitFile,
-  GitIPC,
-  type GitRecovery,
-} from "../../Foundation/IPC/GitCommands";
 import { cn } from "../../Shared/Utils/cn";
-import { useWorkbenchStore } from "../../State/useWorkspaceStore";
 import { Badge } from "../../UI/Components/Badge";
 import { Button } from "../../UI/Components/Button";
 import { EmptyState } from "../../UI/Components/EmptyState";
 import { FilterChips } from "../../UI/Components/FilterChips";
-import { glassListHeaderStyles, glassListRowStyles } from "../../UI/Components/GlassList";
+import { glassListHeaderStyles } from "../../UI/Components/GlassList";
 import { Input } from "../../UI/Components/Input";
 import { Modal } from "../../UI/Components/Modal";
 import { Select } from "../../UI/Components/Select";
 import { glassVariants } from "../../UI/Core/GlassManager/variants";
-import { showToast } from "../../UI/Feedback/Toast";
 import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
+import { GitFileRow } from "./components/GitFileRow";
+import { useSourceControl } from "./hooks/useSourceControl";
 
 export const SourceControl = React.memo(function SourceControl() {
   const { t } = useLocale();
-  const [repoPath, setRepoPath] = useState<string | null>(null);
-  const [isRepo, setIsRepo] = useState(false);
-  const [files, setFiles] = useState<GitFile[]>([]);
-  const [commits, setCommits] = useState<GitCommit[]>([]);
-  const [commitMsg, setCommitMsg] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [branch, setBranch] = useState("");
-  const [branches, setBranches] = useState<GitBranch[]>([]);
-  const [hasRemote, setHasRemote] = useState(false);
-  const [ahead, setAhead] = useState(0);
-  const [behind, setBehind] = useState(0);
-  const [gitAction, setGitAction] = useState<string | null>(null);
-  const [isCreateBranchOpen, setIsCreateBranchOpen] = useState(false);
-  const [newBranchName, setNewBranchName] = useState("");
-  const [discardTarget, setDiscardTarget] = useState<GitFile | null>(null);
-  const [recoveries, setRecoveries] = useState<GitRecovery[]>([]);
-  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const {
+    repoPath,
+    isRepo,
+    files,
+    commits,
+    commitMsg,
+    setCommitMsg,
+    isLoading,
+    isRefreshing,
+    statusError,
+    cancelAction,
+    openCommitDiff,
+    branch,
+    branches,
+    hasRemote,
+    ahead,
+    behind,
+    gitAction,
+    isCreateBranchOpen,
+    setIsCreateBranchOpen,
+    newBranchName,
+    setNewBranchName,
+    discardTarget,
+    setDiscardTarget,
+    recoveries,
+    recoveryOpen,
+    setRecoveryOpen,
+    fetchStatus,
+    handleInit,
+    toggleStage,
+    stageAll,
+    unstageAll,
+    handleCommit,
+    runRepositoryAction,
+    handleSwitchBranch,
+    handleCreateBranch,
+    openWorkingDiff,
+    confirmDiscardFile,
+    runRecoveryAction,
+  } = useSourceControl();
   const [stagedExpanded, setStagedExpanded] = useState(true);
   const [unstagedExpanded, setUnstagedExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState<"changes" | "history">("changes");
-  const context = useRef({ path: null as string | null, epoch: 0, active: false });
-  const isCurrent = useCallback((path: string, epoch: number) => {
-    const current = context.current;
-    return current.active && current.path === path && current.epoch === epoch;
-  }, []);
-
-  const applyCache = useCallback((cache: SourceControlCache) => {
-    setRepoPath(cache.repoPath);
-    setIsRepo(cache.isRepo);
-    setFiles(cache.files);
-    setCommits(cache.commits || []);
-    setBranch(cache.branch);
-    setBranches(cache.branches);
-    setHasRemote(cache.hasRemote);
-    setAhead(cache.ahead);
-    setBehind(cache.behind);
-    setIsLoading(false);
-  }, []);
-
-  const fetchStatus = useCallback(
-    async (path: string, background = false) => {
-      const epoch = context.current.epoch;
-      if (!isCurrent(path, epoch)) return;
-      try {
-        if (background) setIsRefreshing(true);
-        const cache = await GitService.refresh(path);
-        if (!cache || !isCurrent(path, epoch)) return;
-        applyCache(cache);
-        EventBus.emit("git:changes-count", cache.files.length);
-      } catch (error) {
-        if (!isCurrent(path, epoch)) return;
-        if (/\[(?:process\.cancelled|workspace\.generation)\]/.test(String(error))) return;
-        console.error("Git status failed", error);
-        if (!background)
-          showToast(
-            t("sourceControl.statusReadFailed").replace("{message}", String(error)),
-            "error",
-          );
-      } finally {
-        if (isCurrent(path, epoch)) {
-          setIsLoading(false);
-          setIsRefreshing(false);
-        }
-      }
-    },
-    [applyCache, isCurrent, t],
-  );
-
-  const checkRepo = useCallback(
-    async (path: string, background = false) => {
-      if (!isCurrent(path, context.current.epoch)) return;
-      if (!background) setIsLoading(true);
-      await fetchStatus(path, background);
-    },
-    [fetchStatus, isCurrent],
-  );
-
-  useEffect(() => {
-    let mounted = true;
-    let activeRoot: string | null = null;
-    context.current.active = true;
-    const initialEpoch = context.current.epoch;
-    const changeRoot = (path: string | null) => {
-      const previous = context.current.path;
-      // This view is only a consumer. Cancelling by cwd also aborts shared
-      // refreshes, editor diffs and writes owned by other consumers.
-      if (previous === path) {
-        activeRoot = path;
-        return;
-      }
-      context.current = { path, epoch: context.current.epoch + 1, active: true };
-      activeRoot = path;
-      setRepoPath(path);
-      setGitAction(null);
-      setDiscardTarget(null);
-      setRecoveries([]);
-      setRecoveryOpen(false);
-      setIsRefreshing(false);
-      setFiles([]);
-      setCommits([]);
-      setCommitMsg("");
-    };
-
-    const init = async () => {
-      try {
-        await WorkspaceService.whenInitialized();
-        const path = WorkspaceService.getCurrent().primaryRoot;
-        if (!mounted || context.current.epoch !== initialEpoch) return;
-        changeRoot(path);
-
-        if (!path) {
-          setIsLoading(false);
-          return;
-        }
-
-        const cached = GitService.getCache(path);
-        if (cached) {
-          applyCache(cached);
-          checkRepo(path, true);
-        } else {
-          setRepoPath(path);
-          checkRepo(path, true);
-        }
-      } catch (error) {
-        console.error(error);
-        if (mounted) setIsLoading(false);
-      }
-    };
-
-    init();
-
-    const unsubRootChanged = EventBus.on("workspace:root-changed", (path: string) => {
-      changeRoot(path || null);
-      if (!path) {
-        setIsLoading(false);
-        return;
-      }
-      const cached = GitService.getCache(path);
-      if (cached) {
-        applyCache(cached);
-        checkRepo(path, true);
-      } else {
-        setRepoPath(path);
-        checkRepo(path);
-      }
-    });
-    const unsubCache = GitService.subscribe((cache) => {
-      if (mounted && cache?.repoPath === activeRoot) applyCache(cache);
-    });
-
-    return () => {
-      mounted = false;
-      context.current.active = false;
-      context.current.epoch++;
-      unsubRootChanged();
-      unsubCache();
-    };
-  }, [applyCache, checkRepo]);
-
-  const handleInit = async () => {
-    if (!repoPath) return;
-    const epoch = context.current.epoch;
-    try {
-      await GitIPC.init(repoPath);
-      if (!isCurrent(repoPath, epoch)) return;
-      await checkRepo(repoPath);
-    } catch (error) {
-      if (!isCurrent(repoPath, epoch)) return;
-      showToast(t("sourceControl.initFailed").replace("{message}", String(error)), "error");
-    }
-  };
-
-  const toggleStage = async (file: GitFile) => {
-    if (!repoPath) return;
-    const epoch = context.current.epoch;
-    try {
-      if (file.is_staged) await GitIPC.unstage(repoPath, file.path);
-      else await GitIPC.add(repoPath, file.path);
-      if (!isCurrent(repoPath, epoch)) return;
-      await fetchStatus(repoPath, true);
-    } catch (error) {
-      if (!isCurrent(repoPath, epoch)) return;
-      showToast(t("sourceControl.stageUpdateFailed").replace("{message}", String(error)), "error");
-    }
-  };
-
-  const stageAll = async () => {
-    if (!repoPath) return;
-    const epoch = context.current.epoch;
-    try {
-      await GitIPC.add(repoPath, ".");
-      if (!isCurrent(repoPath, epoch)) return;
-      await fetchStatus(repoPath, true);
-    } catch (error) {
-      if (!isCurrent(repoPath, epoch)) return;
-      showToast(t("sourceControl.stageAllFailed").replace("{message}", String(error)), "error");
-    }
-  };
-
-  const unstageAll = async () => {
-    if (!repoPath) return;
-    const epoch = context.current.epoch;
-    try {
-      await GitIPC.unstageAll(repoPath);
-      if (!isCurrent(repoPath, epoch)) return;
-      await fetchStatus(repoPath, true);
-    } catch (error) {
-      if (!isCurrent(repoPath, epoch)) return;
-      showToast(t("sourceControl.unstageAllFailed").replace("{message}", String(error)), "error");
-    }
-  };
-
-  const handleCommit = async () => {
-    if (!repoPath || !commitMsg.trim()) return;
-    const epoch = context.current.epoch;
-    try {
-      const stagedFilesCount = files.filter((file) => file.is_staged).length;
-      if (stagedFilesCount === 0) {
-        showToast(t("sourceControl.stageFirst"), "warning");
-        return;
-      }
-
-      await GitIPC.commit(repoPath, commitMsg);
-      if (!isCurrent(repoPath, epoch)) return;
-      setCommitMsg("");
-      await fetchStatus(repoPath, true);
-      if (!isCurrent(repoPath, epoch)) return;
-      showToast(t("sourceControl.commitSuccess"), "success");
-    } catch (error) {
-      if (!isCurrent(repoPath, epoch)) return;
-      showToast(t("sourceControl.commitFailed").replace("{message}", String(error)), "error");
-    }
-  };
-
-  const runRepositoryAction = async (action: "fetch" | "pull" | "push", label: string) => {
-    if (!repoPath || gitAction) return;
-    const epoch = context.current.epoch;
-    try {
-      setGitAction(action);
-      OutputService.append("source-control", `${label} started in ${repoPath}`);
-      await GitIPC[action](repoPath);
-      if (!isCurrent(repoPath, epoch)) return;
-      await fetchStatus(repoPath, true);
-      if (!isCurrent(repoPath, epoch)) return;
-      OutputService.append("source-control", `${label} completed`);
-      showToast(t("sourceControl.repoActionCompleted").replace("{label}", label), "success");
-    } catch (error) {
-      if (!isCurrent(repoPath, epoch)) return;
-      OutputService.append("source-control", `${label} failed: ${error}`, "error");
-      showToast(
-        t("sourceControl.repoActionFailed")
-          .replace("{label}", label)
-          .replace("{message}", String(error)),
-        "error",
-      );
-    } finally {
-      if (isCurrent(repoPath, epoch)) setGitAction(null);
-    }
-  };
-
-  const handleSwitchBranch = async (nextBranch: string) => {
-    if (!repoPath || nextBranch === branch || gitAction) return;
-    const epoch = context.current.epoch;
-    try {
-      setGitAction("switch");
-      OutputService.append("source-control", `Switching branch from ${branch} to ${nextBranch}`);
-      await GitIPC.switchBranch(repoPath, nextBranch);
-      if (!isCurrent(repoPath, epoch)) return;
-      await fetchStatus(repoPath, true);
-      if (!isCurrent(repoPath, epoch)) return;
-      showToast(t("sourceControl.branchSwitched").replace("{branch}", nextBranch), "success");
-    } catch (error) {
-      if (!isCurrent(repoPath, epoch)) return;
-      OutputService.append("source-control", `Branch switch failed: ${error}`, "error");
-      showToast(t("sourceControl.branchSwitchFailed").replace("{message}", String(error)), "error");
-    } finally {
-      if (isCurrent(repoPath, epoch)) setGitAction(null);
-    }
-  };
-
-  const handleCreateBranch = async () => {
-    if (!repoPath || !newBranchName.trim() || gitAction) return;
-    const name = newBranchName.trim();
-    const epoch = context.current.epoch;
-    try {
-      setGitAction("create-branch");
-      OutputService.append("source-control", `Creating branch ${name}`);
-      await GitIPC.createBranch(repoPath, name);
-      if (!isCurrent(repoPath, epoch)) return;
-      setNewBranchName("");
-      setIsCreateBranchOpen(false);
-      await fetchStatus(repoPath, true);
-      if (!isCurrent(repoPath, epoch)) return;
-      showToast(t("sourceControl.branchCreatedSwitched").replace("{name}", name), "success");
-    } catch (error) {
-      if (!isCurrent(repoPath, epoch)) return;
-      OutputService.append("source-control", `Branch creation failed: ${error}`, "error");
-      showToast(t("sourceControl.branchCreateFailed").replace("{message}", String(error)), "error");
-    } finally {
-      if (isCurrent(repoPath, epoch)) setGitAction(null);
-    }
-  };
-
-  const openWorkingDiff = (file: GitFile) => {
-    const target = `working:${file.is_staged ? "staged" : "unstaged"}:${encodeURIComponent(file.path)}`;
-    useWorkbenchStore.getState().openTab({
-      id: `diff-${target}`,
-      type: "diff",
-      title: `Diff: ${file.name}`,
-      path: target,
-    });
-  };
-
-  const confirmDiscardFile = async () => {
-    if (!repoPath || !discardTarget || gitAction) return;
-    const epoch = context.current.epoch;
-    try {
-      setGitAction("discard-file");
-      await GitIPC.discardFile(repoPath, discardTarget.path);
-      if (!isCurrent(repoPath, epoch)) return;
-      setDiscardTarget(null);
-      await fetchStatus(repoPath, true);
-    } catch (error) {
-      if (!isCurrent(repoPath, epoch)) return;
-      showToast(t("sourceControl.discardFailed").replace("{message}", String(error)), "error");
-    } finally {
-      if (isCurrent(repoPath, epoch)) setGitAction(null);
-    }
-  };
-
-  const runRecoveryAction = async (action: "discard" | "list" | "restore", hash?: string) => {
-    if (!repoPath || gitAction) return;
-    const epoch = context.current.epoch;
-    setGitAction(`recovery-${action}`);
-    try {
-      if (action === "discard") await GitIPC.discardAll(repoPath);
-      if (action === "restore" && hash) await GitIPC.restoreDiscard(repoPath, hash);
-      const records = await GitIPC.listDiscardRecoveries(repoPath);
-      if (!isCurrent(repoPath, epoch)) return;
-      setRecoveries(records);
-      setRecoveryOpen(action !== "restore");
-      await fetchStatus(repoPath, true);
-    } catch (error) {
-      if (isCurrent(repoPath, epoch))
-        showToast(t("sourceControl.recoveryFailed").replace("{message}", String(error)), "error");
-    } finally {
-      if (isCurrent(repoPath, epoch)) setGitAction(null);
-    }
-  };
-
-  const getStatusBadgeStyle = (status: string) => {
-    switch (status) {
-      case "M":
-        return "text-[var(--StatusWarning)] bg-[var(--StatusWarning)]/10 border border-[var(--StatusWarning)]/20";
-      case "A":
-        return "text-[var(--StatusSuccess)] bg-[var(--StatusSuccess)]/10 border border-[var(--StatusSuccess)]/20";
-      case "D":
-        return "text-[var(--StatusError)] bg-[var(--StatusError)]/10 border border-[var(--StatusError)]/20";
-      case "U":
-      case "?":
-        return "border border-[color-mix(in_srgb,var(--color-accent)_20%,transparent)] bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] text-[var(--color-accent)]";
-      case "!":
-        return "border border-[var(--StatusError)]/20 bg-[var(--StatusError)]/10 text-[var(--StatusError)]";
-      default:
-        return "text-[var(--color-text-muted)] bg-[var(--material-surface)] border border-transparent";
-    }
-  };
-
-  const renderFileCard = (file: GitFile, index: number) => {
-    const parentPath = file.path.split("/").slice(0, -1).join("/") || "/";
-    return (
-      <div
-        key={`${file.path}-${index}`}
-        className={cn(glassListRowStyles, "mx-1 my-0.5 cursor-pointer justify-between")}
-      >
-        <button
-          type="button"
-          onClick={() => openWorkingDiff(file)}
-          className="mr-2 flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-left"
-        >
-          <Icons.FileCode
-            size={14}
-            stroke={1.5}
-            className="text-[var(--color-text-muted)] shrink-0"
-          />
-          <span className="text-[12.5px] font-medium text-[var(--color-text-highlight)] truncate min-w-0">
-            {file.name}
-          </span>
-          <span className="text-[10px] text-[var(--color-text-muted)] truncate opacity-70 group-hover:opacity-100 transition-opacity min-w-0">
-            {parentPath}
-          </span>
-        </button>
-
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span
-            className={`text-[10px] px-1.5 py-[1px] rounded flex items-center justify-center font-bold tracking-wide select-none ${getStatusBadgeStyle(file.status)}`}
-          >
-            {file.status}
-          </span>
-          <div className="opacity-0 w-0 group-hover:w-auto group-hover:opacity-100 transition-all flex items-center shrink-0">
-            {!file.is_staged && (
-              <Tooltip content={t("sourceControl.discardFile")} delay={300}>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setDiscardTarget(file);
-                  }}
-                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] transition-colors hover:bg-[var(--StatusError)]/10 hover:text-[var(--StatusError)]"
-                >
-                  <Icons.Trash size={11} stroke={2.2} />
-                </button>
-              </Tooltip>
-            )}
-            {file.is_staged ? (
-              <Tooltip content={t("sourceControl.unstage")} delay={300}>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleStage(file);
-                  }}
-                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] transition-colors hover:bg-[var(--material-interactive-active)] hover:text-[var(--StatusError)]"
-                >
-                  <Icons.Minus size={11} stroke={3} />
-                </button>
-              </Tooltip>
-            ) : (
-              <Tooltip content={t("sourceControl.stage")} delay={300}>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleStage(file);
-                  }}
-                  className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-text-primary)] transition-colors hover:bg-[var(--material-interactive-active)] hover:text-[var(--color-text-highlight)]"
-                >
-                  <Icons.Plus size={11} stroke={3} />
-                </button>
-              </Tooltip>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   if (isLoading) {
     return (
@@ -492,6 +77,22 @@ export const SourceControl = React.memo(function SourceControl() {
         icon={<Icons.Folder size={27} stroke={1.45} />}
         title={t("sourceControl.noWorkspaceTitle")}
         description={t("sourceControl.noWorkspaceDescription")}
+      />
+    );
+  }
+
+  if (statusError && !isRepo) {
+    return (
+      <EmptyState
+        className="h-full"
+        icon={<Icons.AlertTriangle size={27} stroke={1.45} />}
+        title={t("sourceControl.panelTitle")}
+        description={t("sourceControl.statusReadFailed").replace("{message}", statusError)}
+        actions={
+          <Button variant="secondary" onClick={() => void fetchStatus(repoPath)}>
+            {t("sourceControl.refresh")}
+          </Button>
+        }
       />
     );
   }
@@ -607,9 +208,7 @@ export const SourceControl = React.memo(function SourceControl() {
             <button
               type="button"
               aria-label={t("common.cancel")}
-              onClick={() =>
-                void GitIPC.cancel(repoPath).catch((error) => showToast(String(error), "error"))
-              }
+              onClick={() => void cancelAction()}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-[var(--StatusError)] hover:bg-[var(--material-interactive-hover)]"
             >
               <Icons.Close size={14} />
@@ -753,7 +352,16 @@ export const SourceControl = React.memo(function SourceControl() {
                   </span>
                 </div>
                 <div className="aurona-scroll min-h-0 overflow-y-auto overflow-x-hidden p-2">
-                  {conflictedFiles.map(renderFileCard)}
+                  {conflictedFiles.map((file) => (
+                    <GitFileRow
+                      key={`${file.path}:${file.is_staged}`}
+                      file={file}
+                      disabled={Boolean(gitAction)}
+                      onOpen={openWorkingDiff}
+                      onStage={toggleStage}
+                      onDiscard={setDiscardTarget}
+                    />
+                  ))}
                 </div>
               </div>
             )}
@@ -797,7 +405,16 @@ export const SourceControl = React.memo(function SourceControl() {
                 </div>
                 {stagedExpanded && (
                   <div className="flex-1 overflow-y-auto overflow-x-hidden aurona-scroll p-2 bg-transparent">
-                    {stagedFiles.map(renderFileCard)}
+                    {stagedFiles.map((file) => (
+                      <GitFileRow
+                        key={`${file.path}:${file.is_staged}`}
+                        file={file}
+                        disabled={Boolean(gitAction)}
+                        onOpen={openWorkingDiff}
+                        onStage={toggleStage}
+                        onDiscard={setDiscardTarget}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
@@ -851,7 +468,16 @@ export const SourceControl = React.memo(function SourceControl() {
                     </div>
                   ) : (
                     <div className="flex-1 overflow-y-auto overflow-x-hidden aurona-scroll p-2 bg-transparent">
-                      {unstagedFiles.map(renderFileCard)}
+                      {unstagedFiles.map((file) => (
+                        <GitFileRow
+                          key={`${file.path}:${file.is_staged}`}
+                          file={file}
+                          disabled={Boolean(gitAction)}
+                          onOpen={openWorkingDiff}
+                          onStage={toggleStage}
+                          onDiscard={setDiscardTarget}
+                        />
+                      ))}
                     </div>
                   ))}
               </div>
@@ -879,14 +505,7 @@ export const SourceControl = React.memo(function SourceControl() {
                     glassVariants({ layer: "base", interactive: true }),
                     "flex flex-col rounded-control p-4 cursor-pointer hover:border-[var(--border-overlay)] group active:scale-[0.98]",
                   )}
-                  onClick={() => {
-                    EventBus.emit("app:open-tab", {
-                      id: `diff-${commit.hash}`,
-                      type: "diff",
-                      title: `Diff: ${commit.hash.substring(0, 7)}`,
-                      path: commit.hash,
-                    });
-                  }}
+                  onClick={() => openCommitDiff(commit.hash)}
                 >
                   <div className="flex flex-col gap-2 flex-1">
                     <div className="flex items-start justify-between gap-2">

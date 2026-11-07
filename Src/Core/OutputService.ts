@@ -137,7 +137,13 @@ class OutputServiceImpl {
   }
 
   private emit(): void {
-    for (const listener of this.listeners) listener();
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch (error) {
+        console.error("Output subscriber failed", error);
+      }
+    }
   }
 }
 

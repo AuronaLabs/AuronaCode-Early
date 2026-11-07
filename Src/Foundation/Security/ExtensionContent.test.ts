@@ -41,4 +41,15 @@ describe("extension content boundaries", () => {
     expect(document.querySelectorAll("img[src]")).toHaveLength(1);
     expect(document.querySelector("p")?.getAttribute("style")).toContain("font-weight:600");
   });
+
+  it("preserves theme custom properties while rejecting remote resources inside variables", () => {
+    const safe = sanitizeExtensionDocument(
+      "<style>:root{--AuronaText:#ccddee;--AuronaSurface:rgba(0,0,0,.1)}body{color:var(--AuronaText)}</style>",
+    );
+    expect(safe).toContain("--AuronaText:#ccddee");
+    const unsafe = sanitizeExtensionDocument(
+      "<style>:root{--image:url(https://evil.test/image)}body{background:var(--image)}</style>",
+    );
+    expect(unsafe).not.toContain("evil.test");
+  });
 });

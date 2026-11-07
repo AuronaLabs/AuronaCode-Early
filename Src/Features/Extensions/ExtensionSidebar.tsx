@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DocumentService } from "../../Core/DocumentService";
+import { DocumentService } from "../../Core/Documents";
 import { EditorAdapter } from "../../Core/Editor/EditorAdapter";
-import { resolveExtensionName } from "../../Core/Extensions/ExtensionUtils";
+import { resolveExtensionName } from "../../Core/Extensions/ExtensionRegistry";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import {
   ExtensionIPC,
@@ -10,7 +10,7 @@ import {
   parseExtensionError,
 } from "../../Foundation/IPC/ExtensionCommands";
 import { useExtensionStore } from "../../State/useExtensionStore";
-import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../../State/Workbench/useWorkbenchStore";
 import { Button } from "../../UI/Components/Button";
 import { useViewActivity } from "../../UI/Core/ViewActivity";
 import { showToast } from "../../UI/Feedback/Toast";

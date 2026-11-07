@@ -7,7 +7,7 @@ import {
 } from "../../Core/Language/SymbolUtils";
 import { useLocale } from "../../Foundation/I18n";
 import { GetLanguageFromPath } from "../../Shared/Utils/LanguageUtils";
-import { useWorkbenchStore } from "../../State/useWorkspaceStore";
+import { useWorkbenchStore } from "../../State/Workbench/useWorkbenchStore";
 import { EmptyState } from "../../UI/Components/EmptyState";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";

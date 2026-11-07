@@ -10,8 +10,8 @@ use super::runtime::{
     ContextEditorSnapshot, ContextEnvironment, ContextPermissionState, ExtensionContext,
 };
 use super::state::{workspace_identity, ExtensionState};
-use crate::commands::fs::WorkspaceState;
 use crate::editor::EditorState;
+use crate::workspace::WorkspaceState;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

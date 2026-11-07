@@ -1,14 +1,15 @@
+import {
+  composeExtensionDocument,
+  type ExtensionRenderState,
+  tryParseDeclarativeUI,
+} from "../../Core/Extensions/Views/ExtensionViewDocument";
+import { useThemeSnapshot } from "../../UI/Core/useThemeSnapshot";
+
+export type { ExtensionRenderState } from "../../Core/Extensions/Views/ExtensionViewDocument";
+
 import { useMemo } from "react";
-import { sanitizeExtensionDocument } from "../../Foundation/Security/ExtensionContent";
-import { type DeclarativeUIRoot, isDeclarativeUI } from "../../Foundation/Types/ExtensionUI";
 import { CompatWebview } from "./CompatWebview";
 import { DeclarativeUIRenderer } from "./Declarative/DeclarativeUIRenderer";
-
-export interface ExtensionRenderState {
-  html: string;
-  diagnostics: string[];
-  revision: number;
-}
 
 interface ExtensionViewHostProps {
   viewHtml: string;
@@ -18,32 +19,6 @@ interface ExtensionViewHostProps {
   fontWeight: string;
   renderState: ExtensionRenderState | null;
   onAction?: (actionId: string, payload?: unknown) => void | Promise<void>;
-}
-
-const RENDER_SLOT = "<!--AURONA_RENDER_SLOT-->";
-const STATUS_SLOT = "<!--AURONA_STATUS_SLOT-->";
-
-function escapeHtml(text: string): string {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function tryParseDeclarativeUI(raw: string): DeclarativeUIRoot | null {
-  const trimmed = raw.trim();
-  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return null;
-  try {
-    const parsed = JSON.parse(trimmed);
-    if (isDeclarativeUI(parsed)) {
-      return parsed;
-    }
-  } catch {
-    // 不是有效 JSON
-  }
-  return null;
 }
 
 /**
@@ -58,6 +33,7 @@ export function ExtensionViewHost({
   renderState,
   onAction,
 }: ExtensionViewHostProps) {
+  const snapshot = useThemeSnapshot(theme, accentColor, fontSize, fontWeight);
   // 1. 检查是否为模式 A：官方原生声明式组件 (Declarative UI)
   const declarativeUI = useMemo(() => {
     if (renderState?.html) {
@@ -70,60 +46,8 @@ export function ExtensionViewHost({
   // 2. 模式 B：自定义 Webview 容器 (Custom Webview Host)
   const composed = useMemo(() => {
     if (declarativeUI) return "";
-    const html = renderState?.html ?? "";
-    const diagnostics = renderState?.diagnostics ?? [];
-    const status = diagnostics.length > 0 ? escapeHtml(diagnostics.join(" · ")) : "";
-    const effectiveTheme = theme === "dark" ? "dark" : "light";
-
-    let result = viewHtml;
-    if (result.includes("<html")) {
-      result = result.replace(/<html([^>]*)>/i, (_match, rest) => {
-        const cleaned = rest.replace(/data-theme=["'][^"']*["']/i, "").trim();
-        return `<html ${cleaned} data-theme="${effectiveTheme}" style="color-scheme: ${effectiveTheme}; background: transparent;">`;
-      });
-    }
-
-    const safeAccent = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/i.test(accentColor)
-      ? accentColor
-      : "#2563eb";
-    const fontSizePx =
-      fontSize === "compact"
-        ? "12px"
-        : fontSize === "comfortable"
-          ? "14px"
-          : fontSize === "large"
-            ? "15px"
-            : "13px";
-    const effectiveWeight = fontWeight === "bold" ? "600" : "400";
-    const isDark = effectiveTheme === "dark";
-    const transparentStyle = `<style>
-      :root {
-        --AuronaAccent: ${safeAccent};
-        --AuronaText: ${isDark ? "#f3f4f6" : "#1f2937"};
-        --AuronaMuted: ${isDark ? "#9ca3af" : "#667085"};
-        --AuronaSurface: ${isDark ? "rgba(255,255,255,.055)" : "rgba(255,255,255,.48)"};
-        --AuronaSurfaceHover: ${isDark ? "rgba(255,255,255,.09)" : "rgba(255,255,255,.72)"};
-        --AuronaBorder: ${isDark ? "rgba(255,255,255,.12)" : "rgba(31,41,55,.10)"};
-        --AuronaFontSize: ${fontSizePx};
-        --AuronaFontWeight: ${effectiveWeight};
-      }
-      html, body {
-        background: transparent !important;
-        color-scheme: ${effectiveTheme};
-        font-size: var(--AuronaFontSize);
-        font-weight: var(--AuronaFontWeight);
-      }
-    </style>`;
-    if (result.includes("</head>")) {
-      result = result.replace("</head>", `${transparentStyle}</head>`);
-    } else {
-      result = transparentStyle + result;
-    }
-
-    return sanitizeExtensionDocument(
-      result.replace(RENDER_SLOT, html).replace(STATUS_SLOT, status),
-    );
-  }, [accentColor, declarativeUI, fontSize, fontWeight, viewHtml, theme, renderState]);
+    return composeExtensionDocument(viewHtml, renderState, snapshot);
+  }, [declarativeUI, viewHtml, renderState, snapshot]);
 
   // 如果是官方原生声明式组件模式，直接由 React 现代玻璃组件树驱动渲染
   if (declarativeUI) {
