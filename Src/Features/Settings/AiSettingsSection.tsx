@@ -357,10 +357,8 @@ export function AiSettingsSection() {
           </Button>
         </div>
       )}
-      <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
-          {t("settings.categories.ai")}
-        </h3>
+      <div className="settings-section-header">
+        <h3 className="settings-section-title">{t("settings.categories.ai")}</h3>
         <p className="text-[13px] text-[var(--color-text-muted)]">{t("ai.settingsDescription")}</p>
       </div>
 
@@ -372,10 +370,10 @@ export function AiSettingsSection() {
           {/* 启用侧边栏 AI 卡片 */}
           <div
             data-setting-id="aiEnabled"
-            className="flex min-h-20 items-center justify-between gap-5 px-5 py-4"
+            className="settings-row flex min-h-14 items-center justify-between gap-6 p-5"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[13.5px] font-semibold text-[var(--color-text-highlight)]">
+              <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                 {t("ai.settingsEnabledTitle")}
               </div>
               <p className="mt-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
@@ -392,10 +390,10 @@ export function AiSettingsSection() {
           {/* 启用 Agent 工具执行 */}
           <div
             data-setting-id="aiAgentEnabled"
-            className="flex min-h-20 flex-wrap items-center justify-between gap-5 border-t border-[var(--border-subtle)] px-5 py-4"
+            className="settings-row flex min-h-14 flex-wrap items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[13.5px] font-semibold text-[var(--color-text-highlight)]">
+              <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                 {t("ai.agent.settingsTitle")}
               </div>
               <p className="mt-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
@@ -412,54 +410,43 @@ export function AiSettingsSection() {
           {/* Agent 权限级别 */}
           <div
             data-setting-id="aiAgentPermission"
-            className="flex min-h-20 flex-wrap items-center justify-between gap-5 border-t border-[var(--border-subtle)] px-5 py-4"
+            className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[13.5px] font-semibold text-[var(--color-text-highlight)]">
+              <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                 {t("ai.agent.permissionTitle")}
               </div>
+              <p className="mt-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
+                {t(agentPermissionDescriptionKey[agentPermission])}
+              </p>
             </div>
-            <div className="ai-permission-picker grid shrink-0 grid-cols-2 gap-1 rounded-control border border-[var(--border-subtle)] bg-[var(--material-surface)] p-1">
-              {(
-                [
-                  ["ask", "ai.agent.permissionAsk"],
-                  ["read", "ai.agent.permissionRead"],
-                  ["edit", "ai.agent.permissionEdit"],
-                ] as const
-              ).map(([value, labelKey]) => {
-                const selected = agentPermission === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={selected}
-                    disabled={!agentEnabled}
-                    onClick={() => handleAgentPermissionChange(value)}
-                    className={`min-h-7 rounded-[calc(var(--radius-control)-3px)] px-2 text-left text-[11px] transition-colors ${
-                      selected
-                        ? "bg-[color-mix(in_srgb,var(--color-accent)_14%,var(--material-overlay))] font-semibold text-[var(--color-text-highlight)] shadow-[inset_0_1px_0_var(--GlassSurface-Highlight)]"
-                        : "text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-primary)]"
-                    }`}
-                  >
-                    {t(labelKey)}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="basis-full text-[11px] leading-4 text-[var(--color-text-muted)]">
-              {t(agentPermissionDescriptionKey[agentPermission])}
-            </p>
+            <Select
+              ariaLabel={t("ai.agent.permissionTitle")}
+              value={agentPermission}
+              disabled={!agentEnabled}
+              onChange={(value) => handleAgentPermissionChange(value as AgentPermissionLevel)}
+              options={(["ask", "read", "edit"] as const).map((value) => ({
+                value,
+                label: t(
+                  value === "ask"
+                    ? "ai.agent.permissionAsk"
+                    : value === "read"
+                      ? "ai.agent.permissionRead"
+                      : "ai.agent.permissionEdit",
+                ),
+              }))}
+            />
           </div>
 
           <div
             data-setting-id="aiAgentWriteApproval"
-            className="flex min-h-16 items-center justify-between gap-5 border-t border-[var(--border-subtle)] px-5 py-3"
+            className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-medium text-[var(--color-text-highlight)]">
+              <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                 {t("ai.agent.requireWriteApproval")}
               </div>
-              <p className="mt-1 text-[11px] leading-4 text-[var(--color-text-muted)]">
+              <p className="mt-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
                 {t("ai.agent.requireWriteApprovalDescription")}
               </p>
             </div>
@@ -475,13 +462,13 @@ export function AiSettingsSection() {
 
           <div
             data-setting-id="aiAgentCommandApproval"
-            className="flex min-h-16 items-center justify-between gap-5 border-t border-[var(--border-subtle)] px-5 py-3"
+            className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-medium text-[var(--color-text-highlight)]">
+              <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                 {t("ai.agent.requireCommandApproval")}
               </div>
-              <p className="mt-1 text-[11px] leading-4 text-[var(--color-text-muted)]">
+              <p className="mt-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
                 {t("ai.agent.requireCommandApprovalDescription")}
               </p>
             </div>
@@ -497,13 +484,13 @@ export function AiSettingsSection() {
 
           <div
             data-setting-id="aiAgentAutoCheckpoint"
-            className="flex min-h-16 items-center justify-between gap-5 border-t border-[var(--border-subtle)] px-5 py-3"
+            className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-medium text-[var(--color-text-highlight)]">
+              <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                 {t("ai.agent.autoCheckpoint")}
               </div>
-              <p className="mt-1 text-[11px] leading-4 text-[var(--color-text-muted)]">
+              <p className="mt-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
                 {t("ai.agent.autoCheckpointDescription")}
               </p>
             </div>
@@ -523,7 +510,7 @@ export function AiSettingsSection() {
             className="flex flex-wrap items-center justify-between gap-4 px-5 py-4"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[13.5px] font-semibold text-[var(--color-text-highlight)]">
+              <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                 {t("ai.profilesTitle")}
               </div>
               <p className="mt-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
@@ -572,7 +559,7 @@ export function AiSettingsSection() {
                     <Icons.Sparkles size={16} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-semibold text-[var(--color-text-highlight)]">
+                    <span className="block truncate text-[14px] font-medium text-[var(--color-text-highlight)]">
                       {profile.name || profile.model || t("ai.profileUntitled")}
                     </span>
                     <span className="block truncate text-[11px] text-[var(--color-text-muted)]">

@@ -1,0 +1,2 @@
+# Keep frontend sources aligned with Biome on every platform.
+Src/** text eol=lf

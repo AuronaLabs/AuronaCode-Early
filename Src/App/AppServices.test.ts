@@ -16,8 +16,6 @@ const mocks = vi.hoisted(() => {
     registerWorkbenchCommands: vi.fn(() => disposeCommands),
     flush: vi.fn(async () => undefined),
     flushRecovery: vi.fn(async () => undefined),
-    restoreAccountAuth: vi.fn(async () => ({ state: "disabled" })),
-    shutdownAccountAuth: vi.fn(async () => undefined),
     destroyWindow: vi.fn(async () => undefined),
     unlistenClose: vi.fn(),
     closeHandler: null as ((event: { preventDefault(): void }) => Promise<void>) | null,
@@ -49,12 +47,6 @@ vi.mock("./Contributions/WorkbenchCommands", () => ({
 vi.mock("../Core/Debug", () => ({ DebugService: { dispose: vi.fn() } }));
 vi.mock("../Core/Recovery/RecoveryCoordinator", () => ({
   RecoveryCoordinator: { flushAll: mocks.flushRecovery },
-}));
-vi.mock("../Foundation/IPC/AccountAuthCommands", () => ({
-  AccountAuthIPC: {
-    restore: mocks.restoreAccountAuth,
-    shutdown: mocks.shutdownAccountAuth,
-  },
 }));
 vi.mock("../Foundation/Desktop", () => ({
   invokeDesktop: vi.fn(async () => undefined),

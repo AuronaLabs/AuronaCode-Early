@@ -4,11 +4,11 @@
 
 ## 先查阅文档
 
-- [项目首页](../README.md)：当前版本与下载入口。
+- [项目首页](../README.md)：当前版本、能力范围与开发入口。
 - [文档首页](../Docs/README.md)：使用、开发与扩展资料。
-- [0.4.18 更新说明](../Docs/Releases/0.4.18/Release-Notes.md)：本版变化与支持范围。
+- [Alpha1 开发记录](../Docs/Development/0.5.0-alpha.1/Implementation.md)：当前实现、验证与待完成事项。
 - [安全与信任](../Docs/Guides/Security-and-Trust.md)：授权、插件认证与恢复。
-- [VS Code 兼容矩阵](../Docs/Releases/0.4.17/VSCode-Compatibility-Matrix.md)：当前兼容 API 与限制；0.4.18 未扩大完整兼容承诺。
+- [VS Code 兼容矩阵](../Docs/Guides/Extensions/VSCode-Compatibility.md)：当前兼容 API、限制与验证方法。
 
 ## 报告使用问题
 

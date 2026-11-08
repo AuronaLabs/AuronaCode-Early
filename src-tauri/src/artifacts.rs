@@ -3,14 +3,12 @@ use std::io::Read;
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use tauri::{Emitter, Manager, State};
+use tauri::{Manager, State};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-use tokio::io::AsyncWriteExt;
 
-use crate::artifact_signature::{self, ArtifactPayload, SignedArtifact};
+use crate::artifact_signature::{self, ArtifactPayload};
 
 struct Artifact {
     kind: String,
@@ -38,23 +36,6 @@ pub struct ArtifactHandle {
 }
 
 impl ArtifactState {
-    pub(crate) fn register_toolchain(
-        &self,
-        file: tempfile::NamedTempFile,
-        signed: ArtifactPayload,
-        generation: u64,
-    ) -> Result<ArtifactHandle, String> {
-        self.insert(Artifact {
-            kind: "toolchain".into(),
-            generation: Some(generation),
-            sha256: signed.sha256.to_ascii_lowercase(),
-            size: signed.size_bytes,
-            file,
-            signed: Some(signed),
-            requested: None,
-            created: Instant::now(),
-        })
-    }
     fn insert(&self, artifact: Artifact) -> Result<ArtifactHandle, String> {
         let mut entries = self.entries.lock().map_err(|e| e.to_string())?;
         entries.retain(|_, entry| entry.created.elapsed() < Duration::from_secs(600));
@@ -105,209 +86,6 @@ impl ArtifactState {
 }
 
 #[tauri::command]
-pub async fn artifact_download(
-    app: tauri::AppHandle,
-    tasks: State<'_, crate::tasks::TaskState>,
-    state: State<'_, ArtifactState>,
-    task_id: String,
-    url: String,
-    extension_id: String,
-    version: Option<String>,
-) -> Result<ArtifactHandle, String> {
-    let task = tasks.begin(&task_id)?;
-    tokio::select! {
-        biased;
-        _ = task.cancelled() => Err("[task.cancelled] Artifact download cancelled".into()),
-        result = download_artifact(&app, &state, &task_id, url, extension_id, version) => {
-            if let Err(error) = &result {
-                let _ = app.emit("artifact://download_progress", serde_json::json!({
-                    "downloadId": task_id,
-                    "stage": "failed",
-                    "downloadedBytes": 0,
-                    "totalBytes": 0,
-                    "percentage": 0,
-                    "message": error,
-                }));
-            }
-            result
-        },
-    }
-}
-
-async fn download_artifact(
-    app: &tauri::AppHandle,
-    state: &ArtifactState,
-    task_id: &str,
-    url: String,
-    extension_id: String,
-    version: Option<String>,
-) -> Result<ArtifactHandle, String> {
-    let generation = app.state::<crate::workspace::WorkspaceState>().generation();
-    let origin = crate::network_policy::validate_download_url(
-        &url,
-        crate::network_policy::DownloadPurpose::Extension,
-    )?
-    .origin()
-    .ascii_serialization();
-    if origin != "https://marketplace.aurona.cc" {
-        return Err(
-            "[artifact.source] Extension artifacts require the official Marketplace source".into(),
-        );
-    }
-    let _permit = crate::resource_limits::DOWNLOADS
-        .try_acquire()
-        .map_err(|_| "[resource.limit] Download concurrency limit reached")?;
-    let mut response = crate::network_policy::download_response(
-        &url,
-        crate::network_policy::DownloadPurpose::Extension,
-    )
-    .await?;
-    let policy = crate::extensions::security_policy::ExtensionSecurityPolicy::load(app);
-    let minimum_revision = if policy.catalog_signature {
-        let requested_version = version.as_deref().ok_or("[catalog.version] A package version is required when catalog authentication is enabled")?;
-        crate::marketplace_catalog::installation_revision(
-            app,
-            &origin,
-            &extension_id,
-            requested_version,
-        )?
-    } else {
-        0
-    };
-    let authenticated = (|| -> Result<SignedArtifact, String> {
-        let descriptor = response
-            .headers()
-            .get("X-Aurona-Artifact-Descriptor")
-            .and_then(|value| value.to_str().ok())
-            .ok_or("[signature.required] Marketplace artifact signing metadata is unavailable")?;
-        if descriptor.len() > 16 * 1024 {
-            return Err("[resource.limit] Artifact signature descriptor is too large".into());
-        }
-        let signed: SignedArtifact = serde_json::from_slice(
-            &STANDARD
-                .decode(descriptor)
-                .map_err(|_| "[signature.schema] Invalid signature descriptor encoding")?,
-        )
-        .map_err(|_| "[signature.schema] Invalid signature descriptor")?;
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|e| e.to_string())?
-            .as_secs();
-        let expected_version = version.as_deref().unwrap_or(&signed.payload.version);
-        artifact_signature::verify(
-            &signed,
-            &artifact_signature::trusted_keys()?,
-            &extension_id,
-            expected_version,
-            "wasm32-wasip2",
-            &origin,
-            minimum_revision,
-            now,
-        )?;
-        Ok(signed)
-    })();
-    let signed = match authenticated {
-        Ok(signed) => Some(signed.payload),
-        Err(error) if policy.package_signature => return Err(error),
-        Err(_) => None,
-    };
-    // Size budget protects resources; authentication metadata is used only after verification.
-    let total = signed
-        .as_ref()
-        .map(|payload| payload.size_bytes)
-        .or_else(|| response.content_length())
-        .unwrap_or(0);
-    if total > super::extensions::aurx::MAX_ARCHIVE_BYTES {
-        return Err("[resource.limit] AURX artifact exceeds 48 MiB".into());
-    }
-    let _ = app.emit(
-        "artifact://download_progress",
-        serde_json::json!({
-            "downloadId": task_id,
-            "stage": "downloading",
-            "downloadedBytes": 0,
-            "totalBytes": total,
-            "percentage": 0,
-            "message": "Downloading extension",
-        }),
-    );
-    if response.content_length().is_some_and(|length| {
-        signed
-            .as_ref()
-            .is_some_and(|payload| length != payload.size_bytes)
-    }) {
-        return Err("[signature.size] Download length differs from the signed size".into());
-    }
-    let file = tempfile::Builder::new()
-        .prefix("aurona-artifact-")
-        .tempfile()
-        .map_err(|e| e.to_string())?;
-    let mut output = tokio::fs::File::from_std(file.reopen().map_err(|e| e.to_string())?);
-    let mut hash = Sha256::new();
-    let mut size = 0u64;
-    while let Some(chunk) = response
-        .chunk()
-        .await
-        .map_err(|_| "[artifact.download] Artifact stream failed")?
-    {
-        size = size.saturating_add(chunk.len() as u64);
-        if size > super::extensions::aurx::MAX_ARCHIVE_BYTES
-            || signed
-                .as_ref()
-                .is_some_and(|payload| size > payload.size_bytes)
-        {
-            return Err("[signature.size] Artifact grew beyond its signed size".into());
-        }
-        output.write_all(&chunk).await.map_err(|e| e.to_string())?;
-        hash.update(&chunk);
-        let _ = app.emit(
-            "artifact://download_progress",
-            serde_json::json!({
-                "downloadId": task_id,
-                "stage": "downloading",
-                "downloadedBytes": size,
-                "totalBytes": total,
-                "percentage": (size as f64 / total.max(1) as f64) * 100.0,
-                "message": "Downloading extension",
-            }),
-        );
-    }
-    output.sync_all().await.map_err(|e| e.to_string())?;
-    drop(output);
-    let sha256 = format!("{:x}", hash.finalize());
-    if signed.as_ref().is_some_and(|payload| {
-        size != payload.size_bytes || sha256 != payload.sha256.to_ascii_lowercase()
-    }) {
-        return Err("[signature.hash] Download does not match the signed artifact".into());
-    }
-    if app.state::<crate::workspace::WorkspaceState>().generation() != generation {
-        return Err("[workspace.generation] Workspace changed during artifact download".into());
-    }
-    let handle = state.insert(Artifact {
-        kind: "extension".into(),
-        generation: Some(generation),
-        file,
-        signed,
-        requested: Some((extension_id, version)),
-        created: Instant::now(),
-        sha256,
-        size,
-    })?;
-    let _ = app.emit(
-        "artifact://download_progress",
-        serde_json::json!({
-            "downloadId": task_id,
-            "stage": "completed",
-            "downloadedBytes": size,
-            "totalBytes": size,
-            "percentage": 100,
-            "message": "Download complete",
-        }),
-    );
-    Ok(handle)
-}
-
-#[tauri::command]
 pub async fn artifact_pick(
     app: tauri::AppHandle,
     state: State<'_, ArtifactState>,
@@ -346,7 +124,7 @@ pub async fn artifact_pick(
         return Ok(None);
     };
     let artifact = tokio::task::spawn_blocking(move || {
-        let mut source = std::fs::File::open(path).map_err(|e| e.to_string())?;
+        let mut source = std::fs::File::open(&path).map_err(|e| e.to_string())?;
         let mut file = tempfile::Builder::new()
             .prefix("aurona-local-artifact-")
             .tempfile()
@@ -367,14 +145,20 @@ pub async fn artifact_pick(
             }
             hash.update(&chunk[..count]);
         }
+        let sha256 = format!("{:x}", hash.finalize());
+        let signed = if kind == "vscode" {
+            None
+        } else {
+            artifact_signature::local_signature(&path, &sha256, size)?
+        };
         Ok::<_, String>(Artifact {
             kind,
             generation: Some(generation),
             file,
-            signed: None,
+            signed,
             requested: None,
             created: Instant::now(),
-            sha256: format!("{:x}", hash.finalize()),
+            sha256,
             size,
         })
     })
@@ -528,14 +312,6 @@ pub async fn install_extension(
     policy.require_package(artifact.signed.is_some())?;
     let bytes = artifact.read_package()?;
     let package = super::extensions::aurx::open_package(&bytes)?;
-    if policy.catalog_signature && artifact.requested.is_some() {
-        crate::marketplace_catalog::installation_revision(
-            &app,
-            "https://marketplace.aurona.cc",
-            &package.manifest.id,
-            &package.manifest.version,
-        )?;
-    }
     if let Some((id, version)) = &artifact.requested {
         if package.manifest.id != *id
             || version

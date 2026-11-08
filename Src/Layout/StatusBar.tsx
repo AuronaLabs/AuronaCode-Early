@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { AccountService } from "../Core/AccountService";
 import { CommandRegistry } from "../Core/Commands/CommandRegistry";
 import { type LanguageServerInfo, LspClient } from "../Core/Language/LspClient";
 import { type StatusBarItemHandle, StatusBarRegistry } from "../Core/StatusBar/StatusBarRegistry";
@@ -9,7 +8,6 @@ import { LanguageServerIPC } from "../Foundation/IPC/LanguageServerCommands";
 import { GetLanguageFromPath } from "../Shared/Utils/LanguageUtils";
 import { useEditorStore } from "../State/useEditorStore";
 import { useWorkbenchStore } from "../State/Workbench/useWorkbenchStore";
-import { AccountAvatar } from "../UI/Components/AccountAvatar";
 import { Tooltip } from "../UI/Feedback/Tooltip";
 
 const formatLanguage = (language: string) => {
@@ -74,11 +72,6 @@ export function StatusBar() {
     StatusBarRegistry.getSnapshot,
     StatusBarRegistry.getSnapshot,
   );
-  const account = useSyncExternalStore(
-    AccountService.subscribe,
-    () => AccountService.getSnapshot(),
-    () => AccountService.getSnapshot(),
-  );
   const editorStatus = useEditorStore((state) => state.editorStatus);
   const setActiveBottomPanel = useWorkbenchStore((state) => state.setActiveBottomPanel);
   const activeFilePath = useWorkbenchStore((state) => {
@@ -93,10 +86,6 @@ export function StatusBar() {
   const [lspInstalled, setLspInstalled] = useState<boolean | null>(null);
   // 扩展 set-status-message 的临时消息（自动消失）
   const [extensionStatusMessage, setExtensionStatusMessage] = useState<string | null>(null);
-  const signedInProfile = account.phase === "signedIn" ? account.profile : null;
-  const accountDisplayName =
-    signedInProfile?.preferredUsername || signedInProfile?.name || t("account.defaultDisplayName");
-
   const leftItems = StatusBarRegistry.getLeftItems();
   const rightItems = StatusBarRegistry.getRightItems();
 
@@ -192,21 +181,6 @@ export function StatusBar() {
         {rightItems.map((item) => (
           <DynamicStatusBarItem key={item.id} item={item} />
         ))}
-        {signedInProfile && (
-          <button
-            type="button"
-            onClick={() => {
-              void CommandRegistry.execute("workbench.action.openSettings");
-              EventBus.emit("settings:nav", "accountCloud");
-            }}
-            className="flex max-w-[180px] items-center gap-2 rounded-control px-1.5 py-0.5 hover:bg-[var(--material-interactive-hover)] cursor-pointer"
-          >
-            <AccountAvatar name={accountDisplayName} picture={signedInProfile.picture} size={20} />
-            <span className="max-w-[120px] truncate text-[var(--color-text-highlight)]">
-              {accountDisplayName}
-            </span>
-          </button>
-        )}
         {activeFilePath && (
           <>
             <span className="cursor-default">{editorStatus.encoding}</span>
@@ -225,7 +199,6 @@ export function StatusBar() {
                 onClick={() => {
                   if (lspInstalled === false) {
                     useWorkbenchStore.getState().setActiveSidebar("extensions");
-                    EventBus.emit("marketplace:navigate", { mode: "toolchains" });
                     return;
                   }
                   setActiveBottomPanel("output");

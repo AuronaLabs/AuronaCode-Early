@@ -9,21 +9,21 @@
   --GlassSurface-Base: color-mix(
     in srgb,
     rgb(var(--GlassTintRGB)) 6%,
-    rgba(255, 255, 255, calc(0.05 * var(--GlassOpacity-Multiplier)))
+    rgba(255, 255, 255, calc(0.028 * var(--GlassOpacity-Multiplier)))
   );
   --GlassSurface-Elevated: color-mix(
     in srgb,
     rgb(var(--GlassTintRGB)) 8%,
-    rgba(255, 255, 255, calc(0.08 * var(--GlassOpacity-Multiplier)))
+    rgba(255, 255, 255, calc(0.045 * var(--GlassOpacity-Multiplier)))
   );
   --GlassSurface-Floating: color-mix(
     in srgb,
     rgb(var(--GlassTintRGB)) 10%,
-    rgba(255, 255, 255, calc(0.1 * var(--GlassOpacity-Multiplier)))
+    rgba(255, 255, 255, calc(0.06 * var(--GlassOpacity-Multiplier)))
   );
-  --GlassHover: rgba(255, 255, 255, calc(0.11 * var(--GlassOpacity-Multiplier)));
-  --GlassActive: rgba(255, 255, 255, calc(0.17 * var(--GlassOpacity-Multiplier)));
-  --GlassBorder: rgba(255, 255, 255, calc(0.09 * var(--GlassOpacity-Multiplier)));
+  --GlassHover: rgba(255, 255, 255, calc(0.065 * var(--GlassOpacity-Multiplier)));
+  --GlassActive: rgba(255, 255, 255, calc(0.1 * var(--GlassOpacity-Multiplier)));
+  --GlassBorder: rgba(255, 255, 255, calc(0.07 * var(--GlassOpacity-Multiplier)));
 
   --EditorSurface: rgba(9, 12, 18, 0.68);
   --EditorText: #cbd5e1;
@@ -41,26 +41,34 @@
 
   --switch-track-off: color-mix(in srgb, black 28%, var(--material-panel));
   --switch-track-on: color-mix(in srgb, var(--AccentPrimary) 32%, var(--material-surface));
-  --switch-thumb-surface: color-mix(in srgb, white 16%, var(--material-overlay));
+  --switch-thumb-surface: color-mix(in srgb, white 10%, var(--material-overlay));
   --switch-indicator: rgba(255, 255, 255, 0.82);
   --shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-overlay: 0 8px 28px rgba(0, 0, 0, 0.4);
   --shadow-glow: none;
-  --material-inset: rgba(255, 255, 255, 0.08);
-  --GlassSurface-Highlight: rgba(255, 255, 255, 0.08);
-  --GlassSurface-Rim: rgba(255, 255, 255, calc(0.24 * var(--GlassBorder-Luminance, 0.8)));
+  /* 深色材质收敛白色叠层与顶缘反光，层次仍由着色、模糊和阴影保留。 */
+  --material-inset: rgba(255, 255, 255, 0.035);
+  --GlassSurface-Highlight: rgba(255, 255, 255, 0.025);
+  --GlassSurface-Rim: rgba(255, 255, 255, calc(0.1 * var(--GlassBorder-Luminance, 0.8)));
   --GlassSurface-Shadow-Base: 0 4px 16px rgba(0, 0, 0, calc(0.58 * var(--GlassShadow-Depth, 0.15)));
   --GlassSurface-Shadow-Raised: 0 14px 34px
     rgba(0, 0, 0, calc(0.72 * var(--GlassShadow-Depth, 0.15)));
   --switch-track-shadow: inset 0 2px 5px rgb(0 0 0 / 35%);
-  --switch-thumb-shadow: inset 0 1px 1px rgb(255 255 255 / 24%);
+  --switch-thumb-shadow: inset 0 1px 1px rgb(255 255 255 / 12%);
   --switch-thumb-shadow-checked:
-    inset 0 1px 1px rgb(255 255 255 / 40%),
-    0 0 9px color-mix(in srgb, var(--AccentPrimary) 30%, transparent);
+    inset 0 1px 1px rgb(255 255 255 / 18%),
+    0 0 9px color-mix(in srgb, var(--AccentPrimary) 20%, transparent);
   --switch-checked-glow:
-    inset 0 1px 1px rgb(255 255 255 / 20%),
-    0 0 14px color-mix(in srgb, var(--AccentPrimary) 38%, transparent),
-    0 0 7px color-mix(in srgb, var(--AccentPrimary) 24%, transparent);
+    inset 0 1px 1px rgb(255 255 255 / 8%),
+    0 0 14px color-mix(in srgb, var(--AccentPrimary) 26%, transparent),
+    0 0 7px color-mix(in srgb, var(--AccentPrimary) 16%, transparent);
+  --button-primary-highlight: rgba(255, 255, 255, 0.1);
+  --button-danger-highlight: rgba(255, 255, 255, 0.08);
+  --slider-range-highlight: rgba(255, 255, 255, 0.12);
+  --slider-thumb-highlight: rgba(255, 255, 255, 0.26);
+  --slider-thumb-sheen: rgba(255, 255, 255, 0.05);
+  --slider-thumb-rim: rgba(255, 255, 255, 0.18);
+  --slider-thumb-rim-active: rgba(255, 255, 255, 0.24);
 
   /* Editor Active Line Highlight variables */
   --EditorActiveLineBg: rgba(255, 255, 255, 0.015);

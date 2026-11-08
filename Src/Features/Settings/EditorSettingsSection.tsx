@@ -94,10 +94,8 @@ export function EditorSettingsSection({
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-3xl">
-      <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
-          {t("settings.editorSection.title")}
-        </h3>
+      <div className="settings-section-header">
+        <h3 className="settings-section-title">{t("settings.editorSection.title")}</h3>
         <p className="text-[13px] text-[var(--color-text-muted)]">
           {t("settings.editorSection.description")}
         </p>
@@ -106,7 +104,7 @@ export function EditorSettingsSection({
       <GlassContainer layer="raised" className="overflow-hidden flex flex-col">
         <div
           data-setting-id="editorFontSize"
-          className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
+          className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -134,7 +132,7 @@ export function EditorSettingsSection({
 
         <div
           data-setting-id="editorLineHeight"
-          className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
+          className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -162,7 +160,7 @@ export function EditorSettingsSection({
 
         <div
           data-setting-id="editorTabSize"
-          className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
+          className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -190,7 +188,7 @@ export function EditorSettingsSection({
 
         <div
           data-setting-id="editorWordWrap"
-          className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
+          className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -214,7 +212,7 @@ export function EditorSettingsSection({
 
         <div
           data-setting-id="editorMinimap"
-          className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
+          className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -239,7 +237,7 @@ export function EditorSettingsSection({
 
         <div
           data-setting-id="editorCapsuleEnabled"
-          className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
+          className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -264,7 +262,7 @@ export function EditorSettingsSection({
 
         <div
           data-setting-id="editorSmoothScrolling"
-          className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
+          className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -289,7 +287,7 @@ export function EditorSettingsSection({
 
         <div
           data-setting-id="editorSmoothCaret"
-          className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
+          className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">

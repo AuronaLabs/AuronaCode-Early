@@ -97,7 +97,6 @@ const SYNONYMS: Array<{ pattern: RegExp; words: string[] }> = [
   { pattern: /主题|theme/i, words: ["theme", "主题"] },
   { pattern: /字体|font/i, words: ["font", "字体"] },
   { pattern: /性能|performance|benchmark/i, words: ["performance", "性能", "benchmark"] },
-  { pattern: /账户|账号|account/i, words: ["account", "账户", "账号"] },
 ];
 
 function commandKeywords(command: CommandDefinition<unknown>): string[] {

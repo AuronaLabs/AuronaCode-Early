@@ -71,14 +71,13 @@ export function LanguageServiceSettings() {
 
   const openToolchains = () => {
     useWorkbenchStore.getState().setActiveSidebar("extensions");
-    EventBus.emit("marketplace:navigate", { mode: "toolchains" });
   };
 
   const openOutput = () => useWorkbenchStore.getState().setActiveBottomPanel("output");
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
-      <section className="space-y-2">
+      <section className="settings-group">
         <SectionHeading
           title={t("settings.codeIntelligence.experienceTitle")}
           description={t("settings.codeIntelligence.experienceDescription")}
@@ -132,7 +131,7 @@ export function LanguageServiceSettings() {
         </GlassContainer>
       </section>
 
-      <section className="space-y-2">
+      <section className="settings-group">
         <SectionHeading
           title={t("settings.codeIntelligence.serversTitle")}
           description={t("settings.codeIntelligence.serversDescription")}
@@ -154,7 +153,7 @@ export function LanguageServiceSettings() {
               </Button>
               <Button size="sm" variant="primary" onClick={openToolchains}>
                 <Icons.Extensions size={13} />
-                {t("settings.codeIntelligence.goToMarketplace")}
+                {t("settings.codeIntelligence.goToExtensions")}
               </Button>
             </div>
           </div>
@@ -175,8 +174,8 @@ export function LanguageServiceSettings() {
 
 function SectionHeading({ title, description }: { title: string; description: string }) {
   return (
-    <div>
-      <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">{title}</h3>
+    <div className="settings-section-header">
+      <h3 className="settings-section-title">{title}</h3>
       <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-text-muted)]">
         {description}
       </p>
@@ -200,7 +199,7 @@ function SettingRow({
   return (
     <div
       data-setting-id={settingId}
-      className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
+      className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
     >
       <div className="min-w-0">
         <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">{title}</div>

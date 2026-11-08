@@ -18,8 +18,7 @@ fn run() -> Result<(), String> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     if args.len() != 4 {
         return Err(
-            "Usage: verify_candidate <directory> <version> <stable|pioneer> <merged-tauri-config>"
-                .into(),
+            "Usage: verify_candidate <directory> <version> <stable> <merged-tauri-config>".into(),
         );
     }
     let root = Path::new(&args[0]);

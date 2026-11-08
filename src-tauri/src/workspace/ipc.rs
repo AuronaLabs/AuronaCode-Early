@@ -89,6 +89,24 @@ pub async fn fs_write_compare(
 }
 
 #[tauri::command]
+pub async fn fs_restore_checkpoint_file(
+    app: tauri::AppHandle,
+    path: String,
+    contents: Option<String>,
+    expected_fingerprint: Option<String>,
+    generation: u64,
+) -> Result<(), String> {
+    super::filesystem::fs_restore_checkpoint_file(
+        app,
+        path,
+        contents,
+        expected_fingerprint,
+        generation,
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn fs_mkdir(app: tauri::AppHandle, path: String, recursive: bool) -> Result<(), String> {
     super::filesystem::fs_mkdir(app, path, recursive).await
 }

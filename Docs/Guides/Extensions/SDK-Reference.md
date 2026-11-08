@@ -1,8 +1,8 @@
 # 扩展 SDK 参考
 
-本文面向 **Aurona Code 0.4.18** 的原生扩展作者，以 [`Extensions/wit/world.wit`](../../../Extensions/wit/world.wit) 为接口依据。完整函数签名、类型与注释均保存在该文件，文档按使用场景说明职责与边界。
+本文面向 **Aurona Code 0.5.0 Alpha1** 的原生扩展作者，以 [`Extensions/wit/world.wit`](../../../Extensions/wit/world.wit) 为接口依据。完整函数签名、类型与注释均保存在该文件，文档按使用场景说明职责与边界。
 
-VS Code API 支持范围另外记录在[兼容层能力矩阵](../../Releases/0.4.17/VSCode-Compatibility-Matrix.md)，两套接口应分别查阅。
+VS Code API 支持范围另外记录在[兼容层能力矩阵](VSCode-Compatibility.md)，两套接口应分别查阅。
 
 ## 契约与绑定
 

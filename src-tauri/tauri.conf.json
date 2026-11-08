@@ -2,12 +2,9 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Aurona Code",
   "mainBinaryName": "Aurona Code",
-  "version": "0.4.18",
+  "version": "0.5.0-alpha.1",
   "identifier": "com.aurona.code",
   "build": {
-    "features": [
-      "aurona-account"
-    ],
     "beforeDevCommand": "pnpm run prepare:extensions && pnpm run dev",
     "beforeBuildCommand": "pnpm run prepare:extensions && pnpm run build",
     "devUrl": "http://127.0.0.1:1420",
@@ -46,8 +43,8 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src ipc: http://ipc.localhost http://tauri.localhost https://tauri.localhost https://auth.aurona.cc https://account.aurona.cc; object-src 'none'; base-uri 'none'; form-action 'none'",
-      "devCsp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src ipc: http://ipc.localhost http://tauri.localhost https://tauri.localhost http://127.0.0.1:1420 ws://127.0.0.1:1420 https://auth.aurona.cc https://account.aurona.cc; object-src 'none'; base-uri 'none'; form-action 'none'",
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src ipc: http://ipc.localhost http://tauri.localhost https://tauri.localhost; object-src 'none'; base-uri 'none'; form-action 'none'",
+      "devCsp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src ipc: http://ipc.localhost http://tauri.localhost https://tauri.localhost http://127.0.0.1:1420 ws://127.0.0.1:1420; object-src 'none'; base-uri 'none'; form-action 'none'",
       "dangerousDisableAssetCspModification": [
         "style-src"
       ]

@@ -1,8 +1,8 @@
 # 使用与开发指南
 
-**Create Without Limits. · 创造无限可能**
+**Create Without Limits. · 创造永无止境**
 
-这里收录持续维护的指南。具体版本交付见[发布记录](../Releases/README.md)，开发中的实现范围见[开发记录](../Development/README.md)。
+这里收录持续维护的指南。当前实现与验证范围见[开发记录](../Development/README.md)。
 
 | 你想做什么 | 从这里开始 |
 | --- | --- |

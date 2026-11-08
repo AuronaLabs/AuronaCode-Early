@@ -565,8 +565,8 @@ pub async fn get_performance_environment(
     .map_err(|error| format!("Environment inspection task failed: {error}"))?
 }
 
-/// 解析 WASM 基准使用的扩展包路径：优先开发机 MarketplacePackages，
-/// 否则回退到任一已安装的市场扩展包；都没有则返回 None（前端显示 skipped）。
+/// 解析 WASM 基准使用的扩展包路径：优先开发机本地打包目录，
+/// 否则回退到任一已安装的本地扩展包；都没有则返回 None（前端显示 skipped）。
 fn resolve_wasm_benchmark_package(app: &tauri::AppHandle) -> Option<PathBuf> {
     let dev_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
@@ -597,7 +597,7 @@ fn skipped_wasm_result() -> PerformanceBenchmarkResult {
         value: 0.0,
         unit: "ops/s".to_string(),
         status: "skipped".to_string(),
-        details: "未找到可用扩展包（在扩展市场安装任意扩展后可运行），已跳过 WASM 沙箱基准"
+        details: "未找到可用扩展包（在扩展管理中导入本地扩展后可运行），已跳过 WASM 沙箱基准"
             .to_string(),
     }
 }

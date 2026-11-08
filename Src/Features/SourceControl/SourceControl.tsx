@@ -1,8 +1,14 @@
 import React, { useState } from "react";
 import { useLocale } from "../../Foundation/I18n";
 import { cn } from "../../Shared/Utils/cn";
-import { Badge } from "../../UI/Components/Badge";
 import { Button } from "../../UI/Components/Button";
+import {
+  DropdownMenuContent,
+  DropdownMenuDivider,
+  DropdownMenuItem,
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
+} from "../../UI/Components/DropdownMenu";
 import { EmptyState } from "../../UI/Components/EmptyState";
 import { FilterChips } from "../../UI/Components/FilterChips";
 import { glassListHeaderStyles } from "../../UI/Components/GlassList";
@@ -100,14 +106,7 @@ export const SourceControl = React.memo(function SourceControl() {
   if (!isRepo) {
     return (
       <div className="flex flex-col h-full w-full bg-transparent">
-        <SidebarPageHeader
-          title={
-            <>
-              {t("sourceControl.panelTitle")}
-              <Badge>Preview</Badge>
-            </>
-          }
-        />
+        <SidebarPageHeader title={t("sourceControl.panelTitle")} />
         <EmptyState
           className="flex-1"
           icon={<Icons.GitBranch size={27} stroke={1.45} />}
@@ -134,39 +133,67 @@ export const SourceControl = React.memo(function SourceControl() {
   return (
     <div className="flex flex-col h-full w-full select-none bg-transparent">
       <SidebarPageHeader
-        title={
-          <>
-            {t("sourceControl.panelTitle")}
-            <Badge>Preview</Badge>
-          </>
-        }
+        title={t("sourceControl.panelTitle")}
         actions={
           <div className="flex items-center gap-1">
-            <Tooltip content={t("sourceControl.recoveryRecords")}>
-              <button
-                type="button"
-                aria-label={t("sourceControl.recoveryRecords")}
-                disabled={Boolean(gitAction)}
-                onClick={() => void runRecoveryAction("list")}
-                className="p-1.5 rounded-control hover:bg-[var(--material-interactive-hover)] disabled:opacity-40"
-              >
-                <Icons.History size={16} />
-              </button>
-            </Tooltip>
-            <Tooltip content={t("sourceControl.discardAllRecoverable")}>
-              <button
-                type="button"
-                aria-label={t("sourceControl.discardAllRecoverable")}
-                disabled={Boolean(gitAction) || files.length === 0}
-                onClick={() => void runRecoveryAction("discard")}
-                className="p-1.5 rounded-control text-[var(--StatusError)] hover:bg-[var(--material-interactive-hover)] disabled:opacity-40"
-              >
-                <Icons.Trash size={16} />
-              </button>
-            </Tooltip>
+            <DropdownMenuRoot>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t("sourceControl.moreActions")}
+                  className="flex h-7 w-7 items-center justify-center rounded-control text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)]"
+                >
+                  <Icons.More size={16} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[210px]">
+                <DropdownMenuItem
+                  icon={<Icons.GitBranch size={15} />}
+                  label={t("sourceControl.createBranch")}
+                  disabled={Boolean(gitAction)}
+                  onSelect={() => setIsCreateBranchOpen(true)}
+                />
+                <DropdownMenuDivider />
+                <DropdownMenuItem
+                  icon={<Icons.Refresh size={15} />}
+                  label={t("sourceControl.fetchUpdates")}
+                  disabled={!hasRemote || Boolean(gitAction)}
+                  onSelect={() => void runRepositoryAction("fetch", "Fetch")}
+                />
+                <DropdownMenuItem
+                  icon={<Icons.Pull size={15} />}
+                  label={t("sourceControl.pull")}
+                  rightElement={behind > 0 ? behind : undefined}
+                  disabled={!hasRemote || Boolean(gitAction)}
+                  onSelect={() => void runRepositoryAction("pull", "Pull")}
+                />
+                <DropdownMenuItem
+                  icon={<Icons.Push size={15} />}
+                  label={t("sourceControl.push")}
+                  rightElement={ahead > 0 ? ahead : undefined}
+                  disabled={!hasRemote || Boolean(gitAction)}
+                  onSelect={() => void runRepositoryAction("push", "Push")}
+                />
+                <DropdownMenuDivider />
+                <DropdownMenuItem
+                  icon={<Icons.History size={15} />}
+                  label={t("sourceControl.recoveryRecords")}
+                  disabled={Boolean(gitAction)}
+                  onSelect={() => void runRecoveryAction("list")}
+                />
+                <DropdownMenuItem
+                  icon={<Icons.Trash size={15} />}
+                  label={t("sourceControl.discardAllRecoverable")}
+                  variant="danger"
+                  disabled={Boolean(gitAction) || files.length === 0}
+                  onSelect={() => void runRecoveryAction("discard")}
+                />
+              </DropdownMenuContent>
+            </DropdownMenuRoot>
             <Tooltip content={t("sourceControl.refresh")} delay={300}>
               <button
                 type="button"
+                aria-label={t("sourceControl.refresh")}
                 onClick={() => repoPath && fetchStatus(repoPath, true)}
                 disabled={isRefreshing}
                 className="p-1.5 hover:bg-[var(--material-interactive-hover)] rounded-control text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)] transition-colors disabled:opacity-50"
@@ -232,74 +259,6 @@ export const SourceControl = React.memo(function SourceControl() {
           <div className="flex h-7 min-w-0 flex-1 items-center rounded-control border border-[var(--border-subtle)] bg-[var(--material-surface)] px-2.5 text-[11.5px] text-[var(--color-text-muted)]">
             {t("sourceControl.noBranch")}
           </div>
-        )}
-        <Tooltip content={t("sourceControl.createBranch")} delay={300}>
-          <button
-            type="button"
-            onClick={() => setIsCreateBranchOpen(true)}
-            disabled={Boolean(gitAction)}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-40"
-          >
-            <Icons.Plus size={14} />
-          </button>
-        </Tooltip>
-        {hasRemote && (
-          <>
-            <Tooltip content={t("sourceControl.fetchUpdates")} delay={300}>
-              <button
-                type="button"
-                onClick={() => void runRepositoryAction("fetch", "Fetch")}
-                disabled={Boolean(gitAction)}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-40"
-              >
-                <Icons.Refresh size={13} className={gitAction === "fetch" ? "animate-spin" : ""} />
-              </button>
-            </Tooltip>
-            <Tooltip
-              content={
-                behind > 0
-                  ? t("sourceControl.pullCount").replace("{count}", String(behind))
-                  : t("sourceControl.pull")
-              }
-              delay={300}
-            >
-              <button
-                type="button"
-                onClick={() => void runRepositoryAction("pull", "Pull")}
-                disabled={Boolean(gitAction)}
-                className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-40"
-              >
-                <Icons.Pull size={13} />
-                {behind > 0 && (
-                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--color-accent)] px-0.5 text-center text-[9px] leading-3 text-[var(--color-accent-text)]">
-                    {behind}
-                  </span>
-                )}
-              </button>
-            </Tooltip>
-            <Tooltip
-              content={
-                ahead > 0
-                  ? t("sourceControl.pushCount").replace("{count}", String(ahead))
-                  : t("sourceControl.push")
-              }
-              delay={300}
-            >
-              <button
-                type="button"
-                onClick={() => void runRepositoryAction("push", "Push")}
-                disabled={Boolean(gitAction)}
-                className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-[var(--color-text-muted)] transition-colors hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:opacity-40"
-              >
-                <Icons.Push size={13} />
-                {ahead > 0 && (
-                  <span className="absolute -right-1 -top-1 min-w-3 rounded-full bg-[var(--color-accent)] px-0.5 text-center text-[9px] leading-3 text-[var(--color-accent-text)]">
-                    {ahead}
-                  </span>
-                )}
-              </button>
-            </Tooltip>
-          </>
         )}
       </div>
 

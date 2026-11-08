@@ -495,7 +495,6 @@ pub async fn workspace_set_root(
     app.state::<crate::extensions::state::ExtensionState>()
         .revoke_session();
     app.state::<crate::file_uploads::FileUploadState>().clear();
-    app.state::<crate::marketplace::MarketplaceState>().clear();
     app.state::<crate::ai_profiles::AiProfileState>()
         .revoke_session();
     app.state::<crate::ai_chat::AiChatState>().abort_all();
@@ -681,6 +680,108 @@ pub async fn fs_write_compare(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Restore an absence-aware text snapshot. Generation and fingerprint checks happen
+/// in the native workspace boundary; directory trees are deliberately unsupported.
+pub async fn fs_restore_checkpoint_file(
+    app: tauri::AppHandle,
+    path: String,
+    contents: Option<String>,
+    expected_fingerprint: Option<String>,
+    generation: u64,
+) -> Result<(), String> {
+    if contents
+        .as_ref()
+        .is_some_and(|value| value.len() > crate::resource_limits::TEXT_BYTES)
+    {
+        return Err("[resource.limit] Text exceeds 32 MiB".into());
+    }
+    let state = app.state::<WorkspaceState>();
+    if state.generation() != generation {
+        return Err("[workspace.generation] Workspace changed".into());
+    }
+    let (directory, name) = state.write_access(&path)?;
+    if name == Path::new(".") {
+        return Err("[workspace.root_protected] Cannot replace the workspace root".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<WorkspaceState>();
+        state.with_generation(generation, || {
+            restore_checkpoint_entry(
+                &directory,
+                &name,
+                contents.as_deref(),
+                expected_fingerprint.as_deref(),
+            )
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn restore_checkpoint_entry(
+    directory: &cap_std::fs::Dir,
+    name: &Path,
+    contents: Option<&str>,
+    expected_fingerprint: Option<&str>,
+) -> Result<(), String> {
+    let metadata = match directory.symlink_metadata(name) {
+        Ok(value) => Some(value),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error.to_string()),
+    };
+    if metadata
+        .as_ref()
+        .is_some_and(|value| !value.is_file() || value.is_symlink())
+    {
+        return Err("[agent.recovery_type] Recovery target must be a regular text file".into());
+    }
+    let snapshot = match expected_fingerprint {
+        Some(expected) => {
+            let source = crate::scoped_file::open(directory, name)
+                .map_err(|_| "[agent.recovery_conflict] Expected file is missing")?;
+            let current = crate::scoped_file::snapshot(&source)?;
+            if current.fingerprint != expected {
+                return Err("[agent.recovery_conflict] File changed before recovery".into());
+            }
+            Some(current)
+        }
+        None if metadata.is_some() => {
+            return Err("[agent.recovery_conflict] Expected an absent file".into())
+        }
+        None => None,
+    };
+    match contents {
+        Some(text) => {
+            let mut stage = crate::scoped_file::StagedFile::new(directory)?;
+            if let Some(metadata) = metadata {
+                stage
+                    .file
+                    .set_permissions(metadata.permissions())
+                    .map_err(|e| e.to_string())?;
+            }
+            stage
+                .file
+                .write_all(text.as_bytes())
+                .map_err(|e| e.to_string())?;
+            if let Some(snapshot) = snapshot {
+                crate::scoped_file::verify_snapshot(directory, name, &snapshot)?;
+                stage.commit(name)
+            } else {
+                stage.commit_new(name)
+            }
+        }
+        None => {
+            if let Some(snapshot) = snapshot {
+                crate::scoped_file::verify_snapshot(directory, name, &snapshot)?;
+                directory.remove_file(name).map_err(|e| e.to_string())?;
+                #[cfg(unix)]
+                crate::scoped_file::sync_directory(directory)?;
+            }
+            Ok(())
+        }
+    }
 }
 
 pub async fn fs_mkdir(app: tauri::AppHandle, path: String, recursive: bool) -> Result<(), String> {
@@ -1110,3 +1211,49 @@ pub fn fs_watch_stop(state: State<WorkspaceState>, id: String) -> Result<(), Str
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod checkpoint_tests {
+    use super::restore_checkpoint_entry;
+    use std::path::Path;
+    fn fixture() -> (tempfile::TempDir, cap_std::fs::Dir) {
+        let temporary = tempfile::tempdir().unwrap();
+        let directory =
+            cap_std::fs::Dir::open_ambient_dir(temporary.path(), cap_std::ambient_authority())
+                .unwrap();
+        (temporary, directory)
+    }
+    #[test]
+    fn restores_creation_deletion_and_refuses_unexpected_files() {
+        let (_temporary, directory) = fixture();
+        let name = Path::new("file.txt");
+        restore_checkpoint_entry(&directory, name, Some("created"), None).unwrap();
+        assert_eq!(directory.read_to_string(name).unwrap(), "created");
+        assert!(restore_checkpoint_entry(&directory, name, Some("overwrite"), None).is_err());
+        let snapshot =
+            crate::scoped_file::snapshot(&crate::scoped_file::open(&directory, name).unwrap())
+                .unwrap();
+        assert!(restore_checkpoint_entry(&directory, name, None, Some("wrong")).is_err());
+        assert_eq!(directory.read_to_string(name).unwrap(), "created");
+        restore_checkpoint_entry(&directory, name, None, Some(&snapshot.fingerprint)).unwrap();
+        assert!(!directory.exists(name));
+        restore_checkpoint_entry(&directory, name, Some("restored"), None).unwrap();
+        assert_eq!(directory.read_to_string(name).unwrap(), "restored");
+    }
+    #[test]
+    fn preserves_directory_trees_and_refuses_missing_expected_files() {
+        let (_temporary, directory) = fixture();
+        directory.create_dir("folder").unwrap();
+        directory.write("folder/keep.txt", "keep").unwrap();
+        assert!(restore_checkpoint_entry(&directory, Path::new("folder"), None, None).is_err());
+        assert_eq!(directory.read_to_string("folder/keep.txt").unwrap(), "keep");
+        assert!(restore_checkpoint_entry(
+            &directory,
+            Path::new("missing"),
+            Some("new"),
+            Some("old")
+        )
+        .is_err());
+        assert!(!directory.exists("missing"));
+    }
+}

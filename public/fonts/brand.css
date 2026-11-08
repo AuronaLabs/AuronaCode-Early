@@ -1,0 +1,8 @@
+@font-face {
+  font-family: "Aurona Brand";
+  src: url("./aurona-brand.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0020, U+0041, U+0043, U+0061, U+0064-0065, U+006E-006F, U+0072, U+0075;
+}

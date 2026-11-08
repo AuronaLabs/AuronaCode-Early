@@ -73,7 +73,6 @@ mod tests {
             "requirePackageInstallApproval",
             "requireExtensionExecutionApproval",
             "requireExtensionSignature",
-            "requireExtensionCatalogSignature",
             "requireDeleteApproval",
             "requireGitDiscardApproval",
         ] {

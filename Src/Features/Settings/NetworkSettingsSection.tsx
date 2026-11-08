@@ -19,7 +19,7 @@ export interface NetworkSettingsSectionProps {
 
 /**
  * 网络设置：代理三档（跟随系统/自定义/直连）。
- * 范围仅覆盖更新检查与工具链下载；Marketplace 扩展下载走前端 fetch，不在覆盖范围内。
+ * 范围仅覆盖更新检查与工具链下载。
  * 地址在失焦或回车时提交，Rust 侧校验失败会给出明确 toast。
  */
 export function NetworkSettingsSection({
@@ -68,10 +68,8 @@ export function NetworkSettingsSection({
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
-          {t("settings.categories.network")}
-        </h3>
+      <div className="settings-section-header">
+        <h3 className="settings-section-title">{t("settings.categories.network")}</h3>
         <p className="text-[13px] text-[var(--color-text-muted)]">
           {t("settings.networkDescription")}
         </p>
@@ -80,7 +78,7 @@ export function NetworkSettingsSection({
       <GlassContainer layer="raised" className="overflow-hidden">
         <div
           data-setting-id="networkProxyMode"
-          className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"
+          className="settings-row flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">

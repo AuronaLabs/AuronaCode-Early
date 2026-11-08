@@ -35,7 +35,7 @@ export function InlineInput({
           />
         ))}
       <div
-        className="flex items-center gap-1.5 py-1 px-1 rounded-control"
+        className="mx-1 flex h-[24px] items-center gap-1 pr-1 rounded-[4px]"
         style={{ paddingLeft: `calc(${depth} * var(--TreeIndent) + 4px)` }}
       >
         <div className="w-4 h-4 flex items-center justify-center shrink-0" />
@@ -50,7 +50,7 @@ export function InlineInput({
           autoFocus
           inputSize="sm"
           fullWidth
-          className="ml-1"
+          className="h-[22px] min-w-0 flex-1 rounded-[4px]"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {

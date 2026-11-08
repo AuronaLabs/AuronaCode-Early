@@ -34,7 +34,7 @@ export function DebugSettings() {
   };
 
   return (
-    <div className="space-y-7">
+    <div className="flex w-full max-w-3xl flex-col gap-6">
       <Group
         title={t("settings.debug.experienceTitle")}
         description={t("settings.debug.experienceDescription")}
@@ -130,7 +130,7 @@ export function DebugSettings() {
         {BuiltInToolRegistry.getByKind("debug-adapter").map((tool) => (
           <div
             key={tool.id}
-            className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
+            className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
           >
             <div className="min-w-0">
               <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -160,12 +160,12 @@ function Group({
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-2">
-      <div className="flex flex-col gap-1">
-        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">{title}</h3>
+    <section className="settings-group">
+      <div className="settings-section-header">
+        <h3 className="settings-section-title">{title}</h3>
         <p className="text-[13px] leading-relaxed text-[var(--color-text-muted)]">{description}</p>
       </div>
-      <GlassContainer layer="raised" className="mt-1 overflow-hidden">
+      <GlassContainer layer="raised" className="overflow-hidden">
         {children}
       </GlassContainer>
     </section>
@@ -187,7 +187,7 @@ function Row({
   return (
     <div
       data-setting-id={settingId}
-      className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
+      className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
     >
       <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">{label}</span>
       <div className="flex shrink-0 items-center gap-2">

@@ -171,7 +171,7 @@ fn resolve_builtin_launch(
         } else if let Some((manifest, lsp_dir)) =
             crate::toolchains::find_installed_lsp_for_language(app_handle, &canonical)
         {
-            // 2. 命中 APPDATA 中从 Marketplace 下载的官方/第三方 LSP 包
+            // 2. 命中 APPDATA 中本地导入的官方/第三方 LSP 包
             if manifest.runtime.runtime_type == "node" {
                 let runtime = crate::toolchains::find_shared_node_runtime(app_handle)
                     .ok_or_else(|| format!("NO_RUNTIME_INSTALLED:node:{}", manifest.id))?;
@@ -950,26 +950,6 @@ pub async fn lsp_toolchain_install(
         app,
         &artifact_id,
         &task_id.unwrap_or_else(|| format!("install-{:032x}", rand::random::<u128>())),
-    )
-    .await
-}
-
-#[tauri::command]
-pub async fn lsp_toolchain_install_url(
-    app: tauri::AppHandle,
-    download_id: String,
-    url: String,
-    expected_sha256: Option<String>,
-    expected_id: String,
-    expected_version: Option<String>,
-) -> Result<crate::artifacts::ArtifactHandle, String> {
-    crate::toolchains::install_toolchain_from_url(
-        app,
-        download_id,
-        url,
-        expected_sha256,
-        expected_id,
-        expected_version,
     )
     .await
 }

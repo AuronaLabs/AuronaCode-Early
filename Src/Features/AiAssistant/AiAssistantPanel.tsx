@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AgentService } from "../../Core/Agent/AgentService";
 import {
   getAgentPermission,
@@ -6,6 +6,7 @@ import {
 } from "../../Core/Agent/AgentToolExecutor";
 import type { AgentEvent, AgentTaskSnapshot, AgentTaskStatus } from "../../Core/Agent/AgentTypes";
 import { type AgentPermissionLevel, normalizeAgentPermission } from "../../Core/AiProfiles";
+import { CommandRegistry } from "../../Core/Commands/CommandRegistry";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import { UserConfigStore } from "../../Foundation/Storage/UserConfigStore";
 import { Button } from "../../UI/Components/Button";
@@ -15,7 +16,7 @@ import {
   DropdownMenuRoot,
   DropdownMenuTrigger,
 } from "../../UI/Components/DropdownMenu";
-import { GlassList, glassListRowStyles } from "../../UI/Components/GlassList";
+import { GlassList } from "../../UI/Components/GlassList";
 import { Icons } from "../../UI/Icons/IconManager";
 import { SidebarPageHeader } from "../../UI/Layouts/SidebarPage";
 import { AgentMarkdown } from "./AgentMarkdown";
@@ -29,6 +30,7 @@ type ConversationItem =
       id: string;
       name: string;
       status: "running" | "completed" | "failed";
+      input?: string;
       detail?: string;
       startedAt?: number;
       completedAt?: number;
@@ -103,7 +105,7 @@ function buildTaskConversation(task: AgentTaskSnapshot): ConversationItem[] {
         assistantByStep.set(event.stepId, item);
         items.push(item);
       }
-      if (!item.content) {
+      if (event.payload.content) {
         const content = event.payload.content;
         replaceItem(item.id, (current) =>
           current.type === "assistant" ? { ...current, content } : current,
@@ -118,6 +120,7 @@ function buildTaskConversation(task: AgentTaskSnapshot): ConversationItem[] {
         id: `${task.id}-tool-${event.stepId}`,
         name: toolName(event),
         status: "running",
+        input: typeof event.payload.arguments === "string" ? event.payload.arguments : undefined,
         startedAt: event.timestamp,
       };
       toolByStep.set(event.stepId, item);
@@ -139,8 +142,9 @@ function buildTaskConversation(task: AgentTaskSnapshot): ConversationItem[] {
       if (item) {
         const status = event.payload.isError === true ? "failed" : "completed";
         const detail =
-          status === "failed" && typeof event.payload.content === "string"
-            ? event.payload.content.slice(0, 220)
+          typeof event.payload.content === "string"
+            ? event.payload.content.slice(0, 4000) +
+              (event.payload.content.length > 4000 ? "…" : "")
             : item.detail;
         replaceItem(item.id, (current) =>
           current.type === "tool"
@@ -201,7 +205,7 @@ function buildTaskConversation(task: AgentTaskSnapshot): ConversationItem[] {
   return visibleItems;
 }
 
-function buildConversation(tasks: AgentTaskSnapshot[]): ConversationItem[] {
+export function buildConversation(tasks: AgentTaskSnapshot[]): ConversationItem[] {
   return tasks
     .slice()
     .sort((a, b) => a.createdAt - b.createdAt)
@@ -229,14 +233,15 @@ function taskStatusLabel(status: AgentTaskStatus, t: (key: I18nKey) => string): 
     case "planning":
     case "running":
     case "queued":
-      return t("ai.agentUi.eventToolRunning");
+      return t("ai.agentUi.taskRunning");
     case "completed":
       return t("ai.agentUi.eventToolCompleted");
     case "failed":
-      return t("ai.agentUi.eventToolFailed");
+      return t("ai.agentUi.taskFailed");
     case "paused":
+      return t("ai.agentUi.taskPaused");
     case "aborted":
-      return t("ai.agentUi.resumeTask");
+      return t("ai.agentUi.taskStopped");
     default:
       return t("ai.agentUi.newTask");
   }
@@ -248,139 +253,243 @@ const permissionLabelKeys: Record<AgentPermissionLevel, I18nKey> = {
   edit: "ai.agent.permissionEdit",
 };
 
+// Keep conversation drafts in memory when switching sessions or panels.
+const sessionDrafts = new Map<string, string>();
+
 export function AiAssistantPanel() {
   const snapshot = useSyncExternalStore(AgentService.subscribe, AgentService.getSnapshot);
   const { t } = useLocale();
-  const [draft, setDraft] = useState("");
+  const task = snapshot.activeTask;
+  const sessionId = snapshot.session?.id ?? task.sessionId ?? task.id;
+  const [drafts, setDrafts] = useState(() => new Map(sessionDrafts));
+  const draft = drafts.get(sessionId) ?? "";
+  const [error, setError] = useState("");
+  const [sending, setSending] = useState(false);
+  const [permissionSaving, setPermissionSaving] = useState(false);
+  const [showLatest, setShowLatest] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const sendingRef = useRef(false);
+  const followingRef = useRef(true);
+  const conversationRef = useRef<HTMLElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [agentPermission, setAgentPermission] = useState<AgentPermissionLevel>(() =>
     normalizeAgentPermission(getAgentPermission()),
   );
-  const task = snapshot.activeTask;
   const busy = isBusy(task.status);
   const canResume =
     task.status === "paused" || task.status === "aborted" || task.status === "failed";
   const activeProfile = snapshot.profiles.find(
     (profile) => profile.id === snapshot.activeProfileId,
   );
+  const activeSession = snapshot.sessions.find((session) => session.id === sessionId);
   const conversation = useMemo(
     () => buildConversation(snapshot.sessionTasks.length > 0 ? snapshot.sessionTasks : [task]),
     [snapshot.sessionTasks, task],
   );
+  const setSessionDraft = useCallback((id: string, value: string) => {
+    sessionDrafts.set(id, value);
+    setDrafts((current) => new Map(current).set(id, value));
+  }, []);
+  const setDraft = (value: string) => setSessionDraft(sessionId, value);
+  const reportError = useCallback((cause: unknown) => setError(String(cause)), []);
+  const openSettings = () => {
+    void CommandRegistry.execute("workbench.action.openSettings", { section: "ai" }).then(
+      (result) => {
+        if (result.error) reportError(result.error);
+      },
+    );
+  };
 
   useEffect(() => {
-    void syncAgentExecutorRegistration();
-    void AgentService.refreshConfig();
-    void UserConfigStore.get().then((config) => {
-      setAgentPermission(normalizeAgentPermission(config.ai?.agentPermission));
-    });
-  }, []);
+    void syncAgentExecutorRegistration()
+      .then(() => setAgentPermission(normalizeAgentPermission(getAgentPermission())))
+      .catch(reportError);
+    void AgentService.refreshConfig().catch(reportError);
+    return AgentService.subscribe(() =>
+      setAgentPermission(normalizeAgentPermission(getAgentPermission())),
+    );
+  }, [reportError]);
+  useEffect(() => {
+    void sessionId;
+    followingRef.current = true;
+    setShowLatest(false);
+    setError("");
+    textareaRef.current?.focus();
+  }, [sessionId]);
+  useEffect(() => {
+    void conversation;
+    const element = conversationRef.current;
+    if (element && followingRef.current) element.scrollTop = element.scrollHeight;
+  }, [conversation]);
+  useEffect(() => {
+    void draft;
+    const element = textareaRef.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${String(Math.min(200, Math.max(64, element.scrollHeight)))}px`;
+  }, [draft]);
+  useEffect(() => {
+    if (!copiedId) return;
+    const timer = window.setTimeout(() => setCopiedId(null), 1800);
+    return () => window.clearTimeout(timer);
+  }, [copiedId]);
 
-  useEffect(
-    () =>
-      AgentService.subscribe(() =>
-        setAgentPermission(normalizeAgentPermission(getAgentPermission())),
-      ),
-    [],
-  );
-
-  const submit = useCallback(async () => {
+  const scrollToLatest = () => {
+    followingRef.current = true;
+    setShowLatest(false);
+    const element = conversationRef.current;
+    if (element) element.scrollTop = element.scrollHeight;
+  };
+  const submit = async () => {
     const value = draft.trim();
-    if (!value || !snapshot.configured) return;
-    setDraft("");
-    await syncAgentExecutorRegistration();
-    void AgentService.send(value);
-  }, [draft, snapshot.configured]);
-
-  const updatePermission = useCallback(async (next: AgentPermissionLevel) => {
-    setAgentPermission(next);
-    const config = await UserConfigStore.get();
-    await UserConfigStore.set({ ai: { ...config.ai, agentPermission: next } });
-    await syncAgentExecutorRegistration();
-  }, []);
-
+    if (!value || !snapshot.configured || sendingRef.current) return;
+    sendingRef.current = true;
+    setSending(true);
+    setError("");
+    try {
+      await syncAgentExecutorRegistration();
+      const current = AgentService.getSnapshot();
+      if (
+        !current.configured ||
+        (current.session?.id ?? current.activeTask.sessionId ?? current.activeTask.id) !== sessionId
+      )
+        return;
+      if (sessionDrafts.get(sessionId) === draft) setSessionDraft(sessionId, "");
+      followingRef.current = true;
+      setShowLatest(false);
+      void AgentService.send(value).catch((cause) => {
+        if (!sessionDrafts.get(sessionId)) setSessionDraft(sessionId, draft);
+        reportError(cause);
+      });
+      textareaRef.current?.focus();
+    } catch (cause) {
+      reportError(cause);
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
+  };
+  const updatePermission = async (next: AgentPermissionLevel) => {
+    if (permissionSaving) return;
+    setPermissionSaving(true);
+    try {
+      await UserConfigStore.update((config) => ({ ai: { ...config.ai, agentPermission: next } }));
+      await syncAgentExecutorRegistration();
+      setAgentPermission(next);
+    } catch (cause) {
+      setAgentPermission(normalizeAgentPermission(getAgentPermission()));
+      reportError(cause);
+    } finally {
+      setPermissionSaving(false);
+    }
+  };
+  const copy = async (id: string, content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedId(id);
+    } catch (cause) {
+      reportError(cause);
+    }
+  };
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing &&
+      event.keyCode !== 229
+    ) {
       event.preventDefault();
       void submit();
     }
   };
 
-  const handleAction = () => {
-    if (busy) {
-      void AgentService.abort();
-      return;
-    }
-    if (canResume && !draft.trim()) {
-      void AgentService.resume();
-      return;
-    }
-    void submit();
-  };
-
-  const actionLabel = busy
-    ? t("ai.agentUi.stopTask")
-    : canResume && !draft.trim()
-      ? t("ai.agentUi.resumeTask")
-      : t("ai.agentUi.sendTask");
-
   return (
     <div className="agent-panel">
       <SidebarPageHeader
-        title={
+        title={t("ai.agentUi.title")}
+        actions={
           <>
-            <Icons.Sparkles size={15} className="agent-title-icon" aria-hidden="true" />
-            <span className="truncate">{t("ai.agentUi.title")}</span>
-            <span className={`agent-status-pill agent-status-${task.status}`} aria-live="polite">
-              <span className="agent-status-dot" aria-hidden="true" />
-              {taskStatusLabel(task.status, t)}
-            </span>
+            <button
+              type="button"
+              aria-label={t("ai.agentUi.openSettings")}
+              onClick={openSettings}
+              className="agent-icon-button"
+            >
+              <Icons.Settings size={16} />
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              aria-label={t("ai.agentUi.newTask")}
+              onClick={() => AgentService.newSession()}
+              className="agent-icon-button"
+            >
+              <Icons.Plus size={18} />
+            </button>
           </>
         }
-        actions={
-          <button
-            type="button"
-            aria-label={t("ai.agentUi.newTask")}
-            onClick={() => AgentService.newSession()}
-            className="agent-icon-button"
-          >
-            <Icons.Plus size={15} />
-          </button>
-        }
       />
-
       <div className="agent-session-bar">
         <DropdownMenuRoot>
-          <DropdownMenuTrigger className={`${glassListRowStyles} agent-session-trigger`}>
-            <Icons.History size={14} className="agent-session-icon" aria-hidden="true" />
-            <span className="min-w-0 flex-1 truncate">{task.title || t("ai.agentUi.newTask")}</span>
-            <Icons.ChevronDown size={12} />
+          <DropdownMenuTrigger
+            disabled={busy}
+            className="agent-session-trigger"
+            aria-label={t("ai.agentUi.sessions")}
+          >
+            <Icons.History size={15} aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate">
+              {activeSession?.title || task.title || t("ai.agentUi.newTask")}
+            </span>
+            <Icons.ChevronDown size={13} />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-[240px] max-w-[320px]">
-            {snapshot.sessions.map((session) => (
-              <DropdownMenuItem
-                key={session.id}
-                label={<span className="truncate">{session.title || t("ai.agentUi.newTask")}</span>}
-                onSelect={() => void AgentService.switchSession(session.id)}
-              />
-            ))}
+          <DropdownMenuContent align="start" className="agent-session-menu">
+            {[...snapshot.sessions]
+              .sort((a, b) => b.updatedAt - a.updatedAt)
+              .map((session) => (
+                <DropdownMenuItem
+                  key={session.id}
+                  icon={
+                    session.id === sessionId ? (
+                      <Icons.Check size={14} />
+                    ) : (
+                      <Icons.History size={14} />
+                    )
+                  }
+                  label={
+                    <span className="block max-w-[230px] truncate">
+                      {session.title || t("ai.agentUi.newTask")}
+                    </span>
+                  }
+                  onSelect={() => void AgentService.switchSession(session.id).catch(reportError)}
+                />
+              ))}
           </DropdownMenuContent>
         </DropdownMenuRoot>
       </div>
 
-      <main className="agent-conversation" aria-live="polite">
+      <main
+        ref={conversationRef}
+        className="agent-conversation aurona-scroll"
+        aria-label={t("ai.agentUi.conversation")}
+        onScroll={(event) => {
+          const element = event.currentTarget;
+          const atBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 72;
+          followingRef.current = atBottom;
+          setShowLatest(!atBottom);
+        }}
+      >
         {snapshot.recoveryPending && (
           <div className="agent-inline-notice">
-            <Icons.AlertTriangle size={14} />
+            <Icons.AlertTriangle size={16} />
             <span>{t("ai.agentUi.recoveryPending")}</span>
-            <Button onClick={() => void AgentService.recoverPendingRestore()}>
-              <Icons.Restore size={14} />
+            <Button onClick={() => void AgentService.recoverPendingRestore().catch(reportError)}>
               {t("ai.agentUi.recoverRestore")}
             </Button>
           </div>
         )}
         {!snapshot.configured && !snapshot.recoveryPending && (
           <div className="agent-inline-notice">
-            <Icons.AlertTriangle size={14} />
+            <Icons.Info size={16} />
             <span>
               {!snapshot.cardEnabled
                 ? t("ai.agentUi.aiDisabled")
@@ -388,61 +497,76 @@ export function AiAssistantPanel() {
                   ? t("ai.agentUi.configureProfile")
                   : t("ai.agentUi.agentDisabled")}
             </span>
+            <button type="button" className="agent-text-button" onClick={openSettings}>
+              {t("ai.agentUi.openSettings")}
+            </button>
           </div>
         )}
         {conversation.length === 0 ? (
           <div className="agent-empty-state">
-            <strong>{t("ai.agentUi.emptyTitle")}</strong>
-            <span>{t("ai.agentUi.emptyDescription")}</span>
+            <Icons.Sparkles size={28} stroke={1.3} aria-hidden="true" />
+            <h3>{t("ai.agentUi.emptyTitle")}</h3>
+            <p>{t("ai.agentUi.emptyDescription")}</p>
+            <div className="agent-starters">
+              {(["Understand", "Review", "Verify"] as const).map((key) => (
+                <button
+                  type="button"
+                  key={key}
+                  disabled={!snapshot.configured}
+                  onClick={() => {
+                    setDraft(t(`ai.agentUi.starter${key}Prompt` as I18nKey));
+                    textareaRef.current?.focus();
+                  }}
+                >
+                  <span>{t(`ai.agentUi.starter${key}` as I18nKey)}</span>
+                  <Icons.ArrowUp size={14} />
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="agent-message-list">
             {conversation.map((item) => {
-              if (item.type === "user") {
+              if (item.type === "user")
                 return (
                   <div className="agent-message agent-message-user" key={item.id}>
-                    <span className="agent-message-mark agent-message-mark-user" aria-hidden="true">
-                      <Icons.User size={12} />
-                    </span>
-                    <span className="agent-message-content">{item.content}</span>
-                  </div>
-                );
-              }
-              if (item.type === "assistant") {
-                return (
-                  <div className="agent-message agent-message-assistant" key={item.id}>
-                    <span
-                      className="agent-message-mark agent-message-mark-assistant"
-                      aria-hidden="true"
-                    >
-                      <Icons.Sparkles size={12} />
-                    </span>
-                    <AgentMarkdown content={item.content} />
-                  </div>
-                );
-              }
-              if (item.type === "error") {
-                return (
-                  <div className="agent-message agent-message-error" key={item.id}>
                     {item.content}
                   </div>
                 );
-              }
+              if (item.type === "assistant")
+                return (
+                  <div className="agent-message agent-message-assistant" key={item.id}>
+                    <AgentMarkdown content={item.content} />
+                    <button
+                      type="button"
+                      className="agent-copy-button"
+                      aria-label={t("common.copy")}
+                      onClick={() => void copy(item.id, item.content)}
+                    >
+                      {copiedId === item.id ? <Icons.Check size={14} /> : <Icons.Copy size={14} />}
+                      <span>{copiedId === item.id ? t("ai.copied") : t("common.copy")}</span>
+                    </button>
+                  </div>
+                );
+              if (item.type === "error")
+                return (
+                  <div role="alert" className="agent-message agent-message-error" key={item.id}>
+                    {item.content}
+                  </div>
+                );
               if (item.type === "run-summary") {
                 const duration = formatDuration(item.durationMs);
-                const failedCount = item.tools.filter((tool) => tool.status === "failed").length;
+                const failed = item.tools.filter((tool) => tool.status === "failed").length;
                 return (
-                  <details className={`agent-run-summary agent-run-${item.status}`} key={item.id}>
+                  <details className="agent-run-summary" key={item.id}>
                     <summary>
-                      <span className="agent-run-summary-chevron">
-                        <Icons.ChevronRight size={13} />
-                      </span>
+                      <Icons.ChevronRight size={14} className="agent-run-summary-chevron" />
                       <span>
                         {t("ai.agentUi.toolsUsed").replace("{count}", String(item.tools.length))}
                       </span>
-                      {failedCount > 0 && (
+                      {failed > 0 && (
                         <span className="agent-run-failed">
-                          {t("ai.agentUi.toolsFailed").replace("{count}", String(failedCount))}
+                          {t("ai.agentUi.toolsFailed").replace("{count}", String(failed))}
                         </span>
                       )}
                       <span className="agent-run-duration">
@@ -453,130 +577,203 @@ export function AiAssistantPanel() {
                     </summary>
                     <div className="agent-run-details">
                       {item.tools.map((tool) => (
-                        <div className={`agent-tool-line agent-tool-${tool.status}`} key={tool.id}>
-                          <span className="agent-tool-dot" />
-                          <span className="agent-tool-status">{toolStatusLabel(tool, t)}</span>
-                          <code>{tool.name}</code>
-                          {tool.detail && <span className="agent-tool-detail">{tool.detail}</span>}
-                        </div>
+                        <ToolLine key={tool.id} item={tool} label={toolStatusLabel(tool, t)} />
                       ))}
                     </div>
                   </details>
                 );
               }
-              return (
-                <div className={`agent-tool-line agent-tool-${item.status}`} key={item.id}>
-                  <span className="agent-tool-icon" aria-hidden="true">
-                    {item.status === "completed" ? (
-                      <Icons.Check size={11} />
-                    ) : item.status === "failed" ? (
-                      <Icons.AlertTriangle size={11} />
-                    ) : (
-                      <span className="agent-tool-dot" />
-                    )}
-                  </span>
-                  <span className="agent-tool-status">{toolStatusLabel(item, t)}</span>
-                  <code>{item.name}</code>
-                  {item.detail && <span className="agent-tool-detail">{item.detail}</span>}
-                </div>
-              );
+              return <ToolLine key={item.id} item={item} label={toolStatusLabel(item, t)} />;
             })}
           </div>
         )}
       </main>
-
+      {showLatest && (
+        <button type="button" className="agent-jump-latest" onClick={scrollToLatest}>
+          <Icons.ArrowDown size={14} />
+          {t("ai.agentUi.latest")}
+        </button>
+      )}
       {task.pendingApproval && (
         <GlassList className="agent-approval">
           <div className="agent-approval-row">
-            <Icons.ShieldCheck size={15} />
+            <Icons.ShieldCheck size={18} />
             <div>
               <strong>{t("ai.agentUi.approvalRequired")}</strong>
-              <span>{task.pendingApproval.summary}</span>
-              <div className="agent-approval-detail">
-                <code>{task.pendingApproval.toolName}</code>
-                <span>{task.pendingApproval.args}</span>
-              </div>
+              <p>{task.pendingApproval.summary}</p>
+              <details>
+                <summary>{task.pendingApproval.toolName}</summary>
+                <pre>{task.pendingApproval.args}</pre>
+              </details>
             </div>
           </div>
         </GlassList>
       )}
-
       <div className="agent-composer-wrap">
+        {error && (
+          <div role="alert" className="agent-message-error">
+            {error}
+          </div>
+        )}
+        {(busy || canResume) && (
+          <div className={`agent-progress agent-status-${task.status}`} role="status">
+            <span className="agent-status-dot" />
+            <span>{taskStatusLabel(task.status, t)}</span>
+            {task.queuedInputs.length > 0 && (
+              <span className="agent-queued">
+                {t("ai.agentUi.queued").replace("{count}", String(task.queuedInputs.length))}
+              </span>
+            )}
+            {canResume && (
+              <button
+                type="button"
+                className="agent-text-button"
+                disabled={!snapshot.configured}
+                onClick={() => void AgentService.resume().catch(reportError)}
+              >
+                <Icons.Play size={13} />
+                {t("ai.agentUi.resumeTask")}
+              </button>
+            )}
+          </div>
+        )}
         <div className="agent-composer">
           <textarea
+            ref={textareaRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleKeyDown}
-            rows={3}
-            placeholder={t("ai.agentUi.taskPlaceholder")}
+            rows={2}
+            aria-label={t("ai.agentUi.taskPlaceholder")}
+            placeholder={t(busy ? "ai.agentUi.followupPlaceholder" : "ai.agentUi.taskPlaceholder")}
           />
           <div className="agent-composer-footer">
-            <DropdownMenuRoot>
-              <DropdownMenuTrigger
-                className="agent-model-trigger"
-                disabled={busy || snapshot.profiles.length === 0}
-              >
-                <span className="truncate">
-                  {activeProfile?.model || activeProfile?.name || t("ai.agentUi.noProfile")}
-                </span>
-                <Icons.ChevronDown size={12} />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-[210px]">
-                {snapshot.profiles.map((profile) => (
-                  <DropdownMenuItem
-                    key={profile.id}
-                    label={
-                      <span className="truncate">
-                        {profile.model}
-                        {profile.name && profile.name !== profile.model ? ` · ${profile.name}` : ""}
-                      </span>
-                    }
-                    onSelect={() => void AgentService.setActiveProfile(profile.id)}
-                  />
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenuRoot>
-            <DropdownMenuRoot>
-              <DropdownMenuTrigger
-                className="agent-permission-pill"
-                aria-label={t("ai.agent.permissionTitle")}
-                disabled={busy}
-              >
-                <Icons.ShieldCheck size={12} aria-hidden="true" />
-                <span className="agent-permission-label">
-                  {t(permissionLabelKeys[agentPermission])}
-                </span>
-                <Icons.ChevronDown size={10} aria-hidden="true" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[170px]">
-                {(Object.keys(permissionLabelKeys) as AgentPermissionLevel[]).map((permission) => (
-                  <DropdownMenuItem
-                    key={permission}
-                    label={t(permissionLabelKeys[permission])}
-                    onSelect={() => void updatePermission(permission)}
-                  />
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenuRoot>
-            <Button
-              variant="primary"
-              size="icon"
-              className="size-8"
-              aria-label={actionLabel}
-              disabled={!busy && !canResume && (!draft.trim() || !snapshot.configured)}
-              onClick={handleAction}
-            >
-              {busy ? (
-                <Icons.Stop size={15} />
-              ) : canResume && !draft.trim() ? (
-                <Icons.Play size={15} />
-              ) : (
-                <Icons.ArrowUp size={15} />
+            <div className="agent-composer-options">
+              <DropdownMenuRoot>
+                <DropdownMenuTrigger
+                  className="agent-model-trigger"
+                  disabled={busy || snapshot.profiles.length === 0}
+                  aria-label={t("ai.profilesTitle")}
+                >
+                  <span className="truncate">
+                    {activeProfile?.model || activeProfile?.name || t("ai.agentUi.noProfile")}
+                  </span>
+                  <Icons.ChevronDown size={12} />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {snapshot.profiles.map((profile) => (
+                    <DropdownMenuItem
+                      key={profile.id}
+                      label={
+                        profile.model +
+                        (profile.name && profile.name !== profile.model ? ` · ${profile.name}` : "")
+                      }
+                      icon={
+                        profile.id === snapshot.activeProfileId ? (
+                          <Icons.Check size={13} />
+                        ) : undefined
+                      }
+                      onSelect={() =>
+                        void AgentService.setActiveProfile(profile.id).catch(reportError)
+                      }
+                    />
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenuRoot>
+              <DropdownMenuRoot>
+                <DropdownMenuTrigger
+                  className="agent-permission-trigger"
+                  aria-label={t("ai.agent.permissionTitle")}
+                  disabled={busy || permissionSaving}
+                >
+                  <Icons.ShieldCheck size={13} />
+                  <span className="truncate">{t(permissionLabelKeys[agentPermission])}</span>
+                  <Icons.ChevronDown size={12} />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {(Object.keys(permissionLabelKeys) as AgentPermissionLevel[]).map(
+                    (permission) => (
+                      <DropdownMenuItem
+                        key={permission}
+                        label={t(permissionLabelKeys[permission])}
+                        onSelect={() => void updatePermission(permission)}
+                      />
+                    ),
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenuRoot>
+            </div>
+            <div className="agent-send-actions">
+              {busy && (
+                <button
+                  type="button"
+                  className="agent-stop-button"
+                  aria-label={t("ai.agentUi.stopTask")}
+                  onClick={() => void AgentService.abort().catch(reportError)}
+                >
+                  <Icons.Stop size={15} />
+                </button>
               )}
-            </Button>
+              <Button
+                variant="primary"
+                size="icon"
+                className="agent-send-button"
+                aria-label={t(busy ? "ai.agentUi.queueTask" : "ai.agentUi.sendTask")}
+                disabled={sending || !draft.trim() || !snapshot.configured}
+                onClick={() => void submit()}
+              >
+                <Icons.ArrowUp size={17} />
+              </Button>
+            </div>
           </div>
         </div>
+        <p className="agent-composer-hint">{t("ai.agentUi.composerHint")}</p>
       </div>
     </div>
+  );
+}
+
+function ToolLine({
+  item,
+  label,
+}: {
+  item: Extract<ConversationItem, { type: "tool" }>;
+  label: string;
+}) {
+  const { t } = useLocale();
+  return (
+    <details className={`agent-tool-line agent-tool-${item.status}`}>
+      <summary>
+        {item.status === "running" ? (
+          <span className="agent-tool-dot" />
+        ) : item.status === "failed" ? (
+          <Icons.AlertTriangle size={13} />
+        ) : (
+          <Icons.Check size={13} />
+        )}
+        <span className="agent-tool-status">{label}</span>
+        <code>{item.name}</code>
+      </summary>
+      {(item.input || item.detail) && (
+        <dl className="agent-tool-detail">
+          {item.input && (
+            <>
+              <dt>{t("common.input")}</dt>
+              <dd>
+                <pre>{item.input}</pre>
+              </dd>
+            </>
+          )}
+          {item.detail && (
+            <>
+              <dt>{t("common.content")}</dt>
+              <dd>
+                <pre>{item.detail}</pre>
+              </dd>
+            </>
+          )}
+        </dl>
+      )}
+    </details>
   );
 }

@@ -355,10 +355,8 @@ export function StorageSettingsSection() {
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
-            {t("settings.storage.title")}
-          </h3>
+        <div className="settings-section-header">
+          <h3 className="settings-section-title">{t("settings.storage.title")}</h3>
           <Button
             variant="glass"
             className="flex h-8 items-center gap-1.5 px-3 text-[12px]"

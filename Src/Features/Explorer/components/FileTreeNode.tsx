@@ -153,9 +153,9 @@ export const FileTreeNode = React.memo(function FileTreeNode({
             aria-selected={isActive}
             aria-expanded={node.isDirectory ? node.isOpen : undefined}
             draggable={true}
-            className={`group/tree relative flex items-center gap-1.5 py-[3px] mx-1 pr-2 rounded-control text-[13px] cursor-pointer select-none transition-colors outline-none ${
+            className={`group/tree relative flex h-[24px] items-center gap-1 mx-1 pr-2 rounded-[4px] text-[13px] cursor-pointer select-none transition-colors outline-none ${
               isDragHover
-                ? "bg-[var(--material-overlay)] border border-[var(--border-subtle)]"
+                ? "bg-[var(--material-overlay)] ring-1 ring-inset ring-[var(--border-subtle)]"
                 : isActive
                   ? "bg-[var(--material-surface)] text-[var(--color-text-highlight)] font-medium"
                   : "text-[var(--color-text-highlight)] hover:bg-[var(--material-interactive-hover)]"
@@ -374,7 +374,7 @@ export const FileTreeNode = React.memo(function FileTreeNode({
           {node.nextCursor && (
             <button
               type="button"
-              className="mx-2 my-1 h-7 rounded-control text-left text-[11px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)]"
+              className="mx-1 h-[24px] rounded-[4px] text-left text-[11px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)]"
               style={{ paddingLeft: `${(depth + 1) * 16 + 24}px` }}
               onClick={() => void onLoadMore(node)}
             >

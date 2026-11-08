@@ -32,7 +32,6 @@ export const SETTING_CATEGORY_KEYS: Record<SettingCategory, I18nKey> = {
   sourceControl: "settings.categories.sourceControl",
   network: "settings.categories.network",
   security: "settings.categories.security",
-  accountCloud: "settings.categories.accountCloud",
   extensions: "settings.categories.extensions",
   system: "settings.categories.system",
   advanced: "settings.categories.advanced",
@@ -277,16 +276,6 @@ registerSetting({
 });
 
 registerSetting({
-  id: "catalogSignature",
-  category: "security",
-  titleKey: "settings.securitySettings.catalogSignature",
-  descriptionKey: "settings.securitySettings.catalogSignatureDescription",
-  keywords: ["signature", "security", "签名", "认证"],
-  type: "boolean",
-  defaultValue: true,
-});
-
-registerSetting({
   id: "packageInstallApproval",
   category: "security",
   titleKey: "settings.securitySettings.packageInstallApproval",
@@ -496,16 +485,6 @@ registerSetting({
   type: "select",
   defaultValue: "info",
   experimental: true,
-});
-
-registerSetting({
-  id: "pioneerChannel",
-  category: "general",
-  titleKey: "settings.featureFlags.channelPioneerTitle",
-  descriptionKey: "settings.featureFlags.channelPioneerDesc",
-  keywords: ["pioneer", "channel", "先锋", "先锋计划", "测试版", "预发布", "尝鲜", "beta"],
-  type: "boolean",
-  defaultValue: false,
 });
 
 registerSetting({

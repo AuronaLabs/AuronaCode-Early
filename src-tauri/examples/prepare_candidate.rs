@@ -6,7 +6,10 @@ use std::{io::Read, path::Path};
 fn run() -> Result<(), String> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     if args.len() != 5 {
-        return Err("Usage: prepare_candidate <directory> <version> <stable|pioneer> <platform> <artifact-file>".into());
+        return Err(
+            "Usage: prepare_candidate <directory> <version> <stable> <platform> <artifact-file>"
+                .into(),
+        );
     }
     let root = Path::new(&args[0]);
     let path = root.join(&args[4]);

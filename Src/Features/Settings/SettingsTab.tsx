@@ -5,6 +5,7 @@ import {
   type SettingCategory,
   searchSettings,
 } from "../../Core/Settings/SettingRegistry";
+import { takeSettingsSection } from "../../Core/Settings/SettingsNavigation";
 import { EventBus } from "../../Foundation/EventBus";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import type { SettingsSection } from "../../Foundation/Types/Settings";
@@ -19,7 +20,7 @@ import { useViewActivity } from "../../UI/Core/ViewActivity";
 import { useRetainedViewState } from "../../UI/Core/ViewState";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
-import { AccountSettings } from "./AccountSettings";
+import "./SettingsLayout.css";
 import { AdvancedSettingsSection } from "./AdvancedSettingsSection";
 import { AiSettingsSection } from "./AiSettingsSection";
 import { AppearanceSettingsSection } from "./AppearanceSettingsSection";
@@ -45,7 +46,6 @@ const CATEGORY_TO_SECTION: Record<SettingCategory, SettingsSection> = {
   sourceControl: "sourceControl",
   network: "network",
   security: "security",
-  accountCloud: "accountCloud",
   extensions: "extensions",
   system: "system",
   advanced: "advanced",
@@ -69,7 +69,6 @@ const SECTION_META: Array<{
   { id: "network", labelKey: "settings.categories.network", Icon: Icons.World },
   { id: "security", labelKey: "settings.categories.security", Icon: Icons.ShieldCheck },
   { id: "ai", labelKey: "settings.categories.ai", Icon: Icons.Sparkles },
-  { id: "accountCloud", labelKey: "settings.categories.accountCloud", Icon: Icons.User },
   { id: "extensions", labelKey: "settings.categories.extensions", Icon: Icons.Extensions },
   { id: "system", labelKey: "settings.categories.system", Icon: Icons.Database },
   { id: "advanced", labelKey: "settings.categories.advanced", Icon: Icons.Settings },
@@ -136,8 +135,11 @@ export function SettingsTab() {
   useEffect(() => {
     if (!active) return;
     const unsub = EventBus.on("settings:nav", (section: SettingsSection) => {
+      takeSettingsSection();
       setActiveSection(section);
     });
+    const requestedSection = takeSettingsSection();
+    if (requestedSection) setActiveSection(requestedSection);
     const unsubReveal = EventBus.on("settings:reveal", ({ category, settingId }) => {
       setActiveSection(sectionForSettingCategory(category));
       if (settingId) setRevealTarget({ settingId, nonce: Date.now() });
@@ -252,7 +254,7 @@ export function SettingsTab() {
                     )}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
+                      <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                         {t(item.titleKey as I18nKey)}
                       </span>
                       <span className="text-[11px] text-[var(--color-accent)] font-medium">
@@ -337,8 +339,6 @@ export function SettingsTab() {
         return <SecuritySettingsSection />;
       case "ai":
         return <AiSettingsSection />;
-      case "accountCloud":
-        return <AccountSettings />;
       case "extensions":
         return <ExtensionsSettingsSection />;
       case "system":
@@ -346,7 +346,7 @@ export function SettingsTab() {
           <div className="flex w-full max-w-3xl flex-col gap-6">
             <StorageSettingsSection />
             <GlassContainer layer="raised" className="overflow-hidden">
-              <div className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0">
+              <div className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0">
                 <div className="min-w-0">
                   <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                     {t("settings.openPerformance")}
@@ -364,7 +364,7 @@ export function SettingsTab() {
                   {t("settings.openPerformance")}
                 </Button>
               </div>
-              <div className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0">
+              <div className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0">
                 <div className="min-w-0">
                   <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                     {t("settings.openAbout")}
@@ -408,7 +408,7 @@ export function SettingsTab() {
 
   return (
     <InternalPageLayout title={activeSectionTitle} sidebar={sidebarContent}>
-      {renderContent()}
+      <div className="settings-page-content">{renderContent()}</div>
     </InternalPageLayout>
   );
 }

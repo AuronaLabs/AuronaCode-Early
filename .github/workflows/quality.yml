@@ -37,7 +37,6 @@ jobs:
       - run: pnpm run check:materials
       - run: pnpm run verify:vscode-compat
       - run: pnpm run smoke
-      - run: pnpm run check:audit
       - run: pnpm run test:release-contract
       - run: pnpm run test:extension-contract
       - run: pnpm run test:frontend

@@ -1,9 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { resolveExtensionName } from "../../Core/Extensions/ExtensionRegistry";
-import {
-  DEFAULT_MARKETPLACE_URL,
-  MarketplaceService,
-} from "../../Core/Extensions/Marketplace/MarketplaceService";
 import { type I18nKey, useLocale } from "../../Foundation/I18n";
 import type {
   ExtensionDescriptor,
@@ -18,7 +14,6 @@ import { useExtensionStore } from "../../State/useExtensionStore";
 import { Badge } from "../../UI/Components/Badge";
 import { Button } from "../../UI/Components/Button";
 import { Card } from "../../UI/Components/Card";
-import { Input } from "../../UI/Components/Input";
 import { Modal } from "../../UI/Components/Modal";
 import { Switch } from "../../UI/Components/Switch";
 import { GlassContainer } from "../../UI/Core/GlassManager";
@@ -168,7 +163,7 @@ function ExtensionPermissionCard({ descriptor }: { descriptor: ExtensionDescript
           </span>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <span className="text-[14px] font-bold text-[var(--color-text-highlight)]">
+              <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                 {title}
               </span>
               <span className="rounded border border-[var(--border-subtle)] bg-[var(--material-panel)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-text-muted)]">
@@ -218,7 +213,7 @@ function ExtensionPermissionCard({ descriptor }: { descriptor: ExtensionDescript
             return (
               <div
                 key={row.id}
-                className="flex items-center justify-between gap-4 border-b border-[var(--border-subtle)] px-1 py-2.5 last:border-b-0"
+                className="settings-row flex items-center justify-between gap-4 border-b border-[var(--border-subtle)] px-1 py-2.5 last:border-b-0"
               >
                 <div className="flex min-w-0 flex-col gap-1 pr-4">
                   <div className="flex flex-wrap items-center gap-2">
@@ -302,8 +297,6 @@ export function ExtensionsSettingsSection() {
   const descriptors = useExtensionStore((state) => state.descriptors);
   const refreshExtensions = useExtensionStore((state) => state.refresh);
 
-  const [marketplaceUrl, setMarketplaceUrl] = useState(DEFAULT_MARKETPLACE_URL);
-  const [isTestingUrl, setIsTestingUrl] = useState(false);
   const [vscodeCompatEnabled, setVscodeCompatEnabled] = useState(true);
   const [isInstallingVsix, setIsInstallingVsix] = useState(false);
 
@@ -365,71 +358,10 @@ export function ExtensionsSettingsSection() {
 
   useEffect(() => {
     void (async () => {
-      const url = await MarketplaceService.getServerUrl();
-      setMarketplaceUrl(url);
       const config = await UserConfigStore.get();
       setVscodeCompatEnabled(config.vscodeCompatEnabled !== false);
     })();
   }, []);
-
-  const handleSaveMarketplaceUrl = async (url: string) => {
-    setMarketplaceUrl(url);
-    await MarketplaceService.setServerUrl(url);
-    showToast(t("settings.extensionsSettings.marketplaceUrlSaved"), "success");
-  };
-
-  const handleResetToDefault = async () => {
-    setMarketplaceUrl(DEFAULT_MARKETPLACE_URL);
-    await MarketplaceService.setServerUrl(DEFAULT_MARKETPLACE_URL);
-    showToast(t("settings.extensionsSettings.marketplaceUrlReset"), "success");
-  };
-
-  const handleTestConnection = async () => {
-    setIsTestingUrl(true);
-    try {
-      const cleanBase = marketplaceUrl.trim().replace(/\/+$/, "");
-      const candidateUrls: string[] = [];
-
-      if (cleanBase.endsWith("/api") || cleanBase.includes("/api/")) {
-        candidateUrls.push(`${cleanBase}/extensions`);
-        candidateUrls.push(`${cleanBase.replace(/\/api\/?$/, "")}/extensions`);
-      } else {
-        candidateUrls.push(`${cleanBase}/api/extensions`);
-        candidateUrls.push(`${cleanBase}/extensions`);
-      }
-
-      let connected = false;
-      let statusText = "";
-
-      for (const urlStr of candidateUrls) {
-        try {
-          const res = await fetch(urlStr, {
-            signal: AbortSignal.timeout(2000),
-          });
-          if (res.ok) {
-            connected = true;
-            statusText = `HTTP ${res.status}`;
-            break;
-          }
-        } catch {
-          // 尝试下一候选
-        }
-      }
-
-      if (connected) {
-        showToast(
-          t("settings.extensionsSettings.marketplaceReachable").replace("{status}", statusText),
-          "success",
-        );
-      } else {
-        showToast(t("settings.extensionsSettings.marketplaceUnreachable"), "warning");
-      }
-    } catch {
-      showToast(t("settings.extensionsSettings.marketplaceConnectFailed"), "warning");
-    } finally {
-      setIsTestingUrl(false);
-    }
-  };
 
   const handleVscodeCompatToggle = async (enabled: boolean) => {
     setVscodeCompatEnabled(enabled);
@@ -444,74 +376,12 @@ export function ExtensionsSettingsSection() {
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
-          {t("settings.categories.extensions")}
-        </h3>
+      <div className="settings-section-header">
+        <h3 className="settings-section-title">{t("settings.categories.extensions")}</h3>
         <p className="text-[13px] text-[var(--color-text-muted)]">
           {t("settings.extensionsSettings.description")}
         </p>
       </div>
-
-      {/* 1. Marketplace 服务器源配置 */}
-      <Card className="flex flex-col gap-3 p-5">
-        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[14px] font-bold text-[var(--color-text-highlight)]">
-              {t("settings.extensionsSettings.marketplaceUrlTitle")}
-            </span>
-            <span className="text-[11.5px] text-[var(--color-text-muted)]">
-              {t("settings.extensionsSettings.marketplaceUrlDescription")}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleResetToDefault}
-              className="h-7 px-2.5 text-[11.5px] text-[var(--color-text-muted)] hover:text-[var(--color-text-highlight)]"
-            >
-              <Icons.Refresh size={12} className="mr-1 inline" />
-              {t("settings.extensionsSettings.resetToOfficial")}
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={isTestingUrl}
-              onClick={handleTestConnection}
-              className="h-7 px-3 text-[11.5px]"
-            >
-              <Icons.Sparkles
-                size={12}
-                className={`mr-1 inline ${isTestingUrl ? "animate-spin text-[var(--color-accent)]" : ""}`}
-              />
-              {t("settings.extensionsSettings.testConnection")}
-            </Button>
-          </div>
-        </div>
-
-        {/* 官方标准输入框 */}
-        <div className="flex items-center gap-2 pt-1">
-          <Input
-            value={marketplaceUrl}
-            onChange={(e) => setMarketplaceUrl(e.target.value)}
-            onBlur={() => handleSaveMarketplaceUrl(marketplaceUrl)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSaveMarketplaceUrl(marketplaceUrl);
-            }}
-            placeholder="https://marketplace.aurona.cc/ 或 http://127.0.0.1:5219/api"
-            fullWidth
-            className="flex-1 font-mono"
-          />
-          <Button
-            size="sm"
-            className="h-7 px-3 text-[11.5px]"
-            onClick={() => handleSaveMarketplaceUrl(marketplaceUrl)}
-          >
-            {t("common.save")}
-          </Button>
-        </div>
-      </Card>
 
       {/* 2. VSCode 兼容插件：兼容内核开关 + Demo/本地 .vsix 安装融合为一张卡（0.4.6） */}
       <Card className={`flex flex-col gap-3 p-5 ${vscodeCompatEnabled ? "" : "opacity-60"}`}>
@@ -522,7 +392,7 @@ export function ExtensionsSettingsSection() {
             </span>
             <div className="flex min-w-0 flex-col gap-1">
               <div className="flex items-center gap-2">
-                <span className="text-[14px] font-bold text-[var(--color-text-highlight)]">
+                <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                   {t("settings.extensionsSettings.vscodeTestTitle")}
                 </span>
                 <Badge variant="neutral">{t("settings.extensionsSettings.builtinBadge")}</Badge>
@@ -593,7 +463,7 @@ export function ExtensionsSettingsSection() {
       {/* 3. 已安装扩展的独立权限矩阵 */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h4 className="text-[14px] font-bold text-[var(--color-text-highlight)]">
+          <h4 className="text-[14px] font-medium text-[var(--color-text-highlight)]">
             {t("settings.extensionsSettings.installedTitle").replace(
               "{count}",
               String(descriptors.length),

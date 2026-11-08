@@ -77,6 +77,8 @@ export interface AgentCheckpoint {
     path: string;
     content: string;
     fingerprint: string;
+    /** False means this path did not exist before the operation. */
+    exists?: boolean;
     afterFingerprint?: string;
   }>;
   editorViews: Record<string, unknown>;

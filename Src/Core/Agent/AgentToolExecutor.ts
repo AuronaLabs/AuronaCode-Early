@@ -364,12 +364,12 @@ const tools: AiAgentTool[] = [
   {
     name: "rename_file",
     signature: "rename_file(path, new_path)",
-    description: "Rename a file or directory inside the workspace.",
+    description: "Rename a text file inside the workspace. Directory recovery is not supported.",
     requiresConfirmation: true,
     effects: ["filesystem.write", "workspace.modify"],
     permission: "approval-required",
     checkpointPolicy: "before-write",
-    recoverability: "fully-recoverable",
+    recoverability: "partially-recoverable",
     parameters: toolParameters(
       {
         path: { type: "string", description: "Existing workspace-relative path" },
@@ -394,12 +394,12 @@ const tools: AiAgentTool[] = [
   {
     name: "move_file",
     signature: "move_file(path, destination)",
-    description: "Move a file or directory inside the workspace.",
+    description: "Move a text file inside the workspace. Directory recovery is not supported.",
     requiresConfirmation: true,
     effects: ["filesystem.write", "workspace.modify"],
     permission: "approval-required",
     checkpointPolicy: "before-write",
-    recoverability: "fully-recoverable",
+    recoverability: "partially-recoverable",
     parameters: toolParameters(
       {
         path: { type: "string", description: "Existing workspace-relative path" },

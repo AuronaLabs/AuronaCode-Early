@@ -6,11 +6,11 @@
 | --- | --- |
 | [开发指南](Development.md) | 包结构、宿主入口、本地安装与验证 |
 | [SDK 参考](SDK-Reference.md) | WIT 契约、文档事件、视图及资源边界 |
-| [签名指南](Signing.md) | 包认证、目录认证与开发配置 |
-| [VS Code 兼容矩阵](../../Releases/0.4.17/VSCode-Compatibility-Matrix.md) | 当前公开能力、限制与验证场景；0.4.18 未扩大完整兼容承诺 |
+| [签名指南](Signing.md) | 本地包认证与开发配置 |
+| [VS Code 兼容矩阵](VSCode-Compatibility.md) | 当前 API 支持边界、限制与验证方法 |
 | [兼容 Demo](../../../Extensions/vscode.demo/README.md) | 可运行示例与自检步骤 |
 
-扩展包签名、目录签名、运行权限和资源预算是不同的策略。认证选项由用户配置，能力边界仍需按实际宿主契约处理，详见[安全与信任](../Security-and-Trust.md)。
+扩展包签名、运行权限和资源预算是不同的策略。认证选项由用户配置，能力边界仍需按实际宿主契约处理，详见[安全与信任](../Security-and-Trust.md)。
 
 发布说明应列出实际测试的宿主版本、平台和使用场景。接口存在或编译通过，不代表任意第三方扩展已经兼容。
 

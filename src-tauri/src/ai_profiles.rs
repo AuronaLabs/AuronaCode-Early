@@ -500,13 +500,15 @@ fn migrate_config(
     profiles: &mut HashMap<String, Profile>,
     pending: &mut Vec<PendingCredential>,
 ) -> Result<bool, String> {
+    let mut changed = value
+        .as_object_mut()
+        .is_some_and(|config| config.remove("releaseChannel").is_some());
     let Some(ai) = value
         .get_mut("ai")
         .and_then(serde_json::Value::as_object_mut)
     else {
-        return Ok(false);
+        return Ok(changed);
     };
-    let mut changed = false;
     if ai
         .get("apiKey")
         .and_then(serde_json::Value::as_str)
@@ -715,6 +717,17 @@ mod tests {
 
     fn legacy() -> serde_json::Value {
         serde_json::json!({"ai":{"profiles":[{"id":"first","name":"First","baseUrl":"https://api.openai.com/v1","model":"fixture","apiKey":"fixture-secret"}]}})
+    }
+
+    #[test]
+    fn removes_retired_release_preference_without_changing_other_settings() {
+        let mut config =
+            serde_json::json!({"releaseChannel":"preview","locale":"zh-CN","theme":"dark"});
+        let mut profiles = HashMap::new();
+        let mut pending = Vec::new();
+        assert!(migrate_config(&mut config, &mut profiles, &mut pending).unwrap());
+        assert_eq!(config, serde_json::json!({"locale":"zh-CN","theme":"dark"}));
+        assert!(!migrate_config(&mut config, &mut profiles, &mut pending).unwrap());
     }
 
     #[test]

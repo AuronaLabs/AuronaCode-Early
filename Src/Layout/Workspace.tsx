@@ -62,7 +62,6 @@ type EditorTabProps = {
   onRevealHandled?: (path: string, line: number) => void;
 };
 type DiffViewerProps = { diffTarget: string };
-type MarketplaceDetailPageProps = { extensionId: string };
 
 const FileExplorer = lazyChunk<FileExplorerProps>(() =>
   import("../Features/Explorer/FileExplorer").then((m) => ({ default: m.FileExplorer })),
@@ -84,10 +83,8 @@ const DebugPanel = lazyChunk<Record<string, never>>(() =>
 const DiffViewer = lazyChunk<DiffViewerProps>(() =>
   import("../Features/SourceControl/DiffViewer").then((m) => ({ default: m.DiffViewer })),
 );
-const MarketplaceDetailPage = lazyChunk<MarketplaceDetailPageProps>(() =>
-  import("../Features/Extensions/Marketplace/MarketplaceDetailPage").then((m) => ({
-    default: m.MarketplaceDetailPage,
-  })),
+const ExtensionsPanelPage = lazyChunk<Record<string, never>>(() =>
+  import("../Features/Extensions/ExtensionsPanel").then((m) => ({ default: m.ExtensionsPanel })),
 );
 // 0.4.6 批次 5：AI 助手侧边栏卡片（按注册表声明挂载的新槽位）
 const AiAssistantPanel = lazyChunk<Record<string, never>>(() =>
@@ -126,13 +123,13 @@ function renderTabContent(
   } else if (tab.type === "diff" && tab.path) {
     content = <DiffViewer diffTarget={tab.path} />;
   } else if (tab.type === "extension" && tab.path) {
-    content = <MarketplaceDetailPage extensionId={tab.path} />;
+    content = <ExtensionsPanelPage />;
   }
   const modulePath =
     tab.type === "file"
       ? "Src/Features/Editor/EditorTab.tsx"
       : tab.type === "extension"
-        ? "Src/Features/Extensions/Marketplace/MarketplaceDetailPage.tsx"
+        ? "Src/Features/Extensions/ExtensionsPanel.tsx"
         : "workspace module";
   return (
     <LazyChunkBoundary modulePath={modulePath}>

@@ -1,53 +1,55 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GitService } from "../../Core/Git";
 import { WorkspaceService } from "../../Core/Workspace";
 import { EventBus } from "../../Foundation/EventBus";
 import { useLocale } from "../../Foundation/I18n";
-import { cn } from "../../Shared/Utils/cn";
 import { EmptyState } from "../../UI/Components/EmptyState";
-import { glassVariants } from "../../UI/Core/GlassManager/variants";
 import { useViewActivity } from "../../UI/Core/ViewActivity";
-import { useRetainedScroll } from "../../UI/Core/ViewState";
+import { useRetainedScroll, useRetainedViewState } from "../../UI/Core/ViewState";
 import { showToast } from "../../UI/Feedback/Toast";
+import { Tooltip } from "../../UI/Feedback/Tooltip";
 import { Icons } from "../../UI/Icons/IconManager";
+import { alignDiffLines, type DiffLine, parseDiff, supportsHunkAction } from "./DiffModel";
+import "./DiffViewer.css";
 
 interface DiffViewerProps {
   diffTarget: string;
 }
 
-interface ParsedDiffFile {
-  oldName: string;
-  newName: string;
-  hunks: DiffHunk[];
+function decodeTarget(target: string): string {
+  try {
+    return decodeURIComponent(target);
+  } catch {
+    return target;
+  }
 }
 
-interface DiffHunk {
-  header: string;
+function SplitDiff({
+  lines,
+  renderCell,
+}: {
   lines: DiffLine[];
-}
-
-interface DiffLine {
-  type: "context" | "addition" | "deletion";
-  content: string;
-  leftLineNum: number | null;
-  rightLineNum: number | null;
-}
-
-function supportsHunkAction(diff: string): boolean {
-  if (diff.length > 2_000_000) return false;
-  const header = diff.split("\n@@ -", 1)[0];
+  renderCell: (line: DiffLine | null, side: "left" | "right") => ReactNode;
+}) {
+  const rows = useMemo(() => alignDiffLines(lines), [lines]);
   return (
-    header.startsWith("diff --git ") &&
-    header.includes("\n--- ") &&
-    header.includes("\n+++ ") &&
-    !diff.slice(header.length).includes("\ndiff --git ") &&
-    !header
-      .split("\n")
-      .some((line) =>
-        /^(new file mode |deleted file mode |old mode |new mode |rename |copy |similarity index |Binary files |GIT binary patch|--- \/dev\/null|\+\+\+ \/dev\/null)/.test(
-          line,
-        ),
-      )
+    <div
+      className="diff-code diff-code--split"
+      style={{ gridTemplateRows: `repeat(${rows.length}, auto)` }}
+    >
+      {(["left", "right"] as const).map((side) => (
+        <div className="aurona-scroll diff-code-pane" key={side}>
+          {rows.map((row) => (
+            <div
+              className="diff-code-row"
+              key={`${String(row.left?.leftLineNum)}:${String(row.right?.rightLineNum)}`}
+            >
+              {renderCell(row[side], side)}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -55,409 +57,368 @@ export function DiffViewer({ diffTarget }: DiffViewerProps) {
   const { t } = useLocale();
   const active = useViewActivity();
   const scroll = useRetainedScroll("diff.scroll");
+  const [layout, setLayout] = useRetainedViewState<"split" | "unified">("diff.layout", "split");
+  const [wrap, setWrap] = useRetainedViewState("diff.wrap", false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [commitMessage, setCommitMessage] = useState("");
-  const [files, setFiles] = useState<ParsedDiffFile[]>([]);
   const [repoPath, setRepoPath] = useState<string | null>(null);
   const [rawDiff, setRawDiff] = useState("");
   const [busyHunk, setBusyHunk] = useState<number | null>(null);
+  const [selectedHunk, setSelectedHunk] = useState(-1);
+  const [compact, setCompact] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const hunkRefs = useRef<(HTMLElement | null)[]>([]);
+  const actionRef = useRef(false);
   const loadRequestRef = useRef(0);
   const workingTarget = diffTarget.match(/^working:(staged|unstaged):(.*)$/);
-  const workingFile = workingTarget ? decodeURIComponent(workingTarget[2]) : null;
+  const workingFile = workingTarget ? decodeTarget(workingTarget[2]) : null;
   const isStaged = workingTarget?.[1] === "staged";
+  const parsed = useMemo(() => parseDiff(rawDiff), [rawDiff]);
+  const { files, message } = parsed;
+  const summary = useMemo(
+    () =>
+      files.reduce(
+        (result, file) => ({
+          additions: result.additions + file.additions,
+          deletions: result.deletions + file.deletions,
+          hunks: result.hunks + file.hunks.length,
+        }),
+        { additions: 0, deletions: 0, hunks: 0 },
+      ),
+    [files],
+  );
+  const canApply = Boolean(workingFile) && supportsHunkAction(rawDiff);
+  const view = compact ? "unified" : layout;
 
-  const parseGitDiff = useCallback((rawText: string) => {
-    const lines = rawText.split("\n");
-    let msg = "";
-    let i = 0;
-
-    while (i < lines.length && !lines[i].startsWith("diff --git")) {
-      msg += `${lines[i]}\n`;
-      i++;
-    }
-    setCommitMessage(msg.trim());
-
-    const parsedFiles: ParsedDiffFile[] = [];
-    let currentFile: ParsedDiffFile | null = null;
-    let currentHunk: DiffHunk | null = null;
-
-    let leftLineNumber = 0;
-    let rightLineNumber = 0;
-
-    for (; i < lines.length; i++) {
-      const line = lines[i];
-
-      if (line.startsWith("diff --git")) {
-        const parts = line.split(" ");
-        const oldName = parts[2]?.substring(2) || "unknown";
-        const newName = parts[3]?.substring(2) || "unknown";
-
-        currentFile = { oldName, newName, hunks: [] };
-        parsedFiles.push(currentFile);
-        continue;
-      }
-
-      if (line.startsWith("---") || line.startsWith("+++") || line.startsWith("index ")) {
-        continue;
-      }
-
-      if (line.startsWith("@@")) {
-        const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-        if (match) {
-          leftLineNumber = parseInt(match[1], 10);
-          rightLineNumber = parseInt(match[2], 10);
-        }
-        currentHunk = { header: line, lines: [] };
-        if (currentFile) currentFile.hunks.push(currentHunk);
-        continue;
-      }
-
-      if (!currentHunk) continue;
-
-      if (line.startsWith("-")) {
-        currentHunk.lines.push({
-          type: "deletion",
-          content: line.substring(1),
-          leftLineNum: leftLineNumber++,
-          rightLineNum: null,
-        });
-      } else if (line.startsWith("+")) {
-        currentHunk.lines.push({
-          type: "addition",
-          content: line.substring(1),
-          leftLineNum: null,
-          rightLineNum: rightLineNumber++,
-        });
-      } else if (line.startsWith(" ")) {
-        currentHunk.lines.push({
-          type: "context",
-          content: line.substring(1),
-          leftLineNum: leftLineNumber++,
-          rightLineNum: rightLineNumber++,
-        });
-      }
-    }
-
-    setFiles(parsedFiles);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setCompact(entry.contentRect.width < 640);
+    });
+    observer.observe(root);
+    return () => observer.disconnect();
   }, []);
 
   const loadDiff = useCallback(async () => {
     const requestId = ++loadRequestRef.current;
+    setLoading(true);
+    setError(null);
+    setSelectedHunk(-1);
     try {
-      setLoading(true);
-      setError(null);
-
       await WorkspaceService.whenInitialized();
+      if (requestId !== loadRequestRef.current) return;
       const path = WorkspaceService.getCurrent().primaryRoot;
       if (!path) {
-        setRepoPath("");
+        setRepoPath(null);
         setRawDiff("");
-        setFiles([]);
         return;
       }
-
-      const rawDiff = workingFile
+      const result = workingFile
         ? await GitService.getDiff(path, workingFile, isStaged)
         : await GitService.getCommitDiff(path, diffTarget);
-      if (requestId !== loadRequestRef.current) return;
+      if (
+        requestId !== loadRequestRef.current ||
+        path !== WorkspaceService.getCurrent().primaryRoot
+      )
+        return;
       setRepoPath(path);
-      setRawDiff(rawDiff);
-      parseGitDiff(rawDiff);
+      setRawDiff(result);
     } catch (err) {
       if (requestId === loadRequestRef.current) setError(String(err));
     } finally {
       if (requestId === loadRequestRef.current) setLoading(false);
     }
-  }, [diffTarget, isStaged, parseGitDiff, workingFile]);
+  }, [diffTarget, isStaged, workingFile]);
 
   useEffect(() => {
     if (!active) return;
     void loadDiff();
+    const unsubscribe = EventBus.on("workspace:root-changed", () => void loadDiff());
     return () => {
-      loadRequestRef.current += 1;
+      unsubscribe();
+      loadRequestRef.current++;
     };
   }, [active, loadDiff]);
 
   const applyHunk = async (hunkIndex: number) => {
-    if (!repoPath || !workingFile || busyHunk !== null) return;
+    if (!repoPath || !workingFile || actionRef.current) return;
+    const reviewedRequest = loadRequestRef.current;
+    actionRef.current = true;
     setBusyHunk(hunkIndex);
     try {
       await GitService.applyHunk(repoPath, workingFile, isStaged, hunkIndex, rawDiff);
-      await loadDiff();
+      if (reviewedRequest === loadRequestRef.current) await loadDiff();
       const cache = await GitService.refresh(repoPath);
-      if (cache?.repoPath === repoPath) EventBus.emit("git:changes-count", cache.files.length);
-    } catch (error) {
-      showToast(t("sourceControl.hunkFailed").replace("{message}", String(error)), "error");
-      await loadDiff();
+      if (cache?.repoPath === repoPath && WorkspaceService.getCurrent().primaryRoot === repoPath) {
+        EventBus.emit("git:changes-count", cache.files.length);
+      }
+    } catch (err) {
+      showToast(t("sourceControl.hunkFailed").replace("{message}", String(err)), "error");
+      if (reviewedRequest === loadRequestRef.current) await loadDiff();
     } finally {
+      actionRef.current = false;
       setBusyHunk(null);
     }
   };
 
-  const summary = files.reduce(
-    (totals, file) => {
-      totals.additions += file.hunks.reduce(
-        (count, hunk) => count + hunk.lines.filter((line) => line.type === "addition").length,
-        0,
-      );
-      totals.deletions += file.hunks.reduce(
-        (count, hunk) => count + hunk.lines.filter((line) => line.type === "deletion").length,
-        0,
-      );
-      return totals;
-    },
-    { additions: 0, deletions: 0 },
+  const jumpToHunk = (direction: number) => {
+    if (!summary.hunks) return;
+    const next =
+      selectedHunk < 0
+        ? direction > 0
+          ? 0
+          : summary.hunks - 1
+        : (selectedHunk + direction + summary.hunks) % summary.hunks;
+    setSelectedHunk(next);
+    const element = hunkRefs.current[next];
+    element?.focus({ preventScroll: true });
+    element?.scrollIntoView({ block: "center", behavior: "instant" });
+  };
+
+  const renderCell = (line: DiffLine | null, side: "left" | "right", unified = false) => (
+    <div className={`diff-code-cell diff-code-cell--${line?.type ?? "empty"}`}>
+      {unified && (
+        <span className="diff-line-number" aria-hidden="true">
+          {line?.leftLineNum}
+        </span>
+      )}
+      <span className="diff-line-number" aria-hidden="true">
+        {unified || side === "right" ? line?.rightLineNum : line?.leftLineNum}
+      </span>
+      <span className="diff-line-sign" aria-hidden="true">
+        {line?.type === "addition" ? "+" : line?.type === "deletion" ? "−" : ""}
+      </span>
+      <code className="diff-code-text">{line?.content || " "}</code>
+      {line?.noNewline && (
+        <span className="diff-no-newline">{t("sourceControl.diffViewer.noNewline")}</span>
+      )}
+    </div>
   );
 
-  if (loading) {
-    return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-6 text-[var(--color-text-muted)]">
-        <div className="relative">
-          <div className="absolute inset-0 scale-125 rounded-full bg-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] blur-xl" />
-          <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-accent)_22%,var(--border-subtle))] bg-[var(--material-surface)] text-[var(--color-accent)]">
-            <Icons.GitCommit size={24} stroke={1.45} />
-          </div>
-        </div>
-        <span className="text-[12.5px]">{t("sourceControl.diffViewer.loading")}</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-full w-full items-center justify-center p-6">
-        <EmptyState
-          icon={<Icons.AlertTriangle size={26} stroke={1.6} />}
-          title={t("sourceControl.diffViewer.loadFailed")}
-          description={error}
-        />
-      </div>
-    );
-  }
-
+  let hunkOffset = 0;
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden bg-transparent">
-      <div className="shrink-0 px-4 pt-4">
-        <div
-          className={cn(
-            glassVariants({ layer: "raised" }),
-            "flex min-h-[68px] items-center justify-between gap-4 rounded-surface px-4 py-3",
-          )}
-        >
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control border border-[var(--border-subtle)] bg-[var(--material-overlay)] text-[var(--color-accent)] shadow-[inset_0_1px_0_var(--GlassSurface-Rim)] backdrop-blur-[var(--glass-blur-overlay)]">
-              <Icons.GitCommit size={18} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
-                  {workingFile
-                    ? t("sourceControl.diffViewer.title")
-                    : t("sourceControl.diffViewer.commitTitle")}
-                </span>
-                <code className="rounded-full bg-[var(--material-surface)] px-2 py-0.5 font-mono text-[10px] text-[var(--color-text-muted)]">
-                  {workingFile ?? diffTarget.slice(0, 8)}
-                </code>
-              </div>
-              <p className="mt-0.5 truncate text-[11.5px] text-[var(--color-text-muted)]">
-                {workingFile
-                  ? isStaged
-                    ? t("sourceControl.diffViewer.staged")
-                    : t("sourceControl.diffViewer.unstaged")
-                  : commitMessage || t("sourceControl.diffViewer.noCommitMessage")}
-              </p>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 text-[11px]">
-            <span className="text-[var(--color-text-muted)]">
-              {t("sourceControl.diffViewer.fileCount").replace("{count}", String(files.length))}
-            </span>
-            {summary.additions > 0 && (
-              <span className="font-mono font-semibold text-[var(--StatusSuccess)]">
-                +{summary.additions}
-              </span>
-            )}
-            {summary.deletions > 0 && (
-              <span className="font-mono font-semibold text-[var(--StatusError)]">
-                −{summary.deletions}
-              </span>
-            )}
+    <div ref={rootRef} className={`diff-viewer${wrap ? " diff-viewer--wrap" : ""}`}>
+      <header className="diff-toolbar">
+        <div className="diff-heading">
+          <Icons.GitCommit size={18} stroke={1.5} aria-hidden="true" />
+          <div className="diff-heading-text">
+            <h1>{workingFile ?? t("sourceControl.diffViewer.commitTitle")}</h1>
+            <p>
+              {workingFile
+                ? isStaged
+                  ? t("sourceControl.diffViewer.staged")
+                  : t("sourceControl.diffViewer.unstaged")
+                : diffTarget.slice(0, 8) + (message ? ` · ${message.split("\n")[0]}` : "")}
+            </p>
           </div>
         </div>
-      </div>
-
-      <div {...scroll} className="aurona-scroll flex-1 overflow-y-auto p-4">
-        {files.length === 0 ? (
+        <div className="diff-toolbar-actions">
+          <fieldset
+            className="diff-layout-toggle"
+            aria-label={t("sourceControl.diffViewer.layout")}
+          >
+            <button
+              type="button"
+              aria-pressed={view === "split"}
+              disabled={compact}
+              onClick={() => setLayout("split")}
+            >
+              {t("sourceControl.diffViewer.split")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === "unified"}
+              onClick={() => setLayout("unified")}
+            >
+              {t("sourceControl.diffViewer.unified")}
+            </button>
+          </fieldset>
+          <Tooltip content={t("sourceControl.diffViewer.wrap")}>
+            <button
+              type="button"
+              className="diff-icon-button"
+              aria-label={t("sourceControl.diffViewer.wrap")}
+              aria-pressed={wrap}
+              onClick={() => setWrap((value) => !value)}
+            >
+              <Icons.Menu size={16} />
+            </button>
+          </Tooltip>
+          <Tooltip content={t("sourceControl.refresh")}>
+            <button
+              type="button"
+              className="diff-icon-button"
+              aria-label={t("sourceControl.refresh")}
+              disabled={loading || busyHunk !== null}
+              onClick={() => void loadDiff()}
+            >
+              <Icons.Refresh size={16} />
+            </button>
+          </Tooltip>
+        </div>
+      </header>
+      {!loading && !error && files.length > 0 && (
+        <div className="diff-summary">
+          <span>
+            {t("sourceControl.diffViewer.fileCount").replace("{count}", String(files.length))}
+          </span>
+          <span className="diff-stat-added">+{summary.additions}</span>
+          <span className="diff-stat-deleted">−{summary.deletions}</span>
+          {summary.hunks > 0 && (
+            <div className="diff-navigation">
+              <span aria-live="polite">
+                {selectedHunk < 0 ? "—" : selectedHunk + 1} / {summary.hunks}
+              </span>
+              <Tooltip content={t("sourceControl.diffViewer.previousChange")}>
+                <button
+                  type="button"
+                  className="diff-icon-button"
+                  aria-label={t("sourceControl.diffViewer.previousChange")}
+                  onClick={() => jumpToHunk(-1)}
+                >
+                  <Icons.ArrowUp size={14} />
+                </button>
+              </Tooltip>
+              <Tooltip content={t("sourceControl.diffViewer.nextChange")}>
+                <button
+                  type="button"
+                  className="diff-icon-button"
+                  aria-label={t("sourceControl.diffViewer.nextChange")}
+                  onClick={() => jumpToHunk(1)}
+                >
+                  <Icons.ArrowDown size={14} />
+                </button>
+              </Tooltip>
+            </div>
+          )}
+        </div>
+      )}
+      <div
+        {...scroll}
+        key={loading ? "loading" : "content"}
+        className="aurona-scroll diff-content"
+        aria-busy={loading}
+      >
+        {loading ? (
+          <div className="diff-state" role="status">
+            <Icons.Refresh size={20} />
+            {t("sourceControl.diffViewer.loading")}
+          </div>
+        ) : error ? (
+          <div className="diff-state">
+            <EmptyState
+              icon={<Icons.AlertTriangle size={26} />}
+              title={t("sourceControl.diffViewer.loadFailed")}
+              description={error}
+            />
+            <button type="button" className="diff-text-button" onClick={() => void loadDiff()}>
+              {t("sourceControl.diffViewer.retry")}
+            </button>
+          </div>
+        ) : files.length === 0 ? (
           <EmptyState
-            icon={<Icons.FileCode size={27} stroke={1.45} />}
+            icon={<Icons.FileCode size={27} stroke={1.5} />}
             title={t("sourceControl.diffViewer.empty")}
           />
         ) : (
-          <div className="flex flex-col gap-4">
-            {files.map((file) => {
-              const additions = file.hunks.reduce(
-                (acc, hunk) => acc + hunk.lines.filter((l) => l.type === "addition").length,
-                0,
-              );
-              const deletions = file.hunks.reduce(
-                (acc, hunk) => acc + hunk.lines.filter((l) => l.type === "deletion").length,
-                0,
-              );
-
-              return (
-                <div
-                  key={`${file.oldName}-${file.newName}`}
-                  className={cn(
-                    glassVariants({ layer: "raised" }),
-                    "overflow-hidden rounded-surface",
-                  )}
-                >
-                  <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-base)] px-3 py-2.5 backdrop-blur-[var(--surface-blur-base)] backdrop-saturate-[var(--GlassSaturation)]">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control border border-[var(--border-subtle)] bg-[var(--material-surface)] text-[var(--color-accent)]">
-                        <Icons.FileCode size={14} />
-                      </div>
-                      <span className="truncate font-mono text-[12px] font-semibold text-[var(--color-text-highlight)]">
-                        {file.oldName === file.newName
-                          ? file.newName
-                          : `${file.oldName} → ${file.newName}`}
-                      </span>
-                    </div>
-                    <div className="ml-3 flex shrink-0 items-center gap-1.5 font-mono text-[10.5px] font-semibold">
-                      {additions > 0 && (
-                        <span className="text-[var(--StatusSuccess)]">+{additions}</span>
-                      )}
-                      {deletions > 0 && (
-                        <span className="text-[var(--StatusError)]">−{deletions}</span>
-                      )}
+          files.map((file) => {
+            const fileOffset = hunkOffset;
+            hunkOffset += file.hunks.length;
+            const fileName =
+              file.status === "renamed" || file.status === "copied"
+                ? `${file.oldName} → ${file.newName}`
+                : file.newName;
+            return (
+              <section className="diff-file" key={`${file.oldName}:${file.newName}`}>
+                <header className="diff-file-header">
+                  <Icons.FileCode size={16} stroke={1.5} aria-hidden="true" />
+                  <h2>{fileName}</h2>
+                  <span className="diff-file-status">
+                    {t(`sourceControl.diffViewer.${file.status}`)}
+                  </span>
+                  <span className="diff-stat-added">+{file.additions}</span>
+                  <span className="diff-stat-deleted">−{file.deletions}</span>
+                </header>
+                {file.binary || file.hunks.length === 0 ? (
+                  <div className="diff-file-notice">
+                    <Icons.Info size={18} stroke={1.5} />
+                    <div>
+                      <p>
+                        {t(
+                          file.binary
+                            ? "sourceControl.diffViewer.binary"
+                            : "sourceControl.diffViewer.metadataOnly",
+                        )}
+                      </p>
+                      {file.metadata.length > 0 && <code>{file.metadata.join(" · ")}</code>}
                     </div>
                   </div>
-
-                  <div className="flex flex-col bg-[var(--material-panel)] font-mono text-[12px] leading-[1.6]">
-                    {file.hunks.map((hunk, hunkIndex) => (
-                      <div
-                        key={hunk.header}
-                        className="flex flex-col border-b border-[var(--border-subtle)] last:border-b-0"
-                      >
-                        <div className="flex min-h-8 items-center justify-between gap-3 border-b border-[var(--border-subtle)] bg-[var(--material-surface)] px-3 py-1.5 font-mono text-[10.5px] text-[var(--color-text-muted)] backdrop-blur-[var(--glass-blur-raised)]">
-                          <span className="min-w-0 truncate">{hunk.header}</span>
-                          {workingFile && supportsHunkAction(rawDiff) && (
-                            <button
-                              type="button"
-                              onClick={() => void applyHunk(hunkIndex)}
-                              disabled={busyHunk !== null}
-                              className="flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-control px-2 text-[10.5px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)] disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              {isStaged ? <Icons.Minus size={12} /> : <Icons.Plus size={12} />}
-                              {isStaged
-                                ? t("sourceControl.unstageHunk")
-                                : t("sourceControl.stageHunk")}
-                            </button>
+                ) : (
+                  <>
+                    {view === "split" && (
+                      <div className="diff-column-labels" aria-hidden="true">
+                        <span>{t("sourceControl.diffViewer.before")}</span>
+                        <span>{t("sourceControl.diffViewer.after")}</span>
+                      </div>
+                    )}
+                    {file.hunks.map((hunk, hunkIndex) => {
+                      const index = fileOffset + hunkIndex;
+                      return (
+                        <section
+                          className="diff-hunk"
+                          tabIndex={-1}
+                          key={hunk.header}
+                          ref={(element) => {
+                            hunkRefs.current[index] = element;
+                          }}
+                          aria-label={hunk.header}
+                          data-selected={selectedHunk === index || undefined}
+                        >
+                          <div className="diff-hunk-header">
+                            <code>{hunk.header}</code>
+                            {canApply && (
+                              <button
+                                type="button"
+                                className="diff-text-button"
+                                onClick={() => void applyHunk(hunkIndex)}
+                                disabled={busyHunk !== null}
+                              >
+                                {busyHunk === hunkIndex ? (
+                                  <Icons.Refresh size={13} />
+                                ) : isStaged ? (
+                                  <Icons.Minus size={13} />
+                                ) : (
+                                  <Icons.Plus size={13} />
+                                )}
+                                {isStaged
+                                  ? t("sourceControl.unstageHunk")
+                                  : t("sourceControl.stageHunk")}
+                              </button>
+                            )}
+                          </div>
+                          {view === "split" ? (
+                            <SplitDiff lines={hunk.lines} renderCell={renderCell} />
+                          ) : (
+                            <div className="aurona-scroll diff-code diff-code--unified">
+                              {hunk.lines.map((line) => (
+                                <div
+                                  className="diff-code-row"
+                                  key={`${line.type}:${line.leftLineNum}:${line.rightLineNum}`}
+                                >
+                                  {renderCell(line, "right", true)}
+                                </div>
+                              ))}
+                            </div>
                           )}
-                        </div>
-                        <div className="flex w-full">
-                          {/* Left Pane */}
-                          <div className="aurona-scroll w-1/2 overflow-x-auto border-r border-[var(--border-subtle)]">
-                            <div className="flex min-w-max flex-col">
-                              {hunk.lines.map((line) => {
-                                const isContext = line.type === "context";
-                                const isDel = line.type === "deletion";
-                                const leftBg = isContext
-                                  ? "bg-transparent"
-                                  : isDel
-                                    ? "bg-[var(--StatusError)]/8"
-                                    : "bg-[var(--material-surface)]";
-                                const leftText = isContext
-                                  ? line.content
-                                  : isDel
-                                    ? line.content
-                                    : "";
-
-                                return (
-                                  <div
-                                    key={`left-${line.type}-${line.leftLineNum ?? "none"}-${line.rightLineNum ?? "none"}-${line.content}`}
-                                    className="group flex h-[22px] items-stretch transition-colors hover:bg-[var(--material-interactive-hover)]"
-                                    style={{
-                                      contentVisibility: "auto",
-                                      containIntrinsicSize: "22px",
-                                    }}
-                                  >
-                                    <div className="flex w-[45px] shrink-0 select-none items-center justify-end border-r border-[var(--border-subtle)] bg-[var(--material-panel)] px-2 text-right text-[var(--color-text-muted)] opacity-60">
-                                      {line.leftLineNum || ""}
-                                    </div>
-                                    <div
-                                      className={`relative flex flex-1 items-center whitespace-pre px-4 ${leftBg} ${
-                                        isDel
-                                          ? "text-[var(--StatusError)]"
-                                          : "text-[var(--color-text-primary)]"
-                                      }`}
-                                    >
-                                      {isDel && (
-                                        <span className="absolute inset-y-0 left-0 w-0.5 bg-[var(--StatusError)]/50" />
-                                      )}
-                                      {leftText || " "}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* Right Pane */}
-                          <div className="aurona-scroll w-1/2 overflow-x-auto">
-                            <div className="flex min-w-max flex-col">
-                              {hunk.lines.map((line) => {
-                                const isContext = line.type === "context";
-                                const isAdd = line.type === "addition";
-                                const rightBg = isContext
-                                  ? "bg-transparent"
-                                  : isAdd
-                                    ? "bg-[var(--StatusSuccess)]/8"
-                                    : "bg-[var(--material-surface)]";
-                                const rightText = isContext
-                                  ? line.content
-                                  : isAdd
-                                    ? line.content
-                                    : "";
-
-                                return (
-                                  <div
-                                    key={`right-${line.type}-${line.leftLineNum ?? "none"}-${line.rightLineNum ?? "none"}-${line.content}`}
-                                    className="group flex h-[22px] items-stretch transition-colors hover:bg-[var(--material-interactive-hover)]"
-                                    style={{
-                                      contentVisibility: "auto",
-                                      containIntrinsicSize: "22px",
-                                    }}
-                                  >
-                                    <div className="flex w-[45px] shrink-0 select-none items-center justify-end border-r border-[var(--border-subtle)] bg-[var(--material-panel)] px-2 text-right text-[var(--color-text-muted)] opacity-60">
-                                      {line.rightLineNum || ""}
-                                    </div>
-                                    <div
-                                      className={`relative flex flex-1 items-center whitespace-pre px-4 ${rightBg} ${
-                                        isAdd
-                                          ? "text-[var(--StatusSuccess)]"
-                                          : "text-[var(--color-text-primary)]"
-                                      }`}
-                                    >
-                                      {isAdd && (
-                                        <span className="absolute inset-y-0 left-0 w-0.5 bg-[var(--StatusSuccess)]/50" />
-                                      )}
-                                      {rightText || " "}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                        </section>
+                      );
+                    })}
+                  </>
+                )}
+              </section>
+            );
+          })
         )}
       </div>
     </div>

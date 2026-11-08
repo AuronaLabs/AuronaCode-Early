@@ -1,4 +1,3 @@
-import { AccountService } from "../Core/AccountService";
 import { DebugService } from "../Core/Debug";
 import { DocumentService } from "../Core/Documents";
 import { ExtensionRegistry, startExtensionRegistry } from "../Core/Extensions/ExtensionRegistry";
@@ -38,7 +37,6 @@ async function initializeCloseProtection(): Promise<() => void> {
       await WorkspaceStore.flush();
       await DocumentService.closeAll(true);
       await LspClient.shutdownCurrent().catch(console.error);
-      await AccountService.shutdown().catch(console.error);
       await saveWindowLayout().catch(console.error);
       destroying = true;
       await desktopWindow.destroy();
@@ -51,18 +49,6 @@ async function initializeCloseProtection(): Promise<() => void> {
     }
   });
   return unlisten;
-}
-
-/**
- * 账号会话恢复不在启动关键路径上：restore→refresh→discover 在弱网下可达 30s 超时，
- * 阻塞它会导致 Splash 空转。改为后台执行，登录态由各页面自行订阅账户状态。
- */
-async function restoreAccountSessionInBackground(scope: DisposableScope): Promise<void> {
-  try {
-    await AccountService.initialize(() => !scope.isDisposed);
-  } catch (error) {
-    console.warn("Account session restore failed; user stays signed out", error);
-  }
 }
 
 export const AppServices = {
@@ -103,7 +89,6 @@ export const AppServices = {
         scope.add(initializeTerminalStore());
         scope.add(initializeEditorStore());
         scope.add(registerWorkbenchCommands());
-        void restoreAccountSessionInBackground(scope);
         OutputService.append("core", "Application services initialized");
       } catch (error) {
         if (current === session) current = null;

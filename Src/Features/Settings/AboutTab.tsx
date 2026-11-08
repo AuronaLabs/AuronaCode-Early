@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
+import { CommandRegistry } from "../../Core/Commands/CommandRegistry";
 import { desktopApp } from "../../Foundation/Desktop";
 import { useLocale } from "../../Foundation/I18n";
 import { PlatformService } from "../../Foundation/Platform";
 import { formatDisplayVersion } from "../../Foundation/Release/ReleaseChannel";
-import { Badge } from "../../UI/Components/Badge";
-import { GlassContainer } from "../../UI/Core/GlassManager";
+import { Button } from "../../UI/Components/Button";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
+import "./AboutTab.css";
 
 export function AboutTab() {
   const { t } = useLocale();
@@ -20,7 +21,7 @@ export function AboutTab() {
     desktopApp
       .getVersion()
       .then((ver) => setAppVersion(ver))
-      .catch(() => setAppVersion("0.2.0"));
+      .catch(() => setAppVersion(import.meta.env.VITE_APP_VERSION));
 
     const platform = PlatformService.current();
     const info = PlatformService.info();
@@ -33,77 +34,61 @@ export function AboutTab() {
   }, []);
 
   return (
-    <InternalPageLayout maxWidth="max-w-4xl">
-      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-12 w-full select-none">
-        {/* Logo and Version */}
-        <div className="flex flex-col items-center gap-6 relative">
-          <div className="absolute inset-0 bg-[var(--color-accent)]/30 blur-[100px] rounded-full pointer-events-none" />
-          <img
-            src="/logo.png"
-            alt="Aurona Code Logo"
-            className="w-32 h-32 object-contain relative z-10"
-          />
-          <div className="flex flex-col items-center gap-2 relative z-10">
-            <h1
-              className="text-[32px] font-bold text-[var(--color-text-highlight)] tracking-wider"
-              style={{ fontFamily: "'Righteous', sans-serif" }}
-            >
-              Aurona Code
-            </h1>
-            <div className="flex items-center gap-3">
-              <span className="text-[14px] font-medium text-[var(--color-text-primary)]">
-                {formatDisplayVersion(appVersion)}
-              </span>
-              <Badge variant="neutral">{t("about.basedOn")}</Badge>
+    <InternalPageLayout maxWidth="max-w-3xl">
+      <div className="about-page">
+        <section className="about-hero">
+          <div className="about-brand">
+            <img src="/logo.png" alt="" className="about-mark" />
+            <div>
+              <h1 className="about-wordmark">Aurona Code</h1>
+              <p className="about-tagline">{t("about.tagline")}</p>
             </div>
-            <p className="text-[13px] text-[var(--color-text-muted)] mt-2 tracking-wide">
-              {t("about.tagline")}
-            </p>
           </div>
-        </div>
+          <div className="about-release">
+            <span className="about-version">{formatDisplayVersion(appVersion)}</span>
+            <Button
+              variant="ghost"
+              onClick={() => void CommandRegistry.execute("workbench.action.openChangelog")}
+            >
+              {t("commands.openChangelog")}
+              <Icons.ArrowRight size={15} />
+            </Button>
+          </div>
+        </section>
 
-        {/* System Info Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl mt-4">
-          <GlassContainer layer="raised" className="flex flex-col gap-1.5 p-5">
-            <div className="flex items-center gap-2 text-[var(--color-text-muted)] mb-2">
-              <Icons.Monitor size={16} />
-              <span className="text-[12px] font-medium uppercase tracking-wider">
-                {t("about.systemArch")}
+        <section className="about-details" aria-label={t("about.systemArch")}>
+          <div className="about-detail">
+            <Icons.Monitor size={19} stroke={1.5} aria-hidden="true" />
+            <div>
+              <h2>{t("about.systemArch")}</h2>
+              <p>{osInfo}</p>
+              <span>
+                {architecture} · {cpuCores} {t("about.cores")}
               </span>
             </div>
-            <span className="text-[15px] font-medium text-[var(--color-text-highlight)]">
-              {osInfo}
-            </span>
-            <span className="text-[12px] text-[var(--color-text-muted)]">
-              {architecture} · {cpuCores} {t("about.cores")}
-            </span>
-          </GlassContainer>
-
-          <GlassContainer layer="raised" className="flex flex-col gap-1.5 p-5">
-            <div className="flex items-center gap-2 text-[var(--color-text-muted)] mb-2">
-              <Icons.Sparkles size={16} />
-              <span className="text-[12px] font-medium uppercase tracking-wider">
-                {t("about.techStack")}
-              </span>
+          </div>
+          <div className="about-detail">
+            <Icons.Stack size={19} stroke={1.5} aria-hidden="true" />
+            <div>
+              <h2>{t("about.techStack")}</h2>
+              <p>
+                Tauri <span>· {webview}</span>
+              </p>
+              <span>React 19 · Tailwind CSS · Radix UI</span>
             </div>
-            <span className="text-[15px] font-medium text-[var(--color-text-highlight)]">
-              Tauri / {webview}
-            </span>
-            <span className="text-[12px] text-[var(--color-text-muted)]">
-              React 19 + Tailwind CSS + Radix UI
-            </span>
-          </GlassContainer>
-        </div>
-
-        {/* Copyright */}
-        <div className="flex flex-col items-center gap-2 text-[12px] text-[var(--color-text-muted)]/60 mt-8 text-center max-w-lg">
-          <p>
-            {t("about.thanksTitle")}
-            <br />
-            {t("about.thanksBody")}
-          </p>
-          <p className="mt-2">Copyright © 2026 Aurona Labs. All rights reserved</p>
-        </div>
+          </div>
+        </section>
+        <section className="about-thanks">
+          <Icons.Github size={19} stroke={1.5} aria-hidden="true" />
+          <div>
+            <h2>{t("about.thanksTitle")}</h2>
+            <p>{t("about.thanksBody")}</p>
+          </div>
+        </section>
+        <footer className="about-footer">
+          <span>Aurona Labs</span>
+          <span>Copyright © 2026 Aurona Labs. All rights reserved.</span>
+        </footer>
       </div>
     </InternalPageLayout>
   );

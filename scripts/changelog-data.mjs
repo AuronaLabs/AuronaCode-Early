@@ -30,6 +30,5 @@ export function readExportedLiteral(file, name, references = {}) {
 }
 
 export function readChangelog(root) {
-  const audit = readExportedLiteral(path.join(root, "Src/Features/Settings/AuditChangelogData.ts"), "AUDIT_0414_CHANGELOG");
-  return readExportedLiteral(path.join(root, "Src/Features/Settings/ChangelogData.ts"), "CHANGELOG_DATA", { AUDIT_0414_CHANGELOG: audit });
+  return readExportedLiteral(path.join(root, "Src/Features/Settings/ChangelogData.ts"), "CHANGELOG_DATA");
 }

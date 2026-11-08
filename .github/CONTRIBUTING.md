@@ -2,7 +2,7 @@
 
 感谢你愿意让 Aurona Code 更好用。缺陷修复、测试、文档、性能分析和经过讨论的体验改进，都是有价值的贡献。
 
-**Create Without Limits. · 创造无限可能**
+**Create Without Limits. · 创造永无止境**
 
 ## 找到合适的起点
 
@@ -14,9 +14,9 @@
 
 ## 准备开发环境
 
-当前版本为 **0.4.18**。与 CI 对齐的工具链如下：
+当前开发版本为 **0.5.0-alpha.1**。与 CI 对齐的工具链如下：
 
-架构边界见[当前架构说明](../Docs/Architecture/README.md)，本版的实现范围与自动化证据见[开发验收记录](../Docs/Development/0.4.18/Acceptance-Report.md)。
+架构边界见[当前架构说明](../Docs/Architecture/README.md)，本版的实现范围与自动化证据见[开发验收记录](../Docs/Development/0.5.0-alpha.1/Implementation.md)。
 
 | 工具 | 版本或要求 |
 | --- | --- |
@@ -71,10 +71,9 @@ pnpm run tauri:dev
 pnpm run check:docs
 pnpm run test:docs
 git diff --check
-pnpm run check:audit
 ```
 
-文档按指南、架构、开发记录与发布记录组织，位置和写作约定见[文档维护约定](../Docs/Conventions.md)。移动文件时同步修改引用方；代码围栏、表格、文件链接和标题锚点由 Quality 检查。
+文档按多语言 README、指南、架构与当前开发记录组织，位置和写作约定见[文档维护约定](../Docs/Conventions.md)。移动文件时同步修改引用方；代码围栏、表格、文件链接和标题锚点由 Quality 检查。
 
 更新扩展 README 时留意它可能被打包进扩展资源；纯文案整理无需顺带提交重新生成的二进制归档。
 

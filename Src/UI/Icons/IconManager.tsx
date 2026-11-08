@@ -34,6 +34,7 @@ import IconCrop11 from "@tabler/icons-react/dist/esm/icons/IconCrop11.mjs";
 import IconDatabase from "@tabler/icons-react/dist/esm/icons/IconDatabase.mjs";
 import IconDeviceDesktop from "@tabler/icons-react/dist/esm/icons/IconDeviceDesktop.mjs";
 import IconDeviceFloppy from "@tabler/icons-react/dist/esm/icons/IconDeviceFloppy.mjs";
+import IconDots from "@tabler/icons-react/dist/esm/icons/IconDots.mjs";
 import IconDownload from "@tabler/icons-react/dist/esm/icons/IconDownload.mjs";
 import IconEraser from "@tabler/icons-react/dist/esm/icons/IconEraser.mjs";
 import IconEye from "@tabler/icons-react/dist/esm/icons/IconEye.mjs";
@@ -88,6 +89,7 @@ import IconWorld from "@tabler/icons-react/dist/esm/icons/IconWorld.mjs";
 import IconX from "@tabler/icons-react/dist/esm/icons/IconX.mjs";
 
 export const Icons = {
+  More: IconDots,
   CloseAll: IconClearAll,
   Copy: IconCopy,
   Command: IconCommand,

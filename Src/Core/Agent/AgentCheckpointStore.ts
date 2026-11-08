@@ -26,7 +26,7 @@ async function exclusive<T>(work: () => Promise<T>): Promise<T> {
 
 interface RecoveryFile {
   path: string;
-  content: string;
+  content: string | null;
 }
 interface RecoveryJournal {
   schema: 1;
@@ -45,8 +45,9 @@ function decodeJournal(raw: string): RecoveryJournal {
       typeof record.path === "string" &&
       record.path.length > 0 &&
       record.path.length <= 32768 &&
-      typeof record.content === "string" &&
-      new TextEncoder().encode(record.content).byteLength <= 32 * 1024 * 1024
+      (record.content === null ||
+        (typeof record.content === "string" &&
+          new TextEncoder().encode(record.content).byteLength <= 32 * 1024 * 1024))
     );
   };
   if (
@@ -66,20 +67,21 @@ function decodeJournal(raw: string): RecoveryJournal {
   return value as RecoveryJournal;
 }
 
-async function readCurrent(path: string): Promise<string> {
+async function readCurrent(path: string): Promise<string | null> {
+  if (!(await FileSystemCommands.exists(path))) return null;
   return DocumentService.get(path)?.content ?? FileSystemCommands.readTextFile(path);
 }
 
 async function writeCompared(
   path: string,
-  content: string,
-  expected: string,
+  content: string | null,
+  expected: string | null,
   generation: number,
 ): Promise<void> {
   if ((await FileSystemCommands.generation()) !== generation)
     throw new Error("[workspace.generation] Workspace changed during recovery");
   const document = DocumentService.get(path);
-  if (document?.openState === "open") {
+  if (document?.openState === "open" && content !== null && expected !== null) {
     const revision = document.version;
     if (document.content !== expected)
       throw new Error(`[agent.recovery_conflict] Editor changed: ${path}`);
@@ -91,12 +93,15 @@ async function writeCompared(
       revision,
     );
   } else {
-    await FileSystemCommands.writeCompare(
+    if (document?.openState === "open" && document.content !== document.savedContent)
+      throw new Error(`[agent.recovery_conflict] Unsaved editor changes: ${path}`);
+    await FileSystemCommands.restoreCheckpointFile(
       path,
       content,
-      (await fingerprint(expected)).slice(7),
+      expected === null ? null : (await fingerprint(expected)).slice(7),
       generation,
     );
+    if (document?.openState === "open") await DocumentService.close(path, true);
   }
 }
 
@@ -115,7 +120,8 @@ async function fingerprint(content: string): Promise<string> {
   return `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}:${bytes.length}`;
 }
 
-async function matchesFingerprint(content: string, expected: string): Promise<boolean> {
+async function matchesFingerprint(content: string | null, expected: string): Promise<boolean> {
+  if (content === null) return expected === "missing";
   return expected.startsWith("sha256:")
     ? (await fingerprint(content)) === expected
     : legacyFingerprint(content) === expected;
@@ -151,6 +157,7 @@ function sanitizeCheckpoint(value: unknown): AgentCheckpoint | null {
       typeof file.path === "string" &&
       typeof file.content === "string" &&
       typeof file.fingerprint === "string" &&
+      (file.exists === undefined || typeof file.exists === "boolean") &&
       (file.afterFingerprint === undefined || typeof file.afterFingerprint === "string"),
   );
   if (files.length !== raw.files.length) return null;
@@ -220,11 +227,15 @@ export class AgentCheckpointStore {
     const uniquePaths = [...new Set(paths.filter((path) => path.trim() !== ""))];
     const files: AgentCheckpoint["files"] = [];
     for (const path of uniquePaths) {
-      const document = DocumentService.get(path);
-      const content = document?.content ?? (await FileSystemCommands.readTextFile(path));
-      if (new TextEncoder().encode(content).byteLength > 32 * 1024 * 1024)
+      const content = await readCurrent(path);
+      if (content !== null && new TextEncoder().encode(content).byteLength > 32 * 1024 * 1024)
         throw new Error("[agent.quota] Checkpoint file exceeds 32 MiB");
-      files.push({ path, content, fingerprint: await fingerprint(content) });
+      files.push({
+        path,
+        content: content ?? "",
+        exists: content !== null,
+        fingerprint: content === null ? "missing" : await fingerprint(content),
+      });
     }
     if ((await FileSystemCommands.generation()) !== generation)
       throw new Error("[workspace.generation] Workspace changed during checkpoint capture");
@@ -280,10 +291,8 @@ export class AgentCheckpointStore {
     if (!checkpoint) throw new Error("Checkpoint not found");
     const fingerprints = await Promise.all(
       checkpoint.files.map(async (file) => {
-        const current =
-          DocumentService.get(file.path)?.content ??
-          (await FileSystemCommands.readTextFile(file.path));
-        return fingerprint(current);
+        const current = await readCurrent(file.path);
+        return current === null ? "missing" : fingerprint(current);
       }),
     );
     const next = this.checkpoints.map((item) =>
@@ -313,17 +322,16 @@ export class AgentCheckpointStore {
     const workspaceId = WorkspaceService.getCurrent().id;
     if (checkpoint.workspaceId && checkpoint.workspaceId !== workspaceId)
       throw new Error("[agent.recovery_workspace] Reopen the checkpoint workspace first");
-    const originals: Array<{ path: string; content: string }> = [];
+    const originals: RecoveryFile[] = [];
     for (const file of checkpoint.files) {
-      const document = DocumentService.get(file.path);
-      const current = document?.content ?? (await FileSystemCommands.readTextFile(file.path));
+      const current = await readCurrent(file.path);
       if (!(await matchesFingerprint(current, file.afterFingerprint ?? file.fingerprint))) {
         throw new Error(`Checkpoint target changed since capture: ${file.path}`);
       }
       originals.push({ path: file.path, content: current });
     }
 
-    const written: Array<{ path: string; content: string; target: string }> = [];
+    const written: Array<RecoveryFile & { target: string | null }> = [];
     const pendingJournal = await AgentStorageIPC.read("journal");
     if (pendingJournal && pendingJournal !== "null")
       throw new Error("[agent.recovery_pending] A previous restore must be recovered first");
@@ -334,13 +342,17 @@ export class AgentCheckpointStore {
         checkpointId: id,
         workspaceId,
         originals,
-        targets: checkpoint.files.map(({ path, content }) => ({ path, content })),
+        targets: checkpoint.files.map(({ path, content, exists }) => ({
+          path,
+          content: exists === false ? null : content,
+        })),
       }),
     );
     try {
       for (const [index, file] of checkpoint.files.entries()) {
-        written.push({ ...originals[index], target: file.content });
-        await writeCompared(file.path, file.content, originals[index].content, generation);
+        const target = file.exists === false ? null : file.content;
+        written.push({ ...originals[index], target });
+        await writeCompared(file.path, target, originals[index].content, generation);
       }
     } catch (cause) {
       // Restore every file whose write may have completed before the failure. Rollback is best
@@ -421,9 +433,7 @@ export class AgentCheckpointStore {
       throw new Error("[agent.recovery_workspace] Reopen the recovery workspace first");
     const generation = await FileSystemCommands.generation();
     for (const [index, original] of journal.originals.entries()) {
-      const current =
-        DocumentService.get(original.path)?.content ??
-        (await FileSystemCommands.readTextFile(original.path));
+      const current = await readCurrent(original.path);
       if (current !== original.content && current !== journal.targets[index].content)
         throw new Error(`[agent.recovery_conflict] Recovery target changed: ${original.path}`);
     }

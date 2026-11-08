@@ -64,7 +64,7 @@ export interface WindowStatePreferences {
   y?: number;
 }
 
-/** 网络代理偏好：仅作用于更新检查与工具链下载（Marketplace 扩展下载走前端 fetch 不在内） */
+/** 网络代理偏好：仅作用于应用更新检查 */
 export interface NetworkPreferences {
   proxyMode?: "system" | "custom" | "none";
   proxyUrl?: string;
@@ -78,10 +78,8 @@ export interface AppearancePreferences {
 
 /** Security choices whose trade-offs are visible to the user. Integrity boundaries remain backend-enforced. */
 export interface SecurityPreferences {
-  /** Authenticate downloaded/local extension packages. Defaults to true. */
+  /** Authenticate local extension packages. Defaults to true. */
   requireExtensionSignature?: boolean;
-  /** Authenticate Marketplace catalogs independently of package signatures. Defaults to true. */
-  requireExtensionCatalogSignature?: boolean;
   /** Automatically trust workspace language-server configuration instead of prompting. Defaults to false. */
   autoTrustWorkspaceLanguageServers?: boolean;
   /** Ask before registering a new language-server, debugger or Python process launch. Defaults to true. */
@@ -185,8 +183,6 @@ export interface UserConfig {
   languageServers?: Record<string, LanguageServerConfiguration>;
   languageFeatures?: LanguageFeaturePreferences;
   debug?: DebugPreferences;
-  releaseChannel?: "stable" | "pioneer";
-  marketplaceServerUrl?: string;
   /** Keep the built-in VSCode compatibility runtime available for VSIX extensions. */
   vscodeCompatEnabled?: boolean;
   muteNonCriticalToasts?: boolean;

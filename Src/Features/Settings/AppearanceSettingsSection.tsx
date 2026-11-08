@@ -43,10 +43,8 @@ export function AppearanceSettingsSection({
   const themeLabel = (id: AccentThemeId) => t(`settings.themes.${id}` as I18nKey);
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
-          {t("settings.appearanceSection.title")}
-        </h3>
+      <div className="settings-section-header">
+        <h3 className="settings-section-title">{t("settings.appearanceSection.title")}</h3>
         <p className="text-[13px] text-[var(--color-text-muted)]">
           {t("settings.appearanceSection.description")}
         </p>
@@ -137,17 +135,18 @@ export function AppearanceSettingsSection({
         </div>
       </GlassContainer>
 
-      <div className="mt-2 flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
-          {t("settings.appearanceSection.effectsTitle")}
-        </h3>
+      <div className="settings-section-header">
+        <h3 className="settings-section-title">{t("settings.appearanceSection.effectsTitle")}</h3>
         <p className="text-[13px] text-[var(--color-text-muted)]">
           {t("settings.appearanceSection.effectsDescription")}
         </p>
       </div>
 
       <GlassContainer layer="raised" className="overflow-hidden">
-        <div data-setting-id="materialIntensity" className="flex items-center justify-between p-5">
+        <div
+          data-setting-id="materialIntensity"
+          className="settings-row flex items-center justify-between gap-6 p-5"
+        >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {t("settings.appearanceSection.intensity")}
@@ -175,7 +174,7 @@ export function AppearanceSettingsSection({
         </div>
         <div
           data-setting-id="liquidTexture"
-          className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
+          className="settings-row flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
         >
           <div className="min-w-0 pr-2">
             <span className="flex items-center gap-2">
@@ -202,7 +201,7 @@ export function AppearanceSettingsSection({
         </div>
         <div
           data-setting-id="boldText"
-          className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
+          className="settings-row flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
         >
           <div className="min-w-0 pr-2">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -226,7 +225,7 @@ export function AppearanceSettingsSection({
         </div>
         <div
           data-setting-id="interfaceFontSize"
-          className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
+          className="settings-row flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
         >
           <div className="min-w-0 pr-2">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">

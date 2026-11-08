@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 
-export function trustedReleaseConfig(base, pioneer, channel) {
-  if (!["stable", "pioneer"].includes(channel)) throw new Error("Unknown release channel");
+export function trustedReleaseConfig(base) {
   const config = structuredClone(base);
-  if (channel === "pioneer") {
-    config.plugins.updater = { ...config.plugins.updater, ...pioneer.plugins.updater };
-  }
   if (!config.plugins?.updater?.pubkey || !Array.isArray(config.plugins.updater.endpoints))
     throw new Error("Missing trusted updater configuration");
   return config;
@@ -16,7 +12,7 @@ export function verifyCandidateTrust(candidate, expected) {
   assert.equal(candidate.plugins?.updater?.pubkey, expected.plugins.updater.pubkey,
     "Candidate public key does not match trusted repository configuration");
   assert.deepEqual(candidate.plugins?.updater?.endpoints, expected.plugins.updater.endpoints,
-    "Candidate updater endpoints do not match the selected channel");
+    "Candidate updater endpoints do not match the repository configuration");
 }
 
 export function verifyUpdaterPage(page, metadata, metadataSignature) {
@@ -26,7 +22,8 @@ export function verifyUpdaterPage(page, metadata, metadataSignature) {
   assert.equal(page.auronaRelease.signature.trim(), metadataSignature.trim(), "Updater page metadata signature mismatch");
   assert.deepEqual(Object.keys(page.platforms).sort(), metadata.artifacts.map((a) => a.platform).sort(),
     "Updater page platform mismatch");
-  const tag = metadata.channel === "pioneer" ? "pioneer-latest" : `v${metadata.version}`;
+  assert.equal(metadata.channel, "stable", "Unknown release source");
+  const tag = `v${metadata.version}`;
   for (const artifact of metadata.artifacts) {
     const entry = page.platforms[artifact.platform];
     const expectedUrl = `https://github.com/AuronaLabs/AuronaCode-Early/releases/download/${tag}/${encodeURIComponent(artifact.file)}`;

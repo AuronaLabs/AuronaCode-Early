@@ -105,15 +105,10 @@ export interface EventMap {
     | "network"
     | "security"
     | "ai"
-    | "accountCloud"
     | "extensions"
     | "system"
     | "advanced";
   "settings:reveal": { category: SettingCategory; settingId?: string };
-  "marketplace:navigate": {
-    mode?: "discover" | "installed" | "toolchains";
-    selectedId?: string;
-  };
   "settings:editor-changed": undefined;
   "settings:language-changed": undefined;
   "settings:debug-changed": DebugPreferences;

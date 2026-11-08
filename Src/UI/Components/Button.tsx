@@ -9,11 +9,11 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-[var(--color-accent)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-hover)] border border-[color-mix(in_srgb,var(--color-accent)_24%,transparent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]",
+          "bg-[var(--color-accent)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-hover)] border border-[color-mix(in_srgb,var(--color-accent)_24%,transparent)] shadow-[inset_0_1px_0_var(--button-primary-highlight)]",
         secondary:
           "bg-[var(--material-interactive-hover)] text-[var(--color-text-highlight)] hover:bg-[var(--border-subtle)] border border-[var(--border-subtle)]",
         danger:
-          "bg-[var(--DiagError)]/90 text-white hover:bg-[var(--DiagError)] border border-[color-mix(in_srgb,var(--DiagError)_24%,transparent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]",
+          "bg-[var(--DiagError)]/90 text-white hover:bg-[var(--DiagError)] border border-[color-mix(in_srgb,var(--DiagError)_24%,transparent)] shadow-[inset_0_1px_0_var(--button-danger-highlight)]",
         ghost:
           "bg-transparent text-[var(--color-text-primary)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]",
         glass:

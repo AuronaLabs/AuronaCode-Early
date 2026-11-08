@@ -24,4 +24,4 @@
 
 ## 文档归属
 
-产品与开发文档集中在 [Docs](../Docs/README.md)。在研版本的计划、变更草稿和验收证据归入 `Docs/Development/<version>/`，已发布内容归入 `Docs/Releases/<version>/`。README 展示当前发布版本与既有预告，历史审计保留原有证据与固定引用路径。
+产品与开发文档集中在 [Docs](../Docs/README.md)。根 README 默认英文，其他五种语言放在 `Docs/Readme/`；当前实现与验证归入 `Docs/Development/<version>/`，旧版本记录通过 Git 历史和系列分支查阅。

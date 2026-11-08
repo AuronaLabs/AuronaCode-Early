@@ -90,7 +90,7 @@ describe("UserConfigStore credential migration and persistence", () => {
     );
     const first = UserConfigStore.set({ locale: "en" });
     const second = UserConfigStore.set({
-      marketplaceServerUrl: "https://marketplace.aurona.cc/api",
+      editorFontSize: 16,
     });
     await vi.waitFor(() => expect(mocks.write).toHaveBeenCalledOnce());
     expect(mocks.migrate).toHaveBeenCalledOnce();
@@ -98,7 +98,7 @@ describe("UserConfigStore credential migration and persistence", () => {
     await Promise.all([first, second]);
     expect(JSON.parse(mocks.write.mock.calls[1][1])).toEqual({
       locale: "en",
-      marketplaceServerUrl: "https://marketplace.aurona.cc/api",
+      editorFontSize: 16,
     });
   });
 

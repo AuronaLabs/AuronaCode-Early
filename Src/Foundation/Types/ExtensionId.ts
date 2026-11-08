@@ -1,4 +1,4 @@
-/** Canonical IDs used by the Marketplace and extension IPC boundary. */
+/** Canonical IDs used by the extension registry and IPC boundary. */
 export const LEGACY_EXTENSION_ID_ALIASES = {
   "aurona.markdown": "auronalabs.markdown",
   "aurona.planner": "auronalabs.planner",

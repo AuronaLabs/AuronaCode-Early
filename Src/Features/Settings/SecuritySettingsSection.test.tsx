@@ -56,7 +56,6 @@ describe("Security settings", () => {
     expect(control("autoTrustWorkspace")).not.toBeChecked();
     for (const key of [
       "extensionSignature",
-      "catalogSignature",
       "localProcessApproval",
       "workspaceApproval",
       "aiEndpointApproval",
@@ -133,14 +132,11 @@ describe("Security settings", () => {
     expect(mocks.set).toHaveBeenCalledWith({ security: { requireDeleteApproval: true } });
   });
 
-  it("allows package and catalog signature checks to be disabled independently", async () => {
-    await open({ security: { requireExtensionCatalogSignature: true } });
+  it("allows local package verification to be explicitly relaxed", async () => {
+    await open({ security: { requireExtensionSignature: true } });
     fireEvent.click(control("extensionSignature"));
     await waitFor(() => expect(control("extensionSignature")).not.toBeChecked());
-    expect(control("catalogSignature")).toBeChecked();
-    expect(mocks.set).toHaveBeenLastCalledWith({
-      security: { requireExtensionCatalogSignature: true, requireExtensionSignature: false },
-    });
+    expect(mocks.set).toHaveBeenLastCalledWith({ security: { requireExtensionSignature: false } });
     expect(mocks.reload).not.toHaveBeenCalled();
   });
 

@@ -1,7 +1,10 @@
 const mocks = vi.hoisted(() => ({
   readTextFile: vi.fn(),
+  exists: vi.fn<(path: string) => Promise<boolean>>(async () => true),
   writeTextFile: vi.fn(),
-  document: undefined as { content: string; openState: "open" | "closed" } | undefined,
+  document: undefined as
+    | { content: string; savedContent?: string; version?: number; openState: "open" | "closed" }
+    | undefined,
   getViewState: vi.fn(),
   getStatus: vi.fn(),
   restoreViewState: vi.fn(),
@@ -21,12 +24,16 @@ vi.mock("../Documents", () => ({
   DocumentService: {
     get: () => mocks.document,
     applyEdits: vi.fn(),
+    close: vi.fn(),
   },
 }));
 
 vi.mock("../../Foundation/IPC/FileSystemCommands", () => ({
   FileSystemCommands: {
     generation: mocks.generation,
+    exists: mocks.exists,
+    restoreCheckpointFile: async (path: string, content: string | null) =>
+      mocks.writeTextFile(path, content),
     writeCompare: async (path: string, content: string) => mocks.writeTextFile(path, content),
     readTextFile: mocks.readTextFile,
     writeTextFile: mocks.writeTextFile,
@@ -52,6 +59,7 @@ describe("AgentCheckpointStore", () => {
     localStorage.clear();
     vi.stubGlobal("crypto", webcrypto);
     mocks.stored.clear();
+    mocks.exists.mockReset().mockResolvedValue(true);
     mocks.storageWrite.mockReset().mockImplementation(async (slot: string, text: string) => {
       mocks.stored.set(slot, text);
     });
@@ -78,6 +86,91 @@ describe("AgentCheckpointStore", () => {
 
     mocks.readTextFile.mockResolvedValue("changed externally");
     await expect(store.restore(checkpoint.id)).rejects.toThrow("target changed");
+    expect(mocks.writeTextFile).not.toHaveBeenCalled();
+  });
+
+  it("captures an absent target and removes only the sealed created file on restore", async () => {
+    const path = "C:/work/new.ts";
+    mocks.exists.mockResolvedValue(false);
+    const store = new AgentCheckpointStore();
+    const checkpoint = await store.capture("create", [path], "Before create_file");
+    expect(checkpoint.files[0]).toMatchObject({ exists: false, fingerprint: "missing" });
+    expect(mocks.readTextFile).not.toHaveBeenCalled();
+    mocks.exists.mockResolvedValue(true);
+    mocks.readTextFile.mockResolvedValue("created by agent");
+    await store.seal(checkpoint.id);
+    await store.restore(checkpoint.id);
+    expect(mocks.writeTextFile).toHaveBeenCalledWith(path, null);
+  });
+
+  it("restores a deleted file and refuses a user replacement at its old path", async () => {
+    const path = "C:/work/deleted.ts";
+    mocks.readTextFile.mockResolvedValue("original");
+    const store = new AgentCheckpointStore();
+    const checkpoint = await store.capture("delete", [path], "Before delete_file");
+    mocks.exists.mockResolvedValue(false);
+    await store.seal(checkpoint.id);
+    expect(store.get(checkpoint.id)?.files[0].afterFingerprint).toBe("missing");
+    mocks.exists.mockResolvedValue(true);
+    mocks.readTextFile.mockResolvedValue("user replacement");
+    await expect(store.restore(checkpoint.id)).rejects.toThrow("target changed");
+    expect(mocks.writeTextFile).not.toHaveBeenCalled();
+    mocks.exists.mockResolvedValue(false);
+    await store.restore(checkpoint.id);
+    expect(mocks.writeTextFile).toHaveBeenCalledWith(path, "original");
+  });
+
+  it("restores both existence states of a renamed file", async () => {
+    const oldPath = "C:/work/old.ts";
+    const newPath = "C:/work/new.ts";
+    const disk = new Map([[oldPath, "original"]]);
+    mocks.exists.mockImplementation(async (path) => disk.has(path));
+    mocks.readTextFile.mockImplementation(async (path) => disk.get(path));
+    mocks.writeTextFile.mockImplementation(async (path, text) => {
+      if (text === null) disk.delete(path);
+      else disk.set(path, text);
+    });
+    const store = new AgentCheckpointStore();
+    const checkpoint = await store.capture("rename", [oldPath, newPath], "Before rename_file");
+    disk.delete(oldPath);
+    disk.set(newPath, "original");
+    await store.seal(checkpoint.id);
+    await store.restore(checkpoint.id);
+    expect([...disk]).toEqual([[oldPath, "original"]]);
+  });
+
+  it("recovers an interrupted restore that contains an absent path", async () => {
+    mocks.stored.set(
+      "journal",
+      JSON.stringify({
+        schema: 1,
+        checkpointId: "create",
+        workspaceId: "single-file",
+        originals: [{ path: "new.ts", content: "agent text" }],
+        targets: [{ path: "new.ts", content: null }],
+      }),
+    );
+    mocks.exists.mockResolvedValue(false);
+    const store = new AgentCheckpointStore();
+    await store.recoverPendingRestore();
+    expect(mocks.writeTextFile).toHaveBeenCalledWith("new.ts", "agent text");
+    expect(mocks.stored.get("journal")).toBe("null");
+  });
+
+  it("does not delete an open document with unsaved content", async () => {
+    const path = "C:/work/created.ts";
+    mocks.exists.mockResolvedValue(false);
+    const store = new AgentCheckpointStore();
+    const checkpoint = await store.capture("create", [path], "Before create");
+    mocks.exists.mockResolvedValue(true);
+    mocks.document = {
+      content: "agent text",
+      savedContent: "disk text",
+      version: 1,
+      openState: "open",
+    };
+    await store.seal(checkpoint.id);
+    await expect(store.restore(checkpoint.id)).rejects.toThrow("Unsaved editor changes");
     expect(mocks.writeTextFile).not.toHaveBeenCalled();
   });
 
@@ -191,6 +284,7 @@ describe("Checkpoint recovery boundaries", () => {
     localStorage.clear();
     vi.stubGlobal("crypto", webcrypto);
     mocks.stored.clear();
+    mocks.exists.mockReset().mockResolvedValue(true);
     mocks.generation.mockReset().mockResolvedValue(1);
     mocks.readTextFile.mockReset().mockResolvedValue("before");
     mocks.writeTextFile.mockReset();

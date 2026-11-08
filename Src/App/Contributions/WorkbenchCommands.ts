@@ -6,17 +6,18 @@ import { LspClient, type LspFeature } from "../../Core/Language/LspClient";
 import { LanguageFeatureService } from "../../Core/LanguageFeatureService";
 import { NavigationHistory } from "../../Core/NavigationHistory";
 import { OutputService } from "../../Core/OutputService";
+import { requestSettingsSection } from "../../Core/Settings/SettingsNavigation";
 import { EventBus } from "../../Foundation/EventBus";
 import { LocaleService } from "../../Foundation/I18n";
 import { AppLifecycleIPC } from "../../Foundation/IPC/AppLifecycleCommands";
 import { PlatformService } from "../../Foundation/Platform";
+import type { SettingsSection } from "../../Foundation/Types/Settings";
 import { handleSmartRun } from "../../Shared/Constants/RunConfig";
 import { SIDEBAR_DEBUG, SIDEBAR_EXTENSIONS } from "../../Shared/Constants/Sidebar";
 import { useDebugStore } from "../../State/useDebugStore";
 import { useEditorStore } from "../../State/useEditorStore";
 import { useFeatureFlagStore } from "../../State/useFeatureFlagStore";
 import { useWorkbenchStore } from "../../State/Workbench/useWorkbenchStore";
-import { registerAccountCommands } from "./AccountCommands";
 import { registerFliunoCommands } from "./FliunoCommands";
 
 const context = (): CommandContext => {
@@ -87,7 +88,6 @@ export function registerWorkbenchCommands(): () => void {
   const disposers = [
     CommandRegistry.setContextProvider(context),
     registerFliunoCommands(),
-    registerAccountCommands(),
     CommandRegistry.register({
       id: "workbench.action.files.openFile",
       title: "打开文件…",
@@ -436,17 +436,19 @@ export function registerWorkbenchCommands(): () => void {
       titleKey: "commands.openSettings",
       category: "工作台",
       categoryKey: "commandCategories.workbench",
-      handler: () =>
+      handler: (args: { section?: SettingsSection } | undefined) => {
+        if (args?.section) requestSettingsSection(args.section);
         useWorkbenchStore.getState().openTab({
           id: "settings",
           type: "settings",
           title: LocaleService.translate("settings.title"),
           titleKey: "settings.title",
-        }),
+        });
+      },
     }),
     CommandRegistry.register({
-      id: "workbench.action.openMarketplace",
-      title: "打开扩展市场",
+      id: "workbench.action.openExtensions",
+      title: "打开扩展管理",
       category: "工作台",
       categoryKey: "commandCategories.workbench",
       handler: () => useWorkbenchStore.getState().setActiveSidebar(SIDEBAR_EXTENSIONS),
@@ -464,21 +466,6 @@ export function registerWorkbenchCommands(): () => void {
           titleKey: "settings.title",
         });
         EventBus.emit("settings:nav", "system");
-      },
-    }),
-    CommandRegistry.register({
-      id: "workbench.action.openAccountSettings",
-      title: "打开 Aurona 账户设置",
-      category: "工作台",
-      categoryKey: "commandCategories.workbench",
-      handler: () => {
-        useWorkbenchStore.getState().openTab({
-          id: "settings",
-          type: "settings",
-          title: LocaleService.translate("settings.title"),
-          titleKey: "settings.title",
-        });
-        EventBus.emit("settings:nav", "accountCloud");
       },
     }),
     CommandRegistry.register({

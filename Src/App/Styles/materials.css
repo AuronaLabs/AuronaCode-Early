@@ -78,7 +78,7 @@
 }
 
 .dark[data-liquid-texture="true"] .liquid-texture {
-  opacity: calc(0.86 * var(--GlassOpacity-Multiplier, 1));
+  opacity: calc(0.68 * var(--GlassOpacity-Multiplier, 1));
 }
 
 .liquid-texture::before,
@@ -135,8 +135,8 @@
   }
 }
 /* 液态玻璃材质：浮层玻璃的折射顶缘高光带 + 边缘 rim 折射描边。
-   specular 随 0.4.6 提强（light 0.30 / dark 0.38）；rim 扩展到 base/raised 层，
-   随流光动效开关启停，纯 GPU 合成，动态幅度随玻璃强度连续值系数缩放。 */
+   深色模式使用更低的反光幅度，避免顶缘、折射带与静态材质叠加泛白。
+   动态幅度随玻璃强度连续值系数缩放。 */
 /* 职责边界：--Glass* 静态材质（强度全权）；--Liquid* 动态层（流光动效开关门控，
    幅度乘 --GlassRim-Strength 强度系数——醇厚端流动更明显，轻透端更含蓄）。 */
 :root {
@@ -151,10 +151,16 @@
   --LiquidRim: calc(0.26 * var(--GlassRim-Strength, 1));
 }
 
-.dark[data-liquid-texture="true"] {
-  --LiquidSpecular: calc(0.38 * var(--GlassRim-Strength, 1));
-  --LiquidRefraction: calc(0.14 * var(--GlassRim-Strength, 1));
-  --LiquidRim: calc(0.38 * var(--GlassRim-Strength, 1));
+:root.dark {
+  --LiquidSpecular: calc(0.045 * var(--GlassRim-Strength, 1));
+  --LiquidRefraction: calc(0.015 * var(--GlassRim-Strength, 1));
+  --LiquidRim: calc(0.085 * var(--GlassRim-Strength, 1));
+}
+
+:root.dark[data-liquid-texture="true"] {
+  --LiquidSpecular: calc(0.095 * var(--GlassRim-Strength, 1));
+  --LiquidRefraction: calc(0.025 * var(--GlassRim-Strength, 1));
+  --LiquidRim: calc(0.13 * var(--GlassRim-Strength, 1));
 }
 
 .glass-layer-overlay {

@@ -106,6 +106,17 @@ impl StagedFile {
         })
     }
 
+    /// Publish a staged file only if the destination is still absent.
+    pub fn commit_new(self, name: &Path) -> Result<(), String> {
+        self.file.sync_all().map_err(|e| e.to_string())?;
+        self.directory
+            .hard_link(&self.name, &self.directory, name)
+            .map_err(|e| format!("[agent.recovery_conflict] Cannot create recovery target: {e}"))?;
+        #[cfg(unix)]
+        sync_directory(&self.directory)?;
+        Ok(())
+    }
+
     pub fn commit(self, name: &Path) -> Result<(), String> {
         self.file.sync_all().map_err(|e| e.to_string())?;
         // Renaming directory entries never follows a replaced destination link.

@@ -7,7 +7,6 @@ import "./Styles/base.css";
 import "./Styles/materials.css";
 import "./Styles/components.css";
 import "./Styles/editor-syntax.css";
-import "@fontsource/righteous";
 import "@fontsource/jetbrains-mono";
 import { CommandRegistry } from "../Core/Commands/CommandRegistry";
 import { EventBus } from "../Foundation/EventBus";

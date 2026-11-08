@@ -2,7 +2,6 @@
 #[derive(Clone, Copy, Debug)]
 pub struct ExtensionSecurityPolicy {
     pub package_signature: bool,
-    pub catalog_signature: bool,
 }
 
 impl ExtensionSecurityPolicy {
@@ -11,11 +10,6 @@ impl ExtensionSecurityPolicy {
             package_signature: crate::authorization_dialogs::security_preference(
                 app,
                 "requireExtensionSignature",
-                true,
-            ),
-            catalog_signature: crate::authorization_dialogs::security_preference(
-                app,
-                "requireExtensionCatalogSignature",
                 true,
             ),
         }
@@ -33,19 +27,15 @@ impl ExtensionSecurityPolicy {
 mod tests {
     use super::*;
     #[test]
-    fn package_and_catalog_choices_are_independent() {
-        for catalog_signature in [true, false] {
-            let policy = ExtensionSecurityPolicy {
-                package_signature: true,
-                catalog_signature,
-            };
-            assert!(policy.require_package(false).is_err());
-            assert!(policy.require_package(true).is_ok());
-            let relaxed = ExtensionSecurityPolicy {
-                package_signature: false,
-                ..policy
-            };
-            assert!(relaxed.require_package(false).is_ok());
-        }
+    fn local_packages_require_authentication_unless_explicitly_relaxed() {
+        let strict = ExtensionSecurityPolicy {
+            package_signature: true,
+        };
+        assert!(strict.require_package(false).is_err());
+        assert!(strict.require_package(true).is_ok());
+        let relaxed = ExtensionSecurityPolicy {
+            package_signature: false,
+        };
+        assert!(relaxed.require_package(false).is_ok());
     }
 }

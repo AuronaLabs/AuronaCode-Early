@@ -177,11 +177,9 @@ export function SourceControlSettingsSection() {
   const hasUnsavedRemote = remoteUrl.trim() !== savedRemoteUrl;
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-5">
-      <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
-          {t("settings.categories.sourceControl")}
-        </h3>
+    <div className="flex w-full max-w-3xl flex-col gap-6">
+      <div className="settings-section-header">
+        <h3 className="settings-section-title">{t("settings.categories.sourceControl")}</h3>
         <p className="text-[13px] text-[var(--color-text-muted)]">
           {t("settings.sourceControlDescription")}
         </p>
@@ -203,7 +201,7 @@ export function SourceControlSettingsSection() {
             <Icons.Git size={20} />
           </div>
           <div className="min-w-0">
-            <div className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
+            <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
               {statusError
                 ? t("sourceControl.repoCheckFailed").replace("{message}", statusError)
                 : repoPath
@@ -234,7 +232,7 @@ export function SourceControlSettingsSection() {
                 <Icons.Git size={18} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
+                <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                   {t("settings.sourceControlSection.currentRepo")}
                 </div>
                 <div className="truncate text-[11px] text-[var(--color-text-muted)]">
@@ -290,9 +288,9 @@ export function SourceControlSettingsSection() {
           </GlassContainer>
 
           <GlassContainer layer="raised" className="overflow-hidden">
-            <div className="flex items-center justify-between gap-4 border-b border-[var(--border-subtle)] px-5 py-4">
+            <div className="settings-row flex items-center justify-between gap-4 border-b border-[var(--border-subtle)] px-5 py-4">
               <div className="min-w-0">
-                <div className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
+                <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">
                   {t("settings.sourceControlSection.remoteUrl")}
                 </div>
                 <p className="mt-1 text-[11px] leading-5 text-[var(--color-text-muted)]">

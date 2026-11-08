@@ -12,7 +12,6 @@ export type SettingCategory =
   | "sourceControl"
   | "network"
   | "security"
-  | "accountCloud"
   | "extensions"
   | "system"
   | "advanced";

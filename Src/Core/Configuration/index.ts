@@ -3,7 +3,6 @@ import type { SecurityPreferences, UserConfig } from "../../Foundation/Types/Con
 
 export const SECURITY_DEFAULTS: Readonly<Required<SecurityPreferences>> = Object.freeze({
   requireExtensionSignature: true,
-  requireExtensionCatalogSignature: true,
   autoTrustWorkspaceLanguageServers: false,
   requireLocalProcessApproval: true,
   requireWorkspaceApproval: true,

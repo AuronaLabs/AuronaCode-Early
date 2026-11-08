@@ -12,14 +12,6 @@ pub struct UpdateState {
     operation: tokio::sync::Mutex<()>,
 }
 
-fn channel() -> &'static str {
-    if option_env!("AURONA_CHANNEL") == Some("pioneer") {
-        "pioneer"
-    } else {
-        "stable"
-    }
-}
-
 fn signed_artifact(
     app: &tauri::AppHandle,
     update: &tauri_plugin_updater::Update,
@@ -35,7 +27,7 @@ fn signed_artifact(
         &update.raw_json,
         &key,
         &update.version,
-        channel(),
+        "stable",
         &update.target,
         &update.download_url,
         signature,

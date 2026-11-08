@@ -10,11 +10,10 @@ if (manifests.length !== 5) throw new Error("All three updater candidates and bo
 const verifier = path.resolve(import.meta.dirname, "../src-tauri/target/debug/examples/verify_candidate");
 if (!fs.existsSync(verifier)) throw new Error("Build the verifier from the trusted checkout before aggregation");
 const version = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
-const channel = process.env.RELEASE_TAG?.includes("-pioneer.") ? "pioneer" : "stable";
+const channel = "stable";
 const repository = path.resolve(import.meta.dirname, "..");
 const trusted = trustedReleaseConfig(
-  JSON.parse(fs.readFileSync(path.join(repository, "src-tauri/tauri.conf.json"), "utf8")),
-  JSON.parse(fs.readFileSync(path.join(repository, "src-tauri/tauri.pioneer.conf.json"), "utf8")), channel);
+  JSON.parse(fs.readFileSync(path.join(repository, "src-tauri/tauri.conf.json"), "utf8")));
 const trustedConfigFile = path.join(root, "trusted-tauri-config.json");
 fs.writeFileSync(trustedConfigFile, JSON.stringify(trusted));
 const merged = { version, pub_date: new Date().toISOString(), platforms: {}, auronaReleases: {} };

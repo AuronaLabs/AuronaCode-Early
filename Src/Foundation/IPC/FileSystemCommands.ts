@@ -15,6 +15,18 @@ export const FileSystemCommands = {
   generation: () => invokeDesktop<number>("workspace_generation"),
   writeCompare: (path: string, contents: string, expectedFingerprint: string, generation: number) =>
     invokeDesktop<void>("fs_write_compare", { path, contents, expectedFingerprint, generation }),
+  restoreCheckpointFile: (
+    path: string,
+    contents: string | null,
+    expectedFingerprint: string | null,
+    generation: number,
+  ) =>
+    invokeDesktop<void>("fs_restore_checkpoint_file", {
+      path,
+      contents,
+      expectedFingerprint,
+      generation,
+    }),
   restoreDeleted(recoveryId: string): Promise<string> {
     return invokeDesktop("fs_restore_deleted", { recoveryId });
   },

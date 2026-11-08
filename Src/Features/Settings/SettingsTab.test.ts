@@ -15,6 +15,5 @@ describe("Settings navigation", () => {
     expect(sectionForSettingCategory("security")).toBe("security");
     expect(sectionForSettingCategory("appearance")).toBe("appearance");
     expect(sectionForSettingCategory("codeIntelligence")).toBe("codeIntelligence");
-    expect(sectionForSettingCategory("accountCloud")).toBe("accountCloud");
   });
 });

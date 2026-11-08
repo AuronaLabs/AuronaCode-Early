@@ -8,7 +8,6 @@ import {
 import { Badge } from "../../UI/Components/Badge";
 import { Card } from "../../UI/Components/Card";
 import { Input } from "../../UI/Components/Input";
-import { GlassContainer } from "../../UI/Core/GlassManager";
 import { useRetainedViewState } from "../../UI/Core/ViewState";
 import { Icons } from "../../UI/Icons/IconManager";
 import { InternalPageLayout } from "../../UI/Layouts/InternalPageLayout";
@@ -27,13 +26,6 @@ const parseMarkdownBold = (text: string) => {
   );
 };
 
-const preReleaseLabel = (version: string): string | null => {
-  const parsed = parseAuronaVersion(version);
-  if (!parsed.isPreRelease || !parsed.preReleaseTag) return null;
-  const tag = parsed.preReleaseTag.charAt(0).toUpperCase() + parsed.preReleaseTag.slice(1);
-  return parsed.preReleaseIter !== undefined ? `${tag} ${parsed.preReleaseIter}` : tag;
-};
-
 /** Keep the history easy to scan by grouping every patch under 0.1.x, 0.2.x, etc. */
 export const versionFamilyId = (version: string) => {
   const parsed = parseAuronaVersion(version);
@@ -49,9 +41,9 @@ interface VersionFamily {
 function ReleaseSections({ release }: { release: ChangelogEntry }) {
   if (release.sections.length === 0) return null;
   return (
-    <div className="grid grid-cols-1 gap-3 border-t border-[var(--border-subtle)] p-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-x-8 gap-y-6 border-t border-[var(--border-subtle)] px-5 py-5 lg:grid-cols-2">
       {release.sections.map((section) => (
-        <GlassContainer key={section.title} layer="base" className="flex flex-col gap-3 p-4">
+        <section key={section.title} className="flex min-w-0 flex-col gap-3">
           <div className="flex items-center gap-2.5">
             <span className="grid size-7 shrink-0 place-items-center rounded-control bg-[var(--color-accent)]/10 text-[var(--color-accent)]">
               <Icons.Sparkles size={15} stroke={1.8} />
@@ -61,7 +53,7 @@ function ReleaseSections({ release }: { release: ChangelogEntry }) {
             </h3>
           </div>
           {section.description && (
-            <p className="whitespace-pre-line text-[12.5px] leading-relaxed text-[var(--color-text-primary)] opacity-90">
+            <p className="whitespace-pre-line text-[13px] leading-7 text-[var(--color-text-primary)]">
               {parseMarkdownBold(section.description)}
             </p>
           )}
@@ -70,15 +62,15 @@ function ReleaseSections({ release }: { release: ChangelogEntry }) {
               {section.items.map((item) => (
                 <li
                   key={item}
-                  className="flex items-start gap-2 text-[12.5px] leading-relaxed text-[var(--color-text-primary)]"
+                  className="flex items-start gap-2 text-[13px] leading-6 text-[var(--color-text-primary)]"
                 >
-                  <span className="mt-[7px] size-[5px] shrink-0 rounded-full bg-[var(--color-accent)] opacity-80" />
-                  <span className="opacity-90">{parseMarkdownBold(item)}</span>
+                  <span className="mt-[10px] size-1 shrink-0 rounded-full bg-[var(--color-accent)] opacity-70" />
+                  <span>{parseMarkdownBold(item)}</span>
                 </li>
               ))}
             </ul>
           )}
-        </GlassContainer>
+        </section>
       ))}
     </div>
   );
@@ -123,6 +115,7 @@ export function ChangelogTab() {
     if (!normalizedQuery) return true;
     const text = [
       release.version,
+      formatDisplayVersion(release.version),
       release.date,
       release.isUnreleased ? t("changelog.unreleased") : "",
       release.summary ?? "",
@@ -172,16 +165,13 @@ export function ChangelogTab() {
     <span className="flex min-w-0 flex-wrap items-center gap-2.5">
       <span
         className="text-[19px] font-bold tracking-tight text-[var(--color-text-highlight)]"
-        style={{ fontFamily: "'Righteous', sans-serif" }}
+        style={{ fontFamily: "var(--font-mono, monospace)" }}
       >
         {formatDisplayVersion(release.version)}
       </span>
       <span className="rounded-control border border-[var(--border-subtle)] bg-[var(--material-panel)] px-2.5 py-0.5 text-[12px] font-medium text-[var(--color-text-muted)]">
         {release.isUnreleased ? t("changelog.unreleased") : release.date}
       </span>
-      {preReleaseLabel(release.version) && (
-        <Badge variant="neutral">{preReleaseLabel(release.version)}</Badge>
-      )}
       {release.isLatest && !release.isUnreleased && <Badge>{t("changelog.latest")}</Badge>}
     </span>
   );
@@ -190,58 +180,50 @@ export function ChangelogTab() {
     <InternalPageLayout
       title={t("changelog.title")}
       maxWidth="max-w-5xl"
+      titleRight={
+        <span className="text-[12px] text-[var(--color-text-muted)]">
+          {t("changelog.releaseCount").replace("{count}", String(visibleReleases.length))}
+        </span>
+      }
+      headerRight={
+        <Input
+          inputSize="md"
+          className="w-full sm:w-64"
+          icon={<Icons.Search size={15} stroke={1.8} />}
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder={t("changelog.searchPlaceholder")}
+          aria-label={t("changelog.searchPlaceholder")}
+        />
+      }
       sidebar={
-        <Card className="flex flex-col gap-1 p-2" layer="base">
-          <div className="px-3 pb-2 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
-            {t("changelog.versionLines")}
-          </div>
-          {families.map((family) => {
-            const selected = family.id === selectedFamily?.id;
-            return (
-              <button
-                key={family.id}
-                type="button"
-                aria-current={selected ? "page" : undefined}
-                onClick={() => handleFamilyChange(family.id)}
-                className={`flex items-center justify-between rounded-control px-3 py-2.5 text-left text-[13px] transition-colors ${selected ? "bg-[var(--material-interactive-active)] font-semibold text-[var(--color-text-highlight)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
-              >
-                <span>{family.label}</span>
-                <span className="text-[11px] tabular-nums text-[var(--color-text-muted)]">
-                  {family.releases.length}
-                </span>
-              </button>
-            );
-          })}
-        </Card>
+        families.length > 1 && (
+          <Card className="flex flex-col gap-1 p-2" layer="base">
+            <div className="px-3 pb-2 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+              {t("changelog.versionLines")}
+            </div>
+            {families.map((family) => {
+              const selected = family.id === selectedFamily?.id;
+              return (
+                <button
+                  key={family.id}
+                  type="button"
+                  aria-current={selected ? "page" : undefined}
+                  onClick={() => handleFamilyChange(family.id)}
+                  className={`flex items-center justify-between rounded-control px-3 py-2.5 text-left text-[13px] transition-colors ${selected ? "bg-[var(--material-interactive-active)] font-semibold text-[var(--color-text-highlight)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"}`}
+                >
+                  <span>{family.label}</span>
+                  <span className="text-[11px] tabular-nums text-[var(--color-text-muted)]">
+                    {family.releases.length}
+                  </span>
+                </button>
+              );
+            })}
+          </Card>
+        )
       }
     >
       <div className="flex max-w-5xl flex-col gap-5 pb-12">
-        <Card className="flex flex-col gap-3 p-4" layer="base">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[13px] font-semibold text-[var(--color-text-highlight)]">
-                {normalizedQuery
-                  ? t("changelog.searchResults")
-                  : (selectedFamily?.label ?? t("changelog.title"))}
-              </p>
-              <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">
-                {t("changelog.releaseCount").replace("{count}", String(visibleReleases.length))}
-              </p>
-            </div>
-            <div className="w-full sm:w-64">
-              <Input
-                fullWidth
-                inputSize="md"
-                icon={<Icons.Search size={15} stroke={1.8} />}
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={t("changelog.searchPlaceholder")}
-                aria-label={t("changelog.searchPlaceholder")}
-              />
-            </div>
-          </div>
-        </Card>
-
         {visibleReleases.length === 0 && (
           <Card
             className="flex flex-col items-center justify-center gap-2 p-12 text-center"
@@ -278,6 +260,8 @@ export function ChangelogTab() {
                 >
                   <button
                     type="button"
+                    aria-expanded={expanded}
+                    aria-controls={`changelog-${release.version}`}
                     onClick={() => toggleKey(release.version)}
                     className="flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-[var(--material-interactive-hover)]"
                   >
@@ -285,7 +269,7 @@ export function ChangelogTab() {
                       {headerMeta(release)}
                       {release.summary && (
                         <span
-                          className={`mt-2 block whitespace-pre-line text-[13px] leading-relaxed text-[var(--color-text-primary)] opacity-90 ${expanded ? "" : "line-clamp-2"}`}
+                          className={`mt-3 block whitespace-pre-line text-[13px] leading-7 text-[var(--color-text-primary)] ${expanded ? "" : "line-clamp-2"}`}
                         >
                           {parseMarkdownBold(release.summary)}
                         </span>
@@ -293,7 +277,11 @@ export function ChangelogTab() {
                     </span>
                     {expandIndicator(expanded)}
                   </button>
-                  {expanded && <ReleaseSections release={release} />}
+                  {expanded && (
+                    <div id={`changelog-${release.version}`}>
+                      <ReleaseSections release={release} />
+                    </div>
+                  )}
                 </Card>
               );
             })}

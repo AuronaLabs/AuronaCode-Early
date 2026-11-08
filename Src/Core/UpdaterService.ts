@@ -1,8 +1,6 @@
 import { desktopUpdater, type UpdateInfo, type UpdateProgress } from "../Foundation/Desktop";
 import { EventBus } from "../Foundation/EventBus";
-import { FeatureFlagService } from "../Foundation/FeatureFlags/FeatureFlagService";
 import { Logger } from "../Foundation/Logger";
-import { parseAuronaVersion } from "../Foundation/Release/ReleaseChannel";
 import { UserConfigStore } from "../Foundation/Storage/UserConfigStore";
 
 export type UpdateCheckResult =
@@ -35,8 +33,6 @@ export const UpdaterService = {
 
   async checkForUpdates(): Promise<UpdateCheckResult> {
     try {
-      await FeatureFlagService.init();
-      const channel = FeatureFlagService.getChannel();
       // 代理偏好：自定义模式直传 check 选项（覆盖检查与下载）；其余模式跟随系统默认
       const network = (await UserConfigStore.get()).network;
       const checkOptions = buildUpdateCheckOptions(network);
@@ -54,18 +50,6 @@ export const UpdaterService = {
       });
 
       if (update) {
-        const parsed = parseAuronaVersion(update.version);
-
-        // 如果用户处于 Stable 稳定生产渠道，但更新包属于 Pioneer 预发布测试版，则自动忽略
-        if (channel === "stable" && parsed.isPreRelease) {
-          Logger.info(
-            `Ignoring pre-release update ${update.version} because client channel is stable`,
-          );
-          this.currentUpdate = null;
-          desktopUpdater.clear();
-          return { status: "up-to-date" };
-        }
-
         this.currentUpdate = update;
         EventBus.emit("app:update-available", update);
         return { status: "available", update };
@@ -73,7 +57,7 @@ export const UpdaterService = {
 
       this.currentUpdate = null;
       desktopUpdater.clear();
-      Logger.info(`Update check: no update available (channel=${channel})`);
+      Logger.info("Update check: no update available");
       return { status: "up-to-date" };
     } catch (cause) {
       if (cause instanceof Error && cause.message === "update-check-timeout") {

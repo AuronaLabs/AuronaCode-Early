@@ -18,11 +18,6 @@ const settings = [
     title: "extensionSignature",
   },
   {
-    key: "requireExtensionCatalogSignature",
-    id: "catalogSignature",
-    title: "catalogSignature",
-  },
-  {
     key: "autoTrustWorkspaceLanguageServers",
     id: "languageServerAutoTrust",
     title: "autoTrustWorkspace",
@@ -115,11 +110,9 @@ export function SecuritySettingsSection() {
       aria-busy={!loaded || saving}
       className="flex w-full max-w-3xl flex-col gap-6"
     >
-      <section className="space-y-2">
-        <div>
-          <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
-            {t("settings.securitySettings.sectionTitle")}
-          </h3>
+      <section className="settings-group">
+        <div className="settings-section-header">
+          <h3 className="settings-section-title">{t("settings.securitySettings.sectionTitle")}</h3>
           <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-text-muted)]">
             {t("settings.securitySettings.sectionDescription")}
           </p>
@@ -166,7 +159,7 @@ function SettingRow({
   return (
     <div
       data-setting-id={settingId}
-      className="flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
+      className="settings-row flex min-h-14 items-center justify-between gap-6 border-t border-[var(--border-subtle)] p-5 first:border-t-0"
     >
       <div className="min-w-0">
         <div className="text-[14px] font-medium text-[var(--color-text-highlight)]">{title}</div>

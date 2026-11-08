@@ -37,7 +37,6 @@
     "root": "Core/Extensions",
     "public": [
       "Core/Extensions/ExtensionRegistry.ts",
-      "Core/Extensions/Marketplace/MarketplaceService.ts",
       "Core/Extensions/Host/AuronaSDKHost.ts",
       "Core/Extensions/Views/ExtensionViewDocument.ts"
     ]

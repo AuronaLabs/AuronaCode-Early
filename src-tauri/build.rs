@@ -1,22 +1,4 @@
 fn main() {
-    // Aurona Code is an open-source project: the Aurona Account client id is a
-    // public, per-build configuration value. It is never committed to source.
-    // Local development reads a gitignored `.env` file at the repository root;
-    // CI/release builds inject `AURONA_ACCOUNT_CLIENT_ID` through the workflow
-    // environment. Existing environment variables always win over `.env`.
-    let _ = dotenvy::dotenv();
-
-    for variable in [
-        "AURONA_ACCOUNT_CLIENT_ID",
-        "AURONA_ACCOUNT_DISCOVERY_URL",
-        "AURONA_ACCOUNT_EXPECTED_ISSUER",
-        "AURONA_ACCOUNT_ALLOW_INSECURE_LOOPBACK_PROVIDER",
-    ] {
-        if let Ok(value) = std::env::var(variable) {
-            println!("cargo:rustc-env={variable}={value}");
-        }
-    }
-
     // tauri-build 默认通过 .res 资源只给 bin 目标嵌入应用清单（Common-Controls 6
     // 依赖），测试二进制拿不到清单，comctl32 会解析到 System32 的 5.82 版（无
     // TaskDialogIndirect 导出，tauri-plugin-dialog/rfd 需要它），`cargo test` 的

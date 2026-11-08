@@ -145,6 +145,15 @@
     0 0 12px color-mix(in srgb, var(--AccentPrimary) 32%, transparent),
     0 0 6px color-mix(in srgb, var(--AccentPrimary) 20%, transparent);
 
+  /* Control reflections retain the light palette; dark mode softens them in themes.css. */
+  --button-primary-highlight: rgba(255, 255, 255, 0.22);
+  --button-danger-highlight: rgba(255, 255, 255, 0.18);
+  --slider-range-highlight: rgba(255, 255, 255, 0.3);
+  --slider-thumb-highlight: rgba(255, 255, 255, 0.7);
+  --slider-thumb-sheen: rgba(255, 255, 255, 0.12);
+  --slider-thumb-rim: rgba(255, 255, 255, 0.45);
+  --slider-thumb-rim-active: rgba(255, 255, 255, 0.5);
+
   /* Terminal ANSI palette (light mode) */
   --TerminalForeground: #1f2937;
   --TerminalCursor: #4f46e5;

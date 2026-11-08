@@ -6,8 +6,8 @@ import { findVcvars64 } from "./lib/extension-build-common.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const [input, destination, platform, channel = "stable"] = process.argv.slice(2);
-if (!input || !destination || !platform || !["stable", "pioneer"].includes(channel))
-  throw new Error("Usage: node scripts/prepare-candidate.mjs <artifact> <output-directory> <platform> [stable|pioneer]");
+if (!input || !destination || !platform || channel !== "stable")
+  throw new Error("Usage: node scripts/prepare-candidate.mjs <artifact> <output-directory> <platform> [stable]");
 const source = path.resolve(input);
 const output = path.resolve(destination);
 const version = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version;
@@ -23,10 +23,6 @@ for (const stale of ["release-metadata.json.sig", "release-metadata.json.minisig
   if (fs.existsSync(file)) fs.unlinkSync(file);
 }
 const config = JSON.parse(fs.readFileSync(path.join(root, "src-tauri/tauri.conf.json"), "utf8"));
-if (channel === "pioneer") {
-  const overlay = JSON.parse(fs.readFileSync(path.join(root, "src-tauri/tauri.pioneer.conf.json"), "utf8"));
-  config.plugins.updater = { ...config.plugins.updater, ...overlay.plugins.updater };
-}
 fs.writeFileSync(path.join(output, "merged-tauri-config.json"), JSON.stringify(config, null, 2));
 
 function cargo(args) {
@@ -72,7 +68,7 @@ if (canSign) {
   const verifier = path.join(root, "src-tauri/target", process.env.AURONA_CANDIDATE_RELEASE === "1" ? "release" : "debug", "examples", `verify_candidate${process.platform === "win32" ? ".exe" : ""}`);
   if (process.platform === "linux") fs.copyFileSync(verifier, path.join(output, "verify_candidate"));
   const payload = JSON.parse(fs.readFileSync(metadata, "utf8"));
-  const tag = channel === "pioneer" ? "pioneer-latest" : `v${version}`;
+  const tag = `v${version}`;
   fs.writeFileSync(path.join(output, "latest.json"), JSON.stringify({
     version, pub_date: new Date().toISOString(),
     platforms: Object.fromEntries(payload.artifacts.map((artifact) => [artifact.platform, {

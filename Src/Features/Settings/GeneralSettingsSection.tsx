@@ -39,10 +39,8 @@ export function GeneralSettingsSection({
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-3xl">
-      <div className="flex flex-col gap-2">
-        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
-          {t("settings.categories.general")}
-        </h3>
+      <div className="settings-section-header">
+        <h3 className="settings-section-title">{t("settings.categories.general")}</h3>
         <p className="text-[13px] text-[var(--color-text-muted)]">
           {t("settings.generalDescription")}
         </p>
@@ -51,7 +49,7 @@ export function GeneralSettingsSection({
       <GlassContainer layer="raised" className="overflow-hidden">
         <div
           data-setting-id="theme"
-          className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"
+          className="settings-row flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -61,8 +59,8 @@ export function GeneralSettingsSection({
               {t("settings.themeDescription")}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <fieldset className="grid w-full grid-cols-3 gap-1 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--material-panel)] p-1.5 shadow-[inset_0_1px_1px_var(--material-inset)] sm:w-auto">
+          <div className="settings-theme-control flex items-center gap-2">
+            <fieldset className="settings-theme-options grid w-full grid-cols-3 gap-1 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--material-panel)] p-1.5 shadow-[inset_0_1px_1px_var(--material-inset)] sm:w-auto">
               <legend className="sr-only">{t("settings.theme")}</legend>
               {(["system", "light", "dark"] as const).map((mode) => (
                 <button
@@ -70,7 +68,7 @@ export function GeneralSettingsSection({
                   aria-pressed={theme === mode}
                   key={mode}
                   onClick={() => onThemeChange(mode)}
-                  className={`flex min-w-0 items-center justify-center gap-2 rounded-control border px-3 py-2 text-[13px] font-medium transition-[background-color,border-color,color,box-shadow] duration-150 sm:min-w-[104px] cursor-pointer ${
+                  className={`flex min-w-0 items-center justify-center gap-2 rounded-control border px-3 py-2 text-[13px] font-medium transition-[background-color,border-color,color,box-shadow] duration-150 cursor-pointer ${
                     theme === mode
                       ? "border-[var(--border-subtle)] bg-[var(--material-interactive-active)] text-[var(--color-text-highlight)]"
                       : "border-transparent text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)] hover:text-[var(--color-text-highlight)]"
@@ -103,7 +101,7 @@ export function GeneralSettingsSection({
 
         <div
           data-setting-id="density"
-          className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
+          className="settings-row flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -134,7 +132,7 @@ export function GeneralSettingsSection({
 
         <div
           data-setting-id="language"
-          className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
+          className="settings-row flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -157,7 +155,7 @@ export function GeneralSettingsSection({
 
         <div
           data-setting-id="fliunoOpenMode"
-          className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
+          className="settings-row flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -186,10 +184,8 @@ export function GeneralSettingsSection({
       </GlassContainer>
 
       {/* 通知中心与弹窗设置卡片 */}
-      <div className="flex flex-col gap-2 pt-2">
-        <h3 className="text-[16px] font-bold text-[var(--color-text-highlight)]">
-          {t("settings.notificationsTitle")}
-        </h3>
+      <div className="settings-section-header">
+        <h3 className="settings-section-title">{t("settings.notificationsTitle")}</h3>
         <p className="text-[13px] text-[var(--color-text-muted)]">
           {t("settings.notificationsDescription")}
         </p>
@@ -198,7 +194,7 @@ export function GeneralSettingsSection({
       <GlassContainer layer="raised" className="overflow-hidden">
         <div
           data-setting-id="muteNonCritical"
-          className="flex items-center justify-between gap-4 p-5"
+          className="settings-row flex items-center justify-between gap-4 p-5"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">
@@ -217,7 +213,7 @@ export function GeneralSettingsSection({
 
         <div
           data-setting-id="toastDuration"
-          className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
+          className="settings-row flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] p-5"
         >
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-medium text-[var(--color-text-highlight)]">

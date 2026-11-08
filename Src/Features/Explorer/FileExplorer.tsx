@@ -85,7 +85,7 @@ export const FileExplorer = React.memo(function FileExplorer({
     if (rootNode) visit(rootNode, 0);
     return rows;
   }, [rootNode, inlineCreation]);
-  const rowHeight = 32;
+  const rowHeight = 24;
   const firstRow = Math.max(0, Math.floor(viewport.top / rowHeight) - 8);
   const lastRow = Math.min(
     virtualRows.length,
@@ -359,7 +359,7 @@ export const FileExplorer = React.memo(function FileExplorer({
                   ) : (
                     <button
                       type="button"
-                      className="mx-2 h-7 text-left text-[11px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)]"
+                      className="mx-1 flex h-[24px] w-[calc(100%-8px)] items-center rounded-[4px] text-left text-[11px] text-[var(--color-text-muted)] hover:bg-[var(--material-interactive-hover)]"
                       style={{ paddingLeft: row.depth * 16 + 24 }}
                       onClick={() => void loadMore(row.node)}
                     >

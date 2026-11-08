@@ -56,7 +56,7 @@ pub fn validate_metadata(
     if metadata.schema_version != 1
         || metadata.version != version
         || metadata.channel != channel
-        || !matches!(channel, "stable" | "pioneer")
+        || channel != "stable"
         || metadata.artifacts.is_empty()
         || metadata.artifacts.len() > 32
     {
@@ -248,7 +248,7 @@ mod tests {
             &fixture,
             &key,
             "0.4.14",
-            "pioneer",
+            "unknown",
             "windows-x86_64",
             &url,
             artifact_sig
@@ -343,7 +343,7 @@ mod tests {
             }],
         };
         assert!(validate_metadata(&metadata, "0.4.14", "stable").is_ok());
-        assert!(validate_metadata(&metadata, "0.4.14", "pioneer").is_err());
+        assert!(validate_metadata(&metadata, "0.4.14", "unknown").is_err());
         assert!(validate_metadata(&metadata, "0.4.13", "stable").is_err());
         metadata.artifacts[0].file = "../outside.exe".into();
         assert!(validate_metadata(&metadata, "0.4.14", "stable").is_err());

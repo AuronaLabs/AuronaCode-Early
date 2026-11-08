@@ -18,7 +18,7 @@ function prepare(file, destination, artifactPlatform, name) {
   if (!fs.existsSync(`${file}.sig`)) throw new Error("Built artifact is missing its signature");
   fs.copyFileSync(`${file}.sig`, `${normalized}.sig`);
   execFileSync(process.execPath, [path.join(root, "scripts/prepare-candidate.mjs"), normalized,
-    destination, artifactPlatform, process.env.AURONA_CHANNEL || "stable"], { stdio: "inherit" });
+    destination, artifactPlatform, "stable"], { stdio: "inherit" });
 }
 const updaterName = process.platform === "win32" ? `AuronaCode-v${version}-x64-setup.exe`
   : process.platform === "darwin" ? `AuronaCode-v${version}-universal.app.tar.gz` : `AuronaCode-v${version}-amd64.AppImage`;

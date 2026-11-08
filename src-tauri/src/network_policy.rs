@@ -116,8 +116,6 @@ pub(crate) async fn pinned_client(url: &Url) -> Result<reqwest::Client, String> 
 
 #[derive(Clone, Copy)]
 pub enum DownloadPurpose {
-    Extension,
-    Toolchain,
     Debugpy,
     Update,
 }
@@ -138,10 +136,6 @@ pub fn validate_download_url(raw: &str, purpose: DownloadPurpose) -> Result<Url,
         "github.com" | "objects.githubusercontent.com" | "release-assets.githubusercontent.com"
     );
     let allowed = match purpose {
-        DownloadPurpose::Extension => host == "marketplace.aurona.cc",
-        DownloadPurpose::Toolchain => {
-            host == "marketplace.aurona.cc" || host == "nodejs.org" || github
-        }
         DownloadPurpose::Debugpy => host == "files.pythonhosted.org",
         DownloadPurpose::Update => github,
     };
@@ -245,34 +239,24 @@ mod tests {
             "https://user:secret@nodejs.org/asset",
             "http://nodejs.org/asset",
         ] {
-            assert!(validate_download_url(url, DownloadPurpose::Toolchain).is_err());
+            assert!(validate_download_url(url, DownloadPurpose::Update).is_err());
         }
     }
 
     #[test]
     fn download_sources_are_bound_to_purpose_across_redirects() {
-        let marketplace = "https://marketplace.aurona.cc/artifacts/example.aurx";
         let python = "https://files.pythonhosted.org/packages/wheel.whl";
-        let node = "https://nodejs.org/dist/node.zip";
-        assert!(validate_download_url(marketplace, DownloadPurpose::Extension).is_ok());
+        let update =
+            "https://github.com/AuronaLabs/AuronaCode-Early/releases/download/test/update.exe";
         assert!(validate_download_url(python, DownloadPurpose::Debugpy).is_ok());
-        assert!(validate_download_url(node, DownloadPurpose::Toolchain).is_ok());
-        for purpose in [
-            DownloadPurpose::Extension,
-            DownloadPurpose::Toolchain,
-            DownloadPurpose::Update,
-        ] {
-            assert!(validate_download_url(python, purpose).is_err());
-        }
-        assert!(validate_download_url(node, DownloadPurpose::Extension).is_err());
-        assert!(validate_download_url(marketplace, DownloadPurpose::Update).is_err());
+        assert!(validate_download_url(update, DownloadPurpose::Update).is_ok());
+        assert!(validate_download_url(python, DownloadPurpose::Update).is_err());
+        assert!(validate_download_url(update, DownloadPurpose::Debugpy).is_err());
         assert!(validate_download_url(
-            "https://marketplace.aurona.cc:8443/a",
-            DownloadPurpose::Extension
+            "https://marketplace.aurona.cc/package",
+            DownloadPurpose::Update
         )
         .is_err());
-        let redirect = url::Url::parse(marketplace).unwrap().join(python).unwrap();
-        assert!(validate_download_url(redirect.as_str(), DownloadPurpose::Extension).is_err());
     }
 
     #[test]

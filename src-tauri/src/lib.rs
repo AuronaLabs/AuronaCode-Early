@@ -1,4 +1,3 @@
-mod account_auth;
 mod agent_storage;
 mod ai_chat;
 mod ai_profiles;
@@ -20,8 +19,6 @@ mod git;
 mod highlight;
 mod launch_registry;
 mod lsp;
-mod marketplace;
-mod marketplace_catalog;
 mod network;
 mod network_policy;
 mod performance;
@@ -32,6 +29,7 @@ mod python_tools;
 mod redaction;
 pub mod release_verification;
 mod resource_limits;
+mod retired_data;
 mod scoped_file;
 mod search;
 mod tasks;
@@ -67,7 +65,6 @@ pub fn run() {
         .manage(LspState::new())
         .manage(launch_registry::LaunchRegistry::default())
         .manage(DapState::new())
-        .manage(account_auth::AccountAuthState::default())
         .manage(ai_chat::AiChatState::default())
         .manage(ai_profiles::AiProfileState::default())
         .manage(artifacts::ArtifactState::default())
@@ -79,10 +76,10 @@ pub fn run() {
         .manage(workspace::WorkspaceState::new())
         .manage(git::GitState::default())
         .manage(file_uploads::FileUploadState::default())
-        .manage(marketplace::MarketplaceState::default())
         .manage(ExtensionState::new())
         .manage(commands::ipc::ExitCleanupState::default())
         .setup(|app| {
+            tauri::async_runtime::spawn_blocking(retired_data::clean);
             #[cfg(feature = "audit-harness")]
             audit_harness::verify_isolation(app.handle())?;
             if let Err(error) = toolchains::recover_interrupted_installs(app.handle()) {
@@ -107,7 +104,6 @@ pub fn run() {
             extensions_render,
             extensions_on_action,
             extensions_install,
-            artifacts::artifact_download,
             artifacts::artifact_pick,
             tasks::task_cancel,
             app_storage::app_storage_exists,
@@ -121,21 +117,9 @@ pub fn run() {
             app_update::app_update_clear,
             app_update::app_update_install,
             app_update::app_restart,
-            marketplace::marketplace_request,
-            marketplace::marketplace_cancel,
-            marketplace::marketplace_image,
-            marketplace_catalog::marketplace_cached_catalog,
             extensions_install_vscode,
             extensions_install_default_vscode,
             extensions_uninstall,
-            account_auth::account_auth_status,
-            account_auth::account_auth_start,
-            account_auth::account_auth_cancel,
-            account_auth::account_auth_refresh,
-            account_auth::account_auth_access_token,
-            account_auth::account_auth_restore,
-            account_auth::account_auth_logout,
-            account_auth::account_auth_shutdown,
             ai_chat::ai_responses_send,
             ai_profiles::ai_profile_save,
             ai_profiles::ai_profile_delete,
@@ -203,7 +187,6 @@ pub fn run() {
             commands::lsp_cmds::lsp_cancel,
             commands::lsp_cmds::lsp_toolchain_status,
             commands::lsp_cmds::lsp_toolchain_install,
-            commands::lsp_cmds::lsp_toolchain_install_url,
             commands::lsp_cmds::lsp_toolchain_list,
             commands::lsp_cmds::lsp_toolchain_uninstall,
             commands::lsp_cmds::lsp_toolchain_uninstall_runtime,
@@ -232,6 +215,7 @@ pub fn run() {
             commands::fs::fs_read_image_data_url,
             commands::fs::fs_write_text_file,
             commands::fs::fs_write_compare,
+            commands::fs::fs_restore_checkpoint_file,
             file_uploads::fs_write_begin,
             file_uploads::fs_write_chunk,
             file_uploads::fs_write_commit,

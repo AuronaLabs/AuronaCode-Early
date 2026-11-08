@@ -1,8 +1,8 @@
 # 扩展开发指南
 
-Aurona Code **0.4.18** 使用 WebAssembly Component Model 与 WASI Preview 2 承载原生扩展，通过 `.aurx` 分发；VS Code 扩展使用 `.vsix`，由内置兼容层执行已支持的 API。
+Aurona Code **0.5.0 Alpha1** 使用 WebAssembly Component Model 与 WASI Preview 2 承载原生扩展，通过 `.aurx` 分发；VS Code 扩展使用 `.vsix`，由内置兼容层执行已支持的 API。
 
-本指南帮助你找到正确的开发入口。接口详情见 [SDK 参考](SDK-Reference.md)，VS Code 扩展作者请同时阅读[兼容层能力矩阵](../../Releases/0.4.17/VSCode-Compatibility-Matrix.md)。
+本指南帮助你找到正确的开发入口。接口详情见 [SDK 参考](SDK-Reference.md)，VS Code 扩展作者请同时阅读[兼容层能力矩阵](VSCode-Compatibility.md)。
 
 ## 选择扩展类型
 
@@ -112,7 +112,7 @@ pnpm run tauri:dev
 
 开发独立扩展时，先为自己的 Cargo 工程构建 `wasm32-wasip2` 组件，再按上述结构打包。`prepare:extensions` 只处理仓库内置资源，不会自动发现并打包新扩展。
 
-本地 `.aurx` 通过 Marketplace 的本地安装入口选择；VS Code Demo 可通过「设置 → 扩展」中的测试插件入口安装。签名策略与安装确认见[签名指南](Signing.md)。
+本地 `.aurx` 通过 「扩展管理 → 导入 .aurx」入口选择；VS Code Demo 可通过「设置 → 扩展」中的测试插件入口安装。签名策略与安装确认见[签名指南](Signing.md)。
 
 ## 视图与主题
 
@@ -139,4 +139,4 @@ pnpm run tauri:dev
 4. 检查深浅主题、中文路径和需要处理的 Unicode 内容。
 5. 明确记录支持的 API、测试环境与仍待验证的场景。
 
-市场目录与外部服务的实时可用性独立于本地扩展包，请分别记录客户端与服务端证据。
+Alpha1 仅通过本地包导入扩展与工具链；外部 AI 服务与应用更新的可用性分别验证。

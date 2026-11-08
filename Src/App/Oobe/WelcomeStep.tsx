@@ -17,6 +17,9 @@ export function WelcomeStep({ version }: { version: string }) {
         <h1 className="text-[32px] font-bold tracking-tight text-[var(--color-text-highlight)]">
           {t("oobe.welcomeTitle")}
         </h1>
+        <p className="text-[17px] font-medium text-[var(--color-text-primary)]">
+          {t("about.tagline")}
+        </p>
         <p className="max-w-[480px] text-[14.5px] leading-7 text-[var(--color-text-muted)]">
           {t("oobe.welcomeDesc")}
         </p>

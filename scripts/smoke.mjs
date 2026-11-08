@@ -32,7 +32,7 @@ assert.match(
 );
 assert.match(
   readme,
-  new RegExp(`img\\.shields\\.io/badge/version-${packageJson.version.replaceAll(".", "\\.")}-`),
+  new RegExp(`img\\.shields\\.io/badge/version-${packageJson.version.replaceAll("-", "--").replaceAll(".", "\\.")}-`),
   "README version badge must match the package version",
 );
 const currentEntry = changelog.find((entry) => entry.version === `V${packageJson.version}`);

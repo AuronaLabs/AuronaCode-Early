@@ -99,7 +99,7 @@ export const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
           }}
         >
           <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-[var(--material-surface)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.16),inset_0_-1px_0_color-mix(in_srgb,var(--GlassSurface-Rim)_75%,transparent),0_0_0_1px_color-mix(in_srgb,var(--GlassSurface-Rim)_30%,transparent)] backdrop-blur-[var(--glass-blur-raised)] backdrop-saturate-[var(--GlassSaturation)]">
-            <SliderPrimitive.Range className="absolute h-full rounded-full bg-[linear-gradient(90deg,color-mix(in_srgb,var(--color-accent)_58%,transparent),var(--color-accent))] shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_1px_6px_color-mix(in_srgb,var(--color-accent)_25%,transparent)]" />
+            <SliderPrimitive.Range className="absolute h-full rounded-full bg-[linear-gradient(90deg,color-mix(in_srgb,var(--color-accent)_58%,transparent),var(--color-accent))] shadow-[inset_0_1px_0_var(--slider-range-highlight),0_1px_6px_color-mix(in_srgb,var(--color-accent)_25%,transparent)]" />
           </SliderPrimitive.Track>
           {marks.map((mark) => {
             const active = isMarkActive(mark.value);
@@ -125,9 +125,9 @@ export const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
             onLostPointerCapture={() => setDragging(false)}
             onBlur={() => setDragging(false)}
             className={cn(
-              "block size-5 cursor-grab touch-none rounded-full border border-[var(--GlassSurface-Rim)] bg-[var(--switch-thumb-surface)] [background-image:radial-gradient(circle_at_30%_28%,rgba(255,255,255,0.7),rgba(255,255,255,0.12)_55%,transparent_78%)] shadow-[0_1px_5px_rgba(0,0,0,0.22),0_0_0_3px_color-mix(in_srgb,var(--color-accent)_10%,transparent),inset_0_1px_1px_rgba(255,255,255,0.45)] backdrop-blur-[var(--glass-blur-overlay)] backdrop-saturate-[var(--GlassSaturation)] transition-[box-shadow,transform] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-text-muted)]/40",
+              "block size-5 cursor-grab touch-none rounded-full border border-[var(--GlassSurface-Rim)] bg-[var(--switch-thumb-surface)] [background-image:radial-gradient(circle_at_30%_28%,var(--slider-thumb-highlight),var(--slider-thumb-sheen)_55%,transparent_78%)] shadow-[0_1px_5px_rgba(0,0,0,0.22),0_0_0_3px_color-mix(in_srgb,var(--color-accent)_10%,transparent),inset_0_1px_1px_var(--slider-thumb-rim)] backdrop-blur-[var(--glass-blur-overlay)] backdrop-saturate-[var(--GlassSaturation)] transition-[box-shadow,transform] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-text-muted)]/40",
               dragging &&
-                "scale-110 cursor-grabbing shadow-[0_2px_10px_rgba(0,0,0,0.26),0_0_14px_color-mix(in_srgb,var(--color-accent)_55%,transparent),inset_0_1px_1px_rgba(255,255,255,0.5)]",
+                "scale-110 cursor-grabbing shadow-[0_2px_10px_rgba(0,0,0,0.26),0_0_14px_color-mix(in_srgb,var(--color-accent)_55%,transparent),inset_0_1px_1px_var(--slider-thumb-rim-active)]",
             )}
           />
         </SliderPrimitive.Root>

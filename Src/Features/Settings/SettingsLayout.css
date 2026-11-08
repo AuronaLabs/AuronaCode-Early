@@ -1,0 +1,62 @@
+.settings-page-content {
+  container: settings-content / inline-size;
+  width: 100%;
+  min-width: 0;
+}
+
+.settings-section-title {
+  margin: 0;
+  color: var(--color-text-highlight);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.settings-section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-section-header > p {
+  margin: 0;
+  line-height: 1.6;
+}
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.settings-row > :first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.settings-row > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.settings-page-content fieldset {
+  min-width: 0;
+}
+
+@container settings-content (max-width: 560px) {
+  .settings-row {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .settings-row > :first-child {
+    flex: 1 1 220px;
+  }
+  .settings-theme-control {
+    width: 100%;
+  }
+  .settings-theme-options {
+    flex: 1;
+    width: 100%;
+  }
+  .settings-theme-options button {
+    flex-wrap: wrap;
+  }
+}
